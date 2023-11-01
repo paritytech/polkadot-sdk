@@ -440,7 +440,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 // memory consumption.
 #[tokio::test]
 async fn prechecking_within_memory_limits() {
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 	let result = host
 		.precheck_pvf(
 			::adder::wasm_binary_unwrap(),
@@ -459,7 +459,7 @@ async fn prechecking_within_memory_limits() {
 async fn prechecking_out_of_memory() {
 	use polkadot_node_core_pvf::PrepareError;
 
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 	let result = host
 		.precheck_pvf(
 			::adder::wasm_binary_unwrap(),

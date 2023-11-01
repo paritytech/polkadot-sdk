@@ -12278,6 +12278,7 @@ dependencies = [
  "rococo-runtime",
  "sc-executor-common",
  "sc-executor-wasmtime",
+ "sp-maybe-compressed-blob",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tracing-gum",
