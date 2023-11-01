@@ -790,24 +790,22 @@ macro_rules! assert_error_encoded_size {
 #[cfg(feature = "experimental")]
 macro_rules! hypothetically {
 	( $e:expr ) => {
-		$crate::storage::transactional::with_transaction(
-							|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
-								$crate::__private::TransactionOutcome::Rollback(Ok($e))
-							},
-						)
-						.expect("Always returning Ok; qed")
+		$crate::storage::transactional::with_transaction(|| ->
+			$crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
+				$crate::__private::TransactionOutcome::Rollback(Ok($e))
+			},
+		).expect("Always returning Ok; qed")
 	};
 }
 
-/// Assert something to be *hypothetically* `Ok` without actually committing it.
+/// Assert something to be *hypothetically* `Ok`, without actually committing it.
 ///
 /// Reverts any storage changes made by the closure.
 #[macro_export]
 #[cfg(feature = "experimental")]
 macro_rules! hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
-		let result = $crate::hypothetically!($e);
-		$crate::assert_ok!(result $(, $args)*);
+		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
 	};
 }
 
