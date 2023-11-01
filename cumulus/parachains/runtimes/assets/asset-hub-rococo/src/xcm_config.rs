@@ -40,8 +40,8 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use rococo_runtime_constants::system_parachain::SystemParachains;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumAccountConvertsFor;
-use rococo_runtime_constants::system_parachain;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -536,20 +536,6 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 		ForeignAssetsInstance,
 	>;
 
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
-}
-
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
@@ -692,6 +678,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmReserveTransferFilter = (
 		LocationWithAssetFilters<WithParentsZeroOrOne, AllAssets>,
 		bridging::to_rococo::AllowedReserveTransferAssets,
+		//bridging::to_rococo::AllowedReserveTransferAssetsEthereum,
 		bridging::to_wococo::AllowedReserveTransferAssets,
 	);
 
@@ -921,6 +908,11 @@ pub mod bridging {
 				AssetHubRococo::get()
 			);
 
+			/*pub EtherFromEthereum: (MultiAssetFilter, MultiLocation) = (
+				EthereumGatewayLocation::get().into(),
+				EthereumGatewayLocation::get()
+			);*/
+
 			/// Set up exporters configuration.
 			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
@@ -993,6 +985,12 @@ pub mod bridging {
 			Equals<AssetHubRococo>,
 			AllowedReserveTransferAssetsToAssetHubRococo,
 		>;
+
+		/*
+		pub type AllowedReserveTransferAssetsEthereum = LocationWithAssetFilters<
+			StartsWithExplicitGlobalConsensus<EthereumNetwork>, // TODO check
+			AllowedReserveTransferAssetsToEthereum,
+		>;*/
 
 		impl Contains<RuntimeCall> for ToRococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {

@@ -40,7 +40,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain;
+use rococo_runtime_constants::system_parachain::SystemParachains;
 use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 use sp_core::{Get, H256};
 use sp_runtime::traits::AccountIdConversion;
@@ -69,7 +69,6 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 
 	// Network and location for the local Ethereum testnet.
 	pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
@@ -262,20 +261,6 @@ pub type Barrier = TrailingSetTopicAsId<
 		),
 	>,
 >;
-
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
-}
 
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
