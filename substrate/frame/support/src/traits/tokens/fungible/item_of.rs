@@ -256,7 +256,7 @@ impl<
 impl<
 		F: fungibles::MutateHold<AccountId>,
 		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
-		AccountId: PartialEq,
+		AccountId,
 	> MutateHold<AccountId> for ItemOf<F, A, AccountId>
 {
 	fn hold(reason: &Self::Reason, who: &AccountId, amount: Self::Balance) -> DispatchResult {
