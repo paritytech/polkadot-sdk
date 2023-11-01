@@ -449,6 +449,7 @@ pub mod pallet {
 			// Efficiently get the number of vesting schedules for `who`
 			let schedules_count = Vesting::<T>::decode_len(&who).unwrap_or_default();
 			let _ = Self::remove_vesting_schedule(&who, schedule_index);
+
 			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(
 				schedules_count as u32,
 				T::MAX_VESTING_SCHEDULES,
