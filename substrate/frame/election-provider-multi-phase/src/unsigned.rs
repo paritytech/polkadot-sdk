@@ -384,7 +384,7 @@ impl<T: Config> Pallet<T> {
 
 		// ensure score is being improved. Panic henceforth.
 		ensure!(
-			Self::queued_solution().map_or(true, |q: ReadySolution<_, _>| raw_solution
+			Self::queued_solution().map_or(true, |q: ReadySolution<_>| raw_solution
 				.score
 				.strict_threshold_better(q.score, T::BetterUnsignedThreshold::get())),
 			Error::<T>::PreDispatchWeakSubmission,
@@ -740,7 +740,7 @@ impl<T: MinerConfig> Miner<T> {
 		snapshot: RoundSnapshot<T::AccountId, MinerVoterOf<T>>,
 		current_round: u32,
 		minimum_untrusted_score: Option<ElectionScore>,
-	) -> Result<ReadySolution<T::AccountId, T::MaxWinners>, FeasibilityError> {
+	) -> Result<ReadySolution<T::AccountId>, FeasibilityError> {
 		let RawSolution { solution, score, round } = raw_solution;
 		let RoundSnapshot { voters: snapshot_voters, targets: snapshot_targets } = snapshot;
 

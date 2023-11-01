@@ -234,7 +234,7 @@ use codec::{Decode, Encode};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
 	BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	ElectionProviderBase, InstantElectionProvider, NposSolution,
+	InstantElectionProvider, NposSolution, BoundedSupports
 };
 use frame_support::{
 	dispatch::DispatchClass,
@@ -249,8 +249,9 @@ use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
 	UpperOf,
 };
-use sp_npos_elections::{BoundedSupports, ElectionScore, IdentifierT, Supports, VoteWeight};
+use sp_npos_elections::{ElectionScore, IdentifierT, Supports, VoteWeight};
 use sp_runtime::{
+	traits::ConstU32,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -295,7 +296,7 @@ pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex
 pub type SolutionAccuracyOf<T> =
 	<SolutionOf<<T as crate::Config>::MinerConfig> as NposSolution>::Accuracy;
 /// The fallback election type.
-pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProviderBase>::Error;
+pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvider>::Error;
 
 /// Configuration for the benchmarks of the pallet.
 pub trait BenchmarkingConfig {
@@ -658,13 +659,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type SignedDepositWeight: Get<BalanceOf<Self>>;
 
-		/// The maximum number of winners that can be elected by this `ElectionProvider`
-		/// implementation.
-		///
-		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
-		#[pallet::constant]
-		type MaxWinners: Get<u32>;
-
 		/// Something that calculates the signed deposit base based on the signed submissions queue
 		/// size.
 		type SignedDepositBase: Convert<usize, BalanceOf<Self>>;
@@ -691,7 +685,8 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Self::DataProvider,
-			MaxWinners = Self::MaxWinners,
+			MaxWinnersPerPage = ConstU32< { u32::MAX } >,
+			MaxBackersPerWinner = ConstU32< { u32::MAX } >,
 		>;
 
 		/// Configuration of the governance-only fallback.
@@ -702,7 +697,6 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Self::DataProvider,
-			MaxWinners = Self::MaxWinners,
 		>;
 
 		/// OCW election solution miner algorithm implementation.
@@ -1453,7 +1447,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.map_err(ElectionError::DataProvider)?;
 
-		let mut desired_targets = <Pallet<T> as ElectionProviderBase>::desired_targets_checked()
+		let mut desired_targets = <Pallet<T> as ElectionProvider>::desired_targets_checked()
 			.map_err(|e| ElectionError::DataProvider(e))?;
 
 		// If `desired_targets` > `targets.len()`, cap `desired_targets` to that level and emit a
@@ -1695,23 +1689,16 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> ElectionProviderBase for Pallet<T> {
+impl<T: Config> ElectionProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = ElectionError<T>;
-	type MaxWinners = T::MaxWinners;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type Pages = ConstU32<0>;
 	type DataProvider = T::DataProvider;
-}
 
-impl<T: Config> ElectionProvider for Pallet<T> {
-	fn ongoing() -> bool {
-		match Self::current_phase() {
-			Phase::Off => false,
-			_ => true,
-		}
-	}
-
-	fn elect() -> Result<BoundedSupportsOf<Self>, Self::Error> {
+	fn elect(_remaining_pages: u32) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		match Self::do_elect() {
 			Ok(supports) => {
 				// All went okay, record the weight, put sign to be Off, clean snapshot, etc.
@@ -2012,7 +1999,7 @@ mod tests {
 			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
 			assert!(MultiPhase::snapshot().is_some());
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 			assert!(MultiPhase::snapshot().is_none());
@@ -2076,7 +2063,7 @@ mod tests {
 			roll_to(30);
 			assert!(MultiPhase::current_phase().is_unsigned_open_at(20));
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 			assert!(MultiPhase::snapshot().is_none());
@@ -2123,7 +2110,7 @@ mod tests {
 			roll_to(30);
 			assert!(MultiPhase::current_phase().is_signed());
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 			assert!(MultiPhase::snapshot().is_none());
@@ -2162,7 +2149,7 @@ mod tests {
 			assert!(MultiPhase::current_phase().is_off());
 
 			// This module is now only capable of doing on-chain backup.
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert!(MultiPhase::current_phase().is_off());
 
@@ -2198,7 +2185,7 @@ mod tests {
 			assert_eq!(MultiPhase::round(), 1);
 
 			// An unexpected call to elect.
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			// We surely can't have any feasible solutions. This will cause an on-chain election.
 			assert_eq!(
@@ -2249,7 +2236,7 @@ mod tests {
 			}
 
 			// an unexpected call to elect.
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			// all storage items must be cleared.
 			assert_eq!(MultiPhase::round(), 2);
@@ -2320,7 +2307,7 @@ mod tests {
 			));
 
 			roll_to(30);
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2377,7 +2364,7 @@ mod tests {
 			));
 			assert!(MultiPhase::queued_solution().is_some());
 
-			assert_ok!(MultiPhase::elect());
+			assert_ok!(MultiPhase::elect(0));
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2419,7 +2406,7 @@ mod tests {
 
 			// Zilch solutions thus far, but we get a result.
 			assert!(MultiPhase::queued_solution().is_none());
-			let supports = MultiPhase::elect().unwrap();
+			let supports = MultiPhase::elect(0).unwrap();
 
 			assert_eq!(
 				supports,
@@ -2461,7 +2448,7 @@ mod tests {
 
 			// Zilch solutions thus far.
 			assert!(MultiPhase::queued_solution().is_none());
-			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
+			assert_eq!(MultiPhase::elect(0).unwrap_err(), ElectionError::Fallback("NoFallback."));
 			// phase is now emergency.
 			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
 			// snapshot is still there until election finalizes.
@@ -2495,7 +2482,7 @@ mod tests {
 
 			// Zilch solutions thus far.
 			assert!(MultiPhase::queued_solution().is_none());
-			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
+			assert_eq!(MultiPhase::elect(0).unwrap_err(), ElectionError::Fallback("NoFallback."));
 
 			// phase is now emergency.
 			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
@@ -2513,7 +2500,7 @@ mod tests {
 			// something is queued now
 			assert!(MultiPhase::queued_solution().is_some());
 			// next election call with fix everything.;
-			assert!(MultiPhase::elect().is_ok());
+			assert!(MultiPhase::elect(0).is_ok());
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
 
 			assert_eq!(
@@ -2565,7 +2552,7 @@ mod tests {
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
 
 			// On-chain backup works though.
-			let supports = MultiPhase::elect().unwrap();
+			let supports = MultiPhase::elect(0).unwrap();
 			assert!(supports.len() > 0);
 
 			assert_eq!(
@@ -2604,7 +2591,7 @@ mod tests {
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
 
 			roll_to(29);
-			let err = MultiPhase::elect().unwrap_err();
+			let err = MultiPhase::elect(0).unwrap_err();
 			assert_eq!(err, ElectionError::Fallback("NoFallback."));
 			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
 

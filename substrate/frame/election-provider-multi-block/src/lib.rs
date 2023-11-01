@@ -21,7 +21,7 @@
 
 use codec::{Decode, Encode};
 use frame_election_provider_support::{
-	ElectionDataProvider, ElectionProvider, ElectionProviderBase, PageIndex,
+	BoundedSupportsOf, ElectionDataProvider, ElectionProvider, PageIndex,
 };
 use frame_support::{
 	traits::{Defensive, Get},
@@ -242,6 +242,20 @@ impl<T: Config> Pallet<T> {
 
 	fn create_voters_snapshot(remaining_pages: u32) -> Result<u32, ElectionError> {
 		Ok(0)
+	}
+}
+
+impl<T: Config> ElectionProvider for Pallet<T> {
+	type AccountId = T::AccountId;
+	type BlockNumber = BlockNumberFor<T>;
+	type Error = ElectionError;
+	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage; // TODO(gpestana): add verifier associated type
+	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner; // TODO(gpestana): add verifier associated type
+	type Pages = T::Pages;
+	type DataProvider = T::DataProvider;
+
+	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		todo!()
 	}
 }
 
