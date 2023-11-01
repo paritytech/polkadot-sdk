@@ -1369,9 +1369,8 @@ fn freezing_and_locking_should_work() {
 }
 
 #[test]
-fn account_removal_and_total_issuance_does_update_properly() {
+fn self_transfer_noop() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
-		ExistentialDeposit::set(100);
 		assert_eq!(Balances::total_issuance(), 0);
 		let _ = Balances::deposit_creating(&1, 100);
 
