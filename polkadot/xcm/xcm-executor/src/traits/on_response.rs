@@ -15,11 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::Xcm;
+use crate::Junctions::Here;
 use core::result;
 use frame_support::pallet_prelude::{Get, TypeInfo};
 use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
+use frame_support::parameter_types;
 use xcm::latest::{
 	Error as XcmError, InteriorMultiLocation, MultiLocation, QueryId, Response,
 	Result as XcmResult, Weight, XcmContext,
@@ -165,3 +167,37 @@ pub trait QueryHandler {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn expect_response(id: Self::QueryId, response: Response);
 }
+
+parameter_types! {
+	pub UniversalLocation: InteriorMultiLocation = Here;
+}
+
+impl QueryHandler for () {
+	type BlockNumber = u64;
+	type Error = ();
+	type QueryId = u64;
+	type UniversalLocation = UniversalLocation;
+
+	fn take_response(_query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+		QueryResponseStatus::NotFound
+	}
+	fn new_query(
+		_responder: impl Into<MultiLocation>,
+		_timeout: Self::BlockNumber,
+		_match_querier: impl Into<MultiLocation>,
+	) -> Self::QueryId {
+		0u64
+	}
+
+	fn report_outcome(
+		_message: &mut Xcm<()>,
+		_responder: impl Into<MultiLocation>,
+		_timeout: Self::BlockNumber,
+	) -> Result<Self::QueryId, Self::Error> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn expect_response(_id: Self::QueryId, _response: crate::Response) {}
+}
+
