@@ -68,6 +68,10 @@
 //! The following example shows a (test) runtime that is composing the pallet demonstrated above,
 //! next to the [`frame::prelude::frame_system`] pallet, into a runtime.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
+//!
+//! ## More Examples
+//!
+//! You can find more FRAME examples that revolve around specific features at [`pallet_examples`]
 
 #[cfg(test)]
 mod tests {

@@ -295,8 +295,6 @@
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
 
-use frame::prelude::*;
-
 #[docify::export]
 #[frame::pallet(dev_mode)]
 pub mod shell_pallet {

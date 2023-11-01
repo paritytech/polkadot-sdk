@@ -4422,6 +4422,7 @@ dependencies = [
  "node-cli",
  "pallet-aura",
  "pallet-default-config-example",
+ "pallet-examples",
  "pallet-timestamp",
  "parachain-info",
  "parity-scale-codec",

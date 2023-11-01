@@ -42,9 +42,8 @@
 //!
 //! ---
 //!
-//!
-//! [FRAME]: https://paritytech.github.io/polkadot-sdk/master/frame/
-//! [`frame_system`]: https://paritytech.github.io/polkadot-sdk/master/frame_system/
+//! [FRAME]: crate::polkadot_sdk::frame
+//! [`frame_system`]: frame::prelude::frame_system
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]

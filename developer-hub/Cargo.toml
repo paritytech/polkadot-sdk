@@ -15,6 +15,7 @@ version = "0.0.1"
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 frame = { path = "../substrate/frame", features = ["runtime", "experimental"] }
+pallet-examples = { path = "../substrate/frame/examples" }
 
 # How we build docs in rust-docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
