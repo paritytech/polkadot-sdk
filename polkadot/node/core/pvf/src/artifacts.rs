@@ -128,8 +128,9 @@ impl ArtifactId {
 		Self::new(pvf.code_hash(), pvf.executor_params().hash())
 	}
 
-	/// Returns the expected path to this artifact given the root of the cache.
-	pub fn path_prefix(&self, cache_path: &Path) -> PathBuf {
+	/// Returns the prefix of the expected path to the artifact, which combined with the checksum
+	/// forms the canonical path to the artifact.
+	pub(crate) fn path_prefix(&self, cache_path: &Path) -> PathBuf {
 		let file_name =
 			format!("{}_{:#x}_{:#x}", ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash);
 		cache_path.join(file_name)
@@ -286,7 +287,7 @@ impl Artifacts {
 				let path = cache_path.join(file_name);
 
 				if id.is_none() || is_corrupted(&path).await {
-					gum::debug!(
+					gum::warn!(
 						target: LOG_TARGET,
 						"discarding invalid artifact {:?}",
 						&path,
@@ -405,13 +406,6 @@ impl Artifacts {
 		}
 
 		to_remove
-	}
-
-	pub fn get_path(&self, id: &ArtifactId) -> Option<PathBuf> {
-		if let Some(ArtifactState::Prepared { path, .. }) = self.inner.get(id) {
-			return Some(path.clone())
-		}
-		None
 	}
 }
 

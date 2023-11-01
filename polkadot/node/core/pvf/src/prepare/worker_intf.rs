@@ -17,6 +17,7 @@
 //! Host interface to the prepare worker.
 
 use crate::{
+	artifacts::ArtifactId,
 	metrics::Metrics,
 	worker_intf::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
@@ -108,17 +109,9 @@ pub async fn start_work(
 	metrics: &Metrics,
 	worker: IdleWorker,
 	pvf: PvfPrepData,
-	artifact_path: PathBuf,
+	cache_path: PathBuf,
 ) -> Outcome {
 	let IdleWorker { stream, pid, worker_dir } = worker;
-
-	gum::debug!(
-		target: LOG_TARGET,
-		worker_pid = %pid,
-		?worker_dir,
-		"starting prepare for {}",
-		artifact_path.display(),
-	);
 
 	with_worker_dir_setup(
 		worker_dir,
@@ -126,7 +119,7 @@ pub async fn start_work(
 		pid,
 		|tmp_artifact_file, mut stream, worker_dir| async move {
 			let preparation_timeout = pvf.prep_timeout();
-			if let Err(err) = send_request(&mut stream, pvf).await {
+			if let Err(err) = send_request(&mut stream, &pvf).await {
 				gum::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
@@ -148,6 +141,9 @@ pub async fn start_work(
 			let timeout = preparation_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
 			let result = tokio::time::timeout(timeout, recv_response(&mut stream, pid)).await;
 
+			let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
+			let artifact_path_prefix = artifact_id.path_prefix(&cache_path);
+
 			match result {
 				// Received bytes from worker within the time limit.
 				Ok(Ok(prepare_result)) =>
@@ -157,7 +153,7 @@ pub async fn start_work(
 						prepare_result,
 						pid,
 						tmp_artifact_file,
-						artifact_path,
+						artifact_path_prefix,
 						preparation_timeout,
 					)
 					.await,
@@ -196,7 +192,7 @@ async fn handle_response(
 	result: PrepareWorkerResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
-	artifact_path_partial: PathBuf,
+	artifact_path_prefix: PathBuf,
 	preparation_timeout: Duration,
 ) -> Outcome {
 	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
@@ -221,12 +217,13 @@ async fn handle_response(
 	}
 
 	// append checksum to prefix to form the path of concluded artifact
-	let file_name_partial =
-		artifact_path_partial.file_stem().expect("the path should contain file name");
+	let file_name_partial = artifact_path_prefix
+		.file_name()
+		.expect("the path should never terminate in '..'");
 	let mut file_name = file_name_partial.to_os_string();
 	file_name.push("_0x");
 	file_name.push(checksum);
-	let artifact_path = artifact_path_partial.with_file_name(&file_name);
+	let artifact_path = artifact_path_prefix.with_file_name(&file_name);
 
 	gum::debug!(
 		target: LOG_TARGET,
@@ -320,7 +317,7 @@ where
 	outcome
 }
 
-async fn send_request(stream: &mut UnixStream, pvf: PvfPrepData) -> io::Result<()> {
+async fn send_request(stream: &mut UnixStream, pvf: &PvfPrepData) -> io::Result<()> {
 	framed_send(stream, &pvf.encode()).await?;
 	Ok(())
 }

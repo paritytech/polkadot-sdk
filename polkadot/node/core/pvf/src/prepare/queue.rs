@@ -424,17 +424,17 @@ async fn spawn_extra_worker(queue: &mut Queue, critical: bool) -> Result<(), Fat
 /// Attaches the work to the given worker telling the poll about the job.
 async fn assign(queue: &mut Queue, worker: Worker, job: Job) -> Result<(), Fatal> {
 	let job_data = &mut queue.jobs[job];
-
-	let artifact_id = ArtifactId::from_pvf_prep_data(&job_data.pvf);
-	let artifact_path = artifact_id.path_prefix(&queue.cache_path);
-
 	job_data.worker = Some(worker);
 
 	queue.workers[worker].job = Some(job);
 
 	send_pool(
 		&mut queue.to_pool_tx,
-		pool::ToPool::StartWork { worker, pvf: job_data.pvf.clone(), artifact_path },
+		pool::ToPool::StartWork {
+			worker,
+			pvf: job_data.pvf.clone(),
+			cache_path: queue.cache_path.clone(),
+		},
 	)
 	.await?;
 
