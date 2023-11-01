@@ -63,7 +63,8 @@ pub struct FromNetwork<SelfNetworkId>(sp_std::marker::PhantomData<SelfNetworkId>
 impl<SelfNetworkId: Get<NetworkId>> ContainsPair<MultiLocation, MultiLocation>
 	for FromNetwork<SelfNetworkId>
 {
-	fn contains(&a: &MultiLocation, b: &MultiLocation) -> bool {
+	fn contains(&a: &MultiLocation, _b: &MultiLocation) -> bool {
+		// TODO: check that a.starts_with(b)
 		match a {
 			MultiLocation { parents: 2, interior } => {
 				matches!(interior.first(), Some(GlobalConsensus(network)) if *network == SelfNetworkId::get())
