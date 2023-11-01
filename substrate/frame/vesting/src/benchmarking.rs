@@ -403,6 +403,7 @@ force_remove_vesting_schedule {
 		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
 		let number_of_schedules_after_removal = s - 1;
 
+		let number_of_schedules_after_removal = T::MAX_VESTING_SCHEDULES - 1;
 		expected_balance += transfer_amount;
 
 		// It will remove last vesting schedule.
@@ -410,9 +411,9 @@ force_remove_vesting_schedule {
 	}: _(RawOrigin::Root, target_lookup, schedule_index)
 	verify {
 		assert_eq!(
-			Vesting::<T>::vesting_balance(&target),
-			Some(expected_balance),
-			"Vesting schedule should be removed",
+		Vesting::<T>::vesting(&target).unwrap().len(),
+			(s - 1) as usize,
+			"Schedule count should reduce by 1"
 		);
 	}
 
