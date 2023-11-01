@@ -19,19 +19,9 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::{
-	bridge_common_config::{
-		BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance, DeliveryRewardInBalance,
-		RequiredStakeForStakeAndSlash,
-	},
-	bridge_hub_rococo_config::{
-		AssetHubRococoParaId, BridgeHubWococoChainId, BridgeHubWococoMessagesLane,
-		ToBridgeHubWococoHaulBlobExporter, WococoGlobalConsensusNetwork,
-	},
-	bridge_hub_wococo_config::{
-		AssetHubWococoParaId, BridgeHubRococoChainId, BridgeHubRococoMessagesLane,
-		RococoGlobalConsensusNetwork, ToBridgeHubRococoHaulBlobExporter,
-	},
+use crate::bridge_common_config::{
+	BridgeGrandpaRococoInstance, BridgeGrandpaWestendInstance, BridgeGrandpaWococoInstance,
+	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -65,7 +55,7 @@ use xcm_builder::{
 	XcmFeeToAccount,
 };
 use xcm_executor::{
-	traits::{ExportXcm, FeeReason, TransactAsset, WithOriginFilter},
+	traits::{FeeReason, TransactAsset, WithOriginFilter},
 	XcmExecutor,
 };
 
@@ -213,6 +203,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					Runtime,
 					BridgeGrandpaRococoInstance,
 				>::initialize { .. }) |
+				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
+					Runtime,
+					BridgeGrandpaWestendInstance,
+				>::initialize { .. }) |
 				RuntimeCall::BridgeWococoGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaWococoInstance,
@@ -306,22 +300,33 @@ impl xcm_executor::Config for XcmConfig {
 		(
 			XcmExportFeeToRelayerRewardAccounts<
 				Self::AssetTransactor,
-				WococoGlobalConsensusNetwork,
-				AssetHubWococoParaId,
-				BridgeHubWococoChainId,
-				BridgeHubWococoMessagesLane,
+				crate::bridge_to_wococo_config::WococoGlobalConsensusNetwork,
+				crate::bridge_to_wococo_config::AssetHubWococoParaId,
+				crate::bridge_to_wococo_config::BridgeHubWococoChainId,
+				crate::bridge_to_wococo_config::AssetHubRococoToAssetHubWococoMessagesLane,
 			>,
 			XcmExportFeeToRelayerRewardAccounts<
 				Self::AssetTransactor,
-				RococoGlobalConsensusNetwork,
-				AssetHubRococoParaId,
-				BridgeHubRococoChainId,
-				BridgeHubRococoMessagesLane,
+				crate::bridge_to_westend_config::WestendGlobalConsensusNetwork,
+				crate::bridge_to_westend_config::AssetHubWestendParaId,
+				crate::bridge_to_westend_config::BridgeHubWestendChainId,
+				crate::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
+			>,
+			XcmExportFeeToRelayerRewardAccounts<
+				Self::AssetTransactor,
+				crate::bridge_to_rococo_config::RococoGlobalConsensusNetwork,
+				crate::bridge_to_rococo_config::AssetHubRococoParaId,
+				crate::bridge_to_rococo_config::BridgeHubRococoChainId,
+				crate::bridge_to_rococo_config::AssetHubWococoToAssetHubRococoMessagesLane,
 			>,
 			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter = BridgeHubRococoOrBridgeHubWococoSwitchExporter;
+	type MessageExporter = (
+		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
+		crate::bridge_to_wococo_config::ToBridgeHubWococoHaulBlobExporter,
+		crate::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
@@ -388,50 +393,6 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// Hacky switch implementation, because we have just one runtime for Rococo and Wococo BridgeHub,
-/// so it means we have just one XcmConfig
-pub struct BridgeHubRococoOrBridgeHubWococoSwitchExporter;
-impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
-	type Ticket = (NetworkId, (sp_std::prelude::Vec<u8>, XcmHash));
-
-	fn validate(
-		network: NetworkId,
-		channel: u32,
-		universal_source: &mut Option<InteriorMultiLocation>,
-		destination: &mut Option<InteriorMultiLocation>,
-		message: &mut Option<Xcm<()>>,
-	) -> SendResult<Self::Ticket> {
-		match network {
-			Rococo => ToBridgeHubRococoHaulBlobExporter::validate(
-				network,
-				channel,
-				universal_source,
-				destination,
-				message,
-			)
-			.map(|result| ((Rococo, result.0), result.1)),
-			Wococo => ToBridgeHubWococoHaulBlobExporter::validate(
-				network,
-				channel,
-				universal_source,
-				destination,
-				message,
-			)
-			.map(|result| ((Wococo, result.0), result.1)),
-			_ => unimplemented!("Unsupported network: {:?}", network),
-		}
-	}
-
-	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-		let (network, ticket) = ticket;
-		match network {
-			Rococo => ToBridgeHubRococoHaulBlobExporter::deliver(ticket),
-			Wococo => ToBridgeHubWococoHaulBlobExporter::deliver(ticket),
-			_ => unimplemented!("Unsupported network: {:?}", network),
-		}
-	}
-}
-
 /// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
 /// into the accounts that are used for paying the relayer rewards.
 /// Burns the fees in case of a failure.
@@ -439,22 +400,22 @@ pub struct XcmExportFeeToRelayerRewardAccounts<
 	AssetTransactor,
 	DestNetwork,
 	DestParaId,
-	DestBridgeHubId,
+	DestBridgedChainId,
 	BridgeLaneId,
->(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgeHubId, BridgeLaneId)>);
+>(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
 
 impl<
 		AssetTransactor: TransactAsset,
 		DestNetwork: Get<NetworkId>,
 		DestParaId: Get<cumulus_primitives_core::ParaId>,
-		DestBridgeHubId: Get<ChainId>,
+		DestBridgedChainId: Get<ChainId>,
 		BridgeLaneId: Get<LaneId>,
 	> HandleFee
 	for XcmExportFeeToRelayerRewardAccounts<
 		AssetTransactor,
 		DestNetwork,
 		DestParaId,
-		DestBridgeHubId,
+		DestBridgedChainId,
 		BridgeLaneId,
 	>
 {
@@ -478,7 +439,7 @@ impl<
 				AccountId,
 			>::rewards_account(RewardsAccountParams::new(
 				BridgeLaneId::get(),
-				DestBridgeHubId::get(),
+				DestBridgedChainId::get(),
 				RewardsAccountOwner::ThisChain,
 			));
 
@@ -487,7 +448,7 @@ impl<
 				AccountId,
 			>::rewards_account(RewardsAccountParams::new(
 				BridgeLaneId::get(),
-				DestBridgeHubId::get(),
+				DestBridgedChainId::get(),
 				RewardsAccountOwner::BridgedChain,
 			));
 
