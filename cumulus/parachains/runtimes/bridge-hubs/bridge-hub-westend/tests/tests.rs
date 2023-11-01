@@ -33,7 +33,7 @@ use bridge_to_rococo_config::{
 use codec::{Decode, Encode};
 use frame_support::parameter_types;
 use frame_system::pallet_prelude::HeaderFor;
-use parachains_common::{rococo::fee::WeightToFee, AccountId, AuraId, Balance};
+use parachains_common::{westend::fee::WeightToFee, AccountId, AuraId, Balance};
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
