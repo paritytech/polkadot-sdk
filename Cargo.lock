@@ -9056,6 +9056,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-authorship",
+ "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -9064,6 +9066,8 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-session",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -14806,6 +14810,7 @@ dependencies = [
  "sc-network",
  "sc-network-test",
  "sc-telemetry",
+ "sc-transaction-pool-api",
  "sp-api",
  "sp-application-crypto",
  "sp-block-builder",

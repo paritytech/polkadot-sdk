@@ -24,6 +24,7 @@ sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../common" }
 sc-consensus-slots = { path = "../slots" }
 sc-telemetry = { path = "../../telemetry" }
+sc-transaction-pool-api = { path = "../../transaction-pool/api" }
 sp-api = { path = "../../../primitives/api" }
 sp-application-crypto = { path = "../../../primitives/application-crypto" }
 sp-block-builder = { path = "../../../primitives/block-builder" }

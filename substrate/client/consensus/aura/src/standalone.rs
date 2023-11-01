@@ -18,11 +18,9 @@
 
 //! Standalone functions used within the implementation of Aura.
 
-use std::fmt::Debug;
-
-use log::trace;
-
 use codec::Codec;
+use log::trace;
+use std::fmt::Debug;
 
 use sc_client_api::{backend::AuxStore, UsageProvider};
 use sp_api::{Core, ProvideRuntimeApi};
@@ -95,7 +93,7 @@ pub async fn claim_slot<P: Pair>(
 ) -> Option<P::Public> {
 	let expected_author = slot_author::<P>(slot, authorities);
 	expected_author.and_then(|p| {
-		if keystore.has_keys(&[(p.to_raw_vec(), sp_application_crypto::key_types::AURA)]) {
+		if keystore.has_keys(&[(p.to_raw_vec(), sp_consensus_aura::KEY_TYPE)]) {
 			Some(p.clone())
 		} else {
 			None
@@ -304,19 +302,18 @@ where
 	if slot > slot_now {
 		header.digest_mut().push(seal);
 		return Err(SealVerificationError::Deferred(header, slot))
+	}
+
+	// Check the signature is valid under the expected authority and chain state.
+	let expected_author =
+		slot_author::<P>(slot, authorities).ok_or(SealVerificationError::SlotAuthorNotFound)?;
+
+	let pre_hash = header.hash();
+
+	if P::verify(&sig, pre_hash.as_ref(), expected_author) {
+		Ok((header, slot, seal))
 	} else {
-		// check the signature is valid under the expected authority and
-		// chain state.
-		let expected_author =
-			slot_author::<P>(slot, authorities).ok_or(SealVerificationError::SlotAuthorNotFound)?;
-
-		let pre_hash = header.hash();
-
-		if P::verify(&sig, pre_hash.as_ref(), expected_author) {
-			Ok((header, slot, seal))
-		} else {
-			Err(SealVerificationError::BadSignature)
-		}
+		Err(SealVerificationError::BadSignature)
 	}
 }
 

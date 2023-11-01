@@ -17,35 +17,29 @@
 
 //! An opt-in utility module for reporting equivocations.
 //!
-//! This module defines an offence type for BABE equivocations
-//! and some utility traits to wire together:
-//! - an offence type for BABE equivocations;
+//! This module defines:
+//! - an offence type for AURA equivocations;
 //! - a system for reporting offences;
-//! - a system for submitting unsigned transactions;
+//! - a system for signing and submitting transactions;
 //! - a way to get the current block author;
 //! - a key ownership proof system to prove that a given authority was part of a session;
 //!
 //! These can be used in an offchain context in order to submit equivocation
-//! reporting extrinsics (from the client that's import BABE blocks).
-//! And in a runtime context, so that the BABE pallet can validate the
-//! equivocation proofs in the extrinsic and report the offences.
-//!
-//! IMPORTANT:
-//! When using this module for enabling equivocation reporting it is required
-//! that the `ValidateUnsigned` for the BABE pallet is used in the runtime
-//! definition.
+//! reporting extrinsics (from the client that's running the AURA protocol) and
+//! in a runtime context, to validate the equivocation proofs in the extrinsic
+//! and report the offences.
 
 use frame_support::traits::{Get, KeyOwnerProofSystem};
-use frame_system::pallet_prelude::HeaderFor;
-use log::{error, info};
+use frame_system::{
+	offchain::SubmitTransaction,
+	pallet_prelude::{BlockNumberFor, HeaderFor},
+};
 
-use sp_consensus_babe::{AuthorityId, EquivocationProof, Slot, KEY_TYPE};
+use sp_consensus_aura::{EquivocationProof, Slot, KEY_TYPE};
 use sp_runtime::{
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		TransactionValidityError, ValidTransaction,
-	},
-	DispatchError, KeyTypeId, Perbill,
+	traits::{CheckedDiv, Header as _, Saturating, Zero},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	DispatchError, KeyTypeId, Perbill, RuntimeDebug,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{
@@ -54,13 +48,16 @@ use sp_staking::{
 };
 use sp_std::prelude::*;
 
-use crate::{Call, Config, Error, Pallet, LOG_TARGET};
+use log::{error, info};
 
-/// BABE equivocation offence report.
+use crate::{Call, Config, Error, LOG_TARGET};
+
+/// AURA equivocation offence report.
 ///
 /// When a validator released two or more blocks at the same slot.
+#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct EquivocationOffence<Offender> {
-	/// A babe slot in which this incident happened.
+	/// The slot in which this incident happened.
 	pub slot: Slot,
 	/// The session index in which the incident happened.
 	pub session_index: SessionIndex,
@@ -71,7 +68,7 @@ pub struct EquivocationOffence<Offender> {
 }
 
 impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
-	const ID: Kind = *b"babe:equivocatio";
+	const ID: Kind = *b"aura:equivocatio";
 	type TimeSlot = Slot;
 
 	fn offenders(&self) -> Vec<Offender> {
@@ -98,36 +95,55 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 	}
 }
 
-/// BABE equivocation offence report system.
+/// AURA equivocation offence report system.
 ///
-/// This type implements `OffenceReportSystem` such that:
+/// This type implements `OffenceReportSystem` trait such that:
 /// - Equivocation reports are published on-chain as unsigned extrinsic via
 ///   `offchain::SendTransactionTypes`.
-/// - On-chain validity checks and processing are mostly delegated to the user provided generic
+/// - On-chain validity checks and processing are mostly delegated to the user-provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
+///
+/// Depends on:
+/// - pallet-authorship: to get reporter identity when missing during offence evidence processing.
+/// - pallet-session: to check the `KeyOwnerProof` validity.
+///
+/// In order to check for `KeyOwnerProof` validity we need a way to compare the session index
+/// contained within the proof and the session index relative to the produced blocks.
+/// In order to map block number to session index this implementation requires the
+/// `[pallet_session::Config::NextSessionRotation]` to be `[pallet_session::PeriodicSessions]`.
+/// In this way the mapping is performed by just divinding the block number by the session period
+/// duration.
 pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
 
-impl<T, R, P, L>
-	OffenceReportSystem<Option<T::AccountId>, (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof)>
-	for EquivocationReportSystem<T, R, P, L>
+impl<T, R, P, L, Period, Offset>
+	OffenceReportSystem<
+		Option<T::AccountId>,
+		(EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
+	> for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config
+		+ frame_system::Config
+		+ pallet_authorship::Config
+		+ pallet_session::Config<
+			NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>,
+		> + frame_system::offchain::SendTransactionTypes<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
 		EquivocationOffence<P::IdentificationTuple>,
 	>,
-	P: KeyOwnerProofSystem<(KeyTypeId, AuthorityId), Proof = T::KeyOwnerProof>,
+	P: KeyOwnerProofSystem<(KeyTypeId, T::AuthorityId), Proof = T::KeyOwnerProof>,
 	P::IdentificationTuple: Clone,
 	L: Get<u64>,
+	Period: Get<BlockNumberFor<T>>,
+	Offset: Get<BlockNumberFor<T>>,
 {
 	type Longevity = L;
 
 	fn publish_evidence(
-		evidence: (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof),
+		evidence: (EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	) -> Result<(), ()> {
-		use frame_system::offchain::SubmitTransaction;
 		let (equivocation_proof, key_owner_proof) = evidence;
 
 		let call = Call::report_equivocation_unsigned {
@@ -143,12 +159,12 @@ where
 	}
 
 	fn check_evidence(
-		evidence: (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof),
+		evidence: (EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	) -> Result<(), TransactionValidityError> {
 		let (equivocation_proof, key_owner_proof) = evidence;
 
 		// Check the membership proof to extract the offender's id
-		let key = (sp_consensus_babe::KEY_TYPE, equivocation_proof.offender.clone());
+		let key = (sp_consensus_aura::KEY_TYPE, equivocation_proof.offender.clone());
 		let offender =
 			P::check_proof(key, key_owner_proof.clone()).ok_or(InvalidTransaction::BadProof)?;
 
@@ -162,27 +178,36 @@ where
 
 	fn process_evidence(
 		reporter: Option<T::AccountId>,
-		evidence: (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof),
+		evidence: (EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	) -> Result<(), DispatchError> {
 		let (equivocation_proof, key_owner_proof) = evidence;
 		let reporter = reporter.or_else(|| <pallet_authorship::Pallet<T>>::author());
+
 		let offender = equivocation_proof.offender.clone();
 		let slot = equivocation_proof.slot;
 
+		let block_num1 = *equivocation_proof.first_header.number();
+		let block_num2 = *equivocation_proof.second_header.number();
+
 		// Validate the equivocation proof (check votes are different and signatures are valid)
-		if !sp_consensus_babe::check_equivocation_proof(equivocation_proof) {
+		if !sp_consensus_aura::check_equivocation_proof(equivocation_proof) {
 			return Err(Error::<T>::InvalidEquivocationProof.into())
 		}
 
 		let validator_set_count = key_owner_proof.validator_count();
+
 		let session_index = key_owner_proof.session();
 
-		let epoch_index =
-			*slot.saturating_sub(crate::GenesisSlot::<T>::get()) / T::EpochDuration::get();
+		let idx1 = block_num1
+			.saturating_sub(Offset::get())
+			.checked_div(&Period::get())
+			.unwrap_or(Zero::zero());
+		let idx2 = block_num2
+			.saturating_sub(Offset::get())
+			.checked_div(&Period::get())
+			.unwrap_or(Zero::zero());
 
-		// Check that the slot number is consistent with the session index
-		// in the key ownership proof (i.e. slot is for that epoch)
-		if Pallet::<T>::session_index_for_epoch(epoch_index) != session_index {
+		if BlockNumberFor::<T>::from(session_index as u32) != idx1 || idx1 != idx2 {
 			return Err(Error::<T>::InvalidKeyOwnershipProof.into())
 		}
 
@@ -190,62 +215,10 @@ where
 		let offender = P::check_proof((KEY_TYPE, offender), key_owner_proof)
 			.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
 
-		let offence = EquivocationOffence { slot, validator_set_count, offender, session_index };
-
+		let offence = EquivocationOffence { slot, session_index, validator_set_count, offender };
 		R::report_offence(reporter.into_iter().collect(), offence)
 			.map_err(|_| Error::<T>::DuplicateOffenceReport)?;
 
 		Ok(())
-	}
-}
-
-/// Methods for the `ValidateUnsigned` implementation:
-/// It restricts calls to `report_equivocation_unsigned` to local calls (i.e. extrinsics generated
-/// on this node) or that already in a block. This guarantees that only block authors can include
-/// unsigned equivocation reports.
-impl<T: Config> Pallet<T> {
-	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
-		if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call {
-			// discard equivocation report not coming from the local node
-			match source {
-				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-				_ => {
-					log::warn!(
-						target: LOG_TARGET,
-						"rejecting unsigned report equivocation transaction because it is not local/in-block.",
-					);
-
-					return InvalidTransaction::Call.into()
-				},
-			}
-
-			// Check report validity
-			let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
-			T::EquivocationReportSystem::check_evidence(evidence)?;
-
-			let longevity =
-				<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
-
-			ValidTransaction::with_tag_prefix("BabeEquivocation")
-				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::max_value())
-				// Only one equivocation report for the same offender at the same slot.
-				.and_provides((equivocation_proof.offender.clone(), *equivocation_proof.slot))
-				.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
-				.propagate(false)
-				.build()
-		} else {
-			InvalidTransaction::Call.into()
-		}
-	}
-
-	pub fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError> {
-		if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call {
-			let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
-			T::EquivocationReportSystem::check_evidence(evidence)
-		} else {
-			Err(InvalidTransaction::Call.into())
-		}
 	}
 }

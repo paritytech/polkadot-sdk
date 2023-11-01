@@ -41,24 +41,36 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
+	weights::Weight,
 	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
 };
-use log;
-use sp_consensus_aura::{AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
+use frame_system::pallet_prelude::HeaderFor;
+use sp_consensus_aura::{AuthorityIndex, ConsensusLog, EquivocationProof, Slot, AURA_ENGINE_ID};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{IsMember, Member, SaturatedConversion, Saturating, Zero},
 	RuntimeAppPublic,
 };
+use sp_session::{GetSessionNumber, GetValidatorCount};
+use sp_staking::offence::OffenceReportSystem;
 use sp_std::prelude::*;
 
-pub mod migrations;
 mod mock;
 mod tests;
+
+pub mod default_weights;
+pub mod migrations;
+
+#[cfg(any(feature = "default-equivocation-report-system", test))]
+pub mod equivocation;
 
 pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::aura";
+
+pub trait WeightInfo {
+	fn report_equivocation(validator_count: u32) -> Weight;
+}
 
 /// A slot duration provider which infers the slot duration from the
 /// [`pallet_timestamp::Config::MinimumPeriod`] by multiplying it by two, to ensure
@@ -91,7 +103,12 @@ pub mod pallet {
 			+ RuntimeAppPublic
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
+
+		/// Helper for weights computations.
+		type WeightInfo: WeightInfo;
+
 		/// The maximum number of authorities that the pallet can hold.
+		#[pallet::constant]
 		type MaxAuthorities: Get<u32>;
 
 		/// A way to check whether a given validator is disabled and should not be authoring blocks.
@@ -122,10 +139,35 @@ pub mod pallet {
 		/// feature.
 		#[cfg(feature = "experimental")]
 		type SlotDuration: Get<<Self as pallet_timestamp::Config>::Moment>;
+
+		/// The proof of key ownership, used for validating equivocation reports.
+		///
+		/// The proof must include the session index and validator count of the
+		/// session at which the equivocation occurred.
+		type KeyOwnerProof: Parameter + GetSessionNumber + GetValidatorCount;
+
+		/// Equivocation handling subsystem.
+		///
+		/// Defines methods to check/report an offence and for submitting a transaction to report
+		/// an equivocation (from an offchain context).
+		type EquivocationReportSystem: OffenceReportSystem<
+			Option<Self::AccountId>,
+			(EquivocationProof<HeaderFor<Self>, Self::AuthorityId>, Self::KeyOwnerProof),
+		>;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Equivocation proof provided as part of an equivocation report is invalid.
+		InvalidEquivocationProof,
+		/// Key ownership proof provided as part of an equivocation report is invalid.
+		InvalidKeyOwnershipProof,
+		/// Equivocation report is valid but already previously reported.
+		DuplicateOffenceReport,
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -163,6 +205,110 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Report authority equivocation/misbehavior.
+		///
+		/// This method will verify the equivocation proof and validate the given
+		/// key ownership proof against the extracted offender. If both are valid,
+		/// the offence will be reported.
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
+			key_owner_proof.validator_count(),
+		))]
+		pub fn report_equivocation(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<EquivocationProof<HeaderFor<T>, T::AuthorityId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			let reporter = ensure_signed(origin)?;
+			T::EquivocationReportSystem::process_evidence(
+				Some(reporter),
+				(*equivocation_proof, key_owner_proof),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
+
+		/// Report authority equivocation/misbehavior.
+		///
+		/// This method will verify the equivocation proof and validate the given
+		/// key ownership proof against the extracted offender. If both are valid,
+		/// the offence will be reported.
+		///
+		/// This extrinsic must be called unsigned and it is expected that only
+		/// block authors will call it (validated in `ValidateUnsigned`), as such
+		/// if the block author is defined it will be defined as the equivocation
+		/// reporter.
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
+			key_owner_proof.validator_count(),
+		))]
+		pub fn report_equivocation_unsigned(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<EquivocationProof<HeaderFor<T>, T::AuthorityId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+			T::EquivocationReportSystem::process_evidence(
+				None,
+				(*equivocation_proof, key_owner_proof),
+			)?;
+			Ok(Pays::No.into())
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call
+			{
+				// Discard equivocation report not coming from the local node
+				match source {
+					TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+					_ => {
+						log::warn!(
+							target: LOG_TARGET,
+							"rejecting unsigned report equivocation transaction because it is not local/in-block.",
+						);
+
+						return InvalidTransaction::Call.into()
+					},
+				}
+
+				// Check report validity
+				let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
+				T::EquivocationReportSystem::check_evidence(evidence)?;
+
+				let longevity =
+					<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
+
+				ValidTransaction::with_tag_prefix("AuraEquivocation")
+					// We assign the maximum priority for any equivocation report.
+					.priority(TransactionPriority::max_value())
+					// Only one equivocation report for the same offender at the same slot.
+					.and_provides((equivocation_proof.offender.clone(), *equivocation_proof.slot))
+					.longevity(longevity)
+					// We don't propagate this. This can never be included on a remote node.
+					.propagate(false)
+					.build()
+			} else {
+				Err(InvalidTransaction::Call.into())
+			}
+		}
+
+		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
+			if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call
+			{
+				let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
+				T::EquivocationReportSystem::check_evidence(evidence)
+			} else {
+				Err(InvalidTransaction::Call.into())
+			}
 		}
 	}
 
@@ -311,6 +457,17 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	/// Submits an extrinsic to report an equivocation.
+	///
+	/// This method will create an unsigned extrinsic with a call to `report_equivocation_unsigned`
+	/// and will push the transaction to the pool. Only useful in an offchain context.
+	pub fn submit_unsigned_equivocation_report(
+		equivocation_proof: EquivocationProof<HeaderFor<T>, T::AuthorityId>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> Option<()> {
+		T::EquivocationReportSystem::publish_evidence((equivocation_proof, key_owner_proof)).ok()
+	}
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
@@ -333,21 +490,23 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
 	{
 		// instant changes
-		if changed {
-			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
-			let last_authorities = Self::authorities();
-			if last_authorities != next_authorities {
-				if next_authorities.len() as u32 > T::MaxAuthorities::get() {
-					log::warn!(
-						target: LOG_TARGET,
-						"next authorities list larger than {}, truncating",
-						T::MaxAuthorities::get(),
-					);
-				}
-				let bounded = <BoundedVec<_, T::MaxAuthorities>>::truncate_from(next_authorities);
-				Self::change_authorities(bounded);
-			}
+		if !changed {
+			return
 		}
+		let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+		let last_authorities = Self::authorities();
+		if last_authorities == next_authorities {
+			return
+		}
+		if next_authorities.len() as u32 > T::MaxAuthorities::get() {
+			log::warn!(
+				target: LOG_TARGET,
+				"next authorities list larger than {}, truncating",
+				T::MaxAuthorities::get(),
+			);
+		}
+		let bounded = <BoundedVec<_, T::MaxAuthorities>>::truncate_from(next_authorities);
+		Self::change_authorities(bounded);
 	}
 
 	fn on_disabled(i: u32) {

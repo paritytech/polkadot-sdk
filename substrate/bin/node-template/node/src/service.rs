@@ -110,10 +110,11 @@ pub fn new_partial(
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 
 	let import_queue =
-		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
+		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
 			block_import: grandpa_block_import.clone(),
 			justification_import: Some(Box::new(grandpa_block_import.clone())),
 			client: client.clone(),
+			select_chain: select_chain.clone(),
 			create_inherent_data_providers: move |_, ()| async move {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
@@ -129,6 +130,7 @@ pub fn new_partial(
 			registry: config.prometheus_registry(),
 			check_for_equivocation: Default::default(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 			compatibility_mode: Default::default(),
 		})?;
 

@@ -19,15 +19,19 @@
 
 #![cfg(test)]
 
-use crate::mock::{build_ext_and_execute_test, Aura, MockDisabledValidators, System};
+use crate::mock::{
+	make_equivocation_proof, new_test_ext_and_execute, progress_to_block, Aura,
+	MockDisabledValidators, Offences, RuntimeOrigin, System,
+};
 use codec::Encode;
-use frame_support::traits::OnInitialize;
-use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
+use frame_support::{pallet_prelude::Pays, traits::OnInitialize};
+use sp_consensus_aura::{Slot, AURA_ENGINE_ID, KEY_TYPE};
+use sp_core::crypto::Pair;
 use sp_runtime::{Digest, DigestItem};
 
 #[test]
 fn initial_values() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		assert_eq!(Aura::current_slot(), 0u64);
 		assert_eq!(Aura::authorities().len(), Aura::authorities_len());
 		assert_eq!(Aura::authorities_len(), 4);
@@ -39,7 +43,7 @@ fn initial_values() {
 	expected = "Validator with index 1 is disabled and should not be attempting to author blocks."
 )]
 fn disabled_validators_cannot_author_blocks() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		// slot 1 should be authored by validator at index 1
 		let slot = Slot::from(1);
 		let pre_digest =
@@ -59,7 +63,7 @@ fn disabled_validators_cannot_author_blocks() {
 #[test]
 #[should_panic(expected = "Slot must increase")]
 fn pallet_requires_slot_to_increase_unless_allowed() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		crate::mock::AllowMultipleBlocksPerSlot::set(false);
 
 		let slot = Slot::from(1);
@@ -77,7 +81,7 @@ fn pallet_requires_slot_to_increase_unless_allowed() {
 
 #[test]
 fn pallet_can_allow_unchanged_slot() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		let slot = Slot::from(1);
 		let pre_digest =
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
@@ -96,7 +100,7 @@ fn pallet_can_allow_unchanged_slot() {
 #[test]
 #[should_panic(expected = "Slot must not decrease")]
 fn pallet_always_rejects_decreasing_slot() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		let slot = Slot::from(2);
 		let pre_digest =
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
@@ -115,4 +119,74 @@ fn pallet_always_rejects_decreasing_slot() {
 		System::initialize(&43, &System::parent_hash(), &pre_digest);
 		Aura::on_initialize(43);
 	});
+}
+
+#[test]
+fn report_equivocation_works() {
+	use crate::equivocation::EquivocationOffence;
+	use sp_runtime::DispatchError;
+
+	new_test_ext_and_execute(4, |pairs| {
+		progress_to_block(3);
+
+		let authorities = Aura::authorities();
+
+		// We will use the validator at index 1 as the offending authority.
+		let offending_validator_index = 1;
+		// let offending_validator_id = Session::validators()[offending_validator_index];
+		let offending_authority_pair = pairs
+			.into_iter()
+			.find(|p| p.public() == authorities[offending_validator_index])
+			.unwrap();
+
+		// Generate an equivocation proof.
+		let (equivocation_proof, mut key_owner_proof) =
+			make_equivocation_proof(&offending_authority_pair);
+
+		// Report the equivocation
+		let res = Aura::report_equivocation(
+			RuntimeOrigin::signed(1),
+			Box::new(equivocation_proof.clone()),
+			key_owner_proof.clone(),
+		)
+		.unwrap();
+		assert_eq!(res.pays_fee, Pays::No);
+
+		// Report duplicated equivocation
+		let res = Aura::report_equivocation(
+			RuntimeOrigin::signed(2),
+			Box::new(equivocation_proof.clone()),
+			key_owner_proof.clone(),
+		)
+		.unwrap_err();
+		assert_eq!(res.post_info.pays_fee, Pays::Yes);
+		let DispatchError::Module(err) = res.error else {
+			panic!("Unexpected error type");
+		};
+		assert_eq!(err.message, Some("DuplicateOffenceReport"));
+
+		// Check reported offences content
+		let offences = Offences::take();
+		let expected_offence = EquivocationOffence {
+			slot: equivocation_proof.slot,
+			session_index: key_owner_proof.session,
+			validator_set_count: key_owner_proof.validator_count,
+			offender: (KEY_TYPE, equivocation_proof.offender.clone()),
+		};
+		assert_eq!(offences, vec![(vec![1], expected_offence)]);
+
+		// Report invalid equivocation
+		key_owner_proof.session += 1;
+		let res = Aura::report_equivocation(
+			RuntimeOrigin::signed(2),
+			Box::new(equivocation_proof.clone()),
+			key_owner_proof.clone(),
+		)
+		.unwrap_err();
+		assert_eq!(res.post_info.pays_fee, Pays::Yes);
+		let DispatchError::Module(err) = res.error else {
+			panic!("Unexpected error type");
+		};
+		assert_eq!(err.message, Some("InvalidKeyOwnershipProof"));
+	})
 }

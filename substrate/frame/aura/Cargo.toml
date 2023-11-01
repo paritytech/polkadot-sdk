@@ -18,15 +18,21 @@ log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-support = { path = "../support", default-features = false}
 frame-system = { path = "../system", default-features = false}
-pallet-timestamp = { path = "../timestamp", default-features = false}
+pallet-authorship = { path = "../authorship", default-features = false, optional = true }
+pallet-session = { path = "../session", default-features = false, optional = true }
+pallet-timestamp = { path = "../timestamp", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false}
 sp-consensus-aura = { path = "../../primitives/consensus/aura", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-session = { path = "../../primitives/session", default-features = false}
+sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"]}
 sp-std = { path = "../../primitives/std", default-features = false}
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core", default-features = false}
 sp-io = { path = "../../primitives/io" }
+pallet-authorship = { path = "../authorship" }
+pallet-session = { path = "../session" }
 
 [features]
 default = [ "std" ]
@@ -35,6 +41,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-authorship/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
@@ -42,6 +49,8 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-session/std",
+	"sp-staking/std",
 	"sp-std/std",
 ]
 try-runtime = [
@@ -49,5 +58,10 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+]
+# Provide the default equivocation report system.
+default-equivocation-report-system = [
+	"pallet-authorship",
+	"pallet-session",
 ]
 experimental = []

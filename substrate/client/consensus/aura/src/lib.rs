@@ -16,9 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Aura (Authority-round) consensus in substrate.
+//! AURA (Authority-round) consensus in Substrate.
 //!
-//! Aura works by having a list of authorities A who are expected to roughly
+//! AURA works by having a list of authorities A who are expected to roughly
 //! agree on the current time. Time is divided up into discrete slots of t
 //! seconds each. For each slot s, the author of that slot is A[s % |A|].
 //!
@@ -28,7 +28,8 @@
 //! Blocks from future steps will be either deferred or rejected depending on how
 //! far in the future they are.
 //!
-//! NOTE: Aura itself is designed to be generic over the crypto used.
+//! NOTE: AURA itself is designed to be generic over the crypto used.
+
 #![forbid(missing_docs, unsafe_code)]
 use std::{fmt::Debug, marker::PhantomData, pin::Pin, sync::Arc};
 
@@ -487,6 +488,9 @@ pub enum Error<B: BlockT> {
 	/// Inherents Error
 	#[error("Inherent error: {0}")]
 	Inherent(sp_inherents::Error),
+	/// Runtime Api error.
+	#[error(transparent)]
+	RuntimeApi(sp_api::ApiError),
 }
 
 impl<B: BlockT> From<Error<B>> for String {
@@ -554,9 +558,10 @@ mod tests {
 	use sc_consensus_slots::{BackoffAuthoringOnFinalizedHeadLagging, SimpleSlotWorker};
 	use sc_keystore::LocalKeystore;
 	use sc_network_test::{Block as TestBlock, *};
-	use sp_application_crypto::{key_types::AURA, AppCrypto};
+	use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
+	use sp_application_crypto::AppCrypto;
 	use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
-	use sp_consensus_aura::sr25519::AuthorityPair;
+	use sp_consensus_aura::{sr25519::AuthorityPair, KEY_TYPE};
 	use sp_inherents::InherentData;
 	use sp_keyring::sr25519::Keyring;
 	use sp_keystore::Keystore;
@@ -614,9 +619,14 @@ mod tests {
 		}
 	}
 
+	type TestSelectChain =
+		sc_consensus::LongestChain<substrate_test_runtime_client::Backend, TestBlock>;
+
 	type AuraVerifier = import_queue::AuraVerifier<
+		TestBlock,
 		PeersFullClient,
 		AuthorityPair,
+		TestSelectChain,
 		Box<
 			dyn CreateInherentDataProviders<
 				TestBlock,
@@ -639,12 +649,14 @@ mod tests {
 		type BlockImport = PeersClient;
 
 		fn make_verifier(&self, client: PeersClient, _peer_data: &()) -> Self::Verifier {
+			let backend = client.as_backend();
 			let client = client.as_client();
+			let select_chain = TestSelectChain::new(backend);
 			let slot_duration = slot_duration(&*client).expect("slot duration available");
-
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
 				client,
+				select_chain,
 				Box::new(|_, _| async {
 					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
 						Timestamp::current(),
@@ -652,8 +664,9 @@ mod tests {
 					);
 					Ok((slot,))
 				}),
-				CheckForEquivocation::Yes,
+				true.into(),
 				None,
+				OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 				CompatibilityMode::None,
 			)
 		}
@@ -709,7 +722,7 @@ mod tests {
 			);
 
 			keystore
-				.sr25519_generate_new(AURA, Some(&key.to_seed()))
+				.sr25519_generate_new(KEY_TYPE, Some(&key.to_seed()))
 				.expect("Creates authority key");
 			keystore_paths.push(keystore_path);
 
