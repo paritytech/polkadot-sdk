@@ -3,7 +3,7 @@ name = "bridge-hub-westend-runtime"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
-description = "Westend's BridgeHub  parachain runtime"
+description = "Westend's BridgeHub parachain runtime"
 license = "Apache-2.0"
 
 [build-dependencies]
