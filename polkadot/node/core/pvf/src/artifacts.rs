@@ -383,26 +383,25 @@ impl Artifacts {
 			.is_none());
 	}
 
-	/// Remove and retrieve the artifacts from the table that are older than the supplied
-	/// Time-To-Live.
-	pub fn prune(&mut self, artifact_ttl: Duration) -> Vec<ArtifactId> {
+	/// Remove artifacts older than the given TTL and return id and path of the removed ones.
+	pub fn prune(&mut self, artifact_ttl: Duration) -> Vec<(ArtifactId, PathBuf)> {
 		let now = SystemTime::now();
 
 		let mut to_remove = vec![];
 		for (k, v) in self.inner.iter() {
-			if let ArtifactState::Prepared { last_time_needed, .. } = *v {
+			if let ArtifactState::Prepared { last_time_needed, ref path, .. } = *v {
 				if now
 					.duration_since(last_time_needed)
 					.map(|age| age > artifact_ttl)
 					.unwrap_or(false)
 				{
-					to_remove.push(k.clone());
+					to_remove.push((k.clone(), path.clone()));
 				}
 			}
 		}
 
 		for artifact in &to_remove {
-			self.inner.remove(artifact);
+			self.inner.remove(&artifact.0);
 		}
 
 		to_remove

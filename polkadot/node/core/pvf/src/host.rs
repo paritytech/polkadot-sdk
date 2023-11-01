@@ -810,15 +810,13 @@ async fn handle_cleanup_pulse(
 		"PVF pruning: {} artifacts reached their end of life",
 		to_remove.len(),
 	);
-	for artifact_id in to_remove {
+	for (artifact_id, path) in to_remove {
 		gum::debug!(
 			target: LOG_TARGET,
 			validation_code_hash = ?artifact_id.code_hash,
 			"pruning artifact",
 		);
-		if let Some(path) = artifacts.get_path(&artifact_id) {
-			sweeper_tx.send(path).await.map_err(|_| Fatal)?;
-		}
+		sweeper_tx.send(path).await.map_err(|_| Fatal)?;
 	}
 
 	Ok(())
@@ -1200,13 +1198,13 @@ pub(crate) mod tests {
 		builder.artifact_ttl = Duration::from_millis(500);
 		builder.artifacts.insert_prepared(
 			artifact_id(1),
-			Default::default(),
+			artifact_path(1),
 			mock_now,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(2),
-			Default::default(),
+			artifact_path(2),
 			mock_now,
 			PrepareStats::default(),
 		);
