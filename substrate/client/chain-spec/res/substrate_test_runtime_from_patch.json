@@ -10,21 +10,21 @@
   "genesis": {
     "runtimeGenesis": {
       "patch": {
-	"babe": {
-	  "epochConfig": {
-	    "allowed_slots": "PrimaryAndSecondaryPlainSlots",
-	    "c": [
-	      7,
-	      10
-	    ]
-	  }
-	},
-	"substrateTest": {
-	  "authorities": [
-	    "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-	    "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-	  ]
-	}
+        "babe": {
+          "epochConfig": {
+            "allowed_slots": "PrimaryAndSecondaryPlainSlots",
+            "c": [
+              7,
+              10
+            ]
+          }
+        },
+        "substrateTest": {
+          "authorities": [
+            "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+          ]
+        }
       },
       "code": "0x0"
     }
