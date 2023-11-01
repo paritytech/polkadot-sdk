@@ -16,6 +16,16 @@
 
 use xcm::prelude::*;
 
+/// Handle stuff to do with taking fees in certain XCM instructions.
+pub trait FeeManager {
+	/// Determine if a fee should be waived.
+	fn is_waived(origin: Option<&MultiLocation>, r: FeeReason) -> bool;
+
+	/// Do something with the fee which has been paid. Doing nothing here silently burns the
+	/// fees.
+	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, r: FeeReason);
+}
+
 /// Context under which a fee is paid.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FeeReason {
@@ -39,16 +49,6 @@ pub enum FeeReason {
 	LockAsset,
 	/// When the `RequestUnlock` instruction is called.
 	RequestUnlock,
-}
-
-/// Handle stuff to do with taking fees in certain XCM instructions.
-pub trait FeeManager {
-	/// Determine if a fee should be waived.
-	fn is_waived(origin: Option<&MultiLocation>, reason: FeeReason) -> bool;
-
-	/// Do something with the fee which has been paid. Doing nothing here silently burns the
-	/// fees.
-	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason);
 }
 
 impl FeeManager for () {
