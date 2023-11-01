@@ -42,7 +42,7 @@ use sp_runtime::{
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_executor::traits::{
-	AssetTransferError, AssetTransferSupport, ConvertOrigin, Properties, TransferType,
+	AssetTransferError, ConvertOrigin, Properties, TransferType, XcmAssetTransfers,
 };
 
 use frame_support::{
@@ -208,7 +208,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + AssetTransferSupport;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -1635,13 +1635,13 @@ impl<T: Config> Pallet<T> {
 		// be in error, there would need to be an accounting violation by ourselves,
 		// so it's unlikely, but we don't want to allow that kind of bug to leak into
 		// a trusted chain.
-		<T::XcmExecutor as AssetTransferSupport>::AssetTransactor::can_check_out(
+		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::can_check_out(
 			&dest,
 			&fees,
 			&dummy_context,
 		)
 		.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
-		<T::XcmExecutor as AssetTransferSupport>::AssetTransactor::check_out(
+		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::check_out(
 			&dest,
 			&fees,
 			&dummy_context,

@@ -38,7 +38,7 @@ use traits::{
 mod assets;
 pub use assets::Assets;
 mod config;
-use crate::traits::AssetTransferSupport;
+use crate::traits::XcmAssetTransfers;
 pub use config::Config;
 
 /// A struct to specify how fees are being paid.
@@ -255,7 +255,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	}
 }
 
-impl<Config: config::Config> AssetTransferSupport for XcmExecutor<Config> {
+impl<Config: config::Config> XcmAssetTransfers for XcmExecutor<Config> {
 	type IsReserve = Config::IsReserve;
 	type IsTeleporter = Config::IsTeleporter;
 	type AssetTransactor = Config::AssetTransactor;
