@@ -1,4 +1,4 @@
-### Bridges Tests for Local Rococo <> Wococo Bridge
+# Bridges Tests for Local Rococo <> Wococo Bridge
 
 This folder contains [zombienet](https://github.com/paritytech/zombienet/) based integration tests for both
 onchain and offchain bridges code. Due to some
@@ -9,16 +9,16 @@ To start those tests, you need to:
 
 - download latest [zombienet release](https://github.com/paritytech/zombienet/releases);
 
-- build polkadot binary by running `cargo build -p polkadot --release` command in the
+- build Polkadot binary by running `cargo build -p polkadot --release` command in the
 [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
 
-- build polkadot binary by running `cargo build -p polkadot-parachain-bin --release` command in the
+- build Polkadot Parachain binary by running `cargo build -p polkadot-parachain-bin --release` command in the
 [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
 
 - ensure that you have [`node`](https://nodejs.org/en) installed. Additionally, we'll need globally installed
 `polkadot/api-cli` package (use `npm install -g @polkadot/api-cli@beta` to install it);
 
-- build substrate relay by running `cargo build -p substrate-relay --release` command in the
+- build Substrate relay by running `cargo build -p substrate-relay --release` command in the
 [`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common) repository clone.
 
 - copy fresh `substrate-relay` binary, built in previous point, to the `~/local_bridge_testing/bin/substrate-relay`;
