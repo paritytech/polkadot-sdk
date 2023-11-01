@@ -15,14 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Elliptic curves which are mostly compatible with *Arkworks* library
-//! mostly useful in non-native contexts.
+//! This crate offers elliptic curves types which are compatible with the
+//! [Arkworks](https://github.com/arkworks-rs) library functionalities.
 //!
-//! The definitions make use of host functions to offload the non-native
-//! computational environment from the some of the most computationally
-//! expensive operations by internally leveraging the
+//! The implementation has been primarily designed to be used in slow hosted
+//! targets (e.g. wasm32) and offloads the most computationally expensive
+//! operations to the host by leveraging the
 //! [arkworks-extensions](https://github.com/paritytech/arkworks-extensions)
-//! library.
+//! library and Substrate's host functions.
 //!
 //! The exported types are organized and named in a way that mirrors the structure
 //! of the types in the original Arkworks library. This design choice aims to make
