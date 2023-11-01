@@ -1,0 +1,6 @@
+# This file only works for `local.Dockerfile` when docker buildkit is used (see ./scripts/build-containers.sh for details)
+*
+!target/release/millau-bridge-node
+!target/release/rialto-bridge-node*
+!target/release/rialto-parachain-collator
+!target/release/substrate-relay

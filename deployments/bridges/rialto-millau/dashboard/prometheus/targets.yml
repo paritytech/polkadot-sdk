@@ -1,0 +1,4 @@
+- targets:
+  - relay-millau-rialto:9616
+  - detect-millau-to-rialto-equivocations:9616
+  - detect-rialto-to-millau-equivocations:9616
