@@ -583,6 +583,16 @@
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -835,7 +845,10 @@
 }
 
 <span class="doccomment">/// Trait for providing a basic fungible asset.
-</span><span class="kw">pub trait </span>Mutate&lt;AccountId&gt;: Inspect&lt;AccountId&gt; + Unbalanced&lt;AccountId&gt; {
+</span><span class="kw">pub trait </span>Mutate&lt;AccountId&gt;: Inspect&lt;AccountId&gt; + Unbalanced&lt;AccountId&gt;
+<span class="kw">where
+	</span>AccountId: Eq,
+{
 	<span class="doccomment">/// Increase the balance of `who` by exactly `amount`, minting new tokens. If that isn&#39;t
 	/// possible then an `Err` is returned and nothing is changed.
 	</span><span class="kw">fn </span>mint_into(
@@ -938,6 +951,9 @@
 	}
 
 	<span class="doccomment">/// Transfer funds from one account into another.
+	///
+	/// A transfer where the source and destination account are identical is treated as No-OP after
+	/// checking the preconditions.
 	</span><span class="kw">fn </span>transfer(
 		asset: <span class="self">Self</span>::AssetId,
 		source: <span class="kw-2">&amp;</span>AccountId,
@@ -948,6 +964,10 @@
 		<span class="kw">let </span>_extra = <span class="self">Self</span>::can_withdraw(asset.clone(), source, amount)
 			.into_result(preservation != Expendable)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::can_deposit(asset.clone(), dest, amount, Extant).into_result()<span class="question-mark">?</span>;
+		<span class="kw">if </span>source == dest {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(amount)
+		}
+
 		<span class="self">Self</span>::decrease_balance(asset.clone(), source, amount, BestEffort, preservation, Polite)<span class="question-mark">?</span>;
 		<span class="comment">// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.

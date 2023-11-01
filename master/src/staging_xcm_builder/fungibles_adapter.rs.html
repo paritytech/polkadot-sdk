@@ -452,7 +452,7 @@
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Clone, <span class="comment">// can&#39;t get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
 	</span>&gt; TransactAsset <span class="kw">for </span>FungiblesTransferAdapter&lt;Assets, Matcher, AccountIdConverter, AccountId&gt;
 {
 	<span class="kw">fn </span>internal_transfer_asset(
@@ -568,7 +568,7 @@
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Clone, <span class="comment">// can&#39;t get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
 		</span>CheckAsset: AssetChecking&lt;Assets::AssetId&gt;,
 		CheckingAccount: Get&lt;AccountId&gt;,
 	&gt;
@@ -603,7 +603,7 @@
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Clone, <span class="comment">// can&#39;t get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
 		</span>CheckAsset: AssetChecking&lt;Assets::AssetId&gt;,
 		CheckingAccount: Get&lt;AccountId&gt;,
 	&gt; TransactAsset
@@ -743,7 +743,7 @@
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Clone, <span class="comment">// can&#39;t get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
 		</span>CheckAsset: AssetChecking&lt;Assets::AssetId&gt;,
 		CheckingAccount: Get&lt;AccountId&gt;,
 	&gt; TransactAsset

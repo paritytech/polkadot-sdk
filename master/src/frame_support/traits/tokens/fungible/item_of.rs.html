@@ -670,7 +670,7 @@
 <span class="kw">impl</span>&lt;
 		F: fungibles::Mutate&lt;AccountId&gt;,
 		A: Get&lt;&lt;F <span class="kw">as </span>fungibles::Inspect&lt;AccountId&gt;&gt;::AssetId&gt;,
-		AccountId,
+		AccountId: Eq,
 	&gt; Mutate&lt;AccountId&gt; <span class="kw">for </span>ItemOf&lt;F, A, AccountId&gt;
 {
 	<span class="kw">fn </span>mint_into(who: <span class="kw-2">&amp;</span>AccountId, amount: <span class="self">Self</span>::Balance) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {

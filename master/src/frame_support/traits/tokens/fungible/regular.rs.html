@@ -504,6 +504,16 @@
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -741,7 +751,10 @@
 }
 
 <span class="doccomment">/// Trait for providing a basic fungible asset.
-</span><span class="kw">pub trait </span>Mutate&lt;AccountId&gt;: Inspect&lt;AccountId&gt; + Unbalanced&lt;AccountId&gt; {
+</span><span class="kw">pub trait </span>Mutate&lt;AccountId&gt;: Inspect&lt;AccountId&gt; + Unbalanced&lt;AccountId&gt;
+<span class="kw">where
+	</span>AccountId: Eq,
+{
 	<span class="doccomment">/// Increase the balance of `who` by exactly `amount`, minting new tokens. If that isn&#39;t
 	/// possible then an `Err` is returned and nothing is changed.
 	</span><span class="kw">fn </span>mint_into(who: <span class="kw-2">&amp;</span>AccountId, amount: <span class="self">Self</span>::Balance) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
@@ -809,6 +822,9 @@
 	}
 
 	<span class="doccomment">/// Transfer funds from one account into another.
+	///
+	/// A transfer where the source and destination account are identical is treated as No-OP after
+	/// checking the preconditions.
 	</span><span class="kw">fn </span>transfer(
 		source: <span class="kw-2">&amp;</span>AccountId,
 		dest: <span class="kw-2">&amp;</span>AccountId,
@@ -817,6 +833,10 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
 		<span class="kw">let </span>_extra = <span class="self">Self</span>::can_withdraw(source, amount).into_result(preservation != Expendable)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::can_deposit(dest, amount, Extant).into_result()<span class="question-mark">?</span>;
+		<span class="kw">if </span>source == dest {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(amount)
+		}
+
 		<span class="self">Self</span>::decrease_balance(source, amount, BestEffort, preservation, Polite)<span class="question-mark">?</span>;
 		<span class="comment">// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.

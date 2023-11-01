@@ -683,7 +683,7 @@
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
 </span><span class="kw">pub struct </span>TakeFirstAssetTrader&lt;
-	AccountId,
+	AccountId: Eq,
 	FeeCharger: ChargeWeightInFungibles&lt;AccountId, ConcreteAssets&gt;,
 	Matcher: MatchesFungibles&lt;ConcreteAssets::AssetId, ConcreteAssets::Balance&gt;,
 	ConcreteAssets: fungibles::Mutate&lt;AccountId&gt; + fungibles::Balanced&lt;AccountId&gt;,
@@ -693,7 +693,7 @@
 	PhantomData&lt;(AccountId, FeeCharger, Matcher, ConcreteAssets, HandleRefund)&gt;,
 );
 <span class="kw">impl</span>&lt;
-		AccountId,
+		AccountId: Eq,
 		FeeCharger: ChargeWeightInFungibles&lt;AccountId, ConcreteAssets&gt;,
 		Matcher: MatchesFungibles&lt;ConcreteAssets::AssetId, ConcreteAssets::Balance&gt;,
 		ConcreteAssets: fungibles::Mutate&lt;AccountId&gt; + fungibles::Balanced&lt;AccountId&gt;,
@@ -822,7 +822,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-		AccountId,
+		AccountId: Eq,
 		FeeCharger: ChargeWeightInFungibles&lt;AccountId, ConcreteAssets&gt;,
 		Matcher: MatchesFungibles&lt;ConcreteAssets::AssetId, ConcreteAssets::Balance&gt;,
 		ConcreteAssets: fungibles::Mutate&lt;AccountId&gt; + fungibles::Balanced&lt;AccountId&gt;,

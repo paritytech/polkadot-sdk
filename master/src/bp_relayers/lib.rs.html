@@ -321,7 +321,7 @@
 <span class="kw">impl</span>&lt;T, Relayer&gt; PaymentProcedure&lt;Relayer, T::Balance&gt; <span class="kw">for </span>PayRewardFromAccount&lt;T, Relayer&gt;
 <span class="kw">where
 	</span>T: frame_support::traits::fungible::Mutate&lt;Relayer&gt;,
-	Relayer: Decode + Encode,
+	Relayer: Decode + Encode + Eq,
 {
 	<span class="kw">type </span>Error = sp_runtime::DispatchError;
 
