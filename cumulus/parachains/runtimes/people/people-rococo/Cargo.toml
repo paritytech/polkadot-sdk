@@ -10,6 +10,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+enumflags2 = { version = "0.7.7" }
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
@@ -82,6 +83,7 @@ std = [
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
+	"enumflags2/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",

@@ -87,7 +87,7 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 pub use types::{
 	Data, IdentityFields, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
-	Registration,
+	Registration, U64BitFlag,
 };
 
 type BalanceOf<T> =
