@@ -372,6 +372,27 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 		V::decode_len(&Self::hashed_key_for(key))
 	}
 
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `V` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	fn decode_non_dedup_len<KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<usize>
+		where
+			V: StorageDecodeNonDedupLength,
+	{
+		V::decode_non_dedup_len(&Self::hashed_key_for(key))
+	}
+
 	/// Migrate an item with the given `key` from a defunct `OldHasher` to the current hasher.
 	///
 	/// If the key doesn't exist, then it's a no-op. If it does, then it returns its value.
@@ -765,6 +786,27 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 		V: StorageDecodeLength,
 	{
 		V::decode_len(&Self::hashed_key_for(key1, key2))
+	}
+
+	/// Read the length of the storage value without decoding the entire value under the
+	/// given `key1` and `key2`.
+	///
+	/// `V` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
+		where
+			KArg1: EncodeLike<K1>,
+			KArg2: EncodeLike<K2>,
+			V: StorageDecodeNonDedupLength,
+	{
+		V::decode_non_dedup_len(&Self::hashed_key_for(key1, key2))
 	}
 
 	/// Migrate an item with the given `key1` and `key2` from defunct `OldHasher1` and
