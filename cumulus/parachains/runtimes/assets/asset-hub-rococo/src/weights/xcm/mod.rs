@@ -61,7 +61,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}
-	fn reserve_asset_deposited(assets: &MultiAssets) -> Weight {
+	fn reserve_asset_deposited(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
 	}
 	fn receive_teleported_asset(assets: &Assets) -> Weight {
@@ -117,7 +117,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	fn report_error(_query_response_info: &QueryResponseInfo) -> Weight {
 		XcmGeneric::<Runtime>::report_error()
 	}
-	fn deposit_asset(assets: &MultiAssetFilter, _dest: &MultiLocation) -> Weight {
+	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_asset())
 	}
 	fn deposit_reserve_asset(

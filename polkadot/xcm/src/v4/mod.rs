@@ -44,7 +44,7 @@ pub use asset::{
 	MAX_ITEMS_IN_ASSETS,
 };
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
-pub use junctions::Junctions;
+pub use junctions::{Junctions, HERE};
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
@@ -179,7 +179,7 @@ pub mod prelude {
 			Instruction::*,
 			InteriorLocation,
 			Junction::{self, *},
-			Junctions::{self, Here},
+			Junctions::{self, HERE},
 			Location, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,

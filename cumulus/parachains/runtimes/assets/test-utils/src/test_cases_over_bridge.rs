@@ -171,29 +171,29 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				id: sp_runtime::AccountId32::new([3; 32]).into(),
 			}]);
 
-			let assets_to_transfer = MultiAssets::from(asset_to_transfer);
+			let assets_to_transfer = Assets::from(asset_to_transfer);
 			let mut expected_assets = assets_to_transfer.clone();
 			let context = XcmConfig::UniversalLocation::get();
 			expected_assets
-				.reanchor(&target_location_from_different_consensus, context)
+				.reanchor(&target_location_from_different_consensus, &context)
 				.unwrap();
 
-			let expected_beneficiary = target_destination_account;
+			let expected_beneficiary = target_destination_account.clone();
 
 			// Make sure sender has enough funds for paying delivery fees
 			let handling_delivery_fees = {
 				// Probable XCM with `ReserveAssetDeposited`.
 				let mut expected_reserve_asset_deposited_message = Xcm(vec![
-					ReserveAssetDeposited(MultiAssets::from(expected_assets.clone())),
+					ReserveAssetDeposited(Assets::from(expected_assets.clone())),
 					ClearOrigin,
 					BuyExecution {
-						fees: MultiAsset {
-							id: Concrete(Default::default()),
+						fees: Asset {
+							id: AssetId(Default::default()),
 							fun: Fungible(balance_to_transfer),
 						},
 						weight_limit: Unlimited,
 					},
-					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary },
+					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary.clone() },
 					SetTopic([
 						220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112,
 						140, 247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,
@@ -206,8 +206,8 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				);
 
 				// Call `SendXcm::validate` to get delivery fees.
-				let (_, delivery_fees): (_, MultiAssets) = XcmConfig::XcmSender::validate(
-					&mut Some(target_location_from_different_consensus),
+				let (_, delivery_fees): (_, Assets) = XcmConfig::XcmSender::validate(
+					&mut Some(target_location_from_different_consensus.clone()),
 					&mut Some(expected_reserve_asset_deposited_message),
 				)
 				.expect("validate passes");
@@ -216,13 +216,10 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				for delivery_fee in delivery_fees.inner() {
 					assert_ok!(<XcmConfig::AssetTransactor as TransactAsset>::deposit_asset(
 						&delivery_fee,
-						&MultiLocation {
-							parents: 0,
-							interior: X1(AccountId32 {
-								network: None,
-								id: alice_account.clone().into(),
-							}),
-						},
+						&Location::new(0, [AccountId32 {
+							network: None,
+							id: alice_account.clone().into(),
+						}]),
 						None,
 					));
 					delivery_fees_added = true;
@@ -479,14 +476,11 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				0.into()
 			);
 
-			let expected_assets = MultiAssets::from(vec![MultiAsset {
-				id: Concrete(foreign_asset_id_multilocation),
+			let expected_assets = Assets::from(vec![Asset {
+				id: AssetId(foreign_asset_id_location.clone()),
 				fun: Fungible(transfered_foreign_asset_id_amount),
 			}]);
-			let expected_beneficiary = MultiLocation {
-				parents: 0,
-				interior: X1(AccountId32 { network: None, id: target_account.clone().into() }),
-			};
+			let expected_beneficiary = Location::new(0, [AccountId32 { network: None, id: target_account.clone().into() }]);
 
 			// Call received XCM execution
 			let xcm = Xcm(vec![
@@ -502,7 +496,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					},
 					weight_limit: Unlimited,
 				},
-				DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary },
+				DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary.clone() },
 				SetTopic([
 					220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112, 140,
 					247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,

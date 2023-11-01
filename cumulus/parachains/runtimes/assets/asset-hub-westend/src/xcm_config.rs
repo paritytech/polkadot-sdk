@@ -41,7 +41,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
-use westend_runtime_constants::{system_parachain, TREASURY_PALLET_ID as ParentTreasuryPalletIndex};
+use westend_runtime_constants::system_parachain;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -74,7 +74,7 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used

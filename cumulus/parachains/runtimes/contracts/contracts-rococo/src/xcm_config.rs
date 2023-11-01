@@ -52,7 +52,7 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.
@@ -160,18 +160,15 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
+pub struct SystemParachains;
+impl Contains<Location> for SystemParachains {
+	fn contains(location: &Location) -> bool {
+		use system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID, CONTRACTS_ID, ENCOINTER_ID};
+		matches!(
+			location.unpack(),
+			(1, [Parachain(ASSET_HUB_ID | BRIDGE_HUB_ID | CONTRACTS_ID | ENCOINTER_ID)])
+		)
+	}
 }
 
 /// Locations that will not be charged fees in the executor,

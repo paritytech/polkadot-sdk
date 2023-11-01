@@ -76,7 +76,7 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.

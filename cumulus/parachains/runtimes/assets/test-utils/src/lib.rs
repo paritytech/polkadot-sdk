@@ -31,8 +31,8 @@ use xcm_builder::{CreateMatcher, MatchXcm};
 /// chain as part of a reserve-asset-transfer.
 pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall: Debug>(
 	xcm: &mut Xcm<RuntimeCall>,
-	expected_reserve_assets_deposited: &MultiAssets,
-	expected_beneficiary: &MultiLocation,
+	expected_reserve_assets_deposited: &Assets,
+	expected_beneficiary: &Location,
 ) {
 	let _ = xcm
 		.0

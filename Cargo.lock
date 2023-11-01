@@ -20845,6 +20845,7 @@ dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
+ "staging-xcm",
  "syn 2.0.38",
 ]
 
