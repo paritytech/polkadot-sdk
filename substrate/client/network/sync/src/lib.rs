@@ -3364,4 +3364,129 @@ mod test {
 		pending_responses.remove(&peers[1]);
 		assert_eq!(pending_responses.len(), 0);
 	}
+
+	/// The test demonstrates https://github.com/paritytech/polkadot-sdk/issues/2094.
+	/// TODO: convert it into desired behavior test once the issue is fixed (see inline comments).
+	/// The issue: we currently rely on block numbers instead of block hash
+	/// to download blocks from peers. As a result, we can end up with blocks
+	/// from different forks as shown by the test.
+	#[test]
+	#[should_panic]
+	fn request_across_forks() {
+		sp_tracing::try_init_simple();
+
+		let (_chain_sync_network_provider, chain_sync_network_handle) =
+			NetworkServiceProvider::new();
+		let mut client = Arc::new(TestClientBuilder::new().build());
+		let blocks = (0..100).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
+
+		let fork_a_blocks = {
+			let mut client = Arc::new(TestClientBuilder::new().build());
+			let mut fork_blocks = blocks[..]
+				.into_iter()
+				.inspect(|b| {
+					assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+					block_on(client.import(BlockOrigin::Own, (*b).clone())).unwrap()
+				})
+				.cloned()
+				.collect::<Vec<_>>();
+			for _ in 0..10 {
+				fork_blocks.push(build_block(&mut client, None, false));
+			}
+			fork_blocks
+		};
+
+		let fork_b_blocks = {
+			let mut client = Arc::new(TestClientBuilder::new().build());
+			let mut fork_blocks = blocks[..]
+				.into_iter()
+				.inspect(|b| {
+					assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+					block_on(client.import(BlockOrigin::Own, (*b).clone())).unwrap()
+				})
+				.cloned()
+				.collect::<Vec<_>>();
+			for _ in 0..10 {
+				fork_blocks.push(build_block(&mut client, None, true));
+			}
+			fork_blocks
+		};
+
+		let mut sync = ChainSync::new(
+			SyncMode::Full,
+			client.clone(),
+			ProtocolName::from("test-block-announce-protocol"),
+			5,
+			64,
+			None,
+			chain_sync_network_handle,
+		)
+		.unwrap();
+
+		// Add the peers, all at the common ancestor 100.
+		let common_block = blocks.last().unwrap();
+		let peer_id1 = PeerId::random();
+		sync.new_peer(peer_id1, common_block.hash(), *common_block.header().number())
+			.unwrap();
+		let peer_id2 = PeerId::random();
+		sync.new_peer(peer_id2, common_block.hash(), *common_block.header().number())
+			.unwrap();
+
+		// Peer 1 announces 107 from fork 1, 100-107 get downloaded.
+		{
+			let block = (&fork_a_blocks[106]).clone();
+			let peer = peer_id1;
+			log::trace!(target: LOG_TARGET, "<1> {peer} announces from fork 1");
+			send_block_announce(block.header().clone(), peer, &mut sync);
+			let request = get_block_request(&mut sync, FromBlock::Hash(block.hash()), 7, &peer);
+			let mut resp_blocks = fork_a_blocks[100_usize..107_usize].to_vec();
+			resp_blocks.reverse();
+			let response = create_block_response(resp_blocks.clone());
+			let res = sync.on_block_data(&peer, Some(request), response).unwrap();
+			assert!(matches!(
+				res,
+				OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == 7_usize
+			),);
+			assert_eq!(sync.best_queued_number, 107);
+			assert_eq!(sync.best_queued_hash, block.hash());
+			assert!(sync.is_known(&block.header.parent_hash()));
+		}
+
+		// Peer 2 also announces 107 from fork 1.
+		{
+			let prev_best_number = sync.best_queued_number;
+			let prev_best_hash = sync.best_queued_hash;
+			let peer = peer_id2;
+			log::trace!(target: LOG_TARGET, "<2> {peer} announces from fork 1");
+			for i in 100..107 {
+				let block = (&fork_a_blocks[i]).clone();
+				send_block_announce(block.header().clone(), peer, &mut sync);
+				assert!(sync.block_requests().is_empty());
+			}
+			assert_eq!(sync.best_queued_number, prev_best_number);
+			assert_eq!(sync.best_queued_hash, prev_best_hash);
+		}
+
+		// Peer 2 undergoes reorg, announces 108 from fork 2, gets downloaded even though we
+		// don't have the parent from fork 2.
+		{
+			let block = (&fork_b_blocks[107]).clone();
+			let peer = peer_id2;
+			log::trace!(target: LOG_TARGET, "<3> {peer} announces from fork 2");
+			send_block_announce(block.header().clone(), peer, &mut sync);
+			// TODO: when the issue is fixed, this test can be changed to test the
+			// expected behavior instead. The needed changes would be:
+			// 1. Remove the `#[should_panic]` directive
+			// 2. These should be changed to check that sync.block_requests().is_empty(), after the
+			//    block is announced.
+			let request = get_block_request(&mut sync, FromBlock::Hash(block.hash()), 1, &peer);
+			let response = create_block_response(vec![block.clone()]);
+			let res = sync.on_block_data(&peer, Some(request), response).unwrap();
+			assert!(matches!(
+				res,
+				OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == 1_usize
+			),);
+			assert!(sync.is_known(&block.header.parent_hash()));
+		}
+	}
 }

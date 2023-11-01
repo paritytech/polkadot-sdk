@@ -39,12 +39,12 @@ use polkadot_node_core_pvf_common::{
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 use std::{
+	io,
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use tokio::io;
 
 // Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 // That native code does not create any stacks and just reuses the stack of the thread that
@@ -138,7 +138,7 @@ pub fn worker_entrypoint(
 		node_version,
 		worker_version,
 		&security_status,
-		|mut stream, worker_dir_path| async move {
+		|mut stream, worker_dir_path| {
 			let worker_pid = std::process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 

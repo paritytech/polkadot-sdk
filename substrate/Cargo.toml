@@ -10,7 +10,7 @@ version = "1.0.0"
 
 # The dependencies are only needed for docs.
 [dependencies]
-aquamarine = "0.3.2"
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
 
 subkey = { path = "bin/utils/subkey" }
 chain-spec-builder = { path = "bin/utils/chain-spec-builder" }
