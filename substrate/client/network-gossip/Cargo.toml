@@ -24,6 +24,7 @@ tracing = "0.1.29"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
 sc-network = { path = "../network" }
 sc-network-common = { path = "../network/common" }
+sc-network-sync = { path = "../network/sync" }
 sp-runtime = { path = "../../primitives/runtime" }
 
 [dev-dependencies]
