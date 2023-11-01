@@ -39,7 +39,6 @@ use frame_support::{
 	dispatch::{DispatchResult, Pays, PostDispatchInfo},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
-	storage,
 	traits::Get,
 	weights::Weight,
 };
@@ -598,7 +597,7 @@ pub mod pallet {
 					);
 					let validation_code = <PendingValidationCode<T>>::take();
 
-					Self::put_parachain_code(&validation_code);
+					frame_system::Pallet::<T>::update_code_in_storage(&validation_code);
 					<T::OnSystemEvent as OnSystemEvent>::on_validation_code_applied();
 					Self::deposit_event(Event::ValidationFunctionApplied {
 						relay_chain_block_num: vfp.relay_parent_number,
@@ -1397,12 +1396,6 @@ impl<T: Config> Pallet<T> {
 	fn notify_polkadot_of_pending_upgrade(code: &[u8]) {
 		NewValidationCode::<T>::put(code);
 		<DidSetValidationCode<T>>::put(true);
-	}
-
-	/// Put a new validation function into a particular location where this
-	/// parachain will execute it on subsequent blocks.
-	fn put_parachain_code(code: &[u8]) {
-		storage::unhashed::put_raw(sp_core::storage::well_known_keys::CODE, code);
 	}
 
 	/// The maximum code size permitted, in bytes.
