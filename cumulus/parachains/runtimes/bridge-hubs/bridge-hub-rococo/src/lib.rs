@@ -372,7 +372,7 @@ impl pallet_message_queue::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MessageProcessor = BridgeHubMessageProcessor<
 		xcm_builder::ProcessXcmMessage<
-			AggregateMessageOrigin,
+			MessageOrigin,
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
 			RuntimeCall,
 		>,

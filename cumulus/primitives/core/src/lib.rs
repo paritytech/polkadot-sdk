@@ -120,9 +120,9 @@ impl From<u32> for AggregateMessageOrigin {
 	fn from(x: u32) -> Self {
 		use MessageOrigin::*;
 		match x {
-			0 => Self::Xcmp(Here),
-			1 => Self::Xcmp(Parent),
-			p => Self::Xcmp(Sibling(ParaId::from(p))),
+			0 => Self::Xcm(Here),
+			1 => Self::Xcm(Parent),
+			p => Self::Xcm(Sibling(ParaId::from(p))),
 		}
 	}
 }
