@@ -20,7 +20,6 @@ mod executor_intf;
 mod memory_stats;
 
 pub use executor_intf::{prepare, prevalidate};
-use libc;
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -30,7 +29,11 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
-use nix::sys::resource::{Resource, Usage, UsageWho};
+use libc;
+use nix::{
+	sys::resource::{Resource, Usage, UsageWho},
+	unistd::ForkResult,
+};
 use os_pipe::{self, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
@@ -161,10 +164,8 @@ pub fn worker_entrypoint(
 
 				// SAFETY: new process is spawned within a single threaded process
 				let result = match unsafe { nix::unistd::fork() } {
-					// error
-					-1 => Err(PrepareError::Panic(String::from("error forking"))),
-					// child
-					0 => {
+					Err(_errno) => Err(PrepareError::Panic(String::from("error forking"))),
+					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
 						// outside world. The only IPC it should be able to do is sending its
@@ -180,7 +181,7 @@ pub fn worker_entrypoint(
 						)
 					},
 					// parent
-					_ => {
+					Ok(ForkResult::Parent { child: _child }) => {
 						// the read end will wait until all write ends have been closed,
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
