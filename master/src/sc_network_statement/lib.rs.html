@@ -485,8 +485,6 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -528,10 +526,8 @@
 	utils::{interval, LruHashSet},
 	NetworkEventStream, NetworkNotification, NetworkPeers,
 };
-<span class="kw">use </span>sc_network_common::{
-	role::ObservedRole,
-	sync::{SyncEvent, SyncEventStream},
-};
+<span class="kw">use </span>sc_network_common::role::ObservedRole;
+<span class="kw">use </span>sc_network_sync::{SyncEvent, SyncEventStream};
 <span class="kw">use </span>sp_statement_store::{
 	Hash, NetworkPriority, Statement, StatementSource, StatementStore, SubmitResult,
 };

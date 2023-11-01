@@ -822,7 +822,11 @@
 	types::ProtocolName,
 };
 
-<span class="kw">pub use </span>libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
+<span class="kw">pub use </span>libp2p::{
+	build_multiaddr,
+	identity::{<span class="self">self</span>, ed25519, Keypair},
+	multiaddr, Multiaddr, PeerId,
+};
 
 <span class="kw">use </span><span class="kw">crate</span>::peer_store::PeerStoreHandle;
 <span class="kw">use </span>codec::Encode;
@@ -831,9 +835,10 @@
 
 <span class="kw">pub use </span>sc_network_common::{
 	role::{Role, Roles},
-	sync::{warp::WarpSyncProvider, SyncMode},
+	sync::SyncMode,
 	ExHashT,
 };
+
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedSender;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
@@ -848,11 +853,6 @@
 	path::{Path, PathBuf},
 	pin::Pin,
 	str::{<span class="self">self</span>, FromStr},
-};
-
-<span class="kw">pub use </span>libp2p::{
-	build_multiaddr,
-	identity::{<span class="self">self</span>, ed25519},
 };
 
 <span class="doccomment">/// Protocol name prefix, transmitted on the wire for legacy protocol names.

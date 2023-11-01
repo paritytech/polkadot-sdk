@@ -328,11 +328,11 @@ var srcIndex = JSON.parse('{\
 "sc_mixnet":["",[],["api.rs","config.rs","error.rs","extrinsic_queue.rs","lib.rs","maybe_inf_delay.rs","packet_dispatcher.rs","peer_id.rs","protocol.rs","request.rs","run.rs","sync_with_runtime.rs"]],\
 "sc_network":["",[["protocol",[["notifications",[["upgrade",[],["collec.rs","notifications.rs"]]],["behaviour.rs","handler.rs","upgrade.rs"]]],["message.rs","notifications.rs"]],["service",[],["metrics.rs","out_events.rs","signature.rs","traits.rs"]]],["behaviour.rs","config.rs","discovery.rs","error.rs","event.rs","lib.rs","network_state.rs","peer_info.rs","peer_store.rs","protocol.rs","protocol_controller.rs","request_responses.rs","service.rs","transport.rs","types.rs","utils.rs"]],\
 "sc_network_bitswap":["",[],["lib.rs","schema.rs"]],\
-"sc_network_common":["",[["sync",[],["message.rs","metrics.rs","warp.rs"]]],["lib.rs","message.rs","role.rs","sync.rs","types.rs"]],\
+"sc_network_common":["",[["sync",[],["message.rs"]]],["lib.rs","message.rs","role.rs","sync.rs","types.rs"]],\
 "sc_network_gossip":["",[],["bridge.rs","lib.rs","state_machine.rs","validator.rs"]],\
 "sc_network_light":["",[["light_client_requests",[],["handler.rs"]]],["lib.rs","light_client_requests.rs","schema.rs"]],\
 "sc_network_statement":["",[],["config.rs","lib.rs"]],\
-"sc_network_sync":["",[["service",[],["chain_sync.rs","mock.rs","mod.rs","network.rs"]]],["block_announce_validator.rs","block_relay_protocol.rs","block_request_handler.rs","blocks.rs","engine.rs","extra_requests.rs","futures_stream.rs","lib.rs","mock.rs","pending_responses.rs","schema.rs","state.rs","state_request_handler.rs","warp.rs","warp_request_handler.rs"]],\
+"sc_network_sync":["",[["service",[],["chain_sync.rs","mock.rs","mod.rs","network.rs"]]],["block_announce_validator.rs","block_relay_protocol.rs","block_request_handler.rs","blocks.rs","chain_sync.rs","engine.rs","extra_requests.rs","futures_stream.rs","lib.rs","mock.rs","pending_responses.rs","request_metrics.rs","schema.rs","state.rs","state_request_handler.rs","types.rs","warp.rs","warp_request_handler.rs"]],\
 "sc_network_test":["",[],["lib.rs"]],\
 "sc_network_transactions":["",[],["config.rs","lib.rs"]],\
 "sc_offchain":["",[["api",[],["http.rs","timestamp.rs"]]],["api.rs","lib.rs"]],\

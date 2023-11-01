@@ -112,6 +112,9 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -133,7 +136,8 @@
 </span><span class="doccomment">//! [`PendingResponses`] is responsible for keeping track of pending responses and
 //! polling them.
 
-</span><span class="kw">use </span>futures::{
+</span><span class="kw">use </span><span class="kw">crate</span>::types::PeerRequest;
+<span class="kw">use </span>futures::{
 	channel::oneshot,
 	future::BoxFuture,
 	stream::{BoxStream, Stream},
@@ -142,10 +146,12 @@
 <span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::error;
 <span class="kw">use </span>sc_network::request_responses::RequestFailure;
-<span class="kw">use </span>sc_network_common::sync::PeerRequest;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::task::{Context, Poll};
 <span class="kw">use </span>tokio_stream::StreamMap;
+
+<span class="doccomment">/// Log target for this file.
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;sync&quot;</span>;
 
 <span class="doccomment">/// Response result.
 </span><span class="kw">type </span>ResponseResult = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;, oneshot::Canceled&gt;;
@@ -188,7 +194,7 @@
 			.is_some()
 		{
 			<span class="macro">error!</span>(
-				target: <span class="kw">crate</span>::LOG_TARGET,
+				target: LOG_TARGET,
 				<span class="string">&quot;Discarded pending response from peer {peer_id}, request type: {request_type:?}.&quot;</span>,
 			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);

@@ -580,6 +580,8 @@
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -598,11 +600,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use crate</span>::{PeerSync, PeerSyncState};
+</span><span class="kw">use crate</span>::{
+	chain_sync::{PeerSync, PeerSyncState},
+	request_metrics::Metrics,
+};
 <span class="kw">use </span>fork_tree::ForkTree;
 <span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, trace, warn};
-<span class="kw">use </span>sc_network_common::sync::metrics::Metrics;
 <span class="kw">use </span>sp_blockchain::Error <span class="kw">as </span>ClientError;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor, Zero};
 <span class="kw">use </span>std::{
@@ -925,7 +929,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::PeerSync;
+	<span class="kw">use </span><span class="kw">crate</span>::chain_sync::PeerSync;
 	<span class="kw">use </span>quickcheck::{Arbitrary, Gen, QuickCheck};
 	<span class="kw">use </span>sp_blockchain::Error <span class="kw">as </span>ClientError;
 	<span class="kw">use </span>sp_test_primitives::{Block, BlockNumber, Hash};

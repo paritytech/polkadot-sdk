@@ -607,6 +607,8 @@
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -633,7 +635,6 @@
 		BlockResponse <span class="kw">as </span>BlockResponseSchema, BlockResponse, Direction,
 	},
 	service::network::NetworkServiceHandle,
-	MAX_BLOCKS_IN_RESPONSE,
 };
 
 <span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
@@ -662,6 +663,9 @@
 	sync::Arc,
 	time::Duration,
 };
+
+<span class="doccomment">/// Maximum blocks per response.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_BLOCKS_IN_RESPONSE: usize = <span class="number">128</span>;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sync&quot;</span>;
 <span class="kw">const </span>MAX_BODY_BYTES: usize = <span class="number">8 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;

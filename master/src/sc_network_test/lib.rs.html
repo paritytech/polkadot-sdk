@@ -1208,7 +1208,6 @@
 <a href="#1208" id="1208">1208</a>
 <a href="#1209" id="1209">1209</a>
 <a href="#1210" id="1210">1210</a>
-<a href="#1211" id="1211">1211</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1271,16 +1270,15 @@
 	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
 	NetworkWorker,
 };
-<span class="kw">use </span>sc_network_common::{
-	role::Roles,
-	sync::warp::{AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncProvider},
-};
+<span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 <span class="kw">use </span>sc_network_sync::{
 	block_request_handler::BlockRequestHandler,
 	service::{chain_sync::SyncingService, network::NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
-	warp::WarpSyncParams,
+	warp::{
+		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
+	},
 	warp_request_handler,
 };
 <span class="kw">use </span>sc_service::client::Client;

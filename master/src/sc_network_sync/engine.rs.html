@@ -1389,6 +1389,9 @@
 <a href="#1389" id="1389">1389</a>
 <a href="#1390" id="1390">1390</a>
 <a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1415,12 +1418,21 @@
 		BlockAnnounceValidationResult, BlockAnnounceValidator <span class="kw">as </span>BlockAnnounceValidatorStream,
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
+	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
+	chain_sync::{
+		BlockRequestAction, ChainSync, ImportBlocksAction, ImportJustificationsAction,
+		OnBlockResponse,
+	},
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
-	service::{<span class="self">self</span>, chain_sync::ToServiceCommand},
-	warp::WarpSyncParams,
-	BlockRequestAction, ChainSync, ClientError, ImportBlocksAction, ImportJustificationsAction,
-	OnBlockResponse, SyncingService,
+	service::{
+		<span class="self">self</span>,
+		chain_sync::{SyncingService, ToServiceCommand},
+	},
+	types::{
+		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
+	},
+	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
 };
 
 <span class="kw">use </span>codec::{Decode, Encode};
@@ -1452,15 +1464,10 @@
 };
 <span class="kw">use </span>sc_network_common::{
 	role::Roles,
-	sync::{
-		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
-		warp::{EncodedProof, WarpProofRequest},
-		BadPeer, ChainSync <span class="kw">as </span>ChainSyncT, ExtendedPeerInfo, OpaqueStateRequest,
-		OpaqueStateResponse, PeerRequest, SyncEvent,
-	},
+	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
-<span class="kw">use </span>sp_blockchain::HeaderMetadata;
+<span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, HeaderMetadata};
 <span class="kw">use </span>sp_consensus::block_validation::BlockAnnounceValidator;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header, NumberFor, Zero};
 
@@ -1754,18 +1761,17 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, SyncingService&lt;B&gt;, NonDefaultSetConfig), ClientError&gt; {
 		<span class="kw">let </span>mode = net_config.network_config.sync_mode;
 		<span class="kw">let </span>max_parallel_downloads = net_config.network_config.max_parallel_downloads;
-		<span class="kw">let </span>max_blocks_per_request = <span class="kw">if </span>net_config.network_config.max_blocks_per_request &gt;
-			<span class="kw">crate</span>::MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32
-		{
-			<span class="macro">log::info!</span>(
-				target: LOG_TARGET,
-				<span class="string">&quot;clamping maximum blocks per request to {}&quot;</span>,
-				<span class="kw">crate</span>::MAX_BLOCKS_IN_RESPONSE,
-			);
-			<span class="kw">crate</span>::MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32
-		} <span class="kw">else </span>{
-			net_config.network_config.max_blocks_per_request
-		};
+		<span class="kw">let </span>max_blocks_per_request =
+			<span class="kw">if </span>net_config.network_config.max_blocks_per_request &gt; MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32 {
+				<span class="macro">log::info!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;clamping maximum blocks per request to {}&quot;</span>,
+					MAX_BLOCKS_IN_RESPONSE,
+				);
+				MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32
+			} <span class="kw">else </span>{
+				net_config.network_config.max_blocks_per_request
+			};
 		<span class="kw">let </span>cache_capacity = (net_config.network_config.default_peers_set.in_peers +
 			net_config.network_config.default_peers_set.out_peers)
 			.max(<span class="number">1</span>);

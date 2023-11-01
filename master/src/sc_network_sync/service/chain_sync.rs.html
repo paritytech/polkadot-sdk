@@ -255,7 +255,6 @@
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -274,14 +273,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>futures::{channel::oneshot, Stream};
+</span><span class="kw">use </span><span class="kw">crate</span>::types::{ExtendedPeerInfo, SyncEvent, SyncEventStream, SyncStatus, SyncStatusProvider};
+
+<span class="kw">use </span>futures::{channel::oneshot, Stream};
 <span class="kw">use </span>libp2p::PeerId;
 
 <span class="kw">use </span>sc_consensus::{BlockImportError, BlockImportStatus, JustificationSyncLink, Link};
 <span class="kw">use </span>sc_network::{NetworkBlock, NetworkSyncForkRequest};
-<span class="kw">use </span>sc_network_common::sync::{
-	ExtendedPeerInfo, SyncEvent, SyncEventStream, SyncStatus, SyncStatusProvider,
-};
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 

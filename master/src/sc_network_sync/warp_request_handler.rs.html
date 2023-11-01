@@ -174,13 +174,13 @@
 <span class="kw">use </span>futures::{channel::oneshot, stream::StreamExt};
 <span class="kw">use </span>log::debug;
 
+<span class="kw">use </span><span class="kw">crate</span>::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider};
 <span class="kw">use </span>sc_network::{
 	config::ProtocolId,
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig <span class="kw">as </span>RequestResponseConfig,
 	},
 };
-<span class="kw">use </span>sc_network_common::sync::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
