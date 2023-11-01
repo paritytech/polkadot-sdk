@@ -243,7 +243,11 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	}
 
 	/// Approval voting configuration parameters
-	async fn approval_voting_params(&self, _: Hash) -> Result<ApprovalVotingParams, ApiError> {
+	async fn approval_voting_params(
+		&self,
+		_: Hash,
+		_: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
 		todo!("Not required for tests")
 	}
 
