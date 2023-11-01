@@ -216,7 +216,7 @@ where
 		};
 
 		self.executor
-			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+			.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 
 	fn chain_head_unstable_body(
