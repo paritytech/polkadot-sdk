@@ -446,17 +446,18 @@ impl MultiLocation {
 	}
 
 	/// Return the MultiLocation subsection identifying the chain that `self` points to.
-	pub fn chain_location(mut self) -> MultiLocation {
+	pub fn chain_location(&self) -> MultiLocation {
+		let mut clone = self.clone();
 		// start popping junctions until we reach chain identifier
-		while let Some(j) = self.last() {
+		while let Some(j) = clone.last() {
 			if matches!(j, Junction::Parachain(_) | Junction::GlobalConsensus(_)) {
 				// return chain subsection
-				return self
+				return clone
 			} else {
-				(self, _) = self.split_last_interior();
+				(clone, _) = clone.split_last_interior();
 			}
 		}
-		MultiLocation::new(self.parents, Junctions::Here)
+		MultiLocation::new(clone.parents, Junctions::Here)
 	}
 }
 
