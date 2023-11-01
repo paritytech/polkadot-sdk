@@ -25,9 +25,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod controller;
 pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+pub use controller::*;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
@@ -51,10 +53,8 @@ use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_executor::{
 	traits::{
-		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets,
-		ExecuteController, ExecuteControllerWeightInfo, MatchesFungible, OnResponse, Properties,
-		QueryController, QueryControllerWeightInfo, QueryHandler,
-		QueryResponseStatus, SendController, SendControllerWeightInfo, VersionChangeNotifier,
+		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets, MatchesFungible,
+		OnResponse, Properties, QueryHandler, QueryResponseStatus, VersionChangeNotifier,
 		WeightBounds,
 	},
 	Assets,
@@ -305,13 +305,15 @@ pub mod pallet {
 			let value = (origin_location, message);
 			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
 			let (origin_location, message) = value;
-			Ok(T::XcmExecutor::execute_xcm_in_credit(
+			let outcome = T::XcmExecutor::execute_xcm_in_credit(
 				origin_location,
 				message,
 				hash,
 				max_weight,
 				max_weight,
-			))
+			);
+			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+			Ok(outcome)
 		}
 	}
 
@@ -362,7 +364,7 @@ pub mod pallet {
 			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let query_id = <Self as QueryHandler>::new_query(
 				responder,
-				timeout.into(),
+				timeout,
 				MultiLocation::try_from(match_querier)
 					.map_err(|_| Into::<DispatchError>::into(Error::<T>::BadVersion))?,
 			);
@@ -1000,10 +1002,7 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
-			let result =
-				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
-			Self::deposit_event(Event::Attempted { outcome });
-			result
+			Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into())
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
@@ -1228,7 +1227,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<MultiLocation>,
 	) -> Self::QueryId {
-		Self::do_new_query(responder, None, timeout, match_querier).into()
+		Self::do_new_query(responder, None, timeout, match_querier)
 	}
 
 	/// To check the status of the query, use `fn query()` passing the resultant `QueryId`
