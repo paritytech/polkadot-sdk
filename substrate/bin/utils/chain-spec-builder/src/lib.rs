@@ -341,7 +341,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &RuntimeCmd) -> Result<String, Strin
 			let caller = GenesisConfigBuilderRuntimeCaller::new(&code[..]);
 			let default_config = caller
 				.get_default_config()
-				.map_err(|e| format!("getting default config from runtime should work: {e}"));
+				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
 			default_config_path.clone().map(|path| {
 				fs::write(path.as_path(), serde_json::to_string_pretty(&default_config).unwrap())
 					.map_err(|err| err.to_string())
