@@ -103,7 +103,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Maximum size of an identity we can store is 7 KiB.
-const IDENTITY_MAX_SIZE: u32 = 7 * 1024;
+pub const IDENTITY_MAX_SIZE: u32 = 7 * 1024;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -285,6 +285,16 @@ pub mod pallet {
 		/// A sub-identity was cleared, and the given deposit repatriated from the
 		/// main identity account to the sub-identity account.
 		SubIdentityRevoked { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(
+				T::IdentityInformation::max_encoded_len() <= IDENTITY_MAX_SIZE as usize,
+				"maximum encoded size of an identity is 7 KiB"
+			);
+		}
 	}
 
 	#[pallet::call]
