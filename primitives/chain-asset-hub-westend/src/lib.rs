@@ -45,7 +45,7 @@ frame_support::parameter_types! {
 
 	/// Base delivery fee to `BridgeHubWestend`.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubWestendBaseFeeInWocs: u128 = 1624803349;
+	pub const BridgeHubWestendBaseFeeInWnds: u128 = 487441010000;
 }
 
 /// Identifier of AssetHubWestend in the Westend relay chain.
