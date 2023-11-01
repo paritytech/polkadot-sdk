@@ -1266,6 +1266,12 @@
 <a href="#1266" id="1266">1266</a>
 <a href="#1267" id="1267">1267</a>
 <a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1735,7 +1741,9 @@
 					)<span class="question-mark">?</span>;
 					<span class="macro-nonterminal">$code
 				</span>},
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend =&gt; {
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =&gt; {
 					<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;chain_spec::bridge_hubs::westend::RuntimeApi, <span class="kw">_</span>&gt;(
 						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 						<span class="kw">crate</span>::service::aura_build_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
@@ -1918,7 +1926,9 @@
 							{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend =&gt; {
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =&gt; {
 						runner.async_run(|<span class="macro-nonterminal">$config</span>| {
 							<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;chain_spec::bridge_hubs::westend::RuntimeApi, <span class="kw">_</span>&gt;(
 								<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
@@ -2244,7 +2254,9 @@
 							&gt;(config, polkadot_config, collator_options, id, hwbench)
 							.<span class="kw">await
 							</span>.map(|r| r.<span class="number">0</span>),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend =&gt;
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =&gt;
 							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
 								chain_spec::bridge_hubs::westend::RuntimeApi,
 								AuraId,

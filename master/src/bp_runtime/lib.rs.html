@@ -599,6 +599,8 @@
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -624,7 +626,6 @@
 	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };
 <span class="kw">use </span>frame_system::RawOrigin;
-<span class="kw">use </span>log;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_core::storage::StorageKey;
@@ -698,6 +699,9 @@
 
 <span class="doccomment">/// BridgeHubWococo chain id.
 </span><span class="kw">pub const </span>BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = <span class="kw-2">*</span><span class="string">b&quot;bhwo&quot;</span>;
+
+<span class="doccomment">/// BridgeHubWestend chain id.
+</span><span class="kw">pub const </span>BRIDGE_HUB_WESTEND_CHAIN_ID: ChainId = <span class="kw-2">*</span><span class="string">b&quot;bhwd&quot;</span>;
 
 <span class="doccomment">/// BridgeHubKusama chain id.
 </span><span class="kw">pub const </span>BRIDGE_HUB_KUSAMA_CHAIN_ID: ChainId = <span class="kw-2">*</span><span class="string">b&quot;bhks&quot;</span>;

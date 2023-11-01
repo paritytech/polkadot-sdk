@@ -50,6 +50,9 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -89,6 +92,9 @@
 	<span class="doccomment">/// `ToWococoXcmRouter` bridge pallet.
 	</span><span class="attr">#[codec(index = <span class="number">43</span>)]
 	</span>ToWococoXcmRouter(XcmBridgeHubRouterCall),
+	<span class="doccomment">/// `ToWestendXcmRouter` bridge pallet.
+	</span><span class="attr">#[codec(index = <span class="number">45</span>)]
+	</span>ToWestendXcmRouter(XcmBridgeHubRouterCall),
 }
 
 <span class="macro">frame_support::parameter_types! </span>{
@@ -96,8 +102,8 @@
 	</span><span class="kw">pub const </span>XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(<span class="number">200_000_000</span>, <span class="number">6144</span>);
 
 	<span class="doccomment">/// Base delivery fee to `BridgeHubRococo`.
-	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
-	</span><span class="kw">pub const </span>BridgeHubRococoBaseFeeInRocs: u128 = <span class="number">1214739988</span>;
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	</span><span class="kw">pub const </span>BridgeHubRococoBaseFeeInRocs: u128 = <span class="number">1624803349</span>;
 }
 
 <span class="doccomment">/// Identifier of AssetHubRococo in the Rococo relay chain.

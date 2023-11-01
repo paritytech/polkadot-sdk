@@ -1554,6 +1554,74 @@
 <a href="#1554" id="1554">1554</a>
 <a href="#1555" id="1555">1555</a>
 <a href="#1556" id="1556">1556</a>
+<a href="#1557" id="1557">1557</a>
+<a href="#1558" id="1558">1558</a>
+<a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
+<a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
+<a href="#1611" id="1611">1611</a>
+<a href="#1612" id="1612">1612</a>
+<a href="#1613" id="1613">1613</a>
+<a href="#1614" id="1614">1614</a>
+<a href="#1615" id="1615">1615</a>
+<a href="#1616" id="1616">1616</a>
+<a href="#1617" id="1617">1617</a>
+<a href="#1618" id="1618">1618</a>
+<a href="#1619" id="1619">1619</a>
+<a href="#1620" id="1620">1620</a>
+<a href="#1621" id="1621">1621</a>
+<a href="#1622" id="1622">1622</a>
+<a href="#1623" id="1623">1623</a>
+<a href="#1624" id="1624">1624</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1599,7 +1667,7 @@
 	ord_parameter_types, parameter_types,
 	traits::{
 		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
-		ConstU64, ConstU8, InstanceFilter,
+		ConstU64, ConstU8, Equals, InstanceFilter,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -1610,6 +1678,7 @@
 };
 <span class="kw">use </span>pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 <span class="kw">use </span>pallet_nfts::PalletFeatures;
+<span class="kw">use </span>pallet_xcm::EnsureXcm;
 <span class="kw">pub use </span>parachains_common <span class="kw">as </span>common;
 <span class="kw">use </span>parachains_common::{
 	impls::DealWithFees,
@@ -1664,7 +1733,7 @@
 	</span>spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;westmint&quot;</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;westmint&quot;</span>),
 	authoring_version: <span class="number">1</span>,
-	spec_version: <span class="number">10000</span>,
+	spec_version: <span class="number">1_003_000</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">13</span>,
@@ -2350,6 +2419,37 @@
 	</span><span class="kw">type </span>Helper = ();
 }
 
+<span class="doccomment">/// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
+/// consensus with dynamic fees and back-pressure.
+</span><span class="kw">pub type </span>ToRococoXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance1;
+<span class="kw">impl </span>pallet_xcm_bridge_hub_router::Config&lt;ToRococoXcmRouterInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo&lt;Runtime&gt;;
+
+	<span class="kw">type </span>UniversalLocation = xcm_config::UniversalLocation;
+	<span class="kw">type </span>BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
+	<span class="kw">type </span>Bridges = xcm_config::bridging::NetworkExportTable;
+
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="kw">type </span>BridgeHubOrigin = EnsureXcm&lt;Equals&lt;xcm_config::bridging::SiblingBridgeHub&gt;&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BridgeHubOrigin = frame_support::traits::EitherOfDiverse&lt;
+		<span class="comment">// for running benchmarks
+		</span>EnsureRoot&lt;AccountId&gt;,
+		<span class="comment">// for running tests with `--feature runtime-benchmarks`
+		</span>EnsureXcm&lt;Equals&lt;xcm_config::bridging::SiblingBridgeHub&gt;&gt;,
+	&gt;;
+
+	<span class="kw">type </span>ToBridgeHubSender = XcmpQueue;
+	<span class="kw">type </span>WithBridgeHubChannel =
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider&lt;
+			xcm_config::bridging::SiblingBridgeHubParaId,
+			Runtime,
+		&gt;;
+
+	<span class="kw">type </span>ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	<span class="kw">type </span>FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
+}
+
 <span class="comment">// Create the runtime by composing the FRAME pallets that were previously configured.
 </span><span class="macro">construct_runtime!</span>(
 	<span class="kw">pub enum </span>Runtime
@@ -2381,6 +2481,8 @@
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">31</span>,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event&lt;T&gt;, Origin} = <span class="number">32</span>,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">33</span>,
+		<span class="comment">// Bridge utilities.
+		</span>ToRococoXcmRouter: pallet_xcm_bridge_hub_router::&lt;Instance1&gt;::{Pallet, Storage, Call} = <span class="number">34</span>,
 
 		<span class="comment">// Handy utilities.
 		</span>Utility: pallet_utility::{Pallet, Call, Event} = <span class="number">40</span>,
@@ -2502,6 +2604,7 @@
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_xcm_bridge_hub_router, ToRococo]
 		<span class="comment">// XCM
 		</span>[pallet_xcm, PolkadotXcm]
 		<span class="comment">// NOTE: Make sure you point to the individual modules below.
@@ -2787,6 +2890,7 @@
 			<span class="kw">use </span>frame_support::traits::StorageInfoTrait;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
 			<span class="kw">use </span>cumulus_pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
+			<span class="kw">use </span>pallet_xcm_bridge_hub_router::benchmarking::Pallet <span class="kw">as </span>XcmBridgeHubRouterBench;
 
 			<span class="comment">// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -2801,6 +2905,8 @@
 			</span><span class="kw">type </span>Local = pallet_assets::Pallet::&lt;Runtime, TrustBackedAssetsInstance&gt;;
 			<span class="kw">type </span>Foreign = pallet_assets::Pallet::&lt;Runtime, ForeignAssetsInstance&gt;;
 			<span class="kw">type </span>Pool = pallet_assets::Pallet::&lt;Runtime, PoolAssetsInstance&gt;;
+
+			<span class="kw">type </span>ToRococo = XcmBridgeHubRouterBench&lt;Runtime, ToRococoXcmRouterInstance&gt;;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>list = Vec::&lt;BenchmarkList&gt;::new();
 			<span class="macro">list_benchmarks!</span>(list, extra);
@@ -2829,6 +2935,25 @@
 
 			<span class="kw">use </span>cumulus_pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
 			<span class="kw">impl </span>cumulus_pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
+
+			<span class="kw">use </span>pallet_xcm_bridge_hub_router::benchmarking::{
+				Pallet <span class="kw">as </span>XcmBridgeHubRouterBench,
+				Config <span class="kw">as </span>XcmBridgeHubRouterConfig,
+			};
+
+			<span class="kw">impl </span>XcmBridgeHubRouterConfig&lt;ToRococoXcmRouterInstance&gt; <span class="kw">for </span>Runtime {
+				<span class="kw">fn </span>make_congested() {
+					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::&lt;Runtime&gt;(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+				}
+				<span class="kw">fn </span>ensure_bridged_target_destination() -&gt; MultiLocation {
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+					xcm_config::bridging::to_rococo::AssetHubRococo::get()
+				}
+			}
 
 			<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 			<span class="kw">use </span>xcm_config::{MaxAssetsIntoHolding, WestendLocation};
@@ -2885,7 +3010,13 @@
 					MultiAsset { fun: Fungible(UNITS), id: Concrete(WestendLocation::get()) },
 				));
 				<span class="kw">pub const </span>CheckedAccount: <span class="prelude-ty">Option</span>&lt;(AccountId, xcm_builder::MintLocation)&gt; = <span class="prelude-val">None</span>;
-				<span class="kw">pub const </span>TrustedReserve: <span class="prelude-ty">Option</span>&lt;(MultiLocation, MultiAsset)&gt; = <span class="prelude-val">None</span>;
+				<span class="comment">// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
+				</span><span class="kw">pub </span>TrustedReserve: <span class="prelude-ty">Option</span>&lt;(MultiLocation, MultiAsset)&gt; = <span class="prelude-val">Some</span>(
+					(
+						xcm_config::bridging::to_rococo::AssetHubRococo::get(),
+						MultiAsset::from((xcm_config::bridging::to_rococo::RocLocation::get(), <span class="number">1000000000000 </span><span class="kw">as </span>u128))
+					)
+				);
 			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::fungible::Config <span class="kw">for </span>Runtime {
@@ -2916,7 +3047,10 @@
 				}
 
 				<span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, Junction), BenchmarkError&gt; {
-					<span class="prelude-val">Err</span>(BenchmarkError::Skip)
+					<span class="kw">match </span>xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias() {
+						<span class="prelude-val">Some</span>(alias) =&gt; <span class="prelude-val">Ok</span>(alias),
+						<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(BenchmarkError::Skip)
+					}
 				}
 
 				<span class="kw">fn </span>transact_origin_and_runtime_call() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, RuntimeCall), BenchmarkError&gt; {
@@ -2954,6 +3088,8 @@
 			<span class="kw">type </span>Local = pallet_assets::Pallet::&lt;Runtime, TrustBackedAssetsInstance&gt;;
 			<span class="kw">type </span>Foreign = pallet_assets::Pallet::&lt;Runtime, ForeignAssetsInstance&gt;;
 			<span class="kw">type </span>Pool = pallet_assets::Pallet::&lt;Runtime, PoolAssetsInstance&gt;;
+
+			<span class="kw">type </span>ToRococo = XcmBridgeHubRouterBench&lt;Runtime, ToRococoXcmRouterInstance&gt;;
 
 			<span class="kw">let </span>whitelist: Vec&lt;TrackedStorageKey&gt; = <span class="macro">vec!</span>[
 				<span class="comment">// Block Number

@@ -980,6 +980,58 @@
 <a href="#980" id="980">980</a>
 <a href="#981" id="981">981</a>
 <a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -999,8 +1051,8 @@
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
 	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
-	ToRococoXcmRouter, ToWococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance,
-	WeightToFee, XcmpQueue,
+	ToRococoXcmRouter, ToWestendXcmRouter, ToWococoXcmRouter, TransactionByteFee,
+	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
 <span class="kw">use </span>assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
@@ -1026,16 +1078,16 @@
 <span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConvertInto};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
-	AccountId32Aliases, AllAssets, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
+	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
-	IsConcrete, LocalMint, LocationWithAssetFilters, NetworkExportTableItem, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	IsConcrete, LocalMint, NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
+	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -1241,10 +1293,6 @@
 	<span class="kw">pub type </span>ParentOrSiblings: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
 		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
 		MultiLocation { parents: <span class="number">1</span>, interior: X1(<span class="kw">_</span>) }
-	};
-	<span class="kw">pub type </span>WithParentsZeroOrOne: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">0</span>, .. } |
-		MultiLocation { parents: <span class="number">1</span>, .. }
 	};
 }
 
@@ -1460,6 +1508,8 @@
 					pallet_uniques::Call::buy_item { .. }
 			) | RuntimeCall::ToWococoXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
+			) | RuntimeCall::ToWestendXcmRouter(
+				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 			) | RuntimeCall::ToRococoXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 			)
@@ -1549,11 +1599,13 @@
 	<span class="kw">type </span>XcmSender = XcmRouter;
 	<span class="kw">type </span>AssetTransactor = AssetTransactors;
 	<span class="kw">type </span>OriginConverter = XcmOriginToTransactDispatchOrigin;
-	<span class="comment">// Asset Hub trusts only particular configured bridge locations as reserve locations.
-	// Asset Hub may _act_ as a reserve location for ROC and assets created under `pallet-assets`.
-	// Users must use teleport where allowed (e.g. ROC with the Relay Chain).
+	<span class="comment">// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
+	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
+	// held). Asset Hub may _act_ as a reserve location for ROC and assets created
+	// under `pallet-assets`. Users must use teleport where allowed (e.g. ROC with the Relay Chain).
 	</span><span class="kw">type </span>IsReserve = (
 		bridging::to_wococo::IsTrustedBridgedReserveLocationForConcreteAsset,
+		bridging::to_westend::IsTrustedBridgedReserveLocationForConcreteAsset,
 		bridging::to_rococo::IsTrustedBridgedReserveLocationForConcreteAsset,
 	);
 	<span class="kw">type </span>IsTeleporter = TrustedTeleporters;
@@ -1606,8 +1658,11 @@
 		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
 	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
-	<span class="kw">type </span>UniversalAliases =
-		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);
+	<span class="kw">type </span>UniversalAliases = (
+		bridging::to_wococo::UniversalAliases,
+		bridging::to_rococo::UniversalAliases,
+		bridging::to_westend::UniversalAliases,
+	);
 	<span class="kw">type </span>CallDispatcher = WithOriginFilter&lt;SafeCallFilter&gt;;
 	<span class="kw">type </span>SafeCallFilter = SafeCallFilter;
 	<span class="kw">type </span>Aliasers = Nothing;
@@ -1635,6 +1690,9 @@
 	<span class="comment">// Router which wraps and sends xcm to BridgeHub to be delivered to the Wococo
 	// GlobalConsensus
 	</span>ToWococoXcmRouter,
+	<span class="comment">// Router which wraps and sends xcm to BridgeHub to be delivered to the Westend
+	// GlobalConsensus
+	</span>ToWestendXcmRouter,
 	<span class="comment">// Router which wraps and sends xcm to BridgeHub to be delivered to the Rococo
 	// GlobalConsensus
 	</span>ToRococoXcmRouter,
@@ -1657,14 +1715,7 @@
 	</span><span class="kw">type </span>XcmExecuteFilter = Nothing;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>XcmTeleportFilter = Everything;
-	<span class="comment">// Allow reserve based transfer to everywhere except for bridging, here we strictly check what
-	// assets are allowed.
-	</span><span class="kw">type </span>XcmReserveTransferFilter = (
-		LocationWithAssetFilters&lt;WithParentsZeroOrOne, AllAssets&gt;,
-		bridging::to_rococo::AllowedReserveTransferAssets,
-		bridging::to_wococo::AllowedReserveTransferAssets,
-	);
-
+	<span class="kw">type </span>XcmReserveTransferFilter = Everything;
 	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
 		<span class="kw">crate</span>::weights::xcm::AssetHubRococoXcmWeight&lt;RuntimeCall&gt;,
 		RuntimeCall,
@@ -1757,6 +1808,7 @@
 		<span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; =
 			sp_std::vec::Vec::new().into_iter()
 			.chain(to_wococo::BridgeTable::get())
+			.chain(to_westend::BridgeTable::get())
 			.chain(to_rococo::BridgeTable::get())
 			.collect();
 	}
@@ -1801,13 +1853,6 @@
 				)
 			];
 
-			<span class="doccomment">/// Allowed assets for reserve transfer to `AssetHubWococo`.
-			</span><span class="kw">pub </span>AllowedReserveTransferAssetsToAssetHubWococo: sp_std::vec::Vec&lt;MultiAssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
-				<span class="comment">// allow send only ROC
-				</span>Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
-				<span class="comment">// and nothing else
-			</span>];
-
 			<span class="doccomment">/// Universal aliases
 			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(MultiLocation, Junction)&gt; = BTreeSet::from_iter(
 				<span class="macro">sp_std::vec!</span>[
@@ -1834,17 +1879,87 @@
 				</span>),
 			&gt;;
 
-		<span class="doccomment">/// Allows to reserve transfer assets to `AssetHubWococo`.
-		</span><span class="kw">pub type </span>AllowedReserveTransferAssets = LocationWithAssetFilters&lt;
-			Equals&lt;AssetHubWococo&gt;,
-			AllowedReserveTransferAssetsToAssetHubWococo,
-		&gt;;
-
 		<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>ToWococoXcmRouter {
 			<span class="kw">fn </span>contains(call: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
 				<span class="macro">matches!</span>(
 					call,
 					RuntimeCall::ToWococoXcmRouter(
+						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
+					)
+				)
+			}
+		}
+	}
+
+	<span class="kw">pub mod </span>to_westend {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+		<span class="macro">parameter_types! </span>{
+			<span class="kw">pub </span>SiblingBridgeHubWithBridgeHubWestendInstance: MultiLocation = MultiLocation::new(
+				<span class="number">1</span>,
+				X2(
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
+				)
+			);
+
+			<span class="kw">pub const </span>WestendNetwork: NetworkId = NetworkId::Westend;
+			<span class="kw">pub </span>AssetHubWestend: MultiLocation = MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(WestendNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)));
+			<span class="kw">pub </span>WndLocation: MultiLocation = MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(WestendNetwork::get())));
+
+			<span class="kw">pub </span>WndFromAssetHubWestend: (MultiAssetFilter, MultiLocation) = (
+				Wild(AllOf { fun: WildFungible, id: Concrete(WndLocation::get()) }),
+				AssetHubWestend::get()
+			);
+
+			<span class="doccomment">/// Set up exporters configuration.
+			/// `Option&lt;MultiAsset&gt;` represents static &quot;base fee&quot; which is used for total delivery fee calculation.
+			</span><span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">sp_std::vec!</span>[
+				NetworkExportTableItem::new(
+					WestendNetwork::get(),
+					<span class="prelude-val">Some</span>(<span class="macro">sp_std::vec!</span>[
+						AssetHubWestend::get().interior.split_global().expect(<span class="string">&quot;invalid configuration for AssetHubWestend&quot;</span>).<span class="number">1</span>,
+					]),
+					SiblingBridgeHub::get(),
+					<span class="comment">// base delivery fee to local `BridgeHub`
+					</span><span class="prelude-val">Some</span>((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
+					).into())
+				)
+			];
+
+			<span class="doccomment">/// Universal aliases
+			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(MultiLocation, Junction)&gt; = BTreeSet::from_iter(
+				<span class="macro">sp_std::vec!</span>[
+					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
+				]
+			);
+		}
+
+		<span class="kw">impl </span>Contains&lt;(MultiLocation, Junction)&gt; <span class="kw">for </span>UniversalAliases {
+			<span class="kw">fn </span>contains(alias: <span class="kw-2">&amp;</span>(MultiLocation, Junction)) -&gt; bool {
+				UniversalAliases::get().contains(alias)
+			}
+		}
+
+		<span class="doccomment">/// Trusted reserve locations filter for `xcm_executor::Config::IsReserve`.
+		/// Locations from which the runtime accepts reserved assets.
+		</span><span class="kw">pub type </span>IsTrustedBridgedReserveLocationForConcreteAsset =
+			matching::IsTrustedBridgedReserveLocationForConcreteAsset&lt;
+				UniversalLocation,
+				(
+					<span class="comment">// allow receive WND from AssetHubWestend
+					</span>xcm_builder::Case&lt;WndFromAssetHubWestend&gt;,
+					<span class="comment">// and nothing else
+				</span>),
+			&gt;;
+
+		<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>ToWestendXcmRouter {
+			<span class="kw">fn </span>contains(call: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
+				<span class="macro">matches!</span>(
+					call,
+					RuntimeCall::ToWestendXcmRouter(
 						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 					)
 				)
@@ -1890,13 +2005,6 @@
 				)
 			];
 
-			<span class="doccomment">/// Allowed assets for reserve transfer to `AssetHubWococo`.
-			</span><span class="kw">pub </span>AllowedReserveTransferAssetsToAssetHubRococo: sp_std::vec::Vec&lt;MultiAssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
-				<span class="comment">// allow send only WOC
-				</span>Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
-				<span class="comment">// and nothing else
-			</span>];
-
 			<span class="doccomment">/// Universal aliases
 			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(MultiLocation, Junction)&gt; = BTreeSet::from_iter(
 				<span class="macro">sp_std::vec!</span>[
@@ -1923,12 +2031,6 @@
 				</span>),
 			&gt;;
 
-		<span class="doccomment">/// Allows to reserve transfer assets to `AssetHubRococo`.
-		</span><span class="kw">pub type </span>AllowedReserveTransferAssets = LocationWithAssetFilters&lt;
-			Equals&lt;AssetHubRococo&gt;,
-			AllowedReserveTransferAssetsToAssetHubRococo,
-		&gt;;
-
 		<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>ToRococoXcmRouter {
 			<span class="kw">fn </span>contains(call: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
 				<span class="macro">matches!</span>(
@@ -1949,15 +2051,17 @@
 	</span><span class="kw">impl </span>BridgingBenchmarksHelper {
 		<span class="kw">pub fn </span>prepare_universal_alias() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiLocation, Junction)&gt; {
 			<span class="kw">let </span>alias =
-				to_wococo::UniversalAliases::get().into_iter().find_map(|(location, junction)| {
-					<span class="kw">match </span>to_wococo::SiblingBridgeHubWithBridgeHubWococoInstance::get()
-						.eq(<span class="kw-2">&amp;</span>location)
-					{
-						<span class="bool-val">true </span>=&gt; <span class="prelude-val">Some</span>((location, junction)),
-						<span class="bool-val">false </span>=&gt; <span class="prelude-val">None</span>,
-					}
-				});
-			<span class="macro">assert!</span>(alias.is_some(), <span class="string">&quot;we expect here BridgeHubRococo to Polkadot mapping at least&quot;</span>);
+				to_westend::UniversalAliases::get()
+					.into_iter()
+					.find_map(|(location, junction)| {
+						<span class="kw">match </span>to_westend::SiblingBridgeHubWithBridgeHubWestendInstance::get()
+							.eq(<span class="kw-2">&amp;</span>location)
+						{
+							<span class="bool-val">true </span>=&gt; <span class="prelude-val">Some</span>((location, junction)),
+							<span class="bool-val">false </span>=&gt; <span class="prelude-val">None</span>,
+						}
+					});
+			<span class="macro">assert!</span>(alias.is_some(), <span class="string">&quot;we expect here BridgeHubRococo to Westend mapping at least&quot;</span>);
 			<span class="prelude-val">Some</span>(alias.unwrap())
 		}
 	}
