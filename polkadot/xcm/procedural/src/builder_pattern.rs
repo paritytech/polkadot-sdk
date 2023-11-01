@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{parse_macro_input, DeriveInput, Data, Error, Fields};
+use syn::{parse_macro_input, DeriveInput, Data, Error, Fields, Meta, Expr, Lit};
 use quote::{quote, format_ident};
 use inflector::Inflector;
 
@@ -28,7 +28,23 @@ fn generate_methods_for_enum(name: syn::Ident, data_enum: &syn::DataEnum) -> Tok
 		let variant_name = &variant.ident;
 		let method_name_string = &variant_name.to_string().to_snake_case();
 		let method_name = syn::Ident::new(&method_name_string, variant_name.span());
-		match &variant.fields {
+		let docs: Vec<_> = variant.attrs.iter().filter_map(|attr| {
+			if attr.path().is_ident("doc") {
+				match &attr.meta {
+					Meta::NameValue(pair) => match &pair.value {
+						Expr::Lit(inner) => match &inner.lit {
+							Lit::Str(string_literal) => Some(string_literal.value()),
+							_ => None,
+						},
+						_ => None,
+					},
+					_ => None,
+				}
+			} else {
+				None
+			}
+		}).map(|doc| syn::parse_str::<TokenStream2>(&format!("/// {}", doc)).unwrap()).collect();
+		let method = match &variant.fields {
 			Fields::Unit => {
 				quote! {
 					pub fn #method_name(mut self) -> Self {
@@ -60,6 +76,10 @@ fn generate_methods_for_enum(name: syn::Ident, data_enum: &syn::DataEnum) -> Tok
 					}
 				}
 			},
+		};
+		quote! {
+			#(#docs)*
+			#method
 		}
 	});
 	let output = quote! {
