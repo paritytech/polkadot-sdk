@@ -7,7 +7,7 @@ doc:
   - audience: Node Dev
     description: |
       - [`ChainSpec::from_genesis`](https://github.com/paritytech/substrate/blob/3ef576eaeb3f42610e85daecc464961cf1295570/client/chain-spec/src/chain_spec.rs#L263) becomes deprecated in favor of [`ChainSpec::builder()`](https://github.com/paritytech/substrate/blob/20bee680ed098be7239cf7a6b804cd4de267983e/client/chain-spec/src/chain_spec.rs#L507), 
-      - The signature of [`ChainSpec::from_genesis`] method was chagned by extending it with `code` argument. 
+      - The signature of [`ChainSpec::from_genesis`] method was changed by extending it with `code` argument. 
 
   - audience: Node Operator
     description: |
