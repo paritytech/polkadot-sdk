@@ -12257,15 +12257,10 @@ name = "polkadot-node-core-pvf-execute-worker"
 version = "1.0.0"
 dependencies = [
  "cpu-time",
- "futures",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "rayon",
- "sp-core",
- "sp-maybe-compressed-blob",
- "sp-tracing",
  "tracing-gum",
 ]
 
@@ -12274,19 +12269,13 @@ name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
  "cfg-if",
- "futures",
  "libc",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
- "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rayon",
- "sc-executor",
  "sc-executor-common",
  "sc-executor-wasmtime",
- "sp-io",
- "sp-maybe-compressed-blob",
- "sp-tracing",
  "tikv-jemalloc-ctl",
  "tracing-gum",
 ]
@@ -19103,7 +19092,6 @@ name = "tracing-gum"
 version = "1.0.0"
 dependencies = [
  "coarsetime",
- "polkadot-node-jaeger",
  "polkadot-primitives",
  "tracing",
  "tracing-gum-proc-macro",
