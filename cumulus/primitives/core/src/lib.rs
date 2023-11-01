@@ -91,15 +91,38 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by the HRMP queue.
 	Sibling(ParaId),
+	/// This is used by the snowbridge-outbound-queue pallet
+	Export(MessageOrigin),
+}
+/// The origin of a message
+#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
+pub enum MessageOrigin {
+	/// The message came from the para-chain itself.
+	Here,
+	/// The message came from the relay-chain.
+	Parent,
+	/// The message came from a sibling para-chain.
+	Sibling(ParaId)
 }
 
 impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
 	fn from(origin: AggregateMessageOrigin) -> Self {
+		use AggregateMessageOrigin::*;
 		match origin {
-			AggregateMessageOrigin::Here => MultiLocation::here(),
-			AggregateMessageOrigin::Parent => MultiLocation::parent(),
-			AggregateMessageOrigin::Sibling(id) =>
-				MultiLocation::new(1, Junction::Parachain(id.into())),
+			Here => MultiLocation::here(),
+			Parent => MultiLocation::parent(),
+			Sibling(id) => {
+				MultiLocation::new(1, Junction::Parachain(id.into()))
+			},
+			Export(MessageOrigin::Here) => {
+				MultiLocation::here()
+			},
+			Export(MessageOrigin::Parent) => {
+				MultiLocation::parent()
+			},
+			Export(MessageOrigin::Sibling(id)) => {
+				MultiLocation::new(1, Junction::Parachain(id.into()))
+			}
 		}
 	}
 }
