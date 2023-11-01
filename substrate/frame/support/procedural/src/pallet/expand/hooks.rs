@@ -302,7 +302,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::log::info!(
 					target: #frame_support::LOG_TARGET,
 					"🩺 Running {:?} try-state checks",
-					pallet_name,
+					#pallet_name,
 				);
 				<
 					Self as #frame_support::traits::Hooks<
