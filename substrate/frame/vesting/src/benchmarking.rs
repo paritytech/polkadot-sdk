@@ -385,7 +385,7 @@ benchmarks! {
 
 force_remove_vesting_schedule {
 		let l in 0 .. MaxLocksOf::<T>::get() - 1;
-		let s in 2 .. T::MAX_VESTING_SCHEDULES - 1;
+		let s in 2 .. T::MAX_VESTING_SCHEDULES;
 
 		let source: T::AccountId = account("source", 0, SEED);
 		let source_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(source.clone());
@@ -396,7 +396,8 @@ force_remove_vesting_schedule {
 
 		assert!(l <= u8::MAX.into());
 		// Give target existing locks.
-		add_locks::<T>(&target, l as u8);
+		//add_locks::<T>(&target, l as u8);
+
 		let transfer_amount = T::MinVestedTransfer::get();
 		let mut expected_balance = add_vesting_schedules::<T>(target_lookup.clone(), s)?;
 
