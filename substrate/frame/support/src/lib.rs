@@ -802,16 +802,20 @@ pub mod testing_prelude {
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
 	pub use crate::{
+		defensive, defensive_assert,
 		dispatch::{DispatchClass, DispatchResult, DispatchResultWithPostInfo, Parameter, Pays},
 		ensure,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
 		storage,
 		storage::{
+			bounded_btree_map::BoundedBTreeMap,
+			bounded_btree_set::BoundedBTreeSet,
 			bounded_vec::BoundedVec,
 			types::{
 				CountedStorageMap, CountedStorageNMap, Key as NMapKey, OptionQuery, ResultQuery,
 				StorageDoubleMap, StorageMap, StorageNMap, StorageValue, ValueQuery,
 			},
+			weak_bounded_vec::WeakBoundedVec,
 			StorageList,
 		},
 		traits::{

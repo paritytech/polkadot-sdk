@@ -749,11 +749,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		Some(backoff)
 	};
 
-	// Warn the user that BEEFY is still experimental for Polkadot.
-	if enable_beefy && config.chain_spec.is_polkadot() {
-		gum::warn!("BEEFY is still experimental, usage on Polkadot network is discouraged.");
-	}
-
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 

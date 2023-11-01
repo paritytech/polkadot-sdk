@@ -27,8 +27,12 @@ use sp_runtime::{
 
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationCode};
 use polkadot_primitives::{AssignmentId, ValidatorId};
-use polkadot_runtime_parachains::configuration::HostConfiguration;
+use polkadot_runtime_parachains::{
+	configuration::HostConfiguration,
+	paras::{ParaGenesisArgs, ParaKind},
+};
 use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 use xcm;
 
@@ -331,6 +335,41 @@ pub mod rococo {
 				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 			},
 			configuration: rococo_runtime::ConfigurationConfig { config: get_host_config() },
+			paras: rococo_runtime::ParasConfig {
+				paras: vec![
+					(
+						asset_hub_rococo::PARA_ID.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								asset_hub_rococo_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_A.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+					(
+						penpal::PARA_ID_B.into(),
+						ParaGenesisArgs {
+							genesis_head: HeadData::default(),
+							validation_code: ValidationCode(
+								penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+							),
+							para_kind: ParaKind::Parachain,
+						},
+					),
+				],
+				..Default::default()
+			},
 			registrar: rococo_runtime::RegistrarConfig {
 				next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
 				..Default::default()
@@ -399,32 +438,31 @@ pub mod asset_hub_westend {
 	}
 }
 
-// Asset Hub Kusama
 pub mod asset_hub_rococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
 	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
-		let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
-			system: asset_hub_westend_runtime::SystemConfig {
-				code: asset_hub_westend_runtime::WASM_BINARY
+		let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
+			system: asset_hub_rococo_runtime::SystemConfig {
+				code: asset_hub_rococo_runtime::WASM_BINARY
 					.expect("WASM binary was not build, please build it!")
 					.to_vec(),
 				..Default::default()
 			},
-			balances: asset_hub_westend_runtime::BalancesConfig {
+			balances: asset_hub_rococo_runtime::BalancesConfig {
 				balances: accounts::init_balances()
 					.iter()
 					.cloned()
-					.map(|k| (k, ED * 4096))
+					.map(|k| (k, ED * 4096 * 4096))
 					.collect(),
 			},
-			parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
+			parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
 				parachain_id: PARA_ID.into(),
 				..Default::default()
 			},
-			collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
+			collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
 				invulnerables: collators::invulnerables()
 					.iter()
 					.cloned()
@@ -433,19 +471,75 @@ pub mod asset_hub_rococo {
 				candidacy_bond: ED * 16,
 				..Default::default()
 			},
-			session: asset_hub_westend_runtime::SessionConfig {
+			session: asset_hub_rococo_runtime::SessionConfig {
 				keys: collators::invulnerables()
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
-							acc.clone(),                                     // account id
-							acc,                                             // validator id
-							asset_hub_westend_runtime::SessionKeys { aura }, // session keys
+							acc.clone(),                                    // account id
+							acc,                                            // validator id
+							asset_hub_rococo_runtime::SessionKeys { aura }, // session keys
 						)
 					})
 					.collect(),
 			},
-			polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
+			polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
+				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
+			},
+			..Default::default()
+		};
+
+		genesis_config.build_storage().unwrap()
+	}
+}
+
+pub mod asset_hub_wococo {
+	use super::*;
+	pub const PARA_ID: u32 = 1000;
+	pub const ED: Balance = parachains_common::wococo::currency::EXISTENTIAL_DEPOSIT;
+
+	pub fn genesis() -> Storage {
+		let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
+			system: asset_hub_rococo_runtime::SystemConfig {
+				code: asset_hub_rococo_runtime::WASM_BINARY
+					.expect("WASM binary was not build, please build it!")
+					.to_vec(),
+				..Default::default()
+			},
+			balances: asset_hub_rococo_runtime::BalancesConfig {
+				balances: accounts::init_balances()
+					.iter()
+					.cloned()
+					.map(|k| (k, ED * 4096))
+					.collect(),
+			},
+			parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
+				parachain_id: PARA_ID.into(),
+				..Default::default()
+			},
+			collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
+				invulnerables: collators::invulnerables()
+					.iter()
+					.cloned()
+					.map(|(acc, _)| acc)
+					.collect(),
+				candidacy_bond: ED * 16,
+				..Default::default()
+			},
+			session: asset_hub_rococo_runtime::SessionConfig {
+				keys: collators::invulnerables()
+					.into_iter()
+					.map(|(acc, aura)| {
+						(
+							acc.clone(),                                    // account id
+							acc,                                            // validator id
+							asset_hub_rococo_runtime::SessionKeys { aura }, // session keys
+						)
+					})
+					.collect(),
+			},
+			polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
 				safe_xcm_version: Some(SAFE_XCM_VERSION),
 				..Default::default()
 			},
@@ -575,14 +669,16 @@ pub mod bridge_hub_rococo {
 				owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 				..Default::default()
 			},
-			bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
-				owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-				..Default::default()
-			},
-			bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
-				owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-				..Default::default()
-			},
+			bridge_wococo_to_rococo_messages:
+				bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
+					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+					..Default::default()
+				},
+			bridge_rococo_to_wococo_messages:
+				bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
+					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+					..Default::default()
+				},
 			..Default::default()
 		};
 

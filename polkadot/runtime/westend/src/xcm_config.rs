@@ -19,7 +19,7 @@
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, WeightToFee, XcmPallet,
+	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
 
 use frame_support::{
@@ -44,6 +44,7 @@ use xcm_builder::{
 	DescribeFamily, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeesToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -53,6 +54,7 @@ parameter_types! {
 	pub const UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+	pub TreasuryAccount: Option<AccountId> = Some(Treasury::account_id());
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
 	/// The base fee for the message delivery fees.
@@ -95,29 +97,38 @@ type LocalOriginConverter = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
+pub type PriceForChildParachainDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>;
+
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
-pub type XcmRouter = WithUniqueTopic<(
+pub type XcmRouter = WithUniqueTopic<
 	// Only one router so far - use DMP to communicate with child parachains.
-	ChildParachainRouter<
-		Runtime,
-		XcmPallet,
-		ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>,
-	>,
-)>;
+	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>,
+>;
 
 parameter_types! {
-	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
 	pub const AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
-	pub const WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
 	pub const Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
+	pub const BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
+	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	pub const WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
 	pub const WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
+	pub const WndForBridgeHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), BridgeHub::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-pub type TrustedTeleporters =
-	(xcm_builder::Case<WndForAssetHub>, xcm_builder::Case<WndForCollectives>);
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub ReachableDest: Option<MultiLocation> = Some(Parachain(ASSET_HUB_ID).into());
+}
+
+pub type TrustedTeleporters = (
+	xcm_builder::Case<WndForAssetHub>,
+	xcm_builder::Case<WndForCollectives>,
+	xcm_builder::Case<WndForBridgeHub>,
+);
 
 match_types! {
 	pub type OnlyParachains: impl Contains<MultiLocation> = {
@@ -137,7 +148,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 	AllowKnownQueryResponses<XcmPallet>,
 	WithComputedOrigin<
 		(
-			// If the message is one that immediately attemps to pay for execution, then allow it.
+			// If the message is one that immediately attempts to pay for execution, then allow it.
 			AllowTopLevelPaidExecutionFrom<Everything>,
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<OnlyParachains>,
@@ -174,7 +185,7 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
+	type FeeManager = XcmFeesToAccount<Self, SystemParachains, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
@@ -189,11 +200,6 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
 }
 
 /// Type to convert the `GeneralAdmin` origin to a Plurality `MultiLocation` value.
