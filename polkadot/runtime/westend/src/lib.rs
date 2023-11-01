@@ -647,9 +647,9 @@ parameter_types! {
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxExposurePageSize: u32 = 64;
 	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
-	// this is an unbounded number. We just set it to a reasonably high value, i.e. 8 full pages
+	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
 	// of nominators.
-	pub const MaxNominators: u32 = 512;
+	pub const MaxNominators: u32 = 64;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
