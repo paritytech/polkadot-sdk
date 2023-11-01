@@ -311,6 +311,10 @@ pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	) -> Result<Self::Balance, DispatchError> {
 		let _extra = Self::can_withdraw(source, amount).into_result(preservation != Expendable)?;
 		Self::can_deposit(dest, amount, Extant).into_result()?;
+		if source == dest {
+			return Ok(amount)
+		}
+
 		Self::decrease_balance(source, amount, BestEffort, preservation, Polite)?;
 		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.
