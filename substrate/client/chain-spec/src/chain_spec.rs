@@ -760,7 +760,7 @@ fn json_contains_path(doc: &json::Value, path: &mut VecDeque<&str>) -> bool {
 ///
 /// If update was successful `true` is returned, otherwise `false`. Chain spec JSON is modified in
 /// place.
-pub fn update_code_in_json_chain_spec<'a>(chain_spec: &mut json::Value, code: &'a [u8]) -> bool {
+pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8]) -> bool {
 	let mut path = json_path!["genesis", "runtimeGenesis", "code"];
 	let mut raw_path = json_path!["genesis", "raw", "top", "0x3a636f6465"];
 
