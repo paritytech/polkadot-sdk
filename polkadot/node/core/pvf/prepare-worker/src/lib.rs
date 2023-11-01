@@ -160,12 +160,17 @@ pub fn worker_entrypoint(
 				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)?;
 
 				// SAFETY: new process is spawned within a single threaded process
-				let result = match unsafe { libc::fork() } {
+				let result = match unsafe { nix::unistd::fork() } {
 					// error
 					-1 => Err(PrepareError::Panic(String::from("error forking"))),
 					// child
 					0 => {
+						// Dropping the stream closes the underlying socket. We want to make sure
+						// that the sandboxed child can't get any kind of information from the
+						// outside world. The only IPC it should be able to do is sending its
+						// response over the pipe.
 						drop(stream);
+
 						handle_child_process(
 							pvf,
 							pipe_writer,
@@ -176,9 +181,10 @@ pub fn worker_entrypoint(
 					},
 					// parent
 					_ => {
-						// the read end will wait until all ends have been closed,
+						// the read end will wait until all write ends have been closed,
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
+
 						handle_parent_process(
 							pipe_reader,
 							temp_artifact_dest.clone(),
@@ -288,10 +294,7 @@ fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					#[cfg(target_os = "linux")]
 					runtime_construction_check(output.0.as_ref(), &executor_params)?;
-					#[cfg(not(target_os = "linux"))]
-					runtime_construction_check(output.as_ref(), executor_params.as_ref())?;
 					Ok(output)
 				});
 			}
@@ -358,10 +361,11 @@ fn handle_child_process(
 /// - If the child send response without an error, this function returns `Ok(PrepareStats)`
 ///   containing memory and CPU usage statistics.
 ///
-/// - If the child send response with an error, it returns a `PrepareError`.
+/// - If the child send response with an error, it returns a `PrepareError` with that error.
 ///
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 ///
+/// TODO
 /// - If the child process exits with an unknown status, it returns `PrepareError`.
 fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
@@ -372,6 +376,7 @@ fn handle_parent_process(
 ) -> Result<PrepareStats, PrepareError> {
 	let mut received_data = Vec::new();
 
+	// Read from the child.
 	pipe_read
 		.read_to_end(&mut received_data)
 		.map_err(|err| PrepareError::Panic(err.to_string()))?;
