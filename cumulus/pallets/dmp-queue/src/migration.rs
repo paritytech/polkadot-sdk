@@ -21,7 +21,7 @@ use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use frame_support::{pallet_prelude::*, storage_alias, traits::HandleMessage};
 use sp_std::vec::Vec;
 
-pub(crate) const LOG: &str = "dmp-queue-export-xcms";
+pub(crate) const LOG: &str = "runtime::dmp-queue-export-xcms";
 
 /// The old `PageIndexData` struct.
 #[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
