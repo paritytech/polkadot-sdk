@@ -532,7 +532,7 @@ where
 			reported_invalid_boot_nodes: Default::default(),
 			peers_notifications_sinks,
 			peer_store_handle: params.peer_store,
-			address_scores: HashMap::new(),
+			// address_scores: HashMap::new(),
 			peer_endpoints: HashMap::new(),
 			_marker: Default::default(),
 			_block: Default::default(),
@@ -1237,7 +1237,7 @@ where
 	/// Peer reputation store handle.
 	peer_store_handle: PeerStoreHandle,
 	/// Address scores for tracking external addresses.
-	address_scores: HashMap<Multiaddr, usize>,
+	// address_scores: HashMap<Multiaddr, usize>,
 	peer_endpoints: HashMap<PeerId, ConnectedPoint>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.

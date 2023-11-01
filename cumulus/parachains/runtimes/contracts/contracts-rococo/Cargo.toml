@@ -1,8 +1,10 @@
 [package]
 name = "contracts-rococo-runtime"
 version = "0.2.0"
+description = "Parachain testnet runtime for FRAME Contracts pallet."
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -14,7 +16,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -53,13 +55,14 @@ pallet-contracts = { path = "../../../../../substrate/frame/contracts", default-
 pallet-contracts-primitives = { path = "../../../../../substrate/frame/contracts/primitives", default-features = false}
 
 # Polkadot
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false }
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
+rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -71,7 +74,7 @@ cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-f
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 
 [features]
@@ -114,6 +117,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
+	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -189,3 +193,8 @@ try-runtime = [
 ]
 
 experimental = [ "pallet-aura/experimental" ]
+
+# A feature that should be enabled when the runtime should be built for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller like logging for example.
+on-chain-release-build = [ "sp-api/disable-logging" ]

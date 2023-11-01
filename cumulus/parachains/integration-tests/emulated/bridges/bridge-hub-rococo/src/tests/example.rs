@@ -64,7 +64,7 @@ fn example() {
 					outcome: Outcome::Complete(_),
 					..
 				}) => {},
-				RuntimeEvent::BridgeWococoMessages(pallet_bridge_messages::Event::MessageAccepted {
+				RuntimeEvent::BridgeRococoToWococoMessages(pallet_bridge_messages::Event::MessageAccepted {
 					lane_id: LaneId([0, 0, 0, 1]),
 					nonce: 1,
 				}) => {},

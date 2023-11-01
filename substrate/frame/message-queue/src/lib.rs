@@ -584,8 +584,9 @@ pub mod pallet {
 		}
 
 		/// Check all compile-time assumptions about [`crate::Config`].
+		#[cfg(test)]
 		fn integrity_test() {
-			assert!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
+			Self::do_integrity_test().expect("Pallet config is valid; qed")
 		}
 	}
 
@@ -757,6 +758,47 @@ impl<T: Config> Pallet<T> {
 		} else {
 			None
 		}
+	}
+
+	/// The maximal weight that a single message can consume.
+	///
+	/// Any message using more than this will be marked as permanently overweight and not
+	/// automatically re-attempted. Returns `None` if the servicing of a message cannot begin.
+	/// `Some(0)` means that only messages with no weight may be served.
+	fn max_message_weight(limit: Weight) -> Option<Weight> {
+		limit.checked_sub(&Self::single_msg_overhead())
+	}
+
+	/// The overhead of servicing a single message.
+	fn single_msg_overhead() -> Weight {
+		T::WeightInfo::bump_service_head()
+			.saturating_add(T::WeightInfo::service_queue_base())
+			.saturating_add(
+				T::WeightInfo::service_page_base_completion()
+					.max(T::WeightInfo::service_page_base_no_completion()),
+			)
+			.saturating_add(T::WeightInfo::service_page_item())
+			.saturating_add(T::WeightInfo::ready_ring_unknit())
+	}
+
+	/// Checks invariants of the pallet config.
+	///
+	/// The results of this can only be relied upon if the config values are set to constants.
+	#[cfg(test)]
+	fn do_integrity_test() -> Result<(), String> {
+		ensure!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
+
+		if let Some(service) = T::ServiceWeight::get() {
+			if Self::max_message_weight(service).is_none() {
+				return Err(format!(
+					"ServiceWeight too low: {}. Must be at least {}",
+					service,
+					Self::single_msg_overhead(),
+				))
+			}
+		}
+
+		Ok(())
 	}
 
 	fn do_enqueue_message(
@@ -1360,9 +1402,13 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
 
 	fn service_queues(weight_limit: Weight) -> Weight {
-		// The maximum weight that processing a single message may take.
-		let overweight_limit = weight_limit;
 		let mut weight = WeightMeter::with_limit(weight_limit);
+
+		// Get the maximum weight that processing a single message may take:
+		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
+			defensive!("Not enough weight to service a single message.");
+			Weight::zero()
+		});
 
 		let mut next = match Self::bump_service_head(&mut weight) {
 			Some(h) => h,
@@ -1374,7 +1420,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		let mut last_no_progress = None;
 
 		loop {
-			let (progressed, n) = Self::service_queue(next.clone(), &mut weight, overweight_limit);
+			let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
 			next = match n {
 				Some(n) =>
 					if !progressed {

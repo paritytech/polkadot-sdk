@@ -59,6 +59,11 @@ short-benchmark-asset-hub-kusama:
   variables:
     RUNTIME_CHAIN: asset-hub-kusama-dev
 
+short-benchmark-asset-hub-rococo:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: asset-hub-rococo-dev
+
 short-benchmark-asset-hub-westend:
   <<: *short-bench-cumulus
   variables:

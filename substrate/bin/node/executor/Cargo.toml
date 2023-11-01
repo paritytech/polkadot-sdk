@@ -1,5 +1,5 @@
 [package]
-name = "node-executor"
+name = "staging-node-executor"
 version = "3.0.0-dev"
 authors.workspace = true
 description = "Substrate node implementation in Rust."
@@ -14,7 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-scale-info = { version = "2.5.0", features = ["derive"] }
+scale-info = { version = "2.10.0", features = ["derive"] }
 frame-benchmarking = { path = "../../../frame/benchmarking" }
 node-primitives = { path = "../primitives" }
 kitchensink-runtime = { path = "../runtime" }

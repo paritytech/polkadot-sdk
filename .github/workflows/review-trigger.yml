@@ -1,0 +1,31 @@
+name: Review-Trigger
+
+on: 
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - review_requested
+      - review_request_removed
+      - ready_for_review
+  pull_request_review:
+
+jobs:
+  trigger-review-bot:
+    runs-on: ubuntu-latest
+    name: trigger review bot
+    steps:
+      - name: Get PR number
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "Saving PR number: $PR_NUMBER"
+          mkdir -p ./pr
+          echo $PR_NUMBER > ./pr/pr_number
+      - uses: actions/upload-artifact@v3
+        name: Save PR number
+        with:
+          name: pr_number
+          path: pr/
+          retention-days: 5

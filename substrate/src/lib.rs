@@ -55,9 +55,22 @@
 //! is merely a matter of the Wasm blob being changed in the chain state, which is, in principle,
 //! same as updating an account's balance.
 //!
-//! To learn more about the substrate architecture using some visuals, see [`substrate_diagram`].
+//! ### Architecture
 //!
-//! `FRAME`, Substrate's default runtime development library takes the above even further by
+//! Therefore, Substrate can be visualized as follows:
+#![doc = simple_mermaid::mermaid!("../../docs/mermaid/substrate_simple.mmd")]
+//!
+//! The client and the runtime of course need to communicate. This is done through two concepts:
+//!
+//! 1. Host functions: a way for the (Wasm) runtime to talk to the client. All host functions are
+//!    defined in [`sp-io`]. For example, [`sp-io::storage`] are the set of host functions that
+//!    allow the runtime to read and write data to the on-chain state.
+//! 2. Runtime APIs: a way for the client to talk to the Wasm runtime. Runtime APIs are defined
+//!    using macros and utilities in [`sp-api`]. For example, [`sp-api::Core`] is the most basic
+//!    runtime API that any blockchain must implement in order to be able to (re) execute blocks.
+#![doc = simple_mermaid::mermaid!("../../docs/mermaid/substrate_client_runtime.mmd")]
+//!
+//! [`FRAME`], Substrate's default runtime development library takes the above even further by
 //! embracing a declarative programming model whereby correctness is enhanced and the system is
 //! highly configurable through parameterization.
 //!
@@ -68,8 +81,8 @@
 //! ## How to Get Stared
 //!
 //! Most developers want to leave the client side code as-is, and focus on the runtime. To do so,
-//! look into the [`frame_support`] crate, which is the entry point crate into runtime development
-//! with FRAME.
+//! look into the [`frame`] crate, which is the entry point crate into runtime development with
+//! FRAME.
 //!
 //! > Side note, it is entirely possible to craft a substrate-based runtime without FRAME, an
 //! > example of which can be found [here](https://github.com/JoshOrndorff/frameless-node-template).
@@ -79,8 +92,8 @@
 //! * **Templates**: A number of substrate-based templates exist and they can be used for various
 //!   purposes, with zero to little additional code needed. All of these templates contain runtimes
 //!   that are highly configurable and are likely suitable for basic needs.
-//! * `FRAME`: If need, one can customize that runtime even further, by using `FRAME` and developing
-//!   custom modules.
+//! * [`FRAME`]: If need, one can customize that runtime even further, by using `FRAME` and
+//!   developing custom modules.
 //! * **Core**: To the contrary, some developers may want to customize the client side software to
 //!   achieve novel goals such as a new consensus engine, or a new database backend. While
 //!   Substrate's main configurability is in the runtime, the client is also highly generic and can
@@ -100,10 +113,9 @@
 //! * `sp-*` (short for *substrate-primitives*) crates, located under `./primitives` folder. These
 //!   are the traits that glue the client and runtime together, but are not opinionated about what
 //!   framework is using for building the runtime. Notable examples are [`sp-api`] and [`sp-io`],
-//!   which form the communication bridge between the client and runtime, as explained in
-//!   [`substrate_diagram`].
+//!   which form the communication bridge between the client and runtime.
 //! * `pallet-*` and `frame-*` crates, located under `./frame` folder. These are the crates related
-//!   to FRAME. See [`frame_support`] for more information.
+//!   to FRAME. See [`frame`] for more information.
 //!
 //! ### Wasm Build
 //!
@@ -157,8 +169,9 @@
 //! through which Polkadot can be utilized is by building "parachains", blockchains that are
 //! connected to Polkadot's shared security.
 //!
-//! To build a parachain, one could use [`Cumulus`](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus), the
-//! library on top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
+//! To build a parachain, one could use
+//! [`Cumulus`](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus), the library on top
+//! of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?
 //!
@@ -199,6 +212,7 @@
 //!     https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]:
 //!     https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//! [`FRAME`]: ../frame/index.html
 //! [`sp-io`]: ../sp_io/index.html
 //! [`sp-api`]: ../sp_api/index.html
 //! [`sp-api`]: ../sp_api/index.html
@@ -222,76 +236,3 @@
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
-
-#[cfg_attr(doc, aquamarine::aquamarine)]
-/// In this module, we explore substrate at a more depth. First, let's establish substrate being
-/// divided into a client and runtime.
-///
-/// ```mermaid
-/// graph TB
-/// subgraph Substrate
-/// 	direction LR
-/// 	subgraph Client
-/// 	end
-/// 	subgraph Runtime
-/// 	end
-/// end
-/// ```
-///
-/// The client and the runtime of course need to communicate. This is done through two concepts:
-///
-/// 1. Host functions: a way for the (Wasm) runtime to talk to the client. All host functions are
-///    defined in [`sp-io`]. For example, [`sp-io::storage`] are the set of host functions that
-///    allow the runtime to read and write data to the on-chain state.
-/// 2. Runtime APIs: a way for the client to talk to the Wasm runtime. Runtime APIs are defined
-///    using macros and utilities in [`sp-api`]. For example, [`sp-api::Core`] is the most basic
-///    runtime API that any blockchain must implement in order to be able to (re) execute blocks.
-///
-/// ```mermaid
-/// graph TB
-/// subgraph Substrate
-/// 	direction LR
-/// 	subgraph Client
-/// 	end
-/// 	subgraph Runtime
-/// 	end
-/// 	Client --runtime-api--> Runtime
-/// 	Runtime --host-functions--> Client
-/// end
-/// ```
-///
-/// Finally, let's expand the diagram a bit further and look at the internals of each component:
-///
-/// ```mermaid
-/// graph TB
-/// subgraph Substrate
-/// 	direction LR
-/// 	subgraph Client
-/// 		Database
-/// 		Networking
-/// 		Consensus
-/// 	end
-/// 	subgraph Runtime
-/// 		subgraph FRAME
-/// 			direction LR
-/// 			Governance
-/// 			Currency
-/// 			Staking
-/// 			Identity
-/// 		end
-/// 	end
-/// 	Client --runtime-api--> Runtime
-/// 	Runtime --host-functions--> Client
-/// end
-/// ```
-///
-/// As noted the runtime contains all of the application specific logic of the blockchain. This is
-/// usually written with `FRAME`. The client, on the other hand, contains reusable and generic
-/// components that are not specific to one single blockchain, such as networking, database, and the
-/// consensus engine.
-///
-/// [`sp-io`]: ../../sp_io/index.html
-/// [`sp-api`]: ../../sp_api/index.html
-/// [`sp-io::storage`]: ../../sp_io/storage/index.html
-/// [`sp-api::Core`]: ../../sp_api/trait.Core.html
-pub mod substrate_diagram {}

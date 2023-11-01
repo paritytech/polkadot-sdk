@@ -5,7 +5,7 @@ on:
     types: [labeled, opened, synchronize, unlabeled]
 
 env:
-  IMAGE: paritytech/prdoc:latest
+  IMAGE: paritytech/prdoc:v0.0.5
   API_BASE: https://api.github.com/repos
   REPO: ${{ github.repository }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,7 +40,7 @@ jobs:
 
       - name: Checkout repo
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 #v4.1.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
 
       - name: PRdoc check for PR#${{ github.event.pull_request.number }}
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}

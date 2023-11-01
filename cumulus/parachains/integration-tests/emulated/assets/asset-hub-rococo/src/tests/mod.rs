@@ -13,4 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod reserve_transfer;
+mod send;
+mod set_xcm_versions;
+mod swap;
 mod teleport;
