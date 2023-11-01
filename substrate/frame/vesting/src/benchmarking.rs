@@ -397,35 +397,22 @@ force_remove_vesting_schedule {
 		assert!(l <= u8::MAX.into());
 		// Give target existing locks.
 		add_locks::<T>(&target, l as u8);
-
 		let transfer_amount = T::MinVestedTransfer::get();
-		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
+		let mut expected_balance = add_vesting_schedules::<T>(target_lookup.clone(), s)?;
 
+		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
 		let number_of_schedules_after_removal = s - 1;
-		let expected_balance = transfer_amount.checked_mul(&number_of_schedules_after_removal.into()).unwrap();
+
+		expected_balance += transfer_amount;
 
 		// It will remove last vesting schedule.
 		let schedule_index = s - 1;
-
-		let vesting_schedule = VestingInfo::new(
-			transfer_amount,
-			per_block,
-			1u32.into(),
-		);
-
-		for _ in 0..s {
-			assert_ok!(Vesting::<T>::do_vested_transfer(
-				source_lookup.clone(),
-				target_lookup.clone(),
-				vesting_schedule.into()
-			));
-		}
 	}: _(RawOrigin::Root, target_lookup, schedule_index)
 	verify {
 		assert_eq!(
 			Vesting::<T>::vesting_balance(&target),
 			Some(expected_balance),
-			"Vesting schedule was not removed",
+			"Vesting schedule should be removed",
 		);
 	}
 
