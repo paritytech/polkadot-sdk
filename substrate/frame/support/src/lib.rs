@@ -791,10 +791,10 @@ macro_rules! assert_error_encoded_size {
 macro_rules! hypothetically {
 	( $e:expr ) => {
 		$crate::storage::transactional::with_transaction(|| ->
-							$crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
-								$crate::__private::TransactionOutcome::Rollback(Ok($e))
-							},
-						).expect("Always returning Ok; qed")
+									$crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
+										$crate::__private::TransactionOutcome::Rollback(Ok($e))
+									},
+								).expect("Always returning Ok; qed")
 	};
 }
 
