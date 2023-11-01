@@ -1965,6 +1965,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge-hub-common"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "frame-support",
+ "sp-std",
+]
+
+[[package]]
 name = "bridge-hub-kusama-runtime"
 version = "0.1.0"
 dependencies = [
@@ -2137,6 +2146,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-wococo",
+ "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
  "cumulus-pallet-aura-ext",

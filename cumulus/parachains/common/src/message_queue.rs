@@ -16,7 +16,7 @@
 
 //! Helpers to deal with configuring the message queue in the runtime.
 
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, MessageOrigin, ParaId};
 use frame_support::traits::{QueueFootprint, QueuePausedQuery};
 use pallet_message_queue::OnQueueChanged;
 use sp_std::marker::PhantomData;
@@ -24,32 +24,39 @@ use sp_std::marker::PhantomData;
 /// Narrow the scope of the `Inner` query from `AggregateMessageOrigin` to `ParaId`.
 ///
 /// All non-`Sibling` variants will be ignored.
-pub struct NarrowOriginToSibling<Inner>(PhantomData<Inner>);
+pub struct NarrowOriginToXcmSibling<Inner>(PhantomData<Inner>);
 impl<Inner: QueuePausedQuery<ParaId>> QueuePausedQuery<AggregateMessageOrigin>
-	for NarrowOriginToSibling<Inner>
+	for NarrowOriginToXcmSibling<Inner>
 {
 	fn is_paused(origin: &AggregateMessageOrigin) -> bool {
+		use AggregateMessageOrigin::*;
+		use MessageOrigin::*;
 		match origin {
-			AggregateMessageOrigin::Sibling(id) => Inner::is_paused(id),
+			Xcm(Sibling(id)) => Inner::is_paused(id),
 			_ => false,
 		}
 	}
 }
 
 impl<Inner: OnQueueChanged<ParaId>> OnQueueChanged<AggregateMessageOrigin>
-	for NarrowOriginToSibling<Inner>
+	for NarrowOriginToXcmSibling<Inner>
 {
 	fn on_queue_changed(origin: AggregateMessageOrigin, fp: QueueFootprint) {
-		if let AggregateMessageOrigin::Sibling(id) = origin {
+		use AggregateMessageOrigin::*;
+		use MessageOrigin::*;
+		if let Xcm(Sibling(id)) = origin {
 			Inner::on_queue_changed(id, fp)
 		}
 	}
 }
 
 /// Convert a sibling `ParaId` to an `AggregateMessageOrigin`.
-pub struct ParaIdToSibling;
-impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin> for ParaIdToSibling {
+pub struct ParaIdToXcmSibling;
+impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin> for ParaIdToXcmSibling {
 	fn convert(para_id: ParaId) -> AggregateMessageOrigin {
-		AggregateMessageOrigin::Sibling(para_id)
+		use AggregateMessageOrigin::*;
+		use MessageOrigin::*;
+		Xcm(Sibling(para_id))
 	}
 }
+

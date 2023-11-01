@@ -78,9 +78,18 @@ impl From<MessageSendError> for &'static str {
 	}
 }
 
-/// The origin of an inbound message.
+/// The aggregate origin of an inbound message.
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
 pub enum AggregateMessageOrigin {
+	/// The message came from the DMP or HRMP subsystem
+	Xcm(MessageOrigin),
+	/// The message came from some other pallet
+	Other(MessageOrigin),
+}
+
+/// The origin of an inbound message.
+#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
+pub enum MessageOrigin {
 	/// The message came from the para-chain itself.
 	Here,
 	/// The message came from the relay-chain.
@@ -93,13 +102,15 @@ pub enum AggregateMessageOrigin {
 	Sibling(ParaId),
 }
 
-impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
-	fn from(origin: AggregateMessageOrigin) -> Self {
+impl From<MessageOrigin> for xcm::v3::MultiLocation {
+	fn from(origin: MessageOrigin) -> Self {
+		use MessageOrigin::*;
 		match origin {
-			AggregateMessageOrigin::Here => MultiLocation::here(),
-			AggregateMessageOrigin::Parent => MultiLocation::parent(),
-			AggregateMessageOrigin::Sibling(id) =>
-				MultiLocation::new(1, Junction::Parachain(id.into())),
+			Here => MultiLocation::here(),
+			Parent => MultiLocation::parent(),
+			Sibling(id) => {
+				MultiLocation::new(1, Junction::Parachain(id.into()))
+			},
 		}
 	}
 }
@@ -107,10 +118,11 @@ impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
 #[cfg(feature = "runtime-benchmarks")]
 impl From<u32> for AggregateMessageOrigin {
 	fn from(x: u32) -> Self {
+		use MessageOrigin::*;
 		match x {
-			0 => Self::Here,
-			1 => Self::Parent,
-			p => Self::Sibling(ParaId::from(p)),
+			0 => Self::Xcmp(Here),
+			1 => Self::Xcmp(Parent),
+			p => Self::Xcmp(Sibling(ParaId::from(p))),
 		}
 	}
 }
@@ -265,11 +277,12 @@ impl CumulusDigestItem {
 /// well-behaving runtimes should not produce headers with more than one.
 pub fn extract_relay_parent(digest: &Digest) -> Option<relay_chain::Hash> {
 	digest.convert_first(|d| match d {
-		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID =>
+		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
 			match CumulusDigestItem::decode(&mut &val[..]) {
 				Ok(CumulusDigestItem::RelayParent(hash)) => Some(hash),
 				_ => None,
-			},
+			}
+		},
 		_ => None,
 	})
 }
