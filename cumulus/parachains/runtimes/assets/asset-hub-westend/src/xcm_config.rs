@@ -73,8 +73,8 @@ parameter_types! {
 	pub PoolAssetsPalletLocation: MultiLocation =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	/// Relay Chain Treasury pallet account derived via [`PalletLocationToAccountId`].
-	// proof: [`self::ensure_relay_treasury_account_correct()`].
+	/// The Relay Chain Treasury pallet's account on the current chain, derived using [`PalletLocationToAccountId`].
+	// Proof of correctness: [`self::ensure_relay_treasury_account_correct()`].
 	pub RelayTreasuryAccount: AccountId =
 		AccountId::from(hex_literal::hex!("8bb46fbc6413c0f273b1b09af7b83f30695801958b9151a8f899f468f80064b1"));
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
