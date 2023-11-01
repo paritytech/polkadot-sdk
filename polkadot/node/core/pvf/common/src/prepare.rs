@@ -15,6 +15,16 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use parity_scale_codec::{Decode, Encode};
+use std::path::PathBuf;
+
+/// Result of PVF preparation if a success.
+#[derive(Debug, Clone, Default)]
+pub struct PrepareSuccess {
+	/// Canonical path to the compiled artifact. Using `String` for serialization purpose.
+	pub path: PathBuf,
+	/// Stats of the current preparation run.
+	pub stats: PrepareStats,
+}
 
 /// Preparation statistics, including the CPU time and memory taken.
 #[derive(Debug, Clone, Default, Encode, Decode)]

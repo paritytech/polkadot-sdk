@@ -31,7 +31,7 @@ use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrepareError, PrepareWorkerResult},
 	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
@@ -79,7 +79,7 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	Ok(pvf)
 }
 
-fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
+fn send_response(stream: &mut UnixStream, result: PrepareWorkerResult) -> io::Result<()> {
 	framed_send_blocking(stream, &result.encode())
 }
 
@@ -115,8 +115,8 @@ fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<(
 ///
 /// 6. If compilation succeeded, write the compiled artifact into a temporary file.
 ///
-/// 7. Send the result of preparation back to the host. If any error occurred in the above steps, we
-///    send that in the `PrepareResult`.
+/// 7. Send the result of preparation back to the host, including the checksum of the artifact. If
+///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
@@ -257,7 +257,8 @@ pub fn worker_entrypoint(
 								);
 								tokio::fs::write(&temp_artifact_dest, &artifact).await?;
 
-								Ok(PrepareStats { cpu_time_elapsed, memory_stats })
+								let checksum = blake3::hash(&artifact).to_hex().to_string();
+								Ok((checksum, PrepareStats { cpu_time_elapsed, memory_stats }))
 							},
 						}
 					},

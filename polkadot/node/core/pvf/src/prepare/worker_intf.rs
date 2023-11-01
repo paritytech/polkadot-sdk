@@ -26,8 +26,8 @@ use crate::{
 };
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
-	prepare::PrepareStats,
+	error::{PrepareError, PrepareResult, PrepareWorkerResult},
+	prepare::{PrepareStats, PrepareSuccess},
 	pvf::PvfPrepData,
 	worker_dir, SecurityStatus,
 };
@@ -70,7 +70,7 @@ pub async fn spawn(
 /// If the idle worker token is not returned, it means the worker must be terminated.
 pub enum Outcome {
 	/// The worker has finished the work assigned to it.
-	Concluded { worker: IdleWorker, result: PrepareResult, path: Option<PathBuf> },
+	Concluded { worker: IdleWorker, result: PrepareResult },
 	/// The host tried to reach the worker but failed. This is most likely because the worked was
 	/// killed by the system.
 	Unreachable,
@@ -80,7 +80,7 @@ pub enum Outcome {
 	/// final destination location.
 	RenameTmpFileErr {
 		worker: IdleWorker,
-		result: PrepareResult,
+		result: PrepareWorkerResult,
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -193,17 +193,17 @@ pub async fn start_work(
 async fn handle_response(
 	metrics: &Metrics,
 	worker: IdleWorker,
-	result: PrepareResult,
+	result: PrepareWorkerResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
 	artifact_path_partial: PathBuf,
 	preparation_timeout: Duration,
 ) -> Outcome {
-	let PrepareStats { cpu_time_elapsed, memory_stats } = match result.clone() {
+	let (checksum, PrepareStats { cpu_time_elapsed, memory_stats }) = match result.clone() {
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-		Err(_) => return Outcome::Concluded { worker, result, path: None },
+		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
 	};
 
 	if cpu_time_elapsed > preparation_timeout {
@@ -219,18 +219,12 @@ async fn handle_response(
 		return Outcome::TimedOut
 	}
 
-	let checksum = match tokio::fs::read(&tmp_file).await {
-		Ok(bytes) => blake3::hash(&bytes),
-		// FIXME eagr: handle error properly
-		Err(_) => return Outcome::Unreachable,
-	};
-
-	let file_name_partial = artifact_path_partial
-		.file_name()
-		.expect("the path should never terminate in `..`");
+	// append checksum to prefix to form the path of concluded artifact
+	let file_name_partial =
+		artifact_path_partial.file_stem().expect("the path should contain file name");
 	let mut file_name = file_name_partial.to_os_string();
 	file_name.push("_0x");
-	file_name.push(checksum.to_hex().as_str());
+	file_name.push(checksum);
 	let artifact_path = artifact_path_partial.with_file_name(&file_name);
 
 	gum::debug!(
@@ -242,7 +236,13 @@ async fn handle_response(
 	);
 
 	let outcome = match tokio::fs::rename(&tmp_file, &artifact_path).await {
-		Ok(()) => Outcome::Concluded { worker, result, path: Some(artifact_path) },
+		Ok(()) => Outcome::Concluded {
+			worker,
+			result: Ok(PrepareSuccess {
+				path: artifact_path,
+				stats: PrepareStats { cpu_time_elapsed, memory_stats: memory_stats.clone() },
+			}),
+		},
 		Err(err) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -324,9 +324,9 @@ async fn send_request(stream: &mut UnixStream, pvf: PvfPrepData) -> io::Result<(
 	Ok(())
 }
 
-async fn recv_response(stream: &mut UnixStream, pid: u32) -> io::Result<PrepareResult> {
+async fn recv_response(stream: &mut UnixStream, pid: u32) -> io::Result<PrepareWorkerResult> {
 	let result = framed_recv(stream).await?;
-	let result = PrepareResult::decode(&mut &result[..]).map_err(|e| {
+	let result = PrepareWorkerResult::decode(&mut &result[..]).map_err(|e| {
 		// We received invalid bytes from the worker.
 		let bound_bytes = &result[..result.len().min(4)];
 		gum::warn!(

@@ -32,7 +32,8 @@ use futures::{
 	Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrecheckResult, PrepareError, PrepareResult},
+	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 	SecurityStatus,
 };
@@ -63,7 +64,7 @@ pub const EXECUTE_BINARY_NAME: &str = "polkadot-execute-worker";
 pub(crate) type ResultSender = oneshot::Sender<Result<ValidationResult, ValidationError>>;
 
 /// Transmission end used for sending the PVF preparation result.
-pub(crate) type PrepareResultSender = oneshot::Sender<PrepareResult>;
+pub(crate) type PrecheckResultSender = oneshot::Sender<PrecheckResult>;
 
 /// A handle to the async process serving the validation host requests.
 #[derive(Clone)]
@@ -83,7 +84,7 @@ impl ValidationHost {
 	pub async fn precheck_pvf(
 		&mut self,
 		pvf: PvfPrepData,
-		result_tx: PrepareResultSender,
+		result_tx: PrecheckResultSender,
 	) -> Result<(), String> {
 		self.to_host_tx
 			.send(ToHost::PrecheckPvf { pvf, result_tx })
@@ -133,7 +134,7 @@ impl ValidationHost {
 }
 
 enum ToHost {
-	PrecheckPvf { pvf: PvfPrepData, result_tx: PrepareResultSender },
+	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
 	ExecutePvf(ExecutePvfInputs),
 	HeadsUp { active_pvfs: Vec<PvfPrepData> },
 }
@@ -440,7 +441,7 @@ async fn handle_precheck_pvf(
 	artifacts: &mut Artifacts,
 	prepare_queue: &mut mpsc::Sender<prepare::ToQueue>,
 	pvf: PvfPrepData,
-	result_sender: PrepareResultSender,
+	result_sender: PrecheckResultSender,
 ) -> Result<(), Fatal> {
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
 
@@ -455,7 +456,7 @@ async fn handle_precheck_pvf(
 			ArtifactState::FailedToProcess { error, .. } => {
 				// Do not retry failed preparation if another pre-check request comes in. We do not
 				// retry pre-checking, anyway.
-				let _ = result_sender.send(PrepareResult::Err(error.clone()));
+				let _ = result_sender.send(PrecheckResult::Err(error.clone()));
 			},
 		}
 	} else {
@@ -668,7 +669,7 @@ async fn handle_prepare_done(
 	awaiting_prepare: &mut AwaitingPrepare,
 	from_queue: prepare::FromQueue,
 ) -> Result<(), Fatal> {
-	let prepare::FromQueue { artifact_id, result, path } = from_queue;
+	let prepare::FromQueue { artifact_id, result } = from_queue;
 
 	// Make some sanity checks and extract the current state.
 	let state = match artifacts.artifact_state_mut(&artifact_id) {
@@ -703,7 +704,8 @@ async fn handle_prepare_done(
 		state
 	{
 		for result_sender in waiting_for_response.drain(..) {
-			let _ = result_sender.send(result.clone());
+			let result = result.clone().map(|success| success.stats);
+			let _ = result_sender.send(result);
 		}
 		num_failures
 	} else {
@@ -723,22 +725,18 @@ async fn handle_prepare_done(
 			continue
 		}
 
-		// Don't send failed artifacts to the execution's queue.
-		if let Err(ref error) = result {
-			let _ = result_tx.send(Err(ValidationError::from(error.clone())));
-			continue
-		}
-
-		let path = if let Some(ref path) = path {
-			path.as_path()
-		} else {
-			unreachable!("path must be available if result is ok");
+		let path = match &result {
+			Ok(success) => success.path.clone(),
+			Err(error) => {
+				let _ = result_tx.send(Err(ValidationError::from(error.clone())));
+				continue
+			},
 		};
 
 		send_execute(
 			execute_queue,
 			execute::ToQueue::Enqueue {
-				artifact: ArtifactPathId::new(artifact_id.clone(), path),
+				artifact: ArtifactPathId::new(artifact_id.clone(), &path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
 					params,
@@ -751,14 +749,8 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(prepare_stats) => {
-			let path = if let Some(path) = path {
-				path
-			} else {
-				unreachable!("path must be available if result is ok")
-			};
-			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), prepare_stats }
-		},
+		Ok(PrepareSuccess { path, stats: prepare_stats }) =>
+			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), prepare_stats },
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;

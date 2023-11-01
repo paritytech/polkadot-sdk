@@ -55,7 +55,7 @@
 //!    older by a predefined parameter. This process is run very rarely (say, once a day). Once the
 //!    artifact is expired it is removed from disk eagerly atomically.
 
-use crate::{host::PrepareResultSender, LOG_TARGET};
+use crate::{host::PrecheckResultSender, LOG_TARGET};
 use always_assert::always;
 use polkadot_core_primitives::Hash;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
@@ -191,7 +191,7 @@ pub enum ArtifactState {
 	/// A task to prepare this artifact is scheduled.
 	Preparing {
 		/// List of result senders that are waiting for a response.
-		waiting_for_response: Vec<PrepareResultSender>,
+		waiting_for_response: Vec<PrecheckResultSender>,
 		/// The number of times this artifact has failed to prepare.
 		num_failures: u32,
 	},
@@ -359,7 +359,7 @@ impl Artifacts {
 	pub fn insert_preparing(
 		&mut self,
 		artifact_id: ArtifactId,
-		waiting_for_response: Vec<PrepareResultSender>,
+		waiting_for_response: Vec<PrecheckResultSender>,
 	) {
 		// See the precondition.
 		always!(self
