@@ -683,7 +683,7 @@ mod asset_hub_rococo_tests {
 			bridging_to_asset_hub_wococo,
 			WeightLimit::Unlimited,
 			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-			Some(xcm_config::TreasuryAccount::get().unwrap()),
+			Some(xcm_config::TreasuryAccount::get()),
 		)
 	}
 
@@ -871,7 +871,7 @@ mod asset_hub_wococo_tests {
 			with_wococo_flavor_bridging_to_asset_hub_rococo,
 			WeightLimit::Unlimited,
 			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-			Some(xcm_config::TreasuryAccount::get().unwrap()),
+			Some(xcm_config::TreasuryAccount::get()),
 		)
 	}
 

@@ -31,19 +31,45 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type that allow to store value for given key. Allowing to insert/remove/iterate on values.
+/// A type representing a *map* in storage. A *storage map* is a mapping of keys to values of a
+/// given type stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix())
-/// 		++ Twox128(Prefix::STORAGE_PREFIX)
-/// 		++ Hasher1(encode(key))
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
 /// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet<T>(_);
+/// 	/// A kitchen-sink StorageMap, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = "OtherFoo"]
+/// 	#[pallet::unbounded]
+///     pub type Foo<T> = StorageMap<
+/// 		_
+/// 		Blake2_128Concat,
+/// 		u32,
+/// 		u32,
+/// 		ValueQuery
+/// 	>;
 ///
-/// # Warning
-///
-/// If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher` such as
-/// `blake2_128_concat` must be used.  Otherwise, other values in storage can be compromised.
+/// 	/// Alternative named syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageMap<
+/// 		Hasher = Blake2_128Concat,
+/// 		Key = u32,
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	>;
+/// }
+/// ```
 pub struct StorageMap<
 	Prefix,
 	Hasher,
