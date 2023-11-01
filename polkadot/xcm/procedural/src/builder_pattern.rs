@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{parse_macro_input, DeriveInput, Data, Error, Fields};
 use quote::{quote, format_ident};
+use inflector::Inflector;
 
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -25,7 +26,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 fn generate_methods_for_enum(name: syn::Ident, data_enum: &syn::DataEnum) -> TokenStream2 {
 	let methods = data_enum.variants.iter().map(|variant| {
 		let variant_name = &variant.ident;
-		let method_name_string = to_snake_case(&variant_name.to_string());
+		let method_name_string = &variant_name.to_string().to_snake_case();
 		let method_name = syn::Ident::new(&method_name_string, variant_name.span());
 		match &variant.fields {
 			Fields::Unit => {
@@ -71,23 +72,4 @@ fn generate_methods_for_enum(name: syn::Ident, data_enum: &syn::DataEnum) -> Tok
 		}
 	};
 	output
-}
-
-fn to_snake_case(s: &str) -> String {
-    let mut snake = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        // If it's an uppercase character and not the start
-        if ch.is_uppercase() && !snake.is_empty() {
-            // If the next character is lowercase, prepend an underscore
-            if chars.peek().map_or(false, |next| next.is_lowercase()) {
-                snake.push('_');
-            }
-        }
-
-        snake.extend(ch.to_lowercase());
-    }
-
-    snake
 }
