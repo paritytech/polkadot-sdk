@@ -34,7 +34,7 @@ use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
 	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
-	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
+	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
 		cpu_time_monitor_loop, stringify_panic_payload,
@@ -259,7 +259,10 @@ pub fn worker_entrypoint(
 
 								let checksum =
 									blake3::hash(&artifact.as_ref()).to_hex().to_string();
-								Ok((checksum, PrepareStats { cpu_time_elapsed, memory_stats }))
+								Ok(PrepareWorkerSuccess {
+									checksum,
+									stats: PrepareStats { cpu_time_elapsed, memory_stats },
+								})
 							},
 						}
 					},

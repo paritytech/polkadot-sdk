@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::prepare::{PrepareStats, PrepareSuccess};
+use crate::prepare::{PrepareStats, PrepareSuccess, PrepareWorkerSuccess};
 use parity_scale_codec::{Decode, Encode};
 use std::fmt;
 
 /// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the
 /// preparation if successful.
-pub type PrepareWorkerResult = Result<(String, PrepareStats), PrepareError>;
+pub type PrepareWorkerResult = Result<PrepareWorkerSuccess, PrepareError>;
 
 /// Result of PVF preparation propagated all the way back to the host, with path to the concluded
 /// artifact and stats of the preparation if successful.

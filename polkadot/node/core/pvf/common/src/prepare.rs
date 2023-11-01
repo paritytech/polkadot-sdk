@@ -17,10 +17,19 @@
 use parity_scale_codec::{Decode, Encode};
 use std::path::PathBuf;
 
-/// Result of PVF preparation if a success.
+/// Result from prepare worker if successful.
+#[derive(Debug, Clone, Default, Encode, Decode)]
+pub struct PrepareWorkerSuccess {
+	/// Checksum of the compiled PVF.
+	pub checksum: String,
+	/// Stats of the current preparation run.
+	pub stats: PrepareStats,
+}
+
+/// Result of PVF preparation if successful.
 #[derive(Debug, Clone, Default)]
 pub struct PrepareSuccess {
-	/// Canonical path to the compiled artifact. Using `String` for serialization purpose.
+	/// Canonical path to the compiled artifact.
 	pub path: PathBuf,
 	/// Stats of the current preparation run.
 	pub stats: PrepareStats,

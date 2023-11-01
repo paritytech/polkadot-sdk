@@ -27,7 +27,7 @@ use crate::{
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult, PrepareWorkerResult},
-	prepare::{PrepareStats, PrepareSuccess},
+	prepare::{PrepareStats, PrepareSuccess, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker_dir, SecurityStatus,
 };
@@ -199,12 +199,13 @@ async fn handle_response(
 	artifact_path_partial: PathBuf,
 	preparation_timeout: Duration,
 ) -> Outcome {
-	let (checksum, PrepareStats { cpu_time_elapsed, memory_stats }) = match result.clone() {
-		Ok(result) => result,
-		// Timed out on the child. This should already be logged by the child.
-		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
-	};
+	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
+		match result.clone() {
+			Ok(result) => result,
+			// Timed out on the child. This should already be logged by the child.
+			Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+			Err(err) => return Outcome::Concluded { worker, result: Err(err) },
+		};
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
