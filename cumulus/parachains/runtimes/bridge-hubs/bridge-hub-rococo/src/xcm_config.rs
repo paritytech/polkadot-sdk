@@ -69,6 +69,7 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 
 	// Network and location for the local Ethereum testnet.
 	pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
