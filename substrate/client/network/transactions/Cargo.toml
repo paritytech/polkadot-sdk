@@ -21,6 +21,7 @@ log = "0.4.17"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-network = { path = ".." }
 sc-network-common = { path = "../common" }
+sc-network-sync = { path = "../sync" }
 sc-utils = { path = "../../utils" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
