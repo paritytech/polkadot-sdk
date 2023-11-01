@@ -144,9 +144,27 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 		match targets {
 			Select::None => Ok(()),
 			Select::All => {
-				let mut result = Ok(());
-				for_tuples!( #( result = result.and(Tuple::try_state(n.clone(), targets.clone())); )* );
-				result
+				let mut error_count = 0;
+				for_tuples!(#(
+					if let Err(_) = Tuple::try_state(n.clone(), targets.clone()) {
+						error_count += 1;
+					}
+				)*);
+
+				if error_count > 0 {
+					log::error!(
+						target: "try-runtime",
+						"{} pallets exited with errors while executing try_state checks.",
+						error_count
+					);
+
+					return Err(
+						"Detected errors while executing try_state checks. See logs for more info."
+							.into(),
+					)
+				}
+
+				Ok(())
 			},
 			Select::RoundRobin(len) => {
 				let functions: &[fn(BlockNumber, Select) -> Result<(), TryRuntimeError>] =

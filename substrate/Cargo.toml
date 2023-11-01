@@ -7,13 +7,14 @@ repository.workspace = true
 authors.workspace = true
 edition.workspace = true
 version = "1.0.0"
+publish = false
 
 # The dependencies are only needed for docs.
 [dependencies]
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
 
 subkey = { path = "bin/utils/subkey" }
-chain-spec-builder = { path = "bin/utils/chain-spec-builder" }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "bin/utils/chain-spec-builder" }
 
 sc-service = { path = "client/service" }
 sc-cli = { path = "client/cli" }
