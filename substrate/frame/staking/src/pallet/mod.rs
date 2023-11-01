@@ -24,15 +24,15 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveResult, DefensiveSaturating, EnsureOrigin,
-		EstimateNextNewSession, Get, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		fungible::hold::Mutate as FunHoldMutate, Currency, Defensive, DefensiveSaturating,
+		EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
@@ -46,10 +46,10 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, Forcing, MaxNominationsOf, NegativeImbalanceOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
-	UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	delegation, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
+	EraPayout, EraRewardPoints, Exposure, Forcing, MaxNominationsOf, NegativeImbalanceOf,
+	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
+	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -87,10 +87,18 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The staking balance.
 		type Currency: LockableCurrency<
-			Self::AccountId,
-			Moment = BlockNumberFor<Self>,
-			Balance = Self::CurrencyBalance,
-		>;
+				Self::AccountId,
+				Moment = BlockNumberFor<Self>,
+				Balance = Self::CurrencyBalance,
+			> + FunHoldMutate<
+				Self::AccountId,
+				Reason = Self::RuntimeHoldReason,
+				Balance = Self::CurrencyBalance,
+			>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -181,8 +189,16 @@ pub mod pallet {
 
 		/// Number of eras that slashes are deferred by, after computation.
 		///
-		/// This should be less than the bonding duration. Set to 0 if slashes
-		/// should be applied immediately, without opportunity for intervention.
+		/// This should be less than the bonding duration. Set to 0 if slashes should be applied
+		/// immediately, without opportunity for intervention.
+		///
+		/// Note: Ideally this value should never be changed from its initial value once a runtime
+		/// is in production. Changing it may cause inconsistent behaviour for slashing.
+		// TODO:(ank4n) Replace following with a test.
+		/// Example scenario: Initially set as 10, an offence is reported at era 100, and slash
+		/// scheduled at era 110. Then an upgrade on era 105 sets defer duration to 20. The slash
+		/// scheduled on era 110 would think the actual slash era is 110-20 = 90, thus attempting to
+		/// slash validators for era 90.
 		#[pallet::constant]
 		type SlashDeferDuration: Get<EraIndex>;
 
@@ -581,6 +597,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// Map of Delegators to their delegation.
+	///
+	/// Note: We are not using a double map with delegator and delegatee account as keys since we
+	/// want to restrict delegators to delegate only to one account.
+	#[pallet::storage]
+	pub(crate) type Delegators<T: Config> =
+		CountedStorageMap<_, Twox64Concat, T::AccountId, (T::AccountId, BalanceOf<T>), OptionQuery>;
+
+	/// Map of Delegatee to their Ledger.
+	#[pallet::storage]
+	pub(crate) type Delegatees<T: Config> = CountedStorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		delegation::DelegationRegister<T>,
+		OptionQuery,
+	>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -625,7 +659,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					T::Currency::free_balance(stash) >= balance,
+					<Pallet<T>>::stakeable_balance(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -657,6 +691,17 @@ pub mod pallet {
 				"not all genesis stakers were inserted into sorted list provider, something is wrong."
 			);
 		}
+	}
+
+	/// A reason for staking pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds held for delegation to another account.
+		// This helps us differentiate the locks used for direct staking to the held funds for
+		// delegation based staking. In future, we will move to fungible hold for direct staking
+		// as well but with a different HoldReason variant.
+		#[codec(index = 0)]
+		Delegating,
 	}
 
 	#[pallet::event]
@@ -765,6 +810,24 @@ pub mod pallet {
 		CommissionTooLow,
 		/// Some bound is not met.
 		BoundNotMet,
+		/// Delegation not allowed.
+		///
+		/// Possible issues are
+		/// 1) A delegatee cannot delegate,
+		/// 2) Cannot delegate to self,
+		/// 3) Cannot delegate to multiple delegatees,
+		/// 4) Cannot delegate to a delegator.
+		/// 5) Cannot set reward destination as delegatee.
+		// fixme(ank4n): refactor and add more errors as needed.
+		InvalidDelegation,
+		/// The account does not have enough funds to perform the operation.
+		NotEnoughFunds,
+		/// Not an existing delegatee account.
+		NotDelegatee,
+		/// This operation is not allowed for a existing Delegatee.
+		AlreadyDelegatee,
+		/// This operation is not allowed for a existing Delegator.
+		AlreadyDelegator,
 	}
 
 	#[pallet::hooks]
@@ -842,41 +905,7 @@ pub mod pallet {
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-
-			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into())
-			}
-
-			// Reject a bond which is considered to be _dust_.
-			if value < T::Currency::minimum_balance() {
-				return Err(Error::<T>::InsufficientBond.into())
-			}
-
-			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
-
-			let current_era = CurrentEra::<T>::get().unwrap_or(0);
-			let history_depth = T::HistoryDepth::get();
-			let last_reward_era = current_era.saturating_sub(history_depth);
-
-			let stash_balance = T::Currency::free_balance(&stash);
-			let value = value.min(stash_balance);
-			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
-			let ledger = StakingLedger::<T>::new(
-				stash.clone(),
-				value,
-				(last_reward_era..current_era)
-					.try_collect()
-					// Since last_reward_era is calculated as `current_era -
-					// HistoryDepth`, following bound is always expected to be
-					// satisfied.
-					.defensive_map_err(|_| Error::<T>::BoundNotMet)?,
-			);
-
-			// You're auto-bonded forever, here. We might improve this by only bonding when
-			// you actually validate/nominate and remove once you unbond __everything__.
-			ledger.bond(payee)?;
-
-			Ok(())
+			Self::do_bond(stash, value, payee)
 		}
 
 		/// Add some extra amount that have appeared in the stash `free_balance` into the balance up
@@ -900,30 +929,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-
-			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
-
-			let stash_balance = T::Currency::free_balance(&stash);
-			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
-				let extra = extra.min(max_additional);
-				ledger.total += extra;
-				ledger.active += extra;
-				// Last check: the new active amount of ledger must be more than ED.
-				ensure!(
-					ledger.active >= T::Currency::minimum_balance(),
-					Error::<T>::InsufficientBond
-				);
-
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
-
-				Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
-			}
-			Ok(())
+			Self::do_bond_extra(stash, max_additional)
 		}
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
@@ -963,7 +969,11 @@ pub mod pallet {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
 						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+					Some(Self::do_withdraw_unbonded(
+						&controller,
+						real_num_slashing_spans as u32,
+						None,
+					)?)
 				} else {
 					None
 				}
@@ -1065,7 +1075,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans, None)?;
 			Ok(Some(actual_weight).into())
 		}
 

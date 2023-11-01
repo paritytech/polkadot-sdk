@@ -35,29 +35,33 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
-	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+	traits::{
+		Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero,
+	},
 	Perbill,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
+	delegation::DelegatedStakeInterface,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, SessionIndex, Stake,
+	EraIndex, SessionIndex, Stake, StakerStatus,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
 use sp_std::prelude::*;
 
 use crate::{
-	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure, MaxNominationsOf,
-	MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, ValidatorPrefs,
+	delegation, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo,
+	ActiveEraInfo, BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::ExistenceRequirement;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -117,15 +121,95 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	pub fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
+		// if the account is a delegatee, the balance is made up of its child delegators.
+		if delegation::is_delegatee::<T>(who) {
+			return delegation::delegated_balance::<T>(who)
+		}
+
+		T::Currency::free_balance(who)
+	}
+
+	pub(crate) fn do_bond(
+		stash: T::AccountId,
+		value: BalanceOf<T>,
+		payee: RewardDestination<T::AccountId>,
+	) -> DispatchResult {
+		if StakingLedger::<T>::is_bonded(Stash(stash.clone())) {
+			return Err(Error::<T>::AlreadyBonded.into())
+		}
+
+		// Reject a bond which is considered to be _dust_.
+		if value < T::Currency::minimum_balance() {
+			return Err(Error::<T>::InsufficientBond.into())
+		}
+
+		// fixme(ank4n): Add debug assert and re-evaluate this later if we really need to do this
+		// infallibly?
+		let _ = frame_system::Pallet::<T>::inc_consumers(&stash);
+		// frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+
+		let current_era = CurrentEra::<T>::get().unwrap_or(0);
+		let history_depth = T::HistoryDepth::get();
+		let last_reward_era = current_era.saturating_sub(history_depth);
+
+		let stash_balance = Self::stakeable_balance(&stash);
+
+		let value = value.min(stash_balance);
+		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
+		let ledger = StakingLedger::<T>::new(
+			stash.clone(),
+			value,
+			(last_reward_era..current_era)
+				.try_collect()
+				// Since last_reward_era is calculated as `current_era -
+				// HistoryDepth`, following bound is always expected to be
+				// satisfied.
+				.defensive_map_err(|_| Error::<T>::BoundNotMet)?,
+		);
+
+		// You're auto-bonded forever, here. We might improve this by only bonding when
+		// you actually validate/nominate and remove once you unbond __everything__.
+		ledger.bond(payee)?;
+
+		Ok(())
+	}
+
+	pub fn do_bond_extra(stash: T::AccountId, max_additional: BalanceOf<T>) -> DispatchResult {
+		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
+
+		let stash_balance = Self::stakeable_balance(&stash);
+		if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
+			let extra = extra.min(max_additional);
+			ledger.total += extra;
+			ledger.active += extra;
+			// Last check: the new active amount of ledger must be more than ED.
+			ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+
+			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+			ledger.update()?;
+			// update this staker in the sorted list, if they exist in it.
+			if T::VoterList::contains(&stash) {
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
+			}
+
+			Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
+		}
+		Ok(())
+	}
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
+		limit: Option<BalanceOf<T>>,
 	) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
+
 		if let Some(current_era) = Self::current_era() {
-			ledger = ledger.consolidate_unlocked(current_era)
+			// consolidate all unlocked chunks upto the limit if set.
+			ledger = ledger.consolidate_unlocked(current_era, limit)
 		}
+
 		let new_total = ledger.total;
 
 		let used_weight =
@@ -134,7 +218,6 @@ impl<T: Config> Pallet<T> {
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
 				Self::kill_stash(&ledger.stash, num_slashing_spans)?;
-
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move on.
@@ -1707,25 +1790,42 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::nominate(RawOrigin::Signed(ctrl).into(), targets)
 	}
 
-	fn status(
-		who: &Self::AccountId,
-	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
+	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
+		// delegators stash are not directly bonded so we check this first.
+		if let Some(delegator) = Delegators::<T>::get(&who) {
+			return Ok(StakerStatus::Delegator(delegator.0))
+		}
+
+		// The staker account is bonded for all staker types except if it is a delegator.
 		if !StakingLedger::<T>::is_bonded(StakingAccount::Stash(who.clone())) {
 			return Err(Error::<T>::NotStash.into())
 		}
 
+		let is_delegatee = Delegatees::<T>::contains_key(who);
 		let is_validator = Validators::<T>::contains_key(&who);
 		let is_nominator = Nominators::<T>::get(&who);
 
-		use sp_staking::StakerStatus;
-		match (is_validator, is_nominator.is_some()) {
-			(false, false) => Ok(StakerStatus::Idle),
-			(true, false) => Ok(StakerStatus::Validator),
-			(false, true) => Ok(StakerStatus::Nominator(
+		match (is_validator, is_nominator.is_some(), is_delegatee) {
+			(false, false, false) => Ok(StakerStatus::Idle),
+			// Technically a delegatee can be idle too but since only a trusted runtime code can
+			// create a delegatee, we don't care if it is idle and always consider it as a
+			// delegatee.
+			// fixme(ank4n): is this correct?
+			(false, false, true) => Ok(StakerStatus::Delegatee(vec![])),
+			(true, false, false) => Ok(StakerStatus::Validator),
+			(false, true, false) => Ok(StakerStatus::Nominator(
 				is_nominator.expect("is checked above; qed").targets.into_inner(),
 			)),
-			(true, true) => {
+			// A delegatee who is nominating
+			(false, true, true) => Ok(StakerStatus::Delegatee(
+				is_nominator.expect("is checked above; qed").targets.into_inner(),
+			)),
+			(true, true, _) => {
 				defensive!("cannot be both validators and nominator");
+				Err(Error::<T>::BadState.into())
+			},
+			(true, false, true) => {
+				defensive!("cannot be a validator and delegatee");
 				Err(Error::<T>::BadState.into())
 			},
 		}
@@ -1752,6 +1852,157 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		fn set_current_era(era: EraIndex) {
 			CurrentEra::<T>::put(era);
 		}
+	}
+}
+
+impl<T: Config> DelegatedStakeInterface for Pallet<T> {
+	fn accept_delegations(
+		delegatee: &Self::AccountId,
+		payee: &Self::AccountId,
+	) -> sp_runtime::DispatchResult {
+		delegation::accept_delegations::<T>(delegatee, payee)
+	}
+
+	fn block_delegations(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+		delegation::block_delegations::<T>(delegatee)
+	}
+
+	fn kill_delegatee(_delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+		// fixme(ank4n): Impl this.
+		todo!()
+	}
+
+	fn delegate(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		delegation::delegate::<T>(delegator, delegatee, value)
+	}
+
+	fn update_bond(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+		let delegated_balance = delegation::delegated_balance::<T>(delegatee);
+
+		match Self::ledger(Stash(delegatee.clone())) {
+			Ok(ledger) => {
+				let unstaked_delegated_balance = delegated_balance.saturating_sub(ledger.total);
+				Self::bond_extra(
+					RawOrigin::Signed(delegatee.clone()).into(),
+					unstaked_delegated_balance,
+				)
+			},
+			Err(_) => {
+				// If the ledger is not found, it means this is the first bond
+				Self::bond(
+					RawOrigin::Signed(delegatee.clone()).into(),
+					delegated_balance,
+					RewardDestination::Account(delegation::get_payee::<T>(delegatee)?),
+				)
+			},
+		}
+	}
+
+	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
+		Self::unbond(RawOrigin::Signed(delegatee.clone()).into(), value)
+			.map_err(|with_post| with_post.error)
+			.map(|_| ())
+	}
+
+	fn withdraw_unbonded(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+	) -> Result<bool, DispatchError> {
+		// partial withdraw funds from the pool ledger.
+		let real_num_slashing_spans =
+			Self::slashing_spans(delegatee).map_or(0, |s| s.iter().count());
+		// this should withdraw funds from the ledger without unlocking.
+		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value));
+		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
+		delegation::withdraw::<T>(delegatee, delegator, value)?;
+
+		Ok(!Ledger::<T>::contains_key(&delegatee))
+	}
+
+	fn apply_slash(
+		_delegatee: &Self::AccountId,
+		_delegator: &Self::AccountId,
+		_value: Self::Balance,
+		_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
+		todo!("apply slash from pending slashes of a delegatee")
+	}
+
+	fn delegatee_migrate(
+		new_delegatee: &Self::AccountId,
+		proxy_delegator: &Self::AccountId,
+		payee: &Self::AccountId,
+	) -> sp_runtime::DispatchResult {
+		ensure!(new_delegatee != proxy_delegator, Error::<T>::InvalidDelegation);
+
+		// ensure proxy delegator has at least minimum balance to keep the account alive.
+		ensure!(
+			T::Currency::free_balance(proxy_delegator) >= T::Currency::minimum_balance(),
+			Error::<T>::NotEnoughFunds
+		);
+
+		// ensure staker is a nominator
+		let status = Self::status(new_delegatee)?;
+		match status {
+			StakerStatus::Nominator(_) => (),
+			_ => return Err(Error::<T>::InvalidDelegation.into()),
+		}
+
+		let ledger = Self::ledger(Stash(new_delegatee.clone()))?;
+		let stake_amount = ledger.total;
+
+		// unlock funds from staker
+		use frame_support::traits::LockableCurrency;
+		T::Currency::remove_lock(crate::STAKING_ID, new_delegatee);
+
+		// try transferring the staked amount. This should never fail but if it does, it indicates
+		// bad state and we abort.
+		T::Currency::transfer(
+			new_delegatee,
+			proxy_delegator,
+			stake_amount,
+			ExistenceRequirement::AllowDeath,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
+
+		// delegate from new delegator to staker.
+		delegation::accept_delegations::<T>(new_delegatee, payee)?;
+		delegation::delegate::<T>(proxy_delegator, new_delegatee, stake_amount)
+	}
+
+	fn delegator_migrate(
+		existing_delegator: &Self::AccountId,
+		new_delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+
+		// ensure delegatee exists.
+		match Self::status(delegatee) {
+			Ok(StakerStatus::Delegatee(_)) => (),
+			_ => return Err(Error::<T>::NotDelegatee.into()),
+		}
+
+		// remove delegation of `value` from `existing_delegator`.
+		delegation::withdraw::<T>(delegatee, existing_delegator, value)?;
+
+		// transfer the withdrawn value to `new_delegator`.
+		T::Currency::transfer(
+			existing_delegator,
+			new_delegator,
+			value,
+			ExistenceRequirement::AllowDeath,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
+
+		// add the above removed delegation to `new_delegator`.
+		delegation::delegate::<T>(new_delegator, delegatee, value)
 	}
 }
 

@@ -231,7 +231,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -342,6 +342,7 @@ const MAX_QUOTA_NOMINATIONS: u32 = 16;
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = runtime_common::CurrencyToVote;
 	type RewardRemainder = ();
@@ -677,7 +678,7 @@ construct_runtime! {
 
 		// Consensus support.
 		Authorship: pallet_authorship::{Pallet, Storage},
-		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>, HoldReason},
 		Offences: pallet_offences::{Pallet, Storage, Event},
 		Historical: session_historical::{Pallet},
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},

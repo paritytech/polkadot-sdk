@@ -296,7 +296,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<1>;
+	type MaxHolds = ConstU32<3>;
 }
 
 parameter_types! {
@@ -653,6 +653,7 @@ parameter_types! {
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = CurrencyToVote;
 	type RewardRemainder = ();
@@ -1390,7 +1391,7 @@ construct_runtime! {
 		// Authorship must be before session in order to note author in the correct session and era
 		// for im-online and staking.
 		Authorship: pallet_authorship::{Pallet, Storage} = 5,
-		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 6,
+		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>, HoldReason} = 6,
 		Offences: pallet_offences::{Pallet, Storage, Event} = 7,
 		Historical: session_historical::{Pallet} = 27,
 

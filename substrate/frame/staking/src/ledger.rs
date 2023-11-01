@@ -40,7 +40,8 @@ use sp_staking::{EraIndex, StakingAccount};
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	BalanceOf, Bonded, Config, Delegatees, Error, Ledger, Payee, RewardDestination, StakingLedger,
+	STAKING_ID,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -171,7 +172,12 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
+		if !<Delegatees<T>>::contains_key(&self.stash) {
+			// if the stash is a delegatee, funds are only delegated and already locked/held in the
+			// accounts of the child delegators. We set a lock only if the stash is not a delegatee.
+			T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
+		}
+
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
 				defensive!("update called on a ledger that is not bonded.");
@@ -233,7 +239,7 @@ use {
 // This structs makes it easy to write tests to compare staking ledgers fetched from storage. This
 // is required because the controller field is not stored in storage and it is private.
 #[cfg(test)]
-#[derive(frame_support::DebugNoBound, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(frame_support::DebugNoBound, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct StakingLedgerInspect<T: Config> {
 	pub stash: T::AccountId,
 	#[codec(compact)]

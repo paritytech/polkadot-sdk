@@ -111,7 +111,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxHolds = ConstU32<1>;
+	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = traits::ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
@@ -256,6 +256,7 @@ const MAX_QUOTA_NOMINATIONS: u32 = 16;
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = ();
 	type RewardRemainder = ();

@@ -75,9 +75,9 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
+	type MaxHolds = ConstU32<1>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -119,6 +119,7 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type CurrencyToVote = ();
