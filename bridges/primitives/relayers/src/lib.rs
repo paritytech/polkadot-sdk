@@ -104,7 +104,7 @@ pub struct PayRewardFromAccount<T, Relayer>(PhantomData<(T, Relayer)>);
 
 impl<T, Relayer> PayRewardFromAccount<T, Relayer>
 where
-	Relayer: Decode + Encode + PartialEq,
+	Relayer: Decode + Encode,
 {
 	/// Return account that pays rewards based on the provided parameters.
 	pub fn rewards_account(params: RewardsAccountParams) -> Relayer {

@@ -36,7 +36,7 @@ impl<AccountId, BlockNumber, Currency, ReserveId, Stake, Lease>
 	StakeAndSlash<AccountId, BlockNumber, Currency::Balance>
 	for StakeAndSlashNamed<AccountId, BlockNumber, Currency, ReserveId, Stake, Lease>
 where
-	AccountId: Codec + Debug + PartialEq,
+	AccountId: Codec + Debug,
 	Currency: NamedReservableCurrency<AccountId>,
 	ReserveId: Get<Currency::ReserveIdentifier>,
 	Stake: Get<Currency::Balance>,
