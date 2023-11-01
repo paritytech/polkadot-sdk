@@ -306,6 +306,9 @@ where
 	}
 
 	/// Transfer funds from one account into another.
+	///
+	/// A transfer where the source and destination account are identical is treated as No-OP after
+	/// checking the preconditions.
 	fn transfer(
 		source: &AccountId,
 		dest: &AccountId,
