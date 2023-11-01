@@ -129,7 +129,7 @@ impl<B: BlockT> GossipEngine<B> {
 
 	/// Broadcast all messages with given topic.
 	pub fn broadcast_topic(&mut self, topic: B::Hash, force: bool) {
-		self.state_machine.broadcast_topic(&mut *self.network, topic, force);
+		self.state_machine.broadcast_topic(&mut self.notification_service, topic, force);
 	}
 
 	/// Get data of valid, incoming messages for a topic (but might have expired meanwhile).
@@ -154,19 +154,21 @@ impl<B: BlockT> GossipEngine<B> {
 
 	/// Send all messages with given topic to a peer.
 	pub fn send_topic(&mut self, who: &PeerId, topic: B::Hash, force: bool) {
-		self.state_machine.send_topic(&mut *self.network, who, topic, force)
+		self.state_machine.send_topic(&mut self.notification_service, who, topic, force)
 	}
 
 	/// Multicast a message to all peers.
 	pub fn gossip_message(&mut self, topic: B::Hash, message: Vec<u8>, force: bool) {
-		self.state_machine.multicast(&mut *self.network, topic, message, force)
+		self.state_machine
+			.multicast(&mut self.notification_service, topic, message, force)
 	}
 
 	/// Send addressed message to the given peers. The message is not kept or multicast
 	/// later on.
 	pub fn send_message(&mut self, who: Vec<PeerId>, data: Vec<u8>) {
 		for who in &who {
-			self.state_machine.send_message(&mut *self.network, who, data.clone());
+			self.state_machine
+				.send_message(&mut self.notification_service, who, data.clone());
 		}
 	}
 
@@ -214,14 +216,20 @@ impl<B: BlockT> Future for GossipEngine<B> {
 									continue
 								};
 
-								this.state_machine.new_peer(&mut *this.network, peer, role);
+								this.state_machine.new_peer(
+									&mut this.notification_service,
+									peer,
+									role,
+								);
 							},
 							NotificationEvent::NotificationStreamClosed { peer } => {
-								this.state_machine.peer_disconnected(&mut *this.network, peer);
+								this.state_machine
+									.peer_disconnected(&mut this.notification_service, peer);
 							},
 							NotificationEvent::NotificationReceived { peer, notification } => {
 								let to_forward = this.state_machine.on_incoming(
 									&mut *this.network,
+									&mut this.notification_service,
 									peer,
 									vec![notification],
 								);
@@ -309,7 +317,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 		while let Poll::Ready(()) = this.periodic_maintenance_interval.poll_unpin(cx) {
 			this.periodic_maintenance_interval.reset(PERIODIC_MAINTENANCE_INTERVAL);
-			this.state_machine.tick(&mut *this.network);
+			this.state_machine.tick(&mut this.notification_service);
 
 			this.message_sinks.retain(|_, sinks| {
 				sinks.retain(|sink| !sink.is_closed());
