@@ -461,9 +461,7 @@ where
 				if best_number.is_zero() {
 					info!(
 						"💔 New peer {} with unknown genesis hash {} ({}).",
-						who,
-						best_hash,
-						best_number,
+						who, best_hash, best_number,
 					);
 					return Err(BadPeer(who, rep::GENESIS_MISMATCH))
 				}
