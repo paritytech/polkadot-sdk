@@ -47,7 +47,6 @@ use futures::{
 	future::{BoxFuture, Fuse},
 	FutureExt, StreamExt,
 };
-use futures_timer::Delay;
 use libp2p::{request_response::OutboundFailure, PeerId};
 use log::{debug, trace};
 use prometheus_endpoint::{
@@ -56,6 +55,7 @@ use prometheus_endpoint::{
 };
 use prost::Message;
 use schnellru::{ByLength, LruMap};
+use tokio::time::{Interval, MissedTickBehavior};
 
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::import_queue::ImportQueueService;
@@ -266,7 +266,7 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	event_streams: Vec<TracingUnboundedSender<SyncEvent>>,
 
 	/// Interval at which we call `tick`.
-	tick_timeout: Delay,
+	tick_timeout: Interval,
 
 	/// All connected peers. Contains both full and light node peers.
 	peers: HashMap<PeerId, Peer<B>>,
@@ -478,6 +478,12 @@ where
 		let max_out_peers = net_config.network_config.default_peers_set.out_peers;
 		let max_in_peers = (max_full_peers - max_out_peers) as usize;
 
+		let tick_timeout = {
+			let mut interval = tokio::time::interval(TICK_TIMEOUT);
+			interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+			interval
+		};
+
 		Ok((
 			Self {
 				roles,
@@ -505,7 +511,7 @@ where
 				num_in_peers: 0usize,
 				max_in_peers,
 				event_streams: Vec::new(),
-				tick_timeout: Delay::new(TICK_TIMEOUT),
+				tick_timeout,
 				syncing_started: None,
 				last_notification_io: Instant::now(),
 				metrics: if let Some(r) = metrics_registry {
@@ -700,9 +706,8 @@ where
 		self.is_major_syncing
 			.store(self.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
 
-		while let Poll::Ready(()) = self.tick_timeout.poll_unpin(cx) {
+		while let Poll::Ready(_) = self.tick_timeout.poll_tick(cx) {
 			self.report_metrics();
-			self.tick_timeout.reset(TICK_TIMEOUT);
 
 			// if `SyncingEngine` has just started, don't evict seemingly inactive peers right away
 			// as they may not have produced blocks not because they've disconnected but because
