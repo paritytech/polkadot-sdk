@@ -104,7 +104,7 @@ pub struct PayRewardFromAccount<T, Relayer>(PhantomData<(T, Relayer)>);
 
 impl<T, Relayer> PayRewardFromAccount<T, Relayer>
 where
-	Relayer: Decode + Encode,
+	Relayer: Decode + Encode + PartialEq,
 {
 	/// Return account that pays rewards based on the provided parameters.
 	pub fn rewards_account(params: RewardsAccountParams) -> Relayer {
@@ -115,7 +115,7 @@ where
 impl<T, Relayer> PaymentProcedure<Relayer, T::Balance> for PayRewardFromAccount<T, Relayer>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
-	Relayer: Decode + Encode,
+	Relayer: Decode + Encode + PartialEq,
 {
 	type Error = sp_runtime::DispatchError;
 
