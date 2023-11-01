@@ -40,8 +40,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime::Treasury as RococoTreasury;
-use rococo_runtime_constants::system_parachain::SystemParachains;
+use rococo_runtime_constants::system_parachain;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -77,6 +76,7 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -498,10 +498,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and BridgeHub get free
-					// execution.
+					// Parent, its pluralities (i.e. governance bodies), relay treasury pallet and
+					// BridgeHub get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
+						Equals<RelayTreasuryLocation>,
 						Equals<bridging::SiblingBridgeHub>,
 					)>,
 					// Subscriptions for version tracking are OK.
@@ -531,22 +532,25 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 		ForeignAssetsInstance,
 	>;
 
-parameter_types! {
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(<RococoTreasury as PalletInfoAccess>::index() as u8)).into();
-}
-
-pub struct RelayTreasury;
-impl Contains<MultiLocation> for RelayTreasury {
-	fn contains(location: &MultiLocation) -> bool {
-		let relay_treasury_location = RelayTreasuryLocation::get();
-		*location == relay_treasury_location
-	}
+match_types! {
+	pub type SystemParachains: impl Contains<MultiLocation> = {
+		MultiLocation {
+			parents: 1,
+			interior: X1(Parachain(
+				system_parachain::ASSET_HUB_ID |
+				system_parachain::BRIDGE_HUB_ID |
+				system_parachain::CONTRACTS_ID |
+				system_parachain::ENCOINTER_ID
+			)),
+		}
+	};
 }
 
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (RelayOrOtherSystemParachains<SystemParachains, Runtime>, RelayTreasury);
+pub type WaivedLocations =
+	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
@@ -764,7 +768,15 @@ pub mod bridging {
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
 		/// Price per byte - can be adjusted via governance `set_storage` call.
 		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
+
+		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
+			sp_std::vec::Vec::new().into_iter()
+			.chain(to_wococo::BridgeTable::get())
+			.chain(to_rococo::BridgeTable::get())
+			.collect();
 	}
+
+	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 	pub mod to_wococo {
 		use super::*;
@@ -774,7 +786,7 @@ pub mod bridging {
 				1,
 				X2(
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX)
+					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX)
 				)
 			);
 
@@ -825,8 +837,6 @@ pub mod bridging {
 			}
 		}
 
-		pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
-
 		/// Trusted reserve locations filter for `xcm_executor::Config::IsReserve`.
 		/// Locations from which the runtime accepts reserved assets.
 		pub type IsTrustedBridgedReserveLocationForConcreteAsset =
@@ -865,7 +875,7 @@ pub mod bridging {
 				1,
 				X2(
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX)
+					PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX)
 				)
 			);
 
@@ -915,8 +925,6 @@ pub mod bridging {
 				UniversalAliases::get().contains(alias)
 			}
 		}
-
-		pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 		/// Reserve locations filter for `xcm_executor::Config::IsReserve`.
 		/// Locations from which the runtime accepts reserved assets.

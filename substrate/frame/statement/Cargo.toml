@@ -33,6 +33,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"sp-api/std",

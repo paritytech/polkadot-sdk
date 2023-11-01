@@ -19,6 +19,7 @@
 //! [`PendingResponses`] is responsible for keeping track of pending responses and
 //! polling them.
 
+use crate::types::PeerRequest;
 use futures::{
 	channel::oneshot,
 	future::BoxFuture,
@@ -28,10 +29,12 @@ use futures::{
 use libp2p::PeerId;
 use log::error;
 use sc_network::request_responses::RequestFailure;
-use sc_network_common::sync::PeerRequest;
 use sp_runtime::traits::Block as BlockT;
 use std::task::{Context, Poll};
 use tokio_stream::StreamMap;
+
+/// Log target for this file.
+const LOG_TARGET: &'static str = "sync";
 
 /// Response result.
 type ResponseResult = Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
@@ -74,7 +77,7 @@ impl<B: BlockT> PendingResponses<B> {
 			.is_some()
 		{
 			error!(
-				target: crate::LOG_TARGET,
+				target: LOG_TARGET,
 				"Discarded pending response from peer {peer_id}, request type: {request_type:?}.",
 			);
 			debug_assert!(false);

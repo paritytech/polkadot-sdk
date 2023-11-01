@@ -4,6 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
+license = "Apache-2.0"
 
 [dependencies]
 bytes = { version = "1.4.0", default-features = false }
@@ -55,6 +56,7 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 [features]
 default = [ "std" ]
 std = [
+	"bytes/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
