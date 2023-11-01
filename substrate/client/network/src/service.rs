@@ -533,6 +533,7 @@ where
 			peers_notifications_sinks,
 			peer_store_handle: params.peer_store,
 			address_scores: HashMap::new(),
+			peer_endpoints: HashMap::new(),
 			_marker: Default::default(),
 			_block: Default::default(),
 		})
@@ -1237,6 +1238,7 @@ where
 	peer_store_handle: PeerStoreHandle,
 	/// Address scores for tracking external addresses.
 	address_scores: HashMap<Multiaddr, usize>,
+	peer_endpoints: HashMap<PeerId, ConnectedPoint>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	_marker: PhantomData<H>,
@@ -1461,17 +1463,21 @@ where
 					);
 				}
 				self.peer_store_handle.add_known_peer(peer_id);
+
+				if let Some(ConnectedPoint::Listener { .. }) = self.peer_endpoints.get(&peer_id) {
+					self.network_service.add_external_address(observed_addr);
+				}
+
 				// Confirm the observed address manually since they are no longer trusted by
 				// default (libp2p >= 0.52)
 				// TODO: remove this when/if AutoNAT is implemented.
-				let entry = self.address_scores.entry(observed_addr.clone()).or_default();
-				*entry = entry.saturating_add(1);
-
-				// at least two nodes have reported the same observed address and it can be
-				// added as an external address for the node
-				if *entry > 2 {
-					self.network_service.add_external_address(observed_addr);
-				}
+				// let entry = self.address_scores.entry(observed_addr.clone()).or_default();
+				// *entry = entry.saturating_add(1);
+				// // at least two nodes have reported the same observed address and it can be
+				// // added as an external address for the node
+				// if *entry > 2 {
+				// 	self.network_service.add_external_address(observed_addr);
+				// }
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
 				self.peer_store_handle.add_known_peer(peer_id);
@@ -1615,6 +1621,7 @@ where
 						metrics.distinct_peers_connections_opened_total.inc();
 					}
 				}
+				self.peer_endpoints.insert(peer_id, endpoint);
 			},
 			SwarmEvent::ConnectionClosed {
 				connection_id,
@@ -1650,6 +1657,7 @@ where
 						metrics.distinct_peers_connections_closed_total.inc();
 					}
 				}
+				self.peer_endpoints.remove(&peer_id);
 			},
 			SwarmEvent::NewListenAddr { address, .. } => {
 				trace!(target: "sub-libp2p", "Libp2p => NewListenAddr({})", address);
