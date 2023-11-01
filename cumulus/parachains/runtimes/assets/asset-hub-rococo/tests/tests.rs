@@ -673,7 +673,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 		bridging_configuration,
 		WeightLimit::Unlimited,
 		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-		Some(xcm_config::TreasuryAccount::get().unwrap()),
+		Some(xcm_config::TreasuryAccount::get()),
 	)
 }
 

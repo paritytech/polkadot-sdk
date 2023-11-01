@@ -62,6 +62,7 @@ parameter_types! {
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
 	pub AssetHubWococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID.into();
+	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 
 	pub FromAssetHubWococoToAssetHubRococoRoute: SenderAndLane = SenderAndLane::new(
 		ParentThen(X1(Parachain(AssetHubWococoParaId::get().into()))).into(),

@@ -19,19 +19,9 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::{
-	bridge_common_config::{
-		BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance, DeliveryRewardInBalance,
-		RequiredStakeForStakeAndSlash,
-	},
-	bridge_hub_rococo_config::{
-		AssetHubRococoParaId, BridgeHubWococoChainId, BridgeHubWococoMessagesLane,
-		ToBridgeHubWococoHaulBlobExporter, WococoGlobalConsensusNetwork,
-	},
-	bridge_hub_wococo_config::{
-		AssetHubWococoParaId, BridgeHubRococoChainId, BridgeHubRococoMessagesLane,
-		RococoGlobalConsensusNetwork, ToBridgeHubRococoHaulBlobExporter,
-	},
+use crate::bridge_common_config::{
+	BridgeGrandpaRococoInstance, BridgeGrandpaWestendInstance, BridgeGrandpaWococoInstance,
+	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -310,17 +300,24 @@ impl xcm_executor::Config for XcmConfig {
 		(
 			XcmExportFeeToRelayerRewardAccounts<
 				Self::AssetTransactor,
-				WococoGlobalConsensusNetwork,
-				AssetHubWococoParaId,
-				BridgeHubWococoChainId,
-				BridgeHubWococoMessagesLane,
+				crate::bridge_to_wococo_config::WococoGlobalConsensusNetwork,
+				crate::bridge_to_wococo_config::AssetHubWococoParaId,
+				crate::bridge_to_wococo_config::BridgeHubWococoChainId,
+				crate::bridge_to_wococo_config::AssetHubRococoToAssetHubWococoMessagesLane,
 			>,
 			XcmExportFeeToRelayerRewardAccounts<
 				Self::AssetTransactor,
-				RococoGlobalConsensusNetwork,
-				AssetHubRococoParaId,
-				BridgeHubRococoChainId,
-				BridgeHubRococoMessagesLane,
+				crate::bridge_to_westend_config::WestendGlobalConsensusNetwork,
+				crate::bridge_to_westend_config::AssetHubWestendParaId,
+				crate::bridge_to_westend_config::BridgeHubWestendChainId,
+				crate::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
+			>,
+			XcmExportFeeToRelayerRewardAccounts<
+				Self::AssetTransactor,
+				crate::bridge_to_rococo_config::RococoGlobalConsensusNetwork,
+				crate::bridge_to_rococo_config::AssetHubRococoParaId,
+				crate::bridge_to_rococo_config::BridgeHubRococoChainId,
+				crate::bridge_to_rococo_config::AssetHubWococoToAssetHubRococoMessagesLane,
 			>,
 			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 		),
@@ -403,22 +400,22 @@ pub struct XcmExportFeeToRelayerRewardAccounts<
 	AssetTransactor,
 	DestNetwork,
 	DestParaId,
-	DestBridgeHubId,
+	DestBridgedChainId,
 	BridgeLaneId,
->(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgeHubId, BridgeLaneId)>);
+>(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
 
 impl<
 		AssetTransactor: TransactAsset,
 		DestNetwork: Get<NetworkId>,
 		DestParaId: Get<cumulus_primitives_core::ParaId>,
-		DestBridgeHubId: Get<ChainId>,
+		DestBridgedChainId: Get<ChainId>,
 		BridgeLaneId: Get<LaneId>,
 	> HandleFee
 	for XcmExportFeeToRelayerRewardAccounts<
 		AssetTransactor,
 		DestNetwork,
 		DestParaId,
-		DestBridgeHubId,
+		DestBridgedChainId,
 		BridgeLaneId,
 	>
 {
@@ -442,7 +439,7 @@ impl<
 				AccountId,
 			>::rewards_account(RewardsAccountParams::new(
 				BridgeLaneId::get(),
-				DestBridgeHubId::get(),
+				DestBridgedChainId::get(),
 				RewardsAccountOwner::ThisChain,
 			));
 
@@ -451,7 +448,7 @@ impl<
 				AccountId,
 			>::rewards_account(RewardsAccountParams::new(
 				BridgeLaneId::get(),
-				DestBridgeHubId::get(),
+				DestBridgedChainId::get(),
 				RewardsAccountOwner::BridgedChain,
 			));
 
