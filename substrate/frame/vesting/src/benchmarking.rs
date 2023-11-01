@@ -399,10 +399,6 @@ force_remove_vesting_schedule {
 		add_locks::<T>(&target, l as u8);
 
 		let transfer_amount = T::MinVestedTransfer::get();
-		let mut expected_balance = add_vesting_schedules::<T>(target_lookup.clone(), s)?;
-
-		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
-		expected_balance += transfer_amount;
 
 		// It will remove last vesting schedule.
 		let schedule_index = s - 1;
