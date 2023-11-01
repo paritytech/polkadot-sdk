@@ -676,7 +676,7 @@ mod test {
 	}
 
 	#[test]
-	fn sign_and_verify_with_haser_works() {
+	fn sign_and_verify_with_hasher_works() {
 		let pair =
 			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
 		let message = b"Something important";
