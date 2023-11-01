@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#![allow(rustdoc::private_intra_doc_links)]
-
 //! This crate includes structs and utilities for defining configuration files (known as chain
 //! specification) for both runtime and node.
 //!
@@ -130,8 +128,7 @@
 //! As the compiled WASM blob of the runtime code is stored in the chain's state, the initial
 //! runtime must also be provided within the chain specification under the `code` field.
 //!
-//! The genesis state can be represented in the formats described by [`GenesisFormat<G>`]
-//! enum. In essence, the most important formats are:
+//! In essence, the most important formats of genesis initial state are:
 //!
 //! <table>
 //!   <thead>
