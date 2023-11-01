@@ -179,6 +179,8 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
+	"substrate/bin/minimal/node",
+	"substrate/bin/minimal/runtime",
 	"substrate",
 	"substrate/bin/node-template/node",
 	"substrate/bin/node-template/pallets/template",
@@ -251,6 +253,7 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
+	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
 	"substrate/frame/asset-rate",
@@ -350,7 +353,6 @@ members = [
 	"substrate/frame/support/test",
 	"substrate/frame/support/test/compile_pass",
 	"substrate/frame/support/test/pallet",
-	"substrate/frame/support/test/stg_frame_crate/frame",
 	"substrate/frame/support/test/stg_frame_crate",
 	"substrate/frame/system",
 	"substrate/frame/system/benchmarking",
@@ -454,7 +456,7 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/wasm-builder",
 ]
-default-members = [ "polkadot" ]
+default-members = [ "polkadot", "substrate/bin/node/cli" ]
 
 [profile.release]
 # Polkadot runtime requires unwinding.

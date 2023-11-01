@@ -93,6 +93,7 @@ pub fn teleports_for_native_asset_works<
 		.with_session_keys(collator_session_keys.session_keys())
 		.with_safe_xcm_version(XCM_VERSION)
 		.with_para_id(runtime_para_id.into())
+		.with_tracing()
 		.build()
 		.execute_with(|| {
 			let mut alice = [0u8; 32];
@@ -111,7 +112,7 @@ pub fn teleports_for_native_asset_works<
 
 			let native_asset_id = MultiLocation::parent();
 			let buy_execution_fee_amount_eta =
-				WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 0));
+				WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 1024));
 			let native_asset_amount_unit = existential_deposit;
 			let native_asset_amount_received =
 				native_asset_amount_unit * 10.into() + buy_execution_fee_amount_eta.into();
@@ -128,7 +129,7 @@ pub fn teleports_for_native_asset_works<
 						id: Concrete(native_asset_id),
 						fun: Fungible(buy_execution_fee_amount_eta),
 					},
-					weight_limit: Limited(Weight::from_parts(303531000, 65536)),
+					weight_limit: Limited(Weight::from_parts(3035310000, 65536)),
 				},
 				DepositAsset {
 					assets: Wild(AllCounted(1)),
