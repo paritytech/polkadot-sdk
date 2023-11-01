@@ -45,7 +45,7 @@ pub trait ExecuteControllerWeightInfo {
 /// An implementation of that trait will handle the low-level details of the execution, such as:
 /// - Validating and Converting the origin to a MultiLocation.
 /// - Handling versioning.
-/// - Calling  the internal executor, which implements [`crate::ExecuteXcm`].
+/// - Calling  the internal executor, which implements [`ExecuteXcm`].
 pub trait ExecuteController<Origin, RuntimeCall> {
 	/// Weight information for ExecuteController functions.
 	type WeightInfo: ExecuteControllerWeightInfo;
@@ -76,7 +76,7 @@ pub trait SendControllerWeightInfo {
 /// as:
 /// - Validating and Converting the origin to an interior location.
 /// - Handling versioning.
-/// - Calling  the internal router, which implements [`crate::SendXcm`].
+/// - Calling  the internal router, which implements [`SendXcm`].
 pub trait SendController<Origin> {
 	/// Weight information for SendController functions.
 	type WeightInfo: SendControllerWeightInfo;
