@@ -51,10 +51,10 @@ enum GenesisBuildAction {
 enum GenesisSource<G> {
 	File(PathBuf),
 	Binary(Cow<'static, [u8]>),
+	/// factory function + code
 	#[deprecated(
 		note = "Factory and G type parameter are planned to be removed in December 2023. Use `GenesisBuilderApi` instead."
 	)]
-	/// factory function + code
 	Factory(Arc<dyn Fn() -> G + Send + Sync>, Vec<u8>),
 	Storage(Storage),
 	/// build action + code
@@ -155,7 +155,6 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 				RuntimeCaller::new(&code[..])
 					.get_storage_for_config(config)?
 					.assimilate_storage(storage)?;
-
 				storage
 					.top
 					.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.clone());
@@ -167,7 +166,6 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 				RuntimeCaller::new(&code[..])
 					.get_storage_for_patch(patch)?
 					.assimilate_storage(storage)?;
-
 				storage
 					.top
 					.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.clone());
@@ -211,19 +209,19 @@ impl From<sp_core::storage::Storage> for RawGenesis {
 	}
 }
 
-/// Inner representation of RuntimeGenesis format
+/// Inner representation of [`Genesis<G>::RuntimeGenesis`] format
 #[derive(Serialize, Deserialize, Debug)]
 struct RuntimeGenesisInner {
-	/// runtime wasm code, expected to be hex-encoded
+	/// Runtime wasm code, expected to be hex-encoded in JSON.
 	/// The code shall be capable of parsing `json_blob`.
 	#[serde(default, with = "sp_core::bytes")]
 	code: Vec<u8>,
-	/// patch or full config, this field will be flattened
+	/// The patch or full representation of runtime's `RuntimeGenesisConfig` struct.
 	#[serde(flatten)]
 	json_blob: RuntimeGenesisConfigJson,
 }
 
-/// Represents two possible variants of the contained JSON blob for the RuntimeGenesis format.
+/// Represents two possible variants of the contained JSON blob for the [`Genesis<G>::RuntimeGenesis`] format.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 enum RuntimeGenesisConfigJson {
@@ -236,13 +234,13 @@ enum RuntimeGenesisConfigJson {
 	Patch(json::Value),
 }
 
-/// Represents different formats of the GenesisConfig configuration within chain spec JSON blob.
+/// Represents the different formats of the genesis state within chain spec JSON blob.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
-	/// runtime GenesisConfig struct) (will be removed with `ChainSpec::from_genesis`) and the
+	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`) and the
 	/// runtime code.
 	Runtime(G, Vec<u8>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
@@ -594,7 +592,6 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 				}),
 			) => {
 				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_config(config)?;
-
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -606,7 +603,6 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 				}),
 			) => {
 				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_patch(patch)?;
-
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -723,7 +719,7 @@ where
 /// `path` will be modified.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// use serde_json::{from_str, json, Value};
 /// let doc = json!({"a":{"b":{"c":"5"}}});
 /// let mut path = ["a", "b", "c"].into();
