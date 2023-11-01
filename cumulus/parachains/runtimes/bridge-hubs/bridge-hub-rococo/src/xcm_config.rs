@@ -40,7 +40,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain;
+use rococo_runtime_constants::system_parachain::SystemParachains;
 use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 use sp_core::{Get, H256};
 use sp_runtime::traits::AccountIdConversion;
@@ -262,20 +262,6 @@ pub type Barrier = TrailingSetTopicAsId<
 		),
 	>,
 >;
-
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
-}
 
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
