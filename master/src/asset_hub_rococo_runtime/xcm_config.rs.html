@@ -977,6 +977,9 @@
 <a href="#977" id="977">977</a>
 <a href="#978" id="978">978</a>
 <a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1032,7 +1035,7 @@
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -1054,7 +1057,7 @@
 		PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
 	<span class="kw">pub const </span>GovernanceLocation: MultiLocation = MultiLocation::parent();
-	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(TREASURY_PALLET_ID.into_account_truncating());
+	<span class="kw">pub </span>TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
@@ -1598,7 +1601,10 @@
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	<span class="kw">type </span>AssetLocker = ();
 	<span class="kw">type </span>AssetExchanger = ();
-	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;<span class="self">Self</span>, WaivedLocations, AccountId, TreasuryAccount&gt;;
+	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
+		WaivedLocations,
+		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
+	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases =
 		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);

@@ -266,6 +266,9 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -312,7 +315,7 @@
 	DescribeFamily, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -322,7 +325,7 @@
 	<span class="kw">pub const </span>UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
 	<span class="kw">pub </span>CheckAccount: AccountId = XcmPallet::check_account();
 	<span class="kw">pub </span>LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
-	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(Treasury::account_id());
+	<span class="kw">pub </span>TreasuryAccount: AccountId = Treasury::account_id();
 	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
 	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(TokenLocation::get());
 	<span class="doccomment">/// The base fee for the message delivery fees.
@@ -453,7 +456,10 @@
 	<span class="kw">type </span>SubscriptionService = XcmPallet;
 	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;<span class="self">Self</span>, SystemParachains, AccountId, TreasuryAccount&gt;;
+	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
+		SystemParachains,
+		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
+	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;

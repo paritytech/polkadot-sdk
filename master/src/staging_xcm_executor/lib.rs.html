@@ -1280,7 +1280,7 @@
 			<span class="kw">for </span>asset <span class="kw">in </span>fees.inner() {
 				Config::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>origin, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 			}
-			Config::FeeManager::handle_fee(fees, <span class="prelude-val">None</span>);
+			Config::FeeManager::handle_fee(fees, <span class="prelude-val">None</span>, FeeReason::ChargeFees);
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1883,7 +1883,7 @@
 					destination,
 					xcm,
 				)<span class="question-mark">?</span>;
-				<span class="self">self</span>.take_fee(fee, FeeReason::Export(network))<span class="question-mark">?</span>;
+				<span class="self">self</span>.take_fee(fee, FeeReason::Export { network, destination })<span class="question-mark">?</span>;
 				Config::MessageExporter::deliver(ticket)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(())
 			},
@@ -1994,7 +1994,7 @@
 		} <span class="kw">else </span>{
 			<span class="self">self</span>.holding.try_take(fee.into()).map_err(|<span class="kw">_</span>| XcmError::NotHoldingFees)<span class="question-mark">?</span>.into()
 		};
-		Config::FeeManager::handle_fee(paid, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context));
+		Config::FeeManager::handle_fee(paid, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context), reason);
 		<span class="prelude-val">Ok</span>(())
 	}
 

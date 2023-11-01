@@ -57,6 +57,7 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -77,12 +78,12 @@
 
 <span class="doccomment">/// Handle stuff to do with taking fees in certain XCM instructions.
 </span><span class="kw">pub trait </span>FeeManager {
-	<span class="doccomment">/// Determine if a fee which would normally payable should be waived.
+	<span class="doccomment">/// Determine if a fee should be waived.
 	</span><span class="kw">fn </span>is_waived(origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;, r: FeeReason) -&gt; bool;
 
 	<span class="doccomment">/// Do something with the fee which has been paid. Doing nothing here silently burns the
 	/// fees.
-	</span><span class="kw">fn </span>handle_fee(fee: MultiAssets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;);
+	</span><span class="kw">fn </span>handle_fee(fee: MultiAssets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, r: FeeReason);
 }
 
 <span class="doccomment">/// Context under which a fee is paid.
@@ -101,7 +102,7 @@
 	<span class="doccomment">/// When the `QueryPallet` instruction is called.
 	</span>QueryPallet,
 	<span class="doccomment">/// When the `ExportMessage` instruction is called (and includes the network ID).
-	</span>Export(NetworkId),
+	</span>Export { network: NetworkId, destination: InteriorMultiLocation },
 	<span class="doccomment">/// The `charge_fees` API.
 	</span>ChargeFees,
 	<span class="doccomment">/// When the `LockAsset` instruction is called.
@@ -114,6 +115,7 @@
 	<span class="kw">fn </span>is_waived(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;, <span class="kw">_</span>: FeeReason) -&gt; bool {
 		<span class="bool-val">false
 	</span>}
-	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: MultiAssets, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;) {}
+
+	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: MultiAssets, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, <span class="kw">_</span>: FeeReason) {}
 }
 </code></pre></div></section></main></body></html>

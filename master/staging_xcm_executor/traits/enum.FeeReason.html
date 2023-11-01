@@ -5,7 +5,10 @@
     InitiateReserveWithdraw,
     InitiateTeleport,
     QueryPallet,
-    Export(<a class="enum" href="../../staging_xcm/v3/junction/enum.NetworkId.html" title="enum staging_xcm::v3::junction::NetworkId">NetworkId</a>),
+    Export {
+        network: <a class="enum" href="../../staging_xcm/v3/junction/enum.NetworkId.html" title="enum staging_xcm::v3::junction::NetworkId">NetworkId</a>,
+        destination: <a class="type" href="../../staging_xcm/v3/multilocation/type.InteriorMultiLocation.html" title="type staging_xcm::v3::multilocation::InteriorMultiLocation">InteriorMultiLocation</a>,
+    },
     ChargeFees,
     LockAsset,
     RequestUnlock,
@@ -16,7 +19,7 @@
 </div><section id="variant.InitiateReserveWithdraw" class="variant"><a href="#variant.InitiateReserveWithdraw" class="anchor">§</a><h3 class="code-header">InitiateReserveWithdraw</h3></section><div class="docblock"><p>When the <code>InitiateReserveWithdraw</code> instruction is called.</p>
 </div><section id="variant.InitiateTeleport" class="variant"><a href="#variant.InitiateTeleport" class="anchor">§</a><h3 class="code-header">InitiateTeleport</h3></section><div class="docblock"><p>When the <code>InitiateTeleport</code> instruction is called.</p>
 </div><section id="variant.QueryPallet" class="variant"><a href="#variant.QueryPallet" class="anchor">§</a><h3 class="code-header">QueryPallet</h3></section><div class="docblock"><p>When the <code>QueryPallet</code> instruction is called.</p>
-</div><section id="variant.Export" class="variant"><a href="#variant.Export" class="anchor">§</a><h3 class="code-header">Export(<a class="enum" href="../../staging_xcm/v3/junction/enum.NetworkId.html" title="enum staging_xcm::v3::junction::NetworkId">NetworkId</a>)</h3></section><div class="docblock"><p>When the <code>ExportMessage</code> instruction is called (and includes the network ID).</p>
+</div><section id="variant.Export" class="variant"><a href="#variant.Export" class="anchor">§</a><h3 class="code-header">Export</h3></section><div class="sub-variant" id="variant.Export.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Export.field.network" class="small-section-header"><a href="#variant.Export.field.network" class="anchor field">§</a><code>network: <a class="enum" href="../../staging_xcm/v3/junction/enum.NetworkId.html" title="enum staging_xcm::v3::junction::NetworkId">NetworkId</a></code></span></div><div class="sub-variant-field"><span id="variant.Export.field.destination" class="small-section-header"><a href="#variant.Export.field.destination" class="anchor field">§</a><code>destination: <a class="type" href="../../staging_xcm/v3/multilocation/type.InteriorMultiLocation.html" title="type staging_xcm::v3::multilocation::InteriorMultiLocation">InteriorMultiLocation</a></code></span></div></div><div class="docblock"><p>When the <code>ExportMessage</code> instruction is called (and includes the network ID).</p>
 </div><section id="variant.ChargeFees" class="variant"><a href="#variant.ChargeFees" class="anchor">§</a><h3 class="code-header">ChargeFees</h3></section><div class="docblock"><p>The <code>charge_fees</code> API.</p>
 </div><section id="variant.LockAsset" class="variant"><a href="#variant.LockAsset" class="anchor">§</a><h3 class="code-header">LockAsset</h3></section><div class="docblock"><p>When the <code>LockAsset</code> instruction is called.</p>
 </div><section id="variant.RequestUnlock" class="variant"><a href="#variant.RequestUnlock" class="anchor">§</a><h3 class="code-header">RequestUnlock</h3></section><div class="docblock"><p>When the <code>RequestUnlock</code> instruction is called.</p>

@@ -269,6 +269,10 @@
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -314,7 +318,8 @@
 	DescribeFamily, FixedWeightBounds, HashedDescription, IsChildSystemParachain, IsConcrete,
 	MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -324,7 +329,7 @@
 	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
 	<span class="kw">pub </span>CheckAccount: AccountId = XcmPallet::check_account();
 	<span class="kw">pub </span>LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
-	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(Treasury::account_id());
+	<span class="kw">pub </span>TreasuryAccount: AccountId = Treasury::account_id();
 }
 
 <span class="kw">pub type </span>LocationConverter = (
@@ -462,7 +467,10 @@
 	<span class="kw">type </span>SubscriptionService = XcmPallet;
 	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;<span class="self">Self</span>, SystemParachains, AccountId, TreasuryAccount&gt;;
+	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
+		SystemParachains,
+		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
+	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;

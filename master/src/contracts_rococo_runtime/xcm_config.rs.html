@@ -300,6 +300,9 @@
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -343,7 +346,7 @@
 	NativeAsset, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
+	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -353,7 +356,7 @@
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	<span class="kw">pub const </span>ExecutiveBody: BodyId = BodyId::Executive;
-	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(TREASURY_PALLET_ID.into_account_truncating());
+	<span class="kw">pub </span>TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
@@ -501,7 +504,10 @@
 	<span class="kw">type </span>MaxAssetsIntoHolding = ConstU32&lt;<span class="number">8</span>&gt;;
 	<span class="kw">type </span>AssetLocker = ();
 	<span class="kw">type </span>AssetExchanger = ();
-	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;<span class="self">Self</span>, WaivedLocations, AccountId, TreasuryAccount&gt;;
+	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
+		WaivedLocations,
+		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
+	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
