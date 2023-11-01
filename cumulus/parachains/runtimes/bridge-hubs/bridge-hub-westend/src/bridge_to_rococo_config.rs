@@ -105,7 +105,7 @@ fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instru
 /// Proof of messages, coming from Rococo.
 pub type FromRococoBridgeHubMessagesProof =
 	FromBridgedChainMessagesProof<bp_bridge_hub_rococo::Hash>;
-/// Messages delivery proof for RococoBridge Hub -> Westend BridgeHub messages.
+/// Messages delivery proof for Rococo Bridge Hub -> Westend Bridge Hub messages.
 pub type ToRococoBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_rococo::Hash>;
 
