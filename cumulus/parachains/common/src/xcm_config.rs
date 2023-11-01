@@ -95,7 +95,7 @@ impl<SystemParachainMatcher: Contains<Location>, Runtime: parachain_info::Config
 				return false
 			}
 		}
-		matches!(l.unpack(), (1, [])) || SystemParachainMatcher::contains(l)
+		matches!(l.unpack(), (1, HERE)) || SystemParachainMatcher::contains(l)
 	}
 }
 

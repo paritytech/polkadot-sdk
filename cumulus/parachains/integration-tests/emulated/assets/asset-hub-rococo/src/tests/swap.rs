@@ -176,7 +176,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		&Weight::from_parts(10_100_000_000_000, 300_000),
 	);
 	let buy_execution_fee = Asset {
-		id: AssetId(Location::new(1, []),
+		id: AssetId(Location::new(1, HERE),
 		fun: Fungible(buy_execution_fee_amount),
 	};
 

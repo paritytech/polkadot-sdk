@@ -139,14 +139,14 @@ pub type XcmOriginToTransactDispatchOrigin = (
 pub struct ParentOrParentsPlurality;
 impl Contains<Location> for ParentOrParentsPlurality {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+		matches!(location.unpack(), (1, HERE) | (1, [Plurality { .. }]))
 	}
 }
 
 pub struct ParentOrSiblings;
 impl Contains<Location> for ParentOrSiblings {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [_]))
+		matches!(location.unpack(), (1, HERE) | (1, [_]))
 	}
 }
 
