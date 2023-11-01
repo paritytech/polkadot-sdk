@@ -135,7 +135,7 @@ impl TrackingAllocatorData {
 	}
 
 	#[inline]
-	fn track(mut guard: SpinlockGuard<Self>, alloc: isize) -> Option<SpinlockGuard<Self>> {
+	fn track_and_check_limits(mut guard: SpinlockGuard<Self>, alloc: isize) -> Option<SpinlockGuard<Self>> {
 		guard.current += alloc;
 		if guard.current > guard.peak {
 			guard.peak = guard.current;
@@ -196,7 +196,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 	#[inline]
 	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
 		let guard = ALLOCATOR_DATA.lock();
-		if let Some(guard) = TrackingAllocatorData::track(guard, layout.size() as isize) {
+		if let Some(guard) = TrackingAllocatorData::track_and_check_limits(guard, layout.size() as isize) {
 			fail_allocation(guard)
 		} else {
 			self.0.alloc(layout)
@@ -206,7 +206,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 	#[inline]
 	unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
 		let guard = ALLOCATOR_DATA.lock();
-		if let Some(guard) = TrackingAllocatorData::track(guard, layout.size() as isize) {
+		if let Some(guard) = TrackingAllocatorData::track_and_check_limits(guard, layout.size() as isize) {
 			fail_allocation(guard)
 		} else {
 			self.0.alloc_zeroed(layout)
@@ -216,7 +216,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 	#[inline]
 	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) -> () {
 		let guard = ALLOCATOR_DATA.lock();
-		TrackingAllocatorData::track(guard, -(layout.size() as isize));
+		TrackingAllocatorData::track_and_check_limits(guard, -(layout.size() as isize));
 		self.0.dealloc(ptr, layout)
 	}
 
@@ -224,7 +224,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
 		let guard = ALLOCATOR_DATA.lock();
 		if let Some(guard) =
-			TrackingAllocatorData::track(guard, (new_size as isize) - (layout.size() as isize))
+			TrackingAllocatorData::track_and_check_limits(guard, (new_size as isize) - (layout.size() as isize))
 		{
 			fail_allocation(guard)
 		} else {
