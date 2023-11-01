@@ -161,9 +161,9 @@ struct FullCmd {
 /// (e.g. session keys, babe epoch).
 #[derive(Parser, Debug, Clone)]
 struct DefaultCmd {
-	#[arg(long, short)]
 	/// If provided stores the default genesis config json file at given path (in addition to
 	/// chain-spec).
+	#[arg(long, short)]
 	default_config_path: Option<PathBuf>,
 }
 
@@ -171,8 +171,8 @@ struct DefaultCmd {
 /// can be updated with the runtime provided in the command line.
 #[derive(Parser, Debug, Clone)]
 pub struct EditCmd {
-	#[arg(long, short)]
 	/// Chain spec to be edited
+	#[arg(long, short)]
 	pub input_chain_spec: PathBuf,
 	/// The path to new runtime wasm blob to be stored into chain-spec
 	#[arg(long, short = 'r')]
@@ -186,8 +186,8 @@ pub struct EditCmd {
 /// new runtime.
 #[derive(Parser, Debug, Clone)]
 pub struct VerifyCmd {
-	#[arg(long, short)]
 	/// Chain spec to be edited
+	#[arg(long, short)]
 	pub input_chain_spec: PathBuf,
 	/// The path to new runtime wasm blob to be stored into chain-spec
 	#[arg(long, short = 'r')]
@@ -314,7 +314,8 @@ pub fn print_seeds(
 
 /// Processes `RuntimeCmd` and returns JSON version of `ChainSpec`
 pub fn generate_chain_spec_for_runtime(cmd: &RuntimeCmd) -> Result<String, String> {
-	let code = fs::read(cmd.runtime_wasm_path.as_path()).expect("wasm blob file is readable");
+	let code = fs::read(cmd.runtime_wasm_path.as_path())
+		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 
 	let builder = chain_spec::ChainSpec::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
@@ -340,7 +341,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &RuntimeCmd) -> Result<String, Strin
 			let caller = GenesisConfigBuilderRuntimeCaller::new(&code[..]);
 			let default_config = caller
 				.get_default_config()
-				.expect("getting default config from runtime should work");
+				.map_err(|e| format!("getting default config from runtime should work: {e}"));
 			default_config_path.clone().map(|path| {
 				fs::write(path.as_path(), serde_json::to_string_pretty(&default_config).unwrap())
 					.map_err(|err| err.to_string())

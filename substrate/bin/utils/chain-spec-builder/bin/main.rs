@@ -101,7 +101,10 @@ fn main() -> Result<(), String> {
 			let mut chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
 			if let Some(path) = runtime_wasm_path {
 				chain_spec
-					.set_code(&fs::read(path.as_path()).expect("wasm blob file is readable")[..])
+					.set_code(
+						&fs::read(path.as_path())
+							.map_err(|e| format!("wasm blob file shall be readable {e}"))?[..],
+					)
 					.into()
 			}
 
@@ -112,7 +115,10 @@ fn main() -> Result<(), String> {
 			let mut chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
 			if let Some(path) = runtime_wasm_path {
 				chain_spec
-					.set_code(&fs::read(path.as_path()).expect("wasm blob file is readable")[..])
+					.set_code(
+						&fs::read(path.as_path())
+							.map_err(|e| format!("wasm blob file shall be readable {e}"))?[..],
+					)
 					.into()
 			};
 			chain_spec.as_json(true)
