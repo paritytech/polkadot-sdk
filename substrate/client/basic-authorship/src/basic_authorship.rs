@@ -312,7 +312,7 @@ where
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
-			.fetch_parent_block_number(&*self.client)?
+			.with_parent_block_number(self.parent_number)
 			.with_proof_recording(PR::ENABLED)
 			.with_inherent_digests(inherent_digests)
 			.build()?;
