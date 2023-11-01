@@ -44,6 +44,7 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
+	fs, io,
 	os::{
 		fd::{AsRawFd, RawFd},
 		unix::net::UnixStream,
@@ -52,7 +53,6 @@ use std::{
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use tokio::io;
 use tracking_allocator::TrackingAllocator;
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -181,7 +181,7 @@ pub fn worker_entrypoint(
 		node_version,
 		worker_version,
 		&security_status,
-		|mut stream, worker_dir_path| async move {
+		|mut stream, worker_dir_path| {
 			let worker_pid = std::process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
@@ -306,8 +306,7 @@ pub fn worker_entrypoint(
 
 								// Stop the memory stats worker and get its observed memory stats.
 								#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-								let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid)
-									.await;
+								let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid);
 								let memory_stats = MemoryStats {
 									#[cfg(any(
 										target_os = "linux",
@@ -340,7 +339,7 @@ pub fn worker_entrypoint(
 									"worker: writing artifact to {}",
 									temp_artifact_dest.display(),
 								);
-								tokio::fs::write(&temp_artifact_dest, &artifact).await?;
+								fs::write(&temp_artifact_dest, &artifact)?;
 
 								Ok(PrepareStats { cpu_time_elapsed, memory_stats })
 							},
