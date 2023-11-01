@@ -37,7 +37,7 @@ use xcm_builder::{
 	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
 	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription, IsConcrete,
 	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, XcmFeesToAccount,
+	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -479,11 +479,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeesToAccount<
-		Self,
+	type FeeManager = XcmFeeManagerFromComponents<
 		EverythingBut<XcmFeesNotWaivedLocations>,
-		AccountId,
-		XcmFeesTargetAccount,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, XcmFeesTargetAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
@@ -538,13 +536,13 @@ impl super::benchmarking::Config for Test {
 		Some(Parachain(1000).into())
 	}
 
-	fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
-		Some((NativeAsset::get().into(), SystemParachainLocation::get()))
+	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+		Some((NativeAsset::get(), SystemParachainLocation::get()))
 	}
 
-	fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 		Some((
-			MultiAsset { fun: Fungible(10), id: Concrete(Here.into_location()) }.into(),
+			MultiAsset { fun: Fungible(10), id: Concrete(Here.into_location()) },
 			Parachain(OTHER_PARA_ID).into(),
 		))
 	}

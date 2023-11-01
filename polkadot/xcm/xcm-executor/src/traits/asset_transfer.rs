@@ -44,7 +44,7 @@ pub enum TransferType {
 
 /// A trait for identifying asset transfer type based on `IsTeleporter` and `IsReserve`
 /// configurations.
-pub trait AssetTransferSupport {
+pub trait XcmAssetTransfers {
 	/// Combinations of (Asset, Location) pairs which we trust as reserves. Meaning
 	/// reserve-based-transfers are to be used for assets matching this filter.
 	type IsReserve: ContainsPair<MultiAsset, MultiLocation>;

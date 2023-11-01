@@ -16,7 +16,7 @@
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig;
 
-fn system_para_to_para_assertions(t: SystemParaToParaTest) {
+fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
@@ -27,7 +27,7 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
-			// Amount to reserve transfer is transferred to Parachain's Sovereing account
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Balances(
 				pallet_balances::Event::Transfer { from, to, amount }
 			) => {
@@ -37,6 +37,17 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
+		]
+	);
+}
+
+fn para_receiver_assertions<Test>(_: Test) {
+	type RuntimeEvent = <PenpalWestendA as Chain>::RuntimeEvent;
+	assert_expected_events!(
+		PenpalWestendA,
+		vec![
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
 		]
 	);
 }
@@ -52,7 +63,7 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
-			// Amount to reserve transfer is transferred to Parachain's Sovereing account
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Assets(
 				pallet_assets::Event::Transferred { asset_id, from, to, amount }
 			) => {
@@ -165,14 +176,15 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let mut test = SystemParaToParaTest::new(test_args);
 
 	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
 
-	test.set_assertion::<AssetHubWestend>(system_para_to_para_assertions);
-	// TODO: Add assertion for Penpal runtime. Right now message is failing with
-	// `UntrustedReserveLocation`
+	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
+	test.set_assertion::<PenpalWestendA>(para_receiver_assertions);
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubWestend::execute_with(|| {
 		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
@@ -184,9 +196,10 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 		)
 	});
 
+	// Sender's balance is reduced
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
-	// transfers
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
 }
 
 /// Limited Reserve Transfers of a local asset from System Parachain to Parachain should work

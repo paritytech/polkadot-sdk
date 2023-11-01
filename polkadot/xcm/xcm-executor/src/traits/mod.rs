@@ -25,7 +25,7 @@ pub use asset_exchange::AssetExchange;
 mod asset_lock;
 pub use asset_lock::{AssetLock, Enact, LockError};
 mod asset_transfer;
-pub use asset_transfer::{AssetTransferSupport, Error as AssetTransferError, TransferType};
+pub use asset_transfer::{Error as AssetTransferError, TransferType, XcmAssetTransfers};
 mod export;
 pub use export::{export_xcm, validate_export, ExportXcm};
 mod fee_manager;
