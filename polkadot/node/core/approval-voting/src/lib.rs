@@ -124,10 +124,6 @@ pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 // The max number of ticks we delay sending the approval after we are ready to issue the approval
 const MAX_APPROVAL_COALESCE_WAIT_TICKS: Tick = 12;
 
-// The maximum approval params we cache locally in the subsytem, so that we don't have
-// to do the back and forth to the runtime subsystem api.
-const APPROVAL_PARAMS_CACHE_SIZE: u32 = 128;
-
 /// Configuration for the approval voting subsystem
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -163,9 +159,6 @@ pub struct ApprovalVotingSubsystem {
 	db: Arc<dyn Database>,
 	mode: Mode,
 	metrics: Metrics,
-	// Store approval-voting params, so that we don't to always go to RuntimeAPI
-	// to ask this information which requires a task context switch.
-	approval_voting_params_cache: Option<LruMap<Hash, ApprovalVotingParams>>,
 }
 
 #[derive(Clone)]
@@ -452,24 +445,6 @@ impl ApprovalVotingSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
 	) -> Self {
-		Self::with_config_and_cache(
-			config,
-			db,
-			keystore,
-			sync_oracle,
-			metrics,
-			Some(LruMap::new(ByLength::new(APPROVAL_PARAMS_CACHE_SIZE))),
-		)
-	}
-
-	pub fn with_config_and_cache(
-		config: Config,
-		db: Arc<dyn Database>,
-		keystore: Arc<LocalKeystore>,
-		sync_oracle: Box<dyn SyncOracle + Send>,
-		metrics: Metrics,
-		approval_voting_params_cache: Option<LruMap<Hash, ApprovalVotingParams>>,
-	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
 			slot_duration_millis: config.slot_duration_millis,
@@ -477,7 +452,6 @@ impl ApprovalVotingSubsystem {
 			db_config: DatabaseConfig { col_approval_data: config.col_approval_data },
 			mode: Mode::Syncing(sync_oracle),
 			metrics,
-			approval_voting_params_cache,
 		}
 	}
 
@@ -798,9 +772,6 @@ struct State {
 	clock: Box<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	spans: HashMap<Hash, jaeger::PerLeafSpan>,
-	// Store approval-voting params, so that we don't to always go to RuntimeAPI
-	// to ask this information which requires a task context switch.
-	approval_voting_params_cache: Option<LruMap<Hash, ApprovalVotingParams>>,
 }
 
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
@@ -866,49 +837,45 @@ impl State {
 	// To avoid crossing the subsystem boundary every-time we are caching locally the values.
 	#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 	async fn get_approval_voting_params_or_default<Context>(
-		&mut self,
+		&self,
 		ctx: &mut Context,
+		session_index: SessionIndex,
 		block_hash: Hash,
 	) -> ApprovalVotingParams {
-		if let Some(params) = self
-			.approval_voting_params_cache
-			.as_mut()
-			.and_then(|cache| cache.get(&block_hash))
-		{
-			*params
-		} else {
-			let (s_tx, s_rx) = oneshot::channel();
+		let (s_tx, s_rx) = oneshot::channel();
 
-			ctx.send_message(RuntimeApiMessage::Request(
-				block_hash,
-				RuntimeApiRequest::ApprovalVotingParams(s_tx),
-			))
-			.await;
+		ctx.send_message(RuntimeApiMessage::Request(
+			block_hash,
+			RuntimeApiRequest::ApprovalVotingParams(session_index, s_tx),
+		))
+		.await;
 
-			match s_rx.await {
-				Ok(Ok(params)) => {
-					self.approval_voting_params_cache
-						.as_mut()
-						.map(|cache| cache.insert(block_hash, params));
-					params
-				},
-				Ok(Err(err)) => {
-					gum::error!(
-						target: LOG_TARGET,
-						?err,
-						"Could not request approval voting params from runtime using defaults"
-					);
-					ApprovalVotingParams { max_approval_coalesce_count: 1 }
-				},
-				Err(err) => {
-					gum::error!(
-						target: LOG_TARGET,
-						?err,
-						"Could not request approval voting params from runtime using defaults"
-					);
-					ApprovalVotingParams { max_approval_coalesce_count: 1 }
-				},
-			}
+		match s_rx.await {
+			Ok(Ok(params)) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					approval_voting_params = ?params,
+					session = ?session_index,
+					"Using the following subsystem params"
+				);
+				params
+			},
+			Ok(Err(err)) => {
+				gum::error!(
+					target: LOG_TARGET,
+					?err,
+					"Could not request approval voting params from runtime using defaults"
+				);
+				ApprovalVotingParams { max_approval_coalesce_count: 1 }
+			},
+			Err(err) => {
+				gum::error!(
+					target: LOG_TARGET,
+					?err,
+					"Could not request approval voting params from runtime using defaults"
+				);
+				ApprovalVotingParams { max_approval_coalesce_count: 1 }
+			},
 		}
 	}
 }
@@ -960,7 +927,6 @@ where
 		clock,
 		assignment_criteria,
 		spans: HashMap::new(),
-		approval_voting_params_cache: subsystem.approval_voting_params_cache.take(),
 	};
 
 	// `None` on start-up. Gets initialized/updated on leaf update
@@ -1056,13 +1022,11 @@ where
 					"Sign approval for multiple candidates",
 				);
 
-				let approval_params = state.get_approval_voting_params_or_default(&mut ctx, block_hash).await;
-
 				match maybe_create_signature(
 					&mut overlayed_db,
 					&mut session_info_provider,
-					approval_params,
-					&state, &mut ctx,
+					&state,
+					&mut ctx,
 					block_hash,
 					validator_index,
 					&subsystem.metrics,
@@ -3376,8 +3340,6 @@ async fn issue_approval<Context>(
 		"Ready to issue approval vote",
 	);
 
-	let approval_params = state.get_approval_voting_params_or_default(ctx, block_hash).await;
-
 	let actions = advance_approval_state(
 		ctx.sender(),
 		state,
@@ -3394,7 +3356,6 @@ async fn issue_approval<Context>(
 	if let Some(next_wakeup) = maybe_create_signature(
 		db,
 		session_info_provider,
-		approval_params,
 		state,
 		ctx,
 		block_hash,
@@ -3418,7 +3379,6 @@ async fn issue_approval<Context>(
 async fn maybe_create_signature<Context>(
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
-	approval_params: ApprovalVotingParams,
 	state: &State,
 	ctx: &mut Context,
 	block_hash: Hash,
@@ -3437,6 +3397,10 @@ async fn maybe_create_signature<Context>(
 			return Ok(None)
 		},
 	};
+
+	let approval_params = state
+		.get_approval_voting_params_or_default(ctx, block_entry.session(), block_hash)
+		.await;
 
 	gum::trace!(
 		target: LOG_TARGET,

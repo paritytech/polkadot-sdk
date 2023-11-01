@@ -67,7 +67,7 @@ pub(crate) struct RequestResultCache {
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
-	approval_voting_params: LruMap<Hash, ApprovalVotingParams>,
+	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
 }
 
 impl Default for RequestResultCache {
@@ -398,21 +398,6 @@ impl RequestResultCache {
 		self.disputes.insert(relay_parent, value);
 	}
 
-	pub(crate) fn approval_voting_params(
-		&mut self,
-		relay_parent: &Hash,
-	) -> Option<&ApprovalVotingParams> {
-		self.approval_voting_params.get(relay_parent).map(|v| &*v)
-	}
-
-	pub(crate) fn cache_approval_voting_params(
-		&mut self,
-		relay_parent: Hash,
-		value: ApprovalVotingParams,
-	) {
-		self.approval_voting_params.insert(relay_parent, value);
-	}
-
 	pub(crate) fn unapplied_slashes(
 		&mut self,
 		relay_parent: &Hash,
@@ -507,6 +492,21 @@ impl RequestResultCache {
 	) {
 		self.async_backing_params.insert(key, value);
 	}
+
+	pub(crate) fn approval_voting_params(
+		&mut self,
+		key: (Hash, SessionIndex),
+	) -> Option<&ApprovalVotingParams> {
+		self.approval_voting_params.get(&key.1).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_approval_voting_params(
+		&mut self,
+		session_index: SessionIndex,
+		value: ApprovalVotingParams,
+	) {
+		self.approval_voting_params.insert(session_index, value);
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -554,7 +554,7 @@ pub(crate) enum RequestResult {
 		slashing::OpaqueKeyOwnershipProof,
 		Option<()>,
 	),
-	ApprovalVotingParams(Hash, ApprovalVotingParams),
+	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),

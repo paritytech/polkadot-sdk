@@ -367,8 +367,15 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	}
 
 	/// Approval voting configuration parameters
-	async fn approval_voting_params(&self, at: Hash) -> Result<ApprovalVotingParams, ApiError> {
-		Ok(self.rpc_client.parachain_host_staging_approval_voting_params(at).await?)
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_staging_approval_voting_params(at, session_index)
+			.await?)
 	}
 }
 

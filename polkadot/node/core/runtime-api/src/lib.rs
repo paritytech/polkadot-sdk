@@ -165,8 +165,8 @@ where
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
-			RequestResult::ApprovalVotingParams(relay_parent, params) =>
-				self.requests_cache.cache_approval_voting_params(relay_parent, params),
+			RequestResult::ApprovalVotingParams(_relay_parent, session_index, params) =>
+				self.requests_cache.cache_approval_voting_params(session_index, params),
 			SubmitReportDisputeLost(_, _, _, _) => {},
 			DisabledValidators(relay_parent, disabled_validators) =>
 				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
@@ -300,8 +300,9 @@ where
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
-			Request::ApprovalVotingParams(sender) => query!(approval_voting_params(), sender)
-				.map(|sender| Request::ApprovalVotingParams(sender)),
+			Request::ApprovalVotingParams(session_index, sender) =>
+				query!(approval_voting_params(session_index), sender)
+					.map(|sender| Request::ApprovalVotingParams(session_index, sender)),
 			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
 				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
@@ -561,10 +562,10 @@ where
 			ver = Request::KEY_OWNERSHIP_PROOF_RUNTIME_REQUIREMENT,
 			sender
 		),
-		Request::ApprovalVotingParams(sender) => {
+		Request::ApprovalVotingParams(session_index, sender) => {
 			query!(
 				ApprovalVotingParams,
-				approval_voting_params(),
+				approval_voting_params(session_index),
 				ver = Request::APPROVAL_VOTING_PARAMS_REQUIREMENT,
 				sender
 			)

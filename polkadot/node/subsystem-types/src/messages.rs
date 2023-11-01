@@ -696,8 +696,6 @@ pub enum RuntimeApiRequest {
 		slashing::OpaqueKeyOwnershipProof,
 		RuntimeApiSender<Option<()>>,
 	),
-	/// Approval voting params
-	ApprovalVotingParams(RuntimeApiSender<ApprovalVotingParams>),
 	/// Get the minimum required backing votes.
 	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
 	/// Returns all disabled validators at a given block height.
@@ -708,6 +706,9 @@ pub enum RuntimeApiRequest {
 	///
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
 	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
+	/// Approval voting params
+	/// `V9`
+	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
 }
 
 impl RuntimeApiRequest {

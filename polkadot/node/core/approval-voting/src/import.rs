@@ -645,7 +645,6 @@ pub(crate) mod tests {
 			clock: Box::new(MockClock::default()),
 			assignment_criteria: Box::new(MockAssignmentCriteria),
 			spans: HashMap::new(),
-			approval_voting_params_cache: None,
 		}
 	}
 

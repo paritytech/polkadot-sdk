@@ -542,7 +542,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	let subsystem = run(
 		context,
-		ApprovalVotingSubsystem::with_config_and_cache(
+		ApprovalVotingSubsystem::with_config(
 			Config {
 				col_approval_data: test_constants::TEST_CONFIG.col_approval_data,
 				slot_duration_millis: SLOT_DURATION_MILLIS,
@@ -551,7 +551,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			Arc::new(keystore),
 			sync_oracle,
 			Metrics::default(),
-			None,
 		),
 		clock.clone(),
 		assignment_criteria,
@@ -2814,7 +2813,7 @@ async fn handle_double_assignment_import(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(sender))) => {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
 			let _ = sender.send(Ok(ApprovalVotingParams {
 				max_approval_coalesce_count: 1,
 			}));
@@ -2828,7 +2827,7 @@ async fn handle_double_assignment_import(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(sender))) => {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
 			let _ = sender.send(Ok(ApprovalVotingParams {
 				max_approval_coalesce_count: 1,
 			}));
@@ -3751,7 +3750,7 @@ async fn handle_approval_on_max_coalesce_count(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(sender))) => {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
 			let _ = sender.send(Ok(ApprovalVotingParams {
 				max_approval_coalesce_count: 2,
 			}));
@@ -3760,7 +3759,7 @@ async fn handle_approval_on_max_coalesce_count(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(sender))) => {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
 			let _ = sender.send(Ok(ApprovalVotingParams {
 				max_approval_coalesce_count: 2,
 			}));
@@ -3816,7 +3815,7 @@ async fn handle_approval_on_max_wait_time(
 	// First time we fetch the configuration when we are ready to approve the first candidate
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(sender))) => {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
 			let _ = sender.send(Ok(ApprovalVotingParams {
 				max_approval_coalesce_count: MAX_COALESCE_COUNT,
 			}));
@@ -3826,7 +3825,7 @@ async fn handle_approval_on_max_wait_time(
 	// Second time we fetch the configuration when we are ready to approve the second candidate
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(sender))) => {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
 			let _ = sender.send(Ok(ApprovalVotingParams {
 				max_approval_coalesce_count: MAX_COALESCE_COUNT,
 			}));
@@ -3853,7 +3852,7 @@ async fn handle_approval_on_max_wait_time(
 	// approval
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(sender))) => {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
 			let _ = sender.send(Ok(ApprovalVotingParams {
 				max_approval_coalesce_count: 3,
 			}));

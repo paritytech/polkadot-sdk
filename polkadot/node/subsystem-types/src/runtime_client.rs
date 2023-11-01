@@ -262,7 +262,11 @@ pub trait RuntimeApiSubsystemClient {
 
 	// == v9: Approval voting params ==
 	/// Approval voting configuration parameters
-	async fn approval_voting_params(&self, at: Hash) -> Result<ApprovalVotingParams, ApiError>;
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -489,11 +493,6 @@ where
 		runtime_api.submit_report_dispute_lost(at, dispute_proof, key_ownership_proof)
 	}
 
-	/// Approval voting configuration parameters
-	async fn approval_voting_params(&self, at: Hash) -> Result<ApprovalVotingParams, ApiError> {
-		self.client.runtime_api().approval_voting_params(at)
-	}
-
 	async fn minimum_backing_votes(
 		&self,
 		at: Hash,
@@ -519,5 +518,14 @@ where
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
 		self.client.runtime_api().disabled_validators(at)
+	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		_session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		self.client.runtime_api().approval_voting_params(at)
 	}
 }

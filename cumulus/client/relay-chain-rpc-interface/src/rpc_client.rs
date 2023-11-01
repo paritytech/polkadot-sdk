@@ -620,6 +620,7 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_staging_approval_voting_params(
 		&self,
 		at: RelayHash,
+		_session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, RelayChainError> {
 		self.call_remote_runtime_function(
 			"ParachainHost_staging_approval_voting_params",
