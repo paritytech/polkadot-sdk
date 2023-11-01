@@ -3,6 +3,7 @@ name = "cumulus-pallet-dmp-queue"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ], default-features = false }
