@@ -16,6 +16,7 @@
 
 use super::*;
 use frame_support::{parameter_types, traits::ConstU32};
+use pallet_identity::simple::IdentityInfo;
 
 parameter_types! {
 	pub const BasicDeposit: Balance = deposit(1, 258);
@@ -31,6 +32,7 @@ impl pallet_identity::Config for Runtime {
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = ConstU32<100>;
 	type MaxAdditionalFields = ConstU32<100>;
+	type IdentityInformation = IdentityInfo<ConstU32<100>>;
 	type MaxRegistrars = ConstU32<20>;
 	// todo: consider teleporting to treasury.
 	type Slashed = ();

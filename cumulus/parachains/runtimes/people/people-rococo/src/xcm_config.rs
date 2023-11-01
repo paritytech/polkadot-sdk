@@ -18,6 +18,7 @@ use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
+use crate::{TransactionByteFee, CENTS};
 use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Everything, Nothing},
@@ -47,7 +48,18 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 	pub const FellowshipLocation: MultiLocation = MultiLocation::parent();
+	/// The asset ID for the asset that we use to pay for message delivery fees. Just ROC.
+	pub FeeAssetId: AssetId = Concrete(RocRelayLocation::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
+
+pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+>;
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
