@@ -41,55 +41,20 @@ pub enum FeeReason {
 	RequestUnlock,
 }
 
-/// Handles the fees that are taken by certain XCM instructions.
-pub trait HandleFee {
-	/// Do something with the fee which has been paid. Doing nothing here silently burns the
-	/// fees.
-	///
-	/// Returns any part of the fee that wasn't consumed.
-	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason)
-		-> MultiAssets;
-}
-
-// Default `HandleFee` implementation that just burns the fee.
-impl HandleFee for () {
-	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>, _: FeeReason) -> MultiAssets {
-		MultiAssets::new()
-	}
-}
-
-#[impl_trait_for_tuples::impl_for_tuples(1, 30)]
-impl HandleFee for Tuple {
-	fn handle_fee(
-		fee: MultiAssets,
-		context: Option<&XcmContext>,
-		reason: FeeReason,
-	) -> MultiAssets {
-		let mut unconsumed_fee = fee;
-		for_tuples!( #(
-			unconsumed_fee = Tuple::handle_fee(unconsumed_fee, context, reason);
-			if unconsumed_fee.is_none() {
-				return unconsumed_fee;
-			}
-		)* );
-
-		unconsumed_fee
-	}
-}
-
 /// Handle stuff to do with taking fees in certain XCM instructions.
 pub trait FeeManager {
-	/// Separate component that handles the fees that are not waived.
-	type HandleFee: HandleFee;
-
 	/// Determine if a fee should be waived.
 	fn is_waived(origin: Option<&MultiLocation>, reason: FeeReason) -> bool;
+
+	/// Do something with the fee which has been paid. Doing nothing here silently burns the
+	/// fees.
+	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason);
 }
 
 impl FeeManager for () {
-	type HandleFee = ();
-
 	fn is_waived(_: Option<&MultiLocation>, _: FeeReason) -> bool {
 		false
 	}
+
+	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>, _: FeeReason) {}
 }

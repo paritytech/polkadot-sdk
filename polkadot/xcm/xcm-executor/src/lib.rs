@@ -31,8 +31,8 @@ use xcm::latest::prelude::*;
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleFee, OnResponse, Properties,
-	ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, Properties, ShouldExecute,
+	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 
 mod assets;
@@ -248,11 +248,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			for asset in fees.inner() {
 				Config::AssetTransactor::withdraw_asset(&asset, &origin, None)?;
 			}
-			<Config::FeeManager as FeeManager>::HandleFee::handle_fee(
-				fees,
-				None,
-				FeeReason::ChargeFees,
-			);
+			Config::FeeManager::handle_fee(fees, None, FeeReason::ChargeFees);
 		}
 		Ok(())
 	}
@@ -966,11 +962,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		} else {
 			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
 		};
-		<Config::FeeManager as FeeManager>::HandleFee::handle_fee(
-			paid,
-			Some(&self.context),
-			reason,
-		);
+		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
 	}
 

@@ -17,7 +17,43 @@
 use core::marker::PhantomData;
 use frame_support::traits::{Contains, Get};
 use xcm::prelude::*;
-use xcm_executor::traits::{FeeManager, FeeReason, HandleFee, TransactAsset};
+use xcm_executor::traits::{FeeManager, FeeReason, TransactAsset};
+
+/// Handles the fees that are taken by certain XCM instructions.
+pub trait HandleFee {
+	/// Do something with the fee which has been paid. Doing nothing here silently burns the
+	/// fees.
+	///
+	/// Returns any part of the fee that wasn't consumed.
+	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason)
+		-> MultiAssets;
+}
+
+// Default `HandleFee` implementation that just burns the fee.
+impl HandleFee for () {
+	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>, _: FeeReason) -> MultiAssets {
+		MultiAssets::new()
+	}
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(1, 30)]
+impl HandleFee for Tuple {
+	fn handle_fee(
+		fee: MultiAssets,
+		context: Option<&XcmContext>,
+		reason: FeeReason,
+	) -> MultiAssets {
+		let mut unconsumed_fee = fee;
+		for_tuples!( #(
+			unconsumed_fee = Tuple::handle_fee(unconsumed_fee, context, reason);
+			if unconsumed_fee.is_none() {
+				return unconsumed_fee;
+			}
+		)* );
+
+		unconsumed_fee
+	}
+}
 
 /// A `FeeManager` implementation that permits the specified `WaivedLocations` to not pay for fees
 /// and that uses the provided `HandleFee` implementation otherwise.
@@ -27,11 +63,13 @@ pub struct XcmFeeManagerFromComponents<WaivedLocations, HandleFee>(
 impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
 	for XcmFeeManagerFromComponents<WaivedLocations, FeeHandler>
 {
-	type HandleFee = FeeHandler;
-
 	fn is_waived(origin: Option<&MultiLocation>, _: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		WaivedLocations::contains(loc)
+	}
+
+	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason) {
+		FeeHandler::handle_fee(fee, context, reason);
 	}
 }
 
