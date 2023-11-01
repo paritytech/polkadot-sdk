@@ -491,17 +491,6 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 	}
 }
 
-pub struct AllowSiblingsOnly;
-impl Contains<MultiLocation> for AllowSiblingsOnly {
-	fn contains(location: &MultiLocation) -> bool {
-		if let MultiLocation { parents: 1, interior: X1(Parachain(_)) } = location {
-			true
-		} else {
-			false
-		}
-	}
-}
-
 /// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
 /// into the accounts that are used for paying the relayer rewards.
 /// Burns the fees in case of a failure.

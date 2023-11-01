@@ -99,7 +99,6 @@ use xcm::latest::prelude::*;
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-use crate::xcm_config::AllowSiblingsOnly;
 use crate::{
 	bridge_hub_rococo_config::BridgeRefundBridgeHubWococoMessages,
 	bridge_hub_wococo_config::BridgeRefundBridgeHubRococoMessages, xcm_config::XcmRouter,
@@ -620,7 +619,7 @@ impl snowbridge_control::Config for Runtime {
 	type OwnParaId = ParachainInfo;
 	type OutboundQueue = EthereumOutboundQueue;
 	type MessageHasher = BlakeTwo256;
-	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
+	type SiblingOrigin = EnsureXcm<snowbridge_control::AllowSiblingsOnly>;
 	type AgentIdOf = xcm_config::AgentIdOf;
 	type TreasuryAccount = TreasuryAccount;
 	type Token = Balances;
