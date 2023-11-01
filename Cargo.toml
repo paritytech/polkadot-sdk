@@ -82,8 +82,6 @@ members = [
 	"cumulus/parachains/runtimes/collectives/collectives-polkadot",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
 	"cumulus/parachains/runtimes/glutton/glutton-kusama",
-	"cumulus/parachains/runtimes/people/people-kusama",
-	"cumulus/parachains/runtimes/people/people-polkadot",
 	"cumulus/parachains/runtimes/people/people-rococo",
 	"cumulus/parachains/runtimes/people/people-westend",
 	"cumulus/parachains/runtimes/starters/seedling",

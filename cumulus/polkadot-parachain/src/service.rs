@@ -222,27 +222,27 @@ impl sc_executor::NativeExecutionDispatch for GluttonRuntimeExecutor {
 	}
 }
 
-/// Native `PeoplePolkadot` executor instance.
-pub struct PeoplePolkadotRuntimeExecutor;
-impl sc_executor::NativeExecutionDispatch for PeoplePolkadotRuntimeExecutor {
+/// Native `PeopleWestend` executor instance.
+pub struct PeopleWestendRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleWestendRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		people_polkadot_runtime::api::dispatch(method, data)
+		people_westend_runtime::api::dispatch(method, data)
 	}
 	fn native_version() -> sc_executor::NativeVersion {
-		people_polkadot_runtime::native_version()
+		people_westend_runtime::native_version()
 	}
 }
 
-/// Native `PeopleKusama` executor instance.
-pub struct PeopleKusamaRuntimeExecutor;
-impl sc_executor::NativeExecutionDispatch for PeopleKusamaRuntimeExecutor {
+/// Native `PeopleRococo` executor instance.
+pub struct PeopleRococoRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		people_kusama_runtime::api::dispatch(method, data)
+		people_rococo_runtime::api::dispatch(method, data)
 	}
 	fn native_version() -> sc_executor::NativeVersion {
-		people_kusama_runtime::native_version()
+		people_rococo_runtime::native_version()
 	}
 }
 
