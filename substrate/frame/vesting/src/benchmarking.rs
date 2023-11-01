@@ -393,13 +393,14 @@ force_remove_vesting_schedule {
 
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(target.clone());
+		let _ = add_vesting_schedules::<T>(target_lookup.clone(), s)?;
 
 		// Give target existing locks.
 		add_locks::<T>(&target, l as u8);
 
 		let transfer_amount = T::MinVestedTransfer::get();
 
-		// It will remove last vesting schedule.
+		// the last vesting schedule.
 		let schedule_index = s - 1;
 	}: _(RawOrigin::Root, target_lookup, schedule_index)
 	verify {
