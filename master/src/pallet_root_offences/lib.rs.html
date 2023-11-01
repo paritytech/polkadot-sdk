@@ -242,7 +242,7 @@
 				.clone()
 				.into_iter()
 				.map(|(o, <span class="kw">_</span>)| OffenceDetails::&lt;T&gt; {
-					offender: (o.clone(), Staking::&lt;T&gt;::eras_stakers(now, o)),
+					offender: (o.clone(), Staking::&lt;T&gt;::eras_stakers(now, <span class="kw-2">&amp;</span>o)),
 					reporters: <span class="macro">vec!</span>[],
 				})
 				.collect())

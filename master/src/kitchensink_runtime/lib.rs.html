@@ -2864,6 +2864,8 @@
 <a href="#2864" id="2864">2864</a>
 <a href="#2865" id="2865">2865</a>
 <a href="#2866" id="2866">2866</a>
+<a href="#2867" id="2867">2867</a>
+<a href="#2868" id="2868">2868</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3351,7 +3353,7 @@
 	<span class="kw">type </span>DisabledValidators = Session;
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
-	<span class="kw">type </span>MaxNominators = MaxNominatorRewardedPerValidator;
+	<span class="kw">type </span>MaxNominators = MaxNominators;
 	<span class="kw">type </span>KeyOwnerProof =
 		&lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, pallet_babe::AuthorityId)&gt;&gt;::Proof;
 	<span class="kw">type </span>EquivocationReportSystem =
@@ -3494,7 +3496,7 @@
 	<span class="kw">pub const </span>BondingDuration: sp_staking::EraIndex = <span class="number">24 </span>* <span class="number">28</span>;
 	<span class="kw">pub const </span>SlashDeferDuration: sp_staking::EraIndex = <span class="number">24 </span>* <span class="number">7</span>; <span class="comment">// 1/4 the bonding duration.
 	</span><span class="kw">pub const </span>RewardCurve: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PiecewiseLinear&lt;<span class="lifetime">&#39;static</span>&gt; = <span class="kw-2">&amp;</span>REWARD_CURVE;
-	<span class="kw">pub const </span>MaxNominatorRewardedPerValidator: u32 = <span class="number">256</span>;
+	<span class="kw">pub const </span>MaxNominators: u32 = <span class="number">64</span>;
 	<span class="kw">pub const </span>OffendingValidatorsThreshold: Perbill = Perbill::from_percent(<span class="number">17</span>);
 	<span class="kw">pub </span>OffchainRepeat: BlockNumber = <span class="number">5</span>;
 	<span class="kw">pub </span>HistoryDepth: u32 = <span class="number">84</span>;
@@ -3529,7 +3531,7 @@
 	<span class="kw">type </span>SessionInterface = <span class="self">Self</span>;
 	<span class="kw">type </span>EraPayout = pallet_staking::ConvertCurve&lt;RewardCurve&gt;;
 	<span class="kw">type </span>NextNewSession = Session;
-	<span class="kw">type </span>MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	<span class="kw">type </span>MaxExposurePageSize = ConstU32&lt;<span class="number">256</span>&gt;;
 	<span class="kw">type </span>OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	<span class="kw">type </span>ElectionProvider = ElectionProviderMultiPhase;
 	<span class="kw">type </span>GenesisElectionProvider = onchain::OnChainExecution&lt;OnChainSeqPhragmen&gt;;
@@ -3552,8 +3554,6 @@
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>Staking = Staking;
 	<span class="kw">type </span>MaxErasToCheckPerBlock = ConstU32&lt;<span class="number">1</span>&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">type </span>MaxBackersPerValidator = MaxNominatorRewardedPerValidator;
 	<span class="kw">type </span>WeightInfo = ();
 }
 
@@ -4319,7 +4319,7 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
-	<span class="kw">type </span>MaxNominators = MaxNominatorRewardedPerValidator;
+	<span class="kw">type </span>MaxNominators = MaxNominators;
 	<span class="kw">type </span>MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	<span class="kw">type </span>KeyOwnerProof = &lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, GrandpaId)&gt;&gt;::Proof;
 	<span class="kw">type </span>EquivocationReportSystem =
@@ -5258,9 +5258,13 @@
 		}
 	}
 
-	<span class="kw">impl </span>pallet_staking_runtime_api::StakingApi&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>pallet_staking_runtime_api::StakingApi&lt;Block, Balance, AccountId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>nominations_quota(balance: Balance) -&gt; u32 {
 			Staking::api_nominations_quota(balance)
+		}
+
+		<span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page {
+			Staking::api_eras_stakers_page_count(era, account)
 		}
 	}
 

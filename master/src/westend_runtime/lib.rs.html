@@ -2394,6 +2394,13 @@
 <a href="#2394" id="2394">2394</a>
 <a href="#2395" id="2395">2395</a>
 <a href="#2396" id="2396">2396</a>
+<a href="#2397" id="2397">2397</a>
+<a href="#2398" id="2398">2398</a>
+<a href="#2399" id="2399">2399</a>
+<a href="#2400" id="2400">2400</a>
+<a href="#2401" id="2401">2401</a>
+<a href="#2402" id="2402">2402</a>
+<a href="#2403" id="2403">2403</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2651,7 +2658,7 @@
 	<span class="kw">type </span>WeightInfo = ();
 
 	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
-	<span class="kw">type </span>MaxNominators = MaxNominatorRewardedPerValidator;
+	<span class="kw">type </span>MaxNominators = MaxNominators;
 
 	<span class="kw">type </span>KeyOwnerProof =
 		&lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, pallet_babe::AuthorityId)&gt;&gt;::Proof;
@@ -2702,7 +2709,7 @@
 <span class="kw">impl </span>pallet_beefy::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>BeefyId = BeefyId;
 	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
-	<span class="kw">type </span>MaxNominators = MaxNominatorRewardedPerValidator;
+	<span class="kw">type </span>MaxNominators = MaxNominators;
 	<span class="kw">type </span>MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	<span class="kw">type </span>OnNewValidatorSet = BeefyMmrLeaf;
 	<span class="kw">type </span>WeightInfo = ();
@@ -3041,7 +3048,11 @@
 	<span class="comment">// 1 era in which slashes can be cancelled (6 hours).
 	</span><span class="kw">pub const </span>SlashDeferDuration: sp_staking::EraIndex = <span class="number">1</span>;
 	<span class="kw">pub const </span>RewardCurve: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PiecewiseLinear&lt;<span class="lifetime">&#39;static</span>&gt; = <span class="kw-2">&amp;</span>REWARD_CURVE;
-	<span class="kw">pub const </span>MaxNominatorRewardedPerValidator: u32 = <span class="number">64</span>;
+	<span class="kw">pub const </span>MaxExposurePageSize: u32 = <span class="number">64</span>;
+	<span class="comment">// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
+	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
+	// of nominators.
+	</span><span class="kw">pub const </span>MaxNominators: u32 = <span class="number">64</span>;
 	<span class="kw">pub const </span>OffendingValidatorsThreshold: Perbill = Perbill::from_percent(<span class="number">17</span>);
 	<span class="kw">pub const </span>MaxNominations: u32 = &lt;NposCompactSolution16 <span class="kw">as </span>frame_election_provider_support::NposSolution&gt;::LIMIT <span class="kw">as </span>u32;
 }
@@ -3061,7 +3072,7 @@
 	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>SessionInterface = <span class="self">Self</span>;
 	<span class="kw">type </span>EraPayout = pallet_staking::ConvertCurve&lt;RewardCurve&gt;;
-	<span class="kw">type </span>MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	<span class="kw">type </span>MaxExposurePageSize = MaxExposurePageSize;
 	<span class="kw">type </span>OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	<span class="kw">type </span>NextNewSession = Session;
 	<span class="kw">type </span>ElectionProvider = ElectionProviderMultiPhase;
@@ -3084,8 +3095,6 @@
 	<span class="kw">type </span>ControlOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>Staking = Staking;
 	<span class="kw">type </span>MaxErasToCheckPerBlock = ConstU32&lt;<span class="number">1</span>&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">type </span>MaxBackersPerValidator = MaxNominatorRewardedPerValidator;
 	<span class="kw">type </span>WeightInfo = weights::pallet_fast_unstake::WeightInfo&lt;Runtime&gt;;
 }
 
@@ -3184,7 +3193,7 @@
 
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
-	<span class="kw">type </span>MaxNominators = MaxNominatorRewardedPerValidator;
+	<span class="kw">type </span>MaxNominators = MaxNominators;
 	<span class="kw">type </span>MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 
 	<span class="kw">type </span>KeyOwnerProof = &lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, GrandpaId)&gt;&gt;::Proof;
@@ -3943,6 +3952,7 @@
 	</span><span class="kw">pub type </span>Unreleased = (
 		pallet_im_online::migration::v1::Migration&lt;Runtime&gt;,
 		parachains_configuration::migration::v7::MigrateToV7&lt;Runtime&gt;,
+		pallet_staking::migrations::v14::MigrateToV14&lt;Runtime&gt;,
 		assigned_slots::migration::v1::VersionCheckedMigrateToV1&lt;Runtime&gt;,
 		parachains_scheduler::migration::v1::MigrateToV1&lt;Runtime&gt;,
 		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
@@ -4496,9 +4506,13 @@
 		}
 	}
 
-	<span class="kw">impl </span>pallet_staking_runtime_api::StakingApi&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>pallet_staking_runtime_api::StakingApi&lt;Block, Balance, AccountId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>nominations_quota(balance: Balance) -&gt; u32 {
 			Staking::api_nominations_quota(balance)
+		}
+
+		<span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page {
+			Staking::api_eras_stakers_page_count(era, account)
 		}
 	}
 

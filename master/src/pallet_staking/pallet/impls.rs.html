@@ -1873,6 +1873,52 @@
 <a href="#1873" id="1873">1873</a>
 <a href="#1874" id="1874">1874</a>
 <a href="#1875" id="1875">1875</a>
+<a href="#1876" id="1876">1876</a>
+<a href="#1877" id="1877">1877</a>
+<a href="#1878" id="1878">1878</a>
+<a href="#1879" id="1879">1879</a>
+<a href="#1880" id="1880">1880</a>
+<a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1902,8 +1948,8 @@
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
-		Currency, Defensive, DefensiveResult, EstimateNextNewSession, Get, Imbalance, OnUnbalanced,
-		TryCollect, UnixTime,
+		Currency, Defensive, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced, TryCollect,
+		UnixTime,
 	},
 	weights::Weight,
 };
@@ -1916,7 +1962,7 @@
 <span class="kw">use </span>sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, SessionIndex, Stake,
+	EraIndex, Page, SessionIndex, Stake,
 	StakingAccount::{<span class="self">self</span>, Controller, Stash},
 	StakingInterface,
 };
@@ -1924,9 +1970,9 @@
 
 <span class="kw">use crate</span>::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure, MaxNominationsOf,
-	MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, ValidatorPrefs,
+	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::pallet::<span class="kw-2">*</span>;
@@ -2034,11 +2080,30 @@
 		validator_stash: T::AccountId,
 		era: EraIndex,
 	) -&gt; DispatchResultWithPostInfo {
+		<span class="kw">let </span>controller = <span class="self">Self</span>::bonded(<span class="kw-2">&amp;</span>validator_stash).ok_or_else(|| {
+			Error::&lt;T&gt;::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
+		})<span class="question-mark">?</span>;
+		<span class="kw">let </span>ledger = &lt;Ledger&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
+		<span class="kw">let </span>page = EraInfo::&lt;T&gt;::get_next_claimable_page(era, <span class="kw-2">&amp;</span>validator_stash, <span class="kw-2">&amp;</span>ledger)
+			.ok_or_else(|| {
+				Error::&lt;T&gt;::AlreadyClaimed
+					.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
+			})<span class="question-mark">?</span>;
+
+		<span class="self">Self</span>::do_payout_stakers_by_page(validator_stash, era, page)
+	}
+
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>do_payout_stakers_by_page(
+		validator_stash: T::AccountId,
+		era: EraIndex,
+		page: Page,
+	) -&gt; DispatchResultWithPostInfo {
 		<span class="comment">// Validate input data
 		</span><span class="kw">let </span>current_era = CurrentEra::&lt;T&gt;::get().ok_or_else(|| {
 			Error::&lt;T&gt;::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
 		})<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>history_depth = T::HistoryDepth::get();
 		<span class="macro">ensure!</span>(
 			era &lt;= current_era &amp;&amp; era &gt;= current_era.saturating_sub(history_depth),
@@ -2046,8 +2111,13 @@
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
 		);
 
+		<span class="macro">ensure!</span>(
+			page &lt; EraInfo::&lt;T&gt;::get_page_count(era, <span class="kw-2">&amp;</span>validator_stash),
+			Error::&lt;T&gt;::InvalidPage.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
+		);
+
 		<span class="comment">// Note: if era has no reward to be claimed, era may be future. better not to update
-		// `ledger.claimed_rewards` in this case.
+		// `ledger.legacy_claimed_rewards` in this case.
 		</span><span class="kw">let </span>era_payout = &lt;ErasValidatorReward&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>era).ok_or_else(|| {
 			Error::&lt;T&gt;::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
@@ -2061,32 +2131,30 @@
 				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>)))
 			}
 		})<span class="question-mark">?</span>;
+
+		<span class="comment">// clean up older claimed rewards
+		</span>ledger
+			.legacy_claimed_rewards
+			.retain(|<span class="kw-2">&amp;</span>x| x &gt;= current_era.saturating_sub(history_depth));
+		ledger.clone().update()<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>stash = ledger.stash.clone();
 
-		ledger
-			.claimed_rewards
-			.retain(|<span class="kw-2">&amp;</span>x| x &gt;= current_era.saturating_sub(history_depth));
-
-		<span class="kw">match </span>ledger.claimed_rewards.binary_search(<span class="kw-2">&amp;</span>era) {
-			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyClaimed
-					.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))),
-			<span class="prelude-val">Err</span>(pos) =&gt; ledger
-				.claimed_rewards
-				.try_insert(pos, era)
-				<span class="comment">// Since we retain era entries in `claimed_rewards` only upto
-				// `HistoryDepth`, following bound is always expected to be
-				// satisfied.
-				</span>.defensive_map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BoundNotMet)<span class="question-mark">?</span>,
+		<span class="kw">if </span>EraInfo::&lt;T&gt;::is_rewards_claimed_with_legacy_fallback(era, <span class="kw-2">&amp;</span>ledger, <span class="kw-2">&amp;</span>stash, page) {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyClaimed
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>)))
+		} <span class="kw">else </span>{
+			EraInfo::&lt;T&gt;::set_rewards_as_claimed(era, <span class="kw-2">&amp;</span>stash, page);
 		}
 
-		<span class="kw">let </span>exposure = &lt;ErasStakersClipped&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>era, <span class="kw-2">&amp;</span>stash);
+		<span class="kw">let </span>exposure = EraInfo::&lt;T&gt;::get_paged_exposure(era, <span class="kw-2">&amp;</span>stash, page).ok_or_else(|| {
+			Error::&lt;T&gt;::InvalidEraToReward
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
+		})<span class="question-mark">?</span>;
 
 		<span class="comment">// Input data seems good, no errors allowed after this point
 
-		</span>ledger.update()<span class="question-mark">?</span>;
-
-		<span class="comment">// Get Era reward points. It has TOTAL and INDIVIDUAL
+		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
 		// Take that fraction of the eras rewards to split to nominator and validator
 		//
@@ -2111,15 +2179,17 @@
 		<span class="comment">// This is how much validator + nominators are entitled to.
 		</span><span class="kw">let </span>validator_total_payout = validator_total_reward_part * era_payout;
 
-		<span class="kw">let </span>validator_prefs = <span class="self">Self</span>::eras_validator_prefs(<span class="kw-2">&amp;</span>era, <span class="kw-2">&amp;</span>validator_stash);
-		<span class="comment">// Validator first gets a cut off the top.
-		</span><span class="kw">let </span>validator_commission = validator_prefs.commission;
-		<span class="kw">let </span>validator_commission_payout = validator_commission * validator_total_payout;
+		<span class="kw">let </span>validator_commission = EraInfo::&lt;T&gt;::get_validator_commission(era, <span class="kw-2">&amp;</span>ledger.stash);
+		<span class="comment">// total commission validator takes across all nominator pages
+		</span><span class="kw">let </span>validator_total_commission_payout = validator_commission * validator_total_payout;
 
-		<span class="kw">let </span>validator_leftover_payout = validator_total_payout - validator_commission_payout;
+		<span class="kw">let </span>validator_leftover_payout = validator_total_payout - validator_total_commission_payout;
 		<span class="comment">// Now let&#39;s calculate how this is split to the validator.
-		</span><span class="kw">let </span>validator_exposure_part = Perbill::from_rational(exposure.own, exposure.total);
+		</span><span class="kw">let </span>validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
 		<span class="kw">let </span>validator_staking_payout = validator_exposure_part * validator_leftover_payout;
+		<span class="kw">let </span>page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
+		<span class="comment">// validator commission is paid out in fraction across pages proportional to the page stake.
+		</span><span class="kw">let </span>validator_commission_payout = page_stake_part * validator_total_commission_payout;
 
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PayoutStarted {
 			era_index: era,
@@ -2142,8 +2212,8 @@
 
 		<span class="comment">// Lets now calculate how this is split to the nominators.
 		// Reward only the clipped exposures. Note this is not necessarily sorted.
-		</span><span class="kw">for </span>nominator <span class="kw">in </span>exposure.others.iter() {
-			<span class="kw">let </span>nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total);
+		</span><span class="kw">for </span>nominator <span class="kw">in </span>exposure.others().iter() {
+			<span class="kw">let </span>nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
 
 			<span class="kw">let </span>nominator_reward: BalanceOf&lt;T&gt; =
 				nominator_exposure_part * validator_leftover_payout;
@@ -2162,7 +2232,8 @@
 		}
 
 		T::Reward::on_unbalanced(total_imbalance);
-		<span class="macro">debug_assert!</span>(nominator_payout_count &lt;= T::MaxNominatorRewardedPerValidator::get());
+		<span class="macro">debug_assert!</span>(nominator_payout_count &lt;= T::MaxExposurePageSize::get());
+
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
 	}
 
@@ -2181,6 +2252,11 @@
 		stash: <span class="kw-2">&amp;</span>T::AccountId,
 		amount: BalanceOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;(PositiveImbalanceOf&lt;T&gt;, RewardDestination&lt;T::AccountId&gt;)&gt; {
+		<span class="comment">// noop if amount is zero
+		</span><span class="kw">if </span>amount.is_zero() {
+			<span class="kw">return </span><span class="prelude-val">None
+		</span>}
+
 		<span class="kw">let </span>dest = <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()));
 		<span class="kw">let </span>maybe_imbalance = <span class="kw">match </span>dest {
 			RewardDestination::Controller =&gt; <span class="self">Self</span>::bonded(stash)
@@ -2462,31 +2538,24 @@
 		&gt;,
 		new_planned_era: EraIndex,
 	) -&gt; BoundedVec&lt;T::AccountId, MaxWinnersOf&lt;T&gt;&gt; {
-		<span class="kw">let </span>elected_stashes: BoundedVec&lt;<span class="kw">_</span>, MaxWinnersOf&lt;T&gt;&gt; = exposures
-			.iter()
-			.cloned()
-			.map(|(x, <span class="kw">_</span>)| x)
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-			.try_into()
-			.expect(<span class="string">&quot;since we only map through exposures, size of elected_stashes is always same as exposures; qed&quot;</span>);
-
-		<span class="comment">// Populate stakers, exposures, and the snapshot of validator prefs.
+		<span class="comment">// Populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>total_stake: BalanceOf&lt;T&gt; = Zero::zero();
-		exposures.into_iter().for_each(|(stash, exposure)| {
-			total_stake = total_stake.saturating_add(exposure.total);
-			&lt;ErasStakers&lt;T&gt;&gt;::insert(new_planned_era, <span class="kw-2">&amp;</span>stash, <span class="kw-2">&amp;</span>exposure);
+		<span class="kw">let </span><span class="kw-2">mut </span>elected_stashes = Vec::with_capacity(exposures.len());
 
-			<span class="kw">let </span><span class="kw-2">mut </span>exposure_clipped = exposure;
-			<span class="kw">let </span>clipped_max_len = T::MaxNominatorRewardedPerValidator::get() <span class="kw">as </span>usize;
-			<span class="kw">if </span>exposure_clipped.others.len() &gt; clipped_max_len {
-				exposure_clipped.others.sort_by(|a, b| a.value.cmp(<span class="kw-2">&amp;</span>b.value).reverse());
-				exposure_clipped.others.truncate(clipped_max_len);
-			}
-			&lt;ErasStakersClipped&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>new_planned_era, <span class="kw-2">&amp;</span>stash, exposure_clipped);
+		exposures.into_iter().for_each(|(stash, exposure)| {
+			<span class="comment">// build elected stash
+			</span>elected_stashes.push(stash.clone());
+			<span class="comment">// accumulate total stake
+			</span>total_stake = total_stake.saturating_add(exposure.total);
+			<span class="comment">// store staker exposure for this era
+			</span>EraInfo::&lt;T&gt;::set_exposure(new_planned_era, <span class="kw-2">&amp;</span>stash, exposure);
 		});
 
-		<span class="comment">// Insert current era staking information
-		</span>&lt;ErasTotalStake&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>new_planned_era, total_stake);
+		<span class="kw">let </span>elected_stashes: BoundedVec&lt;<span class="kw">_</span>, MaxWinnersOf&lt;T&gt;&gt; = elected_stashes
+			.try_into()
+			.expect(<span class="string">&quot;elected_stashes.len() always equal to exposures.len(); qed&quot;</span>);
+
+		EraInfo::&lt;T&gt;::set_total_stake(new_planned_era, total_stake);
 
 		<span class="comment">// Collect the pref of all winners.
 		</span><span class="kw">for </span>stash <span class="kw">in </span><span class="kw-2">&amp;</span>elected_stashes {
@@ -2567,12 +2636,21 @@
 
 	<span class="doccomment">/// Clear all era information for given era.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_era_information(era_index: EraIndex) {
-		<span class="kw">let </span><span class="kw-2">mut </span>cursor = &lt;ErasStakers&lt;T&gt;&gt;::clear_prefix(era_index, u32::MAX, <span class="prelude-val">None</span>);
+		<span class="comment">// FIXME: We can possibly set a reasonable limit since we do this only once per era and
+		// clean up state across multiple blocks.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>cursor = &lt;ErasStakers&lt;T&gt;&gt;::clear_prefix(era_index, u32::MAX, <span class="prelude-val">None</span>);
 		<span class="macro">debug_assert!</span>(cursor.maybe_cursor.is_none());
 		cursor = &lt;ErasStakersClipped&lt;T&gt;&gt;::clear_prefix(era_index, u32::MAX, <span class="prelude-val">None</span>);
 		<span class="macro">debug_assert!</span>(cursor.maybe_cursor.is_none());
 		cursor = &lt;ErasValidatorPrefs&lt;T&gt;&gt;::clear_prefix(era_index, u32::MAX, <span class="prelude-val">None</span>);
 		<span class="macro">debug_assert!</span>(cursor.maybe_cursor.is_none());
+		cursor = &lt;ClaimedRewards&lt;T&gt;&gt;::clear_prefix(era_index, u32::MAX, <span class="prelude-val">None</span>);
+		<span class="macro">debug_assert!</span>(cursor.maybe_cursor.is_none());
+		cursor = &lt;ErasStakersPaged&lt;T&gt;&gt;::clear_prefix((era_index,), u32::MAX, <span class="prelude-val">None</span>);
+		<span class="macro">debug_assert!</span>(cursor.maybe_cursor.is_none());
+		cursor = &lt;ErasStakersOverview&lt;T&gt;&gt;::clear_prefix(era_index, u32::MAX, <span class="prelude-val">None</span>);
+		<span class="macro">debug_assert!</span>(cursor.maybe_cursor.is_none());
+
 		&lt;ErasValidatorReward&lt;T&gt;&gt;::remove(era_index);
 		&lt;ErasRewardPoints&lt;T&gt;&gt;::remove(era_index);
 		&lt;ErasTotalStake&lt;T&gt;&gt;::remove(era_index);
@@ -2911,6 +2989,18 @@
 			DispatchClass::Mandatory,
 		);
 	}
+
+	<span class="doccomment">/// Returns full exposure of a validator for a given era.
+	///
+	/// History note: This used to be a getter for old storage item `ErasStakers` deprecated in v14.
+	/// Since this function is used in the codebase at various places, we kept it as a custom getter
+	/// that takes care of getting the full exposure of the validator in a backward compatible way.
+	</span><span class="kw">pub fn </span>eras_stakers(
+		era: EraIndex,
+		account: <span class="kw-2">&amp;</span>T::AccountId,
+	) -&gt; Exposure&lt;T::AccountId, BalanceOf&lt;T&gt;&gt; {
+		EraInfo::&lt;T&gt;::get_full_exposure(era, account)
+	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
@@ -2919,6 +3009,17 @@
 	/// Used by the runtime API.
 	</span><span class="kw">pub fn </span>api_nominations_quota(balance: BalanceOf&lt;T&gt;) -&gt; u32 {
 		T::NominationsQuota::get_quota(balance)
+	}
+
+	<span class="kw">pub fn </span>api_eras_stakers(
+		era: EraIndex,
+		account: T::AccountId,
+	) -&gt; Exposure&lt;T::AccountId, BalanceOf&lt;T&gt;&gt; {
+		<span class="self">Self</span>::eras_stakers(era, <span class="kw-2">&amp;</span>account)
+	}
+
+	<span class="kw">pub fn </span>api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -&gt; Page {
+		EraInfo::&lt;T&gt;::get_page_count(era, <span class="kw-2">&amp;</span>account)
 	}
 }
 
@@ -3004,10 +3105,7 @@
 			<span class="macro">panic!</span>(<span class="string">&quot;cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.&quot;</span>)
 		});
 		&lt;Bonded&lt;T&gt;&gt;::insert(voter.clone(), voter.clone());
-		&lt;Ledger&lt;T&gt;&gt;::insert(
-			voter.clone(),
-			StakingLedger::&lt;T&gt;::new(voter.clone(), stake, Default::default()),
-		);
+		&lt;Ledger&lt;T&gt;&gt;::insert(voter.clone(), StakingLedger::&lt;T&gt;::new(voter.clone(), stake));
 
 		<span class="self">Self</span>::do_add_nominator(<span class="kw-2">&amp;</span>voter, Nominations { targets, submitted_in: <span class="number">0</span>, suppressed: <span class="bool-val">false </span>});
 	}
@@ -3016,10 +3114,7 @@
 	</span><span class="kw">fn </span>add_target(target: T::AccountId) {
 		<span class="kw">let </span>stake = MinValidatorBond::&lt;T&gt;::get() * <span class="number">100u32</span>.into();
 		&lt;Bonded&lt;T&gt;&gt;::insert(target.clone(), target.clone());
-		&lt;Ledger&lt;T&gt;&gt;::insert(
-			target.clone(),
-			StakingLedger::&lt;T&gt;::new(target.clone(), stake, Default::default()),
-		);
+		&lt;Ledger&lt;T&gt;&gt;::insert(target.clone(), StakingLedger::&lt;T&gt;::new(target.clone(), stake));
 		<span class="self">Self</span>::do_add_validator(
 			<span class="kw-2">&amp;</span>target,
 			ValidatorPrefs { commission: Perbill::zero(), blocked: <span class="bool-val">false </span>},
@@ -3051,10 +3146,7 @@
 				.and_then(|w| &lt;BalanceOf&lt;T&gt;&gt;::try_from(w).ok())
 				.unwrap_or_else(|| MinNominatorBond::&lt;T&gt;::get() * <span class="number">100u32</span>.into());
 			&lt;Bonded&lt;T&gt;&gt;::insert(v.clone(), v.clone());
-			&lt;Ledger&lt;T&gt;&gt;::insert(
-				v.clone(),
-				StakingLedger::&lt;T&gt;::new(v.clone(), stake, Default::default()),
-			);
+			&lt;Ledger&lt;T&gt;&gt;::insert(v.clone(), StakingLedger::&lt;T&gt;::new(v.clone(), stake));
 			<span class="self">Self</span>::do_add_validator(
 				<span class="kw-2">&amp;</span>v,
 				ValidatorPrefs { commission: Perbill::zero(), blocked: <span class="bool-val">false </span>},
@@ -3066,10 +3158,7 @@
 				<span class="macro">panic!</span>(<span class="string">&quot;cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.&quot;</span>)
 			});
 			&lt;Bonded&lt;T&gt;&gt;::insert(v.clone(), v.clone());
-			&lt;Ledger&lt;T&gt;&gt;::insert(
-				v.clone(),
-				StakingLedger::&lt;T&gt;::new(v.clone(), stake, Default::default()),
-			);
+			&lt;Ledger&lt;T&gt;&gt;::insert(v.clone(), StakingLedger::&lt;T&gt;::new(v.clone(), stake));
 			<span class="self">Self</span>::do_add_nominator(
 				<span class="kw-2">&amp;</span>v,
 				Nominations { targets: t, submitted_in: <span class="number">0</span>, suppressed: <span class="bool-val">false </span>},
@@ -3497,29 +3586,10 @@
 		MinValidatorBond::&lt;T&gt;::get()
 	}
 
-	<span class="kw">fn </span>desired_validator_count() -&gt; u32 {
-		ValidatorCount::&lt;T&gt;::get()
-	}
-
-	<span class="kw">fn </span>election_ongoing() -&gt; bool {
-		T::ElectionProvider::ongoing()
-	}
-
-	<span class="kw">fn </span>force_unstake(who: <span class="self">Self</span>::AccountId) -&gt; sp_runtime::DispatchResult {
-		<span class="kw">let </span>num_slashing_spans = <span class="self">Self</span>::slashing_spans(<span class="kw-2">&amp;</span>who).map_or(<span class="number">0</span>, |s| s.iter().count() <span class="kw">as </span>u32);
-		<span class="self">Self</span>::force_unstake(RawOrigin::Root.into(), who.clone(), num_slashing_spans)
-	}
-
 	<span class="kw">fn </span>stash_by_ctrl(controller: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AccountId, DispatchError&gt; {
 		<span class="self">Self</span>::ledger(Controller(controller.clone()))
 			.map(|l| l.stash)
 			.map_err(|e| e.into())
-	}
-
-	<span class="kw">fn </span>is_exposed_in_era(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, era: <span class="kw-2">&amp;</span>EraIndex) -&gt; bool {
-		ErasStakers::&lt;T&gt;::iter_prefix(era).any(|(validator, exposures)| {
-			validator == <span class="kw-2">*</span>who || exposures.others.iter().any(|i| i.who == <span class="kw-2">*</span>who)
-		})
 	}
 
 	<span class="kw">fn </span>bonding_duration() -&gt; EraIndex {
@@ -3582,6 +3652,24 @@
 		<span class="self">Self</span>::nominate(RawOrigin::Signed(ctrl).into(), targets)
 	}
 
+	<span class="kw">fn </span>desired_validator_count() -&gt; u32 {
+		ValidatorCount::&lt;T&gt;::get()
+	}
+
+	<span class="kw">fn </span>election_ongoing() -&gt; bool {
+		T::ElectionProvider::ongoing()
+	}
+
+	<span class="kw">fn </span>force_unstake(who: <span class="self">Self</span>::AccountId) -&gt; sp_runtime::DispatchResult {
+		<span class="kw">let </span>num_slashing_spans = <span class="self">Self</span>::slashing_spans(<span class="kw-2">&amp;</span>who).map_or(<span class="number">0</span>, |s| s.iter().count() <span class="kw">as </span>u32);
+		<span class="self">Self</span>::force_unstake(RawOrigin::Root.into(), who.clone(), num_slashing_spans)
+	}
+
+	<span class="kw">fn </span>is_exposed_in_era(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, era: <span class="kw-2">&amp;</span>EraIndex) -&gt; bool {
+		ErasStakers::&lt;T&gt;::iter_prefix(era).any(|(validator, exposures)| {
+			validator == <span class="kw-2">*</span>who || exposures.others.iter().any(|i| i.who == <span class="kw-2">*</span>who)
+		})
+	}
 	<span class="kw">fn </span>status(
 		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;sp_staking::StakerStatus&lt;<span class="self">Self</span>::AccountId&gt;, DispatchError&gt; {
@@ -3621,11 +3709,15 @@
 				.map(|(who, value)| IndividualExposure { who: who.clone(), value: value.clone() })
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 			<span class="kw">let </span>exposure = Exposure { total: Default::default(), own: Default::default(), others };
-			&lt;ErasStakers&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>current_era, <span class="kw-2">&amp;</span>stash, <span class="kw-2">&amp;</span>exposure);
+			EraInfo::&lt;T&gt;::set_exposure(<span class="kw-2">*</span>current_era, stash, exposure);
 		}
 
 		<span class="kw">fn </span>set_current_era(era: EraIndex) {
 			CurrentEra::&lt;T&gt;::put(era);
+		}
+
+		<span class="kw">fn </span>max_exposure_page_size() -&gt; Page {
+			T::MaxExposurePageSize::get()
 		}
 	}
 }

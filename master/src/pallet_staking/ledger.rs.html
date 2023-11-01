@@ -252,11 +252,6 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -293,9 +288,8 @@
 </span><span class="kw">use </span>frame_support::{
 	defensive,
 	traits::{LockableCurrency, WithdrawReasons},
-	BoundedVec,
 };
-<span class="kw">use </span>sp_staking::{EraIndex, StakingAccount};
+<span class="kw">use </span>sp_staking::StakingAccount;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
@@ -313,7 +307,7 @@
 			total: Zero::zero(),
 			active: Zero::zero(),
 			unlocking: Default::default(),
-			claimed_rewards: Default::default(),
+			legacy_claimed_rewards: Default::default(),
 			controller: <span class="prelude-val">Some</span>(stash),
 		}
 	}
@@ -325,17 +319,13 @@
 	///
 	/// Note: as the controller accounts are being deprecated, the stash account is the same as the
 	/// controller account.
-	</span><span class="kw">pub fn </span>new(
-		stash: T::AccountId,
-		stake: BalanceOf&lt;T&gt;,
-		claimed_rewards: BoundedVec&lt;EraIndex, T::HistoryDepth&gt;,
-	) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(stash: T::AccountId, stake: BalanceOf&lt;T&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			stash: stash.clone(),
 			active: stake,
 			total: stake,
 			unlocking: Default::default(),
-			claimed_rewards,
+			legacy_claimed_rewards: Default::default(),
 			<span class="comment">// controllers are deprecated and mapped 1-1 to stashes.
 			</span>controller: <span class="prelude-val">Some</span>(stash),
 		}
@@ -499,8 +489,8 @@
 	</span><span class="kw">pub </span>total: BalanceOf&lt;T&gt;,
 	<span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>active: BalanceOf&lt;T&gt;,
-	<span class="kw">pub </span>unlocking: BoundedVec&lt;UnlockChunk&lt;BalanceOf&lt;T&gt;&gt;, T::MaxUnlockingChunks&gt;,
-	<span class="kw">pub </span>claimed_rewards: BoundedVec&lt;EraIndex, T::HistoryDepth&gt;,
+	<span class="kw">pub </span>unlocking: frame_support::BoundedVec&lt;UnlockChunk&lt;BalanceOf&lt;T&gt;&gt;, T::MaxUnlockingChunks&gt;,
+	<span class="kw">pub </span>legacy_claimed_rewards: frame_support::BoundedVec&lt;sp_staking::EraIndex, T::HistoryDepth&gt;,
 }
 
 <span class="attr">#[cfg(test)]
@@ -510,7 +500,7 @@
 			<span class="self">self</span>.total == other.total &amp;&amp;
 			<span class="self">self</span>.active == other.active &amp;&amp;
 			<span class="self">self</span>.unlocking == other.unlocking &amp;&amp;
-			<span class="self">self</span>.claimed_rewards == other.claimed_rewards
+			<span class="self">self</span>.legacy_claimed_rewards == other.legacy_claimed_rewards
 	}
 }
 

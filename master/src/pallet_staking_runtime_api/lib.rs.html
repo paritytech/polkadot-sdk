@@ -30,6 +30,10 @@
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -54,12 +58,16 @@
 </span><span class="kw">use </span>codec::Codec;
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
-	<span class="kw">pub trait </span>StakingApi&lt;Balance&gt;
+	<span class="kw">pub trait </span>StakingApi&lt;Balance, AccountId&gt;
 		<span class="kw">where
 			</span>Balance: Codec,
+			AccountId: Codec,
 	{
 		<span class="doccomment">/// Returns the nominations quota for a nominator with a given balance.
 		</span><span class="kw">fn </span>nominations_quota(balance: Balance) -&gt; u32;
+
+		<span class="doccomment">/// Returns the page count of exposures for a validator in a given era.
+		</span><span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page;
 	}
 }
 </code></pre></div></section></main></body></html>

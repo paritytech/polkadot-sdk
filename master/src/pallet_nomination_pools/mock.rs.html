@@ -538,6 +538,11 @@
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -740,6 +745,11 @@
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>set_current_era(_era: EraIndex) {
+		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>max_exposure_page_size() -&gt; sp_staking::Page {
 		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
 	}
 }
