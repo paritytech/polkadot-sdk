@@ -199,6 +199,8 @@ pub struct ClientConfig<Block: BlockT> {
 	/// Map of WASM runtime substitute starting at the child of the given block until the runtime
 	/// version doesn't match anymore.
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
+	/// Path where precompiled wasmtime modules exist.
+	pub wasmtime_precompiled: Option<PathBuf>,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -209,6 +211,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			wasm_runtime_overrides: None,
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
+			wasmtime_precompiled: None,
 		}
 	}
 }

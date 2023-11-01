@@ -33,6 +33,7 @@ bip39 = "2.0.0"
 tokio = { version = "1.22.0", features = ["signal", "rt-multi-thread", "parking_lot"] }
 sc-client-api = { path = "../api" }
 sc-client-db = { path = "../db", default-features = false}
+sc-executor = { path = "../executor" }
 sc-keystore = { path = "../keystore" }
 sc-mixnet = { path = "../mixnet" }
 sc-network = { path = "../network" }
@@ -46,6 +47,8 @@ sp-keyring = { path = "../../primitives/keyring" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-panic-handler = { path = "../../primitives/panic-handler" }
 sp-runtime = { path = "../../primitives/runtime" }
+sp-state-machine = { path = "../../primitives/state-machine" }
+sp-storage = { path = "../../primitives/storage" }
 sp-version = { path = "../../primitives/version" }
 
 [dev-dependencies]

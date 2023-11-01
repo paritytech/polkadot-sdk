@@ -38,5 +38,5 @@ pub fn prepare(
 ) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
 	let semantics = params_to_wasmtime_semantics(executor_params)
 		.map_err(|e| sc_executor_common::error::WasmError::Other(e))?;
-	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
+	sc_executor_wasmtime::prepare_runtime_artifact(blob, Default::default(), &semantics)
 }

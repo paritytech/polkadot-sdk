@@ -43,6 +43,8 @@ if_wasmtime_is_enabled! {
 	pub use anyhow;
 }
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Result type used by traits in this crate.
 #[cfg(feature = "std")]
 pub type Result<T> = result::Result<T, String>;

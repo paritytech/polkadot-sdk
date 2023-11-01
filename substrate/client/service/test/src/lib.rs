@@ -244,6 +244,7 @@ fn node_config<
 		chain_spec: Box::new((*spec).clone()),
 		wasm_method: Default::default(),
 		wasm_runtime_overrides: Default::default(),
+		wasmtime_precompiled: Default::default(),
 		rpc_addr: Default::default(),
 		rpc_max_connections: Default::default(),
 		rpc_cors: None,
