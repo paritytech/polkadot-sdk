@@ -86,7 +86,7 @@ use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm::VersionedMultiLocation;
-use xcm_config::{EthereumGatewayAddress, XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 use bp_runtime::HeaderId;
 
@@ -500,7 +500,7 @@ impl pallet_message_queue::Config for Runtime {
 
 parameter_types! {
 	pub const Reward: u128 = 10;
-	pub const GatewayAddress: H160 = H160(EthereumGatewayAddress::get());
+	pub const GatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetExecutionFee: u128 = 2_000_000_000;
 	pub const SendTokenExecutionFee: u128 = 1_000_000_000;

@@ -42,7 +42,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain::SystemParachains;
-use snowbridge_router_primitives::inbound::GlobalConsensusEthereumAccountConvertsFor;
+use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -114,7 +114,7 @@ pub type LocationToAccountId = (
 	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
 	// Ethereum contract sovereign account.
 	// (Used to get convert ethereum contract locations to sovereign account)
-	GlobalConsensusEthereumAccountConvertsFor<AccountId>,
+	GlobalConsensusEthereumConvertsFor<AccountId>,
 );
 
 /// Means for transacting the native currency on this chain.
@@ -700,7 +700,7 @@ pub type ForeignCreatorsSovereignAccountOf = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	ParentIsPreset<AccountId>,
-	GlobalConsensusEthereumAccountConvertsFor<AccountId>,
+	GlobalConsensusEthereumConvertsFor<AccountId>,
 );
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
@@ -873,17 +873,7 @@ pub mod bridging {
 			pub AssetHubRococo: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)));
 			pub RocLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(RococoNetwork::get())));
 			pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
-			pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(EthereumNetwork::get()))); // TODO: Maybe registry address belongs here
-
-			pub const EthereumGatewayAddress: [u8; 20] = hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39");
-			// The Registry contract for the bridge which is also the origin for reserves and the prefix of all assets.
-			pub EthereumGatewayLocation: MultiLocation = EthereumLocation::get()
-				.pushed_with_interior(
-					AccountKey20 {
-						network: None,
-						key: EthereumGatewayAddress::get(),
-					}
-				).unwrap();
+			pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(EthereumNetwork::get())));
 
 			pub RocFromAssetHubRococo: (MultiAssetFilter, MultiLocation) = (
 				Wild(AllOf { fun: WildFungible, id: Concrete(RocLocation::get()) }),
@@ -924,7 +914,7 @@ pub mod bridging {
 			];
 
 			pub AllowedReserveTransferAssetsToEthereum: sp_std::vec::Vec<MultiAssetFilter> = sp_std::vec![
-				Wild(AllOf { fun: WildFungible, id: Concrete(EthereumGatewayLocation::get()) }),
+				Wild(AllOf { fun: WildFungible, id: Concrete(EthereumLocation::get()) }),
 			];
 
 			/// Universal aliases
