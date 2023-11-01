@@ -362,7 +362,7 @@ impl<G, E> ChainSpecBuilder<G, E> {
 			name: self.name,
 			id: self.id,
 			chain_type: self.chain_type,
-			boot_nodes: self.boot_nodes.unwrap_or(Default::default()),
+			boot_nodes: self.boot_nodes.unwrap_or_default(),
 			telemetry_endpoints: self.telemetry_endpoints,
 			protocol_id: self.protocol_id,
 			fork_id: self.fork_id,
