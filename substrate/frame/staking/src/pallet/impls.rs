@@ -117,53 +117,6 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
-	/// Registers untracked stake for a given account.
-	///
-	/// Untracked stake is stake that hasn't been propagated to `T::EventListeners`
-	/// and that may be eventually propagated by calling [`Self::maybe_settled_untracked_stake`].
-	///
-	/// The stake buffered under [`UntrackedStake`] corresponds to the *latest* stake to have been
-	/// propagated to `T::EventListeners` of a ledger with untracked stake.
-	pub(crate) fn add_untracked_stake(who: &T::AccountId, stake: Stake<BalanceOf<T>>) {
-		UntrackedStake::<T>::mutate(who, |maybe_prev_stake| {
-			// if the stash already has untracked stake, do not update it. Wa want to keep the
-			// *oldest* up to date stake in storage.
-			if maybe_prev_stake.is_none() {
-				*maybe_prev_stake = Some(stake);
-			}
-		});
-	}
-
-	/// Tries to settle untracked rewards buffered in [`UntrackedStake`] by caling into
-	/// [`sp_staking::OnStakingUpdate::on_stake_update`] to propagate the untracked stake.
-	///
-	/// Returns the untracked rewards that have been settled, if any.
-	pub(crate) fn maybe_settle_untracked_stake<OnUpdate>(
-		who: &T::AccountId,
-	) -> Option<Stake<BalanceOf<T>>>
-	where
-		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
-	{
-		UntrackedStake::<T>::mutate_exists(who, |maybe_prev_stake| {
-			if let Some(prev_stake) = maybe_prev_stake {
-				let ledger = Self::ledger(Stash(who.clone()))
-					.expect("if the stash has untracked stake, it exists; qed.");
-
-				// we kept track of the latest up to date stake of the ledger. Now we can use it to
-				// settle the difference.
-				let prev_stake = prev_stake.clone();
-				OnUpdate::on_stake_update(&ledger.stash, Some(prev_stake));
-
-				// deletes key.
-				*maybe_prev_stake = None;
-
-				Some(prev_stake)
-			} else {
-				None
-			}
-		})
-	}
-
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
@@ -185,9 +138,7 @@ impl<T: Config> Pallet<T> {
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move
-				// on. But before, try to settle untracked stakes of the controller if they exist.
-				Self::maybe_settle_untracked_stake::<T::EventListeners>(&ledger.stash);
-
+				// on.
 				ledger.update::<T::EventListeners>()?;
 
 				// This is only an update, so we use less overall weight.
@@ -363,8 +314,6 @@ impl<T: Config> Pallet<T> {
 			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
-					let prev_stake = ledger.clone().into();
-
 					ledger.active += amount;
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
@@ -375,11 +324,7 @@ impl<T: Config> Pallet<T> {
 					let _ = match <Self as StakingInterface>::status(stash)
 						.expect("stash is a staker; qed.")
 					{
-						StakerStatus::Nominator(_) => {
-							ledger.update::<UntrackedEvent>()?;
-							Self::add_untracked_stake(&stash, prev_stake);
-							Ok(())
-						},
+						StakerStatus::Nominator(_) => ledger.update::<UntrackedEvent>(),
 						StakerStatus::Validator => ledger.update::<T::EventListeners>(),
 						StakerStatus::Idle => Ok(()),
 					};

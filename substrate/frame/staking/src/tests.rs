@@ -233,38 +233,6 @@ fn basic_setup_works() {
 }
 
 #[test]
-fn untracked_rewards_works() {
-	ExtBuilder::default().nominate(true).build_and_execute(|| {
-		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 0);
-
-		let stake = |active: BalanceOf<Test>, total: BalanceOf<Test>| sp_staking::Stake::<
-			BalanceOf<Test>,
-		> {
-			total,
-			active,
-		};
-
-		Pallet::<Test>::add_untracked_stake(&11, stake(10, 10));
-		Pallet::<Test>::add_untracked_stake(&11, stake(20, 20));
-		Pallet::<Test>::add_untracked_stake(&21, stake(10, 10));
-
-		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 2);
-		// keep inital `previous_stake` after multiple calls to `add_untracked_rewards.
-		assert_eq!(UntrackedStake::<Test>::get(&11), Some(stake(10, 10)));
-		assert_eq!(UntrackedStake::<Test>::get(&21), Some(stake(10, 10)));
-
-		// stash 101 doesn't have untracked rewards.
-		assert_eq!(Pallet::<Test>::maybe_settle_untracked_stake::<()>(&101), None);
-		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 2);
-
-		assert_eq!(Pallet::<Test>::maybe_settle_untracked_stake::<()>(&11), Some(stake(10, 10)));
-		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 1);
-		assert_eq!(Pallet::<Test>::maybe_settle_untracked_stake::<()>(&21), Some(stake(10, 10)));
-		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 0);
-	})
-}
-
-#[test]
 fn change_controller_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
@@ -4589,86 +4557,6 @@ mod sorted_list_provider_integration {
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
 			assert_eq!(VoterBagsList::contains(&42), false);
 			assert_eq!(TargetBagsList::contains(&42), false);
-		})
-	}
-
-	#[test]
-	fn payouts_with_untracked_stake_work() {
-		ExtBuilder::default().build_and_execute(|| {
-			Balances::make_free_balance_be(&42, 100);
-
-			// bond and nominate (11, 21) with stash 42.
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 50, Default::default()));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11, 21]));
-
-			// nominator 42 compounds rewards.
-			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(42), RewardDestination::Staked));
-			assert_eq!(Balances::free_balance(42), 100);
-
-			let (active, voter_score, _) = staker_state(42);
-			assert_eq!(active, voter_score);
-
-			mock::start_active_era(1);
-			// reward validator 11 and its nominators.
-			Staking::reward_by_ids(vec![(11, 10)]);
-
-			mock::start_active_era(2);
-			assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(11), 11, 1));
-
-			// the rewards have not been propagated to the voter and target lists, although they
-			// should be reflected in the staking ledger.
-			let (active, voter_score, _) = staker_state(42);
-			assert!(active > voter_score);
-
-			assert!(<UntrackedStake<Test>>::get(42).is_some());
-
-			// from the targets PoV, the rewards earned by the nominator haven't yet been added to
-			// the score. we buffer the target score of both validators to compare after the
-			// untracked rewards have been settled.
-			let (_, _, target_score_11_deficit) = staker_state(11);
-
-			// changing the nominations will trigger the untracked stake to be settled.
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11]));
-
-			assert!(<UntrackedStake<Test>>::get(42).is_none());
-
-			// thus the nominator's active and voter score is now the same.
-			let (active, voter_score, _) = staker_state(42);
-			assert_eq!(active, voter_score);
-
-			// target score of validators is larger, after the untracked staked is settled.
-			let (_, _, target_score_11_settled) = staker_state(11);
-			assert!(target_score_11_settled > target_score_11_deficit);
-		})
-	}
-
-	#[test]
-	fn untracked_stake_settle_extrinsic_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			Balances::make_free_balance_be(&42, 100);
-
-			// bond and nominate (11, 21) with stash 42.
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 10, Default::default()));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11, 21]));
-
-			assert!(<UntrackedStake<Test>>::get(42).is_none());
-
-			let (_, _, target_11) = staker_state(11);
-			let (_, _, target_21) = staker_state(21);
-
-			// add untracked stake to nominator 42 manually.
-			<UntrackedStake<Test>>::insert(&42, Stake { total: 5, active: 5 });
-
-			assert_ok!(Staking::settle_untracked_stake(RuntimeOrigin::signed(42), 42));
-			assert!(<UntrackedStake<Test>>::get(42).is_none());
-
-			let (_, _, target_11_settled) = staker_state(11);
-			let (_, _, target_21_settled) = staker_state(21);
-
-			// the settled target score of the validatorsis larger by the amount of untracked stake
-			// of their nominator 42.
-			assert!(target_11_settled == target_11 + 5);
-			assert!(target_21_settled == target_21 + 5);
 		})
 	}
 }

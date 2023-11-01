@@ -42,8 +42,7 @@ use sp_staking::{
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger,
-	UntrackedStake, STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
 };
 
 impl<T: Config> Into<Stake<BalanceOf<T>>> for StakingLedger<T> {
@@ -253,7 +252,6 @@ impl<T: Config> StakingLedger<T> {
 
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
-			<UntrackedStake<T>>::remove(&stash);
 
 			Ok(())
 		})?
