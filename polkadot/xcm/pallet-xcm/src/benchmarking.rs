@@ -39,23 +39,23 @@ pub trait Config: crate::Config {
 		None
 	}
 
-	/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
-	/// be teleported to. Used only in benchmarks.
+	/// A `(MultiAsset, MultiLocation)` pair representing asset and the destination it can be
+	/// teleported to. Used only in benchmarks.
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
 	/// If `None`, the benchmarks that depend on this will be skipped.
-	fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 		None
 	}
 
-	/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
-	/// be reserve-transferred to. Used only in benchmarks.
+	/// A `(MultiAsset, MultiLocation)` pair representing asset and the destination it can be
+	/// reserve-transferred to. Used only in benchmarks.
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
 	/// If `None`, the benchmarks that depend on this will be skipped.
-	fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 		None
 	}
 }
@@ -81,20 +81,15 @@ benchmarks! {
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
 
 	teleport_assets {
-		let (assets, destination) = T::teleportable_assets_and_dest().ok_or(
+		let (asset, destination) = T::teleportable_asset_and_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		// most chains deploying `pallet-xcm` don't have `pallet-assets` so we're
-		// stuck with using native token and `pallet-balances`.
-		if assets.len() != 1 {
-			return Err(BenchmarkError::Stop("Generic benchmark supports only single native asset"))
-		}
-		let asset = assets.inner().clone().pop().unwrap();
 		let transferred_amount = match &asset.fun {
 			Fungible(amount) => *amount,
 			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
 		}.into();
+		let assets: MultiAssets = asset.into();
 
 		let existential_deposit = T::ExistentialDeposit::get();
 		let caller = whitelisted_caller();
@@ -125,20 +120,15 @@ benchmarks! {
 	}
 
 	reserve_transfer_assets {
-		let (assets, destination) = T::reserve_transferable_assets_and_dest().ok_or(
+		let (asset, destination) = T::reserve_transferable_asset_and_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		// most chains deploying `pallet-xcm` don't have `pallet-assets` so we're
-		// stuck with using native token and `pallet-balances`.
-		if assets.len() != 1 {
-			return Err(BenchmarkError::Stop("Generic benchmark supports only single native asset"))
-		}
-		let asset = assets.inner().clone().pop().unwrap();
 		let transferred_amount = match &asset.fun {
 			Fungible(amount) => *amount,
 			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
 		}.into();
+		let assets: MultiAssets = asset.into();
 
 		let existential_deposit = T::ExistentialDeposit::get();
 		let caller = whitelisted_caller();

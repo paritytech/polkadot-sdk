@@ -1305,18 +1305,18 @@ impl_runtime_apis! {
 					Some(Parent.into())
 				}
 
-				fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// Relay/native token can be teleported between AH and Relay.
 					Some((
 						MultiAsset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
 							id: Concrete(Parent.into())
-						}.into(),
+						},
 						Parent.into(),
 					))
 				}
 
-				fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// AH can reserve transfer native token to some random parachain.
 					let random_para_id = 43211234;
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
@@ -1326,7 +1326,7 @@ impl_runtime_apis! {
 						MultiAsset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
 							id: Concrete(Parent.into())
-						}.into(),
+						},
 						ParentThen(Parachain(random_para_id).into()).into(),
 					))
 				}

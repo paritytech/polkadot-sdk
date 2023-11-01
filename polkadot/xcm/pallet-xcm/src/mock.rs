@@ -538,13 +538,13 @@ impl super::benchmarking::Config for Test {
 		Some(Parachain(1000).into())
 	}
 
-	fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
-		Some((NativeAsset::get().into(), SystemParachainLocation::get()))
+	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+		Some((NativeAsset::get(), SystemParachainLocation::get()))
 	}
 
-	fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 		Some((
-			MultiAsset { fun: Fungible(10), id: Concrete(Here.into_location()) }.into(),
+			MultiAsset { fun: Fungible(10), id: Concrete(Here.into_location()) },
 			Parachain(OTHER_PARA_ID).into(),
 		))
 	}

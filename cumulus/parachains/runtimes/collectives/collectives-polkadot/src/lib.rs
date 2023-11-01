@@ -943,7 +943,7 @@ impl_runtime_apis! {
 					Some(Parent.into())
 				}
 
-				fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// Relay/native token can be teleported between Collectives and Relay.
 					Some((
 						MultiAsset {
@@ -954,7 +954,7 @@ impl_runtime_apis! {
 					))
 				}
 
-				fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// Reserve transfers are disabled on Collectives.
 					None
 				}

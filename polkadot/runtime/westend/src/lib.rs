@@ -2171,24 +2171,21 @@ sp_api::impl_runtime_apis! {
 					Some(crate::xcm_config::AssetHub::get())
 				}
 
-				fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// Relay/native token can be teleported to/from AH.
 					Some((
-						MultiAsset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Here.into())
-						}.into(),
+						MultiAsset { fun: Fungible(EXISTENTIAL_DEPOSIT), id: Concrete(Here.into()) },
 						crate::xcm_config::AssetHub::get(),
 					))
 				}
 
-				fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// Relay can reserve transfer native token to some random parachain.
 					Some((
 						MultiAsset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
 							id: Concrete(Here.into())
-						}.into(),
+						},
 						crate::Junction::Parachain(43211234).into(),
 					))
 				}
