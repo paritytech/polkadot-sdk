@@ -954,8 +954,11 @@ mod tests {
 		// Exact block_limit, which includes:
 		// 99 (header_size) + 718 (proof@initialize_block) + 246 (one Transfer extrinsic)
 		let block_limit = {
-			let builder =
-				client.new_block_at(genesis_header.hash(), Default::default(), true).unwrap();
+			let builder = BlockBuilderBuilder::new(&client)
+				.on_parent_block(genesis_header.hash())
+				.with_parent_block_number(0)
+				.build()
+				.unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
 		};
 		let block = block_on(proposer.propose(

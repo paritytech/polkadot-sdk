@@ -20,7 +20,7 @@
 
 use super::*;
 use authorship::claim_slot;
-use sc_block_builder::BlockBuilder;
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sc_client_api::{BlockchainEvents, Finalizer};
 use sc_consensus::{BoxBlockImport, BoxJustificationImport};
 use sc_consensus_epochs::{EpochIdentifier, EpochIdentifierPosition};
@@ -98,8 +98,13 @@ impl DummyProposer {
 		&mut self,
 		pre_digests: Digest,
 	) -> future::Ready<Result<Proposal<TestBlock, ()>, Error>> {
-		let block_builder =
-			self.factory.client.new_block_at(self.parent_hash, pre_digests, false).unwrap();
+		let block_builder = BlockBuilderBuilder::new(&self.factory.client)
+			.on_parent_block(self.parent_hash)
+			.fetch_parent_block_number(&self.factory.client)
+			.unwrap()
+			.with_inherent_digests(pre_digests)
+			.build()
+			.unwrap();
 
 		let mut block = match block_builder.build().map_err(|e| e.into()) {
 			Ok(b) => b.block,

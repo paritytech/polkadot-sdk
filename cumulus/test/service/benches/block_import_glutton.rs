@@ -27,7 +27,7 @@ use sp_arithmetic::{
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sc_block_builder::RecordProof;
+use sc_block_builder::{BlockBuilderBuilder, RecordProof};
 use sp_keyring::Sr25519Keyring::Alice;
 
 use cumulus_test_service::bench_utils as utils;
@@ -63,8 +63,12 @@ fn benchmark_block_import(c: &mut Criterion) {
 		// Build the block we will use for benchmarking
 		let parent_hash = client.usage_info().chain.best_hash;
 		let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
-		let mut block_builder =
-			client.new_block_at(parent_hash, Default::default(), RecordProof::No).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(parent_hash)
+			.fetch_parent_block_number(&*client)
+			.unwrap()
+			.build()
+			.unwrap();
 		block_builder
 			.push(utils::extrinsic_set_validation_data(parent_header.clone()).clone())
 			.unwrap();

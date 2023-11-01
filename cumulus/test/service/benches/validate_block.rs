@@ -45,7 +45,11 @@ fn create_extrinsics(
 	dst_accounts: &[sr25519::Pair],
 ) -> (usize, Vec<UncheckedExtrinsic>) {
 	// Add as many tranfer extrinsics as possible into a single block.
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap();
 	let mut max_transfer_count = 0;
 	let mut extrinsics = Vec::new();
 

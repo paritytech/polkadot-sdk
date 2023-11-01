@@ -2402,6 +2402,7 @@ mod test {
 	use super::*;
 	use crate::service::network::NetworkServiceProvider;
 	use futures::executor::block_on;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 	use sp_blockchain::HeaderBackend;
 	use substrate_test_runtime_client::{
@@ -2433,7 +2434,14 @@ mod test {
 		.unwrap();
 
 		let (a1_hash, a1_number) = {
-			let a1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+			let a1 = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().genesis_hash)
+				.with_parent_block_number(0)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
 			(a1.hash(), *a1.header.number())
 		};
 
@@ -2497,7 +2505,14 @@ mod test {
 
 		let mut new_blocks = |n| {
 			for _ in 0..n {
-				let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+				let block = BlockBuilderBuilder::new(&*client)
+					.on_parent_block(client.chain_info().best_hash)
+					.with_parent_block_number(client.chain_info().best_number)
+					.build()
+					.unwrap()
+					.build()
+					.unwrap()
+					.block;
 				block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 			}
 
@@ -2619,7 +2634,12 @@ mod test {
 	fn build_block(client: &mut Arc<TestClient>, at: Option<Hash>, fork: bool) -> Block {
 		let at = at.unwrap_or_else(|| client.info().best_hash);
 
-		let mut block_builder = client.new_block_at(at, Default::default(), false).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(at)
+			.fetch_parent_block_number(&*client)
+			.unwrap()
+			.build()
+			.unwrap();
 
 		if fork {
 			block_builder.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6])).unwrap();
@@ -2664,7 +2684,12 @@ mod test {
 
 		let mut client2 = client.clone();
 		let mut build_block_at = |at, import| {
-			let mut block_builder = client2.new_block_at(at, Default::default(), false).unwrap();
+			let mut block_builder = BlockBuilderBuilder::new(&*client2)
+				.on_parent_block(at)
+				.fetch_parent_block_number(&*client2)
+				.unwrap()
+				.build()
+				.unwrap();
 			// Make sure we generate a different block as fork
 			block_builder.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6])).unwrap();
 
@@ -3285,7 +3310,14 @@ mod test {
 
 		let mut new_blocks = |n| {
 			for _ in 0..n {
-				let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+				let block = BlockBuilderBuilder::new(&*client)
+					.on_parent_block(client.chain_info().best_hash)
+					.with_parent_block_number(client.chain_info().best_number)
+					.build()
+					.unwrap()
+					.build()
+					.unwrap()
+					.block;
 				block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 			}
 

@@ -52,8 +52,12 @@ fn benchmark_block_import(c: &mut Criterion) {
 		utils::create_benchmarking_transfer_extrinsics(&client, &src_accounts, &dst_accounts);
 
 	let parent_hash = client.usage_info().chain.best_hash;
-	let mut block_builder =
-		client.new_block_at(parent_hash, Default::default(), RecordProof::No).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(parent_hash)
+		.fetch_parent_block_number(&*client)
+		.unwrap()
+		.build()
+		.unwrap();
 	for extrinsic in extrinsics {
 		block_builder.push(extrinsic).unwrap();
 	}

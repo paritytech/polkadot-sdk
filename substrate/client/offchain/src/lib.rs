@@ -328,6 +328,7 @@ mod tests {
 	use super::*;
 	use futures::executor::block_on;
 	use libp2p::{Multiaddr, PeerId};
+	use sc_block_builder::BlockBuilderBuilder;
 	use sc_client_api::Backend as _;
 	use sc_network::{config::MultiaddrWithPeerId, types::ProtocolName, ReputationChange};
 	use sc_transaction_pool::BasicPool;
@@ -469,7 +470,11 @@ mod tests {
 
 		let key = &b"hello"[..];
 		let value = &b"world"[..];
-		let mut block_builder = client.new_block(Default::default()).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap();
 		let ext = ExtrinsicBuilder::new_offchain_index_set(key.to_vec(), value.to_vec()).build();
 		block_builder.push(ext).unwrap();
 
@@ -478,7 +483,11 @@ mod tests {
 
 		assert_eq!(value, &offchain_db.get(sp_offchain::STORAGE_PREFIX, &key).unwrap());
 
-		let mut block_builder = client.new_block(Default::default()).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap();
 		let ext = ExtrinsicBuilder::new_offchain_index_clear(key.to_vec()).nonce(1).build();
 		block_builder.push(ext).unwrap();
 
