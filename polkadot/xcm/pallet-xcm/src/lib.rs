@@ -25,9 +25,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod controller;
 pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+pub use controller::*;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
@@ -51,10 +53,9 @@ use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_executor::{
 	traits::{
-		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets,
-		ExecuteController, ExecuteControllerWeightInfo, MatchesFungible, OnResponse, Properties,
-		QueryController, QueryControllerWeightInfo, QueryHandler, QueryResponseStatus,
-		SendController, SendControllerWeightInfo, VersionChangeNotifier, WeightBounds,
+		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets, MatchesFungible,
+		OnResponse, Properties, QueryHandler, QueryResponseStatus, VersionChangeNotifier,
+		WeightBounds,
 	},
 	Assets,
 };
@@ -363,7 +364,7 @@ pub mod pallet {
 			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let query_id = <Self as QueryHandler>::new_query(
 				responder,
-				timeout.into(),
+				timeout,
 				MultiLocation::try_from(match_querier)
 					.map_err(|_| Into::<DispatchError>::into(Error::<T>::BadVersion))?,
 			);
@@ -1226,7 +1227,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<MultiLocation>,
 	) -> Self::QueryId {
-		Self::do_new_query(responder, None, timeout, match_querier).into()
+		Self::do_new_query(responder, None, timeout, match_querier)
 	}
 
 	/// To check the status of the query, use `fn query()` passing the resultant `QueryId`
