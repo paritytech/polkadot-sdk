@@ -491,7 +491,7 @@ mod tests {
 	use crate::host::tests::TEST_PREPARATION_TIMEOUT;
 	use assert_matches::assert_matches;
 	use futures::{future::BoxFuture, FutureExt};
-	use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats};
+	use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareSuccess};
 	use slotmap::SlotMap;
 	use std::task::Poll;
 
@@ -612,7 +612,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w,
 			rip: false,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 
 		assert_eq!(
@@ -651,7 +651,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: false,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 
 		assert_matches!(test.poll_and_recv_to_pool().await, pool::ToPool::StartWork { .. });
@@ -697,7 +697,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: false,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 		assert_eq!(test.poll_and_recv_to_pool().await, pool::ToPool::Kill(w1));
 	}
@@ -731,7 +731,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: true,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 
 		// Since there is still work, the queue requested one extra worker to spawn to handle the

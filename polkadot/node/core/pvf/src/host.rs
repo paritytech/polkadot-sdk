@@ -32,7 +32,7 @@ use futures::{
 	Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
-	error::{PrecheckResult, PrepareError, PrepareResult},
+	error::{PrecheckResult, PrepareError},
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 	SecurityStatus,
@@ -251,7 +251,6 @@ pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<O
 		let artifacts = Artifacts::new_and_prune(&config.cache_path).await;
 
 		run(Inner {
-			cache_path: config.cache_path,
 			cleanup_pulse_interval: Duration::from_secs(3600),
 			artifact_ttl: Duration::from_secs(3600 * 24),
 			artifacts,
@@ -295,7 +294,6 @@ impl AwaitingPrepare {
 }
 
 struct Inner {
-	cache_path: PathBuf,
 	cleanup_pulse_interval: Duration,
 	artifact_ttl: Duration,
 	artifacts: Artifacts,
@@ -316,7 +314,6 @@ struct Fatal;
 
 async fn run(
 	Inner {
-		cache_path,
 		cleanup_pulse_interval,
 		artifact_ttl,
 		mut artifacts,
@@ -978,7 +975,10 @@ pub(crate) mod tests {
 	use crate::InvalidCandidate;
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
-	use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats};
+	use polkadot_node_core_pvf_common::{
+		error::PrepareError,
+		prepare::{PrepareStats, PrepareSuccess},
+	};
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -1043,8 +1043,6 @@ pub(crate) mod tests {
 
 	impl Test {
 		fn new(Builder { cleanup_pulse_interval, artifact_ttl, artifacts }: Builder) -> Self {
-			let cache_path = PathBuf::from(std::env::temp_dir());
-
 			let (to_host_tx, to_host_rx) = mpsc::channel(10);
 			let (to_prepare_queue_tx, to_prepare_queue_rx) = mpsc::channel(10);
 			let (from_prepare_queue_tx, from_prepare_queue_rx) = mpsc::unbounded();
@@ -1052,7 +1050,6 @@ pub(crate) mod tests {
 			let (to_sweeper_tx, to_sweeper_rx) = mpsc::channel(10);
 
 			let run = run(Inner {
-				cache_path,
 				cleanup_pulse_interval,
 				artifact_ttl,
 				artifacts,
@@ -1201,12 +1198,18 @@ pub(crate) mod tests {
 		let mut builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(100);
 		builder.artifact_ttl = Duration::from_millis(500);
-		builder
-			.artifacts
-			.insert_prepared(artifact_id(1), mock_now, PrepareStats::default());
-		builder
-			.artifacts
-			.insert_prepared(artifact_id(2), mock_now, PrepareStats::default());
+		builder.artifacts.insert_prepared(
+			artifact_id(1),
+			Default::default(),
+			mock_now,
+			PrepareStats::default(),
+		);
+		builder.artifacts.insert_prepared(
+			artifact_id(2),
+			Default::default(),
+			mock_now,
+			PrepareStats::default(),
+		);
 		let mut test = builder.build();
 		let mut host = test.host_handle();
 
@@ -1278,7 +1281,7 @@ pub(crate) mod tests {
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(1),
-				result: Ok(PrepareStats::default()),
+				result: Ok(PrepareSuccess::default()),
 			})
 			.await
 			.unwrap();
@@ -1294,7 +1297,7 @@ pub(crate) mod tests {
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(2),
-				result: Ok(PrepareStats::default()),
+				result: Ok(PrepareSuccess::default()),
 			})
 			.await
 			.unwrap();
@@ -1348,7 +1351,7 @@ pub(crate) mod tests {
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(1),
-				result: Ok(PrepareStats::default()),
+				result: Ok(PrepareSuccess::default()),
 			})
 			.await
 			.unwrap();
@@ -1461,7 +1464,7 @@ pub(crate) mod tests {
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(2),
-				result: Ok(PrepareStats::default()),
+				result: Ok(PrepareSuccess::default()),
 			})
 			.await
 			.unwrap();
@@ -1617,7 +1620,7 @@ pub(crate) mod tests {
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(1),
-				result: Ok(PrepareStats::default()),
+				result: Ok(PrepareSuccess::default()),
 			})
 			.await
 			.unwrap();
@@ -1793,7 +1796,7 @@ pub(crate) mod tests {
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(1),
-				result: Ok(PrepareStats::default()),
+				result: Ok(PrepareSuccess::default()),
 			})
 			.await
 			.unwrap();

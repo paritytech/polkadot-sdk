@@ -235,8 +235,8 @@ impl Artifacts {
 	async fn insert_and_prune(&mut self, cache_path: &Path) {
 		async fn is_corrupted(path: &Path) -> bool {
 			let file_name = path
-				.file_stem()
-				.expect("path must contain a file name")
+				.file_name()
+				.expect("path should never terminate in '..'")
 				.to_str()
 				.expect("file name must be valid UTF-8");
 			let checksum = match tokio::fs::read(path).await {
@@ -246,7 +246,7 @@ impl Artifacts {
 					gum::warn!(
 						target: LOG_TARGET,
 						?err,
-						"unable to read file {:?} when checking integrity",
+						"unable to read artifact {:?} when checking integrity, removing...",
 						path,
 					);
 					return true
@@ -298,7 +298,7 @@ impl Artifacts {
 				if let Some(id) = id {
 					gum::debug!(
 						target: LOG_TARGET,
-						"reusing {:?} for node version v{}",
+						"reusing existing {:?} for node version v{}",
 						&path,
 						NODE_VERSION,
 					);
@@ -428,14 +428,17 @@ mod tests {
 		str::FromStr,
 	};
 
-	fn rand_hash() -> String {
+	fn rand_hash(len: usize) -> String {
 		let mut rng = rand::thread_rng();
 		let hex: Vec<_> = "0123456789abcdef".chars().collect();
-		(0..64).map(|_| hex[rng.gen_range(0..hex.len())]).collect()
+		(0..len).map(|_| hex[rng.gen_range(0..hex.len())]).collect()
 	}
 
-	fn file_name(code_hash: &str, param_hash: &str) -> String {
-		format!("wasmtime_polkadot_v{}_0x{}_0x{}", NODE_VERSION, code_hash, param_hash)
+	fn file_name(code_hash: &str, param_hash: &str, checksum: &str) -> String {
+		format!(
+			"wasmtime_polkadot_v{}_0x{}_0x{}_0x{}",
+			NODE_VERSION, code_hash, param_hash, checksum
+		)
 	}
 
 	fn fake_artifact_path(
@@ -445,7 +448,7 @@ mod tests {
 		params_hash: impl AsRef<str>,
 	) -> PathBuf {
 		let mut path = dir.as_ref().to_path_buf();
-		let file_name = format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref());
+		let file_name = format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref(),);
 		path.push(file_name);
 		path
 	}
@@ -455,13 +458,24 @@ mod tests {
 		prefix: &str,
 		code_hash: impl AsRef<str>,
 		params_hash: impl AsRef<str>,
-	) {
+	) -> (PathBuf, String) {
 		let path = fake_artifact_path(dir, prefix, code_hash, params_hash);
-		fs::File::create(path).unwrap();
+		fs::File::create(&path).unwrap();
+		let bytes = fs::read(&path).unwrap();
+		let checksum = blake3::hash(bytes.as_ref()).to_hex().to_string();
+		(path, checksum)
 	}
 
-	fn create_rand_artifact(dir: impl AsRef<Path>, prefix: &str) {
-		create_artifact(dir, prefix, rand_hash(), rand_hash());
+	fn create_rand_artifact(dir: impl AsRef<Path>, prefix: &str) -> (PathBuf, String) {
+		create_artifact(dir, prefix, rand_hash(64), rand_hash(64))
+	}
+
+	fn concluded_path(path: impl AsRef<Path>, checksum: &str) -> PathBuf {
+		let path = path.as_ref();
+		let mut file_name = path.file_name().unwrap().to_os_string();
+		file_name.push("_0x");
+		file_name.push(checksum);
+		path.with_file_name(file_name)
 	}
 
 	#[test]
@@ -477,6 +491,7 @@ mod tests {
 		let file_name = file_name(
 			"0022800000000000000000000000000000000000000000000000000000000000",
 			"0033900000000000000000000000000000000000000000000000000000000000",
+			"00000000000000000000000000000000",
 		);
 
 		assert_eq!(
@@ -498,34 +513,46 @@ mod tests {
 		let dir = Path::new("/test");
 		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
 		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
-		let file_name = file_name(code_hash, params_hash);
+		let checksum = "34567890123456789012345678901234";
+		let file_name = file_name(code_hash, params_hash, checksum);
 
 		let code_hash = H256::from_str(code_hash).unwrap();
 		let params_hash = H256::from_str(params_hash).unwrap();
 
-		assert_eq!(
-			ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
-				.path_prefix(dir)
-				.to_str(),
-			Some(format!("/test/{}", file_name).as_str()),
-		);
+		let prefix = ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
+			.path_prefix(dir);
+		assert!(format!("/test/{}", file_name).starts_with(prefix.to_str().unwrap()));
 	}
 
 	#[tokio::test]
 	async fn remove_stale_cache_on_startup() {
 		let cache_dir = crate::worker_intf::tmppath("test-cache").await.unwrap();
-
 		fs::create_dir_all(&cache_dir).unwrap();
 
-		// 5 invalid, 1 valid
+		// 6 invalid
+
+		// invalid prefix
 		create_rand_artifact(&cache_dir, "");
 		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v");
 		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v1.0.0");
+		// no checksum
 		create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
-		create_artifact(&cache_dir, ARTIFACT_PREFIX, "", "");
-		create_artifact(&cache_dir, ARTIFACT_PREFIX, "000", "000000");
+		// invalid hashes
+		let (path, checksum) = create_artifact(&cache_dir, ARTIFACT_PREFIX, "000", "000001");
+		let new_path = concluded_path(&path, &checksum);
+		fs::rename(&path, &new_path).unwrap();
+		// invalid checksum
+		let (path, checksum) = create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
+		let new_path = concluded_path(&path, &checksum[1..]);
+		fs::rename(&path, &new_path).unwrap();
 
-		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 6);
+		// 1 valid
+
+		let (path, checksum) = create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
+		let new_path = concluded_path(&path, &checksum);
+		fs::rename(&path, &new_path).unwrap();
+
+		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 7);
 
 		let artifacts = Artifacts::new_and_prune(&cache_dir).await;
 
