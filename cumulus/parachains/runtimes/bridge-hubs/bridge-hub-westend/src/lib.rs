@@ -76,7 +76,7 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 use parachains_common::{
 	impls::DealWithFees,
-	rococo::{consensus::*, currency::*, fee::WeightToFee},
+	westend::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
