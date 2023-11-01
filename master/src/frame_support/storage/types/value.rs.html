@@ -396,6 +396,31 @@
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -428,11 +453,36 @@
 <span class="kw">use </span>sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// A type that allow to store a value.
+<span class="doccomment">/// A type representing a *value* in storage. A *storage value* is a single value of a given type
+/// stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix()) ++ Twox128(Prefix::STORAGE_PREFIX)
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
+/// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet&lt;T&gt;(_);
+/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = &quot;OtherFoo&quot;]
+/// 	#[pallet::unbounded]
+///     pub type Foo&lt;T&gt; = StorageValue&lt;_, u32,ValueQuery&gt;;
+///
+/// 	/// Named alternative syntax.
+///     #[pallet::storage]
+///     pub type Bar&lt;T&gt; = StorageValue&lt;
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	&gt;;
+/// }
 /// ```
 </span><span class="kw">pub struct </span>StorageValue&lt;Prefix, Value, QueryKind = OptionQuery, OnEmpty = GetDefault&gt;(
 	core::marker::PhantomData&lt;(Prefix, Value, QueryKind, OnEmpty)&gt;,

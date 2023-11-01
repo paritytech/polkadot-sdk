@@ -1,42 +1,213 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The `#[pallet::storage]` attribute lets you define some abstract storage inside of runtime storage and also set its metadata. This attribute can be used multiple times."><title>storage in frame_support::pallet_macros - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../frame_support/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../frame_support/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><div class="sidebar-elems"><h2><a href="index.html">In frame_support::pallet_macros</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../index.html">frame_support</a>::<wbr><a href="index.html">pallet_macros</a>::<wbr><a class="attr" href="#">storage</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support_procedural/lib.rs.html#1326">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[storage]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The <code>#[pallet::storage]</code> attribute lets you define some abstract storage inside of runtime
-storage and also set its metadata. This attribute can be used multiple times.</p>
-<p>Item should be defined as:</p>
-
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
-#[pallet::getter(<span class="kw">fn </span><span class="macro-nonterminal">$getter_name</span>)] </span><span class="comment">// optional
-</span><span class="macro-nonterminal">$vis </span><span class="kw">type </span><span class="macro-nonterminal">$StorageName</span>&lt;<span class="macro-nonterminal">$some_generic</span>&gt; <span class="macro-nonterminal">$optional_where_clause
-	</span>= <span class="macro-nonterminal">$StorageType</span>&lt;<span class="macro-nonterminal">$generic_name </span>= <span class="macro-nonterminal">$some_generics</span>, <span class="macro-nonterminal">$other_name </span>= <span class="macro-nonterminal">$some_other</span>, ...&gt;;</code></pre></div>
-<p>or with unnamed generic:</p>
-
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
-#[pallet::getter(<span class="kw">fn </span><span class="macro-nonterminal">$getter_name</span>)] </span><span class="comment">// optional
-</span><span class="macro-nonterminal">$vis </span><span class="kw">type </span><span class="macro-nonterminal">$StorageName</span>&lt;<span class="macro-nonterminal">$some_generic</span>&gt; <span class="macro-nonterminal">$optional_where_clause
-	</span>= <span class="macro-nonterminal">$StorageType</span>&lt;<span class="kw">_</span>, <span class="macro-nonterminal">$some_generics</span>, ...&gt;;</code></pre></div>
-<p>I.e. it must be a type alias, with generics: <code>T</code> or <code>T: Config</code>. The aliased type must be
-one of <code>StorageValue</code>, <code>StorageMap</code> or <code>StorageDoubleMap</code>. The generic arguments of the
-storage type can be given in two manners: named and unnamed. For named generic arguments,
-the name for each argument should match the name defined for it on the storage struct:</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Declares a type alias as a storage item. Storage items are pointers to data stored on-chain (the blockchain state), under a specific key. The exact key is dependent on the type of the storage."><title>storage in frame_support::pallet_macros - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../frame_support/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../frame_support/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><div class="sidebar-elems"><h2><a href="index.html">In frame_support::pallet_macros</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../index.html">frame_support</a>::<wbr><a href="index.html">pallet_macros</a>::<wbr><a class="attr" href="#">storage</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support_procedural/lib.rs.html#1292">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[storage]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Declares a type alias as a storage item. Storage items are pointers to data stored
+on-chain (the <em>blockchain state</em>), under a specific key. The exact key is dependent on
+the type of the storage.</p>
+<blockquote>
+<p>From the perspective of this pallet, the entire blockchain state is abstracted behind
+a key-value api, namely <a href="../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>.</p>
+</blockquote>
+<h3 id="storage-types"><a href="#storage-types">Storage Types</a></h3>
+<p>The following storage types are supported by the <code>#[storage]</code> macro. For specific
+information about each storage type, refer to the documentation of the respective type.</p>
 <ul>
-<li><code>StorageValue</code> expects <code>Value</code> and optionally <code>QueryKind</code> and <code>OnEmpty</code>,</li>
-<li><code>StorageMap</code> expects <code>Hasher</code>, <code>Key</code>, <code>Value</code> and optionally <code>QueryKind</code> and <code>OnEmpty</code>,</li>
-<li><code>CountedStorageMap</code> expects <code>Hasher</code>, <code>Key</code>, <code>Value</code> and optionally <code>QueryKind</code> and <code>OnEmpty</code>,</li>
-<li><code>StorageDoubleMap</code> expects <code>Hasher1</code>, <code>Key1</code>, <code>Hasher2</code>, <code>Key2</code>, <code>Value</code> and optionally
-<code>QueryKind</code> and <code>OnEmpty</code>.</li>
+<li><a href="../storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a></li>
+<li><a href="../storage/types/struct.StorageMap.html" title="struct frame_support::storage::types::StorageMap"><code>StorageMap</code></a></li>
+<li><a href="../storage/types/struct.CountedStorageMap.html" title="struct frame_support::storage::types::CountedStorageMap"><code>CountedStorageMap</code></a></li>
+<li><a href="../storage/types/struct.StorageDoubleMap.html" title="struct frame_support::storage::types::StorageDoubleMap"><code>StorageDoubleMap</code></a></li>
+<li><a href="../storage/types/struct.StorageNMap.html" title="struct frame_support::storage::types::StorageNMap"><code>StorageNMap</code></a></li>
+<li><a href="../storage/types/struct.CountedStorageNMap.html" title="struct frame_support::storage::types::CountedStorageNMap"><code>CountedStorageNMap</code></a></li>
 </ul>
-<p>For unnamed generic arguments: Their first generic must be <code>_</code> as it is replaced by the
-macro and other generic must declared as a normal generic type declaration.</p>
-<p>The <code>Prefix</code> generic written by the macro is generated using
-<code>PalletInfo::name::&lt;Pallet&lt;..&gt;&gt;()</code> and the name of the storage type. E.g. if runtime names
-the pallet “MyExample” then the storage <code>type Foo&lt;T&gt; = ...</code> should use the prefix:
-<code>Twox128(b&quot;MyExample&quot;) ++ Twox128(b&quot;Foo&quot;)</code>.</p>
-<p>For the <code>CountedStorageMap</code> variant, the <code>Prefix</code> also implements
-<code>CountedStorageMapInstance</code>. It also associates a <code>CounterPrefix</code>, which is implemented the
-same as above, but the storage prefix is prepend with <code>&quot;CounterFor&quot;</code>. E.g. if runtime names
-the pallet “MyExample” then the storage <code>type Foo&lt;T&gt; = CountedStorageaMap&lt;...&gt;</code> will store
-its counter at the prefix: <code>Twox128(b&quot;MyExample&quot;) ++ Twox128(b&quot;CounterForFoo&quot;)</code>.</p>
-<p>E.g:</p>
+<h3 id="storage-type-usage"><a href="#storage-type-usage">Storage Type Usage</a></h3>
+<p>The following details are relevant to all of the aforementioned storage types.
+Depending on the exact storage type, it may require the following generic parameters:</p>
+<ul>
+<li><a href="#prefixes"><code>Prefix</code></a> - Used to give the storage item a unique key in the underlying
+storage.</li>
+<li><code>Key</code> - Type of the keys used to store the values,</li>
+<li><code>Value</code> - Type of the value being stored,</li>
+<li><a href="#hashers"><code>Hasher</code></a> - Used to ensure the keys of a map are uniformly distributed,</li>
+<li><a href="#querykind"><code>QueryKind</code></a> - Used to configure how to handle queries to the underlying
+storage,</li>
+<li><code>OnEmpty</code> - Used to handle missing values when querying the underlying storage,</li>
+<li><code>MaxValues</code> - <em>not currently used</em>.</li>
+</ul>
+<p>Each <code>Key</code> type requires its own designated <code>Hasher</code> declaration, so that
+<a href="../storage/types/struct.StorageDoubleMap.html" title="struct frame_support::storage::types::StorageDoubleMap"><code>StorageDoubleMap</code></a> needs two of
+each, and <a href="../storage/types/struct.StorageNMap.html" title="struct frame_support::storage::types::StorageNMap"><code>StorageNMap</code></a> needs <code>N</code> such
+pairs. Since <a href="../storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a> only stores
+a single element, no configuration of hashers is needed.</p>
+<h4 id="syntax"><a href="#syntax">Syntax</a></h4>
+<p>Two general syntaxes are supported, as demonstrated below:</p>
+<ol>
+<li>Named type parameters, e.g., <code>type Foo&lt;T&gt; = StorageValue&lt;Value = u32&gt;</code>.</li>
+<li>Positional type parameters, e.g., <code>type Foo&lt;T&gt; = StorageValue&lt;_, u32&gt;</code>.</li>
+</ol>
+<p>In both instances, declaring the generic parameter <code>&lt;T&gt;</code> is mandatory. Optionally, it
+can also be explicitly declared as <code>&lt;T: Config&gt;</code>. In the compiled code, <code>T</code> will
+automatically include the trait bound <code>Config</code>.</p>
+<p>Note that in positional syntax, the first generic type parameter must be <code>_</code>.</p>
+<h5 id="example"><a href="#example">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame_support::pallet]
+</span><span class="kw">mod </span>pallet {
+    <span class="doccomment">/// Positional syntax, without bounding `T`.
+    </span><span class="attr">#[pallet::storage]
+    </span><span class="kw">pub type </span>Foo&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
-</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>MyStorage&lt;T&gt; = StorageMap&lt;Hasher = Blake2_128Concat, Key = u32, Value = u32&gt;;</code></pre></div>
-<p>In this case the final prefix used by the map is <code>Twox128(b&quot;MyExample&quot;) ++ Twox128(b&quot;OtherName&quot;)</code>.</p>
+    <span class="doccomment">/// Positional syntax, with bounding `T`.
+    </span><span class="attr">#[pallet::storage]
+    </span><span class="kw">pub type </span>Bar&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;
+
+    <span class="doccomment">/// Named syntax.
+    </span><span class="attr">#[pallet::storage]
+    </span><span class="kw">pub type </span>Baz&lt;T&gt; = StorageMap&lt;Hasher = Blake2_128Concat, Key = u32, Value = u32&gt;;
+}</code></pre></div>
+<h4 id="querykind"><a href="#querykind">QueryKind</a></h4>
+<p>Every storage type mentioned above has a generic type called
+<a href="../storage/types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait"><code>QueryKind</code></a> that determines its
+“query” type. This refers to the kind of value returned when querying the storage, for
+instance, through a <code>::get()</code> method.</p>
+<p>There are three types of queries:</p>
+<ol>
+<li><a href="../storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>OptionQuery</code></a>: The default query type.
+It returns <code>Some(V)</code> if the value is present, or <code>None</code> if it isn’t, where <code>V</code> is
+the value type.</li>
+<li><a href="../storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>ValueQuery</code></a>: Returns the value itself
+if present; otherwise, it returns <code>Default::default()</code>. This behavior can be
+adjusted with the <code>OnEmpty</code> generic parameter, which defaults to <code>OnEmpty = GetDefault</code>.</li>
+<li><a href="../storage/types/struct.ResultQuery.html" title="struct frame_support::storage::types::ResultQuery"><code>ResultQuery</code></a>: Returns <code>Result&lt;V, E&gt;</code>,
+where <code>V</code> is the value type.</li>
+</ol>
+<p>See <a href="../storage/types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait"><code>QueryKind</code></a> for further examples.</p>
+<h4 id="optimized-appending"><a href="#optimized-appending">Optimized Appending</a></h4>
+<p>All storage items — such as
+<a href="../storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a>,
+<a href="../storage/types/struct.StorageMap.html" title="struct frame_support::storage::types::StorageMap"><code>StorageMap</code></a>, and their variants—offer an
+<code>::append()</code> method optimized for collections. Using this method avoids the
+inefficiency of decoding and re-encoding entire collections when adding items. For
+instance, consider the storage declaration <code>type MyVal&lt;T&gt; = StorageValue&lt;_, Vec&lt;u8&gt;, ValueQuery&gt;</code>. With <code>MyVal</code> storing a large list of bytes, <code>::append()</code> lets you
+directly add bytes to the end in storage without processing the full list. Depending on
+the storage type, additional key specifications may be needed.</p>
+<h5 id="example-1"><a href="#example-1">Example</a></h5>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">pub fn </span>example_storage_value_append() {
+	<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, Vec&lt;u8&gt;, ValueQuery&gt;;
+
+	TestExternalities::default().execute_with(|| {
+		MyVal::set(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
+		<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
+		<span class="comment">// Append a single u32 to Vec stored in `MyVal`
+		</span>MyVal::append(<span class="number">40</span>);
+		<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>, <span class="number">40</span>]);
+	});
+}</code></pre></div>
+<p>Similarly, there also exists a <code>::try_append()</code> method, which can be used when handling
+types where an append operation might fail, such as a
+<a href="../struct.BoundedVec.html" title="struct frame_support::BoundedVec"><code>BoundedVec</code></a>.</p>
+<h5 id="example-2"><a href="#example-2">Example</a></h5>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">pub fn </span>example_storage_value_try_append() {
+	<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, BoundedVec&lt;u8, ConstU32&lt;<span class="number">10</span>&gt;&gt;, ValueQuery&gt;;
+
+	TestExternalities::default().execute_with(|| {
+		MyVal::set(BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]).unwrap());
+		<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]);
+		<span class="comment">// Try to append a single u32 to BoundedVec stored in `MyVal`
+		</span><span class="macro">assert_ok!</span>(MyVal::try_append(<span class="number">40</span>));
+		<span class="macro">assert_eq!</span>(MyVal::get(), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>, <span class="number">40</span>]);
+	});
+}</code></pre></div>
+<h4 id="optimized-length-decoding"><a href="#optimized-length-decoding">Optimized Length Decoding</a></h4>
+<p>All storage items — such as
+<a href="../storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a>,
+<a href="../storage/types/struct.StorageMap.html" title="struct frame_support::storage::types::StorageMap"><code>StorageMap</code></a>, and their counterparts —
+incorporate the <code>::decode_len()</code> method. This method allows for efficient retrieval of
+a collection’s length without the necessity of decoding the entire dataset.</p>
+<h5 id="example-3"><a href="#example-3">Example</a></h5>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">pub fn </span>example_storage_value_decode_len() {
+	<span class="kw">type </span>MyVal = StorageValue&lt;Prefix, BoundedVec&lt;u8, ConstU32&lt;<span class="number">10</span>&gt;&gt;, ValueQuery&gt;;
+
+	TestExternalities::default().execute_with(|| {
+		MyVal::set(BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">43</span>]).unwrap());
+		<span class="macro">assert_eq!</span>(MyVal::decode_len().unwrap(), <span class="number">2</span>);
+	});
+}</code></pre></div>
+<h4 id="hashers"><a href="#hashers">Hashers</a></h4>
+<p>For all storage types, except
+<a href="../storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a>, a set of hashers needs
+to be specified. The choice of hashers is crucial, especially in production chains. The
+purpose of storage hashers in maps is to ensure the keys of a map are
+uniformly distributed. An unbalanced map/trie can lead to inefficient performance.</p>
+<p>In general, hashers are categorized as either cryptographically secure or not. The
+former is slower than the latter. <code>Blake2</code> and <code>Twox</code> serve as examples of each,
+respectively.</p>
+<p>As a rule of thumb:</p>
+<ol>
+<li>If the map keys are not controlled by end users, or are cryptographically secure by
+definition (e.g., <code>AccountId</code>), then the use of cryptographically secure hashers is NOT
+required.</li>
+<li>If the map keys are controllable by the end users, cryptographically secure hashers
+should be used.</li>
+</ol>
+<p>For more information, look at the types that implement
+<a href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher"><code>frame_support::StorageHasher</code></a>.</p>
+<p>Lastly, it’s recommended for hashers with “concat” to have reversible hashes. Refer to
+the implementors section of
+<a href="../trait.ReversibleStorageHasher.html" title="trait frame_support::ReversibleStorageHasher"><code>hash::ReversibleStorageHasher</code></a>.</p>
+<h4 id="prefixes"><a href="#prefixes">Prefixes</a></h4>
+<p>Internally, every storage type generates a “prefix”. This prefix serves as the initial
+segment of the key utilized to store values in the on-chain state (i.e., the final key
+used in <a href="../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>). For all storage types, the following rule
+applies:</p>
+<blockquote>
+<p>The storage prefix begins with <code>twox128(pallet_prefix) ++ twox128(STORAGE_PREFIX)</code>,
+where
+<code>pallet_prefix</code> is the name assigned to the pallet instance in
+<a href="../macro.construct_runtime.html" title="macro frame_support::construct_runtime"><code>frame_support::construct_runtime</code></a>, and
+<code>STORAGE_PREFIX</code> is the name of the <code>type</code> aliased to a particular storage type, such
+as
+<code>Foo</code> in <code>type Foo&lt;T&gt; = StorageValue&lt;..&gt;</code>.</p>
+</blockquote>
+<p>For <a href="../storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a>, no additional key is
+required. For map types, the prefix is extended with one or more keys defined by the
+map.</p>
+<h5 id="example-4"><a href="#example-4">Example</a></h5>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">pub fn </span>example_storage_value_map_prefixes() {
+	<span class="kw">type </span>MyVal = StorageValue&lt;Prefix1, u32, ValueQuery&gt;;
+	<span class="kw">type </span>MyMap = StorageMap&lt;Prefix2, Blake2_128Concat, u16, u32, ValueQuery&gt;;
+	TestExternalities::default().execute_with(|| {
+		<span class="comment">// This example assumes `pallet_prefix` to be &quot;test&quot;
+		// Get storage key for `MyVal` StorageValue
+		</span><span class="macro">assert_eq!</span>(
+			MyVal::hashed_key().to_vec(),
+			[twox_128(<span class="string">b&quot;test&quot;</span>), twox_128(<span class="string">b&quot;MyVal&quot;</span>)].concat()
+		);
+		<span class="comment">// Get storage key for `MyMap` StorageMap and `key` = 1
+		</span><span class="kw">let </span><span class="kw-2">mut </span>k: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
+		k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b&quot;test&quot;</span>));
+		k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b&quot;MyMap&quot;</span>));
+		k.extend(<span class="kw-2">&amp;</span><span class="number">1u16</span>.blake2_128_concat());
+		<span class="macro">assert_eq!</span>(MyMap::hashed_key_for(<span class="number">1</span>).to_vec(), k);
+	});
+}</code></pre></div>
+<h3 id="related-macros"><a href="#related-macros">Related Macros</a></h3>
+<p>The following attribute macros can be used in conjunction with the <code>#[storage]</code> macro:</p>
+<ul>
+<li><a href="attr.getter.html" title="attr frame_support::pallet_macros::getter"><code>getter</code></a>: Creates a custom getter function.</li>
+<li><a href="attr.storage_prefix.html" title="attr frame_support::pallet_macros::storage_prefix"><code>storage_prefix</code></a>: Overrides the default prefix of the storage item.</li>
+<li><a href="attr.unbounded.html" title="attr frame_support::pallet_macros::unbounded"><code>unbounded</code></a>: Declares the storage item as unbounded.</li>
+</ul>
+<h5 id="example-5"><a href="#example-5">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame_support::pallet]
+</span><span class="kw">mod </span>pallet {
+	<span class="doccomment">/// A kitchen-sink StorageValue, with all possible additional attributes.
+    </span><span class="attr">#[pallet::storage]
+	#[pallet::getter(<span class="kw">fn </span>foo)]
+	#[pallet::storage_prefix = <span class="string">&quot;OtherFoo&quot;</span>]
+	#[pallet::unbounded]
+    </span><span class="kw">pub type </span>Foo&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
+}</code></pre></div>
+<hr />
+<p><strong>Rust-Analyzer users</strong>: See the documentation of the Rust item in
+<code>frame_support::pallet_macros::storage</code>.</p>
 </div></details></section></div></main></body></html>

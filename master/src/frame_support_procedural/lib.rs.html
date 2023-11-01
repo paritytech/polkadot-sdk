@@ -1625,34 +1625,6 @@
 <a href="#1625" id="1625">1625</a>
 <a href="#1626" id="1626">1626</a>
 <a href="#1627" id="1627">1627</a>
-<a href="#1628" id="1628">1628</a>
-<a href="#1629" id="1629">1629</a>
-<a href="#1630" id="1630">1630</a>
-<a href="#1631" id="1631">1631</a>
-<a href="#1632" id="1632">1632</a>
-<a href="#1633" id="1633">1633</a>
-<a href="#1634" id="1634">1634</a>
-<a href="#1635" id="1635">1635</a>
-<a href="#1636" id="1636">1636</a>
-<a href="#1637" id="1637">1637</a>
-<a href="#1638" id="1638">1638</a>
-<a href="#1639" id="1639">1639</a>
-<a href="#1640" id="1640">1640</a>
-<a href="#1641" id="1641">1641</a>
-<a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
-<a href="#1645" id="1645">1645</a>
-<a href="#1646" id="1646">1646</a>
-<a href="#1647" id="1647">1647</a>
-<a href="#1648" id="1648">1648</a>
-<a href="#1649" id="1649">1649</a>
-<a href="#1650" id="1650">1650</a>
-<a href="#1651" id="1651">1651</a>
-<a href="#1652" id="1652">1652</a>
-<a href="#1653" id="1653">1653</a>
-<a href="#1654" id="1654">1654</a>
-<a href="#1655" id="1655">1655</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2634,18 +2606,23 @@
 	pallet_macro_stub()
 }
 
-<span class="doccomment">/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded by `Get`
-/// from [`pallet::config`](`macro@config`) into metadata, e.g.:
+<span class="doccomment">///
+/// ---
 ///
-/// ```ignore
-/// #[pallet::config]
-/// pub trait Config: frame_system::Config {
-/// 	#[pallet::constant]
-/// 	type Foo: Get&lt;u32&gt;;
-/// }
-/// ```
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant`.
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>constant(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
+	pallet_macro_stub()
+}
+
+<span class="doccomment">///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant_name`.
+</span><span class="attr">#[proc_macro_attribute]
+</span><span class="kw">pub fn </span>constant_name(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()
 }
 
@@ -2751,6 +2728,16 @@
 /// return a `DispatchResultWithPostInfo` or `DispatchResult`.
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>compact(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
+	pallet_macro_stub()
+}
+
+<span class="doccomment">///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::call`.
+</span><span class="attr">#[proc_macro_attribute]
+</span><span class="kw">pub fn </span>call(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()
 }
 
@@ -2923,60 +2910,11 @@
 	pallet_macro_stub()
 }
 
-<span class="doccomment">/// The `#[pallet::storage]` attribute lets you define some abstract storage inside of runtime
-/// storage and also set its metadata. This attribute can be used multiple times.
+<span class="doccomment">///
+/// ---
 ///
-/// Item should be defined as:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName&lt;$some_generic&gt; $optional_where_clause
-/// 	= $StorageType&lt;$generic_name = $some_generics, $other_name = $some_other, ...&gt;;
-/// ```
-///
-/// or with unnamed generic:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName&lt;$some_generic&gt; $optional_where_clause
-/// 	= $StorageType&lt;_, $some_generics, ...&gt;;
-/// ```
-///
-/// I.e. it must be a type alias, with generics: `T` or `T: Config`. The aliased type must be
-/// one of `StorageValue`, `StorageMap` or `StorageDoubleMap`. The generic arguments of the
-/// storage type can be given in two manners: named and unnamed. For named generic arguments,
-/// the name for each argument should match the name defined for it on the storage struct:
-/// * `StorageValue` expects `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `CountedStorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageDoubleMap` expects `Hasher1`, `Key1`, `Hasher2`, `Key2`, `Value` and optionally
-///   `QueryKind` and `OnEmpty`.
-///
-/// For unnamed generic arguments: Their first generic must be `_` as it is replaced by the
-/// macro and other generic must declared as a normal generic type declaration.
-///
-/// The `Prefix` generic written by the macro is generated using
-/// `PalletInfo::name::&lt;Pallet&lt;..&gt;&gt;()` and the name of the storage type. E.g. if runtime names
-/// the pallet &quot;MyExample&quot; then the storage `type Foo&lt;T&gt; = ...` should use the prefix:
-/// `Twox128(b&quot;MyExample&quot;) ++ Twox128(b&quot;Foo&quot;)`.
-///
-/// For the `CountedStorageMap` variant, the `Prefix` also implements
-/// `CountedStorageMapInstance`. It also associates a `CounterPrefix`, which is implemented the
-/// same as above, but the storage prefix is prepend with `&quot;CounterFor&quot;`. E.g. if runtime names
-/// the pallet &quot;MyExample&quot; then the storage `type Foo&lt;T&gt; = CountedStorageaMap&lt;...&gt;` will store
-/// its counter at the prefix: `Twox128(b&quot;MyExample&quot;) ++ Twox128(b&quot;CounterForFoo&quot;)`.
-///
-/// E.g:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// pub(super) type MyStorage&lt;T&gt; = StorageMap&lt;Hasher = Blake2_128Concat, Key = u32, Value = u32&gt;;
-/// ```
-///
-/// In this case the final prefix used by the map is `Twox128(b&quot;MyExample&quot;) ++
-/// Twox128(b&quot;OtherName&quot;)`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::storage`.
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>storage(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()
@@ -3079,14 +3017,20 @@
 	pallet_macro_stub()
 }
 
-<span class="doccomment">/// **Rust-Analyzer users**: See the documentation of the Rust item in
+<span class="doccomment">///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_config`.
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>genesis_config(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()
 }
 
-<span class="doccomment">/// **Rust-Analyzer users**: See the documentation of the Rust item in
+<span class="doccomment">///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_build`.
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>genesis_build(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {

@@ -1425,6 +1425,49 @@
 <a href="#1425" id="1425">1425</a>
 <a href="#1426" id="1426">1426</a>
 <a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1460,8 +1503,8 @@
 <span class="kw">use </span>sp_runtime::traits::Saturating;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// A wrapper around a `StorageNMap` and a `StorageValue&lt;Value=u32&gt;` to keep track of how many items
-/// are in a map, without needing to iterate over all of the values.
+<span class="doccomment">/// A wrapper around a [`StorageNMap`] and a [`StorageValue`] (with the value being `u32`) to keep
+/// track of how many items are in a map, without needing to iterate all the values.
 ///
 /// This storage item has some additional storage read and write overhead when manipulating values
 /// compared to a regular storage map.
@@ -1472,6 +1515,49 @@
 ///
 /// Whenever the counter needs to be updated, an additional read and write occurs to update that
 /// counter.
+///
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
+/// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet&lt;T&gt;(_);
+/// 	/// A kitchen-sink CountedStorageNMap, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = &quot;OtherFoo&quot;]
+/// 	#[pallet::unbounded]
+///     pub type Foo&lt;T&gt; = CountedStorageNMap&lt;
+/// 		_,
+/// 		(
+/// 			NMapKey&lt;Blake2_128Concat, u8&gt;,
+/// 			NMapKey&lt;Identity, u16&gt;,
+/// 			NMapKey&lt;Twox64Concat, u32&gt;
+/// 		),
+/// 		u64,
+/// 		ValueQuery,
+/// 	&gt;;
+///
+/// 	/// Alternative named syntax.
+///     #[pallet::storage]
+///     pub type Bar&lt;T&gt; = CountedStorageNMap&lt;
+/// 		Key = (
+/// 			NMapKey&lt;Blake2_128Concat, u8&gt;,
+/// 			NMapKey&lt;Identity, u16&gt;,
+/// 			NMapKey&lt;Twox64Concat, u32&gt;
+/// 		),
+/// 		Value = u64,
+/// 		QueryKind = ValueQuery,
+/// 	&gt;;
+/// }
+/// ```
 </span><span class="kw">pub struct </span>CountedStorageNMap&lt;
 	Prefix,
 	Key,

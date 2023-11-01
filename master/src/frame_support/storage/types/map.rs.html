@@ -778,6 +778,32 @@
 <a href="#778" id="778">778</a>
 <a href="#779" id="779">779</a>
 <a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -811,19 +837,45 @@
 <span class="kw">use </span>sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// A type that allow to store value for given key. Allowing to insert/remove/iterate on values.
+<span class="doccomment">/// A type representing a *map* in storage. A *storage map* is a mapping of keys to values of a
+/// given type stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix())
-/// 		++ Twox128(Prefix::STORAGE_PREFIX)
-/// 		++ Hasher1(encode(key))
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
 /// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet&lt;T&gt;(_);
+/// 	/// A kitchen-sink StorageMap, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = &quot;OtherFoo&quot;]
+/// 	#[pallet::unbounded]
+///     pub type Foo&lt;T&gt; = StorageMap&lt;
+/// 		_
+/// 		Blake2_128Concat,
+/// 		u32,
+/// 		u32,
+/// 		ValueQuery
+/// 	&gt;;
 ///
-/// # Warning
-///
-/// If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher` such as
-/// `blake2_128_concat` must be used.  Otherwise, other values in storage can be compromised.
+/// 	/// Alternative named syntax.
+///     #[pallet::storage]
+///     pub type Bar&lt;T&gt; = StorageMap&lt;
+/// 		Hasher = Blake2_128Concat,
+/// 		Key = u32,
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	&gt;;
+/// }
+/// ```
 </span><span class="kw">pub struct </span>StorageMap&lt;
 	Prefix,
 	Hasher,
