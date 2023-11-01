@@ -394,7 +394,6 @@ force_remove_vesting_schedule {
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(target.clone());
 
-		assert!(l <= u8::MAX.into());
 		// Give target existing locks.
 		add_locks::<T>(&target, l as u8);
 
