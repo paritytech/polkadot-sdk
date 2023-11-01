@@ -22,6 +22,7 @@
 use codec::Encode;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
+	defensive,
 	traits::{tokens::fungibles, Get, OnUnbalanced as OnUnbalancedT},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -377,6 +378,12 @@ impl<
 		mut payment: xcm_executor::Assets,
 		_context: &XcmContext,
 	) -> Result<xcm_executor::Assets, XcmError> {
+		log::trace!(
+			target: "xcm::weight",
+			"SwapFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}",
+			weight,
+			payment,
+		);
 		let first_asset: MultiAsset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
 		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
@@ -404,7 +411,18 @@ impl<
 
 		// the execution below must be infallible to keep this operation transactional.
 
-		self.total_fee.subsume(credit_out);
+		match self.total_fee.subsume(credit_out) {
+			Err(credit_out) => {
+				// error may occur if `total_fee.asset` differs from `credit_out.asset`, which does
+				// not apply in this context.
+				defensive!(
+					"`total_fee.asset` must be equal to `credit_out.asset`",
+					(self.total_fee.asset(), credit_out.asset())
+				);
+				return Ok(payment)
+			},
+			_ => (),
+		};
 		self.last_fee_asset = Some(first_asset.id);
 
 		payment.fungible.insert(first_asset.id, credit_change.peek().into());
@@ -413,12 +431,22 @@ impl<
 	}
 
 	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<MultiAsset> {
+		log::trace!(
+			target: "xcm::weight",
+			"SwapFirstAssetTrader::refund_weight weight: {:?}, self.total_fee: {:?}",
+			weight,
+			self.total_fee,
+		);
 		if self.total_fee.peek().is_zero() {
 			// noting yet paid to refund.
 			return None
 		}
-		let mut refund_asset =
-			if let Some(asset) = &self.last_fee_asset { (*asset, 0).into() } else { return None };
+		let mut refund_asset = if let Some(asset) = &self.last_fee_asset {
+			// create an initial zero refund in the asset used in the last `buy_weight`.
+			(*asset, 0).into()
+		} else {
+			return None
+		};
 		let refund_amount = WeightToFee::weight_to_fee(&weight);
 		if refund_amount >= self.total_fee.peek() {
 			// not enough was paid to refund the `weight`.
@@ -435,10 +463,17 @@ impl<
 			refund,
 			None,
 		) {
-			Ok(r) => r,
-			Err((c, _)) => {
+			Ok(refund_in_target) => refund_in_target,
+			Err((refund, _)) => {
 				// return an attempted refund back to the `total_fee`.
-				self.total_fee.subsume(c);
+				let _ = self.total_fee.subsume(refund).map_err(|refund| {
+					// error may occur if `total_fee.asset` differs from `refund.asset`, which does
+					// not apply in this context.
+					defensive!(
+						"`total_fee.asset` must be equal to `refund.asset`",
+						(self.total_fee.asset(), refund.asset())
+					);
+				});
 				return None
 			},
 		};
@@ -685,9 +720,9 @@ mod tests {
 		struct FeeChargerAssetsHandleRefund;
 		impl ChargeWeightInFungibles<TestAccountId, TestAssets> for FeeChargerAssetsHandleRefund {
 			fn charge_weight_in_fungibles(
-				_: <TestAssets as Inspect<TestAccountId>>::AssetId,
+				_: <TestAssets as fungibles::Inspect<TestAccountId>>::AssetId,
 				_: Weight,
-			) -> Result<<TestAssets as Inspect<TestAccountId>>::Balance, XcmError> {
+			) -> Result<<TestAssets as fungibles::Inspect<TestAccountId>>::Balance, XcmError> {
 				Ok(AMOUNT)
 			}
 		}
