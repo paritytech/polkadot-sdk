@@ -2711,7 +2711,7 @@ pub mod env {
 	) -> Result<ReturnCode, TrapReason> {
 		use frame_support::dispatch::DispatchInfo;
 		use xcm::VersionedXcm;
-		use xcm_executor::traits::{ExecuteController, ExecuteControllerWeightInfo};
+		use pallet_xcm::{ExecuteController, ExecuteControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<CallOf<E::T>> =
@@ -2764,7 +2764,7 @@ pub mod env {
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		use xcm::{VersionedMultiLocation, VersionedXcm};
-		use xcm_executor::traits::{SendController, SendControllerWeightInfo};
+		use pallet_xcm::{SendController, SendControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
@@ -2812,7 +2812,7 @@ pub mod env {
 	) -> Result<ReturnCode, TrapReason> {
 		use frame_system::pallet_prelude::BlockNumberFor;
 		use xcm::VersionedMultiLocation;
-		use xcm_executor::traits::{QueryController, QueryControllerWeightInfo};
+		use pallet_xcm::{QueryController, QueryControllerWeightInfo};
 
 		let timeout: BlockNumberFor<E::T> = ctx.read_sandbox_memory_as(memory, timeout_ptr)?;
 		let match_querier: VersionedMultiLocation =
@@ -2855,7 +2855,8 @@ pub mod env {
 		query_id_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use xcm_executor::traits::{QueryController, QueryControllerWeightInfo, QueryHandler};
+		use xcm_executor::traits::QueryHandler;
+		use pallet_xcm::{QueryController, QueryControllerWeightInfo};
 
 		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
