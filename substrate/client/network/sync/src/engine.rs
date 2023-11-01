@@ -24,12 +24,21 @@ use crate::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
+	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
+	chain_sync::{
+		BlockRequestAction, ChainSync, ImportBlocksAction, ImportJustificationsAction,
+		OnBlockResponse,
+	},
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
-	service::{self, chain_sync::ToServiceCommand},
-	warp::WarpSyncParams,
-	BlockRequestAction, ChainSync, ClientError, ImportBlocksAction, ImportJustificationsAction,
-	OnBlockResponse, SyncingService,
+	service::{
+		self,
+		chain_sync::{SyncingService, ToServiceCommand},
+	},
+	types::{
+		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
+	},
+	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
 };
 
 use codec::{Decode, Encode};
@@ -61,15 +70,10 @@ use sc_network::{
 };
 use sc_network_common::{
 	role::Roles,
-	sync::{
-		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
-		warp::{EncodedProof, WarpProofRequest},
-		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, OpaqueStateRequest,
-		OpaqueStateResponse, PeerRequest, SyncEvent,
-	},
+	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
-use sp_blockchain::HeaderMetadata;
+use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::block_validation::BlockAnnounceValidator;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
 
@@ -363,18 +367,17 @@ where
 	) -> Result<(Self, SyncingService<B>, NonDefaultSetConfig), ClientError> {
 		let mode = net_config.network_config.sync_mode;
 		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
-		let max_blocks_per_request = if net_config.network_config.max_blocks_per_request >
-			crate::MAX_BLOCKS_IN_RESPONSE as u32
-		{
-			log::info!(
-				target: LOG_TARGET,
-				"clamping maximum blocks per request to {}",
-				crate::MAX_BLOCKS_IN_RESPONSE,
-			);
-			crate::MAX_BLOCKS_IN_RESPONSE as u32
-		} else {
-			net_config.network_config.max_blocks_per_request
-		};
+		let max_blocks_per_request =
+			if net_config.network_config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
+				log::info!(
+					target: LOG_TARGET,
+					"clamping maximum blocks per request to {}",
+					MAX_BLOCKS_IN_RESPONSE,
+				);
+				MAX_BLOCKS_IN_RESPONSE as u32
+			} else {
+				net_config.network_config.max_blocks_per_request
+			};
 		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
 			net_config.network_config.default_peers_set.out_peers)
 			.max(1);
