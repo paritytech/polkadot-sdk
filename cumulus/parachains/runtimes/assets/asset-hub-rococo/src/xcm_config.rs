@@ -678,7 +678,6 @@ impl pallet_xcm::Config for Runtime {
 	type XcmReserveTransferFilter = (
 		LocationWithAssetFilters<WithParentsZeroOrOne, AllAssets>,
 		bridging::to_rococo::AllowedReserveTransferAssets,
-		//bridging::to_rococo::AllowedReserveTransferAssetsEthereum,
 		bridging::to_wococo::AllowedReserveTransferAssets,
 	);
 
@@ -908,11 +907,6 @@ pub mod bridging {
 				AssetHubRococo::get()
 			);
 
-			/*pub EtherFromEthereum: (MultiAssetFilter, MultiLocation) = (
-				EthereumGatewayLocation::get().into(),
-				EthereumGatewayLocation::get()
-			);*/
-
 			/// Set up exporters configuration.
 			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
@@ -985,12 +979,6 @@ pub mod bridging {
 			Equals<AssetHubRococo>,
 			AllowedReserveTransferAssetsToAssetHubRococo,
 		>;
-
-		/*
-		pub type AllowedReserveTransferAssetsEthereum = LocationWithAssetFilters<
-			StartsWithExplicitGlobalConsensus<EthereumNetwork>, // TODO check
-			AllowedReserveTransferAssetsToEthereum,
-		>;*/
 
 		impl Contains<RuntimeCall> for ToRococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {
