@@ -54,7 +54,7 @@ pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
 pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalRococoA>;
 pub type ParaToSystemParaTest = Test<PenpalRococoA, AssetHubRococo>;
 
-/// Returns a `TestArgs` instance to de used for the Relay Chain across integration tests
+/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
 pub fn relay_test_args(
 	dest: MultiLocation,
 	beneficiary_id: AccountId32,
@@ -71,8 +71,8 @@ pub fn relay_test_args(
 	}
 }
 
-/// Returns a `TestArgs` instance to de used for the System Parachain across integration tests
-pub fn system_para_test_args(
+/// Returns a `TestArgs` instance to be used by parachains across integration tests
+pub fn para_test_args(
 	dest: MultiLocation,
 	beneficiary_id: AccountId32,
 	amount: Balance,

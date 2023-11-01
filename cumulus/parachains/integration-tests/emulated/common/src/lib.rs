@@ -189,6 +189,7 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			Balances: penpal_runtime::Balances,
 		}
 	},
 	pub struct PenpalRococoB {
@@ -326,6 +327,7 @@ impl_accounts_helpers_for_parachain!(BridgeHubRococo);
 impl_assert_events_helpers_for_parachain!(BridgeHubRococo);
 
 // PenpalRococo implementations
+impl_accounts_helpers_for_parachain!(PenpalRococoA);
 impl_assert_events_helpers_for_parachain!(PenpalRococoA);
 impl_assert_events_helpers_for_parachain!(PenpalRococoB);
 
