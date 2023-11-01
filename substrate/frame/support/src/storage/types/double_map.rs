@@ -427,12 +427,14 @@ where
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
 	/// means that any duplicate items are included.
 	pub fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
-		where
-			KArg1: EncodeLike<Key1>,
-			KArg2: EncodeLike<Key2>,
-			Value: StorageDecodeNonDedupLength,
+	where
+		KArg1: EncodeLike<Key1>,
+		KArg2: EncodeLike<Key2>,
+		Value: StorageDecodeNonDedupLength,
 	{
-		<Self as crate::storage::StorageDoubleMap<Key1, Key2, Value>>::decode_non_dedup_len(key1, key2)
+		<Self as crate::storage::StorageDoubleMap<Key1, Key2, Value>>::decode_non_dedup_len(
+			key1, key2,
+		)
 	}
 
 	/// Migrate an item with the given `key1` and `key2` from defunct `OldHasher1` and

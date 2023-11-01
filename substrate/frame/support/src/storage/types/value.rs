@@ -224,8 +224,8 @@ where
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
 	/// means that any duplicate items are included.
 	pub fn decode_non_dedup_len() -> Option<usize>
-		where
-			Value: StorageDecodeNonDedupLength,
+	where
+		Value: StorageDecodeNonDedupLength,
 	{
 		<Self as crate::storage::StorageValue<Value>>::decode_non_dedup_len()
 	}

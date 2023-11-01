@@ -387,8 +387,8 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
 	/// means that any duplicate items are included.
 	fn decode_non_dedup_len<KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<usize>
-		where
-			V: StorageDecodeNonDedupLength,
+	where
+		V: StorageDecodeNonDedupLength,
 	{
 		V::decode_non_dedup_len(&Self::hashed_key_for(key))
 	}
@@ -801,10 +801,10 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
-		where
-			KArg1: EncodeLike<K1>,
-			KArg2: EncodeLike<K2>,
-			V: StorageDecodeNonDedupLength,
+	where
+		KArg1: EncodeLike<K1>,
+		KArg2: EncodeLike<K2>,
+		V: StorageDecodeNonDedupLength,
 	{
 		V::decode_non_dedup_len(&Self::hashed_key_for(key1, key2))
 	}
