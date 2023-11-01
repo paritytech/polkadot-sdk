@@ -25,7 +25,7 @@
 use polkadot_node_primitives::DisputeStatus;
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, Hash, InvalidDisputeStatementKind, SessionIndex,
+	CandidateHash, CandidateReceipt, CoreIndex, Hash, InvalidDisputeStatementKind, SessionIndex,
 	ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature,
 };
 
@@ -219,6 +219,8 @@ pub struct ColumnConfiguration {
 pub struct CandidateVotes {
 	/// The receipt of the candidate itself.
 	pub candidate_receipt: CandidateReceipt,
+	/// Core index
+	pub core_index: CoreIndex,
 	/// Votes of validity, sorted by validator index.
 	pub valid: Vec<(ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature)>,
 	/// Votes of invalidity, sorted by validator index.
@@ -229,6 +231,7 @@ impl From<CandidateVotes> for polkadot_node_primitives::CandidateVotes {
 	fn from(db_votes: CandidateVotes) -> polkadot_node_primitives::CandidateVotes {
 		polkadot_node_primitives::CandidateVotes {
 			candidate_receipt: db_votes.candidate_receipt,
+			core_index: db_votes.core_index,
 			valid: db_votes.valid.into_iter().map(|(kind, i, sig)| (i, (kind, sig))).collect(),
 			invalid: db_votes.invalid.into_iter().map(|(kind, i, sig)| (i, (kind, sig))).collect(),
 		}
@@ -239,6 +242,7 @@ impl From<polkadot_node_primitives::CandidateVotes> for CandidateVotes {
 	fn from(primitive_votes: polkadot_node_primitives::CandidateVotes) -> CandidateVotes {
 		CandidateVotes {
 			candidate_receipt: primitive_votes.candidate_receipt,
+			core_index: primitive_votes.core_index,
 			valid: primitive_votes
 				.valid
 				.into_iter()

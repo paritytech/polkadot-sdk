@@ -394,15 +394,15 @@ impl DisputeCoordinatorSubsystem {
 						"Found valid dispute, with no vote from us on startup - participating."
 					);
 					let request_timer = self.metrics.time_participation_pipeline();
-					participation_requests.push((
-						ParticipationPriority::with_priority_if(is_included),
-						ParticipationRequest::new(
-							vote_state.votes().candidate_receipt.clone(),
-							session,
-							env.executor_params().clone(),
-							request_timer,
-						),
-					));
+				// participation_requests.push((
+				// 	ParticipationPriority::with_priority_if(is_included),
+				// 	ParticipationRequest::new(
+				// 		vote_state.votes().candidate_receipt.clone(),
+				// 		session,
+				// 		env.executor_params().clone(),
+				// 		request_timer,
+				// 	),
+				// ));
 				}
 				// Else make sure our own vote is distributed:
 				else {

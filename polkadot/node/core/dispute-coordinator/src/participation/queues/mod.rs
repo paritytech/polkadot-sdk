@@ -22,7 +22,7 @@ use std::{
 use futures::channel::oneshot;
 use polkadot_node_subsystem::{messages::ChainApiMessage, overseer};
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, ExecutorParams, Hash, SessionIndex,
+	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, ExecutorParams, Hash, SessionIndex,
 };
 
 use crate::{
@@ -76,6 +76,7 @@ pub struct ParticipationRequest {
 	candidate_receipt: CandidateReceipt,
 	session: SessionIndex,
 	executor_params: ExecutorParams,
+	core_index: CoreIndex,
 	request_timer: Option<prometheus::HistogramTimer>, // Sends metric data when request is dropped
 }
 
@@ -124,6 +125,7 @@ impl ParticipationRequest {
 		candidate_receipt: CandidateReceipt,
 		session: SessionIndex,
 		executor_params: ExecutorParams,
+		core_index: CoreIndex,
 		request_timer: Option<prometheus::HistogramTimer>,
 	) -> Self {
 		Self {
@@ -131,6 +133,7 @@ impl ParticipationRequest {
 			candidate_receipt,
 			session,
 			executor_params,
+			core_index,
 			request_timer,
 		}
 	}
@@ -146,6 +149,9 @@ impl ParticipationRequest {
 	}
 	pub fn executor_params(&self) -> ExecutorParams {
 		self.executor_params.clone()
+	}
+	pub fn core_index(&self) -> CoreIndex {
+		self.core_index
 	}
 	pub fn discard_timer(&mut self) {
 		if let Some(timer) = self.request_timer.take() {
@@ -169,11 +175,13 @@ impl PartialEq for ParticipationRequest {
 			session,
 			executor_params,
 			request_timer: _,
+			core_index,
 		} = self;
 		candidate_receipt == other.candidate_receipt() &&
 			candidate_hash == other.candidate_hash() &&
 			*session == other.session() &&
-			executor_params.hash() == other.executor_params.hash()
+			executor_params.hash() == other.executor_params.hash() &&
+			*core_index == other.core_index
 	}
 }
 #[cfg(test)]

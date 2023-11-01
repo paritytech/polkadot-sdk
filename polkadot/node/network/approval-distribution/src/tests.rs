@@ -595,7 +595,7 @@ fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 		// we should send them the assignment
 		assert_matches!(
 			overseer_recv(overseer).await,
-			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+			AllMessages::NetworkBridgeTx(::SendValidationMessage(
 				peers,
 				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 					protocol_v1::ApprovalDistributionMessage::Assignments(assignments)

@@ -43,9 +43,9 @@ use polkadot_node_subsystem_util::runtime::{
 	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
 };
 use polkadot_primitives::{
-	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
-	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex,
+	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, CoreIndex,
+	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 
 use crate::{
@@ -225,6 +225,7 @@ impl Initialized {
 							session,
 							candidate_hash,
 							candidate_receipt,
+							core_index,
 							outcome,
 						} = self.participation.get_participation_result(ctx, msg).await?;
 						if let Some(valid) = outcome.validity() {
@@ -243,6 +244,7 @@ impl Initialized {
 								session,
 								valid,
 								clock.now(),
+								core_index,
 							)
 							.await?;
 						} else {
@@ -676,6 +678,7 @@ impl Initialized {
 					session,
 					statements,
 					now,
+					None, // TODO: we can supply the core index here.
 				)
 				.await?;
 			match import_result {
@@ -764,6 +767,7 @@ impl Initialized {
 					session,
 					statements,
 					now,
+					None,
 				)
 				.await?;
 			match import_result {
@@ -813,6 +817,7 @@ impl Initialized {
 						session,
 						statements,
 						now,
+						None, // TODO: here is the problem.
 					)
 					.await?;
 				let report = move || match pending_confirmation {
@@ -881,6 +886,7 @@ impl Initialized {
 				session,
 				candidate_hash,
 				candidate_receipt,
+				core_index,
 				valid,
 			) => {
 				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::IssueLocalStatement");
@@ -892,6 +898,7 @@ impl Initialized {
 					session,
 					valid,
 					now,
+					core_index,
 				)
 				.await?;
 			},
@@ -931,6 +938,7 @@ impl Initialized {
 		session: SessionIndex,
 		statements: Vec<(SignedDisputeStatement, ValidatorIndex)>,
 		now: Timestamp,
+		core_index: Option<CoreIndex>,
 	) -> FatalResult<ImportStatementsResult> {
 		gum::trace!(target: LOG_TARGET, ?statements, "In handle import statements");
 		if self.session_is_ancient(session) {
@@ -996,10 +1004,21 @@ impl Initialized {
 		// not have a `CandidateReceipt` available.
 		let old_state = match votes_in_db.map(CandidateVotes::from) {
 			Some(votes) => CandidateVoteState::new(votes, &env, now),
-			None =>
-				if let MaybeCandidateReceipt::Provides(candidate_receipt) = candidate_receipt {
-					CandidateVoteState::new_from_receipt(candidate_receipt)
-				} else {
+			None => {
+				let core_index = match core_index {
+					Some(core_index) => core_index,
+					None => {
+						gum::warn!(
+							target: LOG_TARGET,
+							session,
+							?candidate_hash,
+							"Cannot import votes, without `CoreIndex` available!"
+						);
+						return Ok(ImportStatementsResult::InvalidImport)
+					},
+				};
+
+				let MaybeCandidateReceipt::Provides(candidate_receipt) = candidate_receipt else {
 					gum::warn!(
 						target: LOG_TARGET,
 						session,
@@ -1007,7 +1026,9 @@ impl Initialized {
 						"Cannot import votes, without `CandidateReceipt` available!"
 					);
 					return Ok(ImportStatementsResult::InvalidImport)
-				},
+				};
+				CandidateVoteState::new_from_receipt(candidate_receipt, core_index)
+			},
 		};
 
 		gum::trace!(target: LOG_TARGET, ?candidate_hash, ?session, "Loaded votes");
@@ -1094,6 +1115,7 @@ impl Initialized {
 		let own_vote_missing = new_state.own_vote_missing();
 		let is_disputed = new_state.is_disputed();
 		let is_confirmed = new_state.is_confirmed();
+		let core_index = new_state.votes().core_index;
 		let potential_spam = is_potential_spam(&self.scraper, &new_state, &candidate_hash);
 		// We participate only in disputes which are not potential spam.
 		let allow_participation = !potential_spam;
@@ -1170,6 +1192,7 @@ impl Initialized {
 						new_state.candidate_receipt().clone(),
 						session,
 						env.executor_params().clone(),
+						core_index,
 						request_timer,
 					),
 				)
@@ -1376,6 +1399,7 @@ impl Initialized {
 		session: SessionIndex,
 		valid: bool,
 		now: Timestamp,
+		core_index: CoreIndex,
 	) -> Result<()> {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -1413,6 +1437,7 @@ impl Initialized {
 			.map(CandidateVotes::from)
 			.unwrap_or_else(|| CandidateVotes {
 				candidate_receipt: candidate_receipt.clone(),
+				core_index,
 				valid: ValidCandidateVotes::new(),
 				invalid: BTreeMap::new(),
 			});
@@ -1479,6 +1504,7 @@ impl Initialized {
 					session,
 					statements,
 					now,
+					Some(core_index),
 				)
 				.await?
 			{

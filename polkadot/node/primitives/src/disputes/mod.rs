@@ -25,7 +25,7 @@ use sp_application_crypto::AppCrypto;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement, EncodeAs,
+	CandidateHash, CandidateReceipt, CompactStatement, CoreIndex, DisputeStatement, EncodeAs,
 	InvalidDisputeStatementKind, SessionIndex, SigningContext, UncheckedSigned,
 	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
@@ -51,6 +51,8 @@ pub struct SignedDisputeStatement {
 pub struct CandidateVotes {
 	/// The receipt of the candidate itself.
 	pub candidate_receipt: CandidateReceipt,
+	/// Core index
+	pub core_index: CoreIndex,
 	/// Votes of validity, sorted by validator index.
 	pub valid: ValidCandidateVotes,
 	/// Votes of invalidity, sorted by validator index.

@@ -34,7 +34,7 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec, SessionIndex,
+	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, Hash, IndexedVec, SessionIndex,
 	SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair,
 	ValidatorSignature,
 };
@@ -196,8 +196,9 @@ impl CandidateVoteState<CandidateVotes> {
 	/// Create an empty `CandidateVoteState`
 	///
 	/// in case there have not been any previous votes.
-	pub fn new_from_receipt(candidate_receipt: CandidateReceipt) -> Self {
+	pub fn new_from_receipt(candidate_receipt: CandidateReceipt, core_index: CoreIndex) -> Self {
 		let votes = CandidateVotes {
+			core_index,
 			candidate_receipt,
 			valid: ValidCandidateVotes::new(),
 			invalid: BTreeMap::new(),

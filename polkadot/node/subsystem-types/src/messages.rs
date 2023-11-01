@@ -41,12 +41,12 @@ use polkadot_node_primitives::{
 use polkadot_primitives::{
 	async_backing, slashing, vstaging::ClientFeatures, AuthorityDiscoveryId, BackedCandidate,
 	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, ChunkIndex,
-	CollatorId, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo,
+	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -290,7 +290,7 @@ pub enum DisputeCoordinatorMessage {
 	),
 	/// Sign and issue local dispute votes. A value of `true` indicates validity, and `false`
 	/// invalidity.
-	IssueLocalStatement(SessionIndex, CandidateHash, CandidateReceipt, bool),
+	IssueLocalStatement(SessionIndex, CandidateHash, CandidateReceipt, CoreIndex, bool),
 	/// Determine the highest undisputed block within the given chain, based on where candidates
 	/// were included. If even the base block should not be finalized due to a dispute,
 	/// then `None` should be returned on the channel.

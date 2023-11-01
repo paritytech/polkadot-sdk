@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, Hash, PvfExecTimeoutKind, SessionIndex,
+	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, Hash, PvfExecTimeoutKind, SessionIndex,
 };
 
 use crate::LOG_TARGET;
@@ -93,6 +93,8 @@ pub type WorkerMessageReceiver = mpsc::Receiver<WorkerMessage>;
 pub struct ParticipationStatement {
 	/// Relevant session.
 	pub session: SessionIndex,
+	/// Core index.
+	pub core_index: CoreIndex,
 	/// The candidate the worker has been spawned for.
 	pub candidate_hash: CandidateHash,
 	/// Used receipt.
@@ -128,8 +130,15 @@ impl ParticipationOutcome {
 impl WorkerMessage {
 	fn from_request(req: ParticipationRequest, outcome: ParticipationOutcome) -> Self {
 		let session = req.session();
+		let core_index = req.core_index();
 		let (candidate_hash, candidate_receipt) = req.into_candidate_info();
-		Self(ParticipationStatement { session, candidate_hash, candidate_receipt, outcome })
+		Self(ParticipationStatement {
+			session,
+			candidate_hash,
+			candidate_receipt,
+			outcome,
+			core_index,
+		})
 	}
 }
 
