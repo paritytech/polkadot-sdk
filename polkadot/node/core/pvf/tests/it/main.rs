@@ -17,7 +17,7 @@
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
-	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareError,
+	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
 	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
 	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
@@ -52,7 +52,7 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = get_and_check_worker_paths();
+		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths();
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
@@ -155,7 +155,12 @@ async fn terminates_on_timeout() {
 }
 
 #[cfg(target_os = "linux")]
-fn kill_by_sid_and_name(sid: i32, exe_name: &'static str) {
+const PREPARE_PROCESS_NAME: &'static str = "polkadot-prepare-worker";
+#[cfg(target_os = "linux")]
+const EXECUTE_PROCESS_NAME: &'static str = "polkadot-execute-worker";
+
+#[cfg(target_os = "linux")]
+fn kill_by_sid_and_name(sid: i32, exe_name: &'static str, is_direct_child: bool) {
 	use procfs::process;
 
 	let all_processes: Vec<process::Process> = process::all_processes()
@@ -172,13 +177,29 @@ fn kill_by_sid_and_name(sid: i32, exe_name: &'static str) {
 		})
 		.collect();
 
+	let mut found = 0;
 	for process in all_processes {
-		if process.stat().unwrap().session == sid &&
-			process.exe().unwrap().to_str().unwrap().contains(exe_name)
-		{
-			assert_eq!(unsafe { libc::kill(process.pid(), 9) }, 0);
+		let stat = process.stat().unwrap();
+
+		if stat.session != sid || !process.exe().unwrap().to_str().unwrap().contains(exe_name) {
+			continue
 		}
+		// The workers are direct children of the current process, the worker job processes are not
+		// (they are children of the workers).
+		if is_direct_child {
+			if stat.ppid as u32 != std::process::id() {
+				continue
+			}
+		} else {
+			if stat.ppid as u32 == std::process::id() {
+				continue
+			}
+		}
+
+		assert_eq!(unsafe { libc::kill(process.pid(), 9) }, 0);
+		found += 1;
 	}
+	assert_eq!(found, 1);
 }
 
 // Run these tests in their own processes with rusty-fork. They work by each creating a new session,
@@ -188,8 +209,6 @@ rusty_fork_test! {
 	// What happens when the prepare worker dies in the middle of a job?
 	#[test]
 	fn prepare_worker_killed_during_job() {
-		const PROCESS_NAME: &'static str = "polkadot-prepare-worker";
-
 		let rt  = tokio::runtime::Runtime::new().unwrap();
 		rt.block_on(async {
 			let host = TestHost::new().await;
@@ -204,7 +223,7 @@ rusty_fork_test! {
 				// Run a future that kills the job in the middle of the timeout.
 				async {
 					tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
-					kill_by_sid_and_name(sid, PROCESS_NAME);
+					kill_by_sid_and_name(sid, PREPARE_PROCESS_NAME, true);
 				}
 			);
 
@@ -215,8 +234,6 @@ rusty_fork_test! {
 	// What happens when the execute worker dies in the middle of a job?
 	#[test]
 	fn execute_worker_killed_during_job() {
-		const PROCESS_NAME: &'static str = "polkadot-execute-worker";
-
 		let rt  = tokio::runtime::Runtime::new().unwrap();
 		rt.block_on(async {
 			let host = TestHost::new().await;
@@ -244,7 +261,7 @@ rusty_fork_test! {
 				// Run a future that kills the job in the middle of the timeout.
 				async {
 					tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
-					kill_by_sid_and_name(sid, PROCESS_NAME);
+					kill_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, true);
 				}
 			);
 
@@ -253,6 +270,39 @@ rusty_fork_test! {
 				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
 			);
 		})
+	}
+
+	// What happens when the forked prepare job dies in the middle of its job?
+	#[test]
+	fn forked_prepare_job_killed_during_job() {
+		polkadot_node_core_pvf_common::sp_tracing::try_init_simple();
+
+		let rt  = tokio::runtime::Runtime::new().unwrap();
+		rt.block_on(async {
+			let host = TestHost::new().await;
+
+			// Create a new session and get the session ID.
+			let sid = unsafe { libc::setsid() };
+			assert!(sid > 0);
+
+			let (result, _) = futures::join!(
+				// Choose a job that would normally take the entire timeout.
+				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
+				// Run a future that kills the job in the middle of the timeout.
+				async {
+					tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
+					kill_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false);
+				}
+			);
+
+			assert_matches!(result, Err(PrepareError::IoErr(_)));
+		})
+	}
+
+	// What happens when the forked execute job dies in the middle of its job?
+	#[test]
+	fn forked_execute_job_killed_during_job() {
+		todo!()
 	}
 }
 

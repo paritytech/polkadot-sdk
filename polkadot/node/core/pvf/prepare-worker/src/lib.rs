@@ -232,7 +232,7 @@ struct Response {
 }
 
 /// This is used to handle child process during pvf prepare worker.
-/// It prepare the artifact and track memory stats during preparation
+/// It prepares the artifact and tracks memory stats during preparation
 /// and pipes back the response to the parent process
 ///
 /// # Arguments
@@ -259,6 +259,12 @@ fn handle_child_process(
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
+	gum::debug!(
+		target: LOG_TARGET,
+		worker_job_pid = %std::process::id(),
+		"worker job: preparing artifact",
+	);
+
 	// Set a hard CPU time limit for the child process.
 	nix::sys::resource::setrlimit(
 		Resource::RLIMIT_CPU,

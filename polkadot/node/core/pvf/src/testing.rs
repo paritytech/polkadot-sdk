@@ -59,7 +59,7 @@ pub fn validate_candidate(
 ///
 /// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
 /// paths of the built workers.
-pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
+pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 	// Only needs to be called once for the current process.
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
@@ -70,11 +70,15 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 			"--bin=polkadot-prepare-worker",
 			"--bin=polkadot-execute-worker",
 		];
-		let exit_status = std::process::Command::new("cargo")
+		let mut cargo = std::process::Command::new("cargo");
+		let cmd = cargo
 			// wasm runtime not needed
 			.env("SKIP_WASM_BUILD", "1")
 			.args(build_args)
-			.stdout(std::process::Stdio::piped())
+			.stdout(std::process::Stdio::piped());
+
+		println!("INFO: calling `{cmd:?}`");
+		let exit_status = cmd
 			.status()
 			.expect("Failed to run the build program");
 
@@ -95,19 +99,19 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 
 		// explain why a build happens
 		if !prepare_worker_path.is_executable() {
-			eprintln!("Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			eprintln!("WARN: Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
 		}
 		if !execute_worker_path.is_executable() {
-			eprintln!("Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			eprintln!("WARN: Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
 		}
 		if let Ok(ver) = get_worker_version(&prepare_worker_path) {
 			if ver != NODE_VERSION {
-				eprintln!("Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+				eprintln!("WARN: Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
 			}
 		}
 		if let Ok(ver) = get_worker_version(&execute_worker_path) {
 			if ver != NODE_VERSION {
-				eprintln!("Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+				eprintln!("WARN: Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
 			}
 		}
 
