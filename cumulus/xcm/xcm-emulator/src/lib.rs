@@ -592,7 +592,7 @@ macro_rules! decl_test_parachains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				},
-				hooks = $on_hooks:expr,
+				hooks = $on_hooks:ident,
 			}
 		),
 		+
