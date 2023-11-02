@@ -312,20 +312,26 @@ pub mod rococo {
 				owner: bridges_pallet_owner.clone(),
 				..Default::default()
 			},
+			bridge_westend_grandpa: bridge_hub_rococo_runtime::BridgeWestendGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
 			bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
 				owner: bridges_pallet_owner.clone(),
 				..Default::default()
 			},
-			bridge_wococo_to_rococo_messages:
-				bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
-					owner: bridges_pallet_owner.clone(),
-					..Default::default()
-				},
-			bridge_rococo_to_wococo_messages:
-				bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
-					owner: bridges_pallet_owner,
-					..Default::default()
-				},
+			bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_westend_messages: bridge_hub_rococo_runtime::BridgeWestendMessagesConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
 		}
 	}
 }
@@ -487,13 +493,138 @@ pub mod kusama {
 	}
 }
 
-/// Sub-module for Westend setup (uses Kusama runtime)
+
+/// Sub-module for Westend setup.
 pub mod westend {
-	use crate::chain_spec::bridge_hubs::kusama;
+	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
+	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	use parachains_common::{AccountId, AuraId};
+	use sc_chain_spec::ChainType;
+
+	use super::BridgeHubBalance;
 
 	pub(crate) const BRIDGE_HUB_WESTEND: &str = "bridge-hub-westend";
-	pub type BridgeHubChainSpec = kusama::BridgeHubChainSpec;
-	pub type RuntimeApi = bridge_hub_kusama_runtime::RuntimeApi;
+	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
+	pub(crate) const BRIDGE_HUB_WESTEND_DEVELOPMENT: &str = "bridge-hub-westend-dev";
+	const BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
+		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+
+	/// Specialized `ChainSpec` for the normal parachain runtime.
+	pub type BridgeHubChainSpec =
+		sc_service::GenericChainSpec<bridge_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
+	pub type RuntimeApi = bridge_hub_westend_runtime::RuntimeApi;
+
+	pub fn local_config(
+		id: &str,
+		chain_name: &str,
+		relay_chain: &str,
+		para_id: ParaId,
+		bridges_pallet_owner_seed: Option<String>,
+	) -> BridgeHubChainSpec {
+		let mut properties = sc_chain_spec::Properties::new();
+		properties.insert("tokenSymbol".into(), "WND".into());
+		properties.insert("tokenDecimals".into(), 12.into());
+
+		#[allow(deprecated)]
+		BridgeHubChainSpec::from_genesis(
+			// Name
+			chain_name,
+			// ID
+			super::ensure_id(id).expect("invalid id"),
+			ChainType::Local,
+			move || {
+				genesis(
+					// initial collators.
+					vec![
+						(
+							get_account_id_from_seed::<sr25519::Public>("Alice"),
+							get_collator_keys_from_seed::<AuraId>("Alice"),
+						),
+						(
+							get_account_id_from_seed::<sr25519::Public>("Bob"),
+							get_collator_keys_from_seed::<AuraId>("Bob"),
+						),
+					],
+					vec![
+						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						get_account_id_from_seed::<sr25519::Public>("Bob"),
+						get_account_id_from_seed::<sr25519::Public>("Charlie"),
+						get_account_id_from_seed::<sr25519::Public>("Dave"),
+						get_account_id_from_seed::<sr25519::Public>("Eve"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					],
+					para_id,
+					bridges_pallet_owner_seed
+						.as_ref()
+						.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
+				)
+			},
+			Vec::new(),
+			None,
+			None,
+			None,
+			Some(properties),
+			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			bridge_hub_westend_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+		)
+	}
+
+	fn genesis(
+		invulnerables: Vec<(AccountId, AuraId)>,
+		endowed_accounts: Vec<AccountId>,
+		id: ParaId,
+		bridges_pallet_owner: Option<AccountId>,
+	) -> bridge_hub_westend_runtime::RuntimeGenesisConfig {
+		bridge_hub_westend_runtime::RuntimeGenesisConfig {
+			system: bridge_hub_westend_runtime::SystemConfig::default(),
+			balances: bridge_hub_westend_runtime::BalancesConfig {
+				balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+			},
+			parachain_info: bridge_hub_westend_runtime::ParachainInfoConfig {
+				parachain_id: id,
+				..Default::default()
+			},
+			collator_selection: bridge_hub_westend_runtime::CollatorSelectionConfig {
+				invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+				candidacy_bond: BRIDGE_HUB_WESTEND_ED * 16,
+				..Default::default()
+			},
+			session: bridge_hub_westend_runtime::SessionConfig {
+				keys: invulnerables
+					.into_iter()
+					.map(|(acc, aura)| {
+						(
+							acc.clone(),                                      // account id
+							acc,                                              // validator id
+							bridge_hub_westend_runtime::SessionKeys { aura }, // session keys
+						)
+					})
+					.collect(),
+			},
+			aura: Default::default(),
+			aura_ext: Default::default(),
+			parachain_system: Default::default(),
+			polkadot_xcm: bridge_hub_westend_runtime::PolkadotXcmConfig {
+				safe_xcm_version: Some(SAFE_XCM_VERSION),
+				..Default::default()
+			},
+			bridge_rococo_grandpa: bridge_hub_westend_runtime::BridgeRococoGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+			bridge_rococo_messages: bridge_hub_westend_runtime::BridgeRococoMessagesConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
+		}
+	}
 }
 
 /// Sub-module for Polkadot setup
