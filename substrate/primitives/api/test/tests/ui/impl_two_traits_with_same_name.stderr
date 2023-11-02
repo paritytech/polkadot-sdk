@@ -3,3 +3,9 @@ error: Two traits with the same name detected! The trait name is used to generat
    |
 41 |     impl second::Api<Block> for Runtime {
    |                  ^^^
+
+error: First trait implementation.
+  --> tests/ui/impl_two_traits_with_same_name.rs:37:13
+   |
+37 |     impl self::Api<Block> for Runtime {
+   |                ^^^

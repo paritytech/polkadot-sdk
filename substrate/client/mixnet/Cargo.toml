@@ -1,0 +1,36 @@
+[package]
+description = "Substrate mixnet service"
+name = "sc-mixnet"
+version = "0.1.0-dev"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+array-bytes = "4.1"
+arrayvec = "0.7.2"
+blake2 = "0.10.4"
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+futures = "0.3.25"
+futures-timer = "3.0.2"
+libp2p-identity = { version = "0.1.3", features = ["peerid"] }
+log = "0.4.17"
+mixnet = "0.7.0"
+multiaddr = "0.17.1"
+parking_lot = "0.12.1"
+sc-client-api = { path = "../api" }
+sc-network = { path = "../network" }
+sc-transaction-pool-api = { path = "../transaction-pool/api" }
+sp-api = { path = "../../primitives/api" }
+sp-consensus = { path = "../../primitives/consensus/common" }
+sp-core = { path = "../../primitives/core" }
+sp-keystore = { path = "../../primitives/keystore" }
+sp-mixnet = { path = "../../primitives/mixnet" }
+sp-runtime = { path = "../../primitives/runtime" }
+thiserror = "1.0"

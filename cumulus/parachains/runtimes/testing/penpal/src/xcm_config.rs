@@ -160,10 +160,10 @@ pub type Barrier = TrailingSetTopicAsId<
 			// Allow XCMs with some computed origins to pass through.
 			WithComputedOrigin<
 				(
-					// If the message is one that immediately attemps to pay for execution, then
+					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Common Good Assets parachain, parent and its exec plurality get free
+					// System Assets parachain, parent and its exec plurality get free
 					// execution
 					AllowExplicitUnpaidExecutionFrom<(
 						CommonGoodAssetsParachain,

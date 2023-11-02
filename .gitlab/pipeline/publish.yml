@@ -16,6 +16,8 @@ publish-rustdoc:
   needs:
     - job: build-rustdoc
       artifacts: true
+    - job: build-implementers-guide
+      artifacts: true
   script:
     # If $CI_COMMIT_REF_NAME doesn't match one of $RUSTDOCS_DEPLOY_REFS space-separated values, we
     # exit immediately.
@@ -34,15 +36,21 @@ publish-rustdoc:
     - git fetch origin gh-pages
     # Save README and docs
     - cp -r ./crate-docs/ /tmp/doc/
+    - cp -r ./artifacts/book/ /tmp/
     - cp README.md /tmp/doc/
     # we don't need to commit changes because we copy docs to /tmp
     - git checkout gh-pages --force
+    # Enable if docs needed for other refs
     # Install `index-tpl-crud` and generate index.html based on RUSTDOCS_DEPLOY_REFS
-    - which index-tpl-crud &> /dev/null || yarn global add @substrate/index-tpl-crud
-    - index-tpl-crud upsert ./index.html ${CI_COMMIT_REF_NAME}
+    # - which index-tpl-crud &> /dev/null || yarn global add @substrate/index-tpl-crud
+    # - index-tpl-crud upsert ./index.html ${CI_COMMIT_REF_NAME}
     # Ensure the destination dir doesn't exist.
     - rm -rf ${CI_COMMIT_REF_NAME}
+    - rm -rf book/
     - mv -f /tmp/doc ${CI_COMMIT_REF_NAME}
+    # dir for implementors guide
+    - mkdir -p book
+    - mv /tmp/book/html/* book/
     # Upload files
     - git add --all
     # `git commit` has an exit code of > 0 if there is nothing to commit.

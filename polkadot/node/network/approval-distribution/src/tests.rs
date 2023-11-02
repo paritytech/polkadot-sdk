@@ -2388,9 +2388,9 @@ fn import_versioned_approval() {
 	let _ = test_harness(state, |mut virtual_overseer| async move {
 		let overseer = &mut virtual_overseer;
 		// All peers are aware of relay parent.
-		setup_peer_with_view(overseer, &peer_a, ValidationVersion::VStaging, view![hash]).await;
+		setup_peer_with_view(overseer, &peer_a, ValidationVersion::V2, view![hash]).await;
 		setup_peer_with_view(overseer, &peer_b, ValidationVersion::V1, view![hash]).await;
-		setup_peer_with_view(overseer, &peer_c, ValidationVersion::VStaging, view![hash]).await;
+		setup_peer_with_view(overseer, &peer_c, ValidationVersion::V2, view![hash]).await;
 
 		// new block `hash_a` with 1 candidates
 		let meta = BlockApprovalMeta {
@@ -2431,8 +2431,8 @@ fn import_versioned_approval() {
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-					protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments)
+				Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+					protocol_v2::ApprovalDistributionMessage::Assignments(assignments)
 				))
 			)) => {
 				assert_eq!(peers.len(), 2);
@@ -2450,8 +2450,8 @@ fn import_versioned_approval() {
 			validator: validator_index,
 			signature: dummy_signature(),
 		};
-		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer(overseer, &peer_a, Versioned::VStaging(msg)).await;
+		let msg = protocol_v2::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer(overseer, &peer_a, Versioned::V2(msg)).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -2483,8 +2483,8 @@ fn import_versioned_approval() {
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-					protocol_vstaging::ApprovalDistributionMessage::Approvals(approvals)
+				Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+					protocol_v2::ApprovalDistributionMessage::Approvals(approvals)
 				))
 			)) => {
 				assert_eq!(peers, vec![peer_c]);

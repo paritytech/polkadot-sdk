@@ -117,13 +117,11 @@ impl Inclusions {
 		self.candidates_by_block_number = not_stale;
 
 		for candidate in stale.into_values().flatten() {
-			debug_assert!(self.inclusions_inner.get(&candidate).is_some());
 			match self.inclusions_inner.entry(candidate) {
 				Entry::Vacant(_) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						"Inconsistency in `Inclusions` detected on pruning!"
-					);
+					// Rare case where same candidate was present on multiple heights, but all are
+					// pruned at the same time. This candidate was already pruned in the previous
+					// occurence so it is skipped now.
 				},
 				Entry::Occupied(mut e) => {
 					let mut blocks_including = std::mem::take(e.get_mut());

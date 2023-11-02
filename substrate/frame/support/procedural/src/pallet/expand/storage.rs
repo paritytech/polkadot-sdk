@@ -18,7 +18,10 @@
 use crate::{
 	counter_prefix,
 	pallet::{
-		parse::storage::{Metadata, QueryKind, StorageDef, StorageGenerics},
+		parse::{
+			helper::two128_str,
+			storage::{Metadata, QueryKind, StorageDef, StorageGenerics},
+		},
 		Def,
 	},
 };
@@ -638,6 +641,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			Metadata::CountedMap { .. } => {
 				let counter_prefix_struct_ident = counter_prefix_ident(&storage_def.ident);
 				let counter_prefix_struct_const = counter_prefix(&prefix_struct_const);
+				let storage_prefix_hash = two128_str(&counter_prefix_struct_const);
 				quote::quote_spanned!(storage_def.attr_span =>
 					#(#cfg_attrs)*
 					#[doc(hidden)]
@@ -656,7 +660,19 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							>::name::<Pallet<#type_use_gen>>()
 								.expect("No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
 						}
+
+						fn pallet_prefix_hash() -> [u8; 16] {
+							<
+								<T as #frame_system::Config>::PalletInfo
+								as #frame_support::traits::PalletInfo
+							>::name_hash::<Pallet<#type_use_gen>>()
+								.expect("No name_hash found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
+						}
+
 						const STORAGE_PREFIX: &'static str = #counter_prefix_struct_const;
+						fn storage_prefix_hash() -> [u8; 16] {
+							#storage_prefix_hash
+						}
 					}
 					#(#cfg_attrs)*
 					impl<#type_impl_gen> #frame_support::storage::types::CountedStorageMapInstance
@@ -670,6 +686,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			Metadata::CountedNMap { .. } => {
 				let counter_prefix_struct_ident = counter_prefix_ident(&storage_def.ident);
 				let counter_prefix_struct_const = counter_prefix(&prefix_struct_const);
+				let storage_prefix_hash = two128_str(&counter_prefix_struct_const);
 				quote::quote_spanned!(storage_def.attr_span =>
 					#(#cfg_attrs)*
 					#[doc(hidden)]
@@ -688,7 +705,17 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							>::name::<Pallet<#type_use_gen>>()
 								.expect("No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
 						}
+						fn pallet_prefix_hash() -> [u8; 16] {
+							<
+								<T as #frame_system::Config>::PalletInfo
+								as #frame_support::traits::PalletInfo
+							>::name_hash::<Pallet<#type_use_gen>>()
+								.expect("No name_hash found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
+						}
 						const STORAGE_PREFIX: &'static str = #counter_prefix_struct_const;
+						fn storage_prefix_hash() -> [u8; 16] {
+							#storage_prefix_hash
+						}
 					}
 					#(#cfg_attrs)*
 					impl<#type_impl_gen> #frame_support::storage::types::CountedStorageNMapInstance
@@ -702,6 +729,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			_ => proc_macro2::TokenStream::default(),
 		};
 
+		let storage_prefix_hash = two128_str(&prefix_struct_const);
 		quote::quote_spanned!(storage_def.attr_span =>
 			#maybe_counter
 
@@ -722,7 +750,19 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					>::name::<Pallet<#type_use_gen>>()
 						.expect("No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
 				}
+
+				fn pallet_prefix_hash() -> [u8; 16] {
+					<
+						<T as #frame_system::Config>::PalletInfo
+						as #frame_support::traits::PalletInfo
+					>::name_hash::<Pallet<#type_use_gen>>()
+						.expect("No name_hash found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
+				}
+
 				const STORAGE_PREFIX: &'static str = #prefix_struct_const;
+				fn storage_prefix_hash() -> [u8; 16] {
+					#storage_prefix_hash
+				}
 			}
 		)
 	});

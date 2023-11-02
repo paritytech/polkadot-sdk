@@ -16,6 +16,8 @@
 #![allow(dead_code)] // <https://github.com/paritytech/cumulus/issues/3027>
 
 use crate::*;
+use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
+use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -97,7 +99,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 fn para_dest_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-	AssetHubWestend::assert_dmp_queue_complete(Some(Weight::from_parts(164_733_000, 0)));
+	AssetHubWestend::assert_dmp_queue_complete(Some(Weight::from_parts(164_793_000, 3593)));
 
 	assert_expected_events!(
 		AssetHubWestend,
@@ -142,16 +144,15 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 	)
 }
 
-// TODO: Uncomment when https://github.com/paritytech/polkadot/pull/7424 is merged
-// fn system_para_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
-// 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::teleport_assets(
-// 		t.signed_origin,
-// 		bx!(t.args.dest),
-// 		bx!(t.args.beneficiary),
-// 		bx!(t.args.assets),
-// 		t.args.fee_asset_item,
-// 	)
-// }
+fn system_para_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
+	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::teleport_assets(
+		t.signed_origin,
+		bx!(t.args.dest.into()),
+		bx!(t.args.beneficiary.into()),
+		bx!(t.args.assets.into()),
+		t.args.fee_asset_item,
+	)
+}
 
 /// Limited Teleport of native asset from Relay Chain to the System Parachain should work
 #[test]
@@ -174,11 +175,17 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	test.set_dispatchable::<Westend>(relay_limited_teleport_assets);
 	test.assert();
 
+	let delivery_fees = Westend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 }
@@ -215,8 +222,14 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 }
@@ -250,8 +263,14 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance does not change
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 }
@@ -277,87 +296,116 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	test.set_dispatchable::<Westend>(relay_teleport_assets);
 	test.assert();
 
+	let delivery_fees = Westend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 }
 
-// TODO: Uncomment when https://github.com/paritytech/polkadot/pull/7424 is merged
+/// Teleport of native asset from System Parachains to the Relay Chain
+/// should work when there is enough balance in Relay Chain's `CheckAccount`
+#[test]
+fn teleport_native_assets_back_from_system_para_to_relay_works() {
+	// Dependency - Relay Chain's `CheckAccount` should have enough balance
+	teleport_native_assets_from_relay_to_system_para_works();
 
-// Right now it is failing in the Relay Chain with a
-// `messageQueue.ProcessingFailed` event `error: Unsupported`.
-// The reason is the `Weigher` in `pallet_xcm` is not properly calculating the `remote_weight`
-// and it cause an `Overweight` error in `AllowTopLevelPaidExecutionFrom` barrier
+	// Init values for Relay Chain
+	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
+	let destination = AssetHubWestend::parent_location();
+	let beneficiary_id = WestendReceiver::get();
+	let assets = (Parent, amount_to_send).into();
 
-// /// Teleport of native asset from System Parachains to the Relay Chain
-// /// should work when there is enough balance in Relay Chain's `CheckAccount`
+	let test_args = TestContext {
+		sender: AssetHubWestendSender::get(),
+		receiver: WestendReceiver::get(),
+		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+	};
+
+	let mut test = SystemParaToRelayTest::new(test_args);
+
+	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
+
+	test.set_assertion::<AssetHubWestend>(para_origin_assertions);
+	test.set_assertion::<Westend>(relay_dest_assertions);
+	test.set_dispatchable::<AssetHubWestend>(system_para_teleport_assets);
+	test.assert();
+
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
+
+	// Sender's balance is reduced
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
+}
+
+/// Teleport of native asset from System Parachain to Relay Chain
+/// shouldn't work when there is not enough balance in Relay Chain's `CheckAccount`
+#[test]
+fn teleport_native_assets_from_system_para_to_relay_fails() {
+	// Init values for Relay Chain
+	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
+	let destination = AssetHubWestend::parent_location();
+	let beneficiary_id = WestendReceiver::get();
+	let assets = (Parent, amount_to_send).into();
+
+	let test_args = TestContext {
+		sender: AssetHubWestendSender::get(),
+		receiver: WestendReceiver::get(),
+		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+	};
+
+	let mut test = SystemParaToRelayTest::new(test_args);
+
+	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
+
+	test.set_assertion::<AssetHubWestend>(para_origin_assertions);
+	test.set_assertion::<Westend>(relay_dest_assertions_fail);
+	test.set_dispatchable::<AssetHubWestend>(system_para_teleport_assets);
+	test.assert();
+
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
+
+	// Sender's balance is reduced
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	// Receiver's balance does not change
+	assert_eq!(receiver_balance_after, receiver_balance_before);
+}
+
+// TODO: uncomment when CollectivesWestend and BridgeHubWestend are implemented
+// https://github.com/paritytech/polkadot-sdk/pull/1737 (CollectivesWestend)
 // #[test]
-// fn teleport_native_assets_back_from_system_para_to_relay_works() {
-// 	// Dependency - Relay Chain's `CheckAccount` should have enough balance
-// 	teleport_native_assets_from_relay_to_system_para_works();
+// fn teleport_to_other_system_parachains_works() {
+// 	let amount = ASSET_HUB_WESTEND_ED * 100;
+// 	let native_asset: VersionedMultiAssets = (Parent, amount).into();
 
-// 	// Init values for Relay Chain
-// 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-// 	let test_args = TestContext {
-// 		sender: AssetHubWestendSender::get(),
-// 		receiver: WestendReceiver::get(),
-// 		args: get_para_dispatch_args(amount_to_send),
-// 	};
-
-// 	let mut test = SystemParaToRelayTest::new(test_args);
-
-// 	let sender_balance_before = test.sender.balance;
-// 	let receiver_balance_before = test.receiver.balance;
-
-// 	test.set_assertion::<AssetHubWestend>(para_origin_assertions);
-// 	test.set_assertion::<Westend>(relay_dest_assertions);
-// 	test.set_dispatchable::<AssetHubWestend>(system_para_teleport_assets);
-// 	test.assert();
-
-// 	let sender_balance_after = test.sender.balance;
-// 	let receiver_balance_after = test.receiver.balance;
-
-// 	// Sender's balance is reduced
-// 	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
-// 	// Receiver's balance is increased
-// 	assert!(receiver_balance_after > receiver_balance_before);
-// }
-
-// /// Teleport of native asset from System Parachain to Relay Chain
-// /// shouldn't work when there is not enough balance in Relay Chain's `CheckAccount`
-// #[test]
-// fn teleport_native_assets_from_system_para_to_relay_fails() {
-// 	// Init values for Relay Chain
-// 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-//  let assets = (Parent, amount_to_send).into();
-//
-// 	let test_args = TestContext {
-// 		sender: AssetHubWestendSender::get(),
-// 		receiver: WestendReceiver::get(),
-// 		args: system_para_test_args(amount_to_send),
-//      assets,
-//      None
-// 	};
-
-// 	let mut test = SystemParaToRelayTest::new(test_args);
-
-// 	let sender_balance_before = test.sender.balance;
-// 	let receiver_balance_before = test.receiver.balance;
-
-// 	test.set_assertion::<AssetHubWestend>(para_origin_assertions);
-// 	test.set_assertion::<Westend>(relay_dest_assertions);
-// 	test.set_dispatchable::<AssetHubWestend>(system_para_teleport_assets);
-// 	test.assert();
-
-// 	let sender_balance_after = test.sender.balance;
-// 	let receiver_balance_after = test.receiver.balance;
-
-// 	// Sender's balance is reduced
-// 	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
-// 	// Receiver's balance does not change
-// 	assert_eq!(receiver_balance_after, receiver_balance_before);
+// 	test_parachain_is_trusted_teleporter!(
+// 		AssetHubWestend,                            // Origin
+// 		vec![CollectivesWestend, BridgeHubWestend], // Destinations
+// 		(native_asset, amount)
+// 	);
 // }

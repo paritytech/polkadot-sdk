@@ -121,10 +121,23 @@ So what are we actually worried about? Things that come to mind:
 
 ### Restricting file-system access
 
-A basic security mechanism is to make sure that any thread directly interfacing
-with untrusted code does not have access to the file-system. This provides some
-protection against attackers accessing sensitive data or modifying data on the
-host machine.
+A basic security mechanism is to make sure that any process directly interfacing
+with untrusted code does not have unnecessary access to the file-system. This
+provides some protection against attackers accessing sensitive data or modifying
+data on the host machine.
+
+*Currently this is only supported on Linux.*
+
+<!-- TODO: Uncomment when this has been enabled. -->
+
+<!-- ### Restricting networking -->
+
+<!-- We also disable networking on PVF threads by disabling certain syscalls, such as -->
+<!-- the creation of sockets. This prevents attackers from either downloading -->
+<!-- payloads or communicating sensitive data from the validator's machine to the -->
+<!-- outside world. -->
+
+<!-- *Currently this is only supported on Linux.* -->
 
 ### Clearing env vars
 

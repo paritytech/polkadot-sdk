@@ -39,6 +39,7 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	AccountId32, MultiAddress, OpaqueExtrinsic,
 };
+use staging_node_cli as node_cli;
 use tokio::runtime::Handle;
 
 fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
@@ -100,7 +101,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		wasm_runtime_overrides: None,
 	};
 
-	node_cli::service::new_full_base(config, false, |_, _| ())
+	node_cli::service::new_full_base(config, None, false, |_, _| ())
 		.expect("creating a full node doesn't fail")
 }
 

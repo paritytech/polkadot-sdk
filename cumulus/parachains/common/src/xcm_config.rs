@@ -14,13 +14,13 @@
 // limitations under the License.
 
 use crate::impls::AccountIdOf;
-use core::marker::PhantomData;
+use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
-	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, ContainsPair},
+	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, Contains, ContainsPair},
 	weights::Weight,
 };
-use log;
 use sp_runtime::traits::Get;
+use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
@@ -76,5 +76,108 @@ impl<Location: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 			"ConcreteNativeAsset asset: {:?}, origin: {:?}, location: {:?}",
 			asset, origin, Location::get());
 		matches!(asset.id, Concrete(ref id) if id == origin && origin == &Location::get())
+	}
+}
+
+pub struct RelayOrOtherSystemParachains<
+	SystemParachainMatcher: Contains<MultiLocation>,
+	Runtime: parachain_info::Config,
+> {
+	_runtime: PhantomData<(SystemParachainMatcher, Runtime)>,
+}
+impl<SystemParachainMatcher: Contains<MultiLocation>, Runtime: parachain_info::Config>
+	Contains<MultiLocation> for RelayOrOtherSystemParachains<SystemParachainMatcher, Runtime>
+{
+	fn contains(l: &MultiLocation) -> bool {
+		let self_para_id: u32 = parachain_info::Pallet::<Runtime>::get().into();
+		if let MultiLocation { parents: 0, interior: X1(Parachain(para_id)) } = l {
+			if *para_id == self_para_id {
+				return false
+			}
+		}
+		matches!(l, MultiLocation { parents: 1, interior: Here }) ||
+			SystemParachainMatcher::contains(l)
+	}
+}
+
+/// Accepts an asset if it is a concrete asset from the system (Relay Chain or system parachain).
+pub struct ConcreteAssetFromSystem<AssetLocation>(PhantomData<AssetLocation>);
+impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
+	for ConcreteAssetFromSystem<AssetLocation>
+{
+	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+		log::trace!(target: "xcm::contains", "ConcreteAssetFromSystem asset: {:?}, origin: {:?}", asset, origin);
+		let is_system = match origin {
+			// The Relay Chain
+			MultiLocation { parents: 1, interior: Here } => true,
+			// System parachain
+			MultiLocation { parents: 1, interior: X1(Parachain(id)) } =>
+				ParaId::from(*id).is_system(),
+			// Others
+			_ => false,
+		};
+		matches!(asset.id, Concrete(id) if id == AssetLocation::get()) && is_system
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use frame_support::parameter_types;
+
+	use super::{
+		ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, MultiAsset, MultiLocation,
+		PalletInstance, Parachain, Parent,
+	};
+
+	parameter_types! {
+		pub const RelayLocation: MultiLocation = MultiLocation::parent();
+	}
+
+	#[test]
+	fn concrete_asset_from_relay_works() {
+		let expected_asset: MultiAsset = (Parent, 1000000).into();
+		let expected_origin: MultiLocation = (Parent, Here).into();
+
+		assert!(<ConcreteAssetFromSystem<RelayLocation>>::contains(
+			&expected_asset,
+			&expected_origin
+		));
+	}
+
+	#[test]
+	fn concrete_asset_from_sibling_system_para_fails_for_wrong_asset() {
+		let unexpected_assets: Vec<MultiAsset> = vec![
+			(Here, 1000000).into(),
+			((PalletInstance(50), GeneralIndex(1)), 1000000).into(),
+			((Parent, Parachain(1000), PalletInstance(50), GeneralIndex(1)), 1000000).into(),
+		];
+		let expected_origin: MultiLocation = (Parent, Parachain(1000)).into();
+
+		unexpected_assets.iter().for_each(|asset| {
+			assert!(!<ConcreteAssetFromSystem<RelayLocation>>::contains(asset, &expected_origin));
+		});
+	}
+
+	#[test]
+	fn concrete_asset_from_sibling_system_para_works_for_correct_asset() {
+		// (para_id, expected_result)
+		let test_data = vec![
+			(0, true),
+			(1, true),
+			(1000, true),
+			(1999, true),
+			(2000, false), // Not a System Parachain
+			(2001, false), // Not a System Parachain
+		];
+
+		let expected_asset: MultiAsset = (Parent, 1000000).into();
+
+		for (para_id, expected_result) in test_data {
+			let origin: MultiLocation = (Parent, Parachain(para_id)).into();
+			assert_eq!(
+				expected_result,
+				<ConcreteAssetFromSystem<RelayLocation>>::contains(&expected_asset, &origin)
+			);
+		}
 	}
 }

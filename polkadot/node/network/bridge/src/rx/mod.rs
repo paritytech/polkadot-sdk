@@ -20,10 +20,7 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
-use futures::{
-	future::BoxFuture,
-	stream::{BoxStream, FuturesUnordered, StreamExt},
-};
+use futures::stream::{BoxStream, StreamExt};
 use parity_scale_codec::{Decode, DecodeAll};
 
 use sc_network::Event as NetworkEvent;
@@ -36,7 +33,7 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 as protocol_v1, vstaging as protocol_vstaging, ObservedRole, OurView, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, ObservedRole, OurView, PeerId,
 	UnifiedReputationChange as Rep, View,
 };
 
@@ -265,13 +262,13 @@ where
 								),
 								&metrics,
 							),
-							ValidationVersion::VStaging => send_message(
+							ValidationVersion::V2 => send_message(
 								&mut network_service,
 								vec![peer],
 								PeerSet::Validation,
 								version,
 								&peerset_protocol_names,
-								WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(
+								WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(
 									local_view,
 								),
 								&metrics,
@@ -307,13 +304,13 @@ where
 								),
 								&metrics,
 							),
-							CollationVersion::VStaging => send_message(
+							CollationVersion::V2 => send_message(
 								&mut network_service,
 								vec![peer],
 								PeerSet::Collation,
 								version,
 								&peerset_protocol_names,
-								WireMessage::<protocol_vstaging::CollationProtocol>::ViewUpdate(
+								WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(
 									local_view,
 								),
 								&metrics,
@@ -468,9 +465,9 @@ where
 							&metrics,
 						)
 					} else if expected_versions[PeerSet::Validation] ==
-						Some(ValidationVersion::VStaging.into())
+						Some(ValidationVersion::V2.into())
 					{
-						handle_peer_messages::<protocol_vstaging::ValidationProtocol, _>(
+						handle_peer_messages::<protocol_v2::ValidationProtocol, _>(
 							remote,
 							PeerSet::Validation,
 							&mut shared.0.lock().validation_peers,
@@ -510,9 +507,9 @@ where
 							&metrics,
 						)
 					} else if expected_versions[PeerSet::Collation] ==
-						Some(CollationVersion::VStaging.into())
+						Some(CollationVersion::V2.into())
 					{
-						handle_peer_messages::<protocol_vstaging::CollationProtocol, _>(
+						handle_peer_messages::<protocol_v2::CollationProtocol, _>(
 							remote,
 							PeerSet::Collation,
 							&mut shared.0.lock().collation_peers,
@@ -816,10 +813,8 @@ fn update_our_view<Net, Context>(
 	let v1_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V1.into());
 	let v1_collation_peers = filter_by_version(&collation_peers, CollationVersion::V1.into());
 
-	let vstaging_validation_peers =
-		filter_by_version(&validation_peers, ValidationVersion::VStaging.into());
-	let vstaging_collation_peers =
-		filter_by_version(&collation_peers, ValidationVersion::VStaging.into());
+	let v2_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V2.into());
+	let v2_collation_peers = filter_by_version(&collation_peers, ValidationVersion::V2.into());
 
 	send_validation_message_v1(
 		net,
@@ -837,17 +832,17 @@ fn update_our_view<Net, Context>(
 		metrics,
 	);
 
-	send_validation_message_vstaging(
+	send_validation_message_v2(
 		net,
-		vstaging_validation_peers,
+		v2_validation_peers,
 		peerset_protocol_names,
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 	);
 
-	send_collation_message_vstaging(
+	send_collation_message_v2(
 		net,
-		vstaging_collation_peers,
+		v2_collation_peers,
 		peerset_protocol_names,
 		WireMessage::ViewUpdate(new_view),
 		metrics,
@@ -958,36 +953,36 @@ fn send_collation_message_v1(
 	);
 }
 
-fn send_validation_message_vstaging(
+fn send_validation_message_v2(
 	net: &mut impl Network,
 	peers: Vec<PeerId>,
 	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_vstaging::ValidationProtocol>,
+	message: WireMessage<protocol_v2::ValidationProtocol>,
 	metrics: &Metrics,
 ) {
 	send_message(
 		net,
 		peers,
 		PeerSet::Validation,
-		ValidationVersion::VStaging.into(),
+		ValidationVersion::V2.into(),
 		protocol_names,
 		message,
 		metrics,
 	);
 }
 
-fn send_collation_message_vstaging(
+fn send_collation_message_v2(
 	net: &mut impl Network,
 	peers: Vec<PeerId>,
 	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_vstaging::CollationProtocol>,
+	message: WireMessage<protocol_v2::CollationProtocol>,
 	metrics: &Metrics,
 ) {
 	send_message(
 		net,
 		peers,
 		PeerSet::Collation,
-		CollationVersion::VStaging.into(),
+		CollationVersion::V2.into(),
 		protocol_names,
 		message,
 		metrics,
@@ -1044,65 +1039,21 @@ fn dispatch_collation_event_to_all_unbounded(
 	}
 }
 
-fn send_or_queue_validation_event<E, Sender>(
-	event: E,
-	sender: &mut Sender,
-	delayed_queue: &FuturesUnordered<BoxFuture<'static, ()>>,
-) where
-	E: Send + 'static,
-	Sender: overseer::NetworkBridgeRxSenderTrait + overseer::SubsystemSender<E>,
-{
-	match sender.try_send_message(event) {
-		Ok(()) => {},
-		Err(overseer::TrySendError::Full(event)) => {
-			let mut sender = sender.clone();
-			delayed_queue.push(Box::pin(async move {
-				sender.send_message(event).await;
-			}));
-		},
-		Err(overseer::TrySendError::Closed(_)) => {
-			panic!(
-				"NetworkBridgeRxSender is closed when trying to send event of type: {}",
-				std::any::type_name::<E>()
-			);
-		},
-	}
-}
-
 async fn dispatch_validation_events_to_all<I>(
 	events: I,
 	sender: &mut impl overseer::NetworkBridgeRxSenderTrait,
-	metrics: &Metrics,
+	_metrics: &Metrics,
 ) where
 	I: IntoIterator<Item = NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>>,
 	I::IntoIter: Send,
 {
-	let delayed_messages: FuturesUnordered<BoxFuture<'static, ()>> = FuturesUnordered::new();
-
-	// Fast path for sending events to subsystems, if any subsystem's queue is full, we hold
-	// the slow path future in the `delayed_messages` queue.
 	for event in events {
-		if let Ok(msg) = event.focus().map(StatementDistributionMessage::from) {
-			send_or_queue_validation_event(msg, sender, &delayed_messages);
-		}
-		if let Ok(msg) = event.focus().map(BitfieldDistributionMessage::from) {
-			send_or_queue_validation_event(msg, sender, &delayed_messages);
-		}
-		if let Ok(msg) = event.focus().map(ApprovalDistributionMessage::from) {
-			send_or_queue_validation_event(msg, sender, &delayed_messages);
-		}
-		if let Ok(msg) = event.focus().map(GossipSupportMessage::from) {
-			send_or_queue_validation_event(msg, sender, &delayed_messages);
-		}
-	}
-
-	let delayed_messages_count = delayed_messages.len();
-	metrics.on_delayed_rx_queue(delayed_messages_count);
-
-	if delayed_messages_count > 0 {
-		// Here we wait for all the delayed messages to be sent.
-		let _timer = metrics.time_delayed_rx_events(); // Dropped after `await` is completed
-		let _: Vec<()> = delayed_messages.collect().await;
+		sender
+			.send_messages(event.focus().map(StatementDistributionMessage::from))
+			.await;
+		sender.send_messages(event.focus().map(BitfieldDistributionMessage::from)).await;
+		sender.send_messages(event.focus().map(ApprovalDistributionMessage::from)).await;
+		sender.send_messages(event.focus().map(GossipSupportMessage::from)).await;
 	}
 }
 

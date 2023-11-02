@@ -14,12 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use substrate_wasm_builder::WasmBuilder;
-
+#[cfg(feature = "std")]
 fn main() {
-	WasmBuilder::new()
+	// note: needs to be synced with rococo-runtime-constants::time hard-coded string literal
+	const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
+
+	substrate_wasm_builder::WasmBuilder::new()
 		.with_current_project()
 		.import_memory()
 		.export_heap_base()
-		.build()
+		.build();
+
+	println!("cargo:rerun-if-env-changed={}", ROCOCO_EPOCH_DURATION_ENV);
 }
+
+#[cfg(not(feature = "std"))]
+fn main() {}

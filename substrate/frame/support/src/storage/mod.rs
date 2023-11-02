@@ -191,7 +191,7 @@ pub trait StorageList<V: FullCodec> {
 
 	/// Append a single element.
 	///
-	/// Should not be called repeatedly; use `append_many` instead.  
+	/// Should not be called repeatedly; use `append_many` instead.
 	/// Worst case linear `O(len)` with `len` being the number if elements in the list.
 	fn append_one<EncodeLikeValue>(item: EncodeLikeValue)
 	where
@@ -202,7 +202,7 @@ pub trait StorageList<V: FullCodec> {
 
 	/// Append many elements.
 	///
-	/// Should not be called repeatedly; use `appender` instead.  
+	/// Should not be called repeatedly; use `appender` instead.
 	/// Worst case linear `O(len + items.count())` with `len` beings the number if elements in the
 	/// list.
 	fn append_many<EncodeLikeValue, I>(items: I)
@@ -1273,15 +1273,15 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 
 /// Trait for storage types that store all its value after a unique prefix.
 pub trait StoragePrefixedContainer {
-	/// Module prefix. Used for generating final key.
-	fn module_prefix() -> &'static [u8];
+	/// Pallet prefix. Used for generating final key.
+	fn pallet_prefix() -> &'static [u8];
 
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
 
 	/// Final full prefix that prefixes all keys.
 	fn final_prefix() -> [u8; 32] {
-		crate::storage::storage_prefix(Self::module_prefix(), Self::storage_prefix())
+		crate::storage::storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
 	}
 }
 
@@ -1289,18 +1289,18 @@ pub trait StoragePrefixedContainer {
 ///
 /// By default the final prefix is:
 /// ```nocompile
-/// Twox128(module_prefix) ++ Twox128(storage_prefix)
+/// Twox128(pallet_prefix) ++ Twox128(storage_prefix)
 /// ```
 pub trait StoragePrefixedMap<Value: FullCodec> {
-	/// Module prefix. Used for generating final key.
-	fn module_prefix() -> &'static [u8]; // TODO move to StoragePrefixedContainer
+	/// Pallet prefix. Used for generating final key.
+	fn pallet_prefix() -> &'static [u8]; // TODO move to StoragePrefixedContainer
 
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
 
 	/// Final full prefix that prefixes all keys.
 	fn final_prefix() -> [u8; 32] {
-		crate::storage::storage_prefix(Self::module_prefix(), Self::storage_prefix())
+		crate::storage::storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
 	}
 
 	/// Remove all values in the overlay and up to `limit` in the backend.
@@ -1624,7 +1624,7 @@ mod test {
 		TestExternalities::default().execute_with(|| {
 			struct MyStorage;
 			impl StoragePrefixedMap<u64> for MyStorage {
-				fn module_prefix() -> &'static [u8] {
+				fn pallet_prefix() -> &'static [u8] {
 					b"MyModule"
 				}
 
@@ -1701,7 +1701,7 @@ mod test {
 			impl generator::StorageValue<Digest> for Storage {
 				type Query = Digest;
 
-				fn module_prefix() -> &'static [u8] {
+				fn pallet_prefix() -> &'static [u8] {
 					b"MyModule"
 				}
 
@@ -1715,6 +1715,10 @@ mod test {
 
 				fn from_query_to_optional_value(v: Self::Query) -> Option<Digest> {
 					Some(v)
+				}
+
+				fn storage_value_final_key() -> [u8; 32] {
+					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
 				}
 			}
 
@@ -1736,12 +1740,16 @@ mod test {
 				type Query = u64;
 				type Hasher = Twox64Concat;
 
-				fn module_prefix() -> &'static [u8] {
+				fn pallet_prefix() -> &'static [u8] {
 					b"MyModule"
 				}
 
 				fn storage_prefix() -> &'static [u8] {
 					b"MyStorageMap"
+				}
+
+				fn prefix_hash() -> [u8; 32] {
+					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
 				}
 
 				fn from_optional_value_to_query(v: Option<u64>) -> Self::Query {

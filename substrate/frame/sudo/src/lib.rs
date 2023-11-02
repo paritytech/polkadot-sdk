@@ -148,12 +148,34 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	#[pallet::config]
+	/// Default preludes for [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::derive_impl;
+
+		/// Default prelude sensible to be used in a testing environment.
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			type WeightInfo = ();
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+		}
+	}
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A sudo-able call.
+		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
 			+ UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo;
@@ -204,14 +226,15 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(1)]
-		#[pallet::weight((*_weight, call.get_dispatch_info().class))]
+		#[pallet::weight((*weight, call.get_dispatch_info().class))]
 		pub fn sudo_unchecked_weight(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
-			_weight: Weight,
+			weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			// This is a public call, so we ensure that the origin is some signed account.
 			let sender = ensure_signed(origin)?;
+			let _ = weight; // We don't check the weight witness since it is a root call.
 			ensure!(Self::key().map_or(false, |k| sender == k), Error::<T>::RequireSudo);
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());

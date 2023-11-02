@@ -44,7 +44,17 @@ pub enum PrepareError {
 	/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
-	RenameTmpFileErr(String),
+	RenameTmpFileErr {
+		err: String,
+		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
+		// conversion to `Option<String>`.
+		src: Option<String>,
+		dest: Option<String>,
+	},
+	/// The response from the worker is received, but the worker cache could not be cleared. The
+	/// worker has to be killed to avoid jobs having access to data from other jobs. This state is
+	/// reported by the validation host (not by the worker).
+	ClearWorkerDir(String),
 }
 
 impl PrepareError {
@@ -58,7 +68,11 @@ impl PrepareError {
 		use PrepareError::*;
 		match self {
 			Prevalidation(_) | Preparation(_) | Panic(_) => true,
-			TimedOut | IoErr(_) | CreateTmpFileErr(_) | RenameTmpFileErr(_) => false,
+			TimedOut |
+			IoErr(_) |
+			CreateTmpFileErr(_) |
+			RenameTmpFileErr { .. } |
+			ClearWorkerDir(_) => false,
 			// Can occur due to issues with the PVF, but also due to local errors.
 			RuntimeConstruction(_) => false,
 		}
@@ -76,7 +90,9 @@ impl fmt::Display for PrepareError {
 			TimedOut => write!(f, "prepare: timeout"),
 			IoErr(err) => write!(f, "prepare: io error while receiving response: {}", err),
 			CreateTmpFileErr(err) => write!(f, "prepare: error creating tmp file: {}", err),
-			RenameTmpFileErr(err) => write!(f, "prepare: error renaming tmp file: {}", err),
+			RenameTmpFileErr { err, src, dest } =>
+				write!(f, "prepare: error renaming tmp file ({:?} -> {:?}): {}", src, dest, err),
+			ClearWorkerDir(err) => write!(f, "prepare: error clearing worker cache: {}", err),
 		}
 	}
 }
@@ -89,8 +105,17 @@ impl fmt::Display for PrepareError {
 pub enum InternalValidationError {
 	/// Some communication error occurred with the host.
 	HostCommunication(String),
+	/// Host could not create a hard link to the artifact path.
+	CouldNotCreateLink(String),
 	/// Could not find or open compiled artifact file.
 	CouldNotOpenFile(String),
+	/// Host could not clear the worker cache after a job.
+	CouldNotClearWorkerDir {
+		err: String,
+		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
+		// conversion to `Option<String>`.
+		path: Option<String>,
+	},
 	/// An error occurred in the CPU time monitor thread. Should be totally unrelated to
 	/// validation.
 	CpuTimeMonitorThread(String),
@@ -104,8 +129,18 @@ impl fmt::Display for InternalValidationError {
 		match self {
 			HostCommunication(err) =>
 				write!(f, "validation: some communication error occurred with the host: {}", err),
+			CouldNotCreateLink(err) => write!(
+				f,
+				"validation: host could not create a hard link to the artifact path: {}",
+				err
+			),
 			CouldNotOpenFile(err) =>
 				write!(f, "validation: could not find or open compiled artifact file: {}", err),
+			CouldNotClearWorkerDir { err, path } => write!(
+				f,
+				"validation: host could not clear the worker cache ({:?}) after a job: {}",
+				path, err
+			),
 			CpuTimeMonitorThread(err) =>
 				write!(f, "validation: an error occurred in the CPU time monitor thread: {}", err),
 			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),

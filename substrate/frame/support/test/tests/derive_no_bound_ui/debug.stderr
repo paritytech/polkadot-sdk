@@ -5,4 +5,4 @@ error[E0277]: `<T as Config>::C` doesn't implement `std::fmt::Debug`
    |     ^ `<T as Config>::C` cannot be formatted using `{:?}` because it doesn't implement `std::fmt::Debug`
    |
    = help: the trait `std::fmt::Debug` is not implemented for `<T as Config>::C`
-   = note: required for the cast from `<T as Config>::C` to the object type `dyn std::fmt::Debug`
+   = note: required for the cast from `&<T as Config>::C` to `&dyn std::fmt::Debug`

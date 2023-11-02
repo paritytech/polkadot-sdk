@@ -38,12 +38,13 @@ pub mod currency {
 /// Time and blocks.
 pub mod time {
 	use primitives::{BlockNumber, Moment};
-	use runtime_common::prod_or_fast;
 	pub const MILLISECS_PER_BLOCK: Moment = 6000;
 	pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
-	pub const DEFAULT_EPOCH_DURATION: BlockNumber = prod_or_fast!(1 * HOURS, 1 * MINUTES);
+
 	frame_support::parameter_types! {
-		pub storage EpochDurationInBlocks: BlockNumber = DEFAULT_EPOCH_DURATION;
+		pub storage EpochDurationInBlocks: BlockNumber = option_env!("ROCOCO_EPOCH_DURATION")
+			.map(|s| s.parse().expect("`ROCOCO_EPOCH_DURATION` is not a valid `BlockNumber`"))
+			.unwrap_or(1 * MINUTES);
 	}
 
 	// These time units are defined in number of blocks.
@@ -98,6 +99,29 @@ pub mod fee {
 		}
 	}
 }
+
+/// System Parachains.
+pub mod system_parachain {
+	use xcm::latest::prelude::*;
+
+	/// Network's Asset Hub parachain ID.
+	pub const ASSET_HUB_ID: u32 = 1000;
+	/// Contracts parachain ID.
+	pub const CONTRACTS_ID: u32 = 1002;
+	/// Encointer parachain ID.
+	pub const ENCOINTER_ID: u32 = 1003;
+	/// BridgeHub parachain ID.
+	pub const BRIDGE_HUB_ID: u32 = 1013;
+
+	frame_support::match_types! {
+		pub type SystemParachains: impl Contains<MultiLocation> = {
+			MultiLocation { parents: 0, interior: X1(Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID)) }
+		};
+	}
+}
+
+/// Rococo Treasury pallet instance.
+pub const TREASURY_PALLET_ID: u8 = 18;
 
 #[cfg(test)]
 mod tests {

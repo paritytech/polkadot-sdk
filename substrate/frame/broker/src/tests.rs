@@ -77,7 +77,9 @@ fn drop_renewal_works() {
 		let e = Error::<Test>::StillValid;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 		advance_to(12);
+		assert_eq!(AllowedRenewals::<Test>::iter().count(), 1);
 		assert_ok!(Broker::do_drop_renewal(region.core, region.begin + 3));
+		assert_eq!(AllowedRenewals::<Test>::iter().count(), 0);
 		let e = Error::<Test>::UnknownRenewal;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 	});
@@ -90,7 +92,10 @@ fn drop_contribution_works() {
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		// Place region in pool. Active in pool timeslices 4, 5, 6 = rcblocks 8, 10, 12; we
-		// expect the contribution record to timeout 3 timeslices following 7 = 10
+		// expect the contribution record to timeout 3 timeslices following 7 = 14
+		//
+		// Due to the contribution_timeout being configured for 3 timeslices, the contribution
+		// can only be discarded at timeslice 10, i.e. rcblock 20.
 		assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
 		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 1);
 		advance_to(19);
@@ -379,6 +384,41 @@ fn instapool_partial_core_payouts_work() {
 }
 
 #[test]
+fn instapool_core_payouts_work_with_partitioned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, region2) = Broker::do_partition(region, None, 2).unwrap();
+		// `region1` duration is from rcblock 8 to rcblock 12. This means that the
+		// coretime purchased during this time period will be purchased from `region1`
+		//
+		// `region2` duration is from rcblock 12 to rcblock 14 and during this period
+		// coretime will be purchased from `region2`.
+		assert_ok!(Broker::do_pool(region1, None, 2, Final));
+		assert_ok!(Broker::do_pool(region2, None, 3, Final));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		advance_to(11);
+		assert_eq!(pot(), 20);
+		assert_eq!(revenue(), 100);
+		assert_ok!(Broker::do_claim_revenue(region1, 100));
+		assert_eq!(pot(), 10);
+		assert_eq!(balance(2), 10);
+		advance_to(12);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		advance_to(15);
+		assert_eq!(pot(), 10);
+		assert_ok!(Broker::do_claim_revenue(region2, 100));
+		assert_eq!(pot(), 0);
+		// The balance of account `2` remains unchanged.
+		assert_eq!(balance(2), 10);
+		assert_eq!(balance(3), 10);
+	});
+}
+
+#[test]
 fn initialize_with_system_paras_works() {
 	TestExt::new().execute_with(|| {
 		let item = ScheduleItem { assignment: Task(1u32), mask: CoreMask::complete() };
@@ -655,6 +695,79 @@ fn partition_then_interlace_works() {
 }
 
 #[test]
+fn partitioning_after_assignment_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		// We will initially allocate a task to a purchased region, and after that
+		// we will proceed to partition the region.
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 1001, Provisional));
+		let (_region, region1) = Broker::do_partition(region, None, 2).unwrap();
+		// After the partitioning if we assign a new task to `region` the other region
+		// will still be assigned to `Task(1001)`.
+		assert_ok!(Broker::do_assign(region1, None, 1002, Provisional));
+		advance_to(10);
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(Task(1001), 57600),],
+						end_hint: None
+					}
+				),
+				(
+					10,
+					AssignCore {
+						core: 0,
+						begin: 12,
+						assignment: vec![(Task(1002), 57600),],
+						end_hint: None
+					}
+				),
+			]
+		);
+	});
+}
+
+#[test]
+fn interlacing_after_assignment_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		// We will initially allocate a task to a purchased region, and after that
+		// we will proceed to interlace the region.
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 1001, Provisional));
+		let (region1, _region) =
+			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 40)).unwrap();
+		// Interlacing the region won't affect the assignment. The entire region will still
+		// be assigned to `Task(1001)`.
+		//
+		// However, after we assign a task to `region1` the `_region` won't be assigned
+		// to `Task(1001)` anymore. It will become idle.
+		assert_ok!(Broker::do_assign(region1, None, 1002, Provisional));
+		advance_to(10);
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![(
+				6,
+				AssignCore {
+					core: 0,
+					begin: 8,
+					assignment: vec![(Idle, 28800), (Task(1002), 28800)],
+					end_hint: None
+				}
+			),]
+		);
+	});
+}
+
+#[test]
 fn reservations_are_limited() {
 	TestExt::new().execute_with(|| {
 		let schedule = Schedule::truncate_from(vec![ScheduleItem {
@@ -866,7 +979,7 @@ fn assign_should_drop_invalid_region() {
 		advance_to(10);
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
 		region.begin = 7;
-		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 0 }.into());
+		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 3 }.into());
 	});
 }
 
@@ -879,7 +992,7 @@ fn pool_should_drop_invalid_region() {
 		advance_to(10);
 		assert_ok!(Broker::do_pool(region, Some(1), 1001, Provisional));
 		region.begin = 7;
-		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 0 }.into());
+		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 3 }.into());
 	});
 }
 

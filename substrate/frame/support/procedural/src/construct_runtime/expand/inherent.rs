@@ -90,8 +90,7 @@ pub fn expand_outer_inherent(
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 				use #scrate::sp_runtime::traits::Block as _;
-				use #scrate::_private::sp_inherents::Error;
-				use #scrate::__private::log;
+				use #scrate::__private::{sp_inherents::Error, log};
 
 				let mut result = #scrate::inherent::CheckInherentsResult::new();
 

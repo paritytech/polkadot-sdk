@@ -14,27 +14,26 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_core_pvf::testing::{spawn_with_program_path, SpawnErr};
-use std::time::Duration;
-
-fn worker_path(name: &str) -> std::path::PathBuf {
-	let mut worker_path = std::env::current_exe().unwrap();
-	worker_path.pop();
-	worker_path.pop();
-	worker_path.push(name);
-	worker_path
-}
+use polkadot_node_core_pvf::{
+	testing::{get_and_check_worker_paths, spawn_with_program_path, SpawnErr},
+	SecurityStatus,
+};
+use std::{env, time::Duration};
 
 // Test spawning a program that immediately exits with a failure code.
 #[tokio::test]
 async fn spawn_immediate_exit() {
+	let (prepare_worker_path, _) = get_and_check_worker_paths();
+
 	// There's no explicit `exit` subcommand in the worker; it will panic on an unknown
 	// subcommand anyway
 	let result = spawn_with_program_path(
 		"integration-test",
-		worker_path("polkadot-prepare-worker"),
+		prepare_worker_path,
+		&env::temp_dir(),
 		&["exit"],
 		Duration::from_secs(2),
+		SecurityStatus::default(),
 	)
 	.await;
 	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
@@ -42,11 +41,15 @@ async fn spawn_immediate_exit() {
 
 #[tokio::test]
 async fn spawn_timeout() {
+	let (_, execute_worker_path) = get_and_check_worker_paths();
+
 	let result = spawn_with_program_path(
 		"integration-test",
-		worker_path("polkadot-execute-worker"),
+		execute_worker_path,
+		&env::temp_dir(),
 		&["test-sleep"],
 		Duration::from_secs(2),
+		SecurityStatus::default(),
 	)
 	.await;
 	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
@@ -54,11 +57,15 @@ async fn spawn_timeout() {
 
 #[tokio::test]
 async fn should_connect() {
+	let (prepare_worker_path, _) = get_and_check_worker_paths();
+
 	let _ = spawn_with_program_path(
 		"integration-test",
-		worker_path("polkadot-prepare-worker"),
+		prepare_worker_path,
+		&env::temp_dir(),
 		&["prepare-worker"],
 		Duration::from_secs(2),
+		SecurityStatus::default(),
 	)
 	.await
 	.unwrap();

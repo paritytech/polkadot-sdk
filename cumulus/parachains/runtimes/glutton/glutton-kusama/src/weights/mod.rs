@@ -15,3 +15,4 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub mod pallet_glutton;
+pub mod pallet_timestamp;

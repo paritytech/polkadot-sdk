@@ -17,12 +17,14 @@
 
 use crate::{
 	pallet::{
+		expand::warnings::{weight_constant_warning, weight_witness_warning},
 		parse::call::{CallVariantDef, CallWeightDef},
 		Def,
 	},
 	COUNTER,
 };
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_warning::Warning;
 use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
 
@@ -68,7 +70,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			continue
 		}
 
-		let warning = proc_macro_warning::Warning::new_deprecated("ImplicitCallIndex")
+		let warning = Warning::new_deprecated("ImplicitCallIndex")
 			.index(call_index_warnings.len())
 			.old("use implicit call indices")
 			.new("ensure that all calls have a `pallet::call_index` attribute or put the pallet into `dev` mode")
@@ -77,7 +79,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				"https://github.com/paritytech/substrate/pull/11381"
 			])
 			.span(method.name.span())
-			.build();
+			.build_or_panic();
 		call_index_warnings.push(warning);
 	}
 
@@ -86,18 +88,12 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	for method in &methods {
 		match &method.weight {
 			CallWeightDef::DevModeDefault => fn_weight.push(syn::parse_quote!(0)),
-			CallWeightDef::Immediate(e @ syn::Expr::Lit(lit)) if !def.dev_mode => {
-				let warning = proc_macro_warning::Warning::new_deprecated("ConstantWeight")
-					.index(weight_warnings.len())
-					.old("use hard-coded constant as call weight")
-					.new("benchmark all calls or put the pallet into `dev` mode")
-					.help_link("https://github.com/paritytech/substrate/pull/13798")
-					.span(lit.span())
-					.build();
-				weight_warnings.push(warning);
+			CallWeightDef::Immediate(e) => {
+				weight_constant_warning(e, def.dev_mode, &mut weight_warnings);
+				weight_witness_warning(method, def.dev_mode, &mut weight_warnings);
+
 				fn_weight.push(e.into_token_stream());
 			},
-			CallWeightDef::Immediate(e) => fn_weight.push(e.into_token_stream()),
 			CallWeightDef::Inherited => {
 				let pallet_weight = def
 					.call

@@ -24,7 +24,7 @@ use scale_info::TypeInfo;
 use sp_timestamp::Timestamp;
 
 /// Unit type wrapper that represents a slot.
-#[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, TypeInfo)]
+#[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, Hash, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Slot(u64);
 
@@ -41,6 +41,26 @@ impl core::ops::Add for Slot {
 
 	fn add(self, other: Self) -> Self {
 		Self(self.0 + other.0)
+	}
+}
+
+impl core::ops::Sub for Slot {
+	type Output = Self;
+
+	fn sub(self, other: Self) -> Self {
+		Self(self.0 - other.0)
+	}
+}
+
+impl core::ops::AddAssign for Slot {
+	fn add_assign(&mut self, rhs: Self) {
+		self.0 += rhs.0
+	}
+}
+
+impl core::ops::SubAssign for Slot {
+	fn sub_assign(&mut self, rhs: Self) {
+		self.0 -= rhs.0
 	}
 }
 
