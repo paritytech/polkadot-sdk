@@ -29,19 +29,9 @@ fn generate_methods_for_enum(name: syn::Ident, data_enum: &syn::DataEnum) -> Tok
 		let method_name_string = &variant_name.to_string().to_snake_case();
 		let method_name = syn::Ident::new(&method_name_string, variant_name.span());
 		let docs: Vec<_> = variant.attrs.iter().filter_map(|attr| {
-			if attr.path().is_ident("doc") {
-				match &attr.meta {
-					Meta::NameValue(pair) => match &pair.value {
-						Expr::Lit(inner) => match &inner.lit {
-							Lit::Str(string_literal) => Some(string_literal.value()),
-							_ => None,
-						},
-						_ => None,
-					},
-					_ => None,
-				}
-			} else {
-				None
+			match &attr.meta {
+				Meta::NameValue(MetaNameValue { value: Expr::Lit(ExprLit { lit: Lit::Str(literal), .. ), .. }) if attr.path().is_ident("doc") => Some(literal.value()),
+				_ => None,
 			}
 		}).map(|doc| syn::parse_str::<TokenStream2>(&format!("/// {}", doc)).unwrap()).collect();
 		let method = match &variant.fields {
