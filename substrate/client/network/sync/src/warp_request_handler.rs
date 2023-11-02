@@ -20,13 +20,13 @@ use codec::Decode;
 use futures::{channel::oneshot, stream::StreamExt};
 use log::debug;
 
+use crate::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider};
 use sc_network::{
 	config::ProtocolId,
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig as RequestResponseConfig,
 	},
 };
-use sc_network_common::sync::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{sync::Arc, time::Duration};

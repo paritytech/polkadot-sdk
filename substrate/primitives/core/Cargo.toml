@@ -58,7 +58,7 @@ sp-runtime-interface = { path = "../runtime-interface", default-features = false
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true}
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "4b09416", default-features = false, optional = true }
+bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "cbc342e", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -76,7 +76,7 @@ bench = false
 default = [ "std" ]
 std = [
 	"array-bytes",
-	"bandersnatch_vrfs?/getrandom",
+	"bandersnatch_vrfs?/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
