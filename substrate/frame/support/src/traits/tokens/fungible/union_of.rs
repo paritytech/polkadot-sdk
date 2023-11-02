@@ -91,7 +91,7 @@ impl<AssetId: Ord> Convert<NativeOrWithId<AssetId>, Either<(), AssetId>> for Nat
 /// Type to combine some `fungible::*` and `fungibles::*` implementations into one union
 /// `fungibles::*` implementation.
 ///
-/// ### Generic Parameters:
+/// ### Parameters:
 /// - `Left` is `fungible::*` implementation that is incorporated into the resulting union.
 /// - `Right` is `fungibles::*` implementation that is incorporated into the resulting union.
 /// - `Criterion` determines whether the `AssetKind` belongs to the `Left` or `Right` set.
