@@ -149,7 +149,8 @@ async fn run<Context>(
 			exec_worker_path,
 		),
 		pvf_metrics,
-	);
+	)
+	.await;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	loop {
