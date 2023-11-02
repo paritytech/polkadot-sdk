@@ -1,0 +1,20 @@
+name: gitspiegel sync
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - unlocked
+      - ready_for_review
+      - reopened
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sync via API
+        run: |
+          curl --fail-with-body -XPOST "https://gitspiegel.parity-prod.parity.io/api/v1/mirror/${{ github.repository }}/pull/${{ github.event.number }}" \
+           -H "Content-Type: application/json" \
+           -H "x-auth: ${{ secrets.GITSPIEGEL_TOKEN }}"
