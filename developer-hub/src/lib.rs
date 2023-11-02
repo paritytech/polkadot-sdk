@@ -5,6 +5,9 @@
 //! This crate is a *minimal*, but *always-accurate* source of information for those wishing to
 //! build on the Polkadot SDK.
 //!
+//! > **Work in Progress**: This crate is under heavy development. Expect content to be moved and
+//! > changed. Do not use links to this crate yet.
+//!
 //! ## Getting Started
 //!
 //! We suggest the following reading sequence:

@@ -23,9 +23,10 @@ simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", bra
 docify = "0.2.6"
 
 # Polkadot SDK docs, typically all should only be scope such that we can link to their doc item.
-node-cli = { path = "../substrate/bin/node/cli" }
+
+package = { package = "staging-node-cli", path = "../substrate/bin/node/cli" }
 kitchensink-runtime = { path = "../substrate/bin/node/runtime" }
-chain-spec-builder = { path = "../substrate/bin/utils/chain-spec-builder" }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "../substrate/bin/utils/chain-spec-builder" }
 subkey = { path = "../substrate/bin/utils/subkey" }
 
 sc-network = { path = "../substrate/client/network" }
@@ -52,7 +53,7 @@ cumulus-pallet-aura-ext = { path = "../cumulus/pallets/aura-ext" }
 cumulus-pallet-parachain-system = { path = "../cumulus/pallets/parachain-system", features = [
 	"parameterized-consensus-hook",
 ] }
-parachain-info = { path = "../cumulus/parachains/pallets/parachain-info" }
+parachain-info = { package = "staging-parachain-info", path = "../cumulus/parachains/pallets/parachain-info" }
 pallet-aura = { path = "../substrate/frame/aura" }
 pallet-timestamp = { path = "../substrate/frame/timestamp" }
 
