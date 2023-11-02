@@ -221,7 +221,8 @@ struct RuntimeGenesisInner {
 	json_blob: RuntimeGenesisConfigJson,
 }
 
-/// Represents two possible variants of the contained JSON blob for the [`Genesis<G>::RuntimeGenesis`] format.
+/// Represents two possible variants of the contained JSON blob for the
+/// [`Genesis<G>::RuntimeGenesis`] format.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 enum RuntimeGenesisConfigJson {
@@ -240,8 +241,8 @@ enum RuntimeGenesisConfigJson {
 #[serde(deny_unknown_fields)]
 enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
-	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`) and the
-	/// runtime code.
+	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
+	/// and the runtime code.
 	Runtime(G, Vec<u8>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
