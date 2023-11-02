@@ -32,14 +32,14 @@ pub use pallet_balances;
 
 // Cumulus
 pub use cumulus_pallet_xcmp_queue;
-pub use xcm_emulator::{Chain, OnHooks};
+pub use xcm_emulator::{Chain, ()};
 use xcm_emulator::{
 	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
 	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor,
 };
 
 // Polkadot
-pub use pallet_xcm::{Chain, OnHook};
+pub use pallet_xcm::{Chain};
 pub use xcm::prelude::{AccountId32, WeightLimit};
 
 decl_test_relay_chains! {
@@ -59,7 +59,7 @@ decl_test_relay_chains! {
 			Treasury: westend_runtime::Treasury,
 			AssetRate: westend_runtime::AssetRate,
 		},
-		hooks = OnHooks
+		hooks = () 
 	},
 	#[api_version(8)]
 	pub struct Rococo {
@@ -76,7 +76,7 @@ decl_test_relay_chains! {
 			Balances: rococo_runtime::Balances,
 			Hrmp: rococo_runtime::Hrmp,
 		},
-		hooks = OnHooks
+		hooks = ()
 	},
 	#[api_version(8)]
 	pub struct Wococo {
@@ -92,7 +92,7 @@ decl_test_relay_chains! {
 			Sudo: rococo_runtime::Sudo,
 			Balances: rococo_runtime::Balances,
 		},
-		hooks = OnHooks
+		hooks = ()
 	}
 }
 
@@ -118,7 +118,7 @@ decl_test_parachains! {
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 		},
-		hooks = OnHooks
+		hooks = ()
 
 	},
 	pub struct PenpalWestendA {
@@ -138,7 +138,7 @@ decl_test_parachains! {
 			Assets: penpal_runtime::Assets,
 			Balances: penpal_runtime::Balances,
 		},
-		hooks = OnHooks
+		hooks = ()
 	},
 	// Rococo Parachains
 	pub struct BridgeHubRococo {
@@ -157,7 +157,7 @@ decl_test_parachains! {
 			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
 			Balances: bridge_hub_rococo_runtime::Balances,
 		},
-		hooks = OnHooks
+		hooks = ()
 	},
 	// AssetHubRococo
 	pub struct AssetHubRococo {
@@ -180,7 +180,7 @@ decl_test_parachains! {
 			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
 			Balances: asset_hub_rococo_runtime::Balances,
 		},
-		hooks = OnHooks
+		hooks = ()
 	},
 	pub struct PenpalRococoA {
 		genesis = penpal::genesis(penpal::PARA_ID_A),
@@ -198,7 +198,7 @@ decl_test_parachains! {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
 		},
-		hooks = OnHooks
+		hooks = ()
 	},
 	pub struct PenpalRococoB {
 		genesis = penpal::genesis(penpal::PARA_ID_B),
@@ -216,7 +216,7 @@ decl_test_parachains! {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
 		},
-		hooks = OnHooks
+		hooks = ()
 	},
 	// Wococo Parachains
 	pub struct BridgeHubWococo {
@@ -235,7 +235,7 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
 		},
-		hooks = OnHooks
+		hooks = ()
 	},
 	pub struct AssetHubWococo {
 		genesis = asset_hub_wococo::genesis(),
@@ -258,7 +258,7 @@ decl_test_parachains! {
 			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
 			Balances: asset_hub_rococo_runtime::Balances,
 		},
-		hooks = OnHooks
+		hooks = ()
 	}
 }
 

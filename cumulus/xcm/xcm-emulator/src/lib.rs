@@ -214,6 +214,13 @@ pub trait OnHooks {
 	fn on_finalize(n: BlockNumber);
 }
 
+impl OnHooks for () {
+	fn on_initialize(_n: BlockNumber) -> Weight {
+		Weight::default()
+	}
+	fn on_finalize(_n: BlockNumber) {}
+}
+
 pub trait Chain: TestExt + NetworkComponent {
 	type Runtime: SystemConfig;
 	type RuntimeCall;
@@ -406,14 +413,10 @@ macro_rules! decl_test_relay_chains {
 					)?
 				}
 			}
-			let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
-			<$name as Chain>::Hooks::on_initialize(relay_block_number);
 
 			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init, $api_version);
 			$crate::__impl_check_assertion!($name);
 
-			let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
-			<$name as Chain>::Hooks::on_finalize(relay_block_number)
 		)+
 	};
 }
@@ -711,14 +714,8 @@ macro_rules! decl_test_parachains {
 				}
 			}
 
-			let block_number = <Self as $crate::Chain>::System::block_number();
-			<$name as Hooks>::on_initialize(block_number);
-
 			$crate::__impl_test_ext_for_parachain!($name, $genesis, $on_init);
 			$crate::__impl_check_assertion!($name);
-
-			let block_number = <Self as $crate::Chain>::System::block_number();
-			<$name as Hooks>::on_finalize(block_number);
 		)+
 	};
 }
