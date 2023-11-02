@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! UI tests for XCM procedural macros
+
 #[cfg(not(feature = "disable-ui-tests"))]
 #[test]
 fn ui() {

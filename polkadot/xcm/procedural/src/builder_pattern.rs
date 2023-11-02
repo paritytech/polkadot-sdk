@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! UI tests for XCM procedural macros
+//! Derive macro for creating XCMs with a builder pattern
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
