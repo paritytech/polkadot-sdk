@@ -335,7 +335,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// just use exporter to validate destination and insert instructions to pay message fee
 		// at the sibling/child bridge hub
 		//
-		// the cost will include both cost of: (1) to-sibling bridg hub delivery (returned by
+		// the cost will include both cost of: (1) to-sibling bridge hub delivery (returned by
 		// the `Config::ToBridgeHubSender`) and (2) to-bridged bridge hub delivery (returned by
 		// `Self::exporter_for`)
 		ViaBridgeHubExporter::<T, I>::validate(dest, xcm)

@@ -526,7 +526,8 @@ impl FeeManager for TestFeeManager {
 	fn is_waived(_: Option<&Location>, r: FeeReason) -> bool {
 		IS_WAIVED.with(|l| l.borrow().contains(&r))
 	}
-	fn handle_fee(_: Assets, _: Option<&XcmContext>) {}
+
+	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]

@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Bridge definitions used on BridgeHub with the Rococo flavor.
+//! Bridge definitions used on BridgeHub with the Rococo flavor for bridging to BridgeHubWococo.
 
 use crate::{
 	bridge_common_config::{BridgeParachainWococoInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeRococoToWococoMessages, ParachainInfo, Runtime, RuntimeEvent,
-	RuntimeOrigin, XcmRouter,
+	weights, AccountId, BridgeWococoMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -57,21 +57,24 @@ parameter_types! {
 	pub BridgeRococoToWococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoToWococoMessages as PalletInfoAccess>::index() as u8)].into();
 	pub BridgeHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub WococoGlobalConsensusNetwork: NetworkId = NetworkId::Wococo;
-	pub ActiveOutboundLanesToBridgeHubWococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO];
+	pub ActiveOutboundLanesToBridgeHubWococo: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO];
+	pub const AssetHubRococoToAssetHubWococoMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
+	pub AssetHubWococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID.into();
 
 	pub FromAssetHubRococoToAssetHubWococoRoute: SenderAndLane = SenderAndLane::new(
 		ParentThen([Parachain(AssetHubRococoParaId::get().into())].into()).into(),
-		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
+		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO,
 	);
 
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
 
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
 }
+pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO: LaneId = LaneId([0, 0, 0, 1]);
 
 fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instruction<Call>> {
 	sp_std::vec![
@@ -100,7 +103,7 @@ pub type ToWococoBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_wococo::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-pub type OnBridgeHubRococoBlobDispatcher = BridgeBlobDispatcher<
+type FromWococoMessageBlobDispatcher = BridgeBlobDispatcher<
 	XcmRouter,
 	BridgeHubRococoUniversalLocation,
 	BridgeRococoToWococoMessagesPalletInstance,
@@ -118,20 +121,19 @@ impl XcmBlobHauler for ToBridgeHubWococoXcmBlobHauler {
 	type MessagesInstance = WithBridgeHubWococoMessagesInstance;
 	type SenderAndLane = FromAssetHubRococoToAssetHubWococoRoute;
 
-	type ToSourceChainSender = crate::XcmRouter;
+	type ToSourceChainSender = XcmRouter;
 	type CongestedMessage = CongestedMessage;
 	type UncongestedMessage = UncongestedMessage;
 }
-pub const DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO: LaneId = LaneId([0, 0, 0, 1]);
 
 /// On messages delivered callback.
-pub type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>;
+type OnMessagesDeliveredFromWococo = XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>;
 
 /// Messaging Bridge configuration for BridgeHubRococo -> BridgeHubWococo
 pub struct WithBridgeHubWococoMessageBridge;
 impl MessageBridge for WithBridgeHubWococoMessageBridge {
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME;
+		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME;
 	type ThisChain = BridgeHubRococo;
 	type BridgedChain = BridgeHubWococo;
 	type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
@@ -172,21 +174,20 @@ impl ThisChainWithMessages for BridgeHubRococo {
 }
 
 /// Signed extension that refunds relayers that are delivering messages from the Wococo parachain.
-pub type BridgeRefundBridgeHubWococoMessages = RefundSignedExtensionAdapter<
+pub type OnBridgeHubRococoRefundBridgeHubWococoMessages = RefundSignedExtensionAdapter<
 	RefundBridgedParachainMessages<
 		Runtime,
 		RefundableParachain<BridgeParachainWococoInstance, bp_bridge_hub_wococo::BridgeHubWococo>,
-		RefundableMessagesLane<WithBridgeHubWococoMessagesInstance, BridgeHubWococoMessagesLane>,
+		RefundableMessagesLane<
+			WithBridgeHubWococoMessagesInstance,
+			AssetHubRococoToAssetHubWococoMessagesLane,
+		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
-		StrBridgeRefundBridgeHubWococoMessages,
+		StrOnBridgeHubRococoRefundBridgeHubWococoMessages,
 	>,
 >;
-bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubWococoMessages);
-
-parameter_types! {
-	pub const BridgeHubWococoMessagesLane: bp_messages::LaneId = DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO;
-}
+bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWococoMessages);
 
 /// Add XCM messages support for BridgeHubRococo to support Rococo->Wococo XCM messages
 pub type WithBridgeHubWococoMessagesInstance = pallet_bridge_messages::Instance1;
@@ -215,14 +216,14 @@ impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Run
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
 	type MessageDispatch = XcmBlobMessageDispatch<
-		OnBridgeHubRococoBlobDispatcher,
+		FromWococoMessageBlobDispatcher,
 		Self::WeightInfo,
 		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
 			AssetHubRococoParaId,
 			Runtime,
 		>,
 	>;
-	type OnMessagesDelivered = OnMessagesDelivered;
+	type OnMessagesDelivered = OnMessagesDeliveredFromWococo;
 }
 
 #[cfg(test)]
@@ -294,10 +295,10 @@ mod tests {
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:
-					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME,
 				with_bridged_chain_grandpa_pallet_name: bp_wococo::WITH_WOCOCO_GRANDPA_PALLET_NAME,
 				with_bridged_chain_messages_pallet_name:
-					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME,
 			},
 		});
 
