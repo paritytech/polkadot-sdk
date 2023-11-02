@@ -152,7 +152,6 @@ impl<T: Config> Get<u32> for MaxVestingSchedulesGet<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_support::dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
@@ -449,7 +448,7 @@ pub mod pallet {
 
 			// Efficiently get the number of vesting schedules for `who`
 			let schedules_count = Vesting::<T>::decode_len(&who).unwrap_or_default();
-			Self::remove_vesting_schedule(&who, schedule_index).map_err(|e| Error::<T>::NotVesting)?;
+			Self::remove_vesting_schedule(&who, schedule_index).map_err(|_| Error::<T>::NotVesting)?;
 
 			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(
 				schedules_count as u32,
