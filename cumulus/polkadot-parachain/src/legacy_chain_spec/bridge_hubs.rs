@@ -493,11 +493,10 @@ pub mod kusama {
 	}
 }
 
-
 /// Sub-module for Westend setup.
 pub mod westend {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	use crate::legacy_chain_spec::{Extensions, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 
@@ -572,7 +571,7 @@ pub mod westend {
 			Some(properties),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 			bridge_hub_westend_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
+				.expect("WASM binary was not build, please build it!"),
 		)
 	}
 

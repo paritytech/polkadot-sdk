@@ -504,10 +504,9 @@ pub mod westend {
 		properties.insert("tokenSymbol".into(), "WND".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-
 		BridgeHubChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
+				.expect("WASM binary was not build, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
@@ -555,14 +554,14 @@ pub mod westend {
 		bridges_pallet_owner: Option<AccountId>,
 	) -> serde_json::Value {
 		serde_json::json!({
-			"balances": bridge_hub_westend_runtime::BalancesConfig {
-				"balances": endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+			"balances": {
+				"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 			},
 			"parachainInfo": {
 				"parachainId": id,
 			},
 			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
 				"candidacy_bond": BRIDGE_HUB_WESTEND_ED * 16,
 			},
 			"session": {
@@ -575,7 +574,7 @@ pub mod westend {
 							bridge_hub_westend_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
 			"polkadotXcm": {
 				"safeXcmVersion": Some(SAFE_XCM_VERSION),
