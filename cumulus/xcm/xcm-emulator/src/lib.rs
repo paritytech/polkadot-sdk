@@ -363,7 +363,7 @@ macro_rules! decl_test_relay_chains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				},
-				hooks = $on_hooks:expr,
+				hooks = $on_hooks:ident,
 			}
 		),
 		+
