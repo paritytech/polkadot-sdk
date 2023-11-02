@@ -31,7 +31,7 @@ pub enum PrepareError {
 	Preparation(String),
 	/// Instantiation of the WASM module instance failed.
 	RuntimeConstruction(String),
-	/// An unexpected panic has occurred in the preparation worker.
+	/// An unexpected panic has occurred in the preparation job.
 	Panic(String),
 	/// Failed to prepare the PVF due to the time limit.
 	TimedOut,
@@ -72,13 +72,14 @@ impl PrepareError {
 		use PrepareError::*;
 		match self {
 			Prevalidation(_) | Preparation(_) | Panic(_) => true,
-			TimedOut |
 			IoErr(_) |
 			JobDied |
 			CreateTmpFile(_) |
 			RenameTmpFile { .. } |
 			ClearWorkerDir(_) |
 			Kernel(_) => false,
+			// Can occur due to issues with the PVF, but also due to factors like local load.
+			TimedOut => false,
 			// Can occur due to issues with the PVF, but also due to local errors.
 			RuntimeConstruction(_) => false,
 		}

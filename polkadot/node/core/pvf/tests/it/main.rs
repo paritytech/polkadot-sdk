@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+#[allow(unused_imports)]
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
@@ -186,14 +187,9 @@ fn kill_by_sid_and_name(sid: i32, exe_name: &'static str, is_direct_child: bool)
 		}
 		// The workers are direct children of the current process, the worker job processes are not
 		// (they are children of the workers).
-		if is_direct_child {
-			if stat.ppid as u32 != std::process::id() {
-				continue
-			}
-		} else {
-			if stat.ppid as u32 == std::process::id() {
-				continue
-			}
+		let process_is_direct_child = stat.ppid as u32 == std::process::id();
+		if is_direct_child != process_is_direct_child {
+			continue
 		}
 
 		assert_eq!(unsafe { libc::kill(process.pid(), 9) }, 0);
