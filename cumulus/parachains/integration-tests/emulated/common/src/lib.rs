@@ -269,7 +269,7 @@ decl_test_networks! {
 			AssetHubWestend,
 			PenpalWestendA,
 		],
-		bridge = (),
+		bridge = ()
 	},
 	pub struct RococoMockNet {
 		relay_chain = Rococo,
