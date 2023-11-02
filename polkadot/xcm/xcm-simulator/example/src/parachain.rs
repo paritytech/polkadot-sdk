@@ -399,13 +399,6 @@ impl mock_msg_queue::Config for Runtime {
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = None;
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = None;
-}
-
 pub struct TrustedLockerCase<T>(PhantomData<T>);
 impl<T: Get<(MultiLocation, MultiAssetFilter)>> ContainsPair<MultiLocation, MultiAsset>
 	for TrustedLockerCase<T>
@@ -446,12 +439,6 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

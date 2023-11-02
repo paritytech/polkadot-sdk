@@ -386,6 +386,7 @@ pub mod asset_hub_westend {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
 	pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+	const ENDOWMENT: u128 = ED * 4096;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
@@ -399,7 +400,7 @@ pub mod asset_hub_westend {
 				balances: accounts::init_balances()
 					.iter()
 					.cloned()
-					.map(|k| (k, ED * 4096))
+					.map(|k| (k, ENDOWMENT))
 					.collect(),
 			},
 			parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
@@ -442,6 +443,7 @@ pub mod asset_hub_rococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
 	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+	const ENDOWMENT: u128 = ED * 4096 * 4096;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
@@ -455,7 +457,7 @@ pub mod asset_hub_rococo {
 				balances: accounts::init_balances()
 					.iter()
 					.cloned()
-					.map(|k| (k, ED * 4096 * 4096))
+					.map(|k| (k, ENDOWMENT))
 					.collect(),
 			},
 			parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
@@ -498,6 +500,7 @@ pub mod asset_hub_wococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
 	pub const ED: Balance = parachains_common::wococo::currency::EXISTENTIAL_DEPOSIT;
+	const ENDOWMENT: u128 = ED * 4096;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
@@ -511,7 +514,7 @@ pub mod asset_hub_wococo {
 				balances: accounts::init_balances()
 					.iter()
 					.cloned()
-					.map(|k| (k, ED * 4096))
+					.map(|k| (k, ENDOWMENT))
 					.collect(),
 			},
 			parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
@@ -556,6 +559,7 @@ pub mod penpal {
 	pub const PARA_ID_A: u32 = 2000;
 	pub const PARA_ID_B: u32 = 2001;
 	pub const ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
+	const ENDOWMENT: u128 = ED * 4096;
 
 	pub fn genesis(para_id: u32) -> Storage {
 		let genesis_config = penpal_runtime::RuntimeGenesisConfig {
@@ -569,7 +573,7 @@ pub mod penpal {
 				balances: accounts::init_balances()
 					.iter()
 					.cloned()
-					.map(|k| (k, ED * 4096))
+					.map(|k| (k, ENDOWMENT))
 					.collect(),
 			},
 			parachain_info: penpal_runtime::ParachainInfoConfig {
@@ -616,6 +620,7 @@ pub mod bridge_hub_rococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1013;
 	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+	const ENDOWMENT: u128 = ED * 4096;
 
 	pub fn genesis() -> Storage {
 		let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
@@ -629,7 +634,7 @@ pub mod bridge_hub_rococo {
 				balances: accounts::init_balances()
 					.iter()
 					.cloned()
-					.map(|k| (k, ED * 4096))
+					.map(|k| (k, ENDOWMENT))
 					.collect(),
 			},
 			parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {

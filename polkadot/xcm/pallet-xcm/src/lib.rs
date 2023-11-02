@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -42,7 +42,7 @@ use sp_runtime::{
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_executor::traits::{
-	AssetTransferError, AssetTransferSupport, ConvertOrigin, Properties, TransferType,
+	AssetTransferError, ConvertOrigin, Properties, TransferType, XcmAssetTransfers,
 };
 
 use frame_support::{
@@ -208,7 +208,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + AssetTransferSupport;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -261,26 +261,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// A `MultiLocation` that can be reached via `XcmRouter`. Used only in benchmarks.
-		///
-		/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
-		#[cfg(feature = "runtime-benchmarks")]
-		type ReachableDest: Get<Option<MultiLocation>>;
-
-		/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
-		/// be teleported to. Used only in benchmarks.
-		///
-		/// If `None`, the benchmarks that depend on `TeleportableAssets` will be skipped.
-		#[cfg(feature = "runtime-benchmarks")]
-		type TeleportableAssets: Get<Option<(MultiAssets, MultiLocation)>>;
-
-		/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
-		/// be reserve-transferred to. Used only in benchmarks.
-		///
-		/// If `None`, the benchmarks that depend on `ReserveTransferableAssets` will be skipped.
-		#[cfg(feature = "runtime-benchmarks")]
-		type ReserveTransferableAssets: Get<Option<(MultiAssets, MultiLocation)>>;
 	}
 
 	#[pallet::event]
@@ -1239,8 +1219,7 @@ impl<T: Config> Pallet<T> {
 				ensure!(!x.is_zero(), Error::<T>::Empty);
 			}
 			let transfer_type =
-				<T::XcmExecutor as AssetTransferSupport>::determine_for(&asset, dest)
-					.map_err(Error::<T>::from)?;
+				T::XcmExecutor::determine_for(&asset, dest).map_err(Error::<T>::from)?;
 			// Ensure asset is not teleportable to `dest`.
 			ensure!(transfer_type != TransferType::Teleport, Error::<T>::Filtered);
 			if let Some(reserve) = reserve.as_ref() {
@@ -1279,8 +1258,7 @@ impl<T: Config> Pallet<T> {
 		}
 		let fees = assets.swap_remove(fee_asset_item as usize);
 		let fees_transfer_type =
-			<T::XcmExecutor as AssetTransferSupport>::determine_for(&fees, &dest)
-				.map_err(Error::<T>::from)?;
+			T::XcmExecutor::determine_for(&fees, &dest).map_err(Error::<T>::from)?;
 		let assets_transfer_type = if assets.is_empty() {
 			// Single asset to transfer (one used for fees where transfer type is determined above).
 			ensure!(fees_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
@@ -1352,8 +1330,7 @@ impl<T: Config> Pallet<T> {
 		let (origin_location, assets) = value;
 		for asset in assets.iter() {
 			let transfer_type =
-				<T::XcmExecutor as AssetTransferSupport>::determine_for(asset, &dest)
-					.map_err(Error::<T>::from)?;
+				T::XcmExecutor::determine_for(asset, &dest).map_err(Error::<T>::from)?;
 			ensure!(matches!(transfer_type, TransferType::Teleport), Error::<T>::Filtered);
 		}
 		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
@@ -1504,7 +1481,7 @@ impl<T: Config> Pallet<T> {
 						ClearOrigin,
 						// buy exec using `fees` in holding deposited in top instruction here
 						BuyExecution { fees: reanchored_fees, weight_limit },
-						// deposit all assets in holding to `beneficiary` account(s)
+						// deposit all assets in holding to `beneficiary` location
 						DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
 					]
 					.into_iter(),
@@ -1658,13 +1635,13 @@ impl<T: Config> Pallet<T> {
 		// be in error, there would need to be an accounting violation by ourselves,
 		// so it's unlikely, but we don't want to allow that kind of bug to leak into
 		// a trusted chain.
-		<T::XcmExecutor as AssetTransferSupport>::AssetTransactor::can_check_out(
+		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::can_check_out(
 			&dest,
 			&fees,
 			&dummy_context,
 		)
 		.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
-		<T::XcmExecutor as AssetTransferSupport>::AssetTransactor::check_out(
+		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::check_out(
 			&dest,
 			&fees,
 			&dummy_context,

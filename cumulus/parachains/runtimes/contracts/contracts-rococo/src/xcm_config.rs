@@ -41,7 +41,7 @@ use xcm_builder::{
 	NativeAsset, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
+	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -51,7 +51,7 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
-	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
@@ -199,7 +199,10 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = ConstU32<8>;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
@@ -222,21 +225,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-	// Relay/native token can be teleported to Relay.
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
-		Parent.into(),
-	));
-	// Act as reserve for native token when sending to random parachain.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
-		Parachain(4321).into(),
-	));
-}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -267,12 +255,6 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

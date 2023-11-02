@@ -467,21 +467,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	XcmpQueue,
 )>;
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-	// Relay/native token can be teleported to/from Relay.
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
-		Parent.into(),
-	));
-	// We can reserve transfer some AH local token to/from AH.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(SystemAssetHubLocation::get()) }.into(),
-		SystemAssetHubLocation::get(),
-	));
-}
-
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -506,12 +491,6 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

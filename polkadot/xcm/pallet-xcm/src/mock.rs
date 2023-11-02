@@ -35,9 +35,9 @@ use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
-	DescribeFamily, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription,
-	IsConcrete, MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, XcmFeesToAccount,
+	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription, IsConcrete,
+	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -320,6 +320,9 @@ impl pallet_assets::Config for Test {
 	type BenchmarkHelper = XcmBenchmarkHelper;
 }
 
+// This child parachain is a system parachain trusted to teleport native token.
+pub const SOME_SYSTEM_PARA: u32 = 1001;
+
 // This child parachain acts as trusted reserve for its assets in tests.
 // USDT allowed to teleport to/from here.
 pub const FOREIGN_ASSET_RESERVE_PARA_ID: u32 = 2001;
@@ -340,6 +343,14 @@ pub const OTHER_PARA_ID: u32 = 2009;
 
 parameter_types! {
 	pub const RelayLocation: MultiLocation = Here.into_location();
+	pub const NativeAsset: MultiAsset = MultiAsset {
+		fun: Fungible(10),
+		id: Concrete(Here.into_location()),
+	};
+	pub const SystemParachainLocation: MultiLocation = MultiLocation {
+		parents: 0,
+		interior: X1(Parachain(SOME_SYSTEM_PARA))
+	};
 	pub const ForeignReserveLocation: MultiLocation = MultiLocation {
 		parents: 0,
 		interior: X1(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID))
@@ -382,7 +393,7 @@ parameter_types! {
 pub type SovereignAccountOf = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	AccountId32Aliases<AnyNetwork, AccountId>,
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	HashedDescription<AccountId, DescribeAllTerminal>,
 );
 
 pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
@@ -417,10 +428,11 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
 	pub TrustedLocal: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
-	pub TrustedUsdt: (MultiAssetFilter, MultiLocation) = (vec![Usdt::get()].into(), UsdtTeleportLocation::get());
-	pub TeleportUsdtToForeign: (MultiAssetFilter, MultiLocation) = (vec![Usdt::get()].into(), ForeignReserveLocation::get());
-	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (vec![ForeignAsset::get()].into(), ForeignReserveLocation::get());
-	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (vec![Usdc::get()].into(), UsdcReserveLocation::get());
+	pub TrustedSystemPara: (MultiAssetFilter, MultiLocation) = (NativeAsset::get().into(), SystemParachainLocation::get());
+	pub TrustedUsdt: (MultiAssetFilter, MultiLocation) = (Usdt::get().into(), UsdtTeleportLocation::get());
+	pub TeleportUsdtToForeign: (MultiAssetFilter, MultiLocation) = (Usdt::get().into(), ForeignReserveLocation::get());
+	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
+	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (Usdc::get().into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub XcmFeesTargetAccount: AccountId = AccountId::new([167u8; 32]);
@@ -449,7 +461,12 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
-	type IsTeleporter = (Case<TrustedLocal>, Case<TrustedUsdt>, Case<TeleportUsdtToForeign>);
+	type IsTeleporter = (
+		Case<TrustedLocal>,
+		Case<TrustedSystemPara>,
+		Case<TrustedUsdt>,
+		Case<TeleportUsdtToForeign>,
+	);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
@@ -462,11 +479,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeesToAccount<
-		Self,
+	type FeeManager = XcmFeeManagerFromComponents<
 		EverythingBut<XcmFeesNotWaivedLocations>,
-		AccountId,
-		XcmFeesTargetAccount,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, XcmFeesTargetAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
@@ -479,19 +494,6 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, A
 
 parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 3;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		vec![Usdt::get()].into(),
-		UsdtTeleportLocation::get(),
-	));
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		vec![ForeignAsset::get()].into(),
-		ForeignReserveLocation::get(),
-	));
 }
 
 impl pallet_xcm::Config for Test {
@@ -518,12 +520,6 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl origin::Config for Test {}
@@ -532,6 +528,24 @@ impl pallet_test_notifier::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl super::benchmarking::Config for Test {
+	fn reachable_dest() -> Option<MultiLocation> {
+		Some(Parachain(1000).into())
+	}
+
+	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+		Some((NativeAsset::get(), SystemParachainLocation::get()))
+	}
+
+	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+		Some((
+			MultiAsset { fun: Fungible(10), id: Concrete(Here.into_location()) },
+			Parachain(OTHER_PARA_ID).into(),
+		))
+	}
 }
 
 pub(crate) fn last_event() -> RuntimeEvent {

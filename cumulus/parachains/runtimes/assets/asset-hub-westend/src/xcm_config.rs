@@ -52,7 +52,7 @@ use xcm_builder::{
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -73,7 +73,7 @@ parameter_types! {
 	pub PoolAssetsPalletLocation: MultiLocation =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
@@ -562,7 +562,10 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
@@ -584,21 +587,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-	// Relay/native token can be teleported between AH and Relay.
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
-		Parent.into(),
-	));
-	// We can reserve transfer some local token to Relay.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Here.into()) }.into(),
-		Parent.into(),
-	));
-}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -628,12 +616,6 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

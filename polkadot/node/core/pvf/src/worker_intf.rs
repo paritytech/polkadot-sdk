@@ -245,7 +245,7 @@ pub enum SpawnErr {
 /// has been terminated. Since the worker is running in another process it is obviously not
 /// necessary to poll this future to make the worker run, it's only for termination detection.
 ///
-/// This future relies on the fact that a child process's stdout `fd` is closed upon it's
+/// This future relies on the fact that a child process's stdout `fd` is closed upon its
 /// termination.
 #[pin_project]
 pub struct WorkerHandle {
@@ -269,6 +269,9 @@ impl WorkerHandle {
 			let mut args = vec![];
 			if security_status.can_enable_landlock {
 				args.push("--can-enable-landlock".to_string());
+			}
+			if security_status.can_enable_seccomp {
+				args.push("--can-enable-seccomp".to_string());
 			}
 			if security_status.can_unshare_user_namespace_and_change_root {
 				args.push("--can-unshare-user-namespace-and-change-root".to_string());

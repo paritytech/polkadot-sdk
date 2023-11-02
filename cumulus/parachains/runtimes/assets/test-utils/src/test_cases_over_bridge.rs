@@ -16,14 +16,12 @@
 //! Module contains predefined test-case scenarios for `Runtime` with various assets transferred
 //! over a bridge.
 
-use crate::assert_matches_reserve_asset_deposited_instructions;
+use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_ok,
-	traits::{
-		fungible::Mutate, Currency, Get, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError,
-	},
+	traits::{Currency, Get, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
@@ -62,6 +60,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 	prepare_configuration: fn() -> TestBridgingConfig,
 	weight_limit: WeightLimit,
 	maybe_paid_export_message: Option<AssetId>,
+	delivery_fees_account: Option<AccountIdOf<Runtime>>,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -127,9 +126,13 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				&alice,
 			);
 
-			// drip ED to account
+			// we calculate exact delivery fees _after_ sending the message by weighing the sent
+			// xcm, and this delivery fee varies for different runtimes, so just add enough buffer,
+			// then verify the arithmetics check out on final balance.
+			let delivery_fees_buffer = 40_000_000_000u128;
+			// drip ED + transfer_amount + delivery_fees_buffer to Alice account
 			let alice_account_init_balance =
-				existential_deposit.saturating_mul(2.into()) + balance_to_transfer.into();
+				existential_deposit + balance_to_transfer.into() + delivery_fees_buffer.into();
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
 				&alice_account,
 				alice_account_init_balance,
@@ -153,6 +156,11 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				existential_deposit
 			);
 
+			let delivery_fees_account_balance_before = delivery_fees_account
+				.as_ref()
+				.map(|dfa| <pallet_balances::Pallet<Runtime>>::free_balance(dfa))
+				.unwrap_or(0.into());
+
 			// local native asset (pallet_balances)
 			let asset_to_transfer = MultiAsset {
 				fun: Fungible(balance_to_transfer.into()),
@@ -168,12 +176,6 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				}),
 			};
 
-			// Make sure sender has enough funds for paying delivery fees
-			// TODO: Get this fee via weighing the corresponding message
-			let delivery_fees = 1324039894;
-			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
-				.unwrap();
-
 			let assets_to_transfer = MultiAssets::from(asset_to_transfer);
 			let mut expected_assets = assets_to_transfer.clone();
 			let context = XcmConfig::UniversalLocation::get();
@@ -182,6 +184,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				.unwrap();
 
 			let expected_beneficiary = target_destination_account;
+
 			// do pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
@@ -224,6 +227,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			// check sent XCM ExportMessage to BridgeHub
 
+			let mut delivery_fees = 0;
 			// 1. check paid or unpaid
 			if let Some(expected_fee_asset_id) = maybe_paid_export_message {
 				xcm_sent
@@ -264,6 +268,10 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 							.split_global()
 							.expect("split works");
 					assert_eq!(destination, &target_location_junctions_without_global_consensus);
+					// Call `SendXcm::validate` to get delivery fees.
+					delivery_fees = get_fungible_delivery_fees::<
+						<XcmConfig as xcm_executor::Config>::XcmSender,
+					>(target_location_from_different_consensus, inner_xcm.clone());
 					assert_matches_reserve_asset_deposited_instructions(
 						inner_xcm,
 						&expected_assets,
@@ -278,15 +286,26 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			// check alice account decreased by balance_to_transfer
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
-				alice_account_init_balance - balance_to_transfer.into()
+				alice_account_init_balance
+					.saturating_sub(balance_to_transfer.into())
+					.saturating_sub(delivery_fees.into())
 			);
 
-			// check reserve account
 			// check reserve account increased by balance_to_transfer
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
 				existential_deposit + balance_to_transfer.into()
 			);
+
+			// check dedicated account increased by delivery fees (if configured)
+			if let Some(delivery_fees_account) = delivery_fees_account {
+				let delivery_fees_account_balance_after =
+					<pallet_balances::Pallet<Runtime>>::free_balance(&delivery_fees_account);
+				assert!(
+					delivery_fees_account_balance_after - delivery_fees.into() >=
+						delivery_fees_account_balance_before
+				);
+			}
 		})
 }
 
@@ -516,21 +535,11 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	HrmpChannelOpener,
-	HrmpChannelSource,
 	LocationToAccountId,
 	XcmBridgeHubRouterInstance,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
-	existential_deposit: BalanceOf<Runtime>,
-	alice_account: AccountIdOf<Runtime>,
-	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
-	unwrap_xcmp_queue_event: Box<
-		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
-	>,
 	prepare_configuration: fn() -> TestBridgingConfig,
-	weight_limit: WeightLimit,
-	maybe_paid_export_message: Option<AssetId>,
 	congested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
 	uncongested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
 ) where
@@ -556,10 +565,6 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
 	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
-	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
-		Call = cumulus_pallet_parachain_system::Call<Runtime>,
-	>,
-	HrmpChannelSource: XcmpMessageSource,
 	XcmBridgeHubRouterInstance: 'static,
 {
 	ExtBuilder::<Runtime>::default()
@@ -568,25 +573,6 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			// check transfer works
-			limited_reserve_transfer_assets_for_native_asset_works::<
-				Runtime,
-				AllPalletsWithoutSystem,
-				XcmConfig,
-				HrmpChannelOpener,
-				HrmpChannelSource,
-				LocationToAccountId,
-			>(
-				collator_session_keys,
-				existential_deposit,
-				alice_account,
-				unwrap_pallet_xcm_event,
-				unwrap_xcmp_queue_event,
-				prepare_configuration,
-				weight_limit,
-				maybe_paid_export_message,
-			);
-
 			let report_bridge_status = |is_congested: bool| {
 				// prepare bridge config
 				let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();

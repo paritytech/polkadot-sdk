@@ -255,7 +255,7 @@ impl pallet_babe::Config for Runtime {
 	type WeightInfo = ();
 
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominatorRewardedPerValidator;
+	type MaxNominators = MaxNominators;
 
 	type KeyOwnerProof =
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
@@ -306,7 +306,7 @@ parameter_types! {
 impl pallet_beefy::Config for Runtime {
 	type BeefyId = BeefyId;
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominatorRewardedPerValidator;
+	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = BeefyMmrLeaf;
 	type WeightInfo = ();
@@ -645,7 +645,11 @@ parameter_types! {
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-	pub const MaxNominatorRewardedPerValidator: u32 = 64;
+	pub const MaxExposurePageSize: u32 = 64;
+	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
+	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
+	// of nominators.
+	pub const MaxNominators: u32 = 64;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
@@ -665,7 +669,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type MaxExposurePageSize = MaxExposurePageSize;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;
@@ -688,8 +692,6 @@ impl pallet_fast_unstake::Config for Runtime {
 	type ControlOrigin = EnsureRoot<AccountId>;
 	type Staking = Staking;
 	type MaxErasToCheckPerBlock = ConstU32<1>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type MaxBackersPerValidator = MaxNominatorRewardedPerValidator;
 	type WeightInfo = weights::pallet_fast_unstake::WeightInfo<Runtime>;
 }
 
@@ -788,7 +790,7 @@ impl pallet_grandpa::Config for Runtime {
 
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominatorRewardedPerValidator;
+	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
@@ -1349,6 +1351,10 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = MaxPointsToBalance;
 }
 
+impl pallet_root_testing::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 parameter_types! {
 	// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
 	pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
@@ -1483,6 +1489,9 @@ construct_runtime! {
 
 		// Asset rate.
 		AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event<T>} = 101,
+
+		// Root testing pallet.
+		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 102,
 	}
 }
 
@@ -1540,6 +1549,7 @@ pub mod migrations {
 	pub type Unreleased = (
 		pallet_im_online::migration::v1::Migration<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
+		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
 		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
@@ -1616,7 +1626,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_asset_rate, AssetRate]
 		// XCM
-		[pallet_xcm, XcmPallet]
+		[pallet_xcm, PalletXcmExtrinsiscsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
@@ -2093,9 +2103,13 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_staking_runtime_api::StakingApi<Block, Balance> for Runtime {
+	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
 		fn nominations_quota(balance: Balance) -> u32 {
 			Staking::api_nominations_quota(balance)
+		}
+
+		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
+			Staking::api_eras_stakers_page_count(era, account)
 		}
 	}
 
@@ -2131,6 +2145,7 @@ sp_api::impl_runtime_apis! {
 			use pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as ElectionProviderBench;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
@@ -2158,12 +2173,37 @@ sp_api::impl_runtime_apis! {
 			use pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as ElectionProviderBench;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
 			impl pallet_session_benchmarking::Config for Runtime {}
 			impl pallet_offences_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
+			impl pallet_xcm::benchmarking::Config for Runtime {
+				fn reachable_dest() -> Option<MultiLocation> {
+					Some(crate::xcm_config::AssetHub::get())
+				}
+
+				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+					// Relay/native token can be teleported to/from AH.
+					Some((
+						MultiAsset { fun: Fungible(EXISTENTIAL_DEPOSIT), id: Concrete(Here.into()) },
+						crate::xcm_config::AssetHub::get(),
+					))
+				}
+
+				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+					// Relay can reserve transfer native token to some random parachain.
+					Some((
+						MultiAsset {
+							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							id: Concrete(Here.into())
+						},
+						crate::Junction::Parachain(43211234).into(),
+					))
+				}
+			}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 			impl runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}

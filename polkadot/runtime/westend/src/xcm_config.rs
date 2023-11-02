@@ -44,7 +44,7 @@ use xcm_builder::{
 	DescribeFamily, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -54,7 +54,7 @@ parameter_types! {
 	pub const UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
-	pub TreasuryAccount: Option<AccountId> = Some(Treasury::account_id());
+	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
 	/// The base fee for the message delivery fees.
@@ -119,21 +119,6 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(ASSET_HUB_ID).into());
-	// Relay/native token can be teleported to/from AH.
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Here.into()) }.into(),
-		AssetHub::get(),
-	));
-	// We can reserve transfer native token to some random parachain.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Here.into()) }.into(),
-		Parachain(4321).into(),
-	));
-}
-
 pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
 	xcm_builder::Case<WndForCollectives>,
@@ -195,7 +180,10 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeesToAccount<Self, SystemParachains, AccountId, TreasuryAccount>;
+	type FeeManager = XcmFeeManagerFromComponents<
+		SystemParachains,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
@@ -273,10 +261,4 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
