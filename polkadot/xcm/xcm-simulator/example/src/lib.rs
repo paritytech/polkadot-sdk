@@ -659,10 +659,13 @@ mod tests {
 			.buy_execution(asset.clone(), Unlimited)
 			.deposit_asset(asset.clone().into(), beneficiary)
 			.build();
-		assert_eq!(message, Xcm(vec![
-			WithdrawAsset(asset.clone().into()),
-			BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
-			DepositAsset { assets: asset.into(), beneficiary },
-		]));
+		assert_eq!(
+			message,
+			Xcm(vec![
+				WithdrawAsset(asset.clone().into()),
+				BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
+				DepositAsset { assets: asset.into(), beneficiary },
+			])
+		);
 	}
 }

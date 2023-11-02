@@ -18,10 +18,10 @@
 
 use proc_macro::TokenStream;
 
+mod builder_pattern;
 mod v2;
 mod v3;
 mod weight_info;
-mod builder_pattern;
 
 #[proc_macro]
 pub fn impl_conversion_functions_for_multilocation_v2(input: TokenStream) -> TokenStream {
