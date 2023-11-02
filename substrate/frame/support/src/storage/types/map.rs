@@ -53,7 +53,7 @@ use sp_std::prelude::*;
 /// 	#[pallet::storage_prefix = "OtherFoo"]
 /// 	#[pallet::unbounded]
 ///     pub type Foo<T> = StorageMap<
-/// 		_
+/// 		_,
 /// 		Blake2_128Concat,
 /// 		u32,
 /// 		u32,
