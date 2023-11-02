@@ -1019,7 +1019,7 @@ mod tests {
 			vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
 		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
 
-		assert!(assets.reanchor(&dest, reanchor_context.clone()).is_ok());
+		assert!(assets.reanchor(&dest, reanchor_context).is_ok());
 		assert_eq!(assets, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
 	}
 
