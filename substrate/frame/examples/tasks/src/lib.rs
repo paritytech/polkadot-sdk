@@ -24,6 +24,12 @@ pub use pallet::*;
 pub mod mock;
 pub mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+pub mod weights;
+pub use weights::*;
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 
@@ -62,6 +68,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeTask: frame_support::traits::Task;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]

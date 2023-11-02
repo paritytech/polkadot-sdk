@@ -255,7 +255,7 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		
+
 		/// The overarching hold reason.
 		#[pallet::no_default_bounds]
 		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;

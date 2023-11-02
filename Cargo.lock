@@ -7084,6 +7084,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
+ "pallet-example-tasks",
  "pallet-fast-unstake",
  "pallet-glutton",
  "pallet-grandpa",
@@ -7160,7 +7161,6 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
- "tasks-example",
 ]
 
 [[package]]
@@ -9878,6 +9878,22 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-io",
+ "sp-std 8.0.0",
+]
+
+[[package]]
+name = "pallet-example-tasks"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std 8.0.0",
 ]
 
@@ -18804,21 +18820,6 @@ name = "target-lexicon"
 version = "0.12.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d0e916b1148c8e263850e1ebcbd046f333e0683c724876bb0da63ea4373dc8a"
-
-[[package]]
-name = "tasks-example"
-version = "4.0.0-dev"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
 
 [[package]]
 name = "tempfile"

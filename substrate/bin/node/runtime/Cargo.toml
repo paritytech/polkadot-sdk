@@ -134,7 +134,7 @@ pallet-vesting = { path = "../../../frame/vesting", default-features = false}
 pallet-whitelist = { path = "../../../frame/whitelist", default-features = false}
 pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false}
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false}
-tasks-example = { path = "../../../frame/examples/tasks-example", default-features = false }
+pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
@@ -218,6 +218,7 @@ std = [
 	"pallet-state-trie-migration/std",
 	"pallet-statement/std",
 	"pallet-sudo/std",
+	"pallet-example-tasks/std",
 	"pallet-timestamp/std",
 	"pallet-tips/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -251,7 +252,6 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"tasks-example/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-pallet-pov/runtime-benchmarks",
@@ -312,6 +312,7 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
+	"pallet-example-tasks/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
 	"pallet-transaction-storage/runtime-benchmarks",
@@ -386,6 +387,7 @@ try-runtime = [
 	"pallet-state-trie-migration/try-runtime",
 	"pallet-statement/try-runtime",
 	"pallet-sudo/try-runtime",
+	"pallet-example-tasks/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-tips/try-runtime",
 	"pallet-transaction-payment/try-runtime",
@@ -397,5 +399,4 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
-	"tasks-example/try-runtime",
 ]

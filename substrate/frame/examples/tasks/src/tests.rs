@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for `tasks-example`.
+//! Tests for `pallet-example-tasks`.
 #![cfg(test)]
 use crate::{mock::*, Numbers};
 use frame_support::traits::Task;

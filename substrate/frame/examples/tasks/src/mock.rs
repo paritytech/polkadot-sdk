@@ -63,4 +63,5 @@ impl frame_system::Config for Runtime {
 impl tasks_example::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeTask = RuntimeTask;
+	type WeightInfo = ();
 }
