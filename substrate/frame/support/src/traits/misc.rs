@@ -1185,7 +1185,7 @@ pub trait AccountTouch<AssetId, AccountId> {
 	/// The deposit amount of a native currency required for touching an account of the `asset`.
 	fn deposit_required(asset: AssetId) -> Self::Balance;
 
-	/// Checks if an account for a given asset should be touched.
+	/// Check if an account for a given asset should be touched to meet the existence requirements.
 	fn should_touch(asset: AssetId, who: &AccountId) -> bool;
 
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
