@@ -106,19 +106,20 @@ impl<B: BlockT> Stream for PendingResponses<B> {
 		mut self: std::pin::Pin<&mut Self>,
 		cx: &mut Context<'_>,
 	) -> Poll<Option<Self::Item>> {
-		if let Poll::Ready(Some((peer_id, (request, response)))) =
-			self.pending_responses.poll_next_unpin(cx)
-		{
-			// We need to manually remove the stream, because `StreamMap` doesn't know yet that
-			// it's going to yield `None`, so may not remove it before the next request is made
-			// to the same peer.
-			self.pending_responses.remove(&peer_id);
+		match self.pending_responses.poll_next_unpin(cx) {
+			Poll::Ready(Some((peer_id, (request, response)))) => {
+				// We need to manually remove the stream, because `StreamMap` doesn't know yet that
+				// it's going to yield `None`, so may not remove it before the next request is made
+				// to the same peer.
+				self.pending_responses.remove(&peer_id);
 
-			Poll::Ready(Some(ResponseEvent { peer_id, request, response }))
-		} else {
-			self.waker = Some(cx.waker().clone());
+				Poll::Ready(Some(ResponseEvent { peer_id, request, response }))
+			},
+			Poll::Ready(None) | Poll::Pending => {
+				self.waker = Some(cx.waker().clone());
 
-			Poll::Pending
+				Poll::Pending
+			},
 		}
 	}
 }
