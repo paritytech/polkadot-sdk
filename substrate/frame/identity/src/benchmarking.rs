@@ -22,7 +22,6 @@
 use super::*;
 
 use crate::Pallet as Identity;
-use enumflags2::BitFlag;
 use frame_benchmarking::{
 	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
 };
@@ -49,10 +48,8 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
 		Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), i, 10u32.into())?;
-		let fields = IdentityFields(
-			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all(),
-		);
-		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields.0.bits())?;
+		let fields = T::IdentityInformation::all_fields();
+		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields)?;
 	}
 
 	assert_eq!(Registrars::<T>::get().len(), r as usize);
@@ -357,18 +354,15 @@ mod benchmarks {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 
-		let fields = IdentityFields(
-			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all(),
-		);
-
 		let registrars = Registrars::<T>::get();
 		ensure!(
 			registrars[r as usize].as_ref().unwrap().fields == Default::default(),
 			"fields already set."
 		);
+		let fields = T::IdentityInformation::all_fields();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), r, fields.0.bits());
+		_(RawOrigin::Signed(caller), r, fields);
 
 		let updated_registrars = Registrars::<T>::get();
 		ensure!(

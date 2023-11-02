@@ -79,8 +79,6 @@ mod tests;
 mod types;
 pub mod weights;
 
-use enumflags2::BitFlags;
-
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
@@ -91,8 +89,7 @@ pub use weights::WeightInfo;
 
 pub use pallet::*;
 pub use types::{
-	Data, IdentityFields, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
-	Registration, U64BitFlag,
+	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };
 
 type BalanceOf<T> =
@@ -671,7 +668,7 @@ pub mod pallet {
 		pub fn set_fields(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
-			fields: <<T::IdentityInformation as IdentityInformationProvider>::IdentityField as U64BitFlag>::NumericRepresentation,
+			fields: <T::IdentityInformation as IdentityInformationProvider>::IdentityField,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -682,9 +679,7 @@ pub mod pallet {
 						.and_then(|r| r.as_mut())
 						.filter(|r| r.account == who)
 						.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
-					registrar.fields = IdentityFields(
-						BitFlags::from_bits(fields).map_err(|_| Error::<T>::InvalidFields)?,
-					);
+					registrar.fields = fields;
 
 					Ok(registrars.len())
 				})?;
@@ -924,7 +919,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Check if the account has corresponding identity information by the identity field.
-	pub fn has_identity(who: &T::AccountId, fields: u64) -> bool {
+	pub fn has_identity(
+		who: &T::AccountId,
+		fields: <T::IdentityInformation as IdentityInformationProvider>::IdentityField,
+	) -> bool {
 		IdentityOf::<T>::get(who)
 			.map_or(false, |registration| (registration.info.has_identity(fields)))
 	}

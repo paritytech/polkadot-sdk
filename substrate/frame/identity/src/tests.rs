@@ -24,7 +24,6 @@ use crate::{
 };
 
 use codec::{Decode, Encode};
-use enumflags2::BitFlag;
 use frame_support::{
 	assert_noop, assert_ok, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64, EitherOfDiverse, Get},
@@ -162,27 +161,24 @@ fn identity_fields_repr_works() {
 	assert_eq!(IdentityField::Image as u64, 1 << 6);
 	assert_eq!(IdentityField::Twitter as u64, 1 << 7);
 
-	let fields = IdentityFields(
-		IdentityField::Legal |
-			IdentityField::Web |
-			IdentityField::Riot |
-			IdentityField::PgpFingerprint |
-			IdentityField::Twitter,
-	);
+	let fields = IdentityField::Legal |
+		IdentityField::Web |
+		IdentityField::Riot |
+		IdentityField::PgpFingerprint |
+		IdentityField::Twitter;
 
-	assert!(!fields.0.contains(IdentityField::Display));
-	assert!(fields.0.contains(IdentityField::Legal));
-	assert!(fields.0.contains(IdentityField::Web));
-	assert!(fields.0.contains(IdentityField::Riot));
-	assert!(!fields.0.contains(IdentityField::Email));
-	assert!(fields.0.contains(IdentityField::PgpFingerprint));
-	assert!(!fields.0.contains(IdentityField::Image));
-	assert!(fields.0.contains(IdentityField::Twitter));
+	assert!(!fields.contains(IdentityField::Display));
+	assert!(fields.contains(IdentityField::Legal));
+	assert!(fields.contains(IdentityField::Web));
+	assert!(fields.contains(IdentityField::Riot));
+	assert!(!fields.contains(IdentityField::Email));
+	assert!(fields.contains(IdentityField::PgpFingerprint));
+	assert!(!fields.contains(IdentityField::Image));
+	assert!(fields.contains(IdentityField::Twitter));
 
-	// The `IdentityFields` inner `BitFlags::bits` is used for `Encode`/`Decode`, so we ensure that
-	// the `u64` representation matches what we expect during encode/decode operations.
+	// Ensure that the `u64` representation matches what we expect.
 	assert_eq!(
-		fields.0.bits(),
+		fields.bits(),
 		0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_10101110
 	);
 }
@@ -293,26 +289,11 @@ fn adding_registrar_invalid_index() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		let fields = IdentityFields(IdentityField::Display | IdentityField::Legal);
+		let fields = IdentityField::Display | IdentityField::Legal;
 		assert_noop!(
-			Identity::set_fields(RuntimeOrigin::signed(3), 100, fields.0.bits()),
+			Identity::set_fields(RuntimeOrigin::signed(3), 100, fields.bits()),
 			Error::<Test>::InvalidIndex
 		);
-	});
-}
-
-#[test]
-fn adding_registrar_invalid_fields() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		// If all fields can be set, there can be no invalid fields
-		if <<Test as Config>::IdentityInformation as IdentityInformationProvider>::IdentityField::all().bits() != u64::MAX {
-			assert_noop!(
-				Identity::set_fields(RuntimeOrigin::signed(3), 0, u64::MAX),
-				Error::<Test>::InvalidFields
-			);
-		}
 	});
 }
 
@@ -321,11 +302,11 @@ fn adding_registrar_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		let fields = IdentityFields(IdentityField::Display | IdentityField::Legal);
-		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(3), 0, fields.0.bits()));
+		let fields = IdentityField::Display | IdentityField::Legal;
+		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(3), 0, fields.bits()));
 		assert_eq!(
 			Identity::registrars(),
-			vec![Some(RegistrarInfo { account: 3, fee: 10, fields })]
+			vec![Some(RegistrarInfo { account: 3, fee: 10, fields: fields.bits() })]
 		);
 	});
 }

@@ -16,13 +16,15 @@
 // limitations under the License.
 
 use codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "runtime-benchmarks")]
+use enumflags2::BitFlag;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::{BoundedVec, RuntimeDebug};
 use sp_std::prelude::*;
 
-use crate::types::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag};
+use crate::types::{Data, IdentityInformationProvider};
 
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
 /// in the `IdentityInfo` struct.
@@ -56,10 +58,6 @@ impl TypeInfo for IdentityField {
 				.variant("Twitter", |v| v.index(7)),
 		)
 	}
-}
-
-impl U64BitFlag for IdentityField {
-	type NumericRepresentation = u64;
 }
 
 /// Information concerning the identity of the controller of an account.
@@ -126,10 +124,10 @@ pub struct IdentityInfo<FieldLimit: Get<u32>> {
 }
 
 impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInfo<FieldLimit> {
-	type IdentityField = IdentityField;
+	type IdentityField = u64;
 
-	fn has_identity(&self, fields: u64) -> bool {
-		self.fields().0.bits() & fields == fields
+	fn has_identity(&self, fields: Self::IdentityField) -> bool {
+		self.fields().bits() & fields == fields
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -150,11 +148,15 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 			twitter: data,
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn all_fields() -> Self::IdentityField {
+		IdentityField::all().bits()
+	}
 }
 
 impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
-	#[allow(unused)]
-	pub(crate) fn fields(&self) -> IdentityFields<IdentityField> {
+	pub(crate) fn fields(&self) -> BitFlags<IdentityField> {
 		let mut res = <BitFlags<IdentityField>>::empty();
 		if !self.display.is_none() {
 			res.insert(IdentityField::Display);
@@ -180,6 +182,6 @@ impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 		if !self.twitter.is_none() {
 			res.insert(IdentityField::Twitter);
 		}
-		IdentityFields(res)
+		res
 	}
 }

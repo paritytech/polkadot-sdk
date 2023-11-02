@@ -17,27 +17,19 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use enumflags2::{
-	BitFlag, BitFlags,
-	_internal::{BitFlagNum, RawBitFlags},
-};
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::{
 	build::{Fields, Variants},
-	meta_type, Path, Type, TypeInfo, TypeParameter,
+	Path, Type, TypeInfo,
 };
 use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
-
-pub trait U64BitFlag: BitFlag + RawBitFlags<Numeric = Self::NumericRepresentation> {
-	type NumericRepresentation: BitFlagNum + Into<u64> + TryFrom<u64> + Encode + Decode + TypeInfo;
-}
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -239,15 +231,25 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
-	/// Type capable of representing all of the fields present in the identity information as bit
-	/// flags in `u64` format.
-	type IdentityField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag;
+	/// Type capable of representing all of the fields present in the identity information.
+	type IdentityField: Encode
+		+ Decode
+		+ Clone
+		+ Debug
+		+ Default
+		+ Eq
+		+ PartialEq
+		+ TypeInfo
+		+ MaxEncodedLen;
 
 	/// Check if an identity registered information for some given `fields`.
-	fn has_identity(&self, fields: u64) -> bool;
+	fn has_identity(&self, fields: Self::IdentityField) -> bool;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn all_fields() -> Self::IdentityField;
 }
 
 /// Information on an identity along with judgements from registrars.
@@ -307,7 +309,7 @@ impl<
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
-	IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
+	IdField: Encode + Decode + Clone + Debug + Default + Eq + PartialEq + TypeInfo + MaxEncodedLen,
 > {
 	/// The account of the registrar.
 	pub account: AccountId,
@@ -317,57 +319,7 @@ pub struct RegistrarInfo<
 
 	/// Relevant fields for this registrar. Registrar judgements are limited to attestations on
 	/// these fields.
-	pub fields: IdentityFields<IdField>,
-}
-
-/// Wrapper type for `BitFlags<IdentityField>` that implements `Codec`.
-#[derive(Clone, Copy, PartialEq, RuntimeDebug)]
-pub struct IdentityFields<IdField: BitFlag>(pub BitFlags<IdField>);
-
-impl<IdField: U64BitFlag> Default for IdentityFields<IdField> {
-	fn default() -> Self {
-		Self(Default::default())
-	}
-}
-
-impl<IdField: U64BitFlag> MaxEncodedLen for IdentityFields<IdField>
-where
-	IdentityFields<IdField>: Encode,
-{
-	fn max_encoded_len() -> usize {
-		u64::max_encoded_len()
-	}
-}
-
-impl<IdField: U64BitFlag + PartialEq> Eq for IdentityFields<IdField> {}
-impl<IdField: U64BitFlag> Encode for IdentityFields<IdField> {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let bits: <IdField as U64BitFlag>::NumericRepresentation = self.0.bits();
-		bits.using_encoded(f)
-	}
-}
-impl<IdField: U64BitFlag> Decode for IdentityFields<IdField> {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let field = <IdField as U64BitFlag>::NumericRepresentation::decode(input)?;
-		Ok(Self(
-			<BitFlags<IdField>>::from_bits(
-				field.try_into().map_err(|_| "value couldn't convert to u64")?,
-			)
-			.map_err(|_| "invalid value")?,
-		))
-	}
-}
-impl<IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag> TypeInfo
-	for IdentityFields<IdField>
-{
-	type Identity = Self;
-
-	fn type_info() -> Type {
-		Type::builder()
-			.path(Path::new("BitFlags", module_path!()))
-			.type_params(vec![TypeParameter::new("T", Some(meta_type::<IdField>()))])
-			.composite(Fields::unnamed().field(|f| f.ty::<u64>().type_name("IdentityField")))
-	}
+	pub fields: IdField,
 }
 
 #[cfg(test)]
