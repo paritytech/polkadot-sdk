@@ -409,8 +409,6 @@ impl<
 			XcmError::FeesNotMet
 		})?;
 
-		// the execution below must be infallible to keep this operation transactional.
-
 		match self.total_fee.subsume(credit_out) {
 			Err(credit_out) => {
 				// error may occur if `total_fee.asset` differs from `credit_out.asset`, which does
@@ -477,8 +475,6 @@ impl<
 				return None
 			},
 		};
-
-		// the execution below must be infallible to keep this operation atomic.
 
 		refund_asset.fun = refund.peek().into().into();
 		drop(refund);
