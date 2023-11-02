@@ -214,7 +214,7 @@ benchmarks! {
 		Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
 
 	}: {
-		Pallet::<T>::take_response(query_id);
+		<Pallet::<T> as QueryHandler>::take_response(query_id);
 	}
 
 	impl_benchmark_test_suite!(

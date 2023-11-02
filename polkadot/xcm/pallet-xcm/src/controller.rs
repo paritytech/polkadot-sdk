@@ -19,6 +19,7 @@
 //! from `xcm-executor` to perform their tasks.
 
 use frame_support::pallet_prelude::DispatchError;
+use sp_std::boxed::Box;
 use xcm::prelude::*;
 use xcm_executor::traits::QueryHandler;
 
