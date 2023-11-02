@@ -42,7 +42,7 @@
 //!
 //! ---
 //!
-//! [FRAME]: crate::polkadot_sdk::frame
+//! [FRAME]: crate::polkadot_sdk::frame_runtime
 //! [`frame_system`]: frame::prelude::frame_system
 
 #![deny(rustdoc::broken_intra_doc_links)]
