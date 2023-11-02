@@ -905,6 +905,7 @@ dependencies = [
  "asset-test-utils",
  "assets-common",
  "bp-asset-hub-rococo",
+ "bp-asset-hub-westend",
  "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-wococo",
@@ -1015,6 +1016,9 @@ version = "0.9.420"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "bp-asset-hub-rococo",
+ "bp-asset-hub-westend",
+ "bp-bridge-hub-westend",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -1052,6 +1056,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge-hub-router",
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -1066,7 +1071,6 @@ dependencies = [
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
@@ -1685,6 +1689,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bp-asset-hub-westend"
+version = "0.1.0"
+dependencies = [
+ "bp-xcm-bridge-hub-router",
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "bp-asset-hub-wococo"
 version = "0.1.0"
 dependencies = [
@@ -1736,6 +1750,19 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-rococo"
+version = "0.1.0"
+dependencies = [
+ "bp-bridge-hub-cumulus",
+ "bp-messages",
+ "bp-runtime",
+ "frame-support",
+ "sp-api",
+ "sp-runtime",
+ "sp-std 8.0.0",
+]
+
+[[package]]
+name = "bp-bridge-hub-westend"
 version = "0.1.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
@@ -1940,6 +1967,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bp-westend"
+version = "0.1.0"
+dependencies = [
+ "bp-header-chain",
+ "bp-polkadot-core",
+ "bp-runtime",
+ "frame-support",
+ "sp-api",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "bp-wococo"
 version = "0.1.0"
 dependencies = [
@@ -2116,8 +2155,10 @@ name = "bridge-hub-rococo-runtime"
 version = "0.1.0"
 dependencies = [
  "bp-asset-hub-rococo",
+ "bp-asset-hub-westend",
  "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
+ "bp-bridge-hub-westend",
  "bp-bridge-hub-wococo",
  "bp-header-chain",
  "bp-messages",
@@ -2126,6 +2167,7 @@ dependencies = [
  "bp-relayers",
  "bp-rococo",
  "bp-runtime",
+ "bp-westend",
  "bp-wococo",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2239,6 +2281,88 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "bridge-hub-westend-runtime"
+version = "0.1.0"
+dependencies = [
+ "bp-asset-hub-westend",
+ "bp-bridge-hub-rococo",
+ "bp-bridge-hub-westend",
+ "bp-header-chain",
+ "bp-messages",
+ "bp-parachains",
+ "bp-polkadot-core",
+ "bp-relayers",
+ "bp-rococo",
+ "bp-runtime",
+ "bp-westend",
+ "bridge-hub-test-utils",
+ "bridge-runtime-common",
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal",
+ "log",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-bridge-grandpa",
+ "pallet-bridge-messages",
+ "pallet-bridge-parachains",
+ "pallet-bridge-relayers",
+ "pallet-collator-selection",
+ "pallet-multisig",
+ "pallet-session",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-utility",
+ "pallet-xcm",
+ "pallet-xcm-benchmarks",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "serde",
+ "smallvec",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 8.0.0",
+ "sp-storage 13.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "static_assertions",
+ "substrate-wasm-builder",
+ "westend-runtime-constants",
 ]
 
 [[package]]
@@ -10621,6 +10745,7 @@ version = "4.0.0-dev"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
+ "sp-staking",
 ]
 
 [[package]]
@@ -12258,15 +12383,10 @@ name = "polkadot-node-core-pvf-execute-worker"
 version = "1.0.0"
 dependencies = [
  "cpu-time",
- "futures",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "rayon",
- "sp-core",
- "sp-maybe-compressed-blob",
- "sp-tracing 10.0.0",
  "tracing-gum",
 ]
 
@@ -12275,19 +12395,13 @@ name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
  "cfg-if",
- "futures",
  "libc",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
- "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rayon",
- "sc-executor",
  "sc-executor-common",
  "sc-executor-wasmtime",
- "sp-io",
- "sp-maybe-compressed-blob",
- "sp-tracing 10.0.0",
  "tikv-jemalloc-ctl",
  "tracing-gum",
 ]
@@ -12536,6 +12650,7 @@ dependencies = [
  "bridge-hub-kusama-runtime",
  "bridge-hub-polkadot-runtime",
  "bridge-hub-rococo-runtime",
+ "bridge-hub-westend-runtime",
  "clap 4.4.6",
  "collectives-polkadot-runtime",
  "color-print",
@@ -14997,6 +15112,7 @@ dependencies = [
  "sc-network",
  "sc-network-common",
  "sc-network-gossip",
+ "sc-network-sync",
  "sc-network-test",
  "sc-telemetry",
  "sc-transaction-pool-api",
@@ -15213,6 +15329,7 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sc-network-common",
+ "sc-network-sync",
  "sp-blockchain",
  "sp-runtime",
 ]
@@ -15365,6 +15482,7 @@ dependencies = [
  "quickcheck",
  "sc-network",
  "sc-network-common",
+ "sc-network-sync",
  "schnellru",
  "sp-runtime",
  "substrate-prometheus-endpoint",
@@ -15405,6 +15523,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-network",
  "sc-network-common",
+ "sc-network-sync",
  "sp-consensus",
  "sp-statement-store",
  "substrate-prometheus-endpoint",
@@ -15491,6 +15610,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-network",
  "sc-network-common",
+ "sc-network-sync",
  "sc-utils",
  "sp-consensus",
  "sp-runtime",
@@ -17126,7 +17246,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -17164,7 +17284,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -17184,7 +17304,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.19.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -17416,7 +17536,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -17445,7 +17565,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "11.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "Inflector",
  "proc-macro-crate",
@@ -17573,7 +17693,7 @@ version = "8.0.0"
 [[package]]
 name = "sp-std"
 version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 
 [[package]]
 name = "sp-storage"
@@ -17590,7 +17710,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "13.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -17639,7 +17759,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "10.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "parity-scale-codec",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
@@ -17740,7 +17860,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#9ca267328e0cba753aa528615cc19d1f633ed764"
+source = "git+https://github.com/paritytech/polkadot-sdk#fe9435db2fda7c9e2f4e29521564c72cac38f59b"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -19232,7 +19352,6 @@ name = "tracing-gum"
 version = "1.0.0"
 dependencies = [
  "coarsetime",
- "polkadot-node-jaeger",
  "polkadot-primitives",
  "tracing",
  "tracing-gum-proc-macro",
