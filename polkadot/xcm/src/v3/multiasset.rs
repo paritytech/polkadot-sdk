@@ -689,6 +689,8 @@ impl MultiAssets {
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
+	///
+	/// This will also re-sort the inner assets to preserve ordering guarantees.
 	pub fn reanchor(
 		&mut self,
 		target: &MultiLocation,
