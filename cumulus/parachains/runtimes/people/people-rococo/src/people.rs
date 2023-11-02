@@ -81,8 +81,8 @@ impl TypeInfo for IdentityField {
 				.variant("Email", |v| v.index(4))
 				.variant("PgpFingerprint", |v| v.index(5))
 				.variant("Image", |v| v.index(6))
-				.variant("Twitter", |v| v.index(7)),
-				.variant("GitHub", |v| v.index(8)),
+				.variant("Twitter", |v| v.index(7))
+				.variant("GitHub", |v| v.index(8))
 				.variant("Discord", |v| v.index(9)),
 		)
 	}
