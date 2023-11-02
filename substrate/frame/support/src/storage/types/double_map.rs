@@ -27,6 +27,7 @@ use crate::{
 	StorageHasher, Twox128,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
@@ -453,6 +454,31 @@ where
 		Value: StorageDecodeLength,
 	{
 		<Self as crate::storage::StorageDoubleMap<Key1, Key2, Value>>::decode_len(key1, key2)
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	pub fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
+	where
+		KArg1: EncodeLike<Key1>,
+		KArg2: EncodeLike<Key2>,
+		Value: StorageDecodeNonDedupLength,
+	{
+		<Self as crate::storage::StorageDoubleMap<Key1, Key2, Value>>::decode_non_dedup_len(
+			key1, key2,
+		)
 	}
 
 	/// Migrate an item with the given `key1` and `key2` from defunct `OldHasher1` and
