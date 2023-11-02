@@ -98,10 +98,10 @@ use xcm::latest::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
-#[cfg(not(feature = "runtime-benchmarks"))]
 use crate::{
 	bridge_hub_rococo_config::BridgeRefundBridgeHubWococoMessages,
-	bridge_hub_wococo_config::BridgeRefundBridgeHubRococoMessages, xcm_config::XcmRouter,
+	bridge_hub_wococo_config::BridgeRefundBridgeHubRococoMessages,
+	xcm_config::{AllowSiblingsOnly, XcmRouter},
 };
 use parachains_common::{
 	impls::DealWithFees,
@@ -528,6 +528,7 @@ impl snowbridge_inbound_queue::Config for Runtime {
 	type Helper = Runtime;
 	type MessageConverter =
 		MessageToXcm<CreateAssetCall, CreateAssetExecutionFee, SendTokenExecutionFee>;
+	type WeightToFee = WeightToFee;
 }
 
 impl snowbridge_outbound_queue::Config for Runtime {
