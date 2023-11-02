@@ -527,6 +527,7 @@ impl snowbridge_inbound_queue::Config for Runtime {
 	type Helper = Runtime;
 	type MessageConverter =
 		MessageToXcm<CreateAssetCall, CreateAssetExecutionFee, SendTokenExecutionFee>;
+	type WeightToFee = WeightToFee;
 }
 
 impl snowbridge_outbound_queue::Config for Runtime {
