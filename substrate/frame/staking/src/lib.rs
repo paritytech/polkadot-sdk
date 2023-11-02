@@ -112,11 +112,15 @@
 //! The **reward and slashing** procedure is the core of the Staking pallet, attempting to _embrace
 //! valid behavior_ while _punishing any misbehavior or lack of availability_.
 //!
-//! Rewards must be claimed for each era before it gets too old by `$HISTORY_DEPTH` using the
-//! `payout_stakers` call. Any account can call `payout_stakers`, which pays the reward to the
-//! validator as well as its nominators. Only the [`Config::MaxNominatorRewardedPerValidator`]
-//! biggest stakers can claim their reward. This is to limit the i/o cost to mutate storage for each
-//! nominator's account.
+//! Rewards must be claimed for each era before it gets too old by
+//! [`HistoryDepth`](`Config::HistoryDepth`) using the `payout_stakers` call. Any account can call
+//! `payout_stakers`, which pays the reward to the validator as well as its nominators. Only
+//! [`Config::MaxExposurePageSize`] nominator rewards can be claimed in a single call. When the
+//! number of nominators exceeds [`Config::MaxExposurePageSize`], then the exposed nominators are
+//! stored in multiple pages, with each page containing up to
+//! [`Config::MaxExposurePageSize`] nominators. To pay out all nominators, `payout_stakers` must be
+//! called once for each available page. Paging exists to limit the i/o cost to mutate storage for
+//! each nominator's account.
 //!
 //! Slashing can occur at any point in time, once misbehavior is reported. Once slashing is
 //! determined, a value is deducted from the balance of the validator and all the nominators who
@@ -224,13 +228,13 @@
 //! The validator can declare an amount, named [`commission`](ValidatorPrefs::commission), that does
 //! not get shared with the nominators at each reward payout through its [`ValidatorPrefs`]. This
 //! value gets deducted from the total reward that is paid to the validator and its nominators. The
-//! remaining portion is split pro rata among the validator and the top
-//! [`Config::MaxNominatorRewardedPerValidator`] nominators that nominated the validator,
-//! proportional to the value staked behind the validator (_i.e._ dividing the
+//! remaining portion is split pro rata among the validator and the nominators that nominated the
+//! validator, proportional to the value staked behind the validator (_i.e._ dividing the
 //! [`own`](Exposure::own) or [`others`](Exposure::others) by [`total`](Exposure::total) in
-//! [`Exposure`]). Note that the pro rata division of rewards uses the total exposure behind the
-//! validator, *not* just the exposure of the validator and the top
-//! [`Config::MaxNominatorRewardedPerValidator`] nominators.
+//! [`Exposure`]). Note that payouts are made in pages with each page capped at
+//! [`Config::MaxExposurePageSize`] nominators. The distribution of nominators across
+//! pages may be unsorted. The total commission is paid out proportionally across pages based on the
+//! total stake of the page.
 //!
 //! All entities who receive a reward have the option to choose their reward destination through the
 //! [`Payee`] storage item (see
@@ -303,7 +307,10 @@ mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
-	traits::{ConstU32, Currency, Defensive, Get, LockIdentifier},
+	defensive, defensive_assert,
+	traits::{
+		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -313,11 +320,12 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
-pub use sp_staking::StakerStatus;
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, OnStakingUpdate, SessionIndex, StakingAccount,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
+	StakingAccount,
 };
+pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
@@ -457,21 +465,29 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 pub struct StakingLedger<T: Config> {
 	/// The stash account whose balance is actually locked and at stake.
 	pub stash: T::AccountId,
+
 	/// The total amount of the stash's balance that we are currently accounting for.
 	/// It's just `active` plus all the `unlocking` balances.
 	#[codec(compact)]
 	pub total: BalanceOf<T>,
+
 	/// The total amount of the stash's balance that will be at stake in any forthcoming
 	/// rounds.
 	#[codec(compact)]
 	pub active: BalanceOf<T>,
+
 	/// Any balance that is becoming free, which may eventually be transferred out of the stash
 	/// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
 	/// in, first out queue where the new (higher value) eras get pushed on the back.
 	pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+
 	/// List of eras for which the stakers behind a validator have claimed rewards. Only updated
 	/// for validators.
-	pub claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
+	///
+	/// This is deprecated as of V14 in favor of `T::ClaimedRewards` and will be removed in future.
+	/// Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
+	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
+
 	/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
@@ -507,7 +523,7 @@ impl<T: Config> StakingLedger<T> {
 			total,
 			active: self.active,
 			unlocking,
-			claimed_rewards: self.claimed_rewards,
+			legacy_claimed_rewards: self.legacy_claimed_rewards,
 			controller: self.controller,
 		}
 	}
@@ -708,32 +724,50 @@ pub struct Nominations<T: Config> {
 	pub suppressed: bool,
 }
 
-/// The amount of exposure (to slashing) than an individual nominator has.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct IndividualExposure<AccountId, Balance: HasCompact> {
-	/// The stash account of the nominator in question.
-	pub who: AccountId,
-	/// Amount of funds exposed.
-	#[codec(compact)]
-	pub value: Balance,
+/// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.
+///
+/// This is useful where we need to take into account the validator's own stake and total exposure
+/// in consideration, in addition to the individual nominators backing them.
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
+struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
+	exposure_metadata: PagedExposureMetadata<Balance>,
+	exposure_page: ExposurePage<AccountId, Balance>,
 }
 
-/// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct Exposure<AccountId, Balance: HasCompact> {
-	/// The total balance backing this validator.
-	#[codec(compact)]
-	pub total: Balance,
-	/// The validator's own stash that is exposed.
-	#[codec(compact)]
-	pub own: Balance,
-	/// The portions of nominators stashes that are exposed.
-	pub others: Vec<IndividualExposure<AccountId, Balance>>,
-}
+impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEncodedLen>
+	PagedExposure<AccountId, Balance>
+{
+	/// Create a new instance of `PagedExposure` from legacy clipped exposures.
+	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Self {
+		Self {
+			exposure_metadata: PagedExposureMetadata {
+				total: exposure.total,
+				own: exposure.own,
+				nominator_count: exposure.others.len() as u32,
+				page_count: 1,
+			},
+			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
+		}
+	}
 
-impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
-	fn default() -> Self {
-		Self { total: Default::default(), own: Default::default(), others: vec![] }
+	/// Returns total exposure of this validator across pages
+	pub fn total(&self) -> Balance {
+		self.exposure_metadata.total
+	}
+
+	/// Returns total exposure of this validator for the current page
+	pub fn page_total(&self) -> Balance {
+		self.exposure_page.page_total + self.exposure_metadata.own
+	}
+
+	/// Returns validator's own stake that is exposed
+	pub fn own(&self) -> Balance {
+		self.exposure_metadata.own
+	}
+
+	/// Returns the portions of nominators stashes that are exposed in this page.
+	pub fn others(&self) -> &Vec<IndividualExposure<AccountId, Balance>> {
+		&self.exposure_page.others
 	}
 }
 
@@ -982,6 +1016,195 @@ where
 
 	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
 		R::is_known_offence(offenders, time_slot)
+	}
+}
+
+/// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
+/// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
+/// can and add more functions to it as needed.
+pub(crate) struct EraInfo<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> EraInfo<T> {
+	/// Temporary function which looks at both (1) passed param `T::StakingLedger` for legacy
+	/// non-paged rewards, and (2) `T::ClaimedRewards` for paged rewards. This function can be
+	/// removed once `T::HistoryDepth` eras have passed and none of the older non-paged rewards
+	/// are relevant/claimable.
+	// Refer tracker issue for cleanup: #13034
+	pub(crate) fn is_rewards_claimed_with_legacy_fallback(
+		era: EraIndex,
+		ledger: &StakingLedger<T>,
+		validator: &T::AccountId,
+		page: Page,
+	) -> bool {
+		ledger.legacy_claimed_rewards.binary_search(&era).is_ok() ||
+			Self::is_rewards_claimed(era, validator, page)
+	}
+
+	/// Check if the rewards for the given era and page index have been claimed.
+	///
+	/// This is only used for paged rewards. Once older non-paged rewards are no longer
+	/// relevant, `is_rewards_claimed_with_legacy_fallback` can be removed and this function can
+	/// be made public.
+	fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
+		ClaimedRewards::<T>::get(era, validator).contains(&page)
+	}
+
+	/// Get exposure for a validator at a given era and page.
+	///
+	/// This builds a paged exposure from `PagedExposureMetadata` and `ExposurePage` of the
+	/// validator. For older non-paged exposure, it returns the clipped exposure directly.
+	pub(crate) fn get_paged_exposure(
+		era: EraIndex,
+		validator: &T::AccountId,
+		page: Page,
+	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
+		let overview = <ErasStakersOverview<T>>::get(&era, validator);
+
+		// return clipped exposure if page zero and paged exposure does not exist
+		// exists for backward compatibility and can be removed as part of #13034
+		if overview.is_none() && page == 0 {
+			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)))
+		}
+
+		// no exposure for this validator
+		if overview.is_none() {
+			return None
+		}
+
+		let overview = overview.expect("checked above; qed");
+
+		// validator stake is added only in page zero
+		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
+
+		// since overview is present, paged exposure will always be present except when a
+		// validator has only own stake and no nominator stake.
+		let exposure_page = <ErasStakersPaged<T>>::get((era, validator, page)).unwrap_or_default();
+
+		// build the exposure
+		Some(PagedExposure {
+			exposure_metadata: PagedExposureMetadata { own: validator_stake, ..overview },
+			exposure_page,
+		})
+	}
+
+	/// Get full exposure of the validator at a given era.
+	pub(crate) fn get_full_exposure(
+		era: EraIndex,
+		validator: &T::AccountId,
+	) -> Exposure<T::AccountId, BalanceOf<T>> {
+		let overview = <ErasStakersOverview<T>>::get(&era, validator);
+
+		if overview.is_none() {
+			return ErasStakers::<T>::get(era, validator)
+		}
+
+		let overview = overview.expect("checked above; qed");
+
+		let mut others = Vec::with_capacity(overview.nominator_count as usize);
+		for page in 0..overview.page_count {
+			let nominators = <ErasStakersPaged<T>>::get((era, validator, page));
+			others.append(&mut nominators.map(|n| n.others).defensive_unwrap_or_default());
+		}
+
+		Exposure { total: overview.total, own: overview.own, others }
+	}
+
+	/// Returns the number of pages of exposure a validator has for the given era.
+	///
+	/// For eras where paged exposure does not exist, this returns 1 to keep backward compatibility.
+	pub(crate) fn get_page_count(era: EraIndex, validator: &T::AccountId) -> Page {
+		<ErasStakersOverview<T>>::get(&era, validator)
+			.map(|overview| {
+				if overview.page_count == 0 && overview.own > Zero::zero() {
+					// Even though there are no nominator pages, there is still validator's own
+					// stake exposed which needs to be paid out in a page.
+					1
+				} else {
+					overview.page_count
+				}
+			})
+			// Always returns 1 page for older non-paged exposure.
+			// FIXME: Can be cleaned up with issue #13034.
+			.unwrap_or(1)
+	}
+
+	/// Returns the next page that can be claimed or `None` if nothing to claim.
+	pub(crate) fn get_next_claimable_page(
+		era: EraIndex,
+		validator: &T::AccountId,
+		ledger: &StakingLedger<T>,
+	) -> Option<Page> {
+		if Self::is_non_paged_exposure(era, validator) {
+			return match ledger.legacy_claimed_rewards.binary_search(&era) {
+				// already claimed
+				Ok(_) => None,
+				// Non-paged exposure is considered as a single page
+				Err(_) => Some(0),
+			}
+		}
+
+		// Find next claimable page of paged exposure.
+		let page_count = Self::get_page_count(era, validator);
+		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
+		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
+
+		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
+	}
+
+	/// Checks if exposure is paged or not.
+	fn is_non_paged_exposure(era: EraIndex, validator: &T::AccountId) -> bool {
+		<ErasStakersClipped<T>>::contains_key(&era, validator)
+	}
+
+	/// Returns validator commission for this era and page.
+	pub(crate) fn get_validator_commission(
+		era: EraIndex,
+		validator_stash: &T::AccountId,
+	) -> Perbill {
+		<ErasValidatorPrefs<T>>::get(&era, validator_stash).commission
+	}
+
+	/// Creates an entry to track validator reward has been claimed for a given era and page.
+	/// Noop if already claimed.
+	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
+		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator);
+
+		// this should never be called if the reward has already been claimed
+		if claimed_pages.contains(&page) {
+			defensive!("Trying to set an already claimed reward");
+			// nevertheless don't do anything since the page already exist in claimed rewards.
+			return
+		}
+
+		// add page to claimed entries
+		claimed_pages.push(page);
+		ClaimedRewards::<T>::insert(era, validator, claimed_pages);
+	}
+
+	/// Store exposure for elected validators at start of an era.
+	pub(crate) fn set_exposure(
+		era: EraIndex,
+		validator: &T::AccountId,
+		exposure: Exposure<T::AccountId, BalanceOf<T>>,
+	) {
+		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
+
+		let nominator_count = exposure.others.len();
+		// expected page count is the number of nominators divided by the page size, rounded up.
+		let expected_page_count =
+			nominator_count.defensive_saturating_add(page_size as usize - 1) / page_size as usize;
+
+		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
+		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
+
+		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);
+		exposure_pages.iter().enumerate().for_each(|(page, paged_exposure)| {
+			<ErasStakersPaged<T>>::insert((era, &validator, page as Page), &paged_exposure);
+		});
+	}
+
+	/// Store total exposure for all the elected validators in the era.
+	pub(crate) fn set_total_stake(era: EraIndex, total_stake: BalanceOf<T>) {
+		<ErasTotalStake<T>>::insert(era, total_stake);
 	}
 }
 

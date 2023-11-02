@@ -29,12 +29,14 @@ pub use paste;
 // Substrate
 use frame_support::traits::OnInitialize;
 pub use pallet_balances;
+pub use pallet_message_queue;
 
 // Cumulus
 pub use cumulus_pallet_xcmp_queue;
 use xcm_emulator::{
 	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
-	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor,
+	decl_test_sender_receiver_accounts_parameter_types, DefaultParaMessageProcessor,
+	DefaultRelayMessageProcessor, Parachain, TestExt,
 };
 pub use xcm_emulator::{Chain, OnHooks};
 
@@ -49,7 +51,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = westend_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Westend>,
+			MessageProcessor: DefaultRelayMessageProcessor<Westend>,
 			SovereignAccountOf: westend_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -67,7 +69,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = rococo_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Rococo>,
+			MessageProcessor: DefaultRelayMessageProcessor<Rococo>,
 			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -84,7 +86,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = rococo_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Wococo>,
+			MessageProcessor: DefaultRelayMessageProcessor<Wococo>,
 			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -106,9 +108,9 @@ decl_test_parachains! {
 		runtime = asset_hub_westend_runtime,
 		core = {
 			XcmpMessageHandler: asset_hub_westend_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_westend_runtime::DmpQueue,
 			LocationToAccountId: asset_hub_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<AssetHubWestend>,
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
@@ -128,9 +130,9 @@ decl_test_parachains! {
 		runtime = penpal_runtime,
 		core = {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<PenpalWestendA>,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
@@ -148,9 +150,9 @@ decl_test_parachains! {
 		runtime = bridge_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<BridgeHubRococo>,
 		},
 		pallets = {
 			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
@@ -167,9 +169,9 @@ decl_test_parachains! {
 		runtime = asset_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: asset_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: asset_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<AssetHubRococo>,
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
@@ -189,9 +191,9 @@ decl_test_parachains! {
 		runtime = penpal_runtime,
 		core = {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<PenpalRococoA>,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
@@ -207,9 +209,9 @@ decl_test_parachains! {
 		runtime = penpal_runtime,
 		core = {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<PenpalRococoB>,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
@@ -227,9 +229,9 @@ decl_test_parachains! {
 		runtime = bridge_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<BridgeHubWococo>,
 		},
 		pallets = {
 			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
@@ -245,9 +247,9 @@ decl_test_parachains! {
 		runtime = asset_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: asset_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: asset_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<AssetHubWococo>,
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
