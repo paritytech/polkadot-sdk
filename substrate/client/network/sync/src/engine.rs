@@ -85,7 +85,6 @@ use std::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
 	},
-	task::Poll,
 	time::{Duration, Instant},
 };
 
@@ -254,7 +253,7 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	service_rx: TracingUnboundedReceiver<ToServiceCommand<B>>,
 
 	/// Channel for receiving inbound connections from `Protocol`.
-	rx: sc_utils::mpsc::TracingUnboundedReceiver<sc_network::SyncEvent<B>>,
+	sync_events_rx: sc_utils::mpsc::TracingUnboundedReceiver<sc_network::SyncEvent<B>>,
 
 	/// Assigned roles.
 	roles: Roles,
@@ -304,7 +303,7 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	boot_node_ids: HashSet<PeerId>,
 
 	/// A channel to get target block header if we skip over proofs downloading during warp sync.
-	warp_sync_target_block_header_rx:
+	warp_sync_target_block_header_rx_fused:
 		Fuse<BoxFuture<'static, Result<B::Header, oneshot::Canceled>>>,
 
 	/// Protocol name used for block announcements
@@ -363,7 +362,7 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: Option<ProtocolName>,
-		rx: sc_utils::mpsc::TracingUnboundedReceiver<sc_network::SyncEvent<B>>,
+		sync_events_rx: sc_utils::mpsc::TracingUnboundedReceiver<sc_network::SyncEvent<B>>,
 	) -> Result<(Self, SyncingService<B>, NonDefaultSetConfig), ClientError> {
 		let mode = net_config.network_config.sync_mode;
 		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
@@ -436,7 +435,7 @@ where
 
 		// Make sure polling of the target block channel is a no-op if there is no block to
 		// retrieve.
-		let warp_sync_target_block_header_rx = warp_sync_target_block_header_rx
+		let warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
 		let block_announce_config = Self::get_block_announce_proto_config(
@@ -499,11 +498,11 @@ where
 				num_connected: num_connected.clone(),
 				is_major_syncing: is_major_syncing.clone(),
 				service_rx,
-				rx,
+				sync_events_rx,
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
-				warp_sync_target_block_header_rx,
+				warp_sync_target_block_header_rx_fused,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -697,50 +696,28 @@ where
 		self.syncing_started = Some(Instant::now());
 
 		loop {
-			futures::future::poll_fn(|cx| self.poll(cx)).await;
+			tokio::select! {
+				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
+				command = self.service_rx.select_next_some() =>
+					self.process_service_command(command),
+				sync_event = self.sync_events_rx.select_next_some() =>
+					self.process_sync_event(sync_event),
+				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused =>
+					self.pass_warp_sync_target_block_header(warp_target_block_header),
+				response_event = self.pending_responses.select_next_some() =>
+					self.process_response_event(response_event),
+				validation_result = self.block_announce_validator.select_next_some() =>
+					self.process_block_announce_validation_result(validation_result),
+			}
+
+			// Update atomic variables
+			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
+			self.is_major_syncing
+				.store(self.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
+
+			// Send outbound requests on `ChanSync`'s behalf.
+			self.send_chain_sync_requests();
 		}
-	}
-
-	pub fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()> {
-		self.num_connected.store(self.peers.len(), Ordering::Relaxed);
-		self.is_major_syncing
-			.store(self.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
-
-		while let Poll::Ready(_) = self.tick_timeout.poll_tick(cx) {
-			self.perform_periodic_actions();
-		}
-
-		while let Poll::Ready(Some(command)) = self.service_rx.poll_next_unpin(cx) {
-			self.process_service_command(command);
-		}
-
-		while let Poll::Ready(Some(event)) = self.rx.poll_next_unpin(cx) {
-			self.process_sync_event(event);
-		}
-
-		// Retreive warp sync target block header just before polling `ChainSync`
-		// to make progress as soon as we receive it.
-		if let Poll::Ready(result) = self.warp_sync_target_block_header_rx.poll_unpin(cx) {
-			self.pass_warp_sync_target_block_header(result);
-		}
-
-		// Send outbound requests on `ChanSync`'s behalf.
-		self.send_chain_sync_requests();
-
-		// Poll & process pending responses.
-		while let Poll::Ready(Some(event)) = self.pending_responses.poll_next_unpin(cx) {
-			self.process_response_event(event);
-		}
-
-		// Poll block announce validations last, because if a block announcement was received
-		// through the event stream between `SyncingEngine` and `Protocol` and the validation
-		// finished right after it is queued, the resulting block request (if any) can be sent
-		// right away.
-		while let Poll::Ready(Some(result)) = self.block_announce_validator.poll_next_unpin(cx) {
-			self.process_block_announce_validation_result(result);
-		}
-
-		Poll::Pending
 	}
 
 	fn perform_periodic_actions(&mut self) {
