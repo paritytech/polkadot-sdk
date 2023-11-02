@@ -102,18 +102,18 @@
 //! ```
 //! #[frame::pallet]
 //! pub mod pallet(dev_mode) {
-//! # 	use frame::prelude::*;
-//! # 	#[pallet::config]
-//! # 	pub trait Config: frame_system::Config {}
-//! # 	#[pallet::pallet]
-//! # 	pub struct Pallet<T>(_);
-//! 	#[pallet::call]
-//! 	impl<T: Config> Pallet<T> {
-//! 		fn a_simple_call(origin: OriginFor<T>, data: u32) -> DispatchResult {
-//! 			ensure!(data > 10, "SomeStaticString")
-//! 			todo!();
-//! 		}
-//! 	}
+//! #   use frame::prelude::*;
+//! #   #[pallet::config]
+//! #   pub trait Config: frame_system::Config {}
+//! #   #[pallet::pallet]
+//! #   pub struct Pallet<T>(_);
+//!     #[pallet::call]
+//!     impl<T: Config> Pallet<T> {
+//!         fn a_simple_call(origin: OriginFor<T>, data: u32) -> DispatchResult {
+//!             ensure!(data > 10, "SomeStaticString")
+//!             todo!();
+//!         }
+//!     }
 //! }
 //! ```
 //!
@@ -139,9 +139,9 @@
 //! ### `crates.io` and Publishing
 //!
 //! As it stands now, this crate cannot be published to crates.io because of its use of
-//! workspace-level `docify`. For now, we accept this compromise, but in the long term, we should
-//! work towards finding a way to maintain different revisions of this crate. See
-//! <https://github.com/sam0x17/docify/issues/14> as one possible solution.
+//! [workspace-level `docify`](https://github.com/sam0x17/docify/issues/22). For now, we accept this
+//! compromise, but in the long term, we should work towards finding a way to maintain different
+//! revisions of this crate.
 
 #![allow(rustdoc::invalid_html_tags)]
 #![warn(rustdoc::broken_intra_doc_links)]
