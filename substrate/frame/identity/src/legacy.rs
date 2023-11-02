@@ -124,9 +124,9 @@ pub struct IdentityInfo<FieldLimit: Get<u32>> {
 }
 
 impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInfo<FieldLimit> {
-	type IdentityField = u64;
+	type FieldsBitFlags = u64;
 
-	fn has_identity(&self, fields: Self::IdentityField) -> bool {
+	fn has_identity(&self, fields: Self::FieldsBitFlags) -> bool {
 		self.fields().bits() & fields == fields
 	}
 
@@ -150,7 +150,7 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn all_fields() -> Self::IdentityField {
+	fn all_fields() -> Self::FieldsBitFlags {
 		IdentityField::all().bits()
 	}
 }

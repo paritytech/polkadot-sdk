@@ -133,13 +133,13 @@ impl pallet_identity::Config for Test {
 
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
-	type IdentityField = <<Test as pallet_identity::Config>::IdentityInformation as IdentityInformationProvider>::IdentityField;
+	type FieldsBitFlags = <<Test as pallet_identity::Config>::IdentityInformation as IdentityInformationProvider>::FieldsBitFlags;
 
-	fn required_identities() -> Self::IdentityField {
+	fn required_identities() -> Self::FieldsBitFlags {
 		(IdentityField::Display | IdentityField::Web).bits()
 	}
 
-	fn has_identity(who: &AccountId, fields: Self::IdentityField) -> bool {
+	fn has_identity(who: &AccountId, fields: Self::FieldsBitFlags) -> bool {
 		Identity::has_identity(who, fields)
 	}
 

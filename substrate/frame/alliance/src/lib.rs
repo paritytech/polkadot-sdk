@@ -134,14 +134,14 @@ type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 
 /// Interface required for identity verification.
 pub trait IdentityVerifier<AccountId> {
-	type IdentityField;
+	type FieldsBitFlags;
 
 	/// Returns the relevant identities that an account is required to have set.
-	fn required_identities() -> Self::IdentityField;
+	fn required_identities() -> Self::FieldsBitFlags;
 
 	/// Function that returns whether an account has an identity registered with the identity
 	/// provider.
-	fn has_identity(who: &AccountId, fields: Self::IdentityField) -> bool;
+	fn has_identity(who: &AccountId, fields: Self::FieldsBitFlags) -> bool;
 
 	/// Whether an account has been deemed "good" by the provider.
 	fn has_good_judgement(who: &AccountId) -> bool;
@@ -153,13 +153,13 @@ pub trait IdentityVerifier<AccountId> {
 
 /// The non-provider. Imposes no restrictions on account identity.
 impl<AccountId> IdentityVerifier<AccountId> for () {
-	type IdentityField = ();
+	type FieldsBitFlags = ();
 
-	fn required_identities() -> Self::IdentityField {
+	fn required_identities() -> Self::FieldsBitFlags {
 		()
 	}
 
-	fn has_identity(_who: &AccountId, _fields: Self::IdentityField) -> bool {
+	fn has_identity(_who: &AccountId, _fields: Self::FieldsBitFlags) -> bool {
 		true
 	}
 

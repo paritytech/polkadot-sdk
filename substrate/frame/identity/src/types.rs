@@ -232,7 +232,7 @@ pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
 	/// Type capable of representing all of the fields present in the identity information.
-	type IdentityField: Encode
+	type FieldsBitFlags: Encode
 		+ Decode
 		+ Clone
 		+ Debug
@@ -243,13 +243,13 @@ pub trait IdentityInformationProvider:
 		+ MaxEncodedLen;
 
 	/// Check if an identity registered information for some given `fields`.
-	fn has_identity(&self, fields: Self::IdentityField) -> bool;
+	fn has_identity(&self, fields: Self::FieldsBitFlags) -> bool;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn all_fields() -> Self::IdentityField;
+	fn all_fields() -> Self::FieldsBitFlags;
 }
 
 /// Information on an identity along with judgements from registrars.
