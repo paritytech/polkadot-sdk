@@ -1,0 +1,25 @@
+Description: User is able to transfer WOC from Wococo Asset Hub to Rococo Asset Hub
+Network: ../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
+Creds: config
+
+# step 1: initialize Rococo asset hub
+asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-rococo-local" within 120 seconds
+
+# step 2: initialize Rococo bridge hub
+bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 120 seconds
+
+# step 3: relay is started elsewhere - let's wait until with-Wococo GRANPDA pallet is initialized at Rococo
+bridge-hub-rococo-collator1: js-script ../helpers/best-finalized-header-at-bridged-chain.js with "Wococo,0" within 400 seconds
+
+# step 4: send ROC to Wococo
+asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-rococo-local" within 60 seconds
+
+# step 5: elsewhere Wococo has sent WOC to //Alice - let's wait for it
+asset-hub-rococo-collator1: js-script ../helpers/wrapped-assets-balance.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,0,Wococo" within 600 seconds
+
+# step 6: check that the relayer //Charlie is rewarded by both our AH and target AH
+bridge-hub-rococo-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000001,0x6268776F,BridgedChain,0" within 300 seconds
+bridge-hub-rococo-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000001,0x6268776F,ThisChain,0" within 300 seconds
+
+# wait until other network test has completed OR exit with an error too
+asset-hub-rococo-collator1: run ../scripts/sync-exit.sh within 600 seconds

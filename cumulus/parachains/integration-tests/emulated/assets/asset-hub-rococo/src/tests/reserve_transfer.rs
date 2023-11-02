@@ -288,14 +288,14 @@ fn limited_reserve_transfer_native_asset_from_relay_to_para() {
 	test.set_dispatchable::<Rococo>(relay_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
 	let delivery_fees = Rococo::execute_with(|| {
 		xcm_helpers::transfer_assets_delivery_fees::<
 			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
 
 	// Sender's balance is reduced
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
