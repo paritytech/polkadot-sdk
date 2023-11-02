@@ -120,8 +120,8 @@ pub fn generate_vote_equivocation_proof(
 /// Create a new `ForkEquivocationProof` based on vote & correct header.
 pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
 	vote: (u64, Payload, ValidatorSetId, &Keyring),
-	correct_header: Header,
-	ancestry_proof: AncestryProof<Hash>,
+	correct_header: Option<Header>,
+	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
 	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
 	let signatories = vec![(signed_vote.id, signed_vote.signature)];
@@ -137,8 +137,8 @@ pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
 pub fn generate_fork_equivocation_proof_sc<Header, Hash>(
 	commitment: Commitment<u64>,
 	keyrings: Vec<Keyring>,
-	correct_header: Header,
-	ancestry_proof: AncestryProof<Hash>,
+	correct_header: Option<Header>,
+	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
 	let signatories = keyrings
 		.into_iter()

@@ -266,9 +266,9 @@ pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
 	/// 1. the header is in our chain
 	/// 2. its digest's payload != commitment.payload
 	/// 3. commitment is signed by signatories
-	pub correct_header: Header,
+	pub correct_header: Option<Header>,
 	/// ancestry proof showing mmr root
-	pub ancestry_proof: AncestryProof<Hash>,
+	pub ancestry_proof: Option<AncestryProof<Hash>>,
 }
 
 impl<Number, Id, Signature, H: Header, Hash> ForkEquivocationProof<Number, Id, Signature, H, Hash> {
@@ -374,6 +374,7 @@ where
 	// this can be inferred from the leaf_count / mmr_size of the prev_root:
 	// convert the commitment.block_number to an mmr size and compare with the value in the ancestry
 	// proof
+	let mut ancestry_prev_root = Err(mmr_lib::Error::CorruptedProof);
 	{
 		let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
 			commitment.block_number,
@@ -384,10 +385,18 @@ where
 				sp_mmr_primitives::Error::InvalidNumericOp.log_debug("leaf_index + 1 overflowed")
 			})
 		});
+
+		if (correct_header, ancestry_proof) == (&None, &None) {
+			// at least a header or ancestry proof must be provided
+			return false
+		}
+
 		// if the block number either under- or overflowed, the commitment.block_number was not
 		// valid and the commitment should not have been signed, hence we can skip the ancestry
 		// proof and slash the signatories
-		if let Ok(expected_leaf_count) = expected_leaf_count {
+		if let (Ok(expected_leaf_count), Some(ancestry_proof)) =
+			(expected_leaf_count, ancestry_proof)
+		{
 			let expected_mmr_size =
 				sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
 			if expected_mmr_size != ancestry_proof.prev_size {
@@ -401,19 +410,23 @@ where
 				) {
 				return false
 			}
+			ancestry_prev_root = mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(
+				ancestry_proof.prev_peaks.clone(),
+			);
 		}
 	}
 
-	if correct_header.hash() != *expected_header_hash {
-		return false
+	let mut expected_payload: Option<_> = None;
+	if let Some(correct_header) = correct_header {
+		if correct_header.hash() != *expected_header_hash {
+			return false
+		}
+
+		let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
+		expected_payload = expected_mmr_root_digest.map(|mmr_root| {
+			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
+		});
 	}
-
-	let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
-	let expected_payload = expected_mmr_root_digest
-		.map(|mmr_root| Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode()));
-
-	let ancestry_prev_root =
-		mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(ancestry_proof.prev_peaks.clone());
 
 	// if the commitment payload does not commit to an MMR root, then this commitment may have
 	// another purpose and should not be slashed

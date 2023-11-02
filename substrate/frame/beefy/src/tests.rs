@@ -853,8 +853,8 @@ fn report_fork_equivocation_vote_current_set_works() {
 		// different payload than finalized
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// create the key ownership proof
@@ -973,8 +973,8 @@ fn report_fork_equivocation_vote_old_set_works() {
 		// different payload than finalized
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, old_set_id, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// report the equivocation and the tx should be dispatched successfully
@@ -1051,8 +1051,8 @@ fn report_fork_equivocation_vote_invalid_set_id() {
 		// generate an equivocation for a future set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id + 1, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// the call for reporting the equivocation should error
@@ -1109,8 +1109,8 @@ fn report_fork_equivocation_vote_invalid_session() {
 		// generate an equivocation proof at following era set id = 3
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// report an equivocation for the current set using an key ownership
@@ -1168,8 +1168,8 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 		// generate an equivocation for a future set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id + 1, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// we need to start a new era otherwise the key ownership proof won't be
@@ -1230,8 +1230,8 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		// vote targets different round than finalized payload, there is no equivocation.
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
-			header.clone(),
-			ancestry_proof.clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1245,8 +1245,8 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		// vote signed with a key that isn't part of the authority set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload.clone(), set_id, &BeefyKeyring::Dave),
-			header.clone(),
-			ancestry_proof.clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1260,8 +1260,8 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		// vote targets future set id
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload.clone(), set_id + 1, &equivocation_keyring),
-			header.clone(),
-			ancestry_proof,
+			Some(header.clone()),
+			Some(ancestry_proof),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1314,8 +1314,8 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
@@ -1415,8 +1415,8 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// create the key ownership proof.
@@ -1522,8 +1522,8 @@ fn report_fork_equivocation_sc_current_set_works() {
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
 			commitment,
 			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// create the key ownership proof
@@ -1665,8 +1665,8 @@ fn report_fork_equivocation_sc_old_set_works() {
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
 			commitment,
 			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// report the equivocation and the tx should be dispatched successfully
@@ -1760,8 +1760,8 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
 			commitment,
 			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// the call for reporting the equivocation should error
@@ -1829,8 +1829,8 @@ fn report_fork_equivocation_sc_invalid_session() {
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
 			commitment,
 			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// report an equivocation for the current set using an key ownership
@@ -1901,8 +1901,8 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
 			commitment,
 			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// we need to start a new era otherwise the key ownership proof won't be
@@ -1978,8 +1978,8 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 				payload: payload.clone(),
 			},
 			equivocation_keyrings.clone(),
-			header.clone(),
-			ancestry_proof.clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1998,8 +1998,8 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 				payload: payload.clone(),
 			},
 			vec![BeefyKeyring::Eve],
-			header.clone(),
-			ancestry_proof.clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -2018,8 +2018,8 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 				payload: payload.clone(),
 			},
 			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -2072,8 +2072,8 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
@@ -2173,8 +2173,8 @@ fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// create the key ownership proof.
@@ -2288,8 +2288,8 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 		let equivocation_proof_singleton = generate_fork_equivocation_proof_sc(
 			commitment.clone(),
 			vec![equivocation_keyrings[0]],
-			header.clone(),
-			ancestry_proof.clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
 		);
 
 		// create the key ownership proof
@@ -2321,8 +2321,8 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 		let equivocation_proof_full = generate_fork_equivocation_proof_sc(
 			commitment,
 			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 
 		// check that the balance of the reported equivocating validator is slashed 100%.

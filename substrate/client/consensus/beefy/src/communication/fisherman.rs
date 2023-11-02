@@ -97,11 +97,11 @@ where
 
 	fn active_validator_set_at(
 		&self,
-		header: &B::Header,
+		block_hash: <<B as Block>::Header as Header>::Hash,
 	) -> Result<ValidatorSet<AuthorityId>, Error> {
 		self.runtime
 			.runtime_api()
-			.validator_set(header.hash())
+			.validator_set(block_hash)
 			.map_err(Error::RuntimeApi)?
 			.ok_or_else(|| Error::Backend("could not get BEEFY validator set".into()))
 	}
@@ -110,7 +110,12 @@ where
 		&self,
 		proof: ForkEquivocationProof<NumberFor<B>, AuthorityId, Signature, B::Header, MmrRootHash>,
 	) -> Result<(), Error> {
-		let validator_set = self.active_validator_set_at(&proof.correct_header)?;
+		let prev_hash = self
+			.backend
+			.blockchain()
+			.hash(proof.commitment.block_number)
+			.map_err(|e| Error::Backend(e.to_string()))?;
+		let validator_set = self.active_validator_set_at(prev_hash.unwrap())?;
 		let set_id = validator_set.id();
 
 		let expected_header_hash = self
@@ -168,7 +173,6 @@ where
 			}
 		}
 
-		let hash = proof.correct_header.hash();
 		let runtime_api = self.runtime.runtime_api();
 
 		// generate key ownership proof at that block
@@ -176,7 +180,11 @@ where
 			.iter()
 			.cloned()
 			.filter_map(|id| {
-				match runtime_api.generate_key_ownership_proof(hash, set_id, id.clone()) {
+				match runtime_api.generate_key_ownership_proof(
+					prev_hash.unwrap(),
+					set_id,
+					id.clone(),
+				) {
 					Ok(Some(proof)) => Some(Ok(proof)),
 					Ok(None) => {
 						debug!(
@@ -229,8 +237,8 @@ where
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
-				correct_header: correct_header.clone(),
-				ancestry_proof,
+				correct_header: Some(correct_header.clone()),
+				ancestry_proof: Some(ancestry_proof),
 			};
 			self.report_fork_equivocation(proof)?;
 		}
@@ -244,6 +252,11 @@ where
 	) -> Result<(), Error> {
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
+		let prev_hash = self
+			.backend
+			.blockchain()
+			.hash(number)
+			.map_err(|e| Error::Backend(e.to_string()))?;
 		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
 		if commitment.payload != expected_payload {
 			let ancestry_proof = self
@@ -252,7 +265,7 @@ where
 				.generate_ancestry_proof(correct_header.hash(), number, None)
 				.unwrap()
 				.unwrap();
-			let validator_set = self.active_validator_set_at(&correct_header)?;
+			let validator_set = self.active_validator_set_at(prev_hash.unwrap())?;
 			if signatures.len() != validator_set.validators().len() {
 				// invalid proof
 				return Ok(())
@@ -269,8 +282,8 @@ where
 			let proof = ForkEquivocationProof {
 				commitment,
 				signatories,
-				correct_header: correct_header.clone(),
-				ancestry_proof,
+				correct_header: Some(correct_header.clone()),
+				ancestry_proof: Some(ancestry_proof),
 			};
 			self.report_fork_equivocation(proof)?;
 		}

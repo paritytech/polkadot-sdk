@@ -1745,8 +1745,8 @@ pub(crate) mod tests {
 			.unwrap();
 		let proof = generate_fork_equivocation_proof_vote(
 			votes[1].clone(),
-			header.clone(),
-			ancestry_proof.clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
 		);
 		{
 			// expect fisher (Alice) to successfully process it
@@ -1768,8 +1768,8 @@ pub(crate) mod tests {
 		// verify: Alice does not self-report
 		let proof = generate_fork_equivocation_proof_vote(
 			votes[0].clone(),
-			header.clone(),
-			ancestry_proof.clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
 		);
 		{
 			// expect fisher (Alice) to successfully process it
@@ -1798,8 +1798,8 @@ pub(crate) mod tests {
 		let proof = generate_fork_equivocation_proof_sc(
 			commitment,
 			vec![Keyring::Bob, Keyring::Charlie],
-			header,
-			ancestry_proof,
+			Some(header),
+			Some(ancestry_proof),
 		);
 		{
 			// expect fisher (Alice) to successfully process it
