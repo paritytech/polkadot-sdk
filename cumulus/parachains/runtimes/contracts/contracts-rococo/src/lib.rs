@@ -30,13 +30,14 @@ mod weights;
 mod xcm_config;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_primitives_core::AggregateMessageOrigin;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Perbill,
 };
 
 use sp_std::prelude::*;
@@ -57,6 +58,7 @@ use frame_system::limits::{BlockLength, BlockWeights};
 pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees,
+	message_queue::*,
 	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
@@ -97,10 +99,10 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
 	pallet_contracts::Migration<Runtime>,
+	// unreleased
 );
 
 type EventRecord = frame_system::EventRecord<
@@ -267,13 +269,15 @@ impl pallet_utility::Config for Runtime {
 parameter_types! {
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
+	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
-	type DmpMessageHandler = DmpQueue;
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type XcmpMessageHandler = XcmpQueue;
@@ -290,6 +294,32 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
 impl parachain_info::Config for Runtime {}
+
+parameter_types! {
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_message_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
+		cumulus_primitives_core::AggregateMessageOrigin,
+	>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = xcm_builder::ProcessXcmMessage<
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		RuntimeCall,
+	>;
+	type Size = u32;
+	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
+	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type MaxStale = sp_core::ConstU32<8>;
+	type ServiceWeight = MessageQueueServiceWeight;
+}
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
@@ -376,6 +406,7 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
 
 		// Smart Contracts.
 		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason} = 40,
@@ -390,14 +421,11 @@ construct_runtime!(
 );
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!(
+	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
