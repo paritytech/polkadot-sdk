@@ -14,14 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::Xcm;
-use crate::Junctions::Here;
+use crate::{Junctions::Here, Xcm};
 use core::result;
-use frame_support::pallet_prelude::{Get, TypeInfo};
+use frame_support::{
+	pallet_prelude::{Get, TypeInfo},
+	parameter_types,
+};
 use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
-use frame_support::parameter_types;
 use xcm::latest::{
 	Error as XcmError, InteriorMultiLocation, MultiLocation, QueryId, Response,
 	Result as XcmResult, Weight, XcmContext,
@@ -200,4 +201,3 @@ impl QueryHandler for () {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn expect_response(_id: Self::QueryId, _response: crate::Response) {}
 }
-
