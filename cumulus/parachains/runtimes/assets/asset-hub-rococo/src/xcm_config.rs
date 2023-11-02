@@ -897,7 +897,9 @@ pub mod bridging {
 				),
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					None, // TODO add Ethereum network / gateway contract
+					Some(sp_std::vec![
+						EthereumLocation::get().interior,
+					]),
 					SiblingBridgeHub::get(),
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
@@ -911,10 +913,6 @@ pub mod bridging {
 				// allow send only WOC
 				Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
 				// and nothing else
-			];
-
-			pub AllowedReserveTransferAssetsToEthereum: sp_std::vec::Vec<MultiAssetFilter> = sp_std::vec![
-				Wild(AllOf { fun: WildFungible, id: Concrete(EthereumLocation::get()) }),
 			];
 
 			/// Universal aliases

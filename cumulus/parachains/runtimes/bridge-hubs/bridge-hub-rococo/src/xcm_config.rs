@@ -461,7 +461,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 					destination,
 					message,
 				)
-				.map(|result| ((Ethereum { chain_id: 15 }, result.0), result.1)) // TODO get network ID
+				.map(|result| ((location, result.0), result.1))
 			},
 			_ => unimplemented!("Unsupported network: {:?}", network),
 		}
