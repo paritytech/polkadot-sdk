@@ -184,8 +184,8 @@
 								RuntimeEvent::Balances(
 									<span class="macro-nonterminal">$crate::pallet_balances::Event::Deposit </span>{ who: receiver, .. }
 								) =&gt; {},
-								RuntimeEvent::XcmpQueue(
-									<span class="macro-nonterminal">$crate::cumulus_pallet_xcmp_queue::Event::Success </span>{ .. }
+								RuntimeEvent::MessageQueue(
+									<span class="macro-nonterminal">$crate::pallet_message_queue::Event::Processed </span>{ success: <span class="bool-val">true</span>, .. }
 								) =&gt; {},
 							]
 						);

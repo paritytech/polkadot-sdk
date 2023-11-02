@@ -1133,11 +1133,6 @@
 <a href="#1133" id="1133">1133</a>
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
-<a href="#1136" id="1136">1136</a>
-<a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a>
-<a href="#1139" id="1139">1139</a>
-<a href="#1140" id="1140">1140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1220,7 +1215,6 @@
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_dmp_queue::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ pallet_bridge_grandpa::Config&lt;GrandpaPalletInstance&gt;,
 	GrandpaPalletInstance: <span class="lifetime">&#39;static</span>,
@@ -1292,7 +1286,6 @@
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_dmp_queue::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;,
 	XcmConfig: xcm_executor::Config,
@@ -1414,7 +1407,6 @@
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_dmp_queue::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
 		+ pallet_bridge_messages::Config&lt;MessagesPalletInstance, InboundPayload = XcmAsPlainPayload&gt;,
@@ -1530,7 +1522,6 @@
 	+ pallet_xcm::Config
 	+ parachain_info::Config
 	+ pallet_collator_selection::Config
-	+ cumulus_pallet_dmp_queue::Config
 	+ cumulus_pallet_parachain_system::Config
 	+ cumulus_pallet_xcmp_queue::Config
 	+ pallet_bridge_grandpa::Config&lt;GPI&gt;
@@ -1757,7 +1748,6 @@
 	+ pallet_xcm::Config
 	+ parachain_info::Config
 	+ pallet_collator_selection::Config
-	+ cumulus_pallet_dmp_queue::Config
 	+ cumulus_pallet_parachain_system::Config
 	+ cumulus_pallet_xcmp_queue::Config
 	+ pallet_bridge_grandpa::Config&lt;GPI&gt;

@@ -936,7 +936,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-		Runtime: cumulus_pallet_dmp_queue::Config + cumulus_pallet_parachain_system::Config,
+		Runtime: cumulus_pallet_parachain_system::Config + pallet_xcm::Config,
 		AllPalletsWithoutSystem,
 	&gt; RuntimeHelper&lt;Runtime, AllPalletsWithoutSystem&gt;
 {
@@ -953,7 +953,7 @@
 
 		<span class="comment">// execute xcm as parent origin
 		</span><span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		&lt;&lt;Runtime <span class="kw">as </span>cumulus_pallet_dmp_queue::Config&gt;::XcmExecutor&gt;::execute_xcm(
+		&lt;&lt;Runtime <span class="kw">as </span>pallet_xcm::Config&gt;::XcmExecutor&gt;::execute_xcm(
 			MultiLocation::parent(),
 			xcm,
 			hash,

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["STORAGE_VERSION"],"fn":["migrate_to_v2","migrate_to_v3"],"struct":["Migration"]};
+window.SIDEBAR_ITEMS = {"constant":["LOG","STORAGE_VERSION"],"fn":["lazy_migrate_inbound_queue","migrate_to_v2","migrate_to_v3"],"mod":["v3"],"struct":["MigrationToV3"]};

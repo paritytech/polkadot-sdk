@@ -496,6 +496,36 @@
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -559,6 +589,7 @@
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
+<span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
 <span class="kw">pub use </span>frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
@@ -693,6 +724,7 @@
 <span class="macro">parameter_types! </span>{
 	<span class="comment">// We do anything the parent chain tells us in this runtime.
 	</span><span class="kw">pub const </span>ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(<span class="number">2</span>);
+	<span class="kw">pub const </span>RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
 <span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
@@ -706,13 +738,40 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OnSystemEvent = ();
 	<span class="kw">type </span>SelfParaId = parachain_info::Pallet&lt;Runtime&gt;;
+	<span class="kw">type </span>DmpQueue = frame_support::traits::EnqueueWithOrigin&lt;MessageQueue, RelayOrigin&gt;;
 	<span class="kw">type </span>OutboundXcmpMessageSource = ();
-	<span class="kw">type </span>DmpMessageHandler = cumulus_pallet_xcm::UnlimitedDmpExecution&lt;Runtime&gt;;
 	<span class="kw">type </span>ReservedDmpWeight = ReservedDmpWeight;
 	<span class="kw">type </span>XcmpMessageHandler = ();
 	<span class="kw">type </span>ReservedXcmpWeight = ();
 	<span class="kw">type </span>CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	<span class="kw">type </span>ConsensusHook = ConsensusHook;
+	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo&lt;Runtime&gt;;
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>MessageQueueServiceWeight: Weight = Perbill::from_percent(<span class="number">80</span>) *
+		RuntimeBlockWeights::get().max_block;
+}
+
+<span class="kw">impl </span>pallet_message_queue::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>WeightInfo = weights::pallet_message_queue::WeightInfo&lt;Runtime&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor&lt;
+		cumulus_primitives_core::AggregateMessageOrigin,
+	&gt;;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="kw">type </span>MessageProcessor = xcm_builder::ProcessXcmMessage&lt;
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor&lt;xcm_config::XcmConfig&gt;,
+		RuntimeCall,
+	&gt;;
+	<span class="kw">type </span>Size = u32;
+	<span class="kw">type </span>QueueChangeHandler = ();
+	<span class="kw">type </span>QueuePausedQuery = (); <span class="comment">// No XCMP queue pallet deployed.
+	</span><span class="kw">type </span>HeapSize = sp_core::ConstU32&lt;{ <span class="number">64 </span>* <span class="number">1024 </span>}&gt;;
+	<span class="kw">type </span>MaxStale = sp_core::ConstU32&lt;<span class="number">8</span>&gt;;
+	<span class="kw">type </span>ServiceWeight = MessageQueueServiceWeight;
 }
 
 <span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
@@ -762,6 +821,7 @@
 
 		<span class="comment">// DMP handler.
 		</span>CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin} = <span class="number">10</span>,
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">11</span>,
 
 		<span class="comment">// The main stage.
 		</span>Glutton: pallet_glutton::{Pallet, Call, Storage, Event, Config&lt;T&gt;} = <span class="number">20</span>,

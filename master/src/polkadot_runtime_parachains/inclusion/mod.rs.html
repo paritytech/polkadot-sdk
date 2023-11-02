@@ -1332,6 +1332,7 @@
 <a href="#1332" id="1332">1332</a>
 <a href="#1333" id="1333">1333</a>
 <a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1364,7 +1365,7 @@
 <span class="kw">use </span>frame_support::{
 	defensive,
 	pallet_prelude::<span class="kw-2">*</span>,
-	traits::{Defensive, EnqueueMessage},
+	traits::{Defensive, EnqueueMessage, Footprint, QueueFootprint},
 	BoundedSlice,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
@@ -1565,7 +1566,7 @@
 
 <span class="doccomment">/// Identifies a UMP queue inside the `MessageQueue` pallet.
 ///
-/// It is written in verbose form since future variants like `Loopback` and `Bridged` are already
+/// It is written in verbose form since future variants like `Here` and `Bridged` are already
 /// forseeable.
 </span><span class="attr">#[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub enum </span>UmpQueueId {
@@ -2259,7 +2260,7 @@
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>relay_dispatch_queue_size(para_id: ParaId) -&gt; (u32, u32) {
 		<span class="kw">let </span>fp = T::MessageQueue::footprint(AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)));
-		(fp.count <span class="kw">as </span>u32, fp.size <span class="kw">as </span>u32)
+		(fp.storage.count <span class="kw">as </span>u32, fp.storage.size <span class="kw">as </span>u32)
 	}
 
 	<span class="doccomment">/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
@@ -2483,10 +2484,11 @@
 
 <span class="kw">impl</span>&lt;T: Config&gt; OnQueueChanged&lt;AggregateMessageOrigin&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="comment">// Write back the remaining queue capacity into `relay_dispatch_queue_remaining_capacity`.
-	</span><span class="kw">fn </span>on_queue_changed(origin: AggregateMessageOrigin, count: u64, size: u64) {
+	</span><span class="kw">fn </span>on_queue_changed(origin: AggregateMessageOrigin, fp: QueueFootprint) {
 		<span class="kw">let </span>para = <span class="kw">match </span>origin {
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(p)) =&gt; p,
 		};
+		<span class="kw">let </span>QueueFootprint { storage: Footprint { count, size }, .. } = fp;
 		<span class="kw">let </span>(count, size) = (count.saturated_into(), size.saturated_into());
 		<span class="comment">// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
 		</span><span class="attr">#[allow(deprecated)]
@@ -2663,7 +2665,7 @@
 	<span class="kw">type </span>Origin = UmpQueueId;
 
 	<span class="kw">fn </span>message_count(origin: <span class="self">Self</span>::Origin) -&gt; u64 {
-		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).count
+		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).storage.count
 	}
 }
 </code></pre></div></section></main></body></html>

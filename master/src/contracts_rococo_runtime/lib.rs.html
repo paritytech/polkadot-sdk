@@ -716,6 +716,34 @@
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -748,13 +776,14 @@
 <span class="kw">mod </span>xcm_config;
 
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+<span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Perbill,
 };
 
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -775,6 +804,7 @@
 <span class="kw">pub use </span>parachains_common <span class="kw">as </span>common;
 <span class="kw">use </span>parachains_common::{
 	impls::DealWithFees,
+	message_queue::<span class="kw-2">*</span>,
 	rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee},
 	AccountId, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
@@ -815,11 +845,11 @@
 
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
 </span><span class="kw">pub type </span>Migrations = (
-	cumulus_pallet_dmp_queue::migration::Migration&lt;Runtime&gt;,
 	cumulus_pallet_parachain_system::migration::Migration&lt;Runtime&gt;,
-	cumulus_pallet_xcmp_queue::migration::Migration&lt;Runtime&gt;,
+	cumulus_pallet_xcmp_queue::migration::MigrationToV3&lt;Runtime&gt;,
 	pallet_contracts::Migration&lt;Runtime&gt;,
-);
+	<span class="comment">// unreleased
+</span>);
 
 <span class="kw">type </span>EventRecord = frame_system::EventRecord&lt;
 	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent,
@@ -985,13 +1015,15 @@
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(<span class="number">4</span>);
 	<span class="kw">pub const </span>ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(<span class="number">4</span>);
+	<span class="kw">pub const </span>RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
 <span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OnSystemEvent = ();
 	<span class="kw">type </span>SelfParaId = parachain_info::Pallet&lt;Runtime&gt;;
-	<span class="kw">type </span>DmpMessageHandler = DmpQueue;
+	<span class="kw">type </span>DmpQueue = frame_support::traits::EnqueueWithOrigin&lt;MessageQueue, RelayOrigin&gt;;
 	<span class="kw">type </span>ReservedDmpWeight = ReservedDmpWeight;
 	<span class="kw">type </span>OutboundXcmpMessageSource = XcmpQueue;
 	<span class="kw">type </span>XcmpMessageHandler = XcmpQueue;
@@ -1008,6 +1040,32 @@
 <span class="kw">impl </span>pallet_insecure_randomness_collective_flip::Config <span class="kw">for </span>Runtime {}
 
 <span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>MessageQueueServiceWeight: Weight = Perbill::from_percent(<span class="number">35</span>) * RuntimeBlockWeights::get().max_block;
+}
+
+<span class="kw">impl </span>pallet_message_queue::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>WeightInfo = ();
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor&lt;
+		cumulus_primitives_core::AggregateMessageOrigin,
+	&gt;;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="kw">type </span>MessageProcessor = xcm_builder::ProcessXcmMessage&lt;
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor&lt;xcm_config::XcmConfig&gt;,
+		RuntimeCall,
+	&gt;;
+	<span class="kw">type </span>Size = u32;
+	<span class="comment">// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+	</span><span class="kw">type </span>QueueChangeHandler = NarrowOriginToSibling&lt;XcmpQueue&gt;;
+	<span class="kw">type </span>QueuePausedQuery = NarrowOriginToSibling&lt;XcmpQueue&gt;;
+	<span class="kw">type </span>HeapSize = sp_core::ConstU32&lt;{ <span class="number">64 </span>* <span class="number">1024 </span>}&gt;;
+	<span class="kw">type </span>MaxStale = sp_core::ConstU32&lt;<span class="number">8</span>&gt;;
+	<span class="kw">type </span>ServiceWeight = MessageQueueServiceWeight;
+}
 
 <span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
 
@@ -1094,6 +1152,7 @@
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">31</span>,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event&lt;T&gt;, Origin} = <span class="number">32</span>,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">33</span>,
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">34</span>,
 
 		<span class="comment">// Smart Contracts.
 		</span>Contracts: pallet_contracts::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">40</span>,
@@ -1108,14 +1167,11 @@
 );
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-#[macro_use]
-</span><span class="kw">extern crate </span>frame_benchmarking;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benches {
-	<span class="macro">define_benchmarks!</span>(
+	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_system, SystemBench::&lt;Runtime&gt;]
 		[pallet_balances, Balances]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::&lt;Runtime&gt;]
 		[pallet_utility, Utility]

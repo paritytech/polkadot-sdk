@@ -973,6 +973,38 @@
 <a href="#973" id="973">973</a>
 <a href="#974" id="974">974</a>
 <a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1020,7 +1052,6 @@
 <span class="kw">pub use </span>ambassador::pallet_ambassador_origins;
 
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-<span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>fellowship::{
 	migration::import_kusama_fellowship, pallet_fellowship_origins, Fellows,
 	FellowshipCollectiveInstance,
@@ -1041,6 +1072,7 @@
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 <span class="kw">use </span>frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
@@ -1048,7 +1080,7 @@
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, ConstBool, ConstU16, ConstU32, ConstU64, ConstU8,
-		EitherOfDiverse, InstanceFilter, LinearStoragePrice,
+		EitherOfDiverse, InstanceFilter, LinearStoragePrice, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -1060,13 +1092,14 @@
 <span class="kw">pub use </span>parachains_common <span class="kw">as </span>common;
 <span class="kw">use </span>parachains_common::{
 	impls::DealWithFees,
+	message_queue::<span class="kw-2">*</span>,
 	polkadot::{account::<span class="kw-2">*</span>, consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee},
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
 	SLOT_DURATION,
 };
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>xcm_config::{GovernanceLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
+<span class="kw">use </span>xcm_config::{GovernanceLocation, XcmOriginToTransactDispatchOrigin};
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
@@ -1074,8 +1107,7 @@
 <span class="comment">// Polkadot imports
 </span><span class="kw">use </span>pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm_executor::XcmExecutor;
+<span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, BodyId};
 
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -1357,10 +1389,11 @@
 }
 
 <span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OnSystemEvent = ();
 	<span class="kw">type </span>SelfParaId = parachain_info::Pallet&lt;Runtime&gt;;
-	<span class="kw">type </span>DmpMessageHandler = DmpQueue;
+	<span class="kw">type </span>DmpQueue = frame_support::traits::EnqueueWithOrigin&lt;MessageQueue, RelayOrigin&gt;;
 	<span class="kw">type </span>ReservedDmpWeight = ReservedDmpWeight;
 	<span class="kw">type </span>OutboundXcmpMessageSource = XcmpQueue;
 	<span class="kw">type </span>XcmpMessageHandler = XcmpQueue;
@@ -1375,6 +1408,32 @@
 }
 
 <span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>MessageQueueServiceWeight: Weight = Perbill::from_percent(<span class="number">35</span>) * RuntimeBlockWeights::get().max_block;
+}
+
+<span class="kw">impl </span>pallet_message_queue::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>WeightInfo = weights::pallet_message_queue::WeightInfo&lt;Runtime&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor&lt;
+		cumulus_primitives_core::AggregateMessageOrigin,
+	&gt;;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="kw">type </span>MessageProcessor = xcm_builder::ProcessXcmMessage&lt;
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor&lt;xcm_config::XcmConfig&gt;,
+		RuntimeCall,
+	&gt;;
+	<span class="kw">type </span>Size = u32;
+	<span class="comment">// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+	</span><span class="kw">type </span>QueueChangeHandler = NarrowOriginToSibling&lt;XcmpQueue&gt;;
+	<span class="kw">type </span>QueuePausedQuery = NarrowOriginToSibling&lt;XcmpQueue&gt;;
+	<span class="kw">type </span>HeapSize = sp_core::ConstU32&lt;{ <span class="number">64 </span>* <span class="number">1024 </span>}&gt;;
+	<span class="kw">type </span>MaxStale = sp_core::ConstU32&lt;<span class="number">8</span>&gt;;
+	<span class="kw">type </span>ServiceWeight = MessageQueueServiceWeight;
+}
 
 <span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
 
@@ -1394,10 +1453,11 @@
 
 <span class="kw">impl </span>cumulus_pallet_xcmp_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>ChannelInfo = ParachainSystem;
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
-	<span class="kw">type </span>ExecuteOverweightOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="comment">// Enqueue XCMP messages from siblings for later processing.
+	</span><span class="kw">type </span>XcmpQueue = TransformOrigin&lt;MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
 	<span class="kw">type </span>ControllerOrigin = EitherOfDiverse&lt;EnsureRoot&lt;AccountId&gt;, Fellows&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
@@ -1405,10 +1465,14 @@
 		polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery&lt;ParaId&gt;;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+}
+
 <span class="kw">impl </span>cumulus_pallet_dmp_queue::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_dmp_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
-	<span class="kw">type </span>ExecuteOverweightOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>DmpSink = frame_support::traits::EnqueueWithOrigin&lt;MessageQueue, RelayOrigin&gt;;
 }
 
 <span class="kw">pub const </span>PERIOD: u32 = <span class="number">6 </span>* HOURS;
@@ -1601,6 +1665,7 @@
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">31</span>,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event&lt;T&gt;, Origin} = <span class="number">32</span>,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">33</span>,
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">34</span>,
 
 		<span class="comment">// Handy utilities.
 		</span>Utility: pallet_utility::{Pallet, Call, Event} = <span class="number">40</span>,
@@ -1677,21 +1742,20 @@
 &gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-#[macro_use]
-</span><span class="kw">extern crate </span>frame_benchmarking;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benches {
-	<span class="macro">define_benchmarks!</span>(
+	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_system, SystemBench::&lt;Runtime&gt;]
 		[pallet_balances, Balances]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::&lt;Runtime&gt;]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[cumulus_pallet_dmp_queue, DmpQueue]
 		[pallet_alliance, Alliance]
 		[pallet_collective, AllianceMotion]
 		[pallet_xcm, PolkadotXcm]

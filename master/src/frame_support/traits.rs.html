@@ -126,6 +126,7 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -241,7 +242,8 @@
 <span class="kw">mod </span>messages;
 <span class="kw">pub use </span>messages::{
 	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
-	ProcessMessage, ProcessMessageError, QueuePausedQuery, ServiceQueues, TransformOrigin,
+	ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+	TransformOrigin,
 };
 
 <span class="kw">mod </span>safe_mode;

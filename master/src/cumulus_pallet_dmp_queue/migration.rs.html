@@ -111,16 +111,6 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -137,111 +127,101 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! A module that is responsible for migration of storage.
+</span><span class="doccomment">//! Migrates the storage from the previously deleted DMP pallet.
 
-</span><span class="kw">use crate</span>::{Config, Configuration, Overweight, Pallet, DEFAULT_POV_SIZE};
-<span class="kw">use </span>frame_support::{
-	pallet_prelude::<span class="kw-2">*</span>,
-	traits::{OnRuntimeUpgrade, StorageVersion},
-	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
-};
+</span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>cumulus_primitives_core::relay_chain::BlockNumber <span class="kw">as </span>RelayBlockNumber;
+<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage_alias, traits::HandleMessage};
+<span class="kw">use </span>sp_std::vec::Vec;
 
-<span class="doccomment">/// The current storage version.
-</span><span class="kw">pub const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">2</span>);
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::dmp-queue-export-xcms&quot;</span>;
 
-<span class="doccomment">/// Migrates the pallet storage to the most recent version.
-</span><span class="kw">pub struct </span>Migration&lt;T: Config&gt;(PhantomData&lt;T&gt;);
-
-<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>Migration&lt;T&gt; {
-	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-		<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
-
-		<span class="kw">if </span>StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">0 </span>{
-			weight.saturating_accrue(migrate_to_v1::&lt;T&gt;());
-			StorageVersion::new(<span class="number">1</span>).put::&lt;Pallet&lt;T&gt;&gt;();
-			weight.saturating_accrue(T::DbWeight::get().writes(<span class="number">1</span>));
-		}
-
-		<span class="kw">if </span>StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">1 </span>{
-			weight.saturating_accrue(migrate_to_v2::&lt;T&gt;());
-			StorageVersion::new(<span class="number">2</span>).put::&lt;Pallet&lt;T&gt;&gt;();
-			weight.saturating_accrue(T::DbWeight::get().writes(<span class="number">1</span>));
-		}
-
-		weight
-	}
+<span class="doccomment">/// The old `PageIndexData` struct.
+</span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+</span><span class="kw">pub struct </span>PageIndexData {
+	<span class="doccomment">/// The lowest used page index.
+	</span><span class="kw">pub </span>begin_used: PageCounter,
+	<span class="doccomment">/// The lowest unused page index.
+	</span><span class="kw">pub </span>end_used: PageCounter,
+	<span class="doccomment">/// The number of overweight messages ever recorded (and thus the lowest free index).
+	</span><span class="kw">pub </span>overweight_count: OverweightIndex,
 }
 
-<span class="kw">mod </span>v0 {
+<span class="doccomment">/// The old `MigrationState` type.
+</span><span class="kw">pub type </span>OverweightIndex = u64;
+<span class="doccomment">/// The old `MigrationState` type.
+</span><span class="kw">pub type </span>PageCounter = u32;
+
+<span class="doccomment">/// The old `PageIndex` storage item.
+</span><span class="attr">#[storage_alias]
+</span><span class="kw">pub type </span>PageIndex&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, PageIndexData, ValueQuery&gt;;
+
+<span class="doccomment">/// The old `Pages` storage item.
+</span><span class="attr">#[storage_alias]
+</span><span class="kw">pub type </span>Pages&lt;T: Config&gt; = StorageMap&lt;
+	Pallet&lt;T&gt;,
+	Blake2_128Concat,
+	PageCounter,
+	Vec&lt;(RelayBlockNumber, Vec&lt;u8&gt;)&gt;,
+	ValueQuery,
+&gt;;
+
+<span class="doccomment">/// The old `Overweight` storage item.
+</span><span class="attr">#[storage_alias]
+</span><span class="kw">pub type </span>Overweight&lt;T: Config&gt; = CountedStorageMap&lt;
+	Pallet&lt;T&gt;,
+	Blake2_128Concat,
+	OverweightIndex,
+	(RelayBlockNumber, Vec&lt;u8&gt;),
+	OptionQuery,
+&gt;;
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>testing_only {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>codec::{Decode, Encode};
 
-	<span class="attr">#[derive(Decode, Encode, Debug)]
-	</span><span class="kw">pub struct </span>ConfigData {
-		<span class="kw">pub </span>max_individual: u64,
-	}
-
-	<span class="kw">impl </span>Default <span class="kw">for </span>ConfigData {
-		<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-			ConfigData { max_individual: <span class="number">10u64 </span>* WEIGHT_REF_TIME_PER_MILLIS }
-		}
-	}
+	<span class="doccomment">/// This alias is not used by the migration but only for testing.
+	///
+	/// Note that the alias type is wrong on purpose.
+	</span><span class="attr">#[storage_alias]
+	</span><span class="kw">pub type </span>Configuration&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, u32&gt;;
 }
 
-<span class="doccomment">/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
-/// 2D weights).
-///
-/// NOTE: Only use this function if you know what you&#39;re doing. Default to using
-/// `migrate_to_latest`.
-</span><span class="kw">pub fn </span>migrate_to_v1&lt;T: Config&gt;() -&gt; Weight {
-	<span class="kw">let </span>translate = |pre: v0::ConfigData| -&gt; <span class="kw">super</span>::ConfigData {
-		<span class="kw">super</span>::ConfigData {
-			max_individual: Weight::from_parts(pre.max_individual, DEFAULT_POV_SIZE),
-		}
+<span class="doccomment">/// Migrates a single page to the `DmpSink`.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>migrate_page&lt;T: <span class="kw">crate</span>::Config&gt;(p: PageCounter) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+	<span class="kw">let </span>page = Pages::&lt;T&gt;::take(p);
+	<span class="macro">log::debug!</span>(target: LOG, <span class="string">&quot;Migrating page #{p} with {} messages ...&quot;</span>, page.len());
+	<span class="kw">if </span>page.is_empty() {
+		<span class="macro">log::error!</span>(target: LOG, <span class="string">&quot;Page #{p}: EMPTY - storage corrupted?&quot;</span>);
+		<span class="kw">return </span><span class="prelude-val">Err</span>(())
+	}
+
+	<span class="kw">for </span>(m, (block, msg)) <span class="kw">in </span>page.iter().enumerate() {
+		<span class="kw">let </span><span class="prelude-val">Ok</span>(bound) = BoundedVec::&lt;u8, <span class="kw">_</span>&gt;::try_from(msg.clone()) <span class="kw">else </span>{
+			<span class="macro">log::error!</span>(target: LOG, <span class="string">&quot;[Page {p}] Message #{m}: TOO LONG - dropping&quot;</span>);
+			<span class="kw">continue
+		</span>};
+
+		T::DmpSink::handle_message(bound.as_bounded_slice());
+		<span class="macro">log::debug!</span>(target: LOG, <span class="string">&quot;[Page {p}] Migrated message #{m} from block {block}&quot;</span>);
+	}
+
+	<span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Migrates a single overweight message to the `DmpSink`.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>migrate_overweight&lt;T: <span class="kw">crate</span>::Config&gt;(i: OverweightIndex) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+	<span class="kw">let </span><span class="prelude-val">Some</span>((block, msg)) = Overweight::&lt;T&gt;::take(i) <span class="kw">else </span>{
+		<span class="macro">log::error!</span>(target: LOG, <span class="string">&quot;[Overweight {i}] Message: EMPTY - storage corrupted?&quot;</span>);
+		<span class="kw">return </span><span class="prelude-val">Err</span>(())
+	};
+	<span class="kw">let </span><span class="prelude-val">Ok</span>(bound) = BoundedVec::&lt;u8, <span class="kw">_</span>&gt;::try_from(msg) <span class="kw">else </span>{
+		<span class="macro">log::error!</span>(target: LOG, <span class="string">&quot;[Overweight {i}] Message: TOO LONG - dropping&quot;</span>);
+		<span class="kw">return </span><span class="prelude-val">Err</span>(())
 	};
 
-	<span class="kw">if </span>Configuration::&lt;T&gt;::translate(|pre| pre.map(translate)).is_err() {
-		<span class="macro">log::error!</span>(
-			target: <span class="string">&quot;dmp_queue&quot;</span>,
-			<span class="string">&quot;unexpected error when performing translation of the QueueConfig type during storage upgrade to v2&quot;
-		</span>);
-	}
+	T::DmpSink::handle_message(bound.as_bounded_slice());
+	<span class="macro">log::debug!</span>(target: LOG, <span class="string">&quot;[Overweight {i}] Migrated message from block {block}&quot;</span>);
 
-	T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
-}
-
-<span class="doccomment">/// Migrates `Overweight` so that it initializes the storage map&#39;s counter.
-///
-/// NOTE: Only use this function if you know what you&#39;re doing. Default to using
-/// `migrate_to_latest`.
-</span><span class="kw">pub fn </span>migrate_to_v2&lt;T: Config&gt;() -&gt; Weight {
-	<span class="kw">let </span>overweight_messages = Overweight::&lt;T&gt;::initialize_counter() <span class="kw">as </span>u64;
-
-	T::DbWeight::get().reads_writes(overweight_messages, <span class="number">1</span>)
-}
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::tests::{new_test_ext, Test};
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>test_migration_to_v1() {
-		<span class="kw">let </span>v0 = v0::ConfigData { max_individual: <span class="number">30_000_000_000 </span>};
-
-		new_test_ext().execute_with(|| {
-			frame_support::storage::unhashed::put_raw(
-				<span class="kw-2">&amp;</span><span class="kw">crate</span>::Configuration::&lt;Test&gt;::hashed_key(),
-				<span class="kw-2">&amp;</span>v0.encode(),
-			);
-
-			migrate_to_v1::&lt;Test&gt;();
-
-			<span class="kw">let </span>v1 = <span class="kw">crate</span>::Configuration::&lt;Test&gt;::get();
-
-			<span class="macro">assert_eq!</span>(v0.max_individual, v1.max_individual.ref_time());
-			<span class="macro">assert_eq!</span>(v1.max_individual.proof_size(), DEFAULT_POV_SIZE);
-		});
-	}
+	<span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>

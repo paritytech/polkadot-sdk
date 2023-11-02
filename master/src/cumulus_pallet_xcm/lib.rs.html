@@ -106,89 +106,6 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -211,25 +128,18 @@
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, DecodeLimit, Encode};
-<span class="kw">use </span>cumulus_primitives_core::{
-	relay_chain::BlockNumber <span class="kw">as </span>RelayBlockNumber, DmpMessageHandler, ParaId,
-};
-<span class="kw">use </span>frame_support::weights::Weight;
+</span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{traits::BadOrigin, RuntimeDebug};
-<span class="kw">use </span>sp_std::{convert::TryFrom, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>xcm::{
-	latest::{ExecuteXcm, Outcome, Parent, Xcm},
-	VersionedXcm, MAX_XCM_DECODE_DEPTH,
-};
+<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm::latest::{ExecuteXcm, Outcome};
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
@@ -243,17 +153,7 @@
 		<span class="kw">type </span>XcmExecutor: ExecuteXcm&lt;<span class="self">Self</span>::RuntimeCall&gt;;
 	}
 
-	<span class="attr">#[pallet::error]
-	</span><span class="kw">pub enum </span>Error&lt;T&gt; {}
-
-	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {}
-
-	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {}
-
 	<span class="attr">#[pallet::event]
-	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		<span class="doccomment">/// Downward message is invalid XCM.
 		/// \[ id \]
@@ -276,6 +176,9 @@
 		</span>SiblingParachain(ParaId),
 	}
 
+	<span class="attr">#[pallet::call]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {}
+
 	<span class="kw">impl </span>From&lt;ParaId&gt; <span class="kw">for </span>Origin {
 		<span class="kw">fn </span>from(id: ParaId) -&gt; Origin {
 			Origin::SiblingParachain(id)
@@ -285,75 +188,6 @@
 		<span class="kw">fn </span>from(id: u32) -&gt; Origin {
 			Origin::SiblingParachain(id.into())
 		}
-	}
-}
-
-<span class="doccomment">/// For an incoming downward message, this just adapts an XCM executor and executes DMP messages
-/// immediately. Their origin is asserted to be the Parent location.
-///
-/// The weight `limit` is only respected as the maximum for an individual message.
-///
-/// Because this largely ignores the given weight limit, it probably isn&#39;t good for most production
-/// uses. Use DmpQueue pallet for a more robust design.
-</span><span class="kw">pub struct </span>UnlimitedDmpExecution&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Config&gt; DmpMessageHandler <span class="kw">for </span>UnlimitedDmpExecution&lt;T&gt; {
-	<span class="kw">fn </span>handle_dmp_messages(
-		iter: <span class="kw">impl </span>Iterator&lt;Item = (RelayBlockNumber, Vec&lt;u8&gt;)&gt;,
-		limit: Weight,
-	) -&gt; Weight {
-		<span class="kw">let </span><span class="kw-2">mut </span>used = Weight::zero();
-		<span class="kw">for </span>(_sent_at, data) <span class="kw">in </span>iter {
-			<span class="kw">let </span>id = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>data[..]);
-			<span class="kw">let </span>msg = VersionedXcm::&lt;T::RuntimeCall&gt;::decode_all_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				<span class="kw-2">&amp;mut </span>data.as_slice(),
-			)
-			.map(Xcm::&lt;T::RuntimeCall&gt;::try_from);
-			<span class="kw">match </span>msg {
-				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Pallet::&lt;T&gt;::deposit_event(Event::InvalidFormat(id)),
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(())) =&gt; Pallet::&lt;T&gt;::deposit_event(Event::UnsupportedVersion(id)),
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(x)) =&gt; {
-					<span class="kw">let </span>outcome = T::XcmExecutor::execute_xcm(Parent, x, id, limit);
-					used = used.saturating_add(outcome.weight_used());
-					Pallet::&lt;T&gt;::deposit_event(Event::ExecutedDownward(id, outcome));
-				},
-			}
-		}
-		used
-	}
-}
-
-<span class="doccomment">/// For an incoming downward message, this just adapts an XCM executor and executes DMP messages
-/// immediately. Their origin is asserted to be the Parent location.
-///
-/// This respects the given weight limit and silently drops messages if they would break it. It
-/// probably isn&#39;t good for most production uses. Use DmpQueue pallet for a more robust design.
-</span><span class="kw">pub struct </span>LimitAndDropDmpExecution&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Config&gt; DmpMessageHandler <span class="kw">for </span>LimitAndDropDmpExecution&lt;T&gt; {
-	<span class="kw">fn </span>handle_dmp_messages(
-		iter: <span class="kw">impl </span>Iterator&lt;Item = (RelayBlockNumber, Vec&lt;u8&gt;)&gt;,
-		limit: Weight,
-	) -&gt; Weight {
-		<span class="kw">let </span><span class="kw-2">mut </span>used = Weight::zero();
-		<span class="kw">for </span>(_sent_at, data) <span class="kw">in </span>iter {
-			<span class="kw">let </span>id = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>data[..]);
-			<span class="kw">let </span>msg = VersionedXcm::&lt;T::RuntimeCall&gt;::decode_all_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				<span class="kw-2">&amp;mut </span>data.as_slice(),
-			)
-			.map(Xcm::&lt;T::RuntimeCall&gt;::try_from);
-			<span class="kw">match </span>msg {
-				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Pallet::&lt;T&gt;::deposit_event(Event::InvalidFormat(id)),
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(())) =&gt; Pallet::&lt;T&gt;::deposit_event(Event::UnsupportedVersion(id)),
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(x)) =&gt; {
-					<span class="kw">let </span>weight_limit = limit.saturating_sub(used);
-					<span class="kw">let </span>outcome = T::XcmExecutor::execute_xcm(Parent, x, id, weight_limit);
-					used = used.saturating_add(outcome.weight_used());
-					Pallet::&lt;T&gt;::deposit_event(Event::ExecutedDownward(id, outcome));
-				},
-			}
-		}
-		used
 	}
 }
 

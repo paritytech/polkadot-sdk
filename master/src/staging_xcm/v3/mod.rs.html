@@ -1489,6 +1489,9 @@
 <a href="#1489" id="1489">1489</a>
 <a href="#1490" id="1490">1490</a>
 <a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1562,7 +1565,10 @@
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>Xcm&lt;Call&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;Call&gt;&gt;);
 
-<span class="kw">pub const </span>MAX_INSTRUCTIONS_TO_DECODE: u8 = <span class="number">100</span>;
+<span class="doccomment">/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
+</span><span class="kw">pub const </span>MAX_INSTRUCTIONS_TO_DECODE: u8 = <span class="number">100</span>;
 
 <span class="macro">environmental::environmental!</span>(instructions_count: u8);
 

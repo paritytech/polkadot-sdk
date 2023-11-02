@@ -36,6 +36,9 @@
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -56,11 +59,14 @@
 </span><span class="doccomment">//! Expose the auto generated weight files.
 
 </span><span class="kw">pub mod </span>block_weights;
+<span class="kw">pub mod </span>cumulus_pallet_dmp_queue;
+<span class="kw">pub mod </span>cumulus_pallet_parachain_system;
 <span class="kw">pub mod </span>cumulus_pallet_xcmp_queue;
 <span class="kw">pub mod </span>extrinsic_weights;
 <span class="kw">pub mod </span>frame_system;
 <span class="kw">pub mod </span>pallet_balances;
 <span class="kw">pub mod </span>pallet_collator_selection;
+<span class="kw">pub mod </span>pallet_message_queue;
 <span class="kw">pub mod </span>pallet_multisig;
 <span class="kw">pub mod </span>pallet_session;
 <span class="kw">pub mod </span>pallet_timestamp;

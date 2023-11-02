@@ -153,6 +153,7 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -205,7 +206,8 @@
 		<span class="kw">let </span>message = Xcm::&lt;Call&gt;::try_from(versioned_message)
 			.map_err(|<span class="kw">_</span>| ProcessMessageError::Unsupported)<span class="question-mark">?</span>;
 		<span class="kw">let </span>pre = XcmExecutor::prepare(message).map_err(|<span class="kw">_</span>| ProcessMessageError::Unsupported)<span class="question-mark">?</span>;
-		<span class="kw">let </span>required = pre.weight_of();
+		<span class="comment">// The worst-case weight:
+		</span><span class="kw">let </span>required = pre.weight_of();
 		<span class="macro">ensure!</span>(meter.can_consume(required), ProcessMessageError::Overweight(required));
 
 		<span class="kw">let </span>(consumed, result) = <span class="kw">match </span>XcmExecutor::execute(origin.into(), pre, id, Weight::zero())

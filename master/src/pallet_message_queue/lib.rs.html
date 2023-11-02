@@ -1509,10 +1509,6 @@
 <a href="#1509" id="1509">1509</a>
 <a href="#1510" id="1510">1510</a>
 <a href="#1511" id="1511">1511</a>
-<a href="#1512" id="1512">1512</a>
-<a href="#1513" id="1513">1513</a>
-<a href="#1514" id="1514">1514</a>
-<a href="#1515" id="1515">1515</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1710,7 +1706,7 @@
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
 		DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint, ProcessMessage,
-		ProcessMessageError, QueuePausedQuery, ServiceQueues,
+		ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -1938,14 +1934,23 @@
 	}
 }
 
+<span class="kw">impl</span>&lt;MessageOrigin&gt; From&lt;BookState&lt;MessageOrigin&gt;&gt; <span class="kw">for </span>QueueFootprint {
+	<span class="kw">fn </span>from(book: BookState&lt;MessageOrigin&gt;) -&gt; <span class="self">Self </span>{
+		QueueFootprint {
+			pages: book.count,
+			storage: Footprint { count: book.message_count, size: book.size },
+		}
+	}
+}
+
 <span class="doccomment">/// Handler code for when the items in a queue change.
 </span><span class="kw">pub trait </span>OnQueueChanged&lt;Id&gt; {
 	<span class="doccomment">/// Note that the queue `id` now has `item_count` items in it, taking up `items_size` bytes.
-	</span><span class="kw">fn </span>on_queue_changed(id: Id, items_count: u64, items_size: u64);
+	</span><span class="kw">fn </span>on_queue_changed(id: Id, fp: QueueFootprint);
 }
 
 <span class="kw">impl</span>&lt;Id&gt; OnQueueChanged&lt;Id&gt; <span class="kw">for </span>() {
-	<span class="kw">fn </span>on_queue_changed(<span class="kw">_</span>: Id, <span class="kw">_</span>: u64, <span class="kw">_</span>: u64) {}
+	<span class="kw">fn </span>on_queue_changed(<span class="kw">_</span>: Id, <span class="kw">_</span>: QueueFootprint) {}
 }
 
 <span class="attr">#[frame_support::pallet]
@@ -2422,11 +2427,7 @@
 					T::WeightInfo::execute_overweight_page_updated()
 				};
 				BookStateFor::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>origin, <span class="kw-2">&amp;</span>book_state);
-				T::QueueChangeHandler::on_queue_changed(
-					origin,
-					book_state.message_count,
-					book_state.size,
-				);
+				T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 				<span class="prelude-val">Ok</span>(weight_counter.consumed().saturating_add(page_weight))
 			},
 		}
@@ -2491,11 +2492,7 @@
 		book_state.message_count.saturating_reduce(page.remaining.into() <span class="kw">as </span>u64);
 		book_state.size.saturating_reduce(page.remaining_size.into() <span class="kw">as </span>u64);
 		BookStateFor::&lt;T&gt;::insert(origin, <span class="kw-2">&amp;</span>book_state);
-		T::QueueChangeHandler::on_queue_changed(
-			origin.clone(),
-			book_state.message_count,
-			book_state.size,
-		);
+		T::QueueChangeHandler::on_queue_changed(origin.clone(), book_state.into());
 		<span class="self">Self</span>::deposit_event(Event::PageReaped { origin: origin.clone(), index: page_index });
 
 		<span class="prelude-val">Ok</span>(())
@@ -2550,11 +2547,7 @@
 		}
 		BookStateFor::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>origin, <span class="kw-2">&amp;</span>book_state);
 		<span class="kw">if </span>total_processed &gt; <span class="number">0 </span>{
-			T::QueueChangeHandler::on_queue_changed(
-				origin,
-				book_state.message_count,
-				book_state.size,
-			);
+			T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 		}
 		(total_processed &gt; <span class="number">0</span>, next_ready)
 	}
@@ -2997,7 +2990,7 @@
 	) {
 		<span class="self">Self</span>::do_enqueue_message(<span class="kw-2">&amp;</span>origin, message);
 		<span class="kw">let </span>book_state = BookStateFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>origin);
-		T::QueueChangeHandler::on_queue_changed(origin, book_state.message_count, book_state.size);
+		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
 
 	<span class="kw">fn </span>enqueue_messages&lt;<span class="lifetime">&#39;a</span>&gt;(
@@ -3008,7 +3001,7 @@
 			<span class="self">Self</span>::do_enqueue_message(<span class="kw-2">&amp;</span>origin, message);
 		}
 		<span class="kw">let </span>book_state = BookStateFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>origin);
-		T::QueueChangeHandler::on_queue_changed(origin, book_state.message_count, book_state.size);
+		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
 
 	<span class="kw">fn </span>sweep_queue(origin: MessageOriginOf&lt;T&gt;) {
@@ -3023,9 +3016,8 @@
 		BookStateFor::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>origin, <span class="kw-2">&amp;</span>book_state);
 	}
 
-	<span class="kw">fn </span>footprint(origin: MessageOriginOf&lt;T&gt;) -&gt; Footprint {
-		<span class="kw">let </span>book_state = BookStateFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>origin);
-		Footprint { count: book_state.message_count, size: book_state.size }
+	<span class="kw">fn </span>footprint(origin: MessageOriginOf&lt;T&gt;) -&gt; QueueFootprint {
+		BookStateFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>origin).into()
 	}
 }
 </code></pre></div></section></main></body></html>

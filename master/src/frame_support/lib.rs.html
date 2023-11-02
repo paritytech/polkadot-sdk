@@ -2609,6 +2609,33 @@
 <a href="#2609" id="2609">2609</a>
 <a href="#2610" id="2610">2610</a>
 <a href="#2611" id="2611">2611</a>
+<a href="#2612" id="2612">2612</a>
+<a href="#2613" id="2613">2613</a>
+<a href="#2614" id="2614">2614</a>
+<a href="#2615" id="2615">2615</a>
+<a href="#2616" id="2616">2616</a>
+<a href="#2617" id="2617">2617</a>
+<a href="#2618" id="2618">2618</a>
+<a href="#2619" id="2619">2619</a>
+<a href="#2620" id="2620">2620</a>
+<a href="#2621" id="2621">2621</a>
+<a href="#2622" id="2622">2622</a>
+<a href="#2623" id="2623">2623</a>
+<a href="#2624" id="2624">2624</a>
+<a href="#2625" id="2625">2625</a>
+<a href="#2626" id="2626">2626</a>
+<a href="#2627" id="2627">2627</a>
+<a href="#2628" id="2628">2628</a>
+<a href="#2629" id="2629">2629</a>
+<a href="#2630" id="2630">2630</a>
+<a href="#2631" id="2631">2631</a>
+<a href="#2632" id="2632">2632</a>
+<a href="#2633" id="2633">2633</a>
+<a href="#2634" id="2634">2634</a>
+<a href="#2635" id="2635">2635</a>
+<a href="#2636" id="2636">2636</a>
+<a href="#2637" id="2637">2637</a>
+<a href="#2638" id="2638">2638</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2662,7 +2689,9 @@
 	<span class="kw">pub use </span>sp_metadata_ir <span class="kw">as </span>metadata_ir;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub use </span>sp_runtime::{bounded_btree_map, bounded_vec};
-	<span class="kw">pub use </span>sp_runtime::{traits::Dispatchable, RuntimeDebug, StateVersion};
+	<span class="kw">pub use </span>sp_runtime::{
+		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+	};
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub use </span>sp_state_machine::BasicExternalities;
 	<span class="kw">pub use </span>sp_std;
@@ -3390,6 +3419,31 @@
 		runtime = [{ <span class="macro-nonterminal">$runtime</span>:ident }]
 		assert_message = [{ <span class="macro-nonterminal">$assert_message</span>:literal }]
 	} =&gt; {};
+}
+
+<span class="doccomment">/// Do something hypothetically by rolling back any changes afterwards.
+///
+/// Returns the original result of the closure.
+</span><span class="attr">#[macro_export]
+#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+</span><span class="macro">macro_rules! </span>hypothetically {
+	( <span class="macro-nonterminal">$e</span>:expr ) =&gt; {
+		<span class="macro-nonterminal">$crate::storage::transactional::with_transaction</span>(|| -&gt; <span class="macro-nonterminal">$crate::__private::TransactionOutcome</span>&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="macro-nonterminal">$crate::__private::DispatchError</span>&gt;&gt; {
+			<span class="macro-nonterminal">$crate::__private::TransactionOutcome::Rollback</span>(<span class="prelude-val">Ok</span>(<span class="macro-nonterminal">$e</span>))
+		},
+		).expect(<span class="string">&quot;Always returning Ok; qed&quot;</span>)
+	};
+}
+
+<span class="doccomment">/// Assert something to be *hypothetically* `Ok`, without actually committing it.
+///
+/// Reverts any storage changes made by the closure.
+</span><span class="attr">#[macro_export]
+#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+</span><span class="macro">macro_rules! </span>hypothetically_ok {
+	(<span class="macro-nonterminal">$e</span>:expr $(, <span class="macro-nonterminal">$args</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
+		<span class="macro-nonterminal">$</span><span class="macro">crate::assert_ok!</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::hypothetically!</span>(<span class="macro-nonterminal">$e</span>) $(, <span class="macro-nonterminal">$args</span>)<span class="kw-2">*</span>);
+	};
 }
 
 <span class="attr">#[doc(hidden)]

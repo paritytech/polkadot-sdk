@@ -303,6 +303,20 @@
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -323,6 +337,7 @@
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
 <span class="kw">use </span><span class="kw">crate</span>::common::rococo::currency::CENTS;
+<span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
 <span class="kw">use </span>frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, EitherOfDiverse, Equals, Everything, Nothing},
@@ -590,10 +605,19 @@
 
 <span class="kw">impl </span>cumulus_pallet_xcmp_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>ChannelInfo = ParachainSystem;
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
-	<span class="kw">type </span>ExecuteOverweightOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="comment">// Enqueue XCMP messages from siblings for later processing.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>XcmpQueue = ();
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="kw">type </span>XcmpQueue = frame_support::traits::TransformOrigin&lt;
+		<span class="kw">crate</span>::MessageQueue,
+		AggregateMessageOrigin,
+		cumulus_primitives_core::ParaId,
+		parachains_common::message_queue::ParaIdToSibling,
+	&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
 	<span class="kw">type </span>ControllerOrigin = EitherOfDiverse&lt;
 		EnsureRoot&lt;AccountId&gt;,
 		EnsureXcm&lt;IsMajorityOfBody&lt;RelayLocation, ExecutiveBody&gt;&gt;,
@@ -603,9 +627,13 @@
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+}
+
 <span class="kw">impl </span>cumulus_pallet_dmp_queue::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
-	<span class="kw">type </span>ExecuteOverweightOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>WeightInfo = cumulus_pallet_dmp_queue::weights::SubstrateWeight&lt;Runtime&gt;;
+	<span class="kw">type </span>RuntimeEvent = <span class="kw">crate</span>::RuntimeEvent;
+	<span class="kw">type </span>DmpSink = frame_support::traits::EnqueueWithOrigin&lt;<span class="kw">crate</span>::MessageQueue, RelayOrigin&gt;;
 }
 </code></pre></div></section></main></body></html>

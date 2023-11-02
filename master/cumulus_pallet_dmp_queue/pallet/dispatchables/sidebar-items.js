@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["service_overweight"]};
+window.SIDEBAR_ITEMS = {};
