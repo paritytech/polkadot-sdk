@@ -268,10 +268,6 @@ pub use libp2p::{multiaddr, Multiaddr, PeerId};
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{
 	role::{ObservedRole, Roles},
-	sync::{
-		warp::{WarpSyncPhase, WarpSyncProgress},
-		ExtendedPeerInfo, StateDownloadProgress, SyncEventStream, SyncState, SyncStatusProvider,
-	},
 	types::ReputationChange,
 };
 pub use service::{

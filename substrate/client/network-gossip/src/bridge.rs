@@ -26,7 +26,7 @@ use sc_network::{
 	types::ProtocolName,
 	NotificationService, ReputationChange,
 };
-use sc_network_common::sync::SyncEvent;
+use sc_network_sync::SyncEvent;
 
 use futures::{
 	channel::mpsc::{channel, Receiver, Sender},
@@ -353,7 +353,8 @@ mod tests {
 		NotificationSenderError, NotificationSenderT as NotificationSender, NotificationService,
 		Roles,
 	};
-	use sc_network_common::{role::ObservedRole, sync::SyncEventStream};
+	use sc_network_common::role::ObservedRole;
+	use sc_network_sync::SyncEventStream;
 	use sp_runtime::{
 		testing::H256,
 		traits::{Block as BlockT, NumberFor},

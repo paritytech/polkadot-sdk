@@ -59,7 +59,7 @@ use crate::{
 use gossip::{
 	FullCatchUpMessage, FullCommitMessage, GossipMessage, GossipValidator, PeerReport, VoteMessage,
 };
-use sc_network_common::sync::SyncEventStream;
+use sc_network_sync::SyncEventStream;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, RoundNumber, SetId as SetIdNumber};
 
