@@ -26,6 +26,7 @@ use frame_support::{
 };
 use pallet_alliance::{IdentityVerifier, ProposalIndex, ProposalProvider};
 use pallet_asset_tx_payment::HandleCredit;
+use pallet_identity::{legacy::IdentityField, IdentityInformationProvider};
 use sp_std::prelude::*;
 
 use crate::{
@@ -56,7 +57,14 @@ impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
 
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
-	fn has_identity(who: &AccountId, fields: u64) -> bool {
+	type FieldsBitFlags =
+		<<Runtime as pallet_identity::Config>::IdentityInformation as IdentityInformationProvider>::FieldsBitFlags;
+
+	fn required_identities() -> Self::FieldsBitFlags {
+		(IdentityField::Display | IdentityField::Web).bits()
+	}
+
+	fn has_identity(who: &AccountId, fields: Self::FieldsBitFlags) -> bool {
 		crate::Identity::has_identity(who, fields)
 	}
 
