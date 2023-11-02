@@ -112,7 +112,6 @@ use frame_support::{
 	},
 	weights::Weight,
 };
-use pallet_identity::legacy::IdentityField;
 use scale_info::TypeInfo;
 
 pub use pallet::*;
@@ -135,9 +134,14 @@ type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 
 /// Interface required for identity verification.
 pub trait IdentityVerifier<AccountId> {
+	type IdentityField;
+
+	/// Returns the relevant identities that an account is required to have set.
+	fn required_identities() -> Self::IdentityField;
+
 	/// Function that returns whether an account has an identity registered with the identity
 	/// provider.
-	fn has_identity(who: &AccountId, fields: u64) -> bool;
+	fn has_identity(who: &AccountId, fields: Self::IdentityField) -> bool;
 
 	/// Whether an account has been deemed "good" by the provider.
 	fn has_good_judgement(who: &AccountId) -> bool;
@@ -149,7 +153,13 @@ pub trait IdentityVerifier<AccountId> {
 
 /// The non-provider. Imposes no restrictions on account identity.
 impl<AccountId> IdentityVerifier<AccountId> for () {
-	fn has_identity(_who: &AccountId, _fields: u64) -> bool {
+	type IdentityField = ();
+
+	fn required_identities() -> Self::IdentityField {
+		()
+	}
+
+	fn has_identity(_who: &AccountId, _fields: Self::IdentityField) -> bool {
 		true
 	}
 
@@ -339,7 +349,7 @@ pub mod pallet {
 		/// Balance is insufficient for the required deposit.
 		InsufficientFunds,
 		/// The account's identity does not have display field and website field.
-		WithoutIdentityDisplayAndWebsite,
+		WithoutRequiredIdentityFields,
 		/// The account's identity has no good judgement.
 		WithoutGoodIdentityJudgement,
 		/// The proposal hash is not found.
@@ -1082,13 +1092,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	fn has_identity(who: &T::AccountId) -> DispatchResult {
-		const IDENTITY_FIELD_DISPLAY: u64 = IdentityField::Display as u64;
-		const IDENTITY_FIELD_WEB: u64 = IdentityField::Web as u64;
-
 		let judgement = |who: &T::AccountId| -> DispatchResult {
 			ensure!(
-				T::IdentityVerifier::has_identity(who, IDENTITY_FIELD_DISPLAY | IDENTITY_FIELD_WEB),
-				Error::<T, I>::WithoutIdentityDisplayAndWebsite
+				T::IdentityVerifier::has_identity(who, T::IdentityVerifier::required_identities()),
+				Error::<T, I>::WithoutRequiredIdentityFields
 			);
 			ensure!(
 				T::IdentityVerifier::has_good_judgement(who),

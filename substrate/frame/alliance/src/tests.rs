@@ -413,7 +413,7 @@ fn join_alliance_works() {
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
 			Alliance::join_alliance(RuntimeOrigin::signed(7)),
-			Error::<Test, ()>::WithoutIdentityDisplayAndWebsite
+			Error::<Test, ()>::WithoutRequiredIdentityFields
 		);
 	});
 }
@@ -468,7 +468,7 @@ fn nominate_ally_works() {
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
 			Alliance::join_alliance(RuntimeOrigin::signed(7)),
-			Error::<Test, ()>::WithoutIdentityDisplayAndWebsite
+			Error::<Test, ()>::WithoutRequiredIdentityFields
 		);
 	});
 }

@@ -31,7 +31,10 @@ pub use frame_support::{
 	BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_identity::{legacy::IdentityInfo, Data, Judgement};
+use pallet_identity::{
+	legacy::{IdentityField, IdentityInfo},
+	Data, IdentityInformationProvider, Judgement,
+};
 
 pub use crate as pallet_alliance;
 
@@ -130,7 +133,13 @@ impl pallet_identity::Config for Test {
 
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
-	fn has_identity(who: &AccountId, fields: u64) -> bool {
+	type IdentityField = <<Test as pallet_identity::Config>::IdentityInformation as IdentityInformationProvider>::IdentityField;
+
+	fn required_identities() -> Self::IdentityField {
+		(IdentityField::Display | IdentityField::Web).bits()
+	}
+
+	fn has_identity(who: &AccountId, fields: Self::IdentityField) -> bool {
 		Identity::has_identity(who, fields)
 	}
 
