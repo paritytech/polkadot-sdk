@@ -101,7 +101,7 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use crate::{
 	bridge_hub_rococo_config::BridgeRefundBridgeHubWococoMessages,
 	bridge_hub_wococo_config::BridgeRefundBridgeHubRococoMessages,
-	xcm_config::{AllowSiblingsOnly, XcmRouter},
+	xcm_config::XcmRouter,
 };
 use parachains_common::{
 	impls::DealWithFees,
