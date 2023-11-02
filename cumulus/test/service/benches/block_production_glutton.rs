@@ -17,7 +17,6 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
-use sc_client_api::UsageProvider;
 use sp_arithmetic::{
 	traits::{One, Zero},
 	FixedPointNumber,
@@ -26,7 +25,7 @@ use sp_arithmetic::{
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sc_block_builder::{BlockBuilderBuilder, RecordProof};
+use sc_block_builder::BlockBuilderBuilder;
 
 use sp_keyring::Sr25519Keyring::Alice;
 
@@ -79,7 +78,6 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 						let mut block_builder = BlockBuilderBuilder::new(&*client)
 							.on_parent_block(best_hash)
 							.with_parent_block_number(best_number)
-							.unwrap()
 							.enable_proof_recording()
 							.build()
 							.unwrap();
@@ -105,7 +103,6 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 						let mut block_builder = BlockBuilderBuilder::new(&*client)
 							.on_parent_block(best_hash)
 							.with_parent_block_number(best_number)
-							.unwrap()
 							.build()
 							.unwrap();
 						block_builder.push(validation_data).unwrap();

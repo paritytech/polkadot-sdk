@@ -17,7 +17,6 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
-use sc_client_api::UsageProvider;
 use sp_api::{Core, ProvideRuntimeApi};
 use sp_arithmetic::{
 	traits::{One, Zero},
@@ -27,7 +26,7 @@ use sp_arithmetic::{
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sc_block_builder::{BlockBuilderBuilder, RecordProof};
+use sc_block_builder::BlockBuilderBuilder;
 use sp_keyring::Sr25519Keyring::Alice;
 
 use cumulus_test_service::bench_utils as utils;
@@ -61,7 +60,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 		runtime.block_on(utils::import_block(&client, &block, false));
 
 		// Build the block we will use for benchmarking
-		let parent_hash = client.usage_info().chain.best_hash;
+		let parent_hash = client.chain_info().best_hash;
 		let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
 		let mut block_builder = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(parent_hash)

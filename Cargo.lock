@@ -14691,6 +14691,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-block-builder",
+ "sc-client-api",
  "sc-proposer-metrics",
  "sc-telemetry",
  "sc-transaction-pool",

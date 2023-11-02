@@ -106,8 +106,8 @@ fn record_proof_works() {
 
 	// Build the block and record proof
 	let mut builder = BlockBuilderBuilder::new(&client)
-		.on_parent_block(&client, client.chain_info().best_hash)
-		.unwrap()
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
 		.enable_proof_recording()
 		.build()
 		.unwrap();

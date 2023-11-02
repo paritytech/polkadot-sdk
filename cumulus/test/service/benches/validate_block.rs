@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
+use sc_block_builder::BlockBuilderBuilder;
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData, ValidationParams};

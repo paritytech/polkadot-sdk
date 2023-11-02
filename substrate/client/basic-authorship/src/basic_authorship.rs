@@ -590,6 +590,7 @@ mod tests {
 		runtime::{Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer},
 		TestClientBuilder, TestClientBuilderExt,
 	};
+	use sc_client_api::Backend;
 
 	const SOURCE: TransactionSource = TransactionSource::External;
 
@@ -954,7 +955,7 @@ mod tests {
 		// Exact block_limit, which includes:
 		// 99 (header_size) + 718 (proof@initialize_block) + 246 (one Transfer extrinsic)
 		let block_limit = {
-			let builder = BlockBuilderBuilder::new(&client)
+			let builder = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(genesis_header.hash())
 				.with_parent_block_number(0)
 				.build()

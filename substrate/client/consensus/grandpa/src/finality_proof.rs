@@ -323,7 +323,7 @@ mod tests {
 
 		let mut blocks = Vec::new();
 		for _ in 0..number_of_blocks {
-			let block = BlockBuilderBuilder::new(client)
+			let block = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(client.chain_info().best_hash)
 				.with_parent_block_number(client.chain_info().best_number)
 				.build()

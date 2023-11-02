@@ -17,12 +17,12 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::UsageProvider;
 
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sc_block_builder::RecordProof;
 use sp_api::{Core, ProvideRuntimeApi};
 use sp_keyring::Sr25519Keyring::Alice;
 

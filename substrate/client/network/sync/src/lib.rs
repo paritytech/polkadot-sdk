@@ -2634,9 +2634,9 @@ mod test {
 	fn build_block(client: &mut Arc<TestClient>, at: Option<Hash>, fork: bool) -> Block {
 		let at = at.unwrap_or_else(|| client.info().best_hash);
 
-		let mut block_builder = BlockBuilderBuilder::new(&*client)
+		let mut block_builder = BlockBuilderBuilder::new(&**client)
 			.on_parent_block(at)
-			.fetch_parent_block_number(&*client)
+			.fetch_parent_block_number(&**client)
 			.unwrap()
 			.build()
 			.unwrap();

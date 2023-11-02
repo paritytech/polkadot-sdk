@@ -21,7 +21,7 @@ use sc_client_api::UsageProvider;
 
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
-use sc_block_builder::{BlockBuilderBuilder, RecordProof};
+use sc_block_builder::{BlockBuilderBuilder};
 
 use sp_keyring::Sr25519Keyring::Alice;
 
@@ -50,7 +50,7 @@ fn benchmark_block_production(c: &mut Criterion) {
 	let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
 	let set_validation_data_extrinsic = utils::extrinsic_set_validation_data(parent_header);
 
-	let mut block_builder = BlockBuilderBuilder::new(client)
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().best_hash)
 		.with_parent_block_number(client.chain_info().best_number)
 		.build()
@@ -78,7 +78,7 @@ fn benchmark_block_production(c: &mut Criterion) {
 			b.iter_batched(
 				|| extrinsics.clone(),
 				|extrinsics| {
-					let mut block_builder = BlockBuilderBuilder::new(&client)
+					let mut block_builder = BlockBuilderBuilder::new(&*client)
 						.on_parent_block(chain.best_hash)
 						.with_parent_block_number(chain.best_number)
 						.enable_proof_recording()
@@ -101,7 +101,7 @@ fn benchmark_block_production(c: &mut Criterion) {
 			b.iter_batched(
 				|| extrinsics.clone(),
 				|extrinsics| {
-					let mut block_builder = BlockBuilderBuilder::new(&client)
+					let mut block_builder = BlockBuilderBuilder::new(&*client)
 						.on_parent_block(chain.best_hash)
 						.with_parent_block_number(chain.best_number)
 						.build()

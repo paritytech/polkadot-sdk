@@ -348,7 +348,7 @@ mod tests {
 		let mut authority_set_changes = Vec::new();
 
 		for n in 1..=100 {
-			let mut builder = BlockBuilderBuilder::new(client)
+			let mut builder = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(client.chain_info().best_hash)
 				.with_parent_block_number(client.chain_info().best_number)
 				.build()
