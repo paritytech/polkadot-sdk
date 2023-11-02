@@ -996,13 +996,25 @@ pub(crate) mod tests {
 	}
 
 	/// Creates a new PVF which artifact id can be uniquely identified by the given number.
-	fn artifact_id(descriminator: u32) -> ArtifactId {
-		ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(descriminator))
+	fn artifact_id(discriminator: u32) -> ArtifactId {
+		ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
 	}
 
-	fn artifact_path(descriminator: u32) -> PathBuf {
-		artifact_id(descriminator)
-			.path_prefix(&PathBuf::from(std::env::temp_dir()))
+	fn artifact_path(discriminator: u32) -> PathBuf {
+		fn to_bytes(mut n: u32) -> Vec<u8> {
+			let mut bytes = vec![0; 4];
+			let mut i = 0;
+			while n > 0 {
+				bytes[i] = (n & 0xff) as u8;
+				n >>= 8;
+				i += 1;
+			}
+			bytes
+		}
+
+		let checksum = blake3::hash(&to_bytes(discriminator));
+		artifact_id(discriminator)
+			.path(&PathBuf::from(std::env::temp_dir()), checksum.to_hex().as_str())
 			.to_owned()
 	}
 

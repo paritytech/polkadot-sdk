@@ -128,11 +128,12 @@ impl ArtifactId {
 		Self::new(pvf.code_hash(), pvf.executor_params().hash())
 	}
 
-	/// Returns the prefix of the expected path to the artifact, which combined with the checksum
-	/// forms the canonical path to the artifact.
-	pub(crate) fn path_prefix(&self, cache_path: &Path) -> PathBuf {
-		let file_name =
-			format!("{}_{:#x}_{:#x}", ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash);
+	/// Returns the canonical path to the concluded artifact.
+	pub(crate) fn path(&self, cache_path: &Path, checksum: &str) -> PathBuf {
+		let file_name = format!(
+			"{}_{:#x}_{:#x}_0x{}",
+			ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash, checksum
+		);
 		cache_path.join(file_name)
 	}
 
@@ -502,7 +503,7 @@ mod tests {
 	}
 
 	#[test]
-	fn path_prefix() {
+	fn path() {
 		let dir = Path::new("/test");
 		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
 		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
@@ -511,10 +512,10 @@ mod tests {
 
 		let code_hash = H256::from_str(code_hash).unwrap();
 		let params_hash = H256::from_str(params_hash).unwrap();
+		let path = ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
+			.path(dir, checksum);
 
-		let prefix = ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
-			.path_prefix(dir);
-		assert!(format!("/test/{}", file_name).starts_with(prefix.to_str().unwrap()));
+		assert_eq!(path.to_str().unwrap(), format!("/test/{}", file_name));
 	}
 
 	#[tokio::test]

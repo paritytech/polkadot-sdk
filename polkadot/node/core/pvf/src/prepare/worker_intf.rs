@@ -141,9 +141,6 @@ pub async fn start_work(
 			let timeout = preparation_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
 			let result = tokio::time::timeout(timeout, recv_response(&mut stream, pid)).await;
 
-			let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
-			let artifact_path_prefix = artifact_id.path_prefix(&cache_path);
-
 			match result {
 				// Received bytes from worker within the time limit.
 				Ok(Ok(prepare_result)) =>
@@ -153,7 +150,8 @@ pub async fn start_work(
 						prepare_result,
 						pid,
 						tmp_artifact_file,
-						artifact_path_prefix,
+						&pvf,
+						&cache_path,
 						preparation_timeout,
 					)
 					.await,
@@ -192,7 +190,8 @@ async fn handle_response(
 	result: PrepareWorkerResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
-	artifact_path_prefix: PathBuf,
+	pvf: &PvfPrepData,
+	cache_path: &PathBuf,
 	preparation_timeout: Duration,
 ) -> Outcome {
 	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
@@ -216,14 +215,8 @@ async fn handle_response(
 		return Outcome::TimedOut
 	}
 
-	// append checksum to prefix to form the path of concluded artifact
-	let file_name_partial = artifact_path_prefix
-		.file_name()
-		.expect("the path should never terminate in '..'");
-	let mut file_name = file_name_partial.to_os_string();
-	file_name.push("_0x");
-	file_name.push(checksum);
-	let artifact_path = artifact_path_prefix.with_file_name(&file_name);
+	let artifact_id = ArtifactId::from_pvf_prep_data(pvf);
+	let artifact_path = artifact_id.path(cache_path, &checksum);
 
 	gum::debug!(
 		target: LOG_TARGET,
