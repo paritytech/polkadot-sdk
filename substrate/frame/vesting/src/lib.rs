@@ -454,8 +454,8 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::NotVesting)?;
 
 			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(
+				MaxLocksOf::<T>::get(),
 				schedules_count as u32,
-				T::MAX_VESTING_SCHEDULES,
 			))
 			.into())
 		}
