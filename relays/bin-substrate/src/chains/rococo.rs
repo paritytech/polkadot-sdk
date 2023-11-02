@@ -27,5 +27,5 @@ impl CliChain for Rococo {
 
 impl CliChain for BridgeHubRococo {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 9420, transaction_version: 3 });
+		Some(SimpleRuntimeVersion { spec_version: 1_003_000, transaction_version: 3 });
 }
