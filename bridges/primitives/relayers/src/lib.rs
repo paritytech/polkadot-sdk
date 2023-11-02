@@ -115,7 +115,7 @@ where
 impl<T, Relayer> PaymentProcedure<Relayer, T::Balance> for PayRewardFromAccount<T, Relayer>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
-	Relayer: Decode + Encode,
+	Relayer: Decode + Encode + Eq,
 {
 	type Error = sp_runtime::DispatchError;
 
