@@ -26,7 +26,10 @@ use std::{error::Error as StdError, net::SocketAddr, time::Duration};
 
 use http::header::HeaderValue;
 use jsonrpsee::{
-	server::middleware::{HostFilterLayer, ProxyGetRequestLayer},
+	server::{
+		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
+		PingConfig,
+	},
 	RpcModule,
 };
 use tokio::net::TcpListener;
@@ -103,8 +106,9 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
 		.max_connections(max_connections)
 		.max_subscriptions_per_connection(max_subs_per_conn)
-		.ping_interval(Duration::from_secs(30))
-		.set_middleware(middleware)
+		.ping_interval(PingConfig::WithoutInactivityCheck(Duration::from_secs(30)))
+		.unwrap()
+		.set_http_middleware(middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
 		.custom_tokio_runtime(tokio_handle);
 
@@ -114,14 +118,8 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
 	};
 
-	let rpc_api = build_rpc_api(rpc_api);
-	let handle = if let Some(metrics) = metrics {
-		let server = builder.set_logger(metrics).build_from_tcp(std_listener)?;
-		server.start(rpc_api)
-	} else {
-		let server = builder.build_from_tcp(std_listener)?;
-		server.start(rpc_api)
-	};
+	let rpc_svc = builder.to_service(build_rpc_api(rpc_api));
+	let handle = crate::middleware::start_server(std_listener, rpc_svc, metrics)?;
 
 	log::info!(
 		"Running JSON-RPC server: addr={}, allowed origins={}",
