@@ -13,3 +13,4 @@ proc-macro2 = "1.0.56"
 quote = "1.0.28"
 syn = "2.0.38"
 Inflector = "0.11.4"
+trybuild = { version = "1.0.74", features = ["diff"] }

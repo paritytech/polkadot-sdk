@@ -1,0 +1,5 @@
+error: Expected the `Instruction` enum
+ --> tests/ui/builder_pattern.rs:7:1
+  |
+7 | struct SomeStruct;
+  | ^^^^^^^^^^^^^^^^^^
