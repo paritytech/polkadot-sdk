@@ -11,8 +11,8 @@ given type stored on-chain.</p>
 	#[pallet::storage_prefix = <span class="string">&quot;OtherFoo&quot;</span>]
 	#[pallet::unbounded]
     </span><span class="kw">pub type </span>Foo&lt;T&gt; = StorageMap&lt;
-		<span class="kw">_
-		</span>Blake2_128Concat,
+		<span class="kw">_</span>,
+		Blake2_128Concat,
 		u32,
 		u32,
 		ValueQuery
