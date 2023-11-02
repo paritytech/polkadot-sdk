@@ -43,8 +43,8 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use primitives::{
-	BackedCandidate, CandidateHash, CandidateReceipt, CheckedDisputeStatementSet,
-	CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
+	effective_minimum_backing_votes, BackedCandidate, CandidateHash, CandidateReceipt,
+	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
 	InherentData as ParachainsInherentData, MultiDisputeStatementSet, ScrapedOnChainVotes,
 	SessionIndex, SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
@@ -1136,8 +1136,14 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 			filtered = true;
 		}
 
-		if validity_votes.is_empty() {
-			//everything is filtered out - remove the whole candidate
+		// By filtering votes we might render the candidate invalid and cause a failure in
+		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there
+		// are not enough backing votes after filtering we will remove the whole candidate.
+		if validity_votes.len() < effective_minimum_backing_votes(
+			validator_group.len(),
+			configuration::Pallet::<T>::config().minimum_backing_votes
+
+		) {
 			return false
 		}
 

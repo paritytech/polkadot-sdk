@@ -1446,6 +1446,11 @@ mod sanitizers {
 				// Disable Alice
 				set_disabled_validators(vec![0]);
 
+				// Update `minimum_backing_votes` in HostConfig
+				let mut hc = configuration::Pallet::<Test>::config();
+				hc.minimum_backing_votes = 1;
+				configuration::Pallet::<Test>::force_set_active_config(hc);
+
 				// Verify the initial state is as expected
 				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
 				assert_eq!(
