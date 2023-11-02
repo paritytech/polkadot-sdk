@@ -1,4 +1,3 @@
-use xcm_procedural;
 use xcm::v2::prelude::*;
 
 #[test]
