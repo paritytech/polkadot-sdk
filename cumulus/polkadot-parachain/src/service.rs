@@ -68,15 +68,11 @@ use substrate_prometheus_endpoint::Registry;
 use polkadot_primitives::CollatorPair;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-type HostFunctions =
-	(sp_io::SubstrateHostFunctions, cumulus_client_service::storage_proof_size::HostFunctions);
+type HostFunctions = sp_io::SubstrateHostFunctions;
 
 #[cfg(feature = "runtime-benchmarks")]
-type HostFunctions = (
-	sp_io::SubstrateHostFunctions,
-	cumulus_client_service::storage_proof_size::HostFunctions,
-	frame_benchmarking::benchmarking::HostFunctions,
-);
+type HostFunctions =
+	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
 
 type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
