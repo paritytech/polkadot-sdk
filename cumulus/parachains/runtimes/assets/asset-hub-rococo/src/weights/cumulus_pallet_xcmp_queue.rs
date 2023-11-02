@@ -19,7 +19,7 @@
 //! DATE: 2023-09-15, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `Olivers-MacBook-Pro.local`, CPU: `<UNKNOWN>`
-//! WASM-EXECUTION: `Compiled`, CHAIN: `Some("asset-hub-westend-dev")`, DB CACHE: 1024
+//! WASM-EXECUTION: `Compiled`, CHAIN: `Some("bridge-hub-rococo-dev")`, DB CACHE: 1024
 
 // Executed Command:
 // ./target/release/polkadot-parachain
@@ -28,9 +28,9 @@
 // --pallet
 // cumulus-pallet-xcmp-queue
 // --chain
-// asset-hub-westend-dev
+// bridge-hub-rococo-dev
 // --output
-// cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/cumulus_pallet_xcmp_queue.rs
+// cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/cumulus_pallet_xcmp_queue.rs
 // --extrinsic
 // 
 
@@ -51,7 +51,7 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 		// Proof Size summary in bytes:
 		//  Measured:  `76`
 		//  Estimated: `1561`
-		// Minimum execution time: 6_000_000 picoseconds.
+		// Minimum execution time: 5_000_000 picoseconds.
 		Weight::from_parts(6_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 1561))
 			.saturating_add(T::DbWeight::get().reads(1))
@@ -69,9 +69,9 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(65585), added: 68060, mode: `MaxEncodedLen`)
 	fn enqueue_xcmp_message() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `118`
+		//  Measured:  `82`
 		//  Estimated: `3517`
-		// Minimum execution time: 15_000_000 picoseconds.
+		// Minimum execution time: 14_000_000 picoseconds.
 		Weight::from_parts(15_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3517))
 			.saturating_add(T::DbWeight::get().reads(4))
@@ -84,7 +84,7 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 		//  Measured:  `76`
 		//  Estimated: `1561`
 		// Minimum execution time: 3_000_000 picoseconds.
-		Weight::from_parts(4_000_000, 0)
+		Weight::from_parts(3_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 1561))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -125,11 +125,11 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(65585), added: 68060, mode: `MaxEncodedLen`)
 	fn on_idle_good_msg() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `65747`
-		//  Estimated: `69212`
-		// Minimum execution time: 66_000_000 picoseconds.
-		Weight::from_parts(68_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 69212))
+		//  Measured:  `65711`
+		//  Estimated: `69176`
+		// Minimum execution time: 67_000_000 picoseconds.
+		Weight::from_parts(73_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 69176))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
@@ -139,8 +139,8 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 		// Proof Size summary in bytes:
 		//  Measured:  `65710`
 		//  Estimated: `69175`
-		// Minimum execution time: 43_000_000 picoseconds.
-		Weight::from_parts(44_000_000, 0)
+		// Minimum execution time: 49_000_000 picoseconds.
+		Weight::from_parts(55_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 69175))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
