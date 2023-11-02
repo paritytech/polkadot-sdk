@@ -81,6 +81,17 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -161,6 +172,17 @@
 			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">2</span>, <span class="number">1</span>).is_none());
 			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">1</span>, <span class="number">2</span>).is_none());
 			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">2</span>, <span class="number">2</span>).is_none());
+		});
+
+		TestExternalities::default().execute_with(|| {
+			<span class="kw">let </span>bounded = boundedmap_from_keys::&lt;u32, ConstU32&lt;<span class="number">7</span>&gt;&gt;(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]);
+			FooDoubleMap::insert(<span class="number">1</span>, <span class="number">1</span>, bounded.clone());
+			FooDoubleMap::insert(<span class="number">2</span>, <span class="number">2</span>, bounded); <span class="comment">// duplicate value
+
+			</span><span class="macro">assert_eq!</span>(FooDoubleMap::decode_len(<span class="number">1</span>, <span class="number">1</span>).unwrap(), <span class="number">3</span>);
+			<span class="macro">assert_eq!</span>(FooDoubleMap::decode_len(<span class="number">2</span>, <span class="number">2</span>).unwrap(), <span class="number">3</span>);
+			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">2</span>, <span class="number">1</span>).is_none());
+			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">1</span>, <span class="number">2</span>).is_none());
 		});
 	}
 }

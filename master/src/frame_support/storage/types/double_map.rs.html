@@ -1044,6 +1044,32 @@
 <a href="#1044" id="1044">1044</a>
 <a href="#1045" id="1045">1045</a>
 <a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1073,6 +1099,7 @@
 	StorageHasher, Twox128,
 };
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+<span class="kw">use </span>frame_support::storage::StorageDecodeNonDedupLength;
 <span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
 <span class="kw">use </span>sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -1499,6 +1526,31 @@
 		Value: StorageDecodeLength,
 	{
 		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::StorageDoubleMap&lt;Key1, Key2, Value&gt;&gt;::decode_len(key1, key2)
+	}
+
+	<span class="doccomment">/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	</span><span class="kw">pub fn </span>decode_non_dedup_len&lt;KArg1, KArg2&gt;(key1: KArg1, key2: KArg2) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;
+	<span class="kw">where
+		</span>KArg1: EncodeLike&lt;Key1&gt;,
+		KArg2: EncodeLike&lt;Key2&gt;,
+		Value: StorageDecodeNonDedupLength,
+	{
+		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::StorageDoubleMap&lt;Key1, Key2, Value&gt;&gt;::decode_non_dedup_len(
+			key1, key2,
+		)
 	}
 
 	<span class="doccomment">/// Migrate an item with the given `key1` and `key2` from defunct `OldHasher1` and

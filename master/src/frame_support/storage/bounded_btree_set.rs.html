@@ -100,10 +100,10 @@
 
 </span><span class="doccomment">//! Traits, types and structs to support a bounded `BTreeSet`.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::storage::StorageDecodeLength;
+</span><span class="kw">use </span>frame_support::storage::StorageDecodeNonDedupLength;
 <span class="kw">pub use </span>sp_runtime::BoundedBTreeSet;
 
-<span class="kw">impl</span>&lt;T, S&gt; StorageDecodeLength <span class="kw">for </span>BoundedBTreeSet&lt;T, S&gt; {}
+<span class="kw">impl</span>&lt;T, S&gt; StorageDecodeNonDedupLength <span class="kw">for </span>BoundedBTreeSet&lt;T, S&gt; {}
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>test {
@@ -139,28 +139,28 @@
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>decode_len_works() {
+	</span><span class="kw">fn </span>decode_non_dedup_len_works() {
 		TestExternalities::default().execute_with(|| {
 			<span class="kw">let </span>bounded = boundedset_from_keys::&lt;u32, ConstU32&lt;<span class="number">7</span>&gt;&gt;(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]);
 			Foo::put(bounded);
-			<span class="macro">assert_eq!</span>(Foo::decode_len().unwrap(), <span class="number">3</span>);
+			<span class="macro">assert_eq!</span>(Foo::decode_non_dedup_len().unwrap(), <span class="number">3</span>);
 		});
 
 		TestExternalities::default().execute_with(|| {
 			<span class="kw">let </span>bounded = boundedset_from_keys::&lt;u32, ConstU32&lt;<span class="number">7</span>&gt;&gt;(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]);
 			FooMap::insert(<span class="number">1</span>, bounded);
-			<span class="macro">assert_eq!</span>(FooMap::decode_len(<span class="number">1</span>).unwrap(), <span class="number">3</span>);
-			<span class="macro">assert!</span>(FooMap::decode_len(<span class="number">0</span>).is_none());
-			<span class="macro">assert!</span>(FooMap::decode_len(<span class="number">2</span>).is_none());
+			<span class="macro">assert_eq!</span>(FooMap::decode_non_dedup_len(<span class="number">1</span>).unwrap(), <span class="number">3</span>);
+			<span class="macro">assert!</span>(FooMap::decode_non_dedup_len(<span class="number">0</span>).is_none());
+			<span class="macro">assert!</span>(FooMap::decode_non_dedup_len(<span class="number">2</span>).is_none());
 		});
 
 		TestExternalities::default().execute_with(|| {
 			<span class="kw">let </span>bounded = boundedset_from_keys::&lt;u32, ConstU32&lt;<span class="number">7</span>&gt;&gt;(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]);
 			FooDoubleMap::insert(<span class="number">1</span>, <span class="number">1</span>, bounded);
-			<span class="macro">assert_eq!</span>(FooDoubleMap::decode_len(<span class="number">1</span>, <span class="number">1</span>).unwrap(), <span class="number">3</span>);
-			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">2</span>, <span class="number">1</span>).is_none());
-			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">1</span>, <span class="number">2</span>).is_none());
-			<span class="macro">assert!</span>(FooDoubleMap::decode_len(<span class="number">2</span>, <span class="number">2</span>).is_none());
+			<span class="macro">assert_eq!</span>(FooDoubleMap::decode_non_dedup_len(<span class="number">1</span>, <span class="number">1</span>).unwrap(), <span class="number">3</span>);
+			<span class="macro">assert!</span>(FooDoubleMap::decode_non_dedup_len(<span class="number">2</span>, <span class="number">1</span>).is_none());
+			<span class="macro">assert!</span>(FooDoubleMap::decode_non_dedup_len(<span class="number">1</span>, <span class="number">2</span>).is_none());
+			<span class="macro">assert!</span>(FooDoubleMap::decode_non_dedup_len(<span class="number">2</span>, <span class="number">2</span>).is_none());
 		});
 	}
 }
