@@ -40,8 +40,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
-	"pallet-collective/std",
-	"pallet-root-testing/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",

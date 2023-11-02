@@ -706,7 +706,7 @@ where
 	/// reduction of the lock over time as it diminishes, the account owner must use `vest` or
 	/// `vest_other`.
 	///
-	/// Is a no-op if the amount to be vested is zero.X
+	/// Is a no-op if the amount to be vested is zero.
 	///
 	/// NOTE: This doesn't alter the free balance of the account.
 	fn add_vesting_schedule(

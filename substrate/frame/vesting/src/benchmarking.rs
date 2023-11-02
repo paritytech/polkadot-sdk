@@ -399,8 +399,6 @@ force_remove_vesting_schedule {
 		add_locks::<T>(&target, l as u8);
 		let _ = add_vesting_schedules::<T>(target_lookup.clone(), s)?;
 
-		let transfer_amount = T::MinVestedTransfer::get();
-
 		// the last vesting schedule.
 		let schedule_index = s - 1;
 	}: _(RawOrigin::Root, target_lookup, schedule_index)
