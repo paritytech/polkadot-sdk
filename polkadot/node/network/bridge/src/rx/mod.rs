@@ -551,6 +551,14 @@ where
 	let mut peers = Vec::with_capacity(neighbors.len());
 	for (discovery_id, validator_index) in neighbors {
 		let addr = get_peer_id_by_authority_id(ads, discovery_id.clone()).await;
+		if addr.is_none() {
+			// See on why is not good in https://github.com/paritytech/polkadot-sdk/issues/2138
+			gum::warn!(
+				target: LOG_TARGET,
+				?validator_index,
+				"Could not determine peer_id for validator"
+			)
+		}
 		peers.push(TopologyPeerInfo {
 			peer_ids: addr.into_iter().collect(),
 			validator_index,
