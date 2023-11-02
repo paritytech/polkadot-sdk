@@ -362,8 +362,8 @@ macro_rules! decl_test_relay_chains {
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
-				}
-				hooks = $on_hooks:ident,
+				},
+				hooks = $on_hooks:expr,
 			}
 		),
 		+
@@ -591,8 +591,8 @@ macro_rules! decl_test_parachains {
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
-				}
-				hooks = $on_hooks:ident,
+				},
+				hooks = $on_hooks:expr
 			}
 		),
 		+
