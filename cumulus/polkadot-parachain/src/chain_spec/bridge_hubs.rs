@@ -562,7 +562,7 @@ pub mod westend {
 			},
 			"collatorSelection": {
 				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacy_bond": BRIDGE_HUB_WESTEND_ED * 16,
+				"candidacyBond": BRIDGE_HUB_WESTEND_ED * 16,
 			},
 			"session": {
 				"keys": invulnerables

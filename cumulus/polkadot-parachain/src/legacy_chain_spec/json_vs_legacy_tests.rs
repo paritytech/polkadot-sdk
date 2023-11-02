@@ -93,3 +93,14 @@ test!(
 	test31,
 	bridge_hubs::polkadot::local_config("bridge-hub-polkadot-local", "Test", "test", 667.into())
 );
+
+test!(
+	test32,
+	bridge_hubs::westend::local_config(
+		"bridge-hub-westend-local",
+		"Test",
+		"test",
+		664.into(),
+		Some("Alice".to_string())
+	)
+);
