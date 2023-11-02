@@ -219,7 +219,7 @@ impl<
 impl<
 		F: fungibles::Mutate<AccountId>,
 		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
-		AccountId,
+		AccountId: Eq,
 	> Mutate<AccountId> for ItemOf<F, A, AccountId>
 {
 	fn mint_into(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {

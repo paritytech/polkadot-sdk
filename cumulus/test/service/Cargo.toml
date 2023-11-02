@@ -98,6 +98,8 @@ substrate-test-utils = { path = "../../../substrate/test-utils" }
 [features]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
