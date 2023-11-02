@@ -590,7 +590,7 @@
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="doccomment">/// A keystore implementation usable in tests.
-</span><span class="attr">#[derive(Default)]
+</span><span class="attr">#[derive(Default, Clone)]
 </span><span class="kw">pub struct </span>MemoryKeystore {
 	<span class="doccomment">/// `KeyTypeId` maps to public keys and public keys map to private keys.
 	</span>keys: Arc&lt;RwLock&lt;HashMap&lt;KeyTypeId, HashMap&lt;Vec&lt;u8&gt;, String&gt;&gt;&gt;&gt;,
