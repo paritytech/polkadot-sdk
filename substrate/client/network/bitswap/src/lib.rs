@@ -290,7 +290,6 @@ pub enum BitswapError {
 mod tests {
 	use super::*;
 	use futures::channel::oneshot;
-	use sc_block_builder::BlockBuilderProvider;
 	use schema::bitswap::{
 		message::{wantlist::Entry, Wantlist},
 		Message as BitswapMessage,

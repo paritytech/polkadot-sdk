@@ -806,7 +806,6 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_block_builder::BlockBuilderProvider;
 	use sc_service::client::new_in_mem;
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, H256};

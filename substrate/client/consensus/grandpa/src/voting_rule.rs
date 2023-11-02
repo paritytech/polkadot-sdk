@@ -330,7 +330,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_block_builder::BlockBuilderProvider;
 	use sp_consensus::BlockOrigin;
 	use sp_runtime::traits::Header as _;
 

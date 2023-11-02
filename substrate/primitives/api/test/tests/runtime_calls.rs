@@ -17,7 +17,8 @@
 
 use std::panic::UnwindSafe;
 
-use sp_api::{ApiExt, Core, ProvideRuntimeApi, RuntimeInstance};
+use sc_block_builder::BlockBuilderBuilder;
+use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_runtime::{
 	traits::{HashingFor, Header as HeaderT},
 	TransactionOutcome,
@@ -31,7 +32,6 @@ use substrate_test_runtime_client::{
 };
 
 use codec::Encode;
-use sc_block_builder::BlockBuilder;
 use sp_consensus::SelectChain;
 use substrate_test_runtime_client::sc_executor::WasmExecutor;
 
@@ -113,9 +113,12 @@ fn record_proof_works() {
 	let genesis_hash = client.chain_info().genesis_hash;
 
 	// Build the block and record proof
-	let mut builder =
-		BlockBuilder::with_proof_recording(&client, genesis_hash, 0, Default::default(), &*backend)
-			.expect("Creates block builder");
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(&client, client.chain_info().best_hash)
+		.unwrap()
+		.enable_proof_recording()
+		.build()
+		.unwrap();
 	builder.push(transaction.clone()).unwrap();
 	let (block, _, proof) = builder.build().expect("Bake block").into_inner();
 

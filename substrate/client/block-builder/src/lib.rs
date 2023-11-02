@@ -34,51 +34,141 @@ use sp_api::{
 	ApiExt, ApiRef, CallApiAt, Core, DisableProofRecorder, EnableProofRecorder, RuntimeInstance,
 	StorageChanges, StorageProof, TransactionOutcome,
 };
-use sp_blockchain::{ApplyExtrinsicFailed, Error};
+use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
 	Digest,
 };
+use std::marker::PhantomData;
 
-use sc_client_api::backend;
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
 
-/// Used as parameter to [`BlockBuilderProvider`] to express if proof recording should be enabled.
+/// A builder for creating an instance of [`BlockBuilder`].
+pub struct BlockBuilderBuilder<'a, B, C> {
+	call_api_at: &'a C,
+	_phantom: PhantomData<B>,
+}
+
+impl<'a, B, C> BlockBuilderBuilder<'a, B, C>
+where
+	B: BlockT,
+{
+	/// Create a new instance of the builder.
+	///
+	/// `call_api_at`: Something that implements [`CallApiAt`].
+	pub fn new(call_api_at: &'a C) -> Self {
+		Self { call_api_at, _phantom: PhantomData }
+	}
+
+	/// Specify the parent block to build on top of.
+	pub fn on_parent_block(self, parent_block: B::Hash) -> BlockBuilderBuilderStage1<'a, B, C> {
+		BlockBuilderBuilderStage1 { call_api_at: self.call_api_at, parent_block }
+	}
+}
+
+/// The second stage of the [`BlockBuilderBuilder`].
 ///
-/// When `RecordProof::Yes` is given, all accessed trie nodes should be saved. These recorded
-/// trie nodes can be used by a third party to proof this proposal without having access to the
-/// full storage.
-#[derive(Copy, Clone, PartialEq)]
-pub enum RecordProof {
-	/// `Yes`, record a proof.
-	Yes,
-	/// `No`, don't record any proof.
-	No,
+/// This type can not be instantiated directly. To get an instance of it
+/// [`BlockBuilderBuilder::new`] needs to be used.
+pub struct BlockBuilderBuilderStage1<'a, B: BlockT, C> {
+	call_api_at: &'a C,
+	parent_block: B::Hash,
 }
 
-impl RecordProof {
-	/// Returns if `Self` == `Yes`.
-	pub fn yes(&self) -> bool {
-		matches!(self, Self::Yes)
+impl<'a, B, C> BlockBuilderBuilderStage1<'a, B, C>
+where
+	B: BlockT,
+{
+	/// Fetch the parent block number from the given `header_backend`.
+	///
+	/// The parent block number is used to initialize the block number of the new block.
+	///
+	/// Returns an error if there doesn't exist a number for the parent block specified in
+	/// [`on_parent_block`](BlockBuilderBuilder::on_parent_block).
+	pub fn fetch_parent_block_number<H: HeaderBackend<B>>(
+		self,
+		header_backend: &H,
+	) -> Result<BlockBuilderBuilderStage2<'a, B, C>, Error> {
+		let parent_number = header_backend.number(self.parent_block)?.ok_or_else(|| {
+			Error::Backend(format!(
+				"Could not fetch block number for block: {:?}",
+				self.parent_block
+			))
+		})?;
+
+		Ok(BlockBuilderBuilderStage2 {
+			call_api_at: self.call_api_at,
+			enable_proof_recording: false,
+			inherent_digests: Default::default(),
+			parent_block: self.parent_block,
+			parent_number,
+		})
 	}
-}
 
-/// Will return [`RecordProof::No`] as default value.
-impl Default for RecordProof {
-	fn default() -> Self {
-		Self::No
-	}
-}
-
-impl From<bool> for RecordProof {
-	fn from(val: bool) -> Self {
-		if val {
-			Self::Yes
-		} else {
-			Self::No
+	/// Provide the block number for the parent block directly.
+	///
+	/// The parent block is specified in [`on_parent_block`](BlockBuilderBuilder::on_parent_block).
+	/// The parent block number is used to initialize the block number of the new block.
+	pub fn with_parent_block_number(
+		self,
+		parent_number: NumberFor<B>,
+	) -> BlockBuilderBuilderStage2<'a, B, C> {
+		BlockBuilderBuilderStage2 {
+			call_api_at: self.call_api_at,
+			enable_proof_recording: false,
+			inherent_digests: Default::default(),
+			parent_block: self.parent_block,
+			parent_number,
 		}
+	}
+}
+
+/// The second stage of the [`BlockBuilderBuilder`].
+///
+/// This type can not be instantiated directly. To get an instance of it
+/// [`BlockBuilderBuilder::new`] needs to be used.
+pub struct BlockBuilderBuilderStage2<'a, B: BlockT, C> {
+	call_api_at: &'a C,
+	enable_proof_recording: bool,
+	inherent_digests: Digest,
+	parent_block: B::Hash,
+	parent_number: NumberFor<B>,
+}
+
+impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
+	/// Enable proof recording for the block builder.
+	pub fn enable_proof_recording(mut self) -> Self {
+		self.enable_proof_recording = true;
+		self
+	}
+
+	/// Enable/disable proof recording for the block builder.
+	pub fn with_proof_recording(mut self, enable: bool) -> Self {
+		self.enable_proof_recording = enable;
+		self
+	}
+
+	/// Build the block with the given inherent digests.
+	pub fn with_inherent_digests(mut self, inherent_digests: Digest) -> Self {
+		self.inherent_digests = inherent_digests;
+		self
+	}
+
+	/// Create the instance of the [`BlockBuilder`].
+	pub fn build(self) -> Result<BlockBuilder<'a, B, C>, Error>
+	where
+		C: CallApiAt<B> + ProvideRuntimeApi<B>,
+		C::Api: BlockBuilderApi<B>,
+	{
+		BlockBuilder::new(
+			self.call_api_at,
+			self.parent_block,
+			self.parent_number,
+			self.enable_proof_recording,
+			self.inherent_digests,
+		)
 	}
 }
 
@@ -105,42 +195,34 @@ impl<Block: BlockT> BuiltBlock<Block> {
 }
 
 /// Utility for building new (valid) blocks from a stream of extrinsics.
-pub struct BlockBuilder<
-	'a,
-	Block: BlockT,
-	Backend,
-	CallApiAt: sp_api::CallApiAt<Block>,
-	ProofRecorder,
-> {
+pub struct BlockBuilder<'a, Block: BlockT, C: ProvideRuntimeApi<Block> + 'a> {
 	extrinsics: Vec<Block::Extrinsic>,
 	runtime_instance: RuntimeInstance<CallApiAt, Block, ProofRecorder>,
+	call_api_at: &'a C,
 	version: u32,
 	parent_hash: Block::Hash,
-	backend: &'a Backend,
 	/// The estimated size of the block header.
 	estimated_header_size: usize,
 	_phantom: PhantomData<ProofRecorder>,
 }
 
-impl<'a, Block, Backend, CallApiAt>
-	BlockBuilder<'a, Block, Backend, CallApiAt, DisableProofRecorder>
+impl<'a, Block, C> BlockBuilder<'a, Block, C>
 where
 	Block: BlockT,
-	Backend: backend::Backend<Block>,
-	CallApiAt: sp_api::CallApiAt<Block>,
+	C: sp_api::CallApiAt<Block>,
 {
 	/// Create a new instance of builder based on the given `parent_hash` and `parent_number`.
 	///
 	/// While proof recording is enabled, all accessed trie nodes are saved.
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
-	pub fn with_proof_recording(
-		call_api_at: CallApiAt,
+	fn new(
+		call_api_at: &'a C,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
+		record_proof: bool,
 		inherent_digests: Digest,
-		backend: &'a Backend,
-	) -> Result<BlockBuilder<Block, Backend, CallApiAt, EnableProofRecorder<Block>>, Error> {
+	) -> Result<Self, Error> {
 		let header = <<Block as BlockT>::Header as HeaderT>::new(
 			parent_number + One::one(),
 			Default::default(),
@@ -200,7 +282,6 @@ where
 			extrinsics: Vec::new(),
 			runtime_instance,
 			version,
-			backend,
 			estimated_header_size,
 			_phantom: PhantomData,
 		})

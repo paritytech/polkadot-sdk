@@ -20,7 +20,7 @@
 
 use super::*;
 use authorship::claim_slot;
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+use sc_block_builder::BlockBuilder;
 use sc_client_api::{BlockchainEvents, Finalizer};
 use sc_consensus::{BoxBlockImport, BoxJustificationImport};
 use sc_consensus_epochs::{EpochIdentifier, EpochIdentifierPosition};

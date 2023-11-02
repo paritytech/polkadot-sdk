@@ -20,7 +20,6 @@
 
 use super::*;
 use futures::executor::block_on;
-use sc_block_builder::BlockBuilderProvider;
 use sc_consensus::{
 	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, ImportedAux,
 	IncomingBlock,

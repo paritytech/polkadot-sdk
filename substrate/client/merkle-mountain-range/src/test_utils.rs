@@ -18,7 +18,6 @@
 
 use crate::MmrGadget;
 use parking_lot::Mutex;
-use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::{
 	Backend as BackendT, BlockchainEvents, FinalityNotifications, ImportNotifications,
 	StorageEventStream, StorageKey,
