@@ -20,7 +20,9 @@
 
 pub use async_channel::{TryRecvError, TrySendError};
 
-use crate::metrics::UNBOUNDED_CHANNELS_COUNTER;
+use crate::metrics::{
+	DROPPED_LABEL, RECEIVED_LABEL, SENT_LABEL, UNBOUNDED_CHANNELS_COUNTER, UNBOUNDED_CHANNELS_SIZE,
+};
 use async_channel::{Receiver, Sender};
 use futures::{
 	stream::{FusedStream, Stream},
@@ -102,7 +104,10 @@ impl<T> TracingUnboundedSender<T> {
 	/// Proxy function to `async_channel::Sender::try_send`.
 	pub fn unbounded_send(&self, msg: T) -> Result<(), TrySendError<T>> {
 		self.inner.try_send(msg).map(|s| {
-			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, "send"]).inc();
+			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, SENT_LABEL]).inc();
+			UNBOUNDED_CHANNELS_SIZE
+				.with_label_values(&[self.name])
+				.set(self.inner.len().saturated_into());
 
 			if self.inner.len() >= self.queue_size_warning &&
 				self.warning_fired
@@ -140,7 +145,10 @@ impl<T> TracingUnboundedReceiver<T> {
 	/// that discounts the messages taken out.
 	pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
 		self.inner.try_recv().map(|s| {
-			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, "received"]).inc();
+			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, RECEIVED_LABEL]).inc();
+			UNBOUNDED_CHANNELS_SIZE
+				.with_label_values(&[self.name])
+				.set(self.inner.len().saturated_into());
 			s
 		})
 	}
@@ -155,14 +163,16 @@ impl<T> Drop for TracingUnboundedReceiver<T> {
 	fn drop(&mut self) {
 		// Close the channel to prevent any further messages to be sent into the channel
 		self.close();
-		// the number of messages about to be dropped
+		// The number of messages about to be dropped
 		let count = self.inner.len();
-		// discount the messages
+		// Discount the messages
 		if count > 0 {
 			UNBOUNDED_CHANNELS_COUNTER
-				.with_label_values(&[self.name, "dropped"])
+				.with_label_values(&[self.name, DROPPED_LABEL])
 				.inc_by(count.saturated_into());
 		}
+		// Reset the size metric to 0
+		UNBOUNDED_CHANNELS_SIZE.with_label_values(&[self.name]).set(0);
 		// Drain all the pending messages in the channel since they can never be accessed,
 		// this can be removed once https://github.com/smol-rs/async-channel/issues/23 is
 		// resolved
@@ -180,7 +190,10 @@ impl<T> Stream for TracingUnboundedReceiver<T> {
 		match Pin::new(&mut s.inner).poll_next(cx) {
 			Poll::Ready(msg) => {
 				if msg.is_some() {
-					UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[s.name, "received"]).inc();
+					UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[s.name, RECEIVED_LABEL]).inc();
+					UNBOUNDED_CHANNELS_SIZE
+						.with_label_values(&[s.name])
+						.set(s.inner.len().saturated_into());
 				}
 				Poll::Ready(msg)
 			},

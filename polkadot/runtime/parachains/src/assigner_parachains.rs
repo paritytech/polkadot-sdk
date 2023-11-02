@@ -19,11 +19,11 @@
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-use primitives::{v5::Assignment, CoreIndex, Id as ParaId};
+use primitives::{CoreIndex, Id as ParaId};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -39,7 +39,7 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn session_core_count() -> u32 {
-		<paras::Pallet<T>>::parachains().len() as u32
+		paras::Parachains::<T>::decode_len().unwrap_or(0) as u32
 	}
 
 	fn pop_assignment_for_core(
@@ -57,14 +57,12 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn push_assignment_for_core(_: CoreIndex, _: Assignment) {}
 
 	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		let config = <configuration::Pallet<T>>::config();
 		AssignmentProviderConfig {
-			availability_period: config.paras_availability_period,
 			// The next assignment already goes to the same [`ParaId`], no timeout tracking needed.
 			max_availability_timeouts: 0,
 			// The next assignment already goes to the same [`ParaId`], this can be any number
 			// that's high enough to clear the time it takes to clear backing/availability.
-			ttl: BlockNumberFor::<T>::from(10u32),
+			ttl: 10u32.into(),
 		}
 	}
 }

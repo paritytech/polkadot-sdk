@@ -963,10 +963,7 @@ mod sanitizers {
 
 	use crate::mock::Test;
 	use keyring::Sr25519Keyring;
-	use primitives::{
-		v5::{Assignment, ParasEntry},
-		PARACHAIN_KEY_TYPE_ID,
-	};
+	use primitives::PARACHAIN_KEY_TYPE_ID;
 	use sc_keystore::LocalKeystore;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use std::sync::Arc;
@@ -1208,9 +1205,17 @@ mod sanitizers {
 		}
 	}
 
-	#[test]
-	fn candidates() {
-		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+	mod candidates {
+		use super::*;
+
+		// Backed candidates and scheduled parachains used for `sanitize_backed_candidates` testing
+		struct TestData {
+			backed_candidates: Vec<BackedCandidate>,
+			scheduled_paras: BTreeMap<primitives::Id, CoreIndex>,
+		}
+
+		// Generate test data for the candidates test
+		fn get_test_data() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			let header = default_header();
@@ -1236,24 +1241,10 @@ mod sanitizers {
 				.unwrap();
 			}
 
-			let has_concluded_invalid =
-				|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
-
-			let entry_ttl = 10_000;
 			let scheduled = (0_usize..2)
 				.into_iter()
-				.map(|idx| {
-					let core_idx = CoreIndex::from(idx as u32);
-					let ca = CoreAssignment {
-						paras_entry: ParasEntry::new(
-							Assignment::new(ParaId::from(1_u32 + idx as u32)),
-							entry_ttl,
-						),
-						core: core_idx,
-					};
-					ca
-				})
-				.collect::<Vec<_>>();
+				.map(|idx| (ParaId::from(1_u32 + idx as u32), CoreIndex::from(idx as u32)))
+				.collect::<BTreeMap<_, _>>();
 
 			let group_validators = |group_index: GroupIndex| {
 				match group_index {
@@ -1292,29 +1283,54 @@ mod sanitizers {
 				})
 				.collect::<Vec<_>>();
 
-			// happy path
-			assert_eq!(
-				sanitize_backed_candidates::<Test, _>(
-					backed_candidates.clone(),
-					has_concluded_invalid,
-					&scheduled
-				),
-				backed_candidates
-			);
+			TestData { backed_candidates, scheduled_paras: scheduled }
+		}
 
-			// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
-			{
-				let scheduled = &Vec::new();
+		#[test]
+		fn happy_path() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+
+				let has_concluded_invalid =
+					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
+
+				assert_eq!(
+					sanitize_backed_candidates::<Test, _>(
+						backed_candidates.clone(),
+						has_concluded_invalid,
+						&scheduled
+					),
+					backed_candidates
+				);
+
+				{}
+			});
+		}
+
+		// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
+		#[test]
+		fn nothing_scheduled() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { backed_candidates, scheduled_paras: _ } = get_test_data();
+				let scheduled = &BTreeMap::new();
+				let has_concluded_invalid =
+					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
+
 				assert!(sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					has_concluded_invalid,
 					&scheduled
 				)
 				.is_empty());
-			}
+			});
+		}
 
-			// candidates that have concluded as invalid are filtered out
-			{
+		// candidates that have concluded as invalid are filtered out
+		#[test]
+		fn invalid_are_filtered_out() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
+
 				// mark every second one as concluded invalid
 				let set = {
 					let mut set = std::collections::HashSet::new();
@@ -1336,7 +1352,7 @@ mod sanitizers {
 					.len(),
 					backed_candidates.len() / 2
 				);
-			}
-		});
+			});
+		}
 	}
 }

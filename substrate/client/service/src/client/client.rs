@@ -78,7 +78,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{CompactProof, StorageProof};
+use sp_trie::{CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -484,8 +484,7 @@ where
 		CallExecutor::runtime_version(&self.executor, hash)
 	}
 
-	/// Apply a checked and validated block to an operation. If a justification is provided
-	/// then `finalized` *must* be true.
+	/// Apply a checked and validated block to an operation.
 	fn apply_block(
 		&self,
 		operation: &mut ClientImportOperation<Block, B>,
@@ -602,8 +601,6 @@ where
 		let gap_block = info
 			.block_gap
 			.map_or(false, |(start, _)| *import_headers.post().number() == start);
-
-		assert!(justifications.is_some() && finalized || justifications.is_none() || gap_block);
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
@@ -1547,6 +1544,27 @@ where
 			.child_storage_hash(child_info, &key.0)
 			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
 	}
+
+	fn closest_merkle_value(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		key: &StorageKey,
+	) -> blockchain::Result<Option<MerkleValue<<Block as BlockT>::Hash>>> {
+		self.state_at(hash)?
+			.closest_merkle_value(&key.0)
+			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		child_info: &ChildInfo,
+		key: &StorageKey,
+	) -> blockchain::Result<Option<MerkleValue<<Block as BlockT>::Hash>>> {
+		self.state_at(hash)?
+			.child_closest_merkle_value(child_info, &key.0)
+			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
+	}
 }
 
 impl<B, E, Block, RA> HeaderMetadata<Block> for Client<B, E, Block, RA>
@@ -1747,8 +1765,7 @@ where
 {
 	type Error = ConsensusError;
 
-	/// Import a checked and validated block. If a justification is provided in
-	/// `BlockImportParams` then `finalized` *must* be true.
+	/// Import a checked and validated block.
 	///
 	/// NOTE: only use this implementation when there are NO consensus-level BlockImport
 	/// objects. Otherwise, importing blocks directly into the client would be bypassing

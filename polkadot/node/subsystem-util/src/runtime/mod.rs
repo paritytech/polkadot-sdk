@@ -28,17 +28,18 @@ use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
 	overseer, SubsystemSender,
 };
+use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	vstaging, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	slashing, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
-	request_availability_cores, request_candidate_events, request_from_runtime,
-	request_key_ownership_proof, request_on_chain_votes, request_session_executor_params,
-	request_session_index_for_child, request_session_info, request_staging_async_backing_params,
+	request_async_backing_params, request_availability_cores, request_candidate_events,
+	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
+	request_session_executor_params, request_session_index_for_child, request_session_info,
 	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
 	request_validator_groups,
 };
@@ -74,6 +75,10 @@ pub struct RuntimeInfo {
 
 	/// Look up cached sessions by `SessionIndex`.
 	session_info_cache: LruMap<SessionIndex, ExtendedSessionInfo>,
+
+	/// Unpin handle of *some* block in the session.
+	/// Only blocks pinned explicitly by `pin_block` are stored here.
+	pinned_blocks: LruMap<SessionIndex, UnpinHandle>,
 
 	/// Key store for determining whether we are a validator and what `ValidatorIndex` we have.
 	keystore: Option<KeystorePtr>,
@@ -120,6 +125,7 @@ impl RuntimeInfo {
 		Self {
 			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
+			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			keystore: cfg.keystore,
 		}
 	}
@@ -143,6 +149,17 @@ impl RuntimeInfo {
 				Ok(index)
 			},
 		}
+	}
+
+	/// Pin a given block in the given session if none are pinned in that session.
+	/// Unpinning will happen automatically when LRU cache grows over the limit.
+	pub fn pin_block(&mut self, session_index: SessionIndex, unpin_handle: UnpinHandle) {
+		self.pinned_blocks.get_or_insert(session_index, || unpin_handle);
+	}
+
+	/// Get the hash of a pinned block for the given session index, if any.
+	pub fn get_block_in_session(&self, session_index: SessionIndex) -> Option<Hash> {
+		self.pinned_blocks.peek(&session_index).map(|h| h.hash())
 	}
 
 	/// Get `ExtendedSessionInfo` by relay parent hash.
@@ -360,7 +377,7 @@ where
 pub async fn get_unapplied_slashes<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>>
+) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
@@ -375,7 +392,7 @@ pub async fn key_ownership_proof<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
 	validator_id: ValidatorId,
-) -> Result<Option<vstaging::slashing::OpaqueKeyOwnershipProof>>
+) -> Result<Option<slashing::OpaqueKeyOwnershipProof>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
@@ -386,8 +403,8 @@ where
 pub async fn submit_report_dispute_lost<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-	dispute_proof: vstaging::slashing::DisputeProof,
-	key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+	dispute_proof: slashing::DisputeProof,
+	key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 ) -> Result<Option<()>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -412,7 +429,7 @@ where
 pub enum ProspectiveParachainsMode {
 	/// Runtime API without support of `async_backing_params`: no prospective parachains.
 	Disabled,
-	/// vstaging runtime API: prospective parachains.
+	/// v6 runtime API: prospective parachains.
 	Enabled {
 		/// The maximum number of para blocks between the para head in a relay parent
 		/// and a new candidate. Restricts nodes from building arbitrary long chains
@@ -440,8 +457,7 @@ pub async fn prospective_parachains_mode<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let result =
-		recv_runtime(request_staging_async_backing_params(relay_parent, sender).await).await;
+	let result = recv_runtime(request_async_backing_params(relay_parent, sender).await).await;
 
 	if let Err(error::Error::RuntimeRequest(RuntimeApiError::NotSupported { runtime_api_name })) =
 		&result
@@ -455,7 +471,7 @@ where
 
 		Ok(ProspectiveParachainsMode::Disabled)
 	} else {
-		let vstaging::AsyncBackingParams { max_candidate_depth, allowed_ancestry_len } = result?;
+		let AsyncBackingParams { max_candidate_depth, allowed_ancestry_len } = result?;
 		Ok(ProspectiveParachainsMode::Enabled {
 			max_candidate_depth: max_candidate_depth as _,
 			allowed_ancestry_len: allowed_ancestry_len as _,

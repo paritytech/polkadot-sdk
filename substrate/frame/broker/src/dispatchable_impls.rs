@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
 			last_timeslice: Self::current_timeslice(),
 		};
 		let now = frame_system::Pallet::<T>::block_number();
-		let dummy_sale = SaleInfoRecord {
+		let new_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
 			price,
@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
 			cores_sold: 0,
 		};
 		Self::deposit_event(Event::<T>::SalesStarted { price, core_count });
-		Self::rotate_sale(dummy_sale, &config, &status);
+		Self::rotate_sale(new_sale, &config, &status);
 		Status::<T>::put(&status);
 		Ok(())
 	}
@@ -333,12 +333,8 @@ impl<T: Config> Pallet<T> {
 			region.begin = r + 1;
 			contribution.length.saturating_dec();
 
-			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else {
-				continue
-			};
-			let Some(total_payout) = pool_record.maybe_payout else {
-				break
-			};
+			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else { continue };
+			let Some(total_payout) = pool_record.maybe_payout else { break };
 			let p = total_payout
 				.saturating_mul(contributed_parts.into())
 				.checked_div(&pool_record.private_contributions.into())

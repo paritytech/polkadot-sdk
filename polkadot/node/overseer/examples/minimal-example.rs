@@ -163,7 +163,6 @@ fn main() {
 			.unwrap();
 
 		let overseer_fut = overseer.run().fuse();
-		let timer_stream = timer_stream;
 
 		pin_mut!(timer_stream);
 		pin_mut!(overseer_fut);

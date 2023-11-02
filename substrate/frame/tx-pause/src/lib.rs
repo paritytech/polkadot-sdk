@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
 	/// Ensure that this call can be paused.
 	pub fn ensure_can_pause(full_name: &RuntimeCallNameOf<T>) -> Result<(), Error<T>> {
 		// SAFETY: The `TxPause` pallet can never pause itself.
-		if full_name.0.as_ref() == <Self as PalletInfoAccess>::name().as_bytes().to_vec() {
+		if full_name.0.as_slice() == <Self as PalletInfoAccess>::name().as_bytes() {
 			return Err(Error::<T>::Unpausable)
 		}
 

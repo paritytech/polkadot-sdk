@@ -19,8 +19,10 @@
 //! The PVF validation host. Responsible for coordinating preparation and execution of PVFs.
 //!
 //! For more background, refer to the Implementer's Guide: [PVF
-//! Pre-checking](https://paritytech.github.io/polkadot/book/pvf-prechecking.html) and [Candidate
-//! Validation](https://paritytech.github.io/polkadot/book/node/utility/candidate-validation.html#pvf-host).
+//! Pre-checking](https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html), [Candidate
+//! Validation](https://paritytech.github.io/polkadot-sdk/book/node/utility/candidate-validation.html)
+//! and [PVF Host and Workers](https://paritytech.github.io/polkadot-sdk/book/node/utility/pvf-host-and-workers.html).
+//!
 //!
 //! # Entrypoint
 //!
@@ -95,14 +97,11 @@ mod host;
 mod metrics;
 mod prepare;
 mod priority;
+mod security;
 mod worker_intf;
 
 #[cfg(feature = "test-utils")]
 pub mod testing;
-
-// Used by `decl_puppet_worker_main!`.
-#[cfg(feature = "test-utils")]
-pub use sp_tracing;
 
 pub use error::{InvalidCandidate, ValidationError};
 pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
@@ -115,13 +114,21 @@ pub use polkadot_node_core_pvf_common::{
 	error::{InternalValidationError, PrepareError},
 	prepare::{PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
 
-// Re-export worker entrypoints.
-#[cfg(feature = "test-utils")]
-pub use polkadot_node_core_pvf_execute_worker::worker_entrypoint as execute_worker_entrypoint;
-#[cfg(feature = "test-utils")]
-pub use polkadot_node_core_pvf_prepare_worker::worker_entrypoint as prepare_worker_entrypoint;
+use std::{path::Path, process::Command};
 
 /// The log target for this crate.
 pub const LOG_TARGET: &str = "parachain::pvf";
+
+/// Utility to get the version of a worker, used for version checks.
+///
+/// The worker's existence at the given path must be checked separately.
+pub fn get_worker_version(worker_path: &Path) -> std::io::Result<String> {
+	let worker_version = Command::new(worker_path).args(["--version"]).output()?.stdout;
+	Ok(std::str::from_utf8(&worker_version)
+		.expect("version is printed as a string; qed")
+		.trim()
+		.to_string())
+}

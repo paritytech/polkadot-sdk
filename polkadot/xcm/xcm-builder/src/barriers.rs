@@ -52,7 +52,7 @@ impl ShouldExecute for TakeWeightCredit {
 	}
 }
 
-const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 1;
+const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 
 /// Allows execution from `origin` if it is contained in `T` (i.e. `T::Contains(origin)`) taking
 /// payments into account.

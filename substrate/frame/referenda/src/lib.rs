@@ -73,8 +73,8 @@ use frame_support::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime,
 		},
-		Currency, Hash as PreimageHash, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus,
-		Polling, QueryPreimage, ReservableCurrency, StorePreimage, VoteTally,
+		Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
+		ReservableCurrency, StorePreimage, VoteTally,
 	},
 	BoundedVec,
 };
@@ -163,8 +163,17 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// The Scheduler.
-		type Scheduler: ScheduleAnon<BlockNumberFor<Self>, CallOf<Self, I>, PalletsOriginOf<Self>>
-			+ ScheduleNamed<BlockNumberFor<Self>, CallOf<Self, I>, PalletsOriginOf<Self>>;
+		type Scheduler: ScheduleAnon<
+				BlockNumberFor<Self>,
+				CallOf<Self, I>,
+				PalletsOriginOf<Self>,
+				Hasher = Self::Hashing,
+			> + ScheduleNamed<
+				BlockNumberFor<Self>,
+				CallOf<Self, I>,
+				PalletsOriginOf<Self>,
+				Hasher = Self::Hashing,
+			>;
 		/// Currency type for this pallet.
 		type Currency: ReservableCurrency<Self::AccountId>;
 		// Origins and unbalances.
@@ -226,7 +235,7 @@ pub mod pallet {
 			>;
 
 		/// The preimage provider.
-		type Preimages: QueryPreimage + StorePreimage;
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
 	/// The next free referendum index, aka the number of referenda started so far.
@@ -257,14 +266,14 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, TrackIdOf<T, I>, u32, ValueQuery>;
 
 	/// The metadata is a general information concerning the referendum.
-	/// The `PreimageHash` refers to the preimage of the `Preimages` provider which can be a JSON
+	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
 	/// dump or IPFS hash of a JSON file.
 	///
 	/// Consider a garbage collection for a metadata of finished referendums to `unrequest` (remove)
 	/// large preimages.
 	#[pallet::storage]
 	pub type MetadataOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, ReferendumIndex, PreimageHash>;
+		StorageMap<_, Blake2_128Concat, ReferendumIndex, T::Hash>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -376,14 +385,14 @@ pub mod pallet {
 			/// Index of the referendum.
 			index: ReferendumIndex,
 			/// Preimage hash.
-			hash: PreimageHash,
+			hash: T::Hash,
 		},
 		/// Metadata for a referendum has been cleared.
 		MetadataCleared {
 			/// Index of the referendum.
 			index: ReferendumIndex,
 			/// Preimage hash.
-			hash: PreimageHash,
+			hash: T::Hash,
 		},
 	}
 
@@ -691,7 +700,7 @@ pub mod pallet {
 		pub fn set_metadata(
 			origin: OriginFor<T>,
 			index: ReferendumIndex,
-			maybe_hash: Option<PreimageHash>,
+			maybe_hash: Option<T::Hash>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			if let Some(hash) = maybe_hash {

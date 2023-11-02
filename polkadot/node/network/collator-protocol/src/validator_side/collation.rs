@@ -31,6 +31,7 @@ use std::{collections::VecDeque, future::Future, pin::Pin, task::Poll};
 
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v1 as request_v1, OutgoingResult},
 	PeerId,
 };
@@ -119,7 +120,7 @@ impl PendingCollation {
 	}
 }
 
-/// vstaging advertisement that was rejected by the backing
+/// v2 advertisement that was rejected by the backing
 /// subsystem. Validator may fetch it later if its fragment
 /// membership gets recognized before relay parent goes out of view.
 #[derive(Debug, Clone)]
@@ -160,6 +161,8 @@ pub fn fetched_collation_sanity_check(
 pub struct CollationEvent {
 	/// Collator id.
 	pub collator_id: CollatorId,
+	/// The network protocol version the collator is using.
+	pub collator_protocol_version: CollationVersion,
 	/// The requested collation data.
 	pub pending_collation: PendingCollation,
 }
@@ -307,6 +310,8 @@ pub(super) struct CollationFetchRequest {
 	pub pending_collation: PendingCollation,
 	/// Collator id.
 	pub collator_id: CollatorId,
+	/// The network protocol version the collator is using.
+	pub collator_protocol_version: CollationVersion,
 	/// Responses from collator.
 	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
@@ -334,6 +339,7 @@ impl Future for CollationFetchRequest {
 			self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
 			return Poll::Ready((
 				CollationEvent {
+					collator_protocol_version: self.collator_protocol_version,
 					collator_id: self.collator_id.clone(),
 					pending_collation: self.pending_collation,
 				},
@@ -344,6 +350,7 @@ impl Future for CollationFetchRequest {
 		let res = self.from_collator.poll_unpin(cx).map(|res| {
 			(
 				CollationEvent {
+					collator_protocol_version: self.collator_protocol_version,
 					collator_id: self.collator_id.clone(),
 					pending_collation: self.pending_collation,
 				},

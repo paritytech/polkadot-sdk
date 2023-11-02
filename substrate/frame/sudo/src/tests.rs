@@ -34,6 +34,7 @@ fn test_setup_works() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn sudo_basics() {
 	// Configure a default test environment and set the root `key` to 1.
@@ -134,6 +135,7 @@ fn sudo_unchecked_weight_emits_events_correctly() {
 	})
 }
 
+#[docify::export]
 #[test]
 fn set_key_basics() {
 	new_test_ext(1).execute_with(|| {
@@ -195,6 +197,7 @@ fn sudo_as_basics() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn sudo_as_emits_events_correctly() {
 	new_test_ext(1).execute_with(|| {

@@ -33,7 +33,7 @@ use crate::{
 	worker::PersistedState,
 };
 use futures::{stream::Fuse, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use parking_lot::Mutex;
 use prometheus::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
@@ -428,7 +428,7 @@ where
 			let best_beefy = *header.number();
 			// If no session boundaries detected so far, just initialize new rounds here.
 			if sessions.is_empty() {
-				let active_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
+				let active_set = expect_validator_set(runtime, backend, &header)?;
 				let mut rounds = Rounds::new(best_beefy, active_set);
 				// Mark the round as already finalized.
 				rounds.conclude(best_beefy);
@@ -447,7 +447,7 @@ where
 
 		if *header.number() == beefy_genesis {
 			// We've reached BEEFY genesis, initialize voter here.
-			let genesis_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
+			let genesis_set = expect_validator_set(runtime, backend, &header)?;
 			info!(
 				target: LOG_TARGET,
 				"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
@@ -532,7 +532,6 @@ fn expect_validator_set<B, BE, R>(
 	runtime: &R,
 	backend: &BE,
 	at_header: &B::Header,
-	beefy_genesis: NumberFor<B>,
 ) -> ClientResult<ValidatorSet<AuthorityId>>
 where
 	B: Block,
@@ -540,6 +539,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
+	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);
 	runtime
 		.runtime_api()
 		.validator_set(at_header.hash())
@@ -550,14 +550,14 @@ where
 			// Digest emitted when validator set active 'at_header' was enacted.
 			let blockchain = backend.blockchain();
 			let mut header = at_header.clone();
-			while *header.number() >= beefy_genesis {
+			loop {
+				debug!(target: LOG_TARGET, "🥩 look for auth set change digest in header number: {:?}", *header.number());
 				match worker::find_authorities_change::<B>(&header) {
 					Some(active) => return Some(active),
 					// Move up the chain.
 					None => header = blockchain.expect_header(*header.parent_hash()).ok()?,
 				}
 			}
-			None
 		})
 		.ok_or_else(|| ClientError::Backend("Could not find initial validator set".into()))
 }

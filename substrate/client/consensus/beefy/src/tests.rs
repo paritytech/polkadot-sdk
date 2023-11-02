@@ -247,7 +247,7 @@ impl TestNetFactory for BeefyTestNet {
 #[derive(Clone)]
 pub(crate) struct TestApi {
 	pub beefy_genesis: u64,
-	pub validator_set: BeefyValidatorSet,
+	pub validator_set: Option<BeefyValidatorSet>,
 	pub mmr_root_hash: MmrRootHash,
 	pub reported_equivocations:
 		Option<Arc<Mutex<Vec<EquivocationProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
@@ -261,7 +261,7 @@ impl TestApi {
 	) -> Self {
 		TestApi {
 			beefy_genesis,
-			validator_set: validator_set.clone(),
+			validator_set: Some(validator_set.clone()),
 			mmr_root_hash,
 			reported_equivocations: None,
 		}
@@ -270,7 +270,7 @@ impl TestApi {
 	pub fn with_validator_set(validator_set: &BeefyValidatorSet) -> Self {
 		TestApi {
 			beefy_genesis: 1,
-			validator_set: validator_set.clone(),
+			validator_set: Some(validator_set.clone()),
 			mmr_root_hash: GOOD_MMR_ROOT,
 			reported_equivocations: None,
 		}
@@ -300,7 +300,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn validator_set() -> Option<BeefyValidatorSet> {
-			Some(self.inner.validator_set.clone())
+			self.inner.validator_set.clone()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
@@ -1189,6 +1189,54 @@ async fn should_initialize_voter_at_latest_finalized() {
 }
 
 #[tokio::test]
+async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
+	let keys = &[BeefyKeyring::Alice];
+	let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
+	let mut net = BeefyTestNet::new(1);
+	let backend = net.peer(0).client().as_backend();
+	// custom pallet genesis is block number 7
+	let custom_pallet_genesis = 7;
+	let mut api = TestApi::new(custom_pallet_genesis, &validator_set, GOOD_MMR_ROOT);
+	// remove validator set from `TestApi`, practically simulating unavailable/pruned runtime state
+	api.validator_set = None;
+
+	// push 30 blocks with `AuthorityChange` digests every 5 blocks
+	let hashes = net.generate_blocks_and_sync(30, 5, &validator_set, false).await;
+	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	// finalize 30 without justifications
+	net.peer(0).client().as_client().finalize_block(hashes[30], None).unwrap();
+
+	// load persistent state - nothing in DB, should init at genesis
+	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+
+	// Test initialization at session boundary.
+	// verify voter initialized with all sessions pending, first one starting at block 5 (start of
+	// session containing `custom_pallet_genesis`).
+	let sessions = persisted_state.voting_oracle().sessions();
+	// should have enqueued 6 sessions (every 5 blocks from 5 to 30)
+	assert_eq!(sessions.len(), 6);
+	assert_eq!(sessions[0].session_start(), 7);
+	assert_eq!(sessions[1].session_start(), 10);
+	assert_eq!(sessions[2].session_start(), 15);
+	assert_eq!(sessions[3].session_start(), 20);
+	assert_eq!(sessions[4].session_start(), 25);
+	assert_eq!(sessions[5].session_start(), 30);
+	let rounds = persisted_state.active_round().unwrap();
+	assert_eq!(rounds.session_start(), custom_pallet_genesis);
+	assert_eq!(rounds.validator_set_id(), validator_set.id());
+
+	// verify next vote target is mandatory block 7 (genesis)
+	assert_eq!(persisted_state.best_beefy_block(), 0);
+	assert_eq!(persisted_state.best_grandpa_number(), 30);
+	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(custom_pallet_genesis));
+
+	// verify state also saved to db
+	assert!(verify_persisted_version(&*backend));
+	let state = load_persistent(&*backend).unwrap().unwrap();
+	assert_eq!(state, persisted_state);
+}
+
+#[tokio::test]
 async fn beefy_finalizing_after_pallet_genesis() {
 	sp_tracing::try_init_simple();
 
@@ -1302,7 +1350,7 @@ async fn gossipped_finality_proofs() {
 	// Only Alice and Bob are running the voter -> finality threshold not reached
 	let peers = [BeefyKeyring::Alice, BeefyKeyring::Bob];
 	let validator_set = ValidatorSet::new(make_beefy_ids(&validators), 0).unwrap();
-	let session_len = 30;
+	let session_len = 10;
 	let min_block_delta = 1;
 
 	let mut net = BeefyTestNet::new(3);
@@ -1332,14 +1380,8 @@ async fn gossipped_finality_proofs() {
 
 	let net = Arc::new(Mutex::new(net));
 
-	// Pump net + Charlie gossip to see peers.
-	let timeout = Box::pin(tokio::time::sleep(Duration::from_millis(200)));
-	let gossip_engine_pump = &mut charlie_gossip_engine;
-	let pump_with_timeout = future::select(gossip_engine_pump, timeout);
-	run_until(pump_with_timeout, &net).await;
-
-	// push 10 blocks
-	let hashes = net.lock().generate_blocks_and_sync(10, session_len, &validator_set, true).await;
+	// push 42 blocks
+	let hashes = net.lock().generate_blocks_and_sync(42, session_len, &validator_set, true).await;
 
 	let peers = peers.into_iter().enumerate();
 

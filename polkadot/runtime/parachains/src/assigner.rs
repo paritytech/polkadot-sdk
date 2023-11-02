@@ -17,11 +17,11 @@
 //! The Polkadot multiplexing assignment provider.
 //! Provides blockspace assignments for both bulk and on demand parachains.
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{v5::Assignment, CoreIndex, Id as ParaId};
+use primitives::{CoreIndex, Id as ParaId};
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 };
 
 pub use pallet::*;
@@ -53,7 +53,8 @@ impl<T: Config> Pallet<T> {
 	fn is_bulk_core(core_idx: &CoreIndex) -> bool {
 		let parachain_cores =
 			<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::session_core_count();
-		(0..parachain_cores).contains(&core_idx.0)
+
+		core_idx.0 < parachain_cores
 	}
 }
 

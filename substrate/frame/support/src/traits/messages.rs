@@ -17,6 +17,7 @@
 
 //! Traits for managing message queuing and handling.
 
+use super::storage::Footprint;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
@@ -113,13 +114,6 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 	fn service_queues(_: Weight) -> Weight {
 		Weight::zero()
 	}
-}
-
-/// The resource footprint of a queue.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
-pub struct Footprint {
-	pub count: u64,
-	pub size: u64,
 }
 
 /// Can enqueue messages for multiple origins.

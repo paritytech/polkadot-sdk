@@ -379,6 +379,17 @@ impl<H: Hasher, I: DerefMut<Target = RecorderInner<H::Out>>> trie_db::TrieRecord
 				// that the value doesn't exist in the trie.
 				self.update_recorded_keys(full_key, RecordedForKey::Value);
 			},
+			TrieAccess::InlineValue { full_key } => {
+				tracing::trace!(
+					target: LOG_TARGET,
+					key = ?sp_core::hexdisplay::HexDisplay::from(&full_key),
+					"Recorded inline value access for key",
+				);
+
+				// A value was accessed that is stored inline a node and we recorded all trie nodes
+				// to access this value.
+				self.update_recorded_keys(full_key, RecordedForKey::Value);
+			},
 		};
 
 		self.encoded_size_estimation.fetch_add(encoded_size_update, Ordering::Relaxed);

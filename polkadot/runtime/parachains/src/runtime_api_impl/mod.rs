@@ -25,5 +25,6 @@
 //! 1. Bump the version of the stable module (e.g. `v2` becomes `v3`)
 //! 2. Move methods from `vstaging` to `v3`. The new stable version should include all methods from
 //!    `vstaging` tagged with the new version number (e.g. all `v3` methods).
-pub mod v5;
+
+pub mod v7;
 pub mod vstaging;

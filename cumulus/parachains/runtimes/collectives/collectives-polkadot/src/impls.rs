@@ -184,7 +184,7 @@ pub mod benchmarks {
 	impl<I: Get<u32>> EnsureSuccessful for OpenHrmpChannel<I> {
 		fn ensure_successful() {
 			if let ChannelStatus::Closed = ParachainSystem::get_channel_status(I::get().into()) {
-				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(I::get().into())
+				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(I::get().into())
 			}
 		}
 	}

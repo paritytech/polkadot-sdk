@@ -2,28 +2,16 @@
 
 Implementation of a <https://polkadot.network> node in Rust based on the Substrate framework.
 
-> **NOTE:** In 2018, we split our implementation of "Polkadot" from its development framework >
-"Substrate". See the [Substrate][substrate-repo] repo for git history prior to 2018.
-
-[substrate-repo]: https://github.com/paritytech/substrate
-
-This repo contains runtimes for the Polkadot, Kusama, and Westend networks. The README provides
-information about installing the `polkadot` binary and developing on the codebase. For more specific
-guides, like how to be a validator, see the [Polkadot
-Wiki](https://wiki.polkadot.network/docs/getting-started).
+The README provides information about installing the `polkadot` binary and developing on the codebase. For more specific
+guides, like how to run a validator node, see the [Polkadot Wiki](https://wiki.polkadot.network/docs/getting-started).
 
 ## Installation
+
+### Using a pre-compiled binary
 
 If you just wish to run a Polkadot node without compiling it yourself, you may either run the latest
 binary from our [releases](https://github.com/paritytech/polkadot-sdk/releases) page, or install
 Polkadot from one of our package repositories.
-
-Installation from the Debian repository will create a `systemd` service that can be used to run a
-Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
-on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
-run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
-`/etc/default/polkadot`. This file will not be overwritten on updating Polkadot. You may also just
-run the node directly from the command-line.
 
 ### Debian-based (Debian, Ubuntu)
 
@@ -45,7 +33,17 @@ apt install polkadot
 
 ```
 
+Installation from the Debian repository will create a `systemd` service that can be used to run a
+Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
+on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
+run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
+`/etc/default/polkadot`. This file will not be overwritten on updating Polkadot. You may also just
+run the node directly from the command-line.
+
 ## Building
+
+Since the Polkadot node is based on Substrate, first set up your build environment according to the
+[Substrate installation instructions](https://docs.substrate.io/install/).
 
 ### Install via Cargo
 
@@ -60,25 +58,6 @@ cargo install --git https://github.com/paritytech/polkadot-sdk --tag <version> p
 
 ### Build from Source
 
-If you'd like to build from source, first install Rust. You may need to add Cargo's bin directory to
-your PATH environment variable. Restarting your computer will do this for you automatically.
-
-```bash
-curl https://sh.rustup.rs -sSf | sh
-```
-
-If you already have Rust installed, make sure you're using the latest version by running:
-
-```bash
-rustup update
-```
-
-Once done, finish installing the support software:
-
-```bash
-sudo apt install build-essential git clang libclang-dev pkg-config libssl-dev protobuf-compiler
-```
-
 Build the client by cloning this repository and running the following commands from the root
 directory of the repo:
 
@@ -87,9 +66,6 @@ git checkout <latest tagged release>
 ./scripts/init.sh
 cargo build --release
 ```
-
-**Note:** compilation is a memory intensive process. We recommend having 4 GiB of physical RAM or
-swap available (keep in mind that if a build hits swap it tends to be very slow).
 
 **Note:** if you want to move the built `polkadot` binary somewhere (e.g. into $PATH) you will also
 need to move `polkadot-execute-worker` and `polkadot-prepare-worker`. You can let cargo do all this
@@ -123,7 +99,7 @@ This repo supports runtimes for Polkadot, Kusama, and Westend.
 Connect to the global Polkadot Mainnet network by running:
 
 ```bash
-./target/release/polkadot --chain=polkadot
+../target/release/polkadot --chain=polkadot
 ```
 
 You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
@@ -135,7 +111,7 @@ You can see your node on [telemetry] (set a custom name with `--name "my custom 
 Connect to the global Kusama canary network by running:
 
 ```bash
-./target/release/polkadot --chain=kusama
+../target/release/polkadot --chain=kusama
 ```
 
 You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
@@ -147,7 +123,7 @@ You can see your node on [telemetry] (set a custom name with `--name "my custom 
 Connect to the global Westend testnet by running:
 
 ```bash
-./target/release/polkadot --chain=westend
+../target/release/polkadot --chain=westend
 ```
 
 You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
@@ -157,20 +133,14 @@ You can see your node on [telemetry] (set a custom name with `--name "my custom 
 ### Obtaining DOTs
 
 If you want to do anything on Polkadot, Kusama, or Westend, then you'll need to get an account and
-some DOT, KSM, or WND tokens, respectively. See the [claims
-instructions](https://claims.polkadot.network/) for Polkadot if you have DOTs to claim. For
-Westend's WND tokens, see the faucet
-[instructions](https://wiki.polkadot.network/docs/learn-DOT#getting-westies) on the Wiki.
+some DOT, KSM, or WND tokens, respectively. Follow the
+[instructions](https://wiki.polkadot.network/docs/learn-DOT#obtaining-testnet-tokens) on the Wiki to obtain tokens for
+your testnet of choice.
 
 ## Hacking on Polkadot
 
 If you'd actually like to hack on Polkadot, you can grab the source code and build it. Ensure you
-have Rust and the support software installed. This script will install or update Rust and install
-the required dependencies (this may take up to 30 minutes on Mac machines):
-
-```bash
-curl https://getsubstrate.io -sSf | bash -s -- --fast
-```
+have Rust and the support software installed.
 
 Then, grab the Polkadot source code:
 
@@ -183,14 +153,15 @@ Then build the code. You will need to build in release mode (`--release`) to sta
 use debug mode for development (faster compile times for development and testing).
 
 ```bash
-./scripts/init.sh   # Install WebAssembly. Update Rust
-cargo build # Builds all native code
+cargo build
 ```
 
 You can run the tests if you like:
 
 ```bash
-cargo test --workspace --release
+cargo test --workspace --profile testnet
+# Or run only the tests for specified crated
+cargo test -p <crate-name> --profile testnet
 ```
 
 You can start a development chain with:
@@ -202,7 +173,7 @@ cargo run --bin polkadot -- --dev
 Detailed logs may be shown by running the node with the following environment variables set:
 
 ```bash
-RUST_LOG=debug RUST_BACKTRACE=1 cargo run --bin polkadot -- --dev
+RUST_LOG=debug RUST_BACKTRACE=1 cargo run --bin polkadot -- --dev
 ```
 
 ### Development
@@ -222,13 +193,13 @@ If you want to see the multi-node consensus algorithm in action locally, then yo
 testnet. You'll need two terminals open. In one, run:
 
 ```bash
-polkadot --chain=polkadot-local --alice -d /tmp/alice
+polkadot --dev --alice -d /tmp/alice
 ```
 
 And in the other, run:
 
 ```bash
-polkadot --chain=polkadot-local --bob -d /tmp/bob --port 30334 --bootnodes '/ip4/127.0.0.1/tcp/30333/p2p/ALICE_BOOTNODE_ID_HERE'
+polkadot --dev --bob -d /tmp/bob --bootnodes '/ip4/127.0.0.1/tcp/30333/p2p/ALICE_BOOTNODE_ID_HERE'
 ```
 
 Ensure you replace `ALICE_BOOTNODE_ID_HERE` with the node ID from the output of the first terminal.
@@ -242,7 +213,7 @@ that we currently maintain.
 
 ### Using Docker
 
-[Using Docker](doc/docker.md)
+[Using Docker](../docs/docker.md)
 
 ### Shell Completion
 

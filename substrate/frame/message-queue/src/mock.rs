@@ -71,7 +71,7 @@ impl frame_system::Config for Test {
 parameter_types! {
 	pub const HeapSize: u32 = 24;
 	pub const MaxStale: u32 = 2;
-	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(10, 10));
+	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(100, 100));
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -91,6 +91,7 @@ pub struct MockedWeightInfo;
 parameter_types! {
 	/// Storage for `MockedWeightInfo`, do not use directly.
 	pub static WeightForCall: BTreeMap<String, Weight> = Default::default();
+	pub static DefaultWeightForCall: Weight = Weight::zero();
 }
 
 /// Set the return value for a function from the `WeightInfo` trait.
@@ -111,40 +112,55 @@ impl crate::weights::WeightInfo for MockedWeightInfo {
 		WeightForCall::get()
 			.get("execute_overweight_page_updated")
 			.copied()
-			.unwrap_or_default()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn execute_overweight_page_removed() -> Weight {
 		WeightForCall::get()
 			.get("execute_overweight_page_removed")
 			.copied()
-			.unwrap_or_default()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn service_page_base_completion() -> Weight {
 		WeightForCall::get()
 			.get("service_page_base_completion")
 			.copied()
-			.unwrap_or_default()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn service_page_base_no_completion() -> Weight {
 		WeightForCall::get()
 			.get("service_page_base_no_completion")
 			.copied()
-			.unwrap_or_default()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn service_queue_base() -> Weight {
-		WeightForCall::get().get("service_queue_base").copied().unwrap_or_default()
+		WeightForCall::get()
+			.get("service_queue_base")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn bump_service_head() -> Weight {
-		WeightForCall::get().get("bump_service_head").copied().unwrap_or_default()
+		WeightForCall::get()
+			.get("bump_service_head")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn service_page_item() -> Weight {
-		WeightForCall::get().get("service_page_item").copied().unwrap_or_default()
+		WeightForCall::get()
+			.get("service_page_item")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn ready_ring_knit() -> Weight {
-		WeightForCall::get().get("ready_ring_knit").copied().unwrap_or_default()
+		WeightForCall::get()
+			.get("ready_ring_knit")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn ready_ring_unknit() -> Weight {
-		WeightForCall::get().get("ready_ring_unknit").copied().unwrap_or_default()
+		WeightForCall::get()
+			.get("ready_ring_unknit")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 }
 

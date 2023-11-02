@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use crate::debug::{CallSpan, ExportedFunction, Tracing};
+use crate::{
+	debug::{CallInterceptor, CallSpan, ExecResult, ExportedFunction, Tracing},
+	AccountIdOf,
+};
 use frame_support::traits::Currency;
 use pallet_contracts_primitives::ExecReturnValue;
 use pretty_assertions::assert_eq;
@@ -24,7 +27,7 @@ use std::cell::RefCell;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct DebugFrame {
-	code_hash: CodeHash<Test>,
+	contract_account: AccountId32,
 	call: ExportedFunction,
 	input: Vec<u8>,
 	result: Option<Vec<u8>>,
@@ -32,11 +35,12 @@ struct DebugFrame {
 
 thread_local! {
 	static DEBUG_EXECUTION_TRACE: RefCell<Vec<DebugFrame>> = RefCell::new(Vec::new());
+	static INTERCEPTED_ADDRESS: RefCell<Option<AccountId32>> = RefCell::new(None);
 }
 
 pub struct TestDebug;
 pub struct TestCallSpan {
-	code_hash: CodeHash<Test>,
+	contract_account: AccountId32,
 	call: ExportedFunction,
 	input: Vec<u8>,
 }
@@ -45,19 +49,39 @@ impl Tracing<Test> for TestDebug {
 	type CallSpan = TestCallSpan;
 
 	fn new_call_span(
-		code_hash: &CodeHash<Test>,
+		contract_account: &AccountIdOf<Test>,
 		entry_point: ExportedFunction,
 		input_data: &[u8],
 	) -> TestCallSpan {
 		DEBUG_EXECUTION_TRACE.with(|d| {
 			d.borrow_mut().push(DebugFrame {
-				code_hash: *code_hash,
+				contract_account: contract_account.clone(),
 				call: entry_point,
 				input: input_data.to_vec(),
 				result: None,
 			})
 		});
-		TestCallSpan { code_hash: *code_hash, call: entry_point, input: input_data.to_vec() }
+		TestCallSpan {
+			contract_account: contract_account.clone(),
+			call: entry_point,
+			input: input_data.to_vec(),
+		}
+	}
+}
+
+impl CallInterceptor<Test> for TestDebug {
+	fn intercept_call(
+		contract_address: &<Test as frame_system::Config>::AccountId,
+		_entry_point: &ExportedFunction,
+		_input_data: &[u8],
+	) -> Option<ExecResult> {
+		INTERCEPTED_ADDRESS.with(|i| {
+			if i.borrow().as_ref() == Some(contract_address) {
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![] }))
+			} else {
+				None
+			}
+		})
 	}
 }
 
@@ -65,7 +89,7 @@ impl CallSpan for TestCallSpan {
 	fn after_call(self, output: &ExecReturnValue) {
 		DEBUG_EXECUTION_TRACE.with(|d| {
 			d.borrow_mut().push(DebugFrame {
-				code_hash: self.code_hash,
+				contract_account: self.contract_account,
 				call: self.call,
 				input: self.input,
 				result: Some(output.data.clone()),
@@ -75,9 +99,9 @@ impl CallSpan for TestCallSpan {
 }
 
 #[test]
-fn unsafe_debugging_works() {
-	let (wasm_caller, code_hash_caller) = compile_module::<Test>("call").unwrap();
-	let (wasm_callee, code_hash_callee) = compile_module::<Test>("store_call").unwrap();
+fn debugging_works() {
+	let (wasm_caller, _) = compile_module::<Test>("call").unwrap();
+	let (wasm_callee, _) = compile_module::<Test>("store_call").unwrap();
 
 	fn current_stack() -> Vec<DebugFrame> {
 		DEBUG_EXECUTION_TRACE.with(|stack| stack.borrow().clone())
@@ -100,18 +124,18 @@ fn unsafe_debugging_works() {
 		.account_id
 	}
 
-	fn constructor_frame(hash: CodeHash<Test>, after: bool) -> DebugFrame {
+	fn constructor_frame(contract_account: &AccountId32, after: bool) -> DebugFrame {
 		DebugFrame {
-			code_hash: hash,
+			contract_account: contract_account.clone(),
 			call: ExportedFunction::Constructor,
 			input: vec![],
 			result: if after { Some(vec![]) } else { None },
 		}
 	}
 
-	fn call_frame(hash: CodeHash<Test>, args: Vec<u8>, after: bool) -> DebugFrame {
+	fn call_frame(contract_account: &AccountId32, args: Vec<u8>, after: bool) -> DebugFrame {
 		DebugFrame {
-			code_hash: hash,
+			contract_account: contract_account.clone(),
 			call: ExportedFunction::Call,
 			input: args,
 			result: if after { Some(vec![]) } else { None },
@@ -129,19 +153,19 @@ fn unsafe_debugging_works() {
 		assert_eq!(
 			current_stack(),
 			vec![
-				constructor_frame(code_hash_caller, false),
-				constructor_frame(code_hash_caller, true),
-				constructor_frame(code_hash_callee, false),
-				constructor_frame(code_hash_callee, true),
+				constructor_frame(&addr_caller, false),
+				constructor_frame(&addr_caller, true),
+				constructor_frame(&addr_callee, false),
+				constructor_frame(&addr_callee, true),
 			]
 		);
 
-		let main_args = (100u32, &addr_callee).encode();
+		let main_args = (100u32, &addr_callee.clone()).encode();
 		let inner_args = (100u32).encode();
 
 		assert_ok!(Contracts::call(
 			RuntimeOrigin::signed(ALICE),
-			addr_caller,
+			addr_caller.clone(),
 			0,
 			GAS_LIMIT,
 			None,
@@ -152,11 +176,54 @@ fn unsafe_debugging_works() {
 		assert_eq!(
 			stack_top,
 			vec![
-				call_frame(code_hash_caller, main_args.clone(), false),
-				call_frame(code_hash_callee, inner_args.clone(), false),
-				call_frame(code_hash_callee, inner_args, true),
-				call_frame(code_hash_caller, main_args, true),
+				call_frame(&addr_caller, main_args.clone(), false),
+				call_frame(&addr_callee, inner_args.clone(), false),
+				call_frame(&addr_callee, inner_args, true),
+				call_frame(&addr_caller, main_args, true),
 			]
+		);
+	});
+}
+
+#[test]
+fn call_interception_works() {
+	let (wasm, _) = compile_module::<Test>("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = Balances::deposit_creating(&ALICE, 1_000_000);
+
+		let account_id = Contracts::bare_instantiate(
+			ALICE,
+			0,
+			GAS_LIMIT,
+			None,
+			Code::Upload(wasm),
+			vec![],
+			// some salt to ensure that the address of this contract is unique among all tests
+			vec![0x41, 0x41, 0x41, 0x41],
+			DebugInfo::Skip,
+			CollectEvents::Skip,
+		)
+		.result
+		.unwrap()
+		.account_id;
+
+		// no interception yet
+		assert_ok!(Contracts::call(
+			RuntimeOrigin::signed(ALICE),
+			account_id.clone(),
+			0,
+			GAS_LIMIT,
+			None,
+			vec![],
+		));
+
+		// intercept calls to this contract
+		INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id.clone()));
+
+		assert_err_ignore_postinfo!(
+			Contracts::call(RuntimeOrigin::signed(ALICE), account_id, 0, GAS_LIMIT, None, vec![],),
+			<Error<Test>>::ContractReverted,
 		);
 	});
 }

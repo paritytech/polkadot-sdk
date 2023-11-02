@@ -16,12 +16,13 @@
 
 use std::collections::HashMap;
 
-use std::{future::Future, sync::Arc};
+use std::future::Future;
 
 use futures::FutureExt;
 
 use polkadot_node_network_protocol::jaeger;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
+use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
 	BlockNumber, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, ScheduledCore,
@@ -34,7 +35,7 @@ use polkadot_node_subsystem::{
 		AllMessages, AvailabilityDistributionMessage, AvailabilityStoreMessage, ChainApiMessage,
 		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, SpawnGlue,
+	ActiveLeavesUpdate, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, mock::make_ferdie_keystore, TestSubsystemContext,
@@ -205,12 +206,7 @@ fn check_ancestry_lookup_in_same_session() {
 		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
 		let block_number = 1;
 		let update = ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: chain[block_number],
-				number: block_number as u32,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			}),
+			activated: Some(new_leaf(chain[block_number], block_number as u32)),
 			deactivated: Vec::new().into(),
 		};
 
@@ -225,12 +221,7 @@ fn check_ancestry_lookup_in_same_session() {
 
 		let block_number = 2;
 		let update = ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: chain[block_number],
-				number: block_number as u32,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			}),
+			activated: Some(new_leaf(chain[block_number], block_number as u32)),
 			deactivated: Vec::new().into(),
 		};
 
@@ -252,12 +243,7 @@ fn check_ancestry_lookup_in_same_session() {
 		// part of ancestry.
 		let block_number = 2 + Requester::LEAF_ANCESTRY_LEN_WITHIN_SESSION;
 		let update = ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: test_state.relay_chain[block_number],
-				number: block_number as u32,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			}),
+			activated: Some(new_leaf(chain[block_number], block_number as u32)),
 			deactivated: vec![chain[1], chain[2]].into(),
 		};
 		requester
@@ -292,12 +278,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
 		let block_number = 3;
 		let update = ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: chain[block_number],
-				number: block_number as u32,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			}),
+			activated: Some(new_leaf(chain[block_number], block_number as u32)),
 			deactivated: Vec::new().into(),
 		};
 
@@ -310,12 +291,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 
 		let block_number = 4;
 		let update = ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: chain[block_number],
-				number: block_number as u32,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			}),
+			activated: Some(new_leaf(chain[block_number], block_number as u32)),
 			deactivated: vec![chain[1], chain[2], chain[3]].into(),
 		};
 
@@ -328,12 +304,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 
 		let block_number = 5;
 		let update = ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: chain[block_number],
-				number: block_number as u32,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			}),
+			activated: Some(new_leaf(chain[block_number], block_number as u32)),
 			deactivated: vec![chain[4]].into(),
 		};
 

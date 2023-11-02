@@ -301,7 +301,8 @@ pub trait Mutate<AccountId>:
 		Ok(actual)
 	}
 
-	/// Attempt to decrease the balance of `who` which is held for the given `reason` by `amount`.
+	/// Attempt to decrease the `asset` balance of `who` which is held for the given `reason` by
+	/// `amount`.
 	///
 	/// If `precision` is true, then as much as possible is reduced, up to `amount`, and the
 	/// amount of tokens reduced is returned. Otherwise, if the total amount can be reduced, then it
@@ -332,6 +333,27 @@ pub trait Mutate<AccountId>:
 		);
 		Self::done_burn_held(asset, reason, who, amount);
 		Ok(amount)
+	}
+
+	/// Attempt to decrease the `asset` balance of `who` which is held for the given `reason` to
+	/// zero.
+	///
+	/// If `precision` is `BestEffort`, then as much as possible is reduced, up to `amount`, and the
+	/// amount of tokens reduced is returned. Otherwise, if the total amount can be reduced, then it
+	/// is and the amount returned, and if not, then nothing changes and `Err` is returned.
+	///
+	/// If `force` is `Force`, then locks/freezes will be ignored. This should only be used when
+	/// conducting slashing or other activity which materially disadvantages the account holder
+	/// since it could provide a means of circumventing freezes.
+	fn burn_all_held(
+		asset: Self::AssetId,
+		reason: &Self::Reason,
+		who: &AccountId,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		let amount = Self::balance_on_hold(asset.clone(), reason, who);
+		Self::burn_held(asset, reason, who, amount, precision, force)
 	}
 
 	/// Transfer held funds into a destination account.

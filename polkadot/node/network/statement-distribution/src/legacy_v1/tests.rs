@@ -36,13 +36,12 @@ use polkadot_node_primitives::{
 	SignedFullStatementWithPVD, Statement, UncheckedSignedFullStatement,
 };
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		network_bridge_event, AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf, LeafStatus, RuntimeApiError,
+	RuntimeApiError,
 };
-use polkadot_node_subsystem_test_helpers::mock::make_ferdie_keystore;
+use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use polkadot_primitives::{
 	ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, SessionInfo,
 	ValidationCode,
@@ -787,19 +786,14 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -1032,19 +1026,14 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -1567,19 +1556,14 @@ fn delay_reputation_changes() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -2052,19 +2036,14 @@ fn share_prioritizes_backing_group() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -2379,19 +2358,14 @@ fn peer_cant_flood_with_large_statements() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -2609,19 +2583,14 @@ fn handle_multiple_seconded_statements() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: relay_parent_hash,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(relay_parent_hash, 1)),
 			)))
 			.await;
 
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == relay_parent_hash
 			=> {

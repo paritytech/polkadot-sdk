@@ -261,6 +261,7 @@ impl pallet_tips::Config for Runtime {
 	type TipCountdown = TipCountdown;
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = TipReportDepositBase;
+	type MaxTipAmount = MaxTipAmount;
 	type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
  }
 ```

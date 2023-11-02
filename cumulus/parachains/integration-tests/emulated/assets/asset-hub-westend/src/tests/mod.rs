@@ -18,3 +18,4 @@ mod send;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
+mod treasury;

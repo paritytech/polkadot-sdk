@@ -24,11 +24,12 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	dispatch::{DispatchResult, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
+	pallet_prelude::Get,
 	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
-use parachains_common::{AccountId, SLOT_DURATION};
+use parachains_common::SLOT_DURATION;
 use polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
@@ -49,12 +50,38 @@ pub type AccountIdOf<Runtime> = <Runtime as frame_system::Config>::AccountId;
 pub type ValidatorIdOf<Runtime> = <Runtime as pallet_session::Config>::ValidatorId;
 pub type SessionKeysOf<Runtime> = <Runtime as pallet_session::Config>::Keys;
 
-pub struct CollatorSessionKeys<
+pub struct CollatorSessionKey<
 	Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config,
 > {
 	collator: AccountIdOf<Runtime>,
 	validator: ValidatorIdOf<Runtime>,
 	key: SessionKeysOf<Runtime>,
+}
+
+pub struct CollatorSessionKeys<
+	Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config,
+> {
+	items: Vec<CollatorSessionKey<Runtime>>,
+}
+
+impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config>
+	CollatorSessionKey<Runtime>
+{
+	pub fn new(
+		collator: AccountIdOf<Runtime>,
+		validator: ValidatorIdOf<Runtime>,
+		key: SessionKeysOf<Runtime>,
+	) -> Self {
+		Self { collator, validator, key }
+	}
+}
+
+impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config> Default
+	for CollatorSessionKeys<Runtime>
+{
+	fn default() -> Self {
+		Self { items: vec![] }
+	}
 }
 
 impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config>
@@ -65,16 +92,25 @@ impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::C
 		validator: ValidatorIdOf<Runtime>,
 		key: SessionKeysOf<Runtime>,
 	) -> Self {
-		Self { collator, validator, key }
+		Self { items: vec![CollatorSessionKey::new(collator, validator, key)] }
 	}
+
+	pub fn add(mut self, item: CollatorSessionKey<Runtime>) -> Self {
+		self.items.push(item);
+		self
+	}
+
 	pub fn collators(&self) -> Vec<AccountIdOf<Runtime>> {
-		vec![self.collator.clone()]
+		self.items.iter().map(|item| item.collator.clone()).collect::<Vec<_>>()
 	}
 
 	pub fn session_keys(
 		&self,
 	) -> Vec<(AccountIdOf<Runtime>, ValidatorIdOf<Runtime>, SessionKeysOf<Runtime>)> {
-		vec![(self.collator.clone(), self.validator.clone(), self.key.clone())]
+		self.items
+			.iter()
+			.map(|item| (item.collator.clone(), item.validator.clone(), item.key.clone()))
+			.collect::<Vec<_>>()
 	}
 }
 
@@ -225,7 +261,7 @@ where
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 {
-	pub fn run_to_block(n: u32, author: AccountId) -> HeaderFor<Runtime> {
+	pub fn run_to_block(n: u32, author: AccountIdOf<Runtime>) -> HeaderFor<Runtime> {
 		let mut last_header = None;
 		loop {
 			let block_number = frame_system::Pallet::<Runtime>::block_number();
@@ -360,7 +396,6 @@ impl<ParachainSystem: cumulus_pallet_parachain_system::Config, AllPalletsWithout
 	RuntimeHelper<ParachainSystem, AllPalletsWithoutSystem>
 {
 	pub fn xcm_max_weight(from: XcmReceivedFrom) -> Weight {
-		use frame_support::traits::Get;
 		match from {
 			XcmReceivedFrom::Parent => ParachainSystem::ReservedDmpWeight::get(),
 			XcmReceivedFrom::Sibling => ParachainSystem::ReservedXcmpWeight::get(),
@@ -375,16 +410,20 @@ impl<Runtime: frame_system::Config + pallet_xcm::Config, AllPalletsWithoutSystem
 		unwrap_pallet_xcm_event: &Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
 		assert_outcome: fn(Outcome),
 	) {
-		let outcome = <frame_system::Pallet<Runtime>>::events()
+		assert_outcome(Self::get_pallet_xcm_event_outcome(unwrap_pallet_xcm_event));
+	}
+
+	pub fn get_pallet_xcm_event_outcome(
+		unwrap_pallet_xcm_event: &Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
+	) -> Outcome {
+		<frame_system::Pallet<Runtime>>::events()
 			.into_iter()
 			.filter_map(|e| unwrap_pallet_xcm_event(e.event.encode()))
 			.find_map(|e| match e {
 				pallet_xcm::Event::Attempted { outcome } => Some(outcome),
 				_ => None,
 			})
-			.expect("No `pallet_xcm::Event::Attempted(outcome)` event found!");
-
-		assert_outcome(outcome);
+			.expect("No `pallet_xcm::Event::Attempted(outcome)` event found!")
 	}
 }
 
@@ -415,8 +454,8 @@ pub fn assert_metadata<Fungibles, AccountId>(
 	expected_symbol: &str,
 	expected_decimals: u8,
 ) where
-	Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect<AccountId>
-		+ frame_support::traits::tokens::fungibles::Inspect<AccountId>,
+	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
+		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
 	assert_eq!(Fungibles::name(asset_id.into()), Vec::from(expected_name),);
 	assert_eq!(Fungibles::symbol(asset_id.into()), Vec::from(expected_symbol),);
@@ -428,8 +467,8 @@ pub fn assert_total<Fungibles, AccountId>(
 	expected_total_issuance: impl Into<Fungibles::Balance>,
 	expected_active_issuance: impl Into<Fungibles::Balance>,
 ) where
-	Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect<AccountId>
-		+ frame_support::traits::tokens::fungibles::Inspect<AccountId>,
+	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
+		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
 	assert_eq!(Fungibles::total_issuance(asset_id.into()), expected_total_issuance.into());
 	assert_eq!(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());

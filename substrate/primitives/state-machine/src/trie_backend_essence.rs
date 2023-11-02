@@ -32,11 +32,12 @@ use sp_std::{boxed::Box, marker::PhantomData, vec::Vec};
 #[cfg(feature = "std")]
 use sp_trie::recorder::Recorder;
 use sp_trie::{
-	child_delta_trie_root, delta_trie_root, empty_child_trie_root, read_child_trie_hash,
-	read_child_trie_value, read_trie_value,
+	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
+	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
+	read_trie_first_descedant_value, read_trie_value,
 	trie_types::{TrieDBBuilder, TrieError},
-	DBValue, KeySpacedDB, NodeCodec, PrefixedMemoryDB, Trie, TrieCache, TrieDBRawIterator,
-	TrieRecorder,
+	DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, Trie, TrieCache,
+	TrieDBRawIterator, TrieRecorder,
 };
 #[cfg(feature = "std")]
 use std::{collections::HashMap, sync::Arc};
@@ -563,6 +564,39 @@ where
 
 		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
 			read_child_trie_value::<Layout<H>, _>(
+				child_info.keyspace(),
+				self,
+				&child_root,
+				key,
+				recorder,
+				cache,
+			)
+			.map_err(map_e)
+		})
+	}
+
+	/// Get the closest merkle value at given key.
+	pub fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<MerkleValue<H::Out>>> {
+		let map_e = |e| format!("Trie lookup error: {}", e);
+
+		self.with_recorder_and_cache(None, |recorder, cache| {
+			read_trie_first_descedant_value::<Layout<H>, _>(self, &self.root, key, recorder, cache)
+				.map_err(map_e)
+		})
+	}
+
+	/// Get the child closest merkle value at given key.
+	pub fn child_closest_merkle_value(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<H::Out>>> {
+		let Some(child_root) = self.child_root(child_info)? else { return Ok(None) };
+
+		let map_e = |e| format!("Trie lookup error: {}", e);
+
+		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+			read_child_trie_first_descedant_value::<Layout<H>, _>(
 				child_info.keyspace(),
 				self,
 				&child_root,
