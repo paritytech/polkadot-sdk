@@ -6829,7 +6829,7 @@ dependencies = [
  "bridge-hub-rococo-runtime",
  "bridge-runtime-common",
  "collectives-polkadot-runtime",
- "collectives-westend-runtime"
+ "collectives-westend-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
