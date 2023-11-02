@@ -32,7 +32,7 @@ use sp_runtime::{
 
 /// Type to combine two `fungibles::*` implementations into one union `fungibles::*` implementation.
 ///
-/// ### Generic Parameters:
+/// ### Parameters:
 /// - `Left` is `fungibles::*` implementation that is incorporated into the resulting union.
 /// - `Right` is `fungibles::*` implementation that is incorporated into the resulting union.
 /// - `Criterion` determines whether the `AssetKind` belongs to the `Left` or `Right` set.
