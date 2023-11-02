@@ -27,5 +27,5 @@ impl CliChain for Westend {
 
 impl CliChain for BridgeHubWestend {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 10000, transaction_version: 3 });
+		Some(SimpleRuntimeVersion { spec_version: 1_003_000, transaction_version: 3 });
 }
