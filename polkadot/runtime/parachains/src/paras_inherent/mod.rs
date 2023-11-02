@@ -481,11 +481,6 @@ impl<T: Config> Pallet<T> {
 			}
 
 			ensure!(all_weight_before.all_lte(max_block_weight), Error::<T>::InherentOverweight);
-			// TODO
-			// ensure!(
-			// 	!statements_were_dropped,
-			// 	Error::<T>::InherentOverweight
-			// );
 			all_weight_before
 		};
 
@@ -593,18 +588,19 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
-		let backed_candidates = sanitize_backed_candidates::<T, _>(
-			backed_candidates,
-			&allowed_relay_parents,
-			|candidate_idx: usize,
-			 backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>|
-			 -> bool {
-				let para_id = backed_candidate.descriptor().para_id;
-				let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
-				let check_ctx = CandidateCheckContext::<T>::new(prev_context);
+		let SanitizedBackedCandidates { backed_candidates, votes_from_disabled_were_dropped } =
+			sanitize_backed_candidates::<T, _>(
+				backed_candidates,
+				&allowed_relay_parents,
+				|candidate_idx: usize,
+				 backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>|
+				 -> bool {
+					let para_id = backed_candidate.descriptor().para_id;
+					let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
+					let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
-				// never include a concluded-invalid candidate
-				current_concluded_invalid_disputes.contains(&backed_candidate.hash()) ||
+					// never include a concluded-invalid candidate
+					current_concluded_invalid_disputes.contains(&backed_candidate.hash()) ||
 					// Instead of checking the candidates with code upgrades twice
 					// move the checking up here and skip it in the training wheels fallback.
 					// That way we avoid possible duplicate checks while assuring all
@@ -614,11 +610,17 @@ impl<T: Config> Pallet<T> {
 					check_ctx
 						.verify_backed_candidate(&allowed_relay_parents, candidate_idx, backed_candidate)
 						.is_err()
-			},
-			&scheduled,
-		);
+				},
+				&scheduled,
+			);
 
 		METRICS.on_candidates_sanitized(backed_candidates.len() as u64);
+
+		// In execution context there should be no backing votes from disabled validators because
+		// they should have been filtered out during inherent data preparation. Abort in such cases.
+		if context == ProcessInherentDataContext::Enter {
+			ensure!(!votes_from_disabled_were_dropped, Error::<T>::InherentOverweight);
+		}
 
 		// Process backed candidates according to scheduled cores.
 		let inclusion::ProcessedCandidates::<<HeaderFor<T> as HeaderT>::Hash> {
@@ -907,7 +909,19 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	bitfields
 }
 
-/// Filter out any candidates that have a concluded invalid dispute.
+// Represents a result from `sanitize_backed_candidates`
+#[derive(Debug, PartialEq)]
+struct SanitizedBackedCandidates<Hash> {
+	// Sanitized backed candidates. The `Vec` is sorted according to the occupied core index.
+	backed_candidates: Vec<BackedCandidate<Hash>>,
+	// Set to true if any votes from disabled validators were dropped.
+	votes_from_disabled_were_dropped: bool,
+}
+
+/// Filter out:
+/// 1. any candidates that have a concluded invalid dispute
+/// 2. all backing votes from disabled validators
+/// 3. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
 /// `scheduled` follows the same naming scheme as provided in the
 /// guide: Currently `free` but might become `occupied`.
@@ -917,7 +931,8 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 /// `candidate_has_concluded_invalid_dispute` must return `true` if the candidate
 /// is disputed, false otherwise. The passed `usize` is the candidate index.
 ///
-/// The returned `Vec` is sorted according to the occupied core index.
+/// Returns struct `SanitizedBackedCandidates` where `backed_candidates` are sorted according to the
+/// occupied core index.
 fn sanitize_backed_candidates<
 	T: crate::inclusion::Config,
 	F: FnMut(usize, &BackedCandidate<T::Hash>) -> bool,
@@ -926,7 +941,7 @@ fn sanitize_backed_candidates<
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	mut candidate_has_concluded_invalid_dispute_or_is_invalid: F,
 	scheduled: &BTreeMap<ParaId, CoreIndex>,
-) -> Vec<BackedCandidate<T::Hash>> {
+) -> SanitizedBackedCandidates<T::Hash> {
 	// Remove any candidates that were concluded invalid.
 	// This does not assume sorting.
 	backed_candidates.indexed_retain(move |candidate_idx, backed_candidate| {
@@ -945,7 +960,7 @@ fn sanitize_backed_candidates<
 	});
 
 	// Filter out backing statements from disabled validators
-	filter_backed_statements_from_disabled::<T>(
+	let dropped_disabled = filter_backed_statements_from_disabled::<T>(
 		&mut backed_candidates,
 		&allowed_relay_parents,
 		scheduled,
@@ -961,7 +976,10 @@ fn sanitize_backed_candidates<
 		scheduled[&x.descriptor().para_id].cmp(&scheduled[&y.descriptor().para_id])
 	});
 
-	backed_candidates
+	SanitizedBackedCandidates {
+		backed_candidates,
+		votes_from_disabled_were_dropped: dropped_disabled,
+	}
 }
 
 /// Derive entropy from babe provided per block randomness.

@@ -1360,7 +1360,10 @@ mod sanitizers {
 						has_concluded_invalid,
 						&scheduled
 					),
-					backed_candidates
+					SanitizedBackedCandidates {
+						backed_candidates,
+						votes_from_disabled_were_dropped: false
+					}
 				);
 
 				{}
@@ -1376,13 +1379,18 @@ mod sanitizers {
 				let has_concluded_invalid =
 					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
 
-				assert!(sanitize_backed_candidates::<Test, _>(
+				let SanitizedBackedCandidates {
+					backed_candidates: sanitized_backed_candidates,
+					votes_from_disabled_were_dropped,
+				} = sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					has_concluded_invalid,
-					&scheduled
-				)
-				.is_empty());
+					&scheduled,
+				);
+
+				assert!(sanitized_backed_candidates.is_empty());
+				assert!(!votes_from_disabled_were_dropped);
 			});
 		}
 
@@ -1404,16 +1412,18 @@ mod sanitizers {
 				};
 				let has_concluded_invalid =
 					|_idx: usize, candidate: &BackedCandidate| set.contains(&candidate.hash());
-				assert_eq!(
-					sanitize_backed_candidates::<Test, _>(
-						backed_candidates.clone(),
-						&<shared::Pallet<Test>>::allowed_relay_parents(),
-						has_concluded_invalid,
-						&scheduled
-					)
-					.len(),
-					backed_candidates.len() / 2
+				let SanitizedBackedCandidates {
+					backed_candidates: sanitized_backed_candidates,
+					votes_from_disabled_were_dropped,
+				} = sanitize_backed_candidates::<Test, _>(
+					backed_candidates.clone(),
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					has_concluded_invalid,
+					&scheduled,
 				);
+
+				assert_eq!(sanitized_backed_candidates.len(), 1);
+				assert!(!votes_from_disabled_were_dropped);
 			});
 		}
 
