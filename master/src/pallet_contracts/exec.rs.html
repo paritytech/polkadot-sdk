@@ -3981,7 +3981,7 @@
 /// Call or instantiate both called into other contracts and pass through errors happening
 /// in those to the caller. This enum is for the caller to distinguish whether the error
 /// happened during the execution of the callee or in the current execution context.
-</span><span class="attr">#[cfg_attr(test, derive(Debug, PartialEq))]
+</span><span class="attr">#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 </span><span class="kw">pub enum </span>ErrorOrigin {
 	<span class="doccomment">/// Caller error origin.
 	///
@@ -3993,7 +3993,7 @@
 }
 
 <span class="doccomment">/// Error returned by contract execution.
-</span><span class="attr">#[cfg_attr(test, derive(Debug, PartialEq))]
+</span><span class="attr">#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 </span><span class="kw">pub struct </span>ExecError {
 	<span class="doccomment">/// The reason why the execution failed.
 	</span><span class="kw">pub </span>error: DispatchError,
