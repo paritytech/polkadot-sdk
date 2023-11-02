@@ -1648,8 +1648,8 @@ pub mod pallet {
 			T::AssetAccountDeposit::get()
 		}
 
-		fn should_touch(_: T::AssetId, _: &T::AccountId) -> bool {
-			true
+		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
+			!Account::<T, I>::contains_key(asset, who)
 		}
 
 		fn touch(
