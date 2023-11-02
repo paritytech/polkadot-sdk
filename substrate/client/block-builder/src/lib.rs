@@ -83,8 +83,8 @@ where
 	///
 	/// The parent block number is used to initialize the block number of the new block.
 	///
-	/// Returns an error if there doesn't exist a number for the parent block specified in
-	/// [`on_parent_block`](BlockBuilderBuilder::on_parent_block).
+	/// Returns an error if the parent block specified in
+	/// [`on_parent_block`](BlockBuilderBuilder::on_parent_block) does not exist.
 	pub fn fetch_parent_block_number<H: HeaderBackend<B>>(
 		self,
 		header_backend: &H,
