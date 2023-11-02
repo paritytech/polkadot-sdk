@@ -107,7 +107,8 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 				Ok(genesis.genesis)
 			},
 			#[allow(deprecated)]
-			Self::Factory(f, code) => Ok(Genesis::Runtime(f(), code.clone())),
+			Self::Factory(f, code) =>
+				Ok(Genesis::Runtime(RuntimeInnerWrapper { runtime: f(), code: code.clone() })),
 			Self::Storage(storage) => Ok(Genesis::Raw(RawGenesis::from(storage.clone()))),
 			Self::GenesisBuilderApi(GenesisBuildAction::Full(config), code) =>
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
@@ -127,8 +128,8 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
 		match self.genesis.resolve()? {
 			#[allow(deprecated)]
-			Genesis::Runtime(gc, code) => {
-				gc.assimilate_storage(storage)?;
+			Genesis::Runtime(RuntimeInnerWrapper { runtime: runtime_genesis_config, code }) => {
+				runtime_genesis_config.assimilate_storage(storage)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 			},
 			Genesis::Raw(RawGenesis { top: map, children_default: children_map }) => {
@@ -235,6 +236,15 @@ enum RuntimeGenesisConfigJson {
 	Patch(json::Value),
 }
 
+/// Inner variant wrapper for deprecated runtime.
+#[derive(Serialize, Deserialize, Debug)]
+struct RuntimeInnerWrapper<G> {
+	#[serde(flatten)]
+	runtime: G,
+	#[serde(skip)]
+	code: Vec<u8>,
+}
+
 /// Represents the different formats of the genesis state within chain spec JSON blob.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -243,7 +253,7 @@ enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
 	/// and the runtime code.
-	Runtime(G, Vec<u8>),
+	Runtime(RuntimeInnerWrapper<G>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
 	/// State root hash of the genesis storage.
@@ -609,7 +619,7 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 			},
 
 			#[allow(deprecated)]
-			(true, Genesis::Runtime(g, code)) => {
+			(true, Genesis::Runtime(RuntimeInnerWrapper { runtime: g, code })) => {
 				let mut storage = g.build_storage()?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
@@ -627,12 +637,6 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 	}
 
 	/// Dump the chain specification to JSON string.
-	///
-	/// During conversion to `raw` format, the `ChainSpec::code` field will be removed and placed
-	/// into `RawGenesis` as `genesis::top::raw::0x3a636f6465` (which is
-	/// [`sp_core::storage::well_known_keys::CODE`]). If the spec is already in `raw` format, and
-	/// contains `genesis::top::raw::0x3a636f6465` field it will be updated with content of `code`
-	/// field (if present).
 	pub fn as_json(&self, raw: bool) -> Result<String, String> {
 		let container = self.json_container(raw)?;
 		json::to_string_pretty(&container).map_err(|e| format!("Error generating spec json: {}", e))
