@@ -1,9 +1,11 @@
 [package]
 name = "xcm-procedural"
+description = "Procedural macros for XCM"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 version = "1.0.0"
+publish = true
 
 [lib]
 proc-macro = true
