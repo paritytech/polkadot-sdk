@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{parse_macro_input, DeriveInput, Data, Error, Fields, Meta, Expr, Lit};
+use syn::{parse_macro_input, DeriveInput, Data, Error, Fields, Meta, Expr, Lit, MetaNameValue, ExprLit};
 use quote::{quote, format_ident};
 use inflector::Inflector;
 
@@ -30,7 +30,13 @@ fn generate_methods_for_enum(name: syn::Ident, data_enum: &syn::DataEnum) -> Tok
 		let method_name = syn::Ident::new(&method_name_string, variant_name.span());
 		let docs: Vec<_> = variant.attrs.iter().filter_map(|attr| {
 			match &attr.meta {
-				Meta::NameValue(MetaNameValue { value: Expr::Lit(ExprLit { lit: Lit::Str(literal), .. ), .. }) if attr.path().is_ident("doc") => Some(literal.value()),
+				Meta::NameValue(MetaNameValue {
+					value: Expr::Lit(ExprLit {
+						lit: Lit::Str(literal),
+						..
+					}),
+					..
+				}) if attr.path().is_ident("doc") => Some(literal.value()),
 				_ => None,
 			}
 		}).map(|doc| syn::parse_str::<TokenStream2>(&format!("/// {}", doc)).unwrap()).collect();
