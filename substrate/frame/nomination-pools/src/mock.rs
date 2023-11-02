@@ -202,6 +202,11 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn set_current_era(_era: EraIndex) {
 		unimplemented!("method currently not used in testing")
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> sp_staking::Page {
+		unimplemented!("method currently not used in testing")
+	}
 }
 
 impl frame_system::Config for Runtime {
