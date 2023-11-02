@@ -25,7 +25,7 @@ use sp_core::bandersnatch;
 use sp_core::{bls377, bls381, ecdsa_bls377};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
-	ecdsa, ed25519, sr25519,
+	ecdsa, ed25519, sr25519, KeccakHasher,
 };
 
 use parking_lot::RwLock;
@@ -344,6 +344,19 @@ impl Keystore for MemoryKeystore {
 		msg: &[u8],
 	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
 		self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_sign_with_keccak256(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls377::Public,
+		msg: &[u8],
+	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
+		let sig = self
+			.pair::<ecdsa_bls377::Pair>(key_type, public)
+			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
+		Ok(sig)
 	}
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {
