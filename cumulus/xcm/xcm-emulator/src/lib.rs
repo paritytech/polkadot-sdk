@@ -363,7 +363,7 @@ macro_rules! decl_test_relay_chains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				},
-				hooks = $on_hooks:ident,
+				hooks = $on_hooks:ty,
 			}
 		),
 		+
@@ -372,8 +372,6 @@ macro_rules! decl_test_relay_chains {
 		$(
 			#[derive(Clone)]
 			pub struct $name;
-
-			use $crate::NetworkComponent;
 
 			impl $crate::Chain for $name {
 				type Runtime = $runtime::Runtime;
@@ -592,7 +590,7 @@ macro_rules! decl_test_parachains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				},
-				hooks = $on_hooks:ident,
+				hooks = $on_hooks:ty,
 			}
 		),
 		+
