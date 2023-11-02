@@ -64,7 +64,7 @@ use frame_system::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin, XcmRouter};
+use xcm_config::{XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 use bp_runtime::HeaderId;
 
