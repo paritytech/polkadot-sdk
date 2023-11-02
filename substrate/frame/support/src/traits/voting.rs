@@ -77,7 +77,7 @@ pub trait Polling<Tally> {
 	type Class: Parameter + Member + Ord + PartialOrd + MaxEncodedLen;
 	type Moment;
 
-	/// Provides a vec of values that `T` may take.
+	/// Provides a vec of values that [`Tally`] may take.
 	fn classes() -> Vec<Self::Class>;
 
 	/// `Some` if the referendum `index` can be voted on, along with the tally and class of

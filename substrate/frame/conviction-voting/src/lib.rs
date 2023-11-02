@@ -449,6 +449,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.ok_or(Error::<T, I>::ClassNeeded)?;
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			if let Voting::Casting(Casting { ref mut votes, delegations, ref mut prior }) = voting {
+				dbg!(&votes);
 				let i = votes
 					.binary_search_by_key(&poll_index, |i| i.0)
 					.map_err(|_| Error::<T, I>::NotVoter)?;
@@ -470,6 +471,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
 							let now = frame_system::Pallet::<T>::block_number();
+							dbg!(now, unlock_at);
 							if now < unlock_at {
 								ensure!(
 									matches!(scope, UnvoteScope::Any),

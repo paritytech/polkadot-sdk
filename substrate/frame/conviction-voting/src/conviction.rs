@@ -94,8 +94,8 @@ impl TryFrom<u8> for Conviction {
 }
 
 impl Conviction {
-	/// The amount of time (in number of periods) that our conviction implies a successful voter's
-	/// balance should be locked for.
+	/// The amount of time (in number of [`Config::VoteLockingPeriod`]) that our conviction implies
+	/// a successful voter's balance should be locked for.
 	pub fn lock_periods(self) -> u32 {
 		match self {
 			Conviction::None => 0,

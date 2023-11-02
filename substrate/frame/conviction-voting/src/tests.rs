@@ -21,6 +21,7 @@ use std::collections::BTreeMap;
 
 use frame_support::{
 	assert_noop, assert_ok, parameter_types,
+	storage::with_transaction,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
 use sp_core::H256;
@@ -35,8 +36,7 @@ use crate as pallet_conviction_voting;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub struct Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Voting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>},
@@ -106,6 +106,7 @@ parameter_types! {
 		(2, Completed(2, false)),
 		(3, Ongoing(Tally::from_parts(0, 0, 0), 0)),
 	].into_iter().collect();
+	pub static VoteLockingPeriod: u32 = 3;
 }
 
 pub struct TestPolls;
@@ -183,7 +184,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
-	type VoteLockingPeriod = ConstU64<3>;
+	type VoteLockingPeriod = VoteLockingPeriod;
 	type MaxVotes = ConstU32<3>;
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
@@ -343,14 +344,21 @@ fn abstain_voting_works() {
 #[test]
 fn voting_balance_gets_locked() {
 	new_test_ext().execute_with(|| {
+		// initial balance
+		assert_eq!(Balances::usable_balance(1), 10);
+
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
 		assert_eq!(tally(3), Tally::from_parts(10, 0, 2));
+		assert_eq!(Balances::usable_balance(1), 8);
+
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(2, 5)));
 		assert_eq!(tally(3), Tally::from_parts(0, 10, 0));
 		assert_eq!(Balances::usable_balance(1), 8);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(5, 1)));
 		assert_eq!(tally(3), Tally::from_parts(5, 0, 5));
+		assert_eq!(Balances::usable_balance(1), 5);
+
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(5, 1)));
 		assert_eq!(tally(3), Tally::from_parts(0, 5, 0));
 		assert_eq!(Balances::usable_balance(1), 5);
@@ -365,6 +373,63 @@ fn voting_balance_gets_locked() {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
+		assert_eq!(Balances::usable_balance(1), 10);
+	});
+}
+
+#[test]
+fn updating_vote_locking_period_voting() {
+	// NOTE: given how `parameter_types static` works, all of this has to be in one test. Else, use
+	// `storage`.
+	//
+	// Notice how `Polls` is the same, but in the latter 1 can unlock later.
+	new_test_ext().execute_with(|| {
+		VoteLockingPeriod::set(3);
+		Polls::set(vec![(0, Ongoing(Tally::new(class), 0))].into_iter().collect());
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(3, 2)));
+		assert_eq!(Balances::usable_balance(1), 7);
+
+		assert_eq!(
+			Polls::get(),
+			vec![(0, Ongoing(Tally::from_parts(6, 0, 3), 0))].into_iter().collect()
+		);
+
+		// finish the poll.
+		Polls::set(vec![(0, Completed(0, true))].into_iter().collect());
+
+		dbg!(VotingFor::<Test>::get(1, 0));
+
+		run_to(2 * 3 - 2);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+		dbg!(VotingFor::<Test>::get(1, 0));
+
+		run_to(2 * 3 - 1);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+		dbg!(VotingFor::<Test>::get(1, 0));
+
+		panic!();
+
+		run_to(2 * 3);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert_eq!(Balances::usable_balance(1), 10);
+	});
+
+	Polls::set(Default::default());
+
+	new_test_ext().execute_with(|| {
+		VoteLockingPeriod::set(5);
+		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(3, 2)));
+		assert_eq!(
+			Polls::get(),
+			vec![(0, Ongoing(Tally::from_parts(6, 0, 3), 0))].into_iter().collect()
+		);
+
+		run_to(2 * 5);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
@@ -559,6 +624,7 @@ fn redelegation_after_vote_ending_should_keep_lock() {
 #[test]
 fn lock_amalgamation_valid_with_multiple_removed_votes() {
 	new_test_ext().execute_with(|| {
+		let voting_period = <Test as Config>::VoteLockingPeriod::get() as u64;
 		Polls::set(
 			vec![
 				(0, Ongoing(Tally::new(0), 0)),
@@ -590,15 +656,15 @@ fn lock_amalgamation_valid_with_multiple_removed_votes() {
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		run_to(3);
+		run_to(voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		run_to(6);
+		run_to(2 * voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert!(Balances::usable_balance(1) <= 5);
 
-		run_to(7);
+		run_to(2 * voting_period + 1);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
@@ -607,6 +673,8 @@ fn lock_amalgamation_valid_with_multiple_removed_votes() {
 #[test]
 fn lock_amalgamation_valid_with_multiple_delegations() {
 	new_test_ext().execute_with(|| {
+		let voting_period = <Test as Config>::VoteLockingPeriod::get() as u64;
+
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 10));
@@ -616,15 +684,15 @@ fn lock_amalgamation_valid_with_multiple_delegations() {
 		assert_eq!(Balances::usable_balance(1), 0);
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 
-		run_to(3);
+		run_to(voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		run_to(6);
+		run_to(2 * voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert!(Balances::usable_balance(1) <= 5);
 
-		run_to(7);
+		run_to(2 * voting_period + 1);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
@@ -633,6 +701,8 @@ fn lock_amalgamation_valid_with_multiple_delegations() {
 #[test]
 fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 	new_test_ext().execute_with(|| {
+		let voting_period = <Test as Config>::VoteLockingPeriod::get() as u64;
+
 		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 1)));
 		Polls::set(vec![(0, Completed(1, true))].into_iter().collect());
@@ -650,15 +720,15 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 		Polls::set(vec![(1, Completed(1, true))].into_iter().collect());
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 1));
 
-		run_to(3);
+		run_to(voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		run_to(6);
+		run_to(2 * voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert!(Balances::usable_balance(1) <= 5);
 
-		run_to(7);
+		run_to(2 * voting_period + 1);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
@@ -667,6 +737,8 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 #[test]
 fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 	new_test_ext().execute_with(|| {
+		let voting_period = <Test as Config>::VoteLockingPeriod::get() as u64;
+
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 
@@ -684,15 +756,15 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked2x, 10));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 
-		run_to(3);
+		run_to(voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		run_to(6);
+		run_to(2 * voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert!(Balances::usable_balance(1) <= 5);
 
-		run_to(7);
+		run_to(2 * voting_period + 1);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
@@ -701,6 +773,8 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 #[test]
 fn lock_aggregation_over_different_classes_with_delegation_works() {
 	new_test_ext().execute_with(|| {
+		let voting_period = <Test as Config>::VoteLockingPeriod::get() as u64;
+
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 2, Conviction::Locked2x, 5));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 2, Conviction::Locked1x, 10));
@@ -709,19 +783,20 @@ fn lock_aggregation_over_different_classes_with_delegation_works() {
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 1));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 2));
 
-		run_to(3);
+		run_to(voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 2, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		run_to(6);
+		run_to(2 * voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 2, 1));
 		assert_eq!(Balances::usable_balance(1), 5);
 
-		run_to(7);
+		// largest conviction is 2x.
+		run_to(2 * voting_period + 1);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 2, 1));
@@ -732,6 +807,8 @@ fn lock_aggregation_over_different_classes_with_delegation_works() {
 #[test]
 fn lock_aggregation_over_different_classes_with_casting_works() {
 	new_test_ext().execute_with(|| {
+		let voting_period = <Test as Config>::VoteLockingPeriod::get() as u64;
+
 		Polls::set(
 			vec![
 				(0, Ongoing(Tally::new(0), 0)),
@@ -753,19 +830,20 @@ fn lock_aggregation_over_different_classes_with_casting_works() {
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(1), 1));
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(2), 2));
 
-		run_to(3);
+		run_to(voting_period);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 2, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		run_to(6);
+		run_to(voting_period * 2);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 2, 1));
 		assert_eq!(Balances::usable_balance(1), 5);
 
-		run_to(7);
+		// largest conviction is 2x.
+		run_to(voting_period * 2 + 1);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 2, 1));
@@ -845,6 +923,7 @@ fn errors_with_delegating_work() {
 #[test]
 fn remove_other_vote_works() {
 	new_test_ext().execute_with(|| {
+		let voting_period = <Test as Config>::VoteLockingPeriod::get() as u64;
 		assert_noop!(
 			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
 			Error::<Test>::NotVoter
@@ -855,12 +934,14 @@ fn remove_other_vote_works() {
 			Error::<Test>::NoPermission
 		);
 		Polls::set(vec![(3, Completed(1, true))].into_iter().collect());
-		run_to(6);
+
+		run_to(2 * voting_period);
 		assert_noop!(
 			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
 			Error::<Test>::NoPermissionYet
 		);
-		run_to(7);
+
+		run_to(2 * voting_period + 1);
 		assert_ok!(Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3));
 	});
 }
