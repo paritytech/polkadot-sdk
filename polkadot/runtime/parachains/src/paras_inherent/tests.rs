@@ -1220,7 +1220,7 @@ mod sanitizers {
 			scheduled_paras: BTreeMap<primitives::Id, CoreIndex>,
 		}
 
-		// Generate test data for the candidates and asserts that the evnironment is set as expected
+		// Generate test data for the candidates and assert that the evnironment is set as expected
 		// (check the comments for details)
 		fn get_test_data() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
@@ -1230,7 +1230,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				default_header().hash(),
 				Default::default(),
-				3,
+				RELAY_PARENT_NUM,
 				1,
 			);
 
@@ -1326,7 +1326,7 @@ mod sanitizers {
 				})
 				.collect::<Vec<_>>();
 
-			// Some sanity checks
+			// State sanity checks
 			assert_eq!(
 				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
 				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
@@ -1422,7 +1422,7 @@ mod sanitizers {
 					&scheduled,
 				);
 
-				assert_eq!(sanitized_backed_candidates.len(), 1);
+				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
 				assert!(!votes_from_disabled_were_dropped);
 			});
 		}
@@ -1449,14 +1449,16 @@ mod sanitizers {
 		}
 
 		#[test]
-		fn drop_single_disabled_vote() {
+		fn drop_statements_from_disabled_without_dropping_candidate() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
 
 				// Disable Alice
 				set_disabled_validators(vec![0]);
 
-				// Update `minimum_backing_votes` in HostConfig
+				// Update `minimum_backing_votes` in HostConfig. We want `minimum_backing_votes` set
+				// to one so that the candidate will have enough backing votes even after dropping
+				// Alice's one.
 				let mut hc = configuration::Pallet::<Test>::config();
 				hc.minimum_backing_votes = 1;
 				configuration::Pallet::<Test>::force_set_active_config(hc);

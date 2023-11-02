@@ -379,6 +379,7 @@ impl<T: Config> Pallet<T> {
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
 		let disputes_weight = multi_dispute_statement_sets_weight::<T>(&disputes);
 
+		// Weight before filtering/sanitization
 		let all_weight_before = candidates_weight + bitfields_weight + disputes_weight;
 
 		METRICS.on_before_filter(all_weight_before.ref_time());
@@ -616,8 +617,9 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_sanitized(backed_candidates.len() as u64);
 
-		// In execution context there should be no backing votes from disabled validators because
-		// they should have been filtered out during inherent data preparation. Abort in such cases.
+		// In `Enter` context (invoked during execution) there should be no backing votes from
+		// disabled validators because they should have been filtered out during inherent data
+		// preparation. Abort in such cases.
 		if context == ProcessInherentDataContext::Enter {
 			ensure!(!votes_from_disabled_were_dropped, Error::<T>::InherentOverweight);
 		}
@@ -909,12 +911,12 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	bitfields
 }
 
-// Represents a result from `sanitize_backed_candidates`
+// Result from `sanitize_backed_candidates` call
 #[derive(Debug, PartialEq)]
 struct SanitizedBackedCandidates<Hash> {
 	// Sanitized backed candidates. The `Vec` is sorted according to the occupied core index.
 	backed_candidates: Vec<BackedCandidate<Hash>>,
-	// Set to true if any votes from disabled validators were dropped.
+	// Set to true if any votes from disabled validators were dropped from the input.
 	votes_from_disabled_were_dropped: bool,
 }
 
