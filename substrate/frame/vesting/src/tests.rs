@@ -1189,7 +1189,7 @@ fn remove_vesting_schedule() {
 		// Verifies that trying to remove a schedule when it doesnt exist throws error.
 		assert_noop!(
 			Vesting::force_remove_vesting_schedule(RawOrigin::Root.into(), 4, 0),
-			Error::<Test>::NotVesting
+			Error::<Test>::InvalidScheduleParams
 		);
 	});
 }
