@@ -61,8 +61,6 @@ impl ChainWithGrandpa for Rialto {
 
 impl RelayChain for Rialto {
 	const PARAS_PALLET_NAME: &'static str = bp_rialto::PARAS_PALLET_NAME;
-	const PARACHAINS_FINALITY_PALLET_NAME: &'static str =
-		bp_rialto::WITH_RIALTO_BRIDGE_PARAS_PALLET_NAME;
 }
 
 impl ChainWithMessages for Rialto {
