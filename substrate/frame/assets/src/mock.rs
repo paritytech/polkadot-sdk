@@ -88,7 +88,6 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxHolds = ();
 	type MaxFreezes = ();
-	type RuntimeTask = RuntimeTask;
 }
 
 pub struct AssetsCallbackHandle;

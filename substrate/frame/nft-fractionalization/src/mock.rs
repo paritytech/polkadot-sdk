@@ -80,7 +80,6 @@ impl pallet_balances::Config for Test {
 	type Balance = u64;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();

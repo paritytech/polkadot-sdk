@@ -256,7 +256,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
-	type RuntimeTask = RuntimeTask;
 }
 
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy)]

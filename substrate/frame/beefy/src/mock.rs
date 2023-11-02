@@ -132,7 +132,6 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = ();

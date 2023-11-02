@@ -241,7 +241,6 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;

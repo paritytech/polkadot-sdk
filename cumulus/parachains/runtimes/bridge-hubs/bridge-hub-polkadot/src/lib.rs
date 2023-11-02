@@ -244,7 +244,6 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;

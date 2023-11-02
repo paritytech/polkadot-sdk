@@ -125,7 +125,6 @@ impl pallet_balances::Config for TestRuntime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = frame_system::Pallet<TestRuntime>;
 	type WeightInfo = ();

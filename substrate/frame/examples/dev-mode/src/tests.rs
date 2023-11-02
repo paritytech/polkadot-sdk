@@ -81,7 +81,6 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxHolds = ();
-	type RuntimeTask = RuntimeTask;
 }
 
 impl Config for Test {

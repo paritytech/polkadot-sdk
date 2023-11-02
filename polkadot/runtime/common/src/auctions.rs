@@ -741,7 +741,6 @@ mod tests {
 		type Balance = u64;
 		type DustRemoval = ();
 		type RuntimeEvent = RuntimeEvent;
-		type RuntimeTask = RuntimeTask;
 		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
 		type WeightInfo = ();

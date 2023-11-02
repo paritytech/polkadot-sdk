@@ -183,7 +183,6 @@ impl pallet_utility::Config for TestRuntime {
 impl pallet_balances::Config for TestRuntime {
 	type Balance = ThisChainBalance;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;

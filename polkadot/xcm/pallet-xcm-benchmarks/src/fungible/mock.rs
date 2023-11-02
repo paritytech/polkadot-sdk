@@ -80,7 +80,6 @@ parameter_types! {
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
-	type RuntimeTask = RuntimeTask;
 }
 
 parameter_types! {

@@ -78,7 +78,6 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxHolds = ();
 	type MaxFreezes = ();
-	type RuntimeTask = RuntimeTask;
 }
 
 impl pallet_asset_rate::Config for Test {

@@ -175,7 +175,6 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;

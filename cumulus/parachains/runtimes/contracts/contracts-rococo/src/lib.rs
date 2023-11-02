@@ -213,7 +213,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;

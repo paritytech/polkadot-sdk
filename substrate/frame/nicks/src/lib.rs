@@ -316,7 +316,6 @@ mod tests {
 		type RuntimeHoldReason = ();
 		type RuntimeFreezeReason = ();
 		type MaxHolds = ();
-		type RuntimeTask = RuntimeTask;
 	}
 
 	ord_parameter_types! {

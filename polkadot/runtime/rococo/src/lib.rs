@@ -290,7 +290,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type MaxLocks = MaxLocks;
@@ -1078,7 +1077,6 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type ExistentialDeposit = ConstU128<10_000_000_000>; // One RTC cent
 	type AccountStore = StorageMapShim<
 		pallet_balances::Account<Runtime, NisCounterpartInstance>,

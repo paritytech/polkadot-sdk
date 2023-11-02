@@ -786,7 +786,6 @@ mod tests {
 		type Balance = u128;
 		type DustRemoval = ();
 		type RuntimeEvent = RuntimeEvent;
-		type RuntimeTask = RuntimeTask;
 		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
 		type MaxLocks = ();

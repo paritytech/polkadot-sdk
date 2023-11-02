@@ -91,7 +91,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
-	type RuntimeTask = RuntimeTask;
 }
 
 pallet_staking_reward_curve::build! {

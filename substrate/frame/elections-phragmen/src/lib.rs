@@ -1351,7 +1351,6 @@ mod tests {
 	impl pallet_balances::Config for Test {
 		type Balance = u64;
 		type RuntimeEvent = RuntimeEvent;
-		type RuntimeTask = RuntimeTask;
 		type DustRemoval = ();
 		type ExistentialDeposit = ConstU64<1>;
 		type AccountStore = frame_system::Pallet<Test>;

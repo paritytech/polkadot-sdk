@@ -51,7 +51,6 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
-	type RuntimeTask = RuntimeTask;
 }
 
 pub struct TestBaseCallFilter;
