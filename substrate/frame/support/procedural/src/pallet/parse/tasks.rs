@@ -44,6 +44,7 @@ pub mod keywords {
 	custom_keyword!(task_list);
 	custom_keyword!(task_condition);
 	custom_keyword!(task_index);
+	custom_keyword!(task_weight);
 	custom_keyword!(pallet);
 }
 
@@ -130,6 +131,7 @@ pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
 pub type TaskIndexAttr = PalletTaskAttr<TaskIndexAttrMeta>;
 pub type TaskConditionAttr = PalletTaskAttr<TaskConditionAttrMeta>;
 pub type TaskListAttr = PalletTaskAttr<TaskListAttrMeta>;
+pub type TaskWeightAttr = PalletTaskAttr<TaskWeightAttrMeta>;
 pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 
 #[derive(Clone, Debug)]
@@ -195,6 +197,7 @@ pub struct TaskDef {
 	pub index_attr: TaskIndexAttr,
 	pub condition_attr: TaskConditionAttr,
 	pub list_attr: TaskListAttr,
+	pub weight_attr: TaskWeightAttr,
 	pub normal_attrs: Vec<Attribute>,
 	pub item: ImplItemFn,
 }
@@ -216,6 +219,7 @@ impl syn::parse::Parse for TaskDef {
 					(suffix.ident == "tasks" ||
 						suffix.ident == "task_list" ||
 						suffix.ident == "task_condition" ||
+						suffix.ident == "task_weight" ||
 						suffix.ident == "task_index")
 			});
 
@@ -254,6 +258,17 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_list(..)]` attribute",
+			))
+		};
+
+		let Some(weight_attr) = task_attrs
+			.iter()
+			.find(|attr| matches!(attr.meta, TaskAttrMeta::TaskWeight(_)))
+			.cloned()
+		else {
+			return Err(Error::new(
+				item.sig.ident.span(),
+				"missing `#[pallet::task_weight(..)]` attribute",
 			))
 		};
 
@@ -296,8 +311,9 @@ impl syn::parse::Parse for TaskDef {
 		let index_attr = index_attr.try_into().expect("we check the type above; QED");
 		let condition_attr = condition_attr.try_into().expect("we check the type above; QED");
 		let list_attr = list_attr.try_into().expect("we check the type above; QED");
+		let weight_attr = weight_attr.try_into().expect("we check the type above; QED");
 
-		Ok(TaskDef { index_attr, condition_attr, list_attr, normal_attrs, item })
+		Ok(TaskDef { index_attr, condition_attr, list_attr, weight_attr, normal_attrs, item })
 	}
 }
 
@@ -309,6 +325,8 @@ pub enum TaskAttrMeta {
 	TaskIndex(TaskIndexAttrMeta),
 	#[peek(keywords::task_condition, name = "#[pallet::task_condition(..)")]
 	TaskCondition(TaskConditionAttrMeta),
+	#[peek(keywords::task_weight, name = "#[pallet::task_weight(..)")]
+	TaskWeight(TaskWeightAttrMeta),
 }
 
 #[derive(Parse, Debug, Clone)]
@@ -332,6 +350,15 @@ pub struct TaskIndexAttrMeta {
 #[derive(Parse, Debug, Clone)]
 pub struct TaskConditionAttrMeta {
 	pub task_condition: keywords::task_condition,
+	#[paren]
+	_paren: Paren,
+	#[inside(_paren)]
+	pub expr: Expr,
+}
+
+#[derive(Parse, Debug, Clone)]
+pub struct TaskWeightAttrMeta {
+	pub task_weight: keywords::task_weight,
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
@@ -367,6 +394,14 @@ impl ToTokens for TaskConditionAttrMeta {
 	}
 }
 
+impl ToTokens for TaskWeightAttrMeta {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		let task_weight = self.task_weight;
+		let expr = &self.expr;
+		tokens.extend(quote!(#task_weight(#expr)));
+	}
+}
+
 impl ToTokens for TaskIndexAttrMeta {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
 		let task_index = self.task_index;
@@ -381,6 +416,7 @@ impl ToTokens for TaskAttrMeta {
 			TaskAttrMeta::TaskList(list) => tokens.extend(list.to_token_stream()),
 			TaskAttrMeta::TaskIndex(index) => tokens.extend(index.to_token_stream()),
 			TaskAttrMeta::TaskCondition(condition) => tokens.extend(condition.to_token_stream()),
+			TaskAttrMeta::TaskWeight(weight) => tokens.extend(weight.to_token_stream()),
 		}
 	}
 }
@@ -426,6 +462,24 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskConditionAttr {
 				return Err(Error::new(
 					value.span(),
 					format!("`{:?}` cannot be converted to a `TaskConditionAttr`", value.meta),
+				)),
+		}
+	}
+}
+
+impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskWeightAttr {
+	type Error = syn::Error;
+
+	fn try_from(value: PalletTaskAttr<TaskAttrMeta>) -> Result<Self> {
+		let pound = value.pound;
+		let pallet = value.pallet;
+		let colons = value.colons;
+		match value.meta {
+			TaskAttrMeta::TaskWeight(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
+			_ =>
+				return Err(Error::new(
+					value.span(),
+					format!("`{:?}` cannot be converted to a `TaskWeightAttr`", value.meta),
 				)),
 		}
 	}

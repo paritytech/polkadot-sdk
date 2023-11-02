@@ -53,6 +53,7 @@ pub mod pallet {
 		/// Add a pair of numbers into the totals and remove them.
 		#[pallet::task_list(Numbers::<T>::iter_keys())]
 		#[pallet::task_condition(|i| Numbers::<T>::contains_key(i))]
+		#[pallet::task_weight(T::WeightInfo::add_number_into_total())]
 		#[pallet::task_index(0)]
 		pub fn add_number_into_total(i: u32) -> DispatchResult {
 			let v = Numbers::<T>::take(i).ok_or(Error::<T>::NotFound)?;
