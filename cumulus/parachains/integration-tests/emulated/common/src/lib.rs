@@ -32,14 +32,14 @@ pub use pallet_balances;
 
 // Cumulus
 pub use cumulus_pallet_xcmp_queue;
-pub use xcm_emulator::{Chain, ()};
+pub use xcm_emulator::Chain;
 use xcm_emulator::{
 	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
 	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor,
 };
 
 // Polkadot
-pub use pallet_xcm::{Chain};
+pub use pallet_xcm;
 pub use xcm::prelude::{AccountId32, WeightLimit};
 
 decl_test_relay_chains! {
@@ -59,7 +59,7 @@ decl_test_relay_chains! {
 			Treasury: westend_runtime::Treasury,
 			AssetRate: westend_runtime::AssetRate,
 		},
-		hooks = () 
+		hooks = ()
 	},
 	#[api_version(8)]
 	pub struct Rococo {

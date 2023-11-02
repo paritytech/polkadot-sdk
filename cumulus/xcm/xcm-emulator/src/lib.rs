@@ -416,7 +416,6 @@ macro_rules! decl_test_relay_chains {
 
 			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init, $api_version);
 			$crate::__impl_check_assertion!($name);
-
 		)+
 	};
 }
