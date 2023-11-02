@@ -106,6 +106,7 @@
 //! [`frame`]: crate::polkadot_sdk::frame_runtime
 //! [`cumulus`]: crate::polkadot_sdk::cumulus
 //! [`polkadot`]: crate::polkadot_sdk::polkadot
+//! [`xcm`]: crate::polkadot_sdk::xcm
 
 /// Lean about Cumulus, the framework that transforms [`substrate`]-based chains into
 /// [`polkadot`]-enabled parachains.
