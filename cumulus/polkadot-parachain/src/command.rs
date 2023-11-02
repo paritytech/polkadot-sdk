@@ -504,7 +504,9 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment => {
 					let $partials = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
@@ -711,7 +713,9 @@ macro_rules! construct_async_run {
 							{ $( $code )* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
 								&$config,
@@ -1055,7 +1059,9 @@ chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
 							.map(|r| r.0),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend =>
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::bridge_hubs::westend::RuntimeApi,
 								AuraId,

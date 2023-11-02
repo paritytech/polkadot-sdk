@@ -16,13 +16,12 @@
 //! Module contains predefined test-case scenarios for `Runtime` with various assets transferred
 //! over a bridge.
 
+use crate::assert_matches_reserve_asset_deposited_instructions;
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_ok,
-	traits::{
-		fungible::Mutate, Currency, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError,
-	},
+	traits::{Currency, Get, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
@@ -30,10 +29,13 @@ use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
 	ValidatorIdOf, XcmReceivedFrom,
 };
-use sp_runtime::traits::StaticLookup;
+use sp_runtime::{traits::StaticLookup, Saturating};
 use xcm::{latest::prelude::*, VersionedMultiAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_executor::{
+	traits::{ConvertLocation, TransactAsset},
+	XcmExecutor,
+};
 
 pub struct TestBridgingConfig {
 	pub bridged_network: NetworkId,
@@ -61,6 +63,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 	prepare_configuration: fn() -> TestBridgingConfig,
 	weight_limit: WeightLimit,
 	maybe_paid_export_message: Option<AssetId>,
+	delivery_fees_account: Option<AccountIdOf<Runtime>>,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -151,6 +154,11 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				existential_deposit
 			);
 
+			let delivery_fees_account_balance_before = delivery_fees_account
+				.as_ref()
+				.map(|dfa| <pallet_balances::Pallet<Runtime>>::free_balance(dfa))
+				.unwrap_or(0.into());
+
 			// local native asset (pallet_balances)
 			let asset_to_transfer = MultiAsset {
 				fun: Fungible(balance_to_transfer.into()),
@@ -166,42 +174,82 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				}),
 			};
 
-			// Make sure sender has enough funds for paying delivery fees
-			// TODO: Get this fee via weighing the corresponding message
-			let delivery_fees = 1324039894;
-			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
+			let assets_to_transfer = MultiAssets::from(asset_to_transfer);
+			let mut expected_assets = assets_to_transfer.clone();
+			let context = XcmConfig::UniversalLocation::get();
+			expected_assets
+				.reanchor(&target_location_from_different_consensus, context)
 				.unwrap();
+
+			let expected_beneficiary = target_destination_account;
+
+			// Make sure sender has enough funds for paying delivery fees
+			let handling_delivery_fees = {
+				// Probable XCM with `ReserveAssetDeposited`.
+				let mut expected_reserve_asset_deposited_message = Xcm(vec![
+					ReserveAssetDeposited(MultiAssets::from(expected_assets.clone())),
+					ClearOrigin,
+					BuyExecution {
+						fees: MultiAsset {
+							id: Concrete(Default::default()),
+							fun: Fungible(balance_to_transfer),
+						},
+						weight_limit: Unlimited,
+					},
+					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary },
+					SetTopic([
+						220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112,
+						140, 247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,
+					]),
+				]);
+				assert_matches_reserve_asset_deposited_instructions(
+					&mut expected_reserve_asset_deposited_message,
+					&expected_assets,
+					&expected_beneficiary,
+				);
+
+				// Call `SendXcm::validate` to get delivery fees.
+				let (_, delivery_fees): (_, MultiAssets) = XcmConfig::XcmSender::validate(
+					&mut Some(target_location_from_different_consensus),
+					&mut Some(expected_reserve_asset_deposited_message),
+				)
+				.expect("validate passes");
+				// Drip delivery fee to Alice account.
+				let mut delivery_fees_added = false;
+				for delivery_fee in delivery_fees.inner() {
+					assert_ok!(<XcmConfig::AssetTransactor as TransactAsset>::deposit_asset(
+						&delivery_fee,
+						&MultiLocation {
+							parents: 0,
+							interior: X1(AccountId32 {
+								network: None,
+								id: alice_account.clone().into(),
+							}),
+						},
+						None,
+					));
+					delivery_fees_added = true;
+				}
+				delivery_fees_added
+			};
 
 			// do pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(target_location_from_different_consensus.into_versioned()),
 				Box::new(target_destination_account.into_versioned()),
-				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_transfer))),
+				Box::new(VersionedMultiAssets::from(assets_to_transfer)),
 				0,
 				weight_limit,
 			));
 
+			// check events
 			// check pallet_xcm attempted
 			RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::assert_pallet_xcm_event_outcome(
 				&unwrap_pallet_xcm_event,
 				|outcome| {
 					assert_ok!(outcome.ensure_complete());
 				},
-			);
-
-			// check alice account decreased by balance_to_transfer
-			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot-sdk/pull/1234) merged
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
-				alice_account_init_balance - balance_to_transfer.into()
-			);
-
-			// check reserve account
-			// check reserve account increased by balance_to_transfer
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
-				existential_deposit + balance_to_transfer.into()
 			);
 
 			// check that xcm was sent
@@ -219,7 +267,6 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				local_bridge_hub_para_id.into(),
 			)
 			.unwrap();
-
 			assert_eq!(
 				xcm_sent_message_hash,
 				Some(xcm_sent.using_encoded(sp_io::hashing::blake2_256))
@@ -268,12 +315,41 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 							.split_global()
 							.expect("split works");
 					assert_eq!(destination, &target_location_junctions_without_global_consensus);
-					assert_matches_pallet_xcm_reserve_transfer_assets_instructions(inner_xcm);
+					assert_matches_reserve_asset_deposited_instructions(
+						inner_xcm,
+						&expected_assets,
+						&expected_beneficiary,
+					);
 					Ok(())
 				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})
 			.expect("contains ExportMessage");
+
+			// check alice account decreased by balance_to_transfer
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
+				alice_account_init_balance
+					.saturating_sub(existential_deposit)
+					.saturating_sub(balance_to_transfer.into())
+			);
+
+			// check reserve account increased by balance_to_transfer
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
+				existential_deposit + balance_to_transfer.into()
+			);
+
+			// check dedicated account increased by delivery fees (if configured)
+			if handling_delivery_fees {
+				if let Some(delivery_fees_account) = delivery_fees_account {
+					let delivery_fees_account_balance_after =
+						<pallet_balances::Pallet<Runtime>>::free_balance(&delivery_fees_account);
+					assert!(
+						delivery_fees_account_balance_after > delivery_fees_account_balance_before
+					);
+				}
+			}
 		})
 }
 
@@ -405,15 +481,21 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				0.into()
 			);
 
+			let expected_assets = MultiAssets::from(vec![MultiAsset {
+				id: Concrete(foreign_asset_id_multilocation),
+				fun: Fungible(transfered_foreign_asset_id_amount),
+			}]);
+			let expected_beneficiary = MultiLocation {
+				parents: 0,
+				interior: X1(AccountId32 { network: None, id: target_account.clone().into() }),
+			};
+
 			// Call received XCM execution
 			let xcm = Xcm(vec![
 				DescendOrigin(bridge_instance),
 				UniversalOrigin(universal_origin),
 				DescendOrigin(descend_origin),
-				ReserveAssetDeposited(MultiAssets::from(vec![MultiAsset {
-					id: Concrete(foreign_asset_id_multilocation),
-					fun: Fungible(transfered_foreign_asset_id_amount),
-				}])),
+				ReserveAssetDeposited(expected_assets.clone()),
 				ClearOrigin,
 				BuyExecution {
 					fees: MultiAsset {
@@ -422,22 +504,17 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					},
 					weight_limit: Unlimited,
 				},
-				DepositAsset {
-					assets: Wild(AllCounted(1)),
-					beneficiary: MultiLocation {
-						parents: 0,
-						interior: X1(AccountId32 {
-							network: None,
-							id: target_account.clone().into(),
-						}),
-					},
-				},
+				DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary },
 				SetTopic([
 					220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112, 140,
 					247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,
 				]),
 			]);
-			assert_matches_pallet_xcm_reserve_transfer_assets_instructions(&mut xcm.clone());
+			assert_matches_reserve_asset_deposited_instructions(
+				&mut xcm.clone(),
+				&expected_assets,
+				&expected_beneficiary,
+			);
 
 			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
@@ -498,55 +575,15 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		})
 }
 
-fn assert_matches_pallet_xcm_reserve_transfer_assets_instructions<RuntimeCall>(
-	xcm: &mut Xcm<RuntimeCall>,
-) {
-	let _ = xcm
-		.0
-		.matcher()
-		.skip_inst_while(|inst| !matches!(inst, ReserveAssetDeposited(..)))
-		.expect("no instruction ReserveAssetDeposited?")
-		.match_next_inst(|instr| match instr {
-			ReserveAssetDeposited(..) => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction ReserveAssetDeposited")
-		.match_next_inst(|instr| match instr {
-			ClearOrigin => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction ClearOrigin")
-		.match_next_inst(|instr| match instr {
-			BuyExecution { .. } => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction BuyExecution")
-		.match_next_inst(|instr| match instr {
-			DepositAsset { .. } => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction DepositAsset");
-}
-
 pub fn report_bridge_status_from_xcm_bridge_router_works<
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	HrmpChannelOpener,
-	HrmpChannelSource,
 	LocationToAccountId,
 	XcmBridgeHubRouterInstance,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
-	existential_deposit: BalanceOf<Runtime>,
-	alice_account: AccountIdOf<Runtime>,
-	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
-	unwrap_xcmp_queue_event: Box<
-		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
-	>,
 	prepare_configuration: fn() -> TestBridgingConfig,
-	weight_limit: WeightLimit,
-	maybe_paid_export_message: Option<AssetId>,
 	congested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
 	uncongested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
 ) where
@@ -572,10 +609,6 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
 	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
-	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
-		Call = cumulus_pallet_parachain_system::Call<Runtime>,
-	>,
-	HrmpChannelSource: XcmpMessageSource,
 	XcmBridgeHubRouterInstance: 'static,
 {
 	ExtBuilder::<Runtime>::default()
@@ -584,25 +617,6 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			// check transfer works
-			limited_reserve_transfer_assets_for_native_asset_works::<
-				Runtime,
-				AllPalletsWithoutSystem,
-				XcmConfig,
-				HrmpChannelOpener,
-				HrmpChannelSource,
-				LocationToAccountId,
-			>(
-				collator_session_keys,
-				existential_deposit,
-				alice_account,
-				unwrap_pallet_xcm_event,
-				unwrap_xcmp_queue_event,
-				prepare_configuration,
-				weight_limit,
-				maybe_paid_export_message,
-			);
-
 			let report_bridge_status = |is_congested: bool| {
 				// prepare bridge config
 				let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();

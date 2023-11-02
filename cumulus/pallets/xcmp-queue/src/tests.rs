@@ -410,9 +410,11 @@ fn verify_fee_factor_increase_and_decrease() {
 		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
 
 		// Sending the message right now is cheap
-		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination, xcm.clone())
-			.expect("message can be sent; qed");
-		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else { unreachable!("asset is fungible; qed"); };
+		let (_, delivery_fees) =
+			validate_send::<XcmpQueue>(destination, xcm.clone()).expect("message can be sent; qed");
+		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else {
+			unreachable!("asset is fungible; qed");
+		};
 		assert_eq!(delivery_fee_amount, 402_000_000);
 
 		let smaller_xcm = Xcm(vec![ClearOrigin; 30]);
@@ -422,19 +424,23 @@ fn verify_fee_factor_increase_and_decrease() {
 		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 520
 		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), FixedU128::from_float(1.05));
 
-		for _ in 0..12 { // We finish at size 929
+		for _ in 0..12 {
+			// We finish at size 929
 			assert_ok!(send_xcm::<XcmpQueue>(destination, smaller_xcm.clone()));
 		}
 		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) > FixedU128::from_float(1.88));
 
 		// Sending the message right now is expensive
-		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination, xcm.clone())
-			.expect("message can be sent; qed");
-		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else { unreachable!("asset is fungible; qed"); };
+		let (_, delivery_fees) =
+			validate_send::<XcmpQueue>(destination, xcm.clone()).expect("message can be sent; qed");
+		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else {
+			unreachable!("asset is fungible; qed");
+		};
 		assert_eq!(delivery_fee_amount, 758_030_955);
 
 		// Fee factor only decreases in `take_outbound_messages`
-		for _ in 0..5 { // We take 5 100 byte pages
+		for _ in 0..5 {
+			// We take 5 100 byte pages
 			XcmpQueue::take_outbound_messages(1);
 		}
 		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.72));
