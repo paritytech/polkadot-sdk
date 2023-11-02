@@ -1649,7 +1649,11 @@ pub mod pallet {
 		}
 
 		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
-			!Account::<T, I>::contains_key(asset, who)
+			match Asset::<T, I>::get(&asset) {
+				Some(info) if info.is_sufficient => false,
+				Some(_) => !Account::<T, I>::contains_key(asset, who),
+				_ => true,
+			}
 		}
 
 		fn touch(
