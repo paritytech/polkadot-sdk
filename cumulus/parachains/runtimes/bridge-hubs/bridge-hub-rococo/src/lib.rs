@@ -39,7 +39,7 @@ pub mod xcm_config;
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::{outbound::Message, AgentId};
+use snowbridge_core::{outbound::Message, AgentId, AllowSiblingsOnly};
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
@@ -620,7 +620,7 @@ impl snowbridge_control::Config for Runtime {
 	type OwnParaId = ParachainInfo;
 	type OutboundQueue = EthereumOutboundQueue;
 	type MessageHasher = BlakeTwo256;
-	type SiblingOrigin = EnsureXcm<snowbridge_control::AllowSiblingsOnly>;
+	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
 	type AgentIdOf = xcm_config::AgentIdOf;
 	type TreasuryAccount = TreasuryAccount;
 	type Token = Balances;
