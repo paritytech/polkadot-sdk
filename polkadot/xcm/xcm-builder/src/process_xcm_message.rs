@@ -50,6 +50,7 @@ impl<
 		let message = Xcm::<Call>::try_from(versioned_message)
 			.map_err(|_| ProcessMessageError::Unsupported)?;
 		let pre = XcmExecutor::prepare(message).map_err(|_| ProcessMessageError::Unsupported)?;
+		// The worst-case weight:
 		let required = pre.weight_of();
 		ensure!(meter.can_consume(required), ProcessMessageError::Overweight(required));
 
