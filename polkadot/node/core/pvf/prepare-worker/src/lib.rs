@@ -32,7 +32,7 @@ use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_
 use libc;
 use nix::{
 	errno::Errno,
-	sys::resource::{Resource, Usage, UsageWho},
+	sys::{resource::{Resource, Usage, UsageWho}, wait::WaitStatus},
 	unistd::{ForkResult, Pid},
 };
 use os_pipe::{self, PipeWriter};
@@ -200,7 +200,7 @@ pub fn worker_entrypoint(
 							temp_artifact_dest.clone(),
 							worker_pid,
 							usage_before,
-							preparation_timeout.as_secs(),
+							preparation_timeout,
 						)
 					},
 				};
@@ -370,7 +370,7 @@ fn handle_child_process(
 ///
 /// - `usage_before`: Resource usage statistics before executing the child process.
 ///
-/// - `timeout`: The maximum allowed time for the child process to finish, in milliseconds.
+/// - `timeout`: The maximum allowed time for the child process to finish, in `Duration`.
 ///
 /// # Returns
 ///
@@ -380,16 +380,13 @@ fn handle_child_process(
 /// - If the child send response with an error, it returns a `PrepareError` with that error.
 ///
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
-///
-/// TODO
-/// - If the child process exits with an unknown status, it returns `PrepareError`.
 fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
 	child: Pid,
 	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
 	usage_before: Usage,
-	timeout: u64,
+	timeout: Duration,
 ) -> Result<PrepareStats, PrepareError> {
 	let mut received_data = Vec::new();
 
@@ -408,12 +405,12 @@ fn handle_parent_process(
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 
-	if cpu_tv.as_secs() >= timeout {
+	if cpu_tv.as_secs() >= timeout.as_secs() {
 		return Err(PrepareError::TimedOut)
 	}
 
 	return match status {
-		Ok(_) => {
+		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
 					// This error happens when the job dies.
@@ -446,7 +443,16 @@ fn handle_parent_process(
 				},
 			}
 		},
-		_ => Err(PrepareError::Panic("child finished with unknown status".to_string())),
+		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) => {
+			Err(PrepareError::Panic("child exited with failure".to_string()))
+		},
+		Ok(WaitStatus::Exited(_, exit_status)) => {
+			Err(PrepareError::Panic(format!("child exited with unexpected status {}", exit_status)))
+		},
+		Ok(_) => {
+			Err(PrepareError::Panic("child ended unexpectedly".to_string()))
+		}
+		Err(err) => Err(PrepareError::Panic(err.to_string()))
 	}
 }
 

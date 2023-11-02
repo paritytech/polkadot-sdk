@@ -451,7 +451,6 @@ fn kill_parent_node_in_emergency() {
 		}
 	}
 }
-
 /// Functionality related to threads spawned by the workers.
 ///
 /// The motivation for this module is to coordinate worker threads without using async Rust.
