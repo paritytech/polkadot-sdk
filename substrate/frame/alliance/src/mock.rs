@@ -103,6 +103,7 @@ parameter_types! {
 	pub const ByteDeposit: u64 = 10;
 	pub const SubAccountDeposit: u64 = 100;
 	pub const MaxSubAccounts: u32 = 2;
+	pub const MaxIdentitySize: u32 = 7 * 1024;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
 }
@@ -123,6 +124,7 @@ impl pallet_identity::Config for Test {
 	type ByteDeposit = ByteDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
+	type MaxIdentitySize = MaxIdentitySize;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();

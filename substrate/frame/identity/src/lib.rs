@@ -134,6 +134,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSubAccounts: Get<u32>;
 
+		/// The maximum encoded size of an identity information.
+		#[pallet::constant]
+		type MaxIdentitySize: Get<u32>;
+
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
 
@@ -288,8 +292,8 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			assert!(
-				T::IdentityInformation::max_encoded_len() <= IDENTITY_MAX_SIZE as usize,
-				"maximum encoded size of an identity is 7 KiB"
+				T::IdentityInformation::max_encoded_len() <= T::MaxIdentitySize::get() as usize,
+				"max encoded size of the identity information is too large"
 			);
 		}
 	}
@@ -349,7 +353,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 			let encoded_byte_size = info.encoded_size() as u32;
-			ensure!(encoded_byte_size <= IDENTITY_MAX_SIZE, Error::<T>::IdentitySize);
+			ensure!(encoded_byte_size <= T::MaxIdentitySize::get(), Error::<T>::IdentitySize);
 			let byte_deposit =
 				T::ByteDeposit::get().saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
 

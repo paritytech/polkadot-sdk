@@ -91,6 +91,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
+	pub const MaxIdentitySize: u32 = 7 * 1024;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
 }
@@ -109,6 +110,7 @@ impl pallet_identity::Config for Test {
 	type ByteDeposit = ConstU64<10>;
 	type SubAccountDeposit = ConstU64<100>;
 	type MaxSubAccounts = ConstU32<2>;
+	type MaxIdentitySize = MaxIdentitySize;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
