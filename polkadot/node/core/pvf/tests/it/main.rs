@@ -295,7 +295,8 @@ rusty_fork_test! {
 				}
 			);
 
-			assert_matches!(result, Err(PrepareError::IoErr(_)));
+			// Note that we get a more specific error if the job died than if the whole worker died.
+			assert_matches!(result, Err(PrepareError::JobDied));
 		})
 	}
 

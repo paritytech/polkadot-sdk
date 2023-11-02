@@ -38,13 +38,15 @@ pub enum PrepareError {
 	/// An IO error occurred. This state is reported by either the validation host or by the
 	/// worker.
 	IoErr(String),
+	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	JobDied,
 	/// The temporary file for the artifact could not be created at the given cache path. This
 	/// state is reported by the validation host (not by the worker).
-	CreateTmpFileErr(String),
+	CreateTmpFile(String),
 	/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
-	RenameTmpFileErr {
+	RenameTmpFile {
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -55,6 +57,8 @@ pub enum PrepareError {
 	/// worker has to be killed to avoid jobs having access to data from other jobs. This state is
 	/// reported by the validation host (not by the worker).
 	ClearWorkerDir(String),
+	/// Some error occurred when interfacing with the kernel.
+	Kernel(String),
 }
 
 impl PrepareError {
@@ -70,9 +74,11 @@ impl PrepareError {
 			Prevalidation(_) | Preparation(_) | Panic(_) => true,
 			TimedOut |
 			IoErr(_) |
-			CreateTmpFileErr(_) |
-			RenameTmpFileErr { .. } |
-			ClearWorkerDir(_) => false,
+			JobDied |
+			CreateTmpFile(_) |
+			RenameTmpFile { .. } |
+			ClearWorkerDir(_) |
+			Kernel(_) => false,
 			// Can occur due to issues with the PVF, but also due to local errors.
 			RuntimeConstruction(_) => false,
 		}
@@ -89,10 +95,12 @@ impl fmt::Display for PrepareError {
 			Panic(err) => write!(f, "panic: {}", err),
 			TimedOut => write!(f, "prepare: timeout"),
 			IoErr(err) => write!(f, "prepare: io error while receiving response: {}", err),
-			CreateTmpFileErr(err) => write!(f, "prepare: error creating tmp file: {}", err),
-			RenameTmpFileErr { err, src, dest } =>
+			JobDied => write!(f, "prepare: prepare job died"),
+			CreateTmpFile(err) => write!(f, "prepare: error creating tmp file: {}", err),
+			RenameTmpFile { err, src, dest } =>
 				write!(f, "prepare: error renaming tmp file ({:?} -> {:?}): {}", src, dest, err),
 			ClearWorkerDir(err) => write!(f, "prepare: error clearing worker cache: {}", err),
+			Kernel(err) => write!(f, "prepare: error interfacing with the kernel: {}", err),
 		}
 	}
 }

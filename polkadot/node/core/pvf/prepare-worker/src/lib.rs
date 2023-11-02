@@ -31,8 +31,9 @@ use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use libc;
 use nix::{
+	errno::Errno,
 	sys::resource::{Resource, Usage, UsageWho},
-	unistd::ForkResult,
+	unistd::{ForkResult, Pid},
 };
 use os_pipe::{self, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
@@ -160,11 +161,18 @@ pub fn worker_entrypoint(
 
 				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
-				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)?;
+				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
+					Ok(usage) => usage,
+					Err(errno) => {
+						let result = Err(err_from_errno("getrusage before", errno));
+						send_response(&mut stream, result)?;
+						continue
+					},
+				};
 
 				// SAFETY: new process is spawned within a single threaded process
 				let result = match unsafe { nix::unistd::fork() } {
-					Err(_errno) => Err(PrepareError::Panic(String::from("error forking"))),
+					Err(errno) => Err(err_from_errno("fork", errno)),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
@@ -181,13 +189,14 @@ pub fn worker_entrypoint(
 						)
 					},
 					// parent
-					Ok(ForkResult::Parent { child: _child }) => {
+					Ok(ForkResult::Parent { child }) => {
 						// the read end will wait until all write ends have been closed,
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
 
 						handle_parent_process(
 							pipe_reader,
+							child,
 							temp_artifact_dest.clone(),
 							worker_pid,
 							usage_before,
@@ -376,6 +385,7 @@ fn handle_child_process(
 /// - If the child process exits with an unknown status, it returns `PrepareError`.
 fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
+	child: Pid,
 	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
 	usage_before: Usage,
@@ -386,10 +396,11 @@ fn handle_parent_process(
 	// Read from the child.
 	pipe_read
 		.read_to_end(&mut received_data)
-		.map_err(|err| PrepareError::Panic(err.to_string()))?;
-	let status = nix::sys::wait::wait();
+		// Swallow the error, it's not really helpful as to why the child died.
+		.map_err(|_errno| PrepareError::JobDied)?;
+	let status = nix::sys::wait::waitpid(child, None);
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
-		.map_err(|err| PrepareError::Panic(err.to_string()))?;
+		.map_err(|errno| err_from_errno("getrusage after", errno))?;
 
 	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
 	// As `getrusage` returns resource usage from all terminated child processes,
@@ -405,7 +416,8 @@ fn handle_parent_process(
 		Ok(_) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
-					.map_err(|e| PrepareError::Panic(e.to_string()))?;
+					// This error happens when the job dies.
+					.map_err(|_err| PrepareError::JobDied)?;
 			match result {
 				Err(err) => Err(err),
 				Ok(response) => {
@@ -422,8 +434,9 @@ fn handle_parent_process(
 						"worker: writing artifact to {}",
 						temp_artifact_dest.display(),
 					);
+					// Write to the temp file created by the host.
 					if let Err(err) = fs::write(&temp_artifact_dest, &response.artifact) {
-						return Err(PrepareError::Panic(format!("{:?}", err)))
+						return Err(PrepareError::IoErr(err.to_string()))
 					};
 
 					Ok(PrepareStats {
@@ -468,4 +481,8 @@ fn send_child_response(mut pipe_write: &PipeWriter, response: Result<Response, P
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 	process::exit(libc::EXIT_SUCCESS)
+}
+
+fn err_from_errno(context: &'static str, errno: Errno) -> PrepareError {
+	PrepareError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error()))
 }
