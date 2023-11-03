@@ -25,7 +25,10 @@ use scale_info::{
 	build::{Fields, Variants},
 	Path, Type, TypeInfo,
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::{
+	traits::{Member, Zero},
+	RuntimeDebug,
+};
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 
 /// An identifier for a single name registrar/identity verification service.
@@ -232,15 +235,7 @@ pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
 	/// Type capable of representing all of the fields present in the identity information.
-	type FieldsBitFlags: Encode
-		+ Decode
-		+ Clone
-		+ Debug
-		+ Default
-		+ Eq
-		+ PartialEq
-		+ TypeInfo
-		+ MaxEncodedLen;
+	type FieldsBitFlags: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
 
 	/// Check if an identity registered information for some given `fields`.
 	fn has_identity(&self, fields: Self::FieldsBitFlags) -> bool;

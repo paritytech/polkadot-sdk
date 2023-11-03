@@ -99,9 +99,6 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-/// Maximum size of an identity we can store is 7 KiB.
-pub const IDENTITY_MAX_SIZE: u32 = 7 * 1024;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -242,8 +239,6 @@ pub mod pallet {
 		InvalidIndex,
 		/// The target is invalid.
 		InvalidTarget,
-		/// Too many additional fields.
-		TooManyFields,
 		/// Identity encoded size is too large.
 		IdentitySize,
 		/// Maximum amount of registrars reached. Cannot add any more.
@@ -258,8 +253,6 @@ pub mod pallet {
 		JudgementForDifferentIdentity,
 		/// Error that occurs when there is an issue paying for judgement.
 		JudgementPaymentFailed,
-		/// Invalid identity fields.
-		InvalidFields,
 	}
 
 	#[pallet::event]
