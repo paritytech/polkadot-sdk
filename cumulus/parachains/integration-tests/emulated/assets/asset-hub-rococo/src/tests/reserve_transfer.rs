@@ -38,10 +38,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 }
 
 fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
-	AssetHubRococo::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(57_185_000, 3504)),
-		Some(Error::UntrustedReserveLocation),
-	);
+	AssetHubRococo::assert_dmp_queue_incomplete(Some(Weight::from_parts(57_185_000, 3504)));
 }
 
 fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {

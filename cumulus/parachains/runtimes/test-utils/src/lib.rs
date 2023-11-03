@@ -361,7 +361,7 @@ impl<
 }
 
 impl<
-		Runtime: cumulus_pallet_dmp_queue::Config + cumulus_pallet_parachain_system::Config,
+		Runtime: cumulus_pallet_parachain_system::Config + pallet_xcm::Config,
 		AllPalletsWithoutSystem,
 	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
@@ -378,7 +378,7 @@ impl<
 
 		// execute xcm as parent origin
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		<<Runtime as cumulus_pallet_dmp_queue::Config>::XcmExecutor>::prepare_and_execute(
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
 			Location::parent(),
 			xcm,
 			&mut hash,

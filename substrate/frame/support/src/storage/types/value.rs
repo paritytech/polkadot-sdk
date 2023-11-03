@@ -26,6 +26,7 @@ use crate::{
 	traits::{GetDefault, StorageInfo, StorageInstance},
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
@@ -231,6 +232,27 @@ where
 		Value: StorageDecodeLength,
 	{
 		<Self as crate::storage::StorageValue<Value>>::decode_len()
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	pub fn decode_non_dedup_len() -> Option<usize>
+	where
+		Value: StorageDecodeNonDedupLength,
+	{
+		<Self as crate::storage::StorageValue<Value>>::decode_non_dedup_len()
 	}
 
 	/// Try and append the given item to the value in the storage.

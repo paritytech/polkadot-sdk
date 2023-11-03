@@ -18,6 +18,7 @@ frame-system = { path = "../../../../../../substrate/frame/system", default-feat
 pallet-balances = { path = "../../../../../../substrate/frame/balances", default-features = false}
 pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false}
 pallet-asset-conversion = { path = "../../../../../../substrate/frame/asset-conversion", default-features = false}
+pallet-message-queue = { path = "../../../../../../substrate/frame/message-queue", default-features = false }
 pallet-treasury = { path = "../../../../../../substrate/frame/treasury", default-features = false}
 pallet-asset-rate = { path = "../../../../../../substrate/frame/asset-rate", default-features = false}
 
@@ -47,6 +48,7 @@ integration-tests-common = { path = "../../common", default-features = false}
 [features]
 runtime-benchmarks = [
 	"asset-hub-westend-runtime/runtime-benchmarks",
+	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -55,6 +57,7 @@ runtime-benchmarks = [
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
