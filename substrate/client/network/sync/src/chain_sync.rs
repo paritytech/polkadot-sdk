@@ -523,12 +523,15 @@ where
 				Err(BadPeer(who, rep::BLOCKCHAIN_READ_ERROR))
 			},
 			Ok(BlockStatus::KnownBad) => {
-				info!("💔 New peer with known bad best block {} ({}).", best_hash, best_number);
+				info!("💔 New peer {who} with known bad best block {best_hash} ({best_number}).");
 				Err(BadPeer(who, rep::BAD_BLOCK))
 			},
 			Ok(BlockStatus::Unknown) => {
 				if best_number.is_zero() {
-					info!("💔 New peer with unknown genesis hash {} ({}).", best_hash, best_number);
+					info!(
+						"💔 New peer {} with unknown genesis hash {} ({}).",
+						who, best_hash, best_number,
+					);
 					return Err(BadPeer(who, rep::GENESIS_MISMATCH))
 				}
 
@@ -538,7 +541,8 @@ where
 				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS.into() {
 					debug!(
 						target:LOG_TARGET,
-						"New peer with unknown best hash {} ({}), assuming common block.",
+						"New peer {} with unknown best hash {} ({}), assuming common block.",
+						who,
 						self.best_queued_hash,
 						self.best_queued_number
 					);
@@ -559,7 +563,7 @@ where
 				let (state, req) = if self.best_queued_number.is_zero() {
 					debug!(
 						target:LOG_TARGET,
-						"New peer with best hash {best_hash} ({best_number}).",
+						"New peer {who} with best hash {best_hash} ({best_number}).",
 					);
 
 					(PeerSyncState::Available, None)
@@ -568,7 +572,8 @@ where
 
 					debug!(
 						target:LOG_TARGET,
-						"New peer with unknown best hash {} ({}), searching for common ancestor.",
+						"New peer {} with unknown best hash {} ({}), searching for common ancestor.",
+						who,
 						best_hash,
 						best_number
 					);
@@ -616,7 +621,7 @@ where
 			Ok(BlockStatus::InChainPruned) => {
 				debug!(
 					target: LOG_TARGET,
-					"New peer with known best hash {best_hash} ({best_number}).",
+					"New peer {who} with known best hash {best_hash} ({best_number}).",
 				);
 				self.peers.insert(
 					who,
@@ -851,8 +856,22 @@ where
 								// We've made progress on this chain since the search was started.
 								// Opportunistically set common number to updated number
 								// instead of the one that started the search.
+								trace!(
+									target: LOG_TARGET,
+									"Ancestry search: opportunistically updating peer {} common number from={} => to={}.",
+									*who,
+									peer.common_number,
+									self.best_queued_number,
+								);
 								peer.common_number = self.best_queued_number;
 							} else if peer.common_number < *current {
+								trace!(
+									target: LOG_TARGET,
+									"Ancestry search: updating peer {} common number from={} => to={}.",
+									*who,
+									peer.common_number,
+									*current,
+								);
 								peer.common_number = *current;
 							}
 						}
@@ -1341,6 +1360,13 @@ where
 			// should be kept in that state.
 			if let PeerSyncState::DownloadingJustification(_) = p.state {
 				// We make sure our commmon number is at least something we have.
+				trace!(
+					target: LOG_TARGET,
+					"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
+					peer_id,
+					p.common_number,
+					self.best_queued_number,
+				);
 				p.common_number = self.best_queued_number;
 				self.peers.insert(peer_id, p);
 				return None
