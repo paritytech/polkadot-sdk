@@ -1905,8 +1905,8 @@ impl<T: Config> Pallet<T> {
 
 				// We take total instead of active as the nominator might have requested to unbond
 				// some of their stake that is still exposed in the current era.
-				// This can happen when there is a slash in the current era so we only warn.
 				if sum <= Self::ledger(Stash(nominator.clone()))?.total {
+					// This can happen when there is a slash in the current era so we only warn.
 					log!(warn, "nominator stake exceeds what is bonded.");
 				}
 
