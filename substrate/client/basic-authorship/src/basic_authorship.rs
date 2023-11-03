@@ -958,6 +958,7 @@ mod tests {
 			let builder = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(genesis_header.hash())
 				.with_parent_block_number(0)
+				.enable_proof_recording()
 				.build()
 				.unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
