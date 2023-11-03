@@ -334,6 +334,7 @@ mod tests {
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 	use sp_consensus::BlockOrigin;
+	use sp_runtime::traits::Block as BlockT;
 	use std::{collections::HashSet, sync::Arc};
 	use substrate_test_runtime_client::{
 		runtime::{
@@ -479,13 +480,13 @@ mod tests {
 		block_builder.push(ext).unwrap();
 
 		let block = block_builder.build().unwrap().block;
-		block_on(client.import(BlockOrigin::Own, block)).unwrap();
+		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
 		assert_eq!(value, &offchain_db.get(sp_offchain::STORAGE_PREFIX, &key).unwrap());
 
 		let mut block_builder = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
+			.on_parent_block(block.hash())
+			.with_parent_block_number(1)
 			.build()
 			.unwrap();
 		let ext = ExtrinsicBuilder::new_offchain_index_clear(key.to_vec()).nonce(1).build();
