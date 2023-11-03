@@ -56,7 +56,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub self_para_id: cumulus_primitives_core::ParaId,
+		pub self_para_id: Option<cumulus_primitives_core::ParaId>,
 		#[serde(skip)]
 		pub _config: sp_std::marker::PhantomData<T>,
 	}
@@ -65,10 +65,12 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4].encode());
+			self.self_para_id.map(|para_id| {
 			sp_io::storage::set(
 				&sp_io::hashing::twox_128(&PARACHAIN_ID_RUNTIME_KEY),
-				&self.self_para_id.encode(),
-			);
+					&para_id.encode(),
+				)
+			});
 		}
 	}
 }

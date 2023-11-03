@@ -71,7 +71,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		"Local Testnet",
 		"local_testnet",
 		ChainType::Local,
-		move || testnet_genesis_with_default_endowed(extra_endowed_accounts.clone(), id),
+		move || testnet_genesis_with_default_endowed(extra_endowed_accounts.clone(), Some(id)),
 		Vec::new(),
 		None,
 		None,
@@ -89,7 +89,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 /// Local testnet genesis for testing.
 pub fn testnet_genesis_with_default_endowed(
 	mut extra_endowed_accounts: Vec<AccountId>,
-	self_para_id: ParaId,
+	self_para_id: Option<ParaId>,
 ) -> cumulus_test_runtime::RuntimeGenesisConfig {
 	let mut endowed = vec![
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -114,7 +114,7 @@ pub fn testnet_genesis_with_default_endowed(
 pub fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-	self_para_id: ParaId,
+	self_para_id: Option<ParaId>,
 ) -> cumulus_test_runtime::RuntimeGenesisConfig {
 	cumulus_test_runtime::RuntimeGenesisConfig {
 		system: cumulus_test_runtime::SystemConfig {
