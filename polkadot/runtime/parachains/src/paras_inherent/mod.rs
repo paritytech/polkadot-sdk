@@ -619,7 +619,7 @@ impl<T: Config> Pallet<T> {
 
 		// In `Enter` context (invoked during execution) there should be no backing votes from
 		// disabled validators because they should have been filtered out during inherent data
-		// preparation. Abort in such cases.
+		// preparation (`ProvideInherent` context). Abort in such cases.
 		if context == ProcessInherentDataContext::Enter {
 			ensure!(!votes_from_disabled_were_dropped, Error::<T>::InherentOverweight);
 		}
@@ -911,7 +911,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	bitfields
 }
 
-// Result from `sanitize_backed_candidates` call
+// Result from `sanitize_backed_candidates`
 #[derive(Debug, PartialEq)]
 struct SanitizedBackedCandidates<Hash> {
 	// Sanitized backed candidates. The `Vec` is sorted according to the occupied core index.
@@ -1065,8 +1065,8 @@ fn limit_and_sanitize_disputes<
 	}
 }
 
-// Filters statements from disabled validators in `BackedCandidate` and `MultiDisputeStatementSet`.
-// Returns `true` if at least one statement is removed and `false` otherwise.
+// Filters statements from disabled validators in `BackedCandidate`. Returns `true` if at least one
+// statement is removed and `false` otherwise.
 fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>(
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
@@ -1080,23 +1080,21 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 		return false
 	}
 
+	let backed_len_before = backed_candidates.len();
+
 	// Flag which will be returned. Set to `true` if at least one vote is filtered.
 	let mut filtered = false;
 
-	// Process all backed candidates.
-	let backed_len_before = backed_candidates.len();
+	// Process all backed candidates. `validator_indices` in `BackedCandidates` are indices within
+	// the validator group assigned to the parachain. To obtain this group we need:
+	// 1. Core index assigned to the parachain which has produced the candidate
+	// 2. The relay chain block number of the candidate
 	backed_candidates.retain_mut(|bc| {
-		// `validator_indices` in `BackedCandidates` are indices within the validator group assigned to the parachain.
-		// To obtain this group we need:
-		// 1. Core index assigned to the parachain which has produced the candidate
-		// 2. The relay chain block number of the candidate
-		// We perform these steps below.
-
 		// Get `core_idx` assigned to the `para_id` of the candidate
 		let core_idx = match scheduled.get(&bc.descriptor().para_id) {
 			Some(core_idx) => *core_idx,
 			None => {
-				log::debug!(target: LOG_TARGET, "Can't get core idx got a backed candidate for para id {:?}. Dropping the candidate.", bc.descriptor().para_id);
+				log::debug!(target: LOG_TARGET, "Can't get core idx of a backed candidate for para id {:?}. Dropping the candidate.", bc.descriptor().para_id);
 				return false
 			}
 		};
@@ -1118,7 +1116,7 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 		) {
 			Some(group_idx) => group_idx,
 			None => {
-				log::debug!(target: LOG_TARGET, "Can't fetch group index for core idx {:?}. Dropping the candidate.", core_idx);
+				log::debug!(target: LOG_TARGET, "Can't get the group index for core idx {:?}. Dropping the candidate.", core_idx);
 				return false
 			},
 		};
