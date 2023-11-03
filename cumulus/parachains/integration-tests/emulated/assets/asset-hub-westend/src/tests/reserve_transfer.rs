@@ -47,7 +47,9 @@ fn para_receiver_assertions<Test>(_: Test) {
 		PenpalWestendA,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
-			RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
 		]
 	);
 }

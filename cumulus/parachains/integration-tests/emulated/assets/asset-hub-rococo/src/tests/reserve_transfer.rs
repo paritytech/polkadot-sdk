@@ -46,10 +46,9 @@ fn relay_to_para_receiver_assertions<Test>(_: Test) {
 		PenpalRococoA,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
-			RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
-				outcome: Outcome::Complete(_),
-				..
-			}) => {},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
 		]
 	);
 }
@@ -85,7 +84,9 @@ fn system_para_to_para_receiver_assertions<Test>(_: Test) {
 		PenpalRococoA,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
-			RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
 		]
 	);
 }
@@ -130,7 +131,9 @@ fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 				amount: *amount == t.args.amount,
 			},
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
-			RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
 		]
 	);
 }
@@ -168,7 +171,9 @@ fn system_para_to_para_assets_receiver_assertions<Test>(_: Test) {
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::Assets(pallet_assets::Event::Issued { .. }) => {},
-			RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
 		]
 	);
 }
