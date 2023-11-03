@@ -240,9 +240,11 @@ pub trait IdentityInformationProvider:
 	/// Check if an identity registered information for some given `fields`.
 	fn has_identity(&self, fields: Self::FieldsBitFlags) -> bool;
 
+	/// Create a basic instance of the identity information.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self;
 
+	/// The identity information representation for all identity fields enabled.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn all_fields() -> Self::FieldsBitFlags;
 }
