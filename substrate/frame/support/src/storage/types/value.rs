@@ -26,15 +26,41 @@ use crate::{
 	traits::{GetDefault, StorageInfo, StorageInstance},
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type that allow to store a value.
+/// A type representing a *value* in storage. A *storage value* is a single value of a given type
+/// stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix()) ++ Twox128(Prefix::STORAGE_PREFIX)
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
+/// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet<T>(_);
+/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = "OtherFoo"]
+/// 	#[pallet::unbounded]
+///     pub type Foo<T> = StorageValue<_, u32,ValueQuery>;
+///
+/// 	/// Named alternative syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageValue<
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	>;
+/// }
 /// ```
 pub struct StorageValue<Prefix, Value, QueryKind = OptionQuery, OnEmpty = GetDefault>(
 	core::marker::PhantomData<(Prefix, Value, QueryKind, OnEmpty)>,
@@ -206,6 +232,27 @@ where
 		Value: StorageDecodeLength,
 	{
 		<Self as crate::storage::StorageValue<Value>>::decode_len()
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	pub fn decode_non_dedup_len() -> Option<usize>
+	where
+		Value: StorageDecodeNonDedupLength,
+	{
+		<Self as crate::storage::StorageValue<Value>>::decode_non_dedup_len()
 	}
 
 	/// Try and append the given item to the value in the storage.
