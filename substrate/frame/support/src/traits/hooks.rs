@@ -101,9 +101,6 @@ pub trait OnGenesis {
 
 /// Implemented by pallets, allows defining logic to run prior to any [`OnRuntimeUpgrade`] logic.
 ///
-/// This was introduced to allow pallets to initialize their on-chain storage version in the case
-/// that they are added to the runtime after genesis.
-///
 /// This hook is intended to be used internally in FRAME and not be exposed to FRAME developers.
 ///
 /// It is defined as a seperate trait from [`OnRuntimeUpgrade`] precisely to not pollute the public
