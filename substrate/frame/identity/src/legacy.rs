@@ -16,13 +16,15 @@
 // limitations under the License.
 
 use codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "runtime-benchmarks")]
+use enumflags2::BitFlag;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::{BoundedVec, RuntimeDebug};
 use sp_std::prelude::*;
 
-use crate::types::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag};
+use crate::types::{Data, IdentityInformationProvider};
 
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
 /// in the `IdentityInfo` struct.
@@ -57,8 +59,6 @@ impl TypeInfo for IdentityField {
 		)
 	}
 }
-
-impl U64BitFlag for IdentityField {}
 
 /// Information concerning the identity of the controller of an account.
 ///
@@ -124,22 +124,20 @@ pub struct IdentityInfo<FieldLimit: Get<u32>> {
 }
 
 impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInfo<FieldLimit> {
-	type IdentityField = IdentityField;
+	type FieldsIdentifier = u64;
 
-	fn has_identity(&self, fields: u64) -> bool {
-		self.fields().0.bits() & fields == fields
-	}
-
-	fn additional(&self) -> usize {
-		self.additional.len()
+	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool {
+		self.fields().bits() & fields == fields
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_identity_info(num_fields: u32) -> Self {
+	fn create_identity_info() -> Self {
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
-			additional: vec![(data.clone(), data.clone()); num_fields as usize].try_into().unwrap(),
+			additional: vec![(data.clone(), data.clone()); FieldLimit::get().try_into().unwrap()]
+				.try_into()
+				.unwrap(),
 			display: data.clone(),
 			legal: data.clone(),
 			web: data.clone(),
@@ -150,11 +148,15 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 			twitter: data,
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn all_fields() -> Self::FieldsIdentifier {
+		IdentityField::all().bits()
+	}
 }
 
 impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
-	#[allow(unused)]
-	pub(crate) fn fields(&self) -> IdentityFields<IdentityField> {
+	pub(crate) fn fields(&self) -> BitFlags<IdentityField> {
 		let mut res = <BitFlags<IdentityField>>::empty();
 		if !self.display.is_none() {
 			res.insert(IdentityField::Display);
@@ -180,6 +182,6 @@ impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 		if !self.twitter.is_none() {
 			res.insert(IdentityField::Twitter);
 		}
-		IdentityFields(res)
+		res
 	}
 }
