@@ -564,7 +564,7 @@ construct_runtime!(
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 255,
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 100,
 	}
 );
 
