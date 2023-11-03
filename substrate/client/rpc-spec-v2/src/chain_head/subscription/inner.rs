@@ -806,7 +806,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sc_service::client::new_in_mem;
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, H256};
@@ -1004,8 +1004,15 @@ mod tests {
 	fn subscription_check_block() {
 		let (backend, mut client) = init_backend();
 
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
-		let hash = block.header.hash();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash = block.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
 		let mut subs =
@@ -1034,7 +1041,14 @@ mod tests {
 	#[test]
 	fn subscription_ref_count() {
 		let (backend, mut client) = init_backend();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
@@ -1077,13 +1091,34 @@ mod tests {
 	#[test]
 	fn subscription_remove_subscription() {
 		let (backend, mut client) = init_backend();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_1 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_1)
+			.with_parent_block_number(1)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_2 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_2)
+			.with_parent_block_number(2)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_3 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
@@ -1122,13 +1157,34 @@ mod tests {
 	#[test]
 	fn subscription_check_limits() {
 		let (backend, mut client) = init_backend();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_1 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_1)
+			.with_parent_block_number(1)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_2 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_2)
+			.with_parent_block_number(2)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_3 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
@@ -1173,13 +1229,34 @@ mod tests {
 	#[test]
 	fn subscription_check_limits_with_duration() {
 		let (backend, mut client) = init_backend();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
-		let hash_1 = block.header.hash();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_1 = block.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_1)
+			.with_parent_block_number(1)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_2 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_2)
+			.with_parent_block_number(2)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		let hash_3 = block.header.hash();
 		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
