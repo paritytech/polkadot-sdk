@@ -147,6 +147,31 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -172,27 +197,36 @@
 </span><span class="kw">pub type </span>PrepareResult = <span class="prelude-ty">Result</span>&lt;PrepareStats, PrepareError&gt;;
 
 <span class="doccomment">/// An error that occurred during the prepare part of the PVF pipeline.
+</span><span class="comment">// Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD` below)
 </span><span class="attr">#[derive(Debug, Clone, Encode, Decode)]
 </span><span class="kw">pub enum </span>PrepareError {
 	<span class="doccomment">/// During the prevalidation stage of preparation an issue was found with the PVF.
+	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
 	</span>Prevalidation(String),
 	<span class="doccomment">/// Compilation failed for the given PVF.
+	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
 	</span>Preparation(String),
 	<span class="doccomment">/// Instantiation of the WASM module instance failed.
+	</span><span class="attr">#[codec(index = <span class="number">2</span>)]
 	</span>RuntimeConstruction(String),
 	<span class="doccomment">/// An unexpected panic has occurred in the preparation worker.
+	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
 	</span>Panic(String),
 	<span class="doccomment">/// Failed to prepare the PVF due to the time limit.
+	</span><span class="attr">#[codec(index = <span class="number">4</span>)]
 	</span>TimedOut,
 	<span class="doccomment">/// An IO error occurred. This state is reported by either the validation host or by the
 	/// worker.
+	</span><span class="attr">#[codec(index = <span class="number">5</span>)]
 	</span>IoErr(String),
 	<span class="doccomment">/// The temporary file for the artifact could not be created at the given cache path. This
 	/// state is reported by the validation host (not by the worker).
+	</span><span class="attr">#[codec(index = <span class="number">6</span>)]
 	</span>CreateTmpFileErr(String),
 	<span class="doccomment">/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
+	</span><span class="attr">#[codec(index = <span class="number">7</span>)]
 	</span>RenameTmpFileErr {
 		err: String,
 		<span class="comment">// Unfortunately `PathBuf` doesn&#39;t implement `Encode`/`Decode`, so we do a fallible
@@ -200,11 +234,18 @@
 		</span>src: <span class="prelude-ty">Option</span>&lt;String&gt;,
 		dest: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	},
+	<span class="doccomment">/// Memory limit reached
+	</span><span class="attr">#[codec(index = <span class="number">8</span>)]
+	</span>OutOfMemory,
 	<span class="doccomment">/// The response from the worker is received, but the worker cache could not be cleared. The
 	/// worker has to be killed to avoid jobs having access to data from other jobs. This state is
 	/// reported by the validation host (not by the worker).
+	</span><span class="attr">#[codec(index = <span class="number">9</span>)]
 	</span>ClearWorkerDir(String),
 }
+
+<span class="doccomment">/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
+</span><span class="kw">pub const </span>OOM_PAYLOAD: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08&quot;</span>;
 
 <span class="kw">impl </span>PrepareError {
 	<span class="doccomment">/// Returns whether this is a deterministic error, i.e. one that should trigger reliably. Those
@@ -216,7 +257,7 @@
 	</span><span class="kw">pub fn </span>is_deterministic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="kw">use </span>PrepareError::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
-			Prevalidation(<span class="kw">_</span>) | Preparation(<span class="kw">_</span>) | Panic(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+			Prevalidation(<span class="kw">_</span>) | Preparation(<span class="kw">_</span>) | Panic(<span class="kw">_</span>) | OutOfMemory =&gt; <span class="bool-val">true</span>,
 			TimedOut |
 			IoErr(<span class="kw">_</span>) |
 			CreateTmpFileErr(<span class="kw">_</span>) |
@@ -241,6 +282,7 @@
 			CreateTmpFileErr(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: error creating tmp file: {}&quot;</span>, err),
 			RenameTmpFileErr { err, src, dest } =&gt;
 				<span class="macro">write!</span>(f, <span class="string">&quot;prepare: error renaming tmp file ({:?} -&gt; {:?}): {}&quot;</span>, src, dest, err),
+			OutOfMemory =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: out of memory&quot;</span>),
 			ClearWorkerDir(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: error clearing worker cache: {}&quot;</span>, err),
 		}
 	}
@@ -295,5 +337,13 @@
 			NonDeterministicPrepareError(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;validation: prepare: {}&quot;</span>, err),
 		}
 	}
+}
+
+<span class="attr">#[test]
+</span><span class="kw">fn </span>pre_encoded_payloads() {
+	<span class="kw">let </span>oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
+	<span class="kw">let </span><span class="kw-2">mut </span>oom_payload = oom_enc.len().to_le_bytes().to_vec();
+	oom_payload.extend(oom_enc);
+	<span class="macro">assert_eq!</span>(oom_payload, OOM_PAYLOAD);
 }
 </code></pre></div></section></main></body></html>

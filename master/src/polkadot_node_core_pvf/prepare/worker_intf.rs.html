@@ -359,6 +359,9 @@
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -459,6 +462,8 @@
 	///
 	/// This doesn&#39;t return an idle worker instance, thus this worker is no longer usable.
 	</span>IoErr(String),
+	<span class="doccomment">/// The worker ran out of memory and is aborting. The worker should be ripped.
+	</span>OutOfMemory,
 }
 
 <span class="doccomment">/// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -595,6 +600,7 @@
 		<span class="prelude-val">Ok</span>(result) =&gt; result,
 		<span class="comment">// Timed out on the child. This should already be logged by the child.
 		</span><span class="prelude-val">Err</span>(PrepareError::TimedOut) =&gt; <span class="kw">return </span>Outcome::TimedOut,
+		<span class="prelude-val">Err</span>(PrepareError::OutOfMemory) =&gt; <span class="kw">return </span>Outcome::OutOfMemory,
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>Outcome::Concluded { worker, result },
 	};
 

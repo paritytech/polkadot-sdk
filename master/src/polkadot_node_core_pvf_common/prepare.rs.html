@@ -55,6 +55,8 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -86,12 +88,14 @@
 /// supported by the OS, `ru_maxrss`.
 </span><span class="attr">#[derive(Clone, Debug, Default, Encode, Decode)]
 </span><span class="kw">pub struct </span>MemoryStats {
-	<span class="doccomment">/// Memory stats from `tikv_jemalloc_ctl`.
+	<span class="doccomment">/// Memory stats from `tikv_jemalloc_ctl`, polling-based and not very precise.
 	</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
 	</span><span class="kw">pub </span>memory_tracker_stats: <span class="prelude-ty">Option</span>&lt;MemoryAllocationStats&gt;,
 	<span class="doccomment">/// `ru_maxrss` from `getrusage`. `None` if an error occurred.
 	</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 	</span><span class="kw">pub </span>max_rss: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+	<span class="doccomment">/// Peak allocation in bytes measured by tracking allocator
+	</span><span class="kw">pub </span>peak_tracked_alloc: u64,
 }
 
 <span class="doccomment">/// Statistics of collected memory metrics.

@@ -317,6 +317,26 @@
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -412,6 +432,10 @@
 				metrics.preparation_max_resident.observe(max_resident_kb);
 				metrics.preparation_max_allocated.observe(max_allocated_kb);
 			}
+
+			metrics
+				.preparation_peak_tracked_allocation
+				.observe((memory_stats.peak_tracked_alloc / <span class="number">1024</span>) <span class="kw">as </span>f64);
 		}
 	}
 }
@@ -429,10 +453,14 @@
 	execution_time: prometheus::Histogram,
 	<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 	</span>preparation_max_rss: prometheus::Histogram,
-	<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+	<span class="comment">// Max. allocated memory, tracked by Jemallocator, polling-based
+	</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
 	</span>preparation_max_allocated: prometheus::Histogram,
-	<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+	<span class="comment">// Max. resident memory, tracked by Jemallocator, polling-based
+	</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
 	</span>preparation_max_resident: prometheus::Histogram,
+	<span class="comment">// Peak allocation value, tracked by tracking-allocator
+	</span>preparation_peak_tracked_allocation: prometheus::Histogram,
 }
 
 <span class="kw">impl </span>metrics::Metrics <span class="kw">for </span>Metrics {
@@ -583,6 +611,18 @@
 					prometheus::HistogramOpts::new(
 						<span class="string">&quot;polkadot_pvf_preparation_max_allocated&quot;</span>,
 						<span class="string">&quot;max allocated memory observed for preparation (in kilobytes)&quot;</span>,
+					).buckets(
+						prometheus::exponential_buckets(<span class="number">8192.0</span>, <span class="number">2.0</span>, <span class="number">10</span>)
+							.expect(<span class="string">&quot;arguments are always valid; qed&quot;</span>),
+					),
+				)<span class="question-mark">?</span>,
+				registry,
+			)<span class="question-mark">?</span>,
+			preparation_peak_tracked_allocation: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						<span class="string">&quot;polkadot_pvf_preparation_peak_tracked_allocation&quot;</span>,
+						<span class="string">&quot;peak allocation observed for preparation (in kilobytes)&quot;</span>,
 					).buckets(
 						prometheus::exponential_buckets(<span class="number">8192.0</span>, <span class="number">2.0</span>, <span class="number">10</span>)
 							.expect(<span class="string">&quot;arguments are always valid; qed&quot;</span>),

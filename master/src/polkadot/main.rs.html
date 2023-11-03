@@ -57,7 +57,7 @@
 /// `memory_stats::MemoryAllocationTracker`.
 </span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
 #[global_allocator]
-</span><span class="kw">pub static </span>ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+</span><span class="kw">static </span>ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 <span class="kw">fn </span>main() -&gt; eyre::Result&lt;()&gt; {
 	color_eyre::install()<span class="question-mark">?</span>;

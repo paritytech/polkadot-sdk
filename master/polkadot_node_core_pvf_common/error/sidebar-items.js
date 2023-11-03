@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InternalValidationError","PrepareError"],"type":["PrepareResult"]};
+window.SIDEBAR_ITEMS = {"constant":["OOM_PAYLOAD"],"enum":["InternalValidationError","PrepareError"],"type":["PrepareResult"]};
