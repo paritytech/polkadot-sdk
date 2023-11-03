@@ -334,7 +334,7 @@ where
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
-		let propose_with_timer = time::Instant::now();
+		let block_timer = time::Instant::now();
 		let mut block_builder =
 			self.client.new_block_at(self.parent_hash, inherent_digests, PR::ENABLED)?;
 
@@ -343,7 +343,6 @@ where
 		// TODO call `after_inherents` and check if we should apply extrinsincs here
 		// <https://github.com/paritytech/substrate/pull/14275/>
 
-		let block_timer = time::Instant::now();
 		let end_reason =
 			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
@@ -352,7 +351,7 @@ where
 		let proof =
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
 
-		self.print_summary(&block, end_reason, block_took, propose_with_timer.elapsed());
+		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
 		Ok(Proposal { block, proof, storage_changes })
 	}
 
@@ -443,6 +442,11 @@ where
 			let pending_tx = if let Some(pending_tx) = pending_iterator.next() {
 				pending_tx
 			} else {
+				debug!(
+					target: LOG_TARGET,
+					"No more transactions, proceeding with proposing."
+				);
+
 				break EndProposingReason::NoMoreTransactions
 			};
 
@@ -539,19 +543,24 @@ where
 	}
 
 	/// Prints a summary and does telemetry + metrics.
+	///
+	/// - `block`: The block that was build.
+	/// - `end_reason`: Why did we stop producing the block?
+	/// - `block_took`: How long did it took to produce the actual block?
+	/// - `propose_took`: How long did the entire proposing took?
 	fn print_summary(
 		&self,
 		block: &Block,
 		end_reason: EndProposingReason,
 		block_took: time::Duration,
-		propose_with_took: time::Duration,
+		propose_took: time::Duration,
 	) {
 		let extrinsics = block.extrinsics();
 		self.metrics.report(|metrics| {
 			metrics.number_of_transactions.set(extrinsics.len() as u64);
 			metrics.block_constructed.observe(block_took.as_secs_f64());
 			metrics.report_end_proposing_reason(end_reason);
-			metrics.create_block_proposal_time.observe(propose_with_took.as_secs_f64());
+			metrics.create_block_proposal_time.observe(propose_took.as_secs_f64());
 		});
 
 		let extrinsics_summary = if extrinsics.is_empty() {

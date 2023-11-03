@@ -42,9 +42,12 @@ pub enum Error {
 /// Parameters used to create the storage monitor.
 #[derive(Default, Debug, Clone, Args)]
 pub struct StorageMonitorParams {
-	/// Required available space on database storage. If available space for DB storage drops below
-	/// the given threshold, node will be gracefully terminated. If `0` is given monitoring will be
-	/// disabled.
+	/// Required available space on database storage.
+	///
+	/// If available space for DB storage drops below the given threshold, node will
+	/// be gracefully terminated.
+	///
+	/// If `0` is given monitoring will be disabled.
 	#[arg(long = "db-storage-threshold", value_name = "MiB", default_value_t = 1024)]
 	pub threshold: u64,
 

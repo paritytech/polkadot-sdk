@@ -228,6 +228,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-authority-discovery/std",
