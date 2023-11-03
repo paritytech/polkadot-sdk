@@ -2433,6 +2433,32 @@
 <a href="#2433" id="2433">2433</a>
 <a href="#2434" id="2434">2434</a>
 <a href="#2435" id="2435">2435</a>
+<a href="#2436" id="2436">2436</a>
+<a href="#2437" id="2437">2437</a>
+<a href="#2438" id="2438">2438</a>
+<a href="#2439" id="2439">2439</a>
+<a href="#2440" id="2440">2440</a>
+<a href="#2441" id="2441">2441</a>
+<a href="#2442" id="2442">2442</a>
+<a href="#2443" id="2443">2443</a>
+<a href="#2444" id="2444">2444</a>
+<a href="#2445" id="2445">2445</a>
+<a href="#2446" id="2446">2446</a>
+<a href="#2447" id="2447">2447</a>
+<a href="#2448" id="2448">2448</a>
+<a href="#2449" id="2449">2449</a>
+<a href="#2450" id="2450">2450</a>
+<a href="#2451" id="2451">2451</a>
+<a href="#2452" id="2452">2452</a>
+<a href="#2453" id="2453">2453</a>
+<a href="#2454" id="2454">2454</a>
+<a href="#2455" id="2455">2455</a>
+<a href="#2456" id="2456">2456</a>
+<a href="#2457" id="2457">2457</a>
+<a href="#2458" id="2458">2458</a>
+<a href="#2459" id="2459">2459</a>
+<a href="#2460" id="2460">2460</a>
+<a href="#2461" id="2461">2461</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2955,12 +2981,15 @@
 				<span class="prelude-val">Err</span>(BadPeer(who, rep::BLOCKCHAIN_READ_ERROR))
 			},
 			<span class="prelude-val">Ok</span>(BlockStatus::KnownBad) =&gt; {
-				<span class="macro">info!</span>(<span class="string">&quot;💔 New peer with known bad best block {} ({}).&quot;</span>, best_hash, best_number);
+				<span class="macro">info!</span>(<span class="string">&quot;💔 New peer {who} with known bad best block {best_hash} ({best_number}).&quot;</span>);
 				<span class="prelude-val">Err</span>(BadPeer(who, rep::BAD_BLOCK))
 			},
 			<span class="prelude-val">Ok</span>(BlockStatus::Unknown) =&gt; {
 				<span class="kw">if </span>best_number.is_zero() {
-					<span class="macro">info!</span>(<span class="string">&quot;💔 New peer with unknown genesis hash {} ({}).&quot;</span>, best_hash, best_number);
+					<span class="macro">info!</span>(
+						<span class="string">&quot;💔 New peer {} with unknown genesis hash {} ({}).&quot;</span>,
+						who, best_hash, best_number,
+					);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(who, rep::GENESIS_MISMATCH))
 				}
 
@@ -2970,7 +2999,8 @@
 				</span><span class="kw">if </span><span class="self">self</span>.queue_blocks.len() &gt; MAJOR_SYNC_BLOCKS.into() {
 					<span class="macro">debug!</span>(
 						target:LOG_TARGET,
-						<span class="string">&quot;New peer with unknown best hash {} ({}), assuming common block.&quot;</span>,
+						<span class="string">&quot;New peer {} with unknown best hash {} ({}), assuming common block.&quot;</span>,
+						who,
 						<span class="self">self</span>.best_queued_hash,
 						<span class="self">self</span>.best_queued_number
 					);
@@ -2991,7 +3021,7 @@
 				</span><span class="kw">let </span>(state, req) = <span class="kw">if </span><span class="self">self</span>.best_queued_number.is_zero() {
 					<span class="macro">debug!</span>(
 						target:LOG_TARGET,
-						<span class="string">&quot;New peer with best hash {best_hash} ({best_number}).&quot;</span>,
+						<span class="string">&quot;New peer {who} with best hash {best_hash} ({best_number}).&quot;</span>,
 					);
 
 					(PeerSyncState::Available, <span class="prelude-val">None</span>)
@@ -3000,7 +3030,8 @@
 
 					<span class="macro">debug!</span>(
 						target:LOG_TARGET,
-						<span class="string">&quot;New peer with unknown best hash {} ({}), searching for common ancestor.&quot;</span>,
+						<span class="string">&quot;New peer {} with unknown best hash {} ({}), searching for common ancestor.&quot;</span>,
+						who,
 						best_hash,
 						best_number
 					);
@@ -3048,7 +3079,7 @@
 			<span class="prelude-val">Ok</span>(BlockStatus::InChainPruned) =&gt; {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;New peer with known best hash {best_hash} ({best_number}).&quot;</span>,
+					<span class="string">&quot;New peer {who} with known best hash {best_hash} ({best_number}).&quot;</span>,
 				);
 				<span class="self">self</span>.peers.insert(
 					who,
@@ -3283,8 +3314,22 @@
 								<span class="comment">// We&#39;ve made progress on this chain since the search was started.
 								// Opportunistically set common number to updated number
 								// instead of the one that started the search.
-								</span>peer.common_number = <span class="self">self</span>.best_queued_number;
+								</span><span class="macro">trace!</span>(
+									target: LOG_TARGET,
+									<span class="string">&quot;Ancestry search: opportunistically updating peer {} common number from={} =&gt; to={}.&quot;</span>,
+									<span class="kw-2">*</span>who,
+									peer.common_number,
+									<span class="self">self</span>.best_queued_number,
+								);
+								peer.common_number = <span class="self">self</span>.best_queued_number;
 							} <span class="kw">else if </span>peer.common_number &lt; <span class="kw-2">*</span>current {
+								<span class="macro">trace!</span>(
+									target: LOG_TARGET,
+									<span class="string">&quot;Ancestry search: updating peer {} common number from={} =&gt; to={}.&quot;</span>,
+									<span class="kw-2">*</span>who,
+									peer.common_number,
+									<span class="kw-2">*</span>current,
+								);
 								peer.common_number = <span class="kw-2">*</span>current;
 							}
 						}
@@ -3773,7 +3818,14 @@
 			// should be kept in that state.
 			</span><span class="kw">if let </span>PeerSyncState::DownloadingJustification(<span class="kw">_</span>) = p.state {
 				<span class="comment">// We make sure our commmon number is at least something we have.
-				</span>p.common_number = <span class="self">self</span>.best_queued_number;
+				</span><span class="macro">trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Keeping peer {} after restart, updating common number from={} =&gt; to={} (our best).&quot;</span>,
+					peer_id,
+					p.common_number,
+					<span class="self">self</span>.best_queued_number,
+				);
+				p.common_number = <span class="self">self</span>.best_queued_number;
 				<span class="self">self</span>.peers.insert(peer_id, p);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>}

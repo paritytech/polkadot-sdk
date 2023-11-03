@@ -1389,9 +1389,6 @@
 <a href="#1389" id="1389">1389</a>
 <a href="#1390" id="1390">1390</a>
 <a href="#1391" id="1391">1391</a>
-<a href="#1392" id="1392">1392</a>
-<a href="#1393" id="1393">1393</a>
-<a href="#1394" id="1394">1394</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1441,7 +1438,6 @@
 	future::{BoxFuture, Fuse},
 	FutureExt, StreamExt,
 };
-<span class="kw">use </span>futures_timer::Delay;
 <span class="kw">use </span>libp2p::{request_response::OutboundFailure, PeerId};
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>prometheus_endpoint::{
@@ -1450,6 +1446,7 @@
 };
 <span class="kw">use </span>prost::Message;
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
+<span class="kw">use </span>tokio::time::{Interval, MissedTickBehavior};
 
 <span class="kw">use </span>sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 <span class="kw">use </span>sc_consensus::import_queue::ImportQueueService;
@@ -1479,7 +1476,6 @@
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
 	},
-	task::Poll,
 	time::{Duration, Instant},
 };
 
@@ -1648,7 +1644,7 @@
 	</span>service_rx: TracingUnboundedReceiver&lt;ToServiceCommand&lt;B&gt;&gt;,
 
 	<span class="doccomment">/// Channel for receiving inbound connections from `Protocol`.
-	</span>rx: sc_utils::mpsc::TracingUnboundedReceiver&lt;sc_network::SyncEvent&lt;B&gt;&gt;,
+	</span>sync_events_rx: sc_utils::mpsc::TracingUnboundedReceiver&lt;sc_network::SyncEvent&lt;B&gt;&gt;,
 
 	<span class="doccomment">/// Assigned roles.
 	</span>roles: Roles,
@@ -1660,7 +1656,7 @@
 	</span>event_streams: Vec&lt;TracingUnboundedSender&lt;SyncEvent&gt;&gt;,
 
 	<span class="doccomment">/// Interval at which we call `tick`.
-	</span>tick_timeout: Delay,
+	</span>tick_timeout: Interval,
 
 	<span class="doccomment">/// All connected peers. Contains both full and light node peers.
 	</span>peers: HashMap&lt;PeerId, Peer&lt;B&gt;&gt;,
@@ -1698,7 +1694,7 @@
 	</span>boot_node_ids: HashSet&lt;PeerId&gt;,
 
 	<span class="doccomment">/// A channel to get target block header if we skip over proofs downloading during warp sync.
-	</span>warp_sync_target_block_header_rx:
+	</span>warp_sync_target_block_header_rx_fused:
 		Fuse&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;&gt;&gt;,
 
 	<span class="doccomment">/// Protocol name used for block announcements
@@ -1757,7 +1753,7 @@
 		block_downloader: Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;B&gt;&gt;,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: <span class="prelude-ty">Option</span>&lt;ProtocolName&gt;,
-		rx: sc_utils::mpsc::TracingUnboundedReceiver&lt;sc_network::SyncEvent&lt;B&gt;&gt;,
+		sync_events_rx: sc_utils::mpsc::TracingUnboundedReceiver&lt;sc_network::SyncEvent&lt;B&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, SyncingService&lt;B&gt;, NonDefaultSetConfig), ClientError&gt; {
 		<span class="kw">let </span>mode = net_config.network_config.sync_mode;
 		<span class="kw">let </span>max_parallel_downloads = net_config.network_config.max_parallel_downloads;
@@ -1830,7 +1826,7 @@
 
 		<span class="comment">// Make sure polling of the target block channel is a no-op if there is no block to
 		// retrieve.
-		</span><span class="kw">let </span>warp_sync_target_block_header_rx = warp_sync_target_block_header_rx
+		</span><span class="kw">let </span>warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
 		<span class="kw">let </span>block_announce_config = <span class="self">Self</span>::get_block_announce_proto_config(
@@ -1872,6 +1868,12 @@
 		<span class="kw">let </span>max_out_peers = net_config.network_config.default_peers_set.out_peers;
 		<span class="kw">let </span>max_in_peers = (max_full_peers - max_out_peers) <span class="kw">as </span>usize;
 
+		<span class="kw">let </span>tick_timeout = {
+			<span class="kw">let </span><span class="kw-2">mut </span>interval = tokio::time::interval(TICK_TIMEOUT);
+			interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+			interval
+		};
+
 		<span class="prelude-val">Ok</span>((
 			<span class="self">Self </span>{
 				roles,
@@ -1887,11 +1889,11 @@
 				num_connected: num_connected.clone(),
 				is_major_syncing: is_major_syncing.clone(),
 				service_rx,
-				rx,
+				sync_events_rx,
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
-				warp_sync_target_block_header_rx,
+				warp_sync_target_block_header_rx_fused,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -1899,7 +1901,7 @@
 				num_in_peers: <span class="number">0usize</span>,
 				max_in_peers,
 				event_streams: Vec::new(),
-				tick_timeout: Delay::new(TICK_TIMEOUT),
+				tick_timeout,
 				syncing_started: <span class="prelude-val">None</span>,
 				last_notification_io: Instant::now(),
 				metrics: <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = metrics_registry {
@@ -2085,230 +2087,222 @@
 		<span class="self">self</span>.syncing_started = <span class="prelude-val">Some</span>(Instant::now());
 
 		<span class="kw">loop </span>{
-			futures::future::poll_fn(|cx| <span class="self">self</span>.poll(cx)).<span class="kw">await</span>;
+			<span class="macro">tokio::select! </span>{
+				<span class="kw">_ </span>= <span class="self">self</span>.tick_timeout.tick() =&gt; <span class="self">self</span>.perform_periodic_actions(),
+				command = <span class="self">self</span>.service_rx.select_next_some() =&gt;
+					<span class="self">self</span>.process_service_command(command),
+				sync_event = <span class="self">self</span>.sync_events_rx.select_next_some() =&gt;
+					<span class="self">self</span>.process_sync_event(sync_event),
+				warp_target_block_header = <span class="kw-2">&amp;mut </span><span class="self">self</span>.warp_sync_target_block_header_rx_fused =&gt;
+					<span class="self">self</span>.pass_warp_sync_target_block_header(warp_target_block_header),
+				response_event = <span class="self">self</span>.pending_responses.select_next_some() =&gt;
+					<span class="self">self</span>.process_response_event(response_event),
+				validation_result = <span class="self">self</span>.block_announce_validator.select_next_some() =&gt;
+					<span class="self">self</span>.process_block_announce_validation_result(validation_result),
+			}
+
+			<span class="comment">// Update atomic variables
+			</span><span class="self">self</span>.num_connected.store(<span class="self">self</span>.peers.len(), Ordering::Relaxed);
+			<span class="self">self</span>.is_major_syncing
+				.store(<span class="self">self</span>.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
+
+			<span class="comment">// Send outbound requests on `ChanSync`&#39;s behalf.
+			</span><span class="self">self</span>.send_chain_sync_requests();
 		}
 	}
 
-	<span class="kw">pub fn </span>poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>std::task::Context) -&gt; Poll&lt;()&gt; {
-		<span class="self">self</span>.num_connected.store(<span class="self">self</span>.peers.len(), Ordering::Relaxed);
-		<span class="self">self</span>.is_major_syncing
-			.store(<span class="self">self</span>.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
+	<span class="kw">fn </span>perform_periodic_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="self">self</span>.report_metrics();
 
-		<span class="kw">while let </span>Poll::Ready(()) = <span class="self">self</span>.tick_timeout.poll_unpin(cx) {
-			<span class="self">self</span>.report_metrics();
-			<span class="self">self</span>.tick_timeout.reset(TICK_TIMEOUT);
+		<span class="comment">// if `SyncingEngine` has just started, don&#39;t evict seemingly inactive peers right away
+		// as they may not have produced blocks not because they&#39;ve disconnected but because
+		// they&#39;re still waiting to receive enough relaychain blocks to start producing blocks.
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(started) = <span class="self">self</span>.syncing_started {
+			<span class="kw">if </span>started.elapsed() &lt; INITIAL_EVICTION_WAIT_PERIOD {
+				<span class="kw">return
+			</span>}
 
-			<span class="comment">// if `SyncingEngine` has just started, don&#39;t evict seemingly inactive peers right away
-			// as they may not have produced blocks not because they&#39;ve disconnected but because
-			// they&#39;re still waiting to receive enough relaychain blocks to start producing blocks.
-			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(started) = <span class="self">self</span>.syncing_started {
-				<span class="kw">if </span>started.elapsed() &lt; INITIAL_EVICTION_WAIT_PERIOD {
-					<span class="kw">continue
-				</span>}
-
-				<span class="self">self</span>.syncing_started = <span class="prelude-val">None</span>;
-				<span class="self">self</span>.last_notification_io = Instant::now();
-			}
-
-			<span class="comment">// if syncing hasn&#39;t sent or received any blocks within `INACTIVITY_EVICT_THRESHOLD`,
-			// it means the local node has stalled and is connected to peers who either don&#39;t
-			// consider it connected or are also all stalled. In order to unstall the node,
-			// disconnect all peers and allow `ProtocolController` to establish new connections.
-			</span><span class="kw">if </span><span class="self">self</span>.last_notification_io.elapsed() &gt; INACTIVITY_EVICT_THRESHOLD {
-				<span class="macro">log::debug!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;syncing has halted due to inactivity, evicting all peers&quot;</span>,
-				);
-
-				<span class="kw">for </span>peer <span class="kw">in </span><span class="self">self</span>.peers.keys() {
-					<span class="self">self</span>.network_service.report_peer(<span class="kw-2">*</span>peer, rep::INACTIVE_SUBSTREAM);
-					<span class="self">self</span>.network_service
-						.disconnect_peer(<span class="kw-2">*</span>peer, <span class="self">self</span>.block_announce_protocol_name.clone());
-				}
-
-				<span class="comment">// after all the peers have been evicted, start timer again to prevent evicting
-				// new peers that join after the old peer have been evicted
-				</span><span class="self">self</span>.last_notification_io = Instant::now();
-			}
+			<span class="self">self</span>.syncing_started = <span class="prelude-val">None</span>;
+			<span class="self">self</span>.last_notification_io = Instant::now();
 		}
 
-		<span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>(event)) = <span class="self">self</span>.service_rx.poll_next_unpin(cx) {
-			<span class="kw">match </span>event {
-				ToServiceCommand::SetSyncForkRequest(peers, hash, number) =&gt; {
-					<span class="self">self</span>.chain_sync.set_sync_fork_request(peers, <span class="kw-2">&amp;</span>hash, number);
-				},
-				ToServiceCommand::EventStream(tx) =&gt; <span class="self">self</span>.event_streams.push(tx),
-				ToServiceCommand::RequestJustification(hash, number) =&gt;
-					<span class="self">self</span>.chain_sync.request_justification(<span class="kw-2">&amp;</span>hash, number),
-				ToServiceCommand::ClearJustificationRequests =&gt;
-					<span class="self">self</span>.chain_sync.clear_justification_requests(),
-				ToServiceCommand::BlocksProcessed(imported, count, results) =&gt; {
-					<span class="kw">for </span>result <span class="kw">in </span><span class="self">self</span>.chain_sync.on_blocks_processed(imported, count, results) {
-						<span class="kw">match </span>result {
-							<span class="prelude-val">Ok</span>(action) =&gt; <span class="kw">match </span>action {
-								BlockRequestAction::SendRequest { peer_id, request } =&gt; {
-									<span class="comment">// drop obsolete pending response first
-									</span><span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
-									<span class="self">self</span>.send_block_request(peer_id, request);
-								},
-								BlockRequestAction::RemoveStale { peer_id } =&gt; {
-									<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
-								},
+		<span class="comment">// if syncing hasn&#39;t sent or received any blocks within `INACTIVITY_EVICT_THRESHOLD`,
+		// it means the local node has stalled and is connected to peers who either don&#39;t
+		// consider it connected or are also all stalled. In order to unstall the node,
+		// disconnect all peers and allow `ProtocolController` to establish new connections.
+		</span><span class="kw">if </span><span class="self">self</span>.last_notification_io.elapsed() &gt; INACTIVITY_EVICT_THRESHOLD {
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;syncing has halted due to inactivity, evicting all peers&quot;</span>,
+			);
+
+			<span class="kw">for </span>peer <span class="kw">in </span><span class="self">self</span>.peers.keys() {
+				<span class="self">self</span>.network_service.report_peer(<span class="kw-2">*</span>peer, rep::INACTIVE_SUBSTREAM);
+				<span class="self">self</span>.network_service
+					.disconnect_peer(<span class="kw-2">*</span>peer, <span class="self">self</span>.block_announce_protocol_name.clone());
+			}
+
+			<span class="comment">// after all the peers have been evicted, start timer again to prevent evicting
+			// new peers that join after the old peer have been evicted
+			</span><span class="self">self</span>.last_notification_io = Instant::now();
+		}
+	}
+
+	<span class="kw">fn </span>process_service_command(<span class="kw-2">&amp;mut </span><span class="self">self</span>, command: ToServiceCommand&lt;B&gt;) {
+		<span class="kw">match </span>command {
+			ToServiceCommand::SetSyncForkRequest(peers, hash, number) =&gt; {
+				<span class="self">self</span>.chain_sync.set_sync_fork_request(peers, <span class="kw-2">&amp;</span>hash, number);
+			},
+			ToServiceCommand::EventStream(tx) =&gt; <span class="self">self</span>.event_streams.push(tx),
+			ToServiceCommand::RequestJustification(hash, number) =&gt;
+				<span class="self">self</span>.chain_sync.request_justification(<span class="kw-2">&amp;</span>hash, number),
+			ToServiceCommand::ClearJustificationRequests =&gt;
+				<span class="self">self</span>.chain_sync.clear_justification_requests(),
+			ToServiceCommand::BlocksProcessed(imported, count, results) =&gt; {
+				<span class="kw">for </span>result <span class="kw">in </span><span class="self">self</span>.chain_sync.on_blocks_processed(imported, count, results) {
+					<span class="kw">match </span>result {
+						<span class="prelude-val">Ok</span>(action) =&gt; <span class="kw">match </span>action {
+							BlockRequestAction::SendRequest { peer_id, request } =&gt; {
+								<span class="comment">// drop obsolete pending response first
+								</span><span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+								<span class="self">self</span>.send_block_request(peer_id, request);
 							},
-							<span class="prelude-val">Err</span>(BadPeer(peer_id, repu)) =&gt; {
+							BlockRequestAction::RemoveStale { peer_id } =&gt; {
 								<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
-								<span class="self">self</span>.network_service.disconnect_peer(
-									peer_id,
-									<span class="self">self</span>.block_announce_protocol_name.clone(),
-								);
-								<span class="self">self</span>.network_service.report_peer(peer_id, repu)
 							},
-						}
+						},
+						<span class="prelude-val">Err</span>(BadPeer(peer_id, repu)) =&gt; {
+							<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+							<span class="self">self</span>.network_service.disconnect_peer(
+								peer_id,
+								<span class="self">self</span>.block_announce_protocol_name.clone(),
+							);
+							<span class="self">self</span>.network_service.report_peer(peer_id, repu)
+						},
 					}
-				},
-				ToServiceCommand::JustificationImported(peer_id, hash, number, success) =&gt; {
-					<span class="self">self</span>.chain_sync.on_justification_import(hash, number, success);
-					<span class="kw">if </span>!success {
-						<span class="macro">log::info!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;💔 Invalid justification provided by {peer_id} for #{hash}&quot;</span>,
-						);
-						<span class="self">self</span>.network_service
-							.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
-						<span class="self">self</span>.network_service.report_peer(
-							peer_id,
-							ReputationChange::new_fatal(<span class="string">&quot;Invalid justification&quot;</span>),
-						);
-					}
-				},
-				ToServiceCommand::AnnounceBlock(hash, data) =&gt; <span class="self">self</span>.announce_block(hash, data),
-				ToServiceCommand::NewBestBlockImported(hash, number) =&gt;
-					<span class="self">self</span>.new_best_block_imported(hash, number),
-				ToServiceCommand::Status(tx) =&gt; {
-					<span class="kw">let </span><span class="kw-2">mut </span>status = <span class="self">self</span>.chain_sync.status();
-					status.num_connected_peers = <span class="self">self</span>.peers.len() <span class="kw">as </span>u32;
-					<span class="kw">let _ </span>= tx.send(status);
-				},
-				ToServiceCommand::NumActivePeers(tx) =&gt; {
-					<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.num_active_peers());
-				},
-				ToServiceCommand::SyncState(tx) =&gt; {
-					<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status());
-				},
-				ToServiceCommand::BestSeenBlock(tx) =&gt; {
-					<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status().best_seen_block);
-				},
-				ToServiceCommand::NumSyncPeers(tx) =&gt; {
-					<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status().num_peers);
-				},
-				ToServiceCommand::NumQueuedBlocks(tx) =&gt; {
-					<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status().queued_blocks);
-				},
-				ToServiceCommand::NumDownloadedBlocks(tx) =&gt; {
-					<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.num_downloaded_blocks());
-				},
-				ToServiceCommand::NumSyncRequests(tx) =&gt; {
-					<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.num_sync_requests());
-				},
-				ToServiceCommand::PeersInfo(tx) =&gt; {
-					<span class="kw">let </span>peers_info = <span class="self">self
-						</span>.peers
-						.iter()
-						.map(|(peer_id, peer)| (<span class="kw-2">*</span>peer_id, peer.info.clone()))
-						.collect();
-					<span class="kw">let _ </span>= tx.send(peers_info);
-				},
-				ToServiceCommand::OnBlockFinalized(hash, header) =&gt;
-					<span class="self">self</span>.chain_sync.on_block_finalized(<span class="kw-2">&amp;</span>hash, <span class="kw-2">*</span>header.number()),
-			}
+				}
+			},
+			ToServiceCommand::JustificationImported(peer_id, hash, number, success) =&gt; {
+				<span class="self">self</span>.chain_sync.on_justification_import(hash, number, success);
+				<span class="kw">if </span>!success {
+					<span class="macro">log::info!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;💔 Invalid justification provided by {peer_id} for #{hash}&quot;</span>,
+					);
+					<span class="self">self</span>.network_service
+						.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
+					<span class="self">self</span>.network_service
+						.report_peer(peer_id, ReputationChange::new_fatal(<span class="string">&quot;Invalid justification&quot;</span>));
+				}
+			},
+			ToServiceCommand::AnnounceBlock(hash, data) =&gt; <span class="self">self</span>.announce_block(hash, data),
+			ToServiceCommand::NewBestBlockImported(hash, number) =&gt;
+				<span class="self">self</span>.new_best_block_imported(hash, number),
+			ToServiceCommand::Status(tx) =&gt; {
+				<span class="kw">let </span><span class="kw-2">mut </span>status = <span class="self">self</span>.chain_sync.status();
+				status.num_connected_peers = <span class="self">self</span>.peers.len() <span class="kw">as </span>u32;
+				<span class="kw">let _ </span>= tx.send(status);
+			},
+			ToServiceCommand::NumActivePeers(tx) =&gt; {
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.num_active_peers());
+			},
+			ToServiceCommand::SyncState(tx) =&gt; {
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status());
+			},
+			ToServiceCommand::BestSeenBlock(tx) =&gt; {
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status().best_seen_block);
+			},
+			ToServiceCommand::NumSyncPeers(tx) =&gt; {
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status().num_peers);
+			},
+			ToServiceCommand::NumQueuedBlocks(tx) =&gt; {
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.status().queued_blocks);
+			},
+			ToServiceCommand::NumDownloadedBlocks(tx) =&gt; {
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.num_downloaded_blocks());
+			},
+			ToServiceCommand::NumSyncRequests(tx) =&gt; {
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.chain_sync.num_sync_requests());
+			},
+			ToServiceCommand::PeersInfo(tx) =&gt; {
+				<span class="kw">let </span>peers_info = <span class="self">self
+					</span>.peers
+					.iter()
+					.map(|(peer_id, peer)| (<span class="kw-2">*</span>peer_id, peer.info.clone()))
+					.collect();
+				<span class="kw">let _ </span>= tx.send(peers_info);
+			},
+			ToServiceCommand::OnBlockFinalized(hash, header) =&gt;
+				<span class="self">self</span>.chain_sync.on_block_finalized(<span class="kw-2">&amp;</span>hash, <span class="kw-2">*</span>header.number()),
 		}
+	}
 
-		<span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>(event)) = <span class="self">self</span>.rx.poll_next_unpin(cx) {
-			<span class="kw">match </span>event {
-				sc_network::SyncEvent::NotificationStreamOpened {
-					remote,
-					received_handshake,
-					sink,
-					inbound,
-					tx,
-				} =&gt; <span class="kw">match </span><span class="self">self</span>.on_sync_peer_connected(remote, <span class="kw-2">&amp;</span>received_handshake, sink, inbound) {
-					<span class="prelude-val">Ok</span>(()) =&gt; {
-						<span class="kw">let _ </span>= tx.send(<span class="bool-val">true</span>);
-					},
-					<span class="prelude-val">Err</span>(()) =&gt; {
-						<span class="macro">log::debug!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;Failed to register peer {remote:?}: {received_handshake:?}&quot;</span>,
-						);
-						<span class="kw">let _ </span>= tx.send(<span class="bool-val">false</span>);
-					},
+	<span class="kw">fn </span>process_sync_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: sc_network::SyncEvent&lt;B&gt;) {
+		<span class="kw">match </span>event {
+			sc_network::SyncEvent::NotificationStreamOpened {
+				remote,
+				received_handshake,
+				sink,
+				inbound,
+				tx,
+			} =&gt; <span class="kw">match </span><span class="self">self</span>.on_sync_peer_connected(remote, <span class="kw-2">&amp;</span>received_handshake, sink, inbound) {
+				<span class="prelude-val">Ok</span>(()) =&gt; {
+					<span class="kw">let _ </span>= tx.send(<span class="bool-val">true</span>);
 				},
-				sc_network::SyncEvent::NotificationStreamClosed { remote } =&gt; {
-					<span class="kw">if </span><span class="self">self</span>.on_sync_peer_disconnected(remote).is_err() {
+				<span class="prelude-val">Err</span>(()) =&gt; {
+					<span class="macro">log::debug!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;Failed to register peer {remote:?}: {received_handshake:?}&quot;</span>,
+					);
+					<span class="kw">let _ </span>= tx.send(<span class="bool-val">false</span>);
+				},
+			},
+			sc_network::SyncEvent::NotificationStreamClosed { remote } =&gt; {
+				<span class="kw">if </span><span class="self">self</span>.on_sync_peer_disconnected(remote).is_err() {
+					<span class="macro">log::trace!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;Disconnected peer which had earlier been refused by on_sync_peer_connected {}&quot;</span>,
+						remote
+					);
+				}
+			},
+			sc_network::SyncEvent::NotificationsReceived { remote, messages } =&gt; {
+				<span class="kw">for </span>message <span class="kw">in </span>messages {
+					<span class="kw">if </span><span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>remote) {
+						<span class="kw">if let </span><span class="prelude-val">Ok</span>(announce) = BlockAnnounce::decode(<span class="kw-2">&amp;mut </span>message.as_ref()) {
+							<span class="self">self</span>.last_notification_io = Instant::now();
+							<span class="self">self</span>.push_block_announce_validation(remote, announce);
+						} <span class="kw">else </span>{
+							<span class="macro">log::warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Failed to decode block announce&quot;</span>);
+						}
+					} <span class="kw">else </span>{
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Disconnected peer which had earlier been refused by on_sync_peer_connected {}&quot;</span>,
-							remote
+							<span class="string">&quot;Received sync for peer earlier refused by sync layer: {remote}&quot;</span>,
 						);
 					}
-				},
-				sc_network::SyncEvent::NotificationsReceived { remote, messages } =&gt; {
-					<span class="kw">for </span>message <span class="kw">in </span>messages {
-						<span class="kw">if </span><span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>remote) {
-							<span class="kw">if let </span><span class="prelude-val">Ok</span>(announce) = BlockAnnounce::decode(<span class="kw-2">&amp;mut </span>message.as_ref()) {
-								<span class="self">self</span>.last_notification_io = Instant::now();
-								<span class="self">self</span>.push_block_announce_validation(remote, announce);
-							} <span class="kw">else </span>{
-								<span class="macro">log::warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Failed to decode block announce&quot;</span>);
-							}
-						} <span class="kw">else </span>{
-							<span class="macro">log::trace!</span>(
-								target: LOG_TARGET,
-								<span class="string">&quot;Received sync for peer earlier refused by sync layer: {remote}&quot;</span>,
-							);
-						}
-					}
-				},
-				sc_network::SyncEvent::NotificationSinkReplaced { remote, sink } =&gt; {
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>remote) {
-						peer.sink = sink;
-					}
-				},
-			}
-		}
-
-		<span class="comment">// Retreive warp sync target block header just before polling `ChainSync`
-		// to make progress as soon as we receive it.
-		</span><span class="kw">match </span><span class="self">self</span>.warp_sync_target_block_header_rx.poll_unpin(cx) {
-			Poll::Ready(<span class="prelude-val">Ok</span>(target)) =&gt; {
-				<span class="self">self</span>.chain_sync.set_warp_sync_target_block(target);
+				}
 			},
-			Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; {
+			sc_network::SyncEvent::NotificationSinkReplaced { remote, sink } =&gt; {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>remote) {
+					peer.sink = sink;
+				}
+			},
+		}
+	}
+
+	<span class="kw">fn </span>pass_warp_sync_target_block_header(<span class="kw-2">&amp;mut </span><span class="self">self</span>, header: <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;) {
+		<span class="kw">match </span>header {
+			<span class="prelude-val">Ok</span>(header) =&gt; {
+				<span class="self">self</span>.chain_sync.set_warp_sync_target_block(header);
+			},
+			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;Failed to get target block for warp sync. Error: {err:?}&quot;</span>,
 				);
 			},
-			Poll::Pending =&gt; {},
 		}
-
-		<span class="comment">// Send outbound requests on `ChanSync`&#39;s behalf.
-		</span><span class="self">self</span>.send_chain_sync_requests();
-
-		<span class="comment">// Poll &amp; process pending responses.
-		</span><span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>(event)) = <span class="self">self</span>.pending_responses.poll_next_unpin(cx) {
-			<span class="self">self</span>.process_response_event(event);
-		}
-
-		<span class="comment">// Poll block announce validations last, because if a block announcement was received
-		// through the event stream between `SyncingEngine` and `Protocol` and the validation
-		// finished right after it is queued, the resulting block request (if any) can be sent
-		// right away.
-		</span><span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>(result)) = <span class="self">self</span>.block_announce_validator.poll_next_unpin(cx) {
-			<span class="self">self</span>.process_block_announce_validation_result(result);
-		}
-
-		Poll::Pending
 	}
 
 	<span class="doccomment">/// Called by peer when it is disconnecting.
