@@ -44,6 +44,15 @@ pub enum Response {
 	TimedOut,
 	/// An unexpected panic has occurred in the execution worker.
 	Panic(String),
+	/// The job process has died. We must kill the worker just in case.
+	///
+	/// We cannot treat this as an internal error because malicious code may have caused this.
+	JobDied,
+	/// The execute job returned an unexpected status.
+	///
+	/// We cannot treat this as an internal error because malicious code may have caused this.
+	UnexpectedJobStatus(String),
+
 	/// Some internal error occurred.
 	InternalError(InternalValidationError),
 }

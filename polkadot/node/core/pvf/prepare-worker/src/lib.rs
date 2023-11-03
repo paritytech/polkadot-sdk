@@ -167,7 +167,7 @@ pub fn worker_entrypoint(
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
 					Err(errno) => {
-						let result = Err(err_from_errno("getrusage before", errno));
+						let result = Err(error_from_errno("getrusage before", errno));
 						send_response(&mut stream, result)?;
 						continue
 					},
@@ -175,7 +175,7 @@ pub fn worker_entrypoint(
 
 				// SAFETY: new process is spawned within a single threaded process
 				let result = match unsafe { nix::unistd::fork() } {
-					Err(errno) => Err(err_from_errno("fork", errno)),
+					Err(errno) => Err(error_from_errno("fork", errno)),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
@@ -191,7 +191,6 @@ pub fn worker_entrypoint(
 							executor_params,
 						)
 					},
-					// parent
 					Ok(ForkResult::Parent { child }) => {
 						// the read end will wait until all write ends have been closed,
 						// this drop is necessary to avoid deadlock
@@ -207,6 +206,13 @@ pub fn worker_entrypoint(
 						)
 					},
 				};
+
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending result to host: {:?}",
+					result
+				);
 				send_response(&mut stream, result)?;
 			}
 		},
@@ -273,7 +279,7 @@ fn handle_child_process(
 ) -> ! {
 	gum::debug!(
 		target: LOG_TARGET,
-		worker_job_pid = %std::process::id(),
+		worker_job_pid = %process::id(),
 		"worker job: preparing artifact",
 	);
 
@@ -283,8 +289,8 @@ fn handle_child_process(
 		preparation_timeout.as_secs(),
 		preparation_timeout.as_secs(),
 	)
-	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
+	.unwrap_or_else(|errno| {
+		send_child_response(&pipe_write, Err(error_from_errno("setrlimit", errno)))
 	});
 
 	// Conditional variable to notify us when a thread is done.
@@ -323,7 +329,7 @@ fn handle_child_process(
 		WaitOutcome::Finished,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
+		send_child_response(&pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	// There's only one thread that can trigger the condvar, so ignore the condvar outcome and
@@ -367,6 +373,8 @@ fn handle_child_process(
 ///
 /// - `pipe_read`: A `PipeReader` used to read data from the child process.
 ///
+/// - `child`: The child pid.
+///
 /// - `temp_artifact_dest`: The destination `PathBuf` to write the temporary artifact file.
 ///
 /// - `worker_pid`: The PID of the child process.
@@ -391,16 +399,16 @@ fn handle_parent_process(
 	usage_before: Usage,
 	timeout: Duration,
 ) -> Result<PrepareStats, PrepareError> {
-	let mut received_data = Vec::new();
-
 	// Read from the child.
+	let mut received_data = Vec::new();
 	pipe_read
 		.read_to_end(&mut received_data)
 		// Swallow the error, it's not really helpful as to why the child died.
 		.map_err(|_errno| PrepareError::JobDied)?;
+
 	let status = nix::sys::wait::waitpid(child, None);
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
-		.map_err(|errno| err_from_errno("getrusage after", errno))?;
+		.map_err(|errno| error_from_errno("getrusage after", errno))?;
 
 	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
 	// As `getrusage` returns resource usage from all terminated child processes,
@@ -412,7 +420,7 @@ fn handle_parent_process(
 		return Err(PrepareError::TimedOut)
 	}
 
-	return match status {
+	match status {
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
@@ -446,7 +454,8 @@ fn handle_parent_process(
 				},
 			}
 		},
-		Err(errno) => Err(err_from_errno("waitpid", errno)),
+		Err(errno) => Err(error_from_errno("waitpid", errno)),
+
 		// An attacker can make the child process return any exit status it wants. So we can treat
 		// all unexpected cases the same way.
 		Ok(unexpected_wait_status) => Err(PrepareError::IoErr(format!(
@@ -488,6 +497,6 @@ fn send_child_response(mut pipe_write: &PipeWriter, response: Result<Response, P
 	process::exit(libc::EXIT_SUCCESS)
 }
 
-fn err_from_errno(context: &'static str, errno: Errno) -> PrepareError {
+fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
 	PrepareError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error()))
 }

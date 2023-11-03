@@ -346,6 +346,7 @@ fn handle_job_finish(
 			None,
 		),
 		Outcome::InternalError { err } => (None, Err(ValidationError::InternalError(err)), None),
+		// Treated as definitely-invalid, because if we timed out, there's no time left for a retry.
 		Outcome::HardTimeout =>
 			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
@@ -356,6 +357,16 @@ fn handle_job_finish(
 		),
 		Outcome::Panic { err } =>
 			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::Panic(err))), None),
+		Outcome::JobDied => (
+			None,
+			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath)),
+			None,
+		),
+		Outcome::UnexpectedJobStatus { err } => (
+			None,
+			Err(ValidationError::InvalidCandidate(InvalidCandidate::UnexpectedJobStatus(err))),
+			None,
+		),
 	};
 
 	queue.metrics.execute_finished();
