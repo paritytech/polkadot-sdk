@@ -664,6 +664,7 @@ macro_rules! decl_test_parachains {
 							.clone()
 						);
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
+						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
 						<$name as Chain>::Hooks::on_initialize_hook(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
