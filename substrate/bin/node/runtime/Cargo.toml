@@ -66,6 +66,7 @@ pallet-assets = { path = "../../../frame/assets", default-features = false}
 pallet-authority-discovery = { path = "../../../frame/authority-discovery", default-features = false}
 pallet-authorship = { path = "../../../frame/authorship", default-features = false}
 pallet-babe = { path = "../../../frame/babe", default-features = false}
+pallet-sassafras = { path = "../../../frame/sassafras", default-features = false, features = ["construct-dummy-ring-context"]}
 pallet-bags-list = { path = "../../../frame/bags-list", default-features = false}
 pallet-balances = { path = "../../../frame/balances", default-features = false}
 pallet-bounties = { path = "../../../frame/bounties", default-features = false}
@@ -163,6 +164,7 @@ std = [
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
+	"pallet-sassafras/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"pallet-bounties/std",
@@ -264,6 +266,7 @@ runtime-benchmarks = [
 	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
+	"pallet-sassafras/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
@@ -338,6 +341,7 @@ try-runtime = [
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
+	"pallet-sassafras/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-bounties/try-runtime",

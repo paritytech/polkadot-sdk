@@ -492,6 +492,14 @@ impl pallet_babe::Config for Runtime {
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
 
+impl pallet_sassafras::Config for Runtime {
+	type SlotDuration = SlotDuration;
+	type EpochDuration = EpochDuration;
+	type MaxAuthorities = MaxAuthorities;
+	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
+	type WeightInfo = pallet_sassafras::weights::SubstrateWeight<Runtime>;
+}
+
 parameter_types! {
 	pub const IndexDeposit: Balance = 1 * DOLLARS;
 }

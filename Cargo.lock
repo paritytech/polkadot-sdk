@@ -7112,6 +7112,7 @@ dependencies = [
  "pallet-root-testing",
  "pallet-safe-mode",
  "pallet-salary",
+ "pallet-sassafras",
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
