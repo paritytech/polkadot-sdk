@@ -543,7 +543,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			thresholds.into_iter().filter_map(|t| Bag::<T, I>::get(t))
 		};
 
-		// cached list of nodes in a map of bags to avoid multiple lookups
+		// cached list of node ids mapped to its corresponding bag to avoid multiple lookups
 		let mut cached_node_bags = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
 
 		let _ = active_bags.clone().try_for_each(|b| {
@@ -903,15 +903,15 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 	fn do_try_state(
 		&self,
-		cached_node_bags: &BTreeMap<<T as Config<I>>::Score, Vec<T::AccountId>>,
+		cached_bags: &BTreeMap<<T as Config<I>>::Score, Vec<T::AccountId>>,
 	) -> Result<(), TryRuntimeError> {
 		let expected_bag = Bag::<T, I>::get(self.bag_upper).ok_or("bag not found for node")?;
-		let cached_bag_nodes =
-			cached_node_bags.get(&self.bag_upper).ok_or("bag not found in the cache")?;
+		let expected_bag_nodes =
+			cached_bags.get(&self.bag_upper).ok_or("bag not found in the cache")?;
 
 		let id = self.id();
 
-		frame_support::ensure!(cached_bag_nodes.contains(id), "node does not exist in the bag");
+		frame_support::ensure!(expected_bag_nodes.contains(id), "node does not exist in the bag");
 
 		let non_terminal_check = !self.is_terminal() &&
 			expected_bag.head.as_ref() != Some(id) &&
