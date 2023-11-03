@@ -125,13 +125,13 @@ pub trait OnReapIdentity<AccountId> {
 	///
 	/// Inputs
 	/// - `who`: Whose identity was reaped.
-	/// - `fields`: The number of `additional_fields` they had.
+	/// - `bytes`: The byte size of `IdentityInfo`.
 	/// - `subs`: The number of sub-accounts they had.
-	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult;
+	fn on_reap_identity(who: &AccountId, bytes: u32, subs: u32) -> DispatchResult;
 }
 
 impl<AccountId> OnReapIdentity<AccountId> for () {
-	fn on_reap_identity(_who: &AccountId, _fields: u32, _subs: u32) -> DispatchResult {
+	fn on_reap_identity(_who: &AccountId, _bytes: u32, _subs: u32) -> DispatchResult {
 		Ok(())
 	}
 }

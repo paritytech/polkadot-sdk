@@ -48,22 +48,22 @@ impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
 	/// this chain. The total includes:
 	///
 	/// - Identity basic deposit
-	/// - Extra fields deposit
+	/// - `IdentityInfo` byte deposit
 	/// - Sub accounts deposit
 	/// - 2x existential deposit (1 for account existence, 1 such that the user can transact)
 	///
 	/// This implementation is speculative and subject to change based on the remote chain's
 	/// configuration.
-	fn calculate_remote_deposit(fields: u32, subs: u32) -> Balance {
+	fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
 		// remote deposit constants
 		let para_basic_deposit = 1000 * CENTS / 100;
-		let para_field_deposit = 250 * CENTS / 100;
+		let para_byte_deposit = MILLICENTS;
 		let para_sub_account_deposit = 200 * CENTS / 100;
 		let para_existential_deposit = EXISTENTIAL_DEPOSIT / 10;
 
 		// pallet deposits
 		let id_deposit =
-			para_basic_deposit.saturating_add(para_field_deposit.saturating_mul(fields as Balance));
+			para_basic_deposit.saturating_add(para_byte_deposit.saturating_mul(bytes as Balance));
 		let subs_deposit = para_sub_account_deposit.saturating_mul(subs as Balance);
 
 		id_deposit
