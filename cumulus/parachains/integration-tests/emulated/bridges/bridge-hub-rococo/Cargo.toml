@@ -7,32 +7,41 @@ license = "Apache-2.0"
 description = "Bridge Hub Rococo runtime integration tests with xcm-emulator"
 publish = false
 
+[lib]
+doctest = false
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+hex = "0.4.3"
+hex-literal = "0.4.1"
 
 # Substrate
-frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
+frame-support = { path = "../../../../../../substrate/frame/support", default-features = false }
+pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false}
+polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false }
+polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false }
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
-xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
-pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-xcm-executor = { package = "staging-xcm-executor",  path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false }
+pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Cumulus
 asset-test-utils = { path = "../../../../../parachains/runtimes/assets/test-utils", default-features = false }
 parachains-common = { path = "../../../../common" }
-cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
-cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false}
-pallet-bridge-messages = { path = "../../../../../../bridges/modules/messages", default-features = false}
-bp-messages = { path = "../../../../../../bridges/primitives/messages", default-features = false}
+cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false }
+cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false }
+pallet-bridge-messages = { path = "../../../../../../bridges/modules/messages", default-features = false }
+bp-messages = { path = "../../../../../../bridges/primitives/messages", default-features = false }
 bridge-hub-rococo-runtime = { path = "../../../../../parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
 
 # Local
-xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
-integration-tests-common = { path = "../../common", default-features = false}
+xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false }
+integration-tests-common = { path = "../../common", default-features = false }
 
 # Snowbridge
-snowbridge-control = { path = "../../../../../../../parachain/pallets/control" }
+snowbridge-core = { path = "../../../../../../../parachain/primitives/core", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../../parachain/primitives/router", default-features = false }
+snowbridge-control = { path = "../../../../../../../parachain/pallets/control", default-features = false }
+snowbridge-inbound-queue = { path = "../../../../../../../parachain/pallets/inbound-queue", default-features = false }
