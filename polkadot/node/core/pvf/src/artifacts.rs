@@ -419,7 +419,7 @@ mod tests {
 	use std::{
 		fs,
 		path::{Path, PathBuf},
-		str::FromStr,
+		str::FromStr, io::Write,
 	};
 
 	fn rand_hash(len: usize) -> String {
@@ -435,28 +435,32 @@ mod tests {
 		)
 	}
 
-	fn fake_artifact_path(
-		dir: impl AsRef<Path>,
-		prefix: &str,
-		code_hash: impl AsRef<str>,
-		params_hash: impl AsRef<str>,
-	) -> PathBuf {
-		let mut path = dir.as_ref().to_path_buf();
-		let file_name = format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref(),);
-		path.push(file_name);
-		path
-	}
-
 	fn create_artifact(
 		dir: impl AsRef<Path>,
 		prefix: &str,
 		code_hash: impl AsRef<str>,
 		params_hash: impl AsRef<str>,
 	) -> (PathBuf, String) {
-		let path = fake_artifact_path(dir, prefix, code_hash, params_hash);
-		fs::File::create(&path).unwrap();
-		let bytes = fs::read(&path).unwrap();
-		let checksum = blake3::hash(bytes.as_ref()).to_hex().to_string();
+		fn artifact_path_without_checksum(
+			dir: impl AsRef<Path>,
+			prefix: &str,
+			code_hash: impl AsRef<str>,
+			params_hash: impl AsRef<str>,
+		) -> PathBuf {
+			let mut path = dir.as_ref().to_path_buf();
+			let file_name = format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref(),);
+			path.push(file_name);
+			path
+		}
+
+		let (code_hash, params_hash) = (code_hash.as_ref(), params_hash.as_ref());
+		let path = artifact_path_without_checksum(dir, prefix, code_hash, params_hash);
+		let mut file = fs::File::create(&path).unwrap();
+
+		let content = format!("{}{}", code_hash, params_hash).into_bytes();
+		file.write_all(&content).unwrap();
+		let checksum = blake3::hash(&content).to_hex().to_string();
+
 		(path, checksum)
 	}
 
@@ -529,15 +533,18 @@ mod tests {
 		create_rand_artifact(&cache_dir, "");
 		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v");
 		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v1.0.0");
+
 		// no checksum
 		create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
+
 		// invalid hashes
 		let (path, checksum) = create_artifact(&cache_dir, ARTIFACT_PREFIX, "000", "000001");
 		let new_path = concluded_path(&path, &checksum);
 		fs::rename(&path, &new_path).unwrap();
-		// invalid checksum
+
+		// checksum reversed
 		let (path, checksum) = create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
-		let new_path = concluded_path(&path, &checksum[1..]);
+		let new_path = concluded_path(&path, checksum.chars().rev().collect::<String>().as_str());
 		fs::rename(&path, &new_path).unwrap();
 
 		// 1 valid
