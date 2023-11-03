@@ -12421,15 +12421,20 @@ name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
  "cfg-if",
+ "criterion 0.4.0",
  "libc",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",
  "rayon",
+ "rococo-runtime",
  "sc-executor-common",
  "sc-executor-wasmtime",
+ "sp-maybe-compressed-blob",
  "tikv-jemalloc-ctl",
+ "tikv-jemallocator",
  "tracing-gum",
+ "tracking-allocator",
 ]
 
 [[package]]
@@ -19441,6 +19446,10 @@ dependencies = [
  "tracing-log",
  "tracing-serde",
 ]
+
+[[package]]
+name = "tracking-allocator"
+version = "1.0.0"
 
 [[package]]
 name = "trie-bench"
