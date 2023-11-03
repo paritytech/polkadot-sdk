@@ -24,7 +24,7 @@ docify = "0.2.6"
 
 # Polkadot SDK docs, typically all should only be scope such that we can link to their doc item.
 
-package = { package = "staging-node-cli", path = "../substrate/bin/node/cli" }
+node-cli = { package = "staging-node-cli", path = "../substrate/bin/node/cli" }
 kitchensink-runtime = { path = "../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../substrate/bin/utils/chain-spec-builder" }
 subkey = { path = "../substrate/bin/utils/subkey" }
