@@ -410,10 +410,21 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	/// This is just the same as burning and issuing the same amount and has no effect on the
 	/// total issuance.
 	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		// Create credit and debt in-line to avoid overflow or underflow which could occur when
-		// calling `issue` and `rescind` directly.
-		let credit = Imbalance::<Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(amount);
-		let debt = Imbalance::<Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(amount);
+		// Don't create a pair which when used could result in overflow or underflow.
+		// This is to keep the api more in line with [`Self::issue`] and [`Self::rescind`].
+
+		// Find the effective delta of decrementing total issuance by amount.
+		let dec_delta = Self::total_issuance().min(amount);
+
+		// Find the effective delta of incrementing total issuance by amount.
+		let inc_delta = Self::total_issuance().saturating_add(amount).saturating_sub(Self::total_issuance());
+
+		// Use the smaller of the two deltas to create the pair.
+		// Usually, this will just the same as `amount`.
+		let adjusted_amount = dec_delta.min(inc_delta);
+
+		let credit = Imbalance::<Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(adjusted_amount);
+		let debt = Imbalance::<Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(adjusted_amount);
 		(debt, credit)
 	}
 
