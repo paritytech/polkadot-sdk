@@ -97,7 +97,7 @@ use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
 use crate::xcm_config::{
-	bridging::to_rococo::EthereumLocation, ForeignCreatorsSovereignAccountOf,
+	bridging::to_wococo::EthereumLocation, ForeignCreatorsSovereignAccountOf,
 	LocalAndForeignAssetsMultiLocationMatcher, TrustBackedAssetsPalletLocation,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
