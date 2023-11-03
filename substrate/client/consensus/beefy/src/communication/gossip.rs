@@ -506,7 +506,7 @@ pub(crate) mod tests {
 	pub fn sign_commitment<BN: Encode>(who: &Keyring, commitment: &Commitment<BN>) -> Signature {
 		let store = MemoryKeystore::new();
 		store.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
-		let beefy_keystore: BeefyKeystore = Some(store.into()).into();
+		let beefy_keystore: BeefyKeystore<AuthorityId> = Some(store.into()).into();
 		beefy_keystore.sign(&who.public(), &commitment.encode()).unwrap()
 	}
 

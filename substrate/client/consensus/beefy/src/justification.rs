@@ -76,7 +76,7 @@ pub(crate) fn verify_with_validator_set<Block: BlockT>(
 						.as_ref()
 						.map(|sig| {
 							signatures_checked += 1;
-							BeefyKeystore::verify(id, sig, &message[..])
+							BeefyKeystore::verify(*id, sig, &message[..])
 						})
 						.unwrap_or(false)
 				})

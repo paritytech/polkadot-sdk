@@ -330,7 +330,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub payload_provider: P,
 	pub runtime: Arc<RuntimeApi>,
 	pub sync: Arc<S>,
-	pub key_store: BeefyKeystore,
+	pub key_store: BeefyKeystore<AuthorityId>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
 	pub comms: BeefyComms<B>,

@@ -391,6 +391,19 @@ impl Keystore for LocalKeystore {
 			self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
 		}
 
+			fn ecdsa_bls377_sign_with_keccak256(
+			&self,
+			key_type: KeyTypeId,
+			public: &ecdsa_bls377::Public,
+			msg: &[u8],
+		) -> Result<Option<ecdsa_bls377::Signature>, Error> {
+			let sig = self
+			.pair::<ecdsa_bls377::Pair>(key_type, public)
+			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
+			Ok(sig)
+		}
+
+
 	}
 }
 

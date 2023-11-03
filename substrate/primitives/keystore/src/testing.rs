@@ -22,10 +22,10 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, bls381, ecdsa_bls377};
+use sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
-	ecdsa, ed25519, sr25519, KeccakHasher,
+	ecdsa, ed25519, sr25519,
 };
 
 use parking_lot::RwLock;
@@ -502,6 +502,38 @@ mod tests {
 
 		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &msg).unwrap();
 		assert!(res.is_some());
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_sign_with_keccak_works() {
+		use sp_core::testing::ECDSA_BLS377;
+
+		let store = MemoryKeystore::new();
+
+		let suri = "//Alice";
+		let pair = ecdsa_bls377::Pair::from_string(suri, None).unwrap();
+
+		let msg = b"this should be a normal unhashed message not ";
+
+		// insert key, sign again
+		store.insert(ECDSA_BLS377, suri, pair.public().as_ref()).unwrap();
+
+		let res = store
+			.ecdsa_bls377_sign_with_keccak256(ECDSA_BLS377, &pair.public(), &msg[..])
+			.unwrap();
+
+		assert!(res.is_some());
+
+		// does not verify with default out-of-the-box verification
+		assert!(!ecdsa_bls377::Pair::verify(&res.clone().unwrap(), &msg[..], &pair.public()));
+
+		// should verify using keccak256 as hasher
+		assert!(ecdsa_bls377::Pair::verify_with_hasher::<KeccakHasher>(
+			&res.unwrap(),
+			msg,
+			&pair.public()
+		));
 	}
 
 	#[test]
