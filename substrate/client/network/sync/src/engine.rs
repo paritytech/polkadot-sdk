@@ -915,7 +915,7 @@ where
 	/// Called by peer when it is disconnecting.
 	///
 	/// Returns a result if the handshake of this peer was indeed accepted.
-	pub fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) -> Result<(), ()> {
+	fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) -> Result<(), ()> {
 		if let Some(info) = self.peers.remove(&peer_id) {
 			if self.important_peers.contains(&peer_id) {
 				log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -959,7 +959,7 @@ where
 	///
 	/// Returns `Ok` if the handshake is accepted and the peer added to the list of peers we sync
 	/// from.
-	pub fn on_sync_peer_connected(
+	fn on_sync_peer_connected(
 		&mut self,
 		peer_id: PeerId,
 		status: &BlockAnnouncesHandshake<B>,
