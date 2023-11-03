@@ -131,10 +131,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSubAccounts: Get<u32>;
 
-		/// The maximum encoded size of an identity information.
-		#[pallet::constant]
-		type MaxIdentitySize: Get<u32>;
-
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
 
@@ -239,8 +235,6 @@ pub mod pallet {
 		InvalidIndex,
 		/// The target is invalid.
 		InvalidTarget,
-		/// Identity encoded size is too large.
-		IdentitySize,
 		/// Maximum amount of registrars reached. Cannot add any more.
 		TooManyRegistrars,
 		/// Account ID is already named.
@@ -279,16 +273,6 @@ pub mod pallet {
 		/// A sub-identity was cleared, and the given deposit repatriated from the
 		/// main identity account to the sub-identity account.
 		SubIdentityRevoked { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			assert!(
-				T::IdentityInformation::max_encoded_len() <= T::MaxIdentitySize::get() as usize,
-				"max encoded size of the identity information is too large"
-			);
-		}
 	}
 
 	#[pallet::call]
@@ -346,7 +330,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 			let encoded_byte_size = info.encoded_size() as u32;
-			ensure!(encoded_byte_size <= T::MaxIdentitySize::get(), Error::<T>::IdentitySize);
 			let byte_deposit =
 				T::ByteDeposit::get().saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
 
