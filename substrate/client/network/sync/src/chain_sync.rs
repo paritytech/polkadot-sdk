@@ -210,7 +210,7 @@ pub struct ImportJustificationsAction<B: BlockT> {
 
 /// Result of [`ChainSync::on_block_data`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OnBlockData<Block: BlockT> {
+enum OnBlockData<Block: BlockT> {
 	/// The block should be imported.
 	Import(ImportBlocksAction<Block>),
 	/// A new block request needs to be made to the given peer.
@@ -221,7 +221,7 @@ pub enum OnBlockData<Block: BlockT> {
 
 /// Result of [`ChainSync::on_block_justification`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OnBlockJustification<Block: BlockT> {
+enum OnBlockJustification<Block: BlockT> {
 	/// The justification needs no further handling.
 	Nothing,
 	/// The justification should be imported.
@@ -715,7 +715,7 @@ where
 
 	/// Submit a block response for processing.
 	#[must_use]
-	pub fn on_block_data(
+	fn on_block_data(
 		&mut self,
 		who: &PeerId,
 		request: Option<BlockRequest<B>>,
@@ -981,7 +981,7 @@ where
 
 	/// Submit a justification response for processing.
 	#[must_use]
-	pub fn on_block_justification(
+	fn on_block_justification(
 		&mut self,
 		who: PeerId,
 		response: BlockResponse<B>,
