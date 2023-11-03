@@ -408,7 +408,7 @@ fn handle_parent_process(
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 
-	if cpu_tv.as_secs() >= timeout.as_secs() {
+	if cpu_tv >= timeout {
 		return Err(PrepareError::TimedOut)
 	}
 
@@ -446,12 +446,12 @@ fn handle_parent_process(
 				},
 			}
 		},
-		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) =>
-			Err(PrepareError::Panic("child exited with failure".to_string())),
-		Ok(WaitStatus::Exited(_, exit_status)) =>
-			Err(PrepareError::Panic(format!("child exited with unexpected status {}", exit_status))),
-		Ok(_) => Err(PrepareError::Panic("child ended unexpectedly".to_string())),
-		Err(err) => Err(PrepareError::Panic(err.to_string())),
+		Err(errno) => Err(err_from_errno("waitpid", errno)),
+		// An attacker can make the child process return any exit status it wants. So we can treat
+		// all unexpected cases the same way.
+		Ok(unexpected_wait_status) => Err(PrepareError::IoErr(format!(
+			"unexpected status from wait: {unexpected_wait_status:?}"
+		))),
 	}
 }
 
