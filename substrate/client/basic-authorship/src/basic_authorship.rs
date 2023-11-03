@@ -579,6 +579,7 @@ mod tests {
 
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
+	use sc_client_api::Backend;
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
@@ -590,7 +591,6 @@ mod tests {
 		runtime::{Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer},
 		TestClientBuilder, TestClientBuilderExt,
 	};
-	use sc_client_api::Backend;
 
 	const SOURCE: TransactionSource = TransactionSource::External;
 

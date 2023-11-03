@@ -21,7 +21,7 @@ use sc_client_api::UsageProvider;
 
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
-use sc_block_builder::{BlockBuilderBuilder};
+use sc_block_builder::BlockBuilderBuilder;
 
 use sp_keyring::Sr25519Keyring::Alice;
 

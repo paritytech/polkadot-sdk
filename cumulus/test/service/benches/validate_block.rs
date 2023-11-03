@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
-use sc_block_builder::BlockBuilderBuilder;
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData, ValidationParams};
@@ -28,6 +27,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{BalancesCall, Block, Header, UncheckedExtrinsic};
 use cumulus_test_service::bench_utils as utils;
 use polkadot_primitives::HeadData;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::UsageProvider;
 use sc_executor_common::wasm_runtime::WasmModule;
 
