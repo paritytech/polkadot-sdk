@@ -53,7 +53,7 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths();
+		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths(false);
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
