@@ -1072,7 +1072,8 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	scheduled: &BTreeMap<ParaId, CoreIndex>,
 ) -> bool {
-	let disabled_validators = shared::Pallet::<T>::disabled_validators();
+	let disabled_validators =
+		BTreeSet::<_>::from_iter(shared::Pallet::<T>::disabled_validators().into_iter());
 
 	if disabled_validators.is_empty() {
 		// No disabled validators - nothing to do
@@ -1085,7 +1086,13 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 	// Process all backed candidates.
 	let backed_len_before = backed_candidates.len();
 	backed_candidates.retain_mut(|bc| {
-		// Get `core_idx` assigned to the `para_id` of the candidate (step 2)
+		// `validator_indices` in `BackedCandidates` are indices within the validator group assigned to the parachain.
+		// To obtain this group we need:
+		// 1. Core index assigned to the parachain which has produced the candidate
+		// 2. The relay chain block number of the candidate
+		// We perform these steps below.
+
+		// Get `core_idx` assigned to the `para_id` of the candidate
 		let core_idx = match scheduled.get(&bc.descriptor().para_id) {
 			Some(core_idx) => *core_idx,
 			None => {
@@ -1094,8 +1101,7 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 			}
 		};
 
-		// Get relay parent block number of the candidate. We need this to get the group index
-		// assigned to this core at this block number
+		// Get relay parent block number of the candidate. We need this to get the group index assigned to this core at this block number
 		let relay_parent_block_number = match allowed_relay_parents
 			.acquire_info(bc.descriptor().relay_parent, None) {
 				Some((_, block_num)) => block_num,
@@ -1104,7 +1110,6 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 					return false
 				}
 			};
-
 
 		// Get the group index for the core
 		let group_idx = match <scheduler::Pallet<T>>::group_assigned_to_core(
@@ -1127,39 +1132,26 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 			}
 		};
 
-		// `validator_indices` in `BackedCandidate` are indices within the validator group. Convert
-		// them to `ValidatorId`.
-		let voted_validator_ids = bc
-			.validator_indices
-			.iter()
-			.enumerate()
-			.filter_map(|(idx, bitval)| match *bitval {
-				true => validator_group.get(idx), // drop indecies not found in the validator group. This will lead to filtering the vote
-				false => None,
-			})
-			.collect::<Vec<_>>();
+		// Bitmask with the disabled indecies within the validator group
+		let disabled_indices = BitVec::<u8, bitvec::order::Lsb0>::from_iter(validator_group.iter().map(|idx| disabled_validators.contains(idx)));
+		// The indices of statements from disabled validators in `BackedCandidate`. We have to drop these.
+		let indices_to_drop = disabled_indices.clone() & &bc.validator_indices;
+		// Apply the bitmask to drop the disabled validator from `validator_indices`
+		bc.validator_indices &= !disabled_indices;
+		// Remove the corresponding votes from `validity_votes`
+		for idx in indices_to_drop.iter_ones().rev() {
+			bc.validity_votes.remove(idx);
+		}
 
-		let validity_votes = sp_std::mem::take(&mut bc.validity_votes);
-		let (validity_votes, dropped) : (Vec<(usize, ValidityAttestation)>, Vec<(usize, ValidityAttestation)>) =  validity_votes.into_iter().enumerate().partition(|(idx, _)| {
-			let voted_validator_index = match voted_validator_ids.get(*idx) {
-				Some(validator_index) => validator_index,
-				None => {
-					log::debug!(target: LOG_TARGET, "Can't find the voted validator index {:?} in the validator group. Dropping the vote.", group_idx);
-					return false
-				}
-			};
-
-			!disabled_validators.contains(voted_validator_index)
-		});
-
-		if !dropped.is_empty() {
+		// If at least one statement was dropped we need to return `true`
+		if indices_to_drop.count_ones() > 0 {
 			filtered = true;
 		}
 
 		// By filtering votes we might render the candidate invalid and cause a failure in
 		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there
 		// are not enough backing votes after filtering we will remove the whole candidate.
-		if validity_votes.len() < effective_minimum_backing_votes(
+		if bc.validity_votes.len() < effective_minimum_backing_votes(
 			validator_group.len(),
 			configuration::Pallet::<T>::config().minimum_backing_votes
 
@@ -1167,15 +1159,10 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 			return false
 		}
 
-		bc.validity_votes = validity_votes.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
-
-		for idx in dropped.into_iter().map(|(idx, _)| idx) {
-			bc.validator_indices.set(idx, false);
-		}
-
 		true
 	});
 
+	// Also return `true` if a whole candidate was dropped from the set
 	if !filtered {
 		filtered = backed_len_before > backed_candidates.len();
 	}
