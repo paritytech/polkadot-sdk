@@ -91,10 +91,9 @@ fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) 
 	)
 }
 
-/// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't
-/// work
+/// Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
 #[test]
-fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
+fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get().into());
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary: MultiLocation =
@@ -124,9 +123,9 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	});
 }
 
-/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
+/// Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
 #[test]
-fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
+fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	// Init values for System Parachain
 	let signed_origin =
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
@@ -160,9 +159,9 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	});
 }
 
-/// Limited Reserve Transfers of native asset from System Parachain to Parachain should work
+/// Reserve Transfers of native asset from System Parachain to Parachain should work
 #[test]
-fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
+fn reserve_transfer_native_asset_from_system_para_to_para() {
 	// Init values for System Parachain
 	let destination = AssetHubWestend::sibling_location_of(PenpalWestendA::para_id());
 	let beneficiary_id = PenpalWestendAReceiver::get();
@@ -204,9 +203,9 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	assert!(receiver_balance_after > receiver_balance_before);
 }
 
-/// Limited Reserve Transfers of a local asset from System Parachain to Parachain should work
+/// Reserve Transfers of a local asset from System Parachain to Parachain should work
 #[test]
-fn limited_reserve_transfer_asset_from_system_para_to_para() {
+fn reserve_transfer_asset_from_system_para_to_para() {
 	// Force create asset from Relay Chain and mint assets for System Parachain's sender account
 	AssetHubWestend::force_create_and_mint_asset(
 		ASSET_ID,

@@ -211,10 +211,9 @@ fn para_to_system_para_limited_reserve_transfer_assets(t: ParaToSystemParaTest) 
 	)
 }
 
-/// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't
-/// work
+/// Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
 #[test]
-fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
+fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let signed_origin = <Rococo as Chain>::RuntimeOrigin::signed(RococoSender::get().into());
 	let destination = Rococo::child_location_of(AssetHubRococo::para_id());
 	let beneficiary: MultiLocation =
@@ -244,9 +243,9 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	});
 }
 
-/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
+/// Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
 #[test]
-fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
+fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	// Init values for System Parachain
 	let signed_origin =
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
@@ -281,9 +280,9 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	});
 }
 
-/// Limited Reserve Transfers of native asset from Relay to Parachain should work
+/// Reserve Transfers of native asset from Relay to Parachain should work
 #[test]
-fn limited_reserve_transfer_native_asset_from_relay_to_para() {
+fn reserve_transfer_native_asset_from_relay_to_para() {
 	// Init values for Relay
 	let destination = Rococo::child_location_of(PenpalRococoA::para_id());
 	let beneficiary_id = PenpalRococoAReceiver::get();
@@ -320,9 +319,9 @@ fn limited_reserve_transfer_native_asset_from_relay_to_para() {
 	assert!(receiver_balance_after > receiver_balance_before);
 }
 
-/// Limited Reserve Transfers of native asset from System Parachain to Parachain should work
+/// Reserve Transfers of native asset from System Parachain to Parachain should work
 #[test]
-fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
+fn reserve_transfer_native_asset_from_system_para_to_para() {
 	// Init values for System Parachain
 	let destination = AssetHubRococo::sibling_location_of(PenpalRococoA::para_id());
 	let beneficiary_id = PenpalRococoAReceiver::get();
@@ -360,9 +359,9 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	assert!(receiver_balance_after > receiver_balance_before);
 }
 
-/// Limited Reserve Transfers of native asset from Parachain to System Parachain should work
+/// Reserve Transfers of native asset from Parachain to System Parachain should work
 #[test]
-fn limited_reserve_transfer_native_asset_from_para_to_system_para() {
+fn reserve_transfer_native_asset_from_para_to_system_para() {
 	// Init values for Penpal Parachain
 	let destination = PenpalRococoA::sibling_location_of(AssetHubRococo::para_id());
 	let beneficiary_id = AssetHubRococoReceiver::get();
@@ -407,10 +406,10 @@ fn limited_reserve_transfer_native_asset_from_para_to_system_para() {
 	assert!(receiver_balance_after > receiver_balance_before);
 }
 
-/// Limited Reserve Transfers of a local asset and native asset from System Parachain to Parachain
-/// should work
+/// Reserve Transfers of a local asset and native asset from System Parachain to Parachain should
+/// work
 #[test]
-fn limited_reserve_transfer_assets_from_system_para_to_para() {
+fn reserve_transfer_assets_from_system_para_to_para() {
 	// Force create asset on AssetHubRococo and PenpalRococoA from Relay Chain
 	AssetHubRococo::force_create_and_mint_asset(
 		ASSET_ID,
