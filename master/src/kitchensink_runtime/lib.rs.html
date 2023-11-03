@@ -2866,6 +2866,7 @@
 <a href="#2866" id="2866">2866</a>
 <a href="#2867" id="2867">2867</a>
 <a href="#2868" id="2868">2868</a>
+<a href="#2869" id="2869">2869</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2928,7 +2929,7 @@
 <span class="kw">use </span>pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
 <span class="kw">use </span>pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 <span class="kw">use </span>pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
-<span class="kw">use </span>pallet_identity::simple::IdentityInfo;
+<span class="kw">use </span>pallet_identity::legacy::IdentityInfo;
 <span class="kw">use </span>pallet_im_online::sr25519::AuthorityId <span class="kw">as </span>ImOnlineId;
 <span class="kw">use </span>pallet_nfts::PalletFeatures;
 <span class="kw">use </span>pallet_nis::WithMaximumOf;
@@ -4327,9 +4328,11 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>BasicDeposit: Balance = <span class="number">10 </span>* DOLLARS;       <span class="comment">// 258 bytes on-chain
-	</span><span class="kw">pub const </span>FieldDeposit: Balance = <span class="number">250 </span>* CENTS;        <span class="comment">// 66 bytes on-chain
-	</span><span class="kw">pub const </span>SubAccountDeposit: Balance = <span class="number">2 </span>* DOLLARS;   <span class="comment">// 53 bytes on-chain
+	<span class="comment">// difference of 26 bytes on-chain for the registration and 9 bytes on-chain for the identity
+	// information, already accounted for by the byte deposit
+	</span><span class="kw">pub const </span>BasicDeposit: Balance = deposit(<span class="number">1</span>, <span class="number">17</span>);
+	<span class="kw">pub const </span>ByteDeposit: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
+	<span class="kw">pub const </span>SubAccountDeposit: Balance = <span class="number">2 </span>* DOLLARS;   <span class="comment">// 53 bytes on-chain
 	</span><span class="kw">pub const </span>MaxSubAccounts: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAdditionalFields: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxRegistrars: u32 = <span class="number">20</span>;
@@ -4339,10 +4342,9 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>BasicDeposit = BasicDeposit;
-	<span class="kw">type </span>FieldDeposit = FieldDeposit;
+	<span class="kw">type </span>ByteDeposit = ByteDeposit;
 	<span class="kw">type </span>SubAccountDeposit = SubAccountDeposit;
 	<span class="kw">type </span>MaxSubAccounts = MaxSubAccounts;
-	<span class="kw">type </span>MaxAdditionalFields = MaxAdditionalFields;
 	<span class="kw">type </span>IdentityInformation = IdentityInfo&lt;MaxAdditionalFields&gt;;
 	<span class="kw">type </span>MaxRegistrars = MaxRegistrars;
 	<span class="kw">type </span>Slashed = Treasury;

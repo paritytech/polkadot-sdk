@@ -385,56 +385,6 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -454,22 +404,22 @@
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
-<span class="kw">use </span>enumflags2::{BitFlag, BitFlags, _internal::RawBitFlags};
 <span class="kw">use </span>frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 <span class="kw">use </span>scale_info::{
 	build::{Fields, Variants},
-	meta_type, Path, Type, TypeInfo, TypeParameter,
+	Path, Type, TypeInfo,
 };
-<span class="kw">use </span>sp_runtime::{traits::Zero, RuntimeDebug};
+<span class="kw">use </span>sp_runtime::{
+	traits::{Member, Zero},
+	RuntimeDebug,
+};
 <span class="kw">use </span>sp_std::{fmt::Debug, iter::once, ops::Add, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// An identifier for a single name registrar/identity verification service.
 </span><span class="kw">pub type </span>RegistrarIndex = u32;
-
-<span class="kw">pub trait </span>U64BitFlag: BitFlag + RawBitFlags&lt;Numeric = u64&gt; {}
 
 <span class="doccomment">/// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -671,24 +621,19 @@
 </span><span class="kw">pub trait </span>IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
-	<span class="doccomment">/// Type capable of representing all of the fields present in the identity information as bit
-	/// flags in `u64` format.
-	</span><span class="kw">type </span>IdentityField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag;
+	<span class="doccomment">/// Type capable of holding information on which identity fields are set.
+	</span><span class="kw">type </span>FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
 
 	<span class="doccomment">/// Check if an identity registered information for some given `fields`.
-	</span><span class="kw">fn </span>has_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, fields: u64) -&gt; bool;
+	</span><span class="kw">fn </span>has_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, fields: <span class="self">Self</span>::FieldsIdentifier) -&gt; bool;
 
-	<span class="doccomment">/// Interface for providing the number of additional fields this identity information provider
-	/// holds, used to charge for additional storage and weight. This interface is present for
-	/// backwards compatibility reasons only and will be removed as soon as the reference identity
-	/// provider removes additional fields.
-	</span><span class="attr">#[deprecated]
-	</span><span class="kw">fn </span>additional(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-		<span class="number">0
-	</span>}
+	<span class="doccomment">/// Create a basic instance of the identity information.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>create_identity_info() -&gt; <span class="self">Self</span>;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>create_identity_info(num_fields: u32) -&gt; <span class="self">Self</span>;
+	<span class="doccomment">/// The identity information representation for all identity fields enabled.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>all_fields() -&gt; <span class="self">Self</span>::FieldsIdentifier;
 }
 
 <span class="doccomment">/// Information on an identity along with judgements from registrars.
@@ -699,7 +644,7 @@
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[scale_info(skip_type_params(MaxJudgements, MaxAdditionalFields))]
+#[scale_info(skip_type_params(MaxJudgements))]
 </span><span class="kw">pub struct </span>Registration&lt;
 	Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 	MaxJudgements: Get&lt;u32&gt;,
@@ -748,7 +693,7 @@
 </span><span class="kw">pub struct </span>RegistrarInfo&lt;
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
-	IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
+	IdField: Encode + Decode + Clone + Debug + Default + Eq + PartialEq + TypeInfo + MaxEncodedLen,
 &gt; {
 	<span class="doccomment">/// The account of the registrar.
 	</span><span class="kw">pub </span>account: AccountId,
@@ -758,52 +703,7 @@
 
 	<span class="doccomment">/// Relevant fields for this registrar. Registrar judgements are limited to attestations on
 	/// these fields.
-	</span><span class="kw">pub </span>fields: IdentityFields&lt;IdField&gt;,
-}
-
-<span class="doccomment">/// Wrapper type for `BitFlags&lt;IdentityField&gt;` that implements `Codec`.
-</span><span class="attr">#[derive(Clone, Copy, PartialEq, RuntimeDebug)]
-</span><span class="kw">pub struct </span>IdentityFields&lt;IdField: BitFlag&gt;(<span class="kw">pub </span>BitFlags&lt;IdField&gt;);
-
-<span class="kw">impl</span>&lt;IdField: U64BitFlag&gt; Default <span class="kw">for </span>IdentityFields&lt;IdField&gt; {
-	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(Default::default())
-	}
-}
-
-<span class="kw">impl</span>&lt;IdField: U64BitFlag&gt; MaxEncodedLen <span class="kw">for </span>IdentityFields&lt;IdField&gt;
-<span class="kw">where
-	</span>IdentityFields&lt;IdField&gt;: Encode,
-{
-	<span class="kw">fn </span>max_encoded_len() -&gt; usize {
-		u64::max_encoded_len()
-	}
-}
-
-<span class="kw">impl</span>&lt;IdField: U64BitFlag + PartialEq&gt; Eq <span class="kw">for </span>IdentityFields&lt;IdField&gt; {}
-<span class="kw">impl</span>&lt;IdField: U64BitFlag&gt; Encode <span class="kw">for </span>IdentityFields&lt;IdField&gt; {
-	<span class="kw">fn </span>using_encoded&lt;R, F: FnOnce(<span class="kw-2">&amp;</span>[u8]) -&gt; R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; R {
-		<span class="kw">let </span>bits: u64 = <span class="self">self</span>.<span class="number">0</span>.bits();
-		bits.using_encoded(f)
-	}
-}
-<span class="kw">impl</span>&lt;IdField: U64BitFlag&gt; Decode <span class="kw">for </span>IdentityFields&lt;IdField&gt; {
-	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>, codec::Error&gt; {
-		<span class="kw">let </span>field = u64::decode(input)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(&lt;BitFlags&lt;IdField&gt;&gt;::from_bits(field).map_err(|<span class="kw">_</span>| <span class="string">&quot;invalid value&quot;</span>)<span class="question-mark">?</span>))
-	}
-}
-<span class="kw">impl</span>&lt;IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag&gt; TypeInfo
-	<span class="kw">for </span>IdentityFields&lt;IdField&gt;
-{
-	<span class="kw">type </span>Identity = <span class="self">Self</span>;
-
-	<span class="kw">fn </span>type_info() -&gt; Type {
-		Type::builder()
-			.path(Path::new(<span class="string">&quot;BitFlags&quot;</span>, <span class="macro">module_path!</span>()))
-			.type_params(<span class="macro">vec!</span>[TypeParameter::new(<span class="string">&quot;T&quot;</span>, <span class="prelude-val">Some</span>(meta_type::&lt;IdField&gt;()))])
-			.composite(Fields::unnamed().field(|f| f.ty::&lt;u64&gt;().type_name(<span class="string">&quot;IdentityField&quot;</span>)))
-	}
+	</span><span class="kw">pub </span>fields: IdField,
 }
 
 <span class="attr">#[cfg(test)]

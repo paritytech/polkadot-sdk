@@ -907,40 +907,6 @@
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1016,21 +982,23 @@
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
-<span class="kw">pub mod </span>simple;
+<span class="kw">pub mod </span>legacy;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 <span class="kw">mod </span>types;
 <span class="kw">pub mod </span>weights;
 
-<span class="kw">use </span>frame_support::traits::{BalanceStatus, Currency, OnUnbalanced, ReservableCurrency};
+<span class="kw">use </span>frame_support::{
+	pallet_prelude::DispatchResult,
+	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
+};
 <span class="kw">use </span>sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>types::{
-	Data, IdentityFields, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
-	Registration,
+	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };
 
 <span class="kw">type </span>BalanceOf&lt;T&gt; =
@@ -1058,9 +1026,9 @@
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>BasicDeposit: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
-		<span class="doccomment">/// The amount held on deposit per additional field for a registered identity.
+		<span class="doccomment">/// The amount held on deposit per encoded byte for a registered identity.
 		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>FieldDeposit: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
+		</span><span class="kw">type </span>ByteDeposit: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The amount held on deposit for a registered subaccount. This should account for the fact
 		/// that one storage item&#39;s value will increase by the size of an account ID, and there will
@@ -1071,11 +1039,6 @@
 		<span class="doccomment">/// The maximum number of sub-accounts allowed per identified account.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxSubAccounts: Get&lt;u32&gt;;
-
-		<span class="doccomment">/// Maximum number of additional fields that may be stored in an ID. Needed to bound the I/O
-		/// required to access an identity, but can be pretty high.
-		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>MaxAdditionalFields: Get&lt;u32&gt;;
 
 		<span class="doccomment">/// Structure holding information about an identity.
 		</span><span class="kw">type </span>IdentityInformation: IdentityInformationProvider;
@@ -1149,7 +1112,7 @@
 				RegistrarInfo&lt;
 					BalanceOf&lt;T&gt;,
 					T::AccountId,
-					&lt;T::IdentityInformation <span class="kw">as </span>IdentityInformationProvider&gt;::IdentityField,
+					&lt;T::IdentityInformation <span class="kw">as </span>IdentityInformationProvider&gt;::FieldsIdentifier,
 				&gt;,
 			&gt;,
 			T::MaxRegistrars,
@@ -1181,8 +1144,6 @@
 		</span>InvalidIndex,
 		<span class="doccomment">/// The target is invalid.
 		</span>InvalidTarget,
-		<span class="doccomment">/// Too many additional fields.
-		</span>TooManyFields,
 		<span class="doccomment">/// Maximum amount of registrars reached. Cannot add any more.
 		</span>TooManyRegistrars,
 		<span class="doccomment">/// Account ID is already named.
@@ -1271,19 +1232,15 @@
 		///
 		/// Emits `IdentitySet` if successful.
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
-		#[pallet::weight(T::WeightInfo::set_identity(
-			T::MaxRegistrars::get(),
-			T::MaxAdditionalFields::get(),
-		))]
+		#[pallet::weight(T::WeightInfo::set_identity(T::MaxRegistrars::get()))]
 		</span><span class="kw">pub fn </span>set_identity(
 			origin: OriginFor&lt;T&gt;,
 			info: Box&lt;T::IdentityInformation&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="attr">#[allow(deprecated)]
-			</span><span class="kw">let </span>extra_fields = info.additional() <span class="kw">as </span>u32;
-			<span class="macro">ensure!</span>(extra_fields &lt;= T::MaxAdditionalFields::get(), Error::&lt;T&gt;::TooManyFields);
-			<span class="kw">let </span>fd = &lt;BalanceOf&lt;T&gt;&gt;::from(extra_fields) * T::FieldDeposit::get();
+			<span class="kw">let </span>encoded_byte_size = info.encoded_size() <span class="kw">as </span>u32;
+			<span class="kw">let </span>byte_deposit =
+				T::ByteDeposit::get().saturating_mul(&lt;BalanceOf&lt;T&gt;&gt;::from(encoded_byte_size));
 
 			<span class="kw">let </span><span class="kw-2">mut </span>id = <span class="kw">match </span>&lt;IdentityOf&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>sender) {
 				<span class="prelude-val">Some</span>(<span class="kw-2">mut </span>id) =&gt; {
@@ -1300,7 +1257,7 @@
 			};
 
 			<span class="kw">let </span>old_deposit = id.deposit;
-			id.deposit = T::BasicDeposit::get() + fd;
+			id.deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
 			<span class="kw">if </span>id.deposit &gt; old_deposit {
 				T::Currency::reserve(<span class="kw-2">&amp;</span>sender, id.deposit - old_deposit)<span class="question-mark">?</span>;
 			}
@@ -1313,7 +1270,7 @@
 			&lt;IdentityOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>sender, id);
 			<span class="self">Self</span>::deposit_event(Event::IdentitySet { who: sender });
 
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::set_identity(judgements <span class="kw">as </span>u32, extra_fields)).into())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::set_identity(judgements <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Set the sub-accounts of the sender.
@@ -1347,7 +1304,8 @@
 			);
 
 			<span class="kw">let </span>(old_deposit, old_ids) = &lt;SubsOf&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>sender);
-			<span class="kw">let </span>new_deposit = T::SubAccountDeposit::get() * &lt;BalanceOf&lt;T&gt;&gt;::from(subs.len() <span class="kw">as </span>u32);
+			<span class="kw">let </span>new_deposit =
+				T::SubAccountDeposit::get().saturating_mul(&lt;BalanceOf&lt;T&gt;&gt;::from(subs.len() <span class="kw">as </span>u32));
 
 			<span class="kw">let </span>not_other_sub =
 				subs.iter().filter_map(|i| SuperOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>i.<span class="number">0</span>)).all(|i| i.<span class="number">0 </span>== sender);
@@ -1397,14 +1355,13 @@
 		#[pallet::weight(T::WeightInfo::clear_identity(
 			T::MaxRegistrars::get(),
 			T::MaxSubAccounts::get(),
-			T::MaxAdditionalFields::get(),
 		))]
 		</span><span class="kw">pub fn </span>clear_identity(origin: OriginFor&lt;T&gt;) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>(subs_deposit, sub_ids) = &lt;SubsOf&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>sender);
 			<span class="kw">let </span>id = &lt;IdentityOf&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>sender).ok_or(Error::&lt;T&gt;::NotNamed)<span class="question-mark">?</span>;
-			<span class="kw">let </span>deposit = id.total_deposit() + subs_deposit;
+			<span class="kw">let </span>deposit = id.total_deposit().saturating_add(subs_deposit);
 			<span class="kw">for </span>sub <span class="kw">in </span>sub_ids.iter() {
 				&lt;SuperOf&lt;T&gt;&gt;::remove(sub);
 			}
@@ -1418,7 +1375,6 @@
 			</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::clear_identity(
 				id.judgements.len() <span class="kw">as </span>u32,
 				sub_ids.len() <span class="kw">as </span>u32,
-				id.info.additional() <span class="kw">as </span>u32,
 			))
 			.into())
 		}
@@ -1440,10 +1396,7 @@
 		///
 		/// Emits `JudgementRequested` if successful.
 		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
-		#[pallet::weight(T::WeightInfo::request_judgement(
-			T::MaxRegistrars::get(),
-			T::MaxAdditionalFields::get(),
-		))]
+		#[pallet::weight(T::WeightInfo::request_judgement(T::MaxRegistrars::get(),))]
 		</span><span class="kw">pub fn </span>request_judgement(
 			origin: OriginFor&lt;T&gt;,
 			<span class="attr">#[pallet::compact] </span>reg_index: RegistrarIndex,
@@ -1473,8 +1426,6 @@
 			T::Currency::reserve(<span class="kw-2">&amp;</span>sender, registrar.fee)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>judgements = id.judgements.len();
-			<span class="attr">#[allow(deprecated)]
-			</span><span class="kw">let </span>extra_fields = id.info.additional();
 			&lt;IdentityOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>sender, id);
 
 			<span class="self">Self</span>::deposit_event(Event::JudgementRequested {
@@ -1482,8 +1433,7 @@
 				registrar_index: reg_index,
 			});
 
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::request_judgement(judgements <span class="kw">as </span>u32, extra_fields <span class="kw">as </span>u32))
-				.into())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::request_judgement(judgements <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Cancel a previous request.
@@ -1497,10 +1447,7 @@
 		///
 		/// Emits `JudgementUnrequested` if successful.
 		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
-		#[pallet::weight(T::WeightInfo::cancel_request(
-			T::MaxRegistrars::get(),
-			T::MaxAdditionalFields::get(),
-		))]
+		#[pallet::weight(T::WeightInfo::cancel_request(T::MaxRegistrars::get()))]
 		</span><span class="kw">pub fn </span>cancel_request(
 			origin: OriginFor&lt;T&gt;,
 			reg_index: RegistrarIndex,
@@ -1521,8 +1468,6 @@
 			<span class="kw">let </span>err_amount = T::Currency::unreserve(<span class="kw-2">&amp;</span>sender, fee);
 			<span class="macro">debug_assert!</span>(err_amount.is_zero());
 			<span class="kw">let </span>judgements = id.judgements.len();
-			<span class="attr">#[allow(deprecated)]
-			</span><span class="kw">let </span>extra_fields = id.info.additional();
 			&lt;IdentityOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>sender, id);
 
 			<span class="self">Self</span>::deposit_event(Event::JudgementUnrequested {
@@ -1530,7 +1475,7 @@
 				registrar_index: reg_index,
 			});
 
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::cancel_request(judgements <span class="kw">as </span>u32, extra_fields <span class="kw">as </span>u32)).into())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::cancel_request(judgements <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Set the fee required for a judgement to be requested from a registrar.
@@ -1612,26 +1557,21 @@
 		</span><span class="kw">pub fn </span>set_fields(
 			origin: OriginFor&lt;T&gt;,
 			<span class="attr">#[pallet::compact] </span>index: RegistrarIndex,
-			fields: IdentityFields&lt;
-				&lt;T::IdentityInformation <span class="kw">as </span>IdentityInformationProvider&gt;::IdentityField,
-			&gt;,
+			fields: &lt;T::IdentityInformation <span class="kw">as </span>IdentityInformationProvider&gt;::FieldsIdentifier,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>registrars = &lt;Registrars&lt;T&gt;&gt;::mutate(|rs| -&gt; <span class="prelude-ty">Result</span>&lt;usize, DispatchError&gt; {
-				rs.get_mut(index <span class="kw">as </span>usize)
-					.and_then(|x| x.as_mut())
-					.and_then(|r| {
-						<span class="kw">if </span>r.account == who {
-							r.fields = fields;
-							<span class="prelude-val">Some</span>(())
-						} <span class="kw">else </span>{
-							<span class="prelude-val">None
-						</span>}
-					})
-					.ok_or_else(|| DispatchError::from(Error::&lt;T&gt;::InvalidIndex))<span class="question-mark">?</span>;
-				<span class="prelude-val">Ok</span>(rs.len())
-			})<span class="question-mark">?</span>;
+			<span class="kw">let </span>registrars =
+				&lt;Registrars&lt;T&gt;&gt;::mutate(|registrars| -&gt; <span class="prelude-ty">Result</span>&lt;usize, DispatchError&gt; {
+					<span class="kw">let </span>registrar = registrars
+						.get_mut(index <span class="kw">as </span>usize)
+						.and_then(|r| r.as_mut())
+						.filter(|r| r.account == who)
+						.ok_or_else(|| DispatchError::from(Error::&lt;T&gt;::InvalidIndex))<span class="question-mark">?</span>;
+					registrar.fields = fields;
+
+					<span class="prelude-val">Ok</span>(registrars.len())
+				})<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::set_fields(registrars <span class="kw">as </span>u32)).into())
 		}
 
@@ -1649,10 +1589,7 @@
 		///
 		/// Emits `JudgementGiven` if successful.
 		</span><span class="attr">#[pallet::call_index(<span class="number">9</span>)]
-		#[pallet::weight(T::WeightInfo::provide_judgement(
-			T::MaxRegistrars::get(),
-			T::MaxAdditionalFields::get(),
-		))]
+		#[pallet::weight(T::WeightInfo::provide_judgement(T::MaxRegistrars::get()))]
 		</span><span class="kw">pub fn </span>provide_judgement(
 			origin: OriginFor&lt;T&gt;,
 			<span class="attr">#[pallet::compact] </span>reg_index: RegistrarIndex,
@@ -1695,13 +1632,10 @@
 			}
 
 			<span class="kw">let </span>judgements = id.judgements.len();
-			<span class="attr">#[allow(deprecated)]
-			</span><span class="kw">let </span>extra_fields = id.info.additional();
 			&lt;IdentityOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>target, id);
 			<span class="self">Self</span>::deposit_event(Event::JudgementGiven { target, registrar_index: reg_index });
 
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::provide_judgement(judgements <span class="kw">as </span>u32, extra_fields <span class="kw">as </span>u32))
-				.into())
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::provide_judgement(judgements <span class="kw">as </span>u32)).into())
 		}
 
 		<span class="doccomment">/// Remove an account&#39;s identity and sub-account information and slash the deposits.
@@ -1720,7 +1654,6 @@
 		#[pallet::weight(T::WeightInfo::kill_identity(
 			T::MaxRegistrars::get(),
 			T::MaxSubAccounts::get(),
-			T::MaxAdditionalFields::get(),
 		))]
 		</span><span class="kw">pub fn </span>kill_identity(
 			origin: OriginFor&lt;T&gt;,
@@ -1733,7 +1666,7 @@
 			<span class="comment">// Grab their deposit (and check that they have one).
 			</span><span class="kw">let </span>(subs_deposit, sub_ids) = &lt;SubsOf&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>target);
 			<span class="kw">let </span>id = &lt;IdentityOf&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>target).ok_or(Error::&lt;T&gt;::NotNamed)<span class="question-mark">?</span>;
-			<span class="kw">let </span>deposit = id.total_deposit() + subs_deposit;
+			<span class="kw">let </span>deposit = id.total_deposit().saturating_add(subs_deposit);
 			<span class="kw">for </span>sub <span class="kw">in </span>sub_ids.iter() {
 				&lt;SuperOf&lt;T&gt;&gt;::remove(sub);
 			}
@@ -1743,12 +1676,8 @@
 			<span class="self">Self</span>::deposit_event(Event::IdentityKilled { who: target, deposit });
 
 			<span class="attr">#[allow(deprecated)]
-			</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::kill_identity(
-				id.judgements.len() <span class="kw">as </span>u32,
-				sub_ids.len() <span class="kw">as </span>u32,
-				id.info.additional() <span class="kw">as </span>u32,
-			))
-			.into())
+			</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::kill_identity(id.judgements.len() <span class="kw">as </span>u32, sub_ids.len() <span class="kw">as </span>u32))
+				.into())
 		}
 
 		<span class="doccomment">/// Add the given account to the sender&#39;s subs.
@@ -1879,7 +1808,10 @@
 	}
 
 	<span class="doccomment">/// Check if the account has corresponding identity information by the identity field.
-	</span><span class="kw">pub fn </span>has_identity(who: <span class="kw-2">&amp;</span>T::AccountId, fields: u64) -&gt; bool {
+	</span><span class="kw">pub fn </span>has_identity(
+		who: <span class="kw-2">&amp;</span>T::AccountId,
+		fields: &lt;T::IdentityInformation <span class="kw">as </span>IdentityInformationProvider&gt;::FieldsIdentifier,
+	) -&gt; bool {
 		IdentityOf::&lt;T&gt;::get(who)
 			.map_or(<span class="bool-val">false</span>, |registration| (registration.info.has_identity(fields)))
 	}

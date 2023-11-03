@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Data","Judgement"],"mod":["pallet","simple","weights"],"struct":["IdentityFields","RegistrarInfo","Registration"],"trait":["IdentityInformationProvider"],"type":["RegistrarIndex"]};
+window.SIDEBAR_ITEMS = {"enum":["Data","Judgement"],"mod":["legacy","pallet","weights"],"struct":["RegistrarInfo","Registration"],"trait":["IdentityInformationProvider"],"type":["RegistrarIndex"]};
