@@ -32,7 +32,7 @@ use tar;
 use tempfile;
 use toml_edit::{self, value, Array, Item, Table};
 
-const SUBSTRATE_GIT_URL: &str = "https://github.com/paritytech/substrate.git";
+const SUBSTRATE_GIT_URL: &str = "https://github.com/paritytech/polkadot-sdk.git";
 
 type CargoToml = toml_edit::Document;
 
@@ -63,7 +63,7 @@ fn copy_node_template(node_template: &Path, dest_path: &Path) {
 
 /// Find all `Cargo.toml` files in the given path.
 fn find_cargo_tomls(path: &PathBuf) -> Vec<PathBuf> {
-	let path = format!("{}/**/*.toml", path.display());
+	let path = format!("{}/**/Cargo.toml", path.display());
 
 	let glob = glob::glob(&path).expect("Generates globbing pattern");
 
@@ -196,7 +196,6 @@ fn update_root_cargo_toml(
 ) {
 	let mut workspace = Table::new();
 	workspace.insert("members", value(Array::from_iter(members.iter())));
-
 	let mut workspace_dependencies = Table::new();
 	deps.values()
 		.flatten()
@@ -211,6 +210,10 @@ fn update_root_cargo_toml(
 			workspace_dependencies[name]["git"] = value(SUBSTRATE_GIT_URL);
 			workspace_dependencies[name]["rev"] = value(commit_id);
 		});
+
+	let mut package = Table::new();
+	package.insert("edition", value("2021"));
+	workspace.insert("package", Item::Table(package));
 
 	workspace.insert("dependencies", Item::Table(workspace_dependencies));
 	cargo_toml.insert("workspace", Item::Table(workspace));
@@ -428,9 +431,12 @@ frame-system = { workspace = true }
 		let expected_toml = r#"[workspace]
 members = ["node", "pallets/template", "runtime"]
 
+[workspace.package]
+edition = "2021"
+
 [workspace.dependencies]
-frame-system = { version = "4.0.0-dev", default-features = true, git = "https://github.com/paritytech/substrate.git", rev = "commit_id" }
-sp-io = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", rev = "commit_id" }
+frame-system = { version = "4.0.0-dev", default-features = true, git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
+sp-io = { version = "7.0.0", git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
 
 [profile]
 
