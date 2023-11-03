@@ -26,10 +26,7 @@
 
 #![warn(missing_docs)]
 
-use std::marker::PhantomData;
-
 use codec::Encode;
-
 use sp_api::{
 	ApiExt, ApiRef, CallApiAt, Core, DisableProofRecorder, EnableProofRecorder, RuntimeInstance,
 	StorageChanges, StorageProof, TransactionOutcome,
@@ -159,8 +156,7 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 	/// Create the instance of the [`BlockBuilder`].
 	pub fn build(self) -> Result<BlockBuilder<'a, B, C>, Error>
 	where
-		C: CallApiAt<B> + ProvideRuntimeApi<B>,
-		C::Api: BlockBuilderApi<B>,
+		C: CallApiAt<B>,
 	{
 		BlockBuilder::new(
 			self.call_api_at,
@@ -195,7 +191,7 @@ impl<Block: BlockT> BuiltBlock<Block> {
 }
 
 /// Utility for building new (valid) blocks from a stream of extrinsics.
-pub struct BlockBuilder<'a, Block: BlockT, C: ProvideRuntimeApi<Block> + 'a> {
+pub struct BlockBuilder<'a, Block: BlockT, CallApiAt + 'a, ProofRecorder> {
 	extrinsics: Vec<Block::Extrinsic>,
 	runtime_instance: RuntimeInstance<CallApiAt, Block, ProofRecorder>,
 	call_api_at: &'a C,
