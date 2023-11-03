@@ -5,7 +5,7 @@ use prometheus_endpoint::{
 
 use jsonrpsee::{
 	core::async_trait,
-	server::middleware::rpc::{Context, RpcServiceT, TransportProtocol},
+	server::middleware::rpc::{RpcServiceT, TransportProtocol},
 	types::Request,
 	MethodResponse,
 };
@@ -40,6 +40,8 @@ pub struct RpcMetrics {
 	ws_sessions_opened: Option<Counter<U64>>,
 	/// Number of Websocket sessions closed.
 	ws_sessions_closed: Option<Counter<U64>>,
+	/// Histogram over RPC websocket sessions.
+	ws_sessions_time: HistogramVec,
 }
 
 impl RpcMetrics {
@@ -94,10 +96,34 @@ impl RpcMetrics {
 					metrics_registry,
 				)?
 				.into(),
+				ws_sessions_time: register(
+					HistogramVec::new(
+						HistogramOpts::new(
+							"substrate_rpc_sessions_time",
+							"Time [s] for each websocket session",
+						)
+						.buckets(HISTOGRAM_BUCKETS.to_vec()),
+						&["protocol"],
+					)?,
+					metrics_registry,
+				)?,
 			}))
 		} else {
 			Ok(None)
 		}
+	}
+
+	pub(crate) fn ws_connect(&self) {
+		self.ws_sessions_opened.as_ref().map(|counter| counter.inc());
+	}
+
+	pub(crate) fn ws_disconnect(&self, now: Instant) {
+		let micros = now.elapsed().as_secs();
+
+		self.ws_sessions_closed.as_ref().map(|counter| counter.inc());
+		self.ws_sessions_time
+			.with_label_values(&["ws"])
+			.observe(micros as _);
 	}
 }
 
@@ -117,9 +143,9 @@ impl<'a, S> RpcServiceT<'a> for Metrics<S>
 where
 	S: Send + Sync + RpcServiceT<'a>,
 {
-	async fn call(&self, req: Request<'a>, ctx: &Context) -> MethodResponse {
+	async fn call(&self, req: Request<'a>, t: TransportProtocol) -> MethodResponse {
 		let now = Instant::now();
-		let transport_label = transport_label_str(ctx.transport);
+		let transport_label = transport_label_str(t);
 
 		log::trace!(
 			target: "rpc_metrics",
@@ -133,7 +159,7 @@ where
 			.with_label_values(&[transport_label, req.method_name()])
 			.inc();
 
-		let rp = self.service.call(req.clone(), ctx).await;
+		let rp = self.service.call(req.clone(), t).await;
 
 		log::trace!(target: "rpc_metrics", "[{}] on_response started_at={:?}", transport_label, now);
 		log::trace!(target: "rpc_metrics::extra", "[{}] result={:?}", transport_label, rp);

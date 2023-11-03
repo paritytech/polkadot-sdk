@@ -96,17 +96,16 @@ where
 				if ws::is_upgrade_request(&req) && svc.settings.enable_ws {
 					let svc = svc.clone();
 					let stop_handle = stop_handle.clone();
-					let metrics = metrics.clone();
+					let metrics2 = metrics.clone();
 
 					let (tx, mut disconnect) = tokio::sync::mpsc::channel(1);
 					let rpc_service = RpcServiceBuilder::new()
 						.layer_fn(move |service| RateLimit::per_conn(service, tx.clone()))
-						.layer_fn(move |service| Metrics::new(service, metrics.clone()));
+						.layer_fn(move |service| Metrics::new(service, metrics2.clone()));
 
 					let svc = ServiceData {
 						cfg: svc.settings,
 						conn_id,
-						remote_addr,
 						stop_handle,
 						conn_permit: Arc::new(conn_permit),
 						methods: svc.methods.clone(),
@@ -116,8 +115,12 @@ where
 					async move {
 						let req_info = format!("{:?}", req);
 
-						match ws::run_websocket(req, svc, rpc_service).await {
+						match ws::connect(req, svc, rpc_service).await {
 							Ok((rp, conn_fut)) => {
+
+								let now = std::time::Instant::now();
+								metrics.ws_connect();
+
 								tokio::spawn(async move {
 									tokio::select! {
 										_ = conn_fut => (),
@@ -126,6 +129,7 @@ where
 											log::debug!(target: "rpc", "Metadata from disconnected peer={}: {req_info}", remote_addr);
 										},
 									}
+									metrics.ws_disconnect(now);
 								});
 								Ok(rp)
 							},
@@ -137,7 +141,6 @@ where
 					let svc = ServiceData {
 						cfg: svc.settings.clone(),
 						conn_id,
-						remote_addr,
 						stop_handle: stop_handle.clone(),
 						conn_permit: Arc::new(conn_permit),
 						methods: svc.methods.clone(),
@@ -146,7 +149,7 @@ where
 					let rpc_service = RpcServiceBuilder::new()
 						.layer_fn(move |service| Metrics::new(service, metrics.clone()));
 
-					async move { http::handle_request(req, svc, rpc_service).map(Ok).await }.boxed()
+					async move { http::call_with_service_builder(req, svc, rpc_service).map(Ok).await }.boxed()
 				} else {
 					async { Ok(http::response::denied()) }.boxed()
 				}

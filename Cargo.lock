@@ -1148,7 +1148,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81953c529336010edd6d8e358f886d9581267795c61b19475b71314bffa46d35"
 dependencies = [
  "concurrent-queue",
- "event-listener",
+ "event-listener 2.5.3",
  "futures-core",
 ]
 
@@ -1158,7 +1158,7 @@ version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fa3dc5f2a8564f07759c008b9109dc0d39de92a88d5588b8a5036d286383afb"
 dependencies = [
- "async-lock",
+ "async-lock 2.8.0",
  "async-task",
  "concurrent-queue",
  "fastrand 1.9.0",
@@ -1172,7 +1172,7 @@ version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "279cf904654eeebfa37ac9bb1598880884924aab82e290aa65c9e77a0e142e06"
 dependencies = [
- "async-lock",
+ "async-lock 2.8.0",
  "autocfg",
  "blocking",
  "futures-lite",
@@ -1184,7 +1184,7 @@ version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fc5b45d93ef0529756f812ca52e44c221b35341892d3dcc34132ac02f3dd2af"
 dependencies = [
- "async-lock",
+ "async-lock 2.8.0",
  "autocfg",
  "cfg-if",
  "concurrent-queue",
@@ -1204,7 +1204,18 @@ version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "287272293e9d8c41773cec55e365490fe034813a2f172f502d6ddcf75b2f582b"
 dependencies = [
- "event-listener",
+ "event-listener 2.5.3",
+]
+
+[[package]]
+name = "async-lock"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45e900cdcd39bb94a14487d3f7ef92ca222162e6c7c3fe7cb3550ea75fb486ed"
+dependencies = [
+ "event-listener 3.0.1",
+ "event-listener-strategy",
+ "pin-project-lite 0.2.12",
 ]
 
 [[package]]
@@ -1226,11 +1237,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a9d28b1d97e08915212e2e45310d47854eafa69600756fc735fb788f75199c9"
 dependencies = [
  "async-io",
- "async-lock",
+ "async-lock 2.8.0",
  "autocfg",
  "blocking",
  "cfg-if",
- "event-listener",
+ "event-listener 2.5.3",
  "futures-lite",
  "rustix 0.37.23",
  "signal-hook",
@@ -1457,8 +1468,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -1622,7 +1633,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77231a1c8f801696fc0123ec6150ce92cffb8e164a02afb9c8ddee0e9b65ad65"
 dependencies = [
  "async-channel",
- "async-lock",
+ "async-lock 2.8.0",
  "async-task",
  "atomic-waker",
  "fastrand 1.9.0",
@@ -4976,6 +4987,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "event-listener"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01cec0252c2afff729ee6f00e903d479fba81784c8e2bd77447673471fdfaea1"
+dependencies = [
+ "concurrent-queue",
+ "parking",
+ "pin-project-lite 0.2.12",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d96b852f1345da36d551b9473fa1e2b1eb5c5195585c6c018118bc92a8d91160"
+dependencies = [
+ "event-listener 3.0.1",
+ "pin-project-lite 0.2.12",
+]
+
+[[package]]
 name = "exit-future"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6723,7 +6755,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "jsonrpsee-core 0.20.0",
  "jsonrpsee-http-client",
@@ -6738,7 +6770,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "futures-util",
  "http",
@@ -6757,10 +6789,10 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "anyhow",
- "async-lock",
+ "async-lock 3.0.0",
  "async-trait",
  "beef",
  "futures-timer",
@@ -6797,7 +6829,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "async-trait",
  "hyper",
@@ -6816,7 +6848,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "heck",
  "proc-macro-crate 2.0.0",
@@ -6828,7 +6860,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -6851,7 +6883,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "anyhow",
  "beef",
@@ -6878,7 +6910,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#cc16285677643846c9b3ab78b2abd205a3569224"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
@@ -16626,7 +16658,7 @@ dependencies = [
  "async-executor",
  "async-fs",
  "async-io",
- "async-lock",
+ "async-lock 2.8.0",
  "async-net",
  "async-process",
  "blocking",
@@ -16640,7 +16672,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0bb30cf57b7b5f6109ce17c3164445e2d6f270af2cb48f6e4d31c2967c9a9f5"
 dependencies = [
  "arrayvec 0.7.4",
- "async-lock",
+ "async-lock 2.8.0",
  "atomic-take",
  "base64 0.21.2",
  "bip39",
@@ -16651,7 +16683,7 @@ dependencies = [
  "derive_more",
  "ed25519-zebra 4.0.2",
  "either",
- "event-listener",
+ "event-listener 2.5.3",
  "fnv",
  "futures-lite",
  "futures-util",
@@ -16694,12 +16726,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "256b5bad1d6b49045e95fe87492ce73d5af81545d8b4d8318a872d2007024c33"
 dependencies = [
  "async-channel",
- "async-lock",
+ "async-lock 2.8.0",
  "base64 0.21.2",
  "blake2-rfc",
  "derive_more",
  "either",
- "event-listener",
+ "event-listener 2.5.3",
  "fnv",
  "futures-channel",
  "futures-lite",
@@ -19444,7 +19476,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
