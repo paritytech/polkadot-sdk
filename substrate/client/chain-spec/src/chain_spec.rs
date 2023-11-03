@@ -107,8 +107,10 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 				Ok(genesis.genesis)
 			},
 			#[allow(deprecated)]
-			Self::Factory(f, code) =>
-				Ok(Genesis::Runtime(RuntimeInnerWrapper { runtime: f(), code: code.clone() })),
+			Self::Factory(f, code) => Ok(Genesis::RuntimeAndCode(RuntimeInnerWrapper {
+				runtime: f(),
+				code: code.clone(),
+			})),
 			Self::Storage(storage) => Ok(Genesis::Raw(RawGenesis::from(storage.clone()))),
 			Self::GenesisBuilderApi(GenesisBuildAction::Full(config), code) =>
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
@@ -128,7 +130,14 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
 		match self.genesis.resolve()? {
 			#[allow(deprecated)]
-			Genesis::Runtime(RuntimeInnerWrapper { runtime: runtime_genesis_config, code }) => {
+			Genesis::Runtime(runtime_genesis_config) => {
+				runtime_genesis_config.assimilate_storage(storage)?;
+			},
+			#[allow(deprecated)]
+			Genesis::RuntimeAndCode(RuntimeInnerWrapper {
+				runtime: runtime_genesis_config,
+				code,
+			}) => {
 				runtime_genesis_config.assimilate_storage(storage)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 			},
@@ -239,9 +248,8 @@ enum RuntimeGenesisConfigJson {
 /// Inner variant wrapper for deprecated runtime.
 #[derive(Serialize, Deserialize, Debug)]
 struct RuntimeInnerWrapper<G> {
-	#[serde(flatten)]
 	runtime: G,
-	#[serde(skip)]
+	#[serde(with = "sp_core::bytes")]
 	code: Vec<u8>,
 }
 
@@ -249,11 +257,20 @@ struct RuntimeInnerWrapper<G> {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
+#[allow(deprecated)]
 enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
+	/// without the runtime code.
+	Runtime(G),
+	/// (Deprecated) Contains the JSON representation of G (the native type representing the
+	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
 	/// and the runtime code.
-	Runtime(RuntimeInnerWrapper<G>),
+	// #[serde(skip_deserializing, rename(serialize = "runtime"))]
+	#[deprecated(
+		note = "`RuntimeAndCode` is planned to be removed in December 2023. Use `RuntimeGenesis` instead."
+	)]
+	RuntimeAndCode(RuntimeInnerWrapper<G>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
 	/// State root hash of the genesis storage.
@@ -268,7 +285,8 @@ enum Genesis<G> {
 /// fields.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
+// we cannot #[serde(deny_unknown_fields)]. Otherwise chain-spec-builder will fail on any
+// non-standard spec
 struct ClientSpec<E> {
 	name: String,
 	id: String,
@@ -585,7 +603,8 @@ impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned> ChainSpec<G
 /// Helper structure for serializing (and only serializing) the ChainSpec into JSON file. It
 /// represents the layout of `ChainSpec` JSON file.
 #[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+// we cannot #[serde(deny_unknown_fields)]. Otherwise chain-spec-builder will fail on any
+// non-standard spec.
 struct ChainSpecJsonContainer<G, E> {
 	#[serde(flatten)]
 	client_spec: ClientSpec<E>,
@@ -619,9 +638,14 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 			},
 
 			#[allow(deprecated)]
-			(true, Genesis::Runtime(RuntimeInnerWrapper { runtime: g, code })) => {
+			(true, Genesis::RuntimeAndCode(RuntimeInnerWrapper { runtime: g, code })) => {
 				let mut storage = g.build_storage()?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
+				RawGenesis::from(storage)
+			},
+			#[allow(deprecated)]
+			(true, Genesis::Runtime(g)) => {
+				let storage = g.build_storage()?;
 				RawGenesis::from(storage)
 			},
 			(true, Genesis::Raw(raw)) => raw,
@@ -763,9 +787,12 @@ fn json_contains_path(doc: &json::Value, path: &mut VecDeque<&str>) -> bool {
 /// place.
 pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8]) -> bool {
 	let mut path = json_path!["genesis", "runtimeGenesis", "code"];
-	let mut raw_path = json_path!["genesis", "raw", "top", "0x3a636f6465"];
+	let mut raw_path = json_path!["genesis", "raw", "top"];
+
+	println!("xxx");
 
 	if json_contains_path(&chain_spec, &mut path) {
+		println!("xxx1");
 		#[derive(Serialize)]
 		struct Container<'a> {
 			#[serde(with = "sp_core::bytes")]
@@ -775,12 +802,14 @@ pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8])
 		crate::json_patch::merge(chain_spec, code_patch);
 		true
 	} else if json_contains_path(&chain_spec, &mut raw_path) {
+		println!("xxx2");
 		#[derive(Serialize)]
 		struct Container<'a> {
 			#[serde(with = "sp_core::bytes", rename = "0x3a636f6465")]
 			code: &'a [u8],
 		}
 		let code_patch = json::json!({"genesis":{"raw":{"top": Container { code }}}});
+		println!("xxx2 {:#?}", code_patch);
 		crate::json_patch::merge(chain_spec, code_patch);
 		true
 	} else {

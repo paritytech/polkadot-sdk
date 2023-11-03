@@ -102,7 +102,7 @@ fn main() -> Result<(), String> {
 			let chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
 
 			let mut chain_spec_json =
-				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(convert_to_raw)?)
 					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			if let Some(path) = runtime_wasm_path {
 				update_code_in_json_chain_spec(
@@ -112,13 +112,14 @@ fn main() -> Result<(), String> {
 				);
 			}
 
-			chain_spec.as_json(convert_to_raw)
+			serde_json::to_string_pretty(&chain_spec_json)
+				.map_err(|e| format!("to pretty failed: {e}"))
 		},
 		ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec, ref runtime_wasm_path }) => {
 			write_chain_spec = false;
 			let chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
 			let mut chain_spec_json =
-				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
 					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			if let Some(path) = runtime_wasm_path {
 				update_code_in_json_chain_spec(
@@ -127,7 +128,8 @@ fn main() -> Result<(), String> {
 						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
 				);
 			};
-			chain_spec.as_json(true)
+			serde_json::to_string_pretty(&chain_spec_json)
+				.map_err(|e| format!("to pretty failed: {e}"))
 		},
 	}?;
 
