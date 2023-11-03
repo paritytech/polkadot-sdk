@@ -433,6 +433,10 @@
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="comment">// std
@@ -690,10 +694,14 @@
 		<span class="comment">// Here you can check whether the hardware meets your chains&#39; requirements. Putting a link
 		// in there and swapping out the requirements for your own are probably a good idea. The
 		// requirements for a para-chain are dictated by its relay-chain.
-		</span><span class="kw">if </span>!SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) &amp;&amp; validator {
-			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;⚠️  The hardware does not meet the minimal requirements for role &#39;Authority&#39;.&quot;
-			</span>);
+		</span><span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) {
+			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>validator =&gt; {
+				<span class="macro">log::warn!</span>(
+				<span class="string">&quot;⚠️  The hardware does not meet the minimal requirements {} for role &#39;Authority&#39;.&quot;</span>,
+				err
+			);
+			},
+			<span class="kw">_ </span>=&gt; {},
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>telemetry) = telemetry {

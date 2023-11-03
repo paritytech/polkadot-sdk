@@ -737,6 +737,60 @@
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -762,9 +816,11 @@
 <span class="kw">use </span>sp_io::crypto::sr25519_verify;
 <span class="kw">use </span>sp_std::{fmt, fmt::Formatter, prelude::<span class="kw-2">*</span>};
 
+<span class="kw">use </span>derive_more::From;
 <span class="kw">use </span>rand::{seq::SliceRandom, Rng, RngCore};
 <span class="kw">use </span>serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 <span class="kw">use </span>std::{
+	fmt::Display,
 	fs::File,
 	io::{Seek, SeekFrom, Write},
 	ops::{Deref, DerefMut},
@@ -785,6 +841,37 @@
 	</span>DiskSeqWrite,
 	<span class="doccomment">/// Disk random write.
 	</span>DiskRndWrite,
+}
+
+<span class="doccomment">/// Describes a checking failure for the hardware requirements.
+</span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
+</span><span class="kw">pub struct </span>CheckFailure {
+	<span class="doccomment">/// The metric that failed the check.
+	</span><span class="kw">pub </span>metric: Metric,
+	<span class="doccomment">/// The expected minimum value.
+	</span><span class="kw">pub </span>expected: Throughput,
+	<span class="doccomment">/// The measured value.
+	</span><span class="kw">pub </span>found: Throughput,
+}
+
+<span class="doccomment">/// A list of metrics that failed to meet the minimum hardware requirements.
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, From)]
+</span><span class="kw">pub struct </span>CheckFailures(<span class="kw">pub </span>Vec&lt;CheckFailure&gt;);
+
+<span class="kw">impl </span>Display <span class="kw">for </span>CheckFailures {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>Formatter) -&gt; fmt::Result {
+		<span class="macro">write!</span>(formatter, <span class="string">&quot;Failed checks: &quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">for </span>failure <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
+			<span class="macro">write!</span>(
+				formatter,
+				<span class="string">&quot;{}(expected: {}, found: {}), &quot;</span>,
+				failure.metric.name(),
+				failure.expected,
+				failure.found
+			)<span class="question-mark">?
+		</span>}
+		<span class="prelude-val">Ok</span>(())
+	}
 }
 
 <span class="kw">impl </span>Metric {
@@ -1365,34 +1452,55 @@
 
 <span class="kw">impl </span>Requirements {
 	<span class="doccomment">/// Whether the hardware requirements are met by the provided benchmark results.
-	</span><span class="kw">pub fn </span>check_hardware(<span class="kw-2">&amp;</span><span class="self">self</span>, hwbench: <span class="kw-2">&amp;</span>HwBench) -&gt; bool {
+	</span><span class="kw">pub fn </span>check_hardware(<span class="kw-2">&amp;</span><span class="self">self</span>, hwbench: <span class="kw-2">&amp;</span>HwBench) -&gt; <span class="prelude-ty">Result</span>&lt;(), CheckFailures&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>failures = Vec::new();
 		<span class="kw">for </span>requirement <span class="kw">in </span><span class="self">self</span>.<span class="number">0</span>.iter() {
 			<span class="kw">match </span>requirement.metric {
 				Metric::Blake2256 =&gt;
 					<span class="kw">if </span>requirement.minimum &gt; hwbench.cpu_hashrate_score {
-						<span class="kw">return </span><span class="bool-val">false
-					</span>},
+						failures.push(CheckFailure {
+							metric: requirement.metric,
+							expected: requirement.minimum,
+							found: hwbench.cpu_hashrate_score,
+						});
+					},
 				Metric::MemCopy =&gt;
 					<span class="kw">if </span>requirement.minimum &gt; hwbench.memory_memcpy_score {
-						<span class="kw">return </span><span class="bool-val">false
-					</span>},
+						failures.push(CheckFailure {
+							metric: requirement.metric,
+							expected: requirement.minimum,
+							found: hwbench.memory_memcpy_score,
+						});
+					},
 				Metric::DiskSeqWrite =&gt;
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(score) = hwbench.disk_sequential_write_score {
 						<span class="kw">if </span>requirement.minimum &gt; score {
-							<span class="kw">return </span><span class="bool-val">false
-						</span>}
+							failures.push(CheckFailure {
+								metric: requirement.metric,
+								expected: requirement.minimum,
+								found: score,
+							});
+						}
 					},
 				Metric::DiskRndWrite =&gt;
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(score) = hwbench.disk_random_write_score {
 						<span class="kw">if </span>requirement.minimum &gt; score {
-							<span class="kw">return </span><span class="bool-val">false
-						</span>}
+							failures.push(CheckFailure {
+								metric: requirement.metric,
+								expected: requirement.minimum,
+								found: score,
+							});
+						}
 					},
 				Metric::Sr25519Verify =&gt; {},
 			}
 		}
-		<span class="bool-val">true
-	</span>}
+		<span class="kw">if </span>failures.is_empty() {
+			<span class="prelude-val">Ok</span>(())
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Err</span>(failures.into())
+		}
+	}
 }
 
 <span class="attr">#[cfg(test)]

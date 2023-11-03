@@ -1430,6 +1430,10 @@
 <a href="#1430" id="1430">1430</a>
 <a href="#1431" id="1431">1431</a>
 <a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2397,11 +2401,15 @@
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(<span class="kw-2">&amp;</span>hwbench);
-		<span class="kw">if </span>!SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) &amp;&amp; role.is_authority() {
-			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;⚠️  The hardware does not meet the minimal requirements for role &#39;Authority&#39; find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware&quot;
-			</span>);
+		<span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) {
+			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>role.is_authority() =&gt; {
+				<span class="macro">log::warn!</span>(
+				<span class="string">&quot;⚠️  The hardware does not meet the minimal requirements {} for role &#39;Authority&#39; find out more at:\n\
+				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware&quot;</span>,
+				err
+			);
+			},
+			<span class="kw">_ </span>=&gt; {},
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>telemetry) = telemetry {
