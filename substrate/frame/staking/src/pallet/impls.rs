@@ -1903,8 +1903,8 @@ impl<T: Config> Pallet<T> {
 					})
 					.collect::<Result<Vec<_>, _>>()?;
 
-				// we take total as a nominator might have requested to unbond some of their stake
-				// that is active in current era.
+				// we take total instead of active as the nominator might have requested to unbond
+				// some of their stake that is still exposed in the current era.
 				ensure!(
 					sum <= Self::ledger(StakingAccount::Stash(nominator.clone()))?.total,
 					"nominator stake exceeds what is bonded."
