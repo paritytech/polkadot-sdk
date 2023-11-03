@@ -1,6 +1,6 @@
 [package]
 name = "sp-crypto-ec-utils"
-version = "0.4.0"
+version = "0.7.0"
 authors.workspace = true
 description = "Host functions for common Arkworks elliptic curve operations"
 edition.workspace = true
@@ -19,8 +19,8 @@ ark-bw6-761 = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
 ark-scale = { version = "0.0.11", features = ["hazmat"], default-features = false }
-sp-runtime-interface = { path = "../../runtime-interface", default-features = false}
-sp-std = { path = "../../std", default-features = false }
+sp-runtime-interface = { path = "../../runtime-interface", default-features = false, version = "21.0.0" }
+sp-std = { path = "../../std", default-features = false, version = "12.0.0" }
 
 [features]
 default = [ "std" ]

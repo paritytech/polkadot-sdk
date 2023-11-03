@@ -6,24 +6,21 @@ homepage = "https://substrate.io"
 repository.workspace = true
 authors.workspace = true
 edition.workspace = true
-version = "1.0.0"
+version = "0.1.0"
 publish = false
 
 # The dependencies are only needed for docs.
 [dependencies]
 aquamarine = "0.3.2"
-
-subkey = { path = "bin/utils/subkey" }
-chain-spec-builder = { package = "staging-chain-spec-builder", path = "bin/utils/chain-spec-builder" }
-
-sc-service = { path = "client/service" }
-sc-cli = { path = "client/cli" }
-sc-consensus-aura = { path = "client/consensus/aura" }
-sc-consensus-babe = { path = "client/consensus/babe" }
-sc-consensus-grandpa = { path = "client/consensus/grandpa" }
-sc-consensus-beefy = { path = "client/consensus/beefy" }
-sc-consensus-manual-seal = { path = "client/consensus/manual-seal" }
-sc-consensus-pow = { path = "client/consensus/pow" }
-
-sp-runtime = { path = "primitives/runtime" }
-frame-support = { path = "frame/support" }
+subkey = { version = "6.0.0", path = "bin/utils/subkey" }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "bin/utils/chain-spec-builder", version = "0.1.0" }
+sc-service = { version = "0.32.0", path = "client/service" }
+sc-cli = { version = "0.33.0", path = "client/cli" }
+sc-consensus-aura = { version = "0.31.0", path = "client/consensus/aura" }
+sc-consensus-babe = { version = "0.31.0", path = "client/consensus/babe" }
+sc-consensus-grandpa = { version = "0.16.0", path = "client/consensus/grandpa" }
+sc-consensus-beefy = { version = "10.0.0", path = "client/consensus/beefy" }
+sc-consensus-manual-seal = { version = "0.32.0", path = "client/consensus/manual-seal" }
+sc-consensus-pow = { version = "0.30.0", path = "client/consensus/pow" }
+sp-runtime = { version = "28.0.0", path = "primitives/runtime" }
+frame-support = { version = "25.0.0", path = "frame/support" }

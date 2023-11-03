@@ -1,6 +1,6 @@
 [package]
 name = "sp-core"
-version = "21.0.0"
+version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -32,10 +32,10 @@ secrecy = { version = "0.8.0", default-features = false }
 lazy_static = { version = "1.4.0", default-features = false, optional = true }
 parking_lot = { version = "0.12.1", optional = true }
 ss58-registry = { version = "1.34.0", default-features = false }
-sp-std = { path = "../std", default-features = false}
-sp-debug-derive = { path = "../debug-derive", default-features = false}
-sp-storage = { path = "../storage", default-features = false}
-sp-externalities = { path = "../externalities", optional = true}
+sp-std = { path = "../std", default-features = false, version = "12.0.0" }
+sp-debug-derive = { path = "../debug-derive", default-features = false, version = "12.0.0" }
+sp-storage = { path = "../storage", default-features = false, version = "17.0.0" }
+sp-externalities = { path = "../externalities", optional = true, version = "0.23.0" }
 futures = { version = "0.3.21", optional = true }
 dyn-clonable = { version = "0.9.0", optional = true }
 thiserror = { version = "1.0.48", optional = true }
@@ -51,13 +51,13 @@ libsecp256k1 = { version = "0.7", default-features = false, features = ["static-
 schnorrkel = { version = "0.9.1", features = ["preaudit_deprecated", "u64_backend"], default-features = false }
 merlin = { version = "2.0", default-features = false }
 secp256k1 = { version = "0.24.0", default-features = false, features = ["recovery", "alloc"], optional = true }
-sp-core-hashing = { path = "hashing", default-features = false, optional = true }
-sp-runtime-interface = { path = "../runtime-interface", default-features = false}
+sp-core-hashing = { path = "hashing", default-features = false, optional = true, version = "13.0.0" }
+sp-runtime-interface = { path = "../runtime-interface", default-features = false, version = "21.0.0" }
 
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true}
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "4b09416", default-features = false, optional = true }
+#bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "4b09416", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -75,7 +75,7 @@ bench = false
 default = [ "std" ]
 std = [
 	"array-bytes",
-	"bandersnatch_vrfs/getrandom",
+	#"bandersnatch_vrfs/getrandom",
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
@@ -157,4 +157,4 @@ bls-experimental = [ "w3f-bls" ]
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = [ "bandersnatch_vrfs" ]
+#bandersnatch-experimental = [ "bandersnatch_vrfs" ]
