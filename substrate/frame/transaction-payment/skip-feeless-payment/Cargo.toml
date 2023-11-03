@@ -7,7 +7,6 @@ license.workspace = true
 homepage.workspace = true
 repository.workspace = true
 description = "pallet to skip feeless payments"
-readme = "README.md"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
