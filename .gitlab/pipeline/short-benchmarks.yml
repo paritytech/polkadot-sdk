@@ -84,6 +84,11 @@ short-benchmark-bridge-hub-rococo:
   variables:
     RUNTIME_CHAIN: bridge-hub-rococo-dev
 
+short-benchmark-bridge-hub-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: bridge-hub-westend-dev
+
 short-benchmark-collectives-polkadot:
   <<: *short-bench-cumulus
   variables:

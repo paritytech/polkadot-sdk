@@ -30,7 +30,11 @@ pub use crate::{
 	types::ProtocolName,
 };
 
-pub use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
+pub use libp2p::{
+	build_multiaddr,
+	identity::{self, ed25519, Keypair},
+	multiaddr, Multiaddr, PeerId,
+};
 
 use crate::peer_store::PeerStoreHandle;
 use codec::Encode;
@@ -39,9 +43,10 @@ use zeroize::Zeroize;
 
 pub use sc_network_common::{
 	role::{Role, Roles},
-	sync::{warp::WarpSyncProvider, SyncMode},
+	sync::SyncMode,
 	ExHashT,
 };
+
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_runtime::traits::Block as BlockT;
 
@@ -56,11 +61,6 @@ use std::{
 	path::{Path, PathBuf},
 	pin::Pin,
 	str::{self, FromStr},
-};
-
-pub use libp2p::{
-	build_multiaddr,
-	identity::{self, ed25519},
 };
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.

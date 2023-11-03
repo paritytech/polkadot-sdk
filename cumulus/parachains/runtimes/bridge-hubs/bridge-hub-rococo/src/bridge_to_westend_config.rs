@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Bridge definitions used on BridgeHub with the Rococo flavor.
+//! Bridge definitions used on BridgeHub with the Rococo flavor for bridging to BridgeHubWestend.
 
 use crate::{
-	bridge_common_config::{BridgeParachainWococoInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeRococoToWococoMessages, ParachainInfo, Runtime, RuntimeEvent,
-	RuntimeOrigin, XcmRouter,
+	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
+	weights, AccountId, BridgeWestendMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -53,25 +53,28 @@ parameter_types! {
 		bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	pub const BridgeHubWococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID;
-	pub BridgeRococoToWococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoToWococoMessages as PalletInfoAccess>::index() as u8));
+	pub const BridgeHubWestendChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
+	pub BridgeRococoToWestendMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8));
 	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
-	pub WococoGlobalConsensusNetwork: NetworkId = NetworkId::Wococo;
-	pub ActiveOutboundLanesToBridgeHubWococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO];
+	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
+	pub ActiveOutboundLanesToBridgeHubWestend: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND];
+	pub const AssetHubRococoToAssetHubWestendMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
+	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
 
-	pub FromAssetHubRococoToAssetHubWococoRoute: SenderAndLane = SenderAndLane::new(
+	pub FromAssetHubRococoToAssetHubWestendRoute: SenderAndLane = SenderAndLane::new(
 		ParentThen(X1(Parachain(AssetHubRococoParaId::get().into()))).into(),
-		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
+		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
 	);
 
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
 
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
 }
+pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([0, 0, 0, 2]);
 
 fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instruction<Call>> {
 	sp_std::vec![
@@ -80,7 +83,7 @@ fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instru
 			origin_kind: OriginKind::Xcm,
 			require_weight_at_most:
 				bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-			call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
+			call: bp_asset_hub_rococo::Call::ToWestendXcmRouter(
 				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
 					bridge_id: Default::default(),
 					is_congested,
@@ -92,72 +95,71 @@ fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instru
 	]
 }
 
-/// Proof of messages, coming from Wococo.
-pub type FromWococoBridgeHubMessagesProof =
-	FromBridgedChainMessagesProof<bp_bridge_hub_wococo::Hash>;
-/// Messages delivery proof for Rococo Bridge Hub -> Wococo Bridge Hub messages.
-pub type ToWococoBridgeHubMessagesDeliveryProof =
-	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_wococo::Hash>;
+/// Proof of messages, coming from Westend.
+pub type FromWestendBridgeHubMessagesProof =
+	FromBridgedChainMessagesProof<bp_bridge_hub_westend::Hash>;
+/// Messages delivery proof for Rococo Bridge Hub -> Westend Bridge Hub messages.
+pub type ToWestendBridgeHubMessagesDeliveryProof =
+	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_westend::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-pub type OnBridgeHubRococoBlobDispatcher = BridgeBlobDispatcher<
+type FromWestendMessageBlobDispatcher = BridgeBlobDispatcher<
 	XcmRouter,
 	BridgeHubRococoUniversalLocation,
-	BridgeRococoToWococoMessagesPalletInstance,
+	BridgeRococoToWestendMessagesPalletInstance,
 >;
 
 /// Export XCM messages to be relayed to the other side
-pub type ToBridgeHubWococoHaulBlobExporter = HaulBlobExporter<
-	XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>,
-	WococoGlobalConsensusNetwork,
+pub type ToBridgeHubWestendHaulBlobExporter = HaulBlobExporter<
+	XcmBlobHaulerAdapter<ToBridgeHubWestendXcmBlobHauler>,
+	WestendGlobalConsensusNetwork,
 	(),
 >;
-pub struct ToBridgeHubWococoXcmBlobHauler;
-impl XcmBlobHauler for ToBridgeHubWococoXcmBlobHauler {
+pub struct ToBridgeHubWestendXcmBlobHauler;
+impl XcmBlobHauler for ToBridgeHubWestendXcmBlobHauler {
 	type Runtime = Runtime;
-	type MessagesInstance = WithBridgeHubWococoMessagesInstance;
-	type SenderAndLane = FromAssetHubRococoToAssetHubWococoRoute;
+	type MessagesInstance = WithBridgeHubWestendMessagesInstance;
+	type SenderAndLane = FromAssetHubRococoToAssetHubWestendRoute;
 
-	type ToSourceChainSender = crate::XcmRouter;
+	type ToSourceChainSender = XcmRouter;
 	type CongestedMessage = CongestedMessage;
 	type UncongestedMessage = UncongestedMessage;
 }
-pub const DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO: LaneId = LaneId([0, 0, 0, 1]);
 
 /// On messages delivered callback.
-pub type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>;
+type OnMessagesDeliveredFromWestend = XcmBlobHaulerAdapter<ToBridgeHubWestendXcmBlobHauler>;
 
-/// Messaging Bridge configuration for BridgeHubRococo -> BridgeHubWococo
-pub struct WithBridgeHubWococoMessageBridge;
-impl MessageBridge for WithBridgeHubWococoMessageBridge {
+/// Messaging Bridge configuration for BridgeHubRococo -> BridgeHubWestend
+pub struct WithBridgeHubWestendMessageBridge;
+impl MessageBridge for WithBridgeHubWestendMessageBridge {
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME;
+		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME;
 	type ThisChain = BridgeHubRococo;
-	type BridgedChain = BridgeHubWococo;
+	type BridgedChain = BridgeHubWestend;
 	type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
 		Runtime,
-		BridgeParachainWococoInstance,
-		bp_bridge_hub_wococo::BridgeHubWococo,
+		BridgeParachainWestendInstance,
+		bp_bridge_hub_westend::BridgeHubWestend,
 	>;
 }
 
-/// Message verifier for BridgeHubWococo messages sent from BridgeHubRococo
-pub type ToBridgeHubWococoMessageVerifier =
-	messages::source::FromThisChainMessageVerifier<WithBridgeHubWococoMessageBridge>;
+/// Message verifier for BridgeHubWestend messages sent from BridgeHubRococo
+pub type ToBridgeHubWestendMessageVerifier =
+	messages::source::FromThisChainMessageVerifier<WithBridgeHubWestendMessageBridge>;
 
-/// Maximal outbound payload size of BridgeHubRococo -> BridgeHubWococo messages.
-pub type ToBridgeHubWococoMaximalOutboundPayloadSize =
-	messages::source::FromThisChainMaximalOutboundPayloadSize<WithBridgeHubWococoMessageBridge>;
+/// Maximal outbound payload size of BridgeHubRococo -> BridgeHubWestend messages.
+pub type ToBridgeHubWestendMaximalOutboundPayloadSize =
+	messages::source::FromThisChainMaximalOutboundPayloadSize<WithBridgeHubWestendMessageBridge>;
 
-/// BridgeHubWococo chain from message lane point of view.
+/// BridgeHubWestend chain from message lane point of view.
 #[derive(RuntimeDebug, Clone, Copy)]
-pub struct BridgeHubWococo;
+pub struct BridgeHubWestend;
 
-impl UnderlyingChainProvider for BridgeHubWococo {
-	type Chain = bp_bridge_hub_wococo::BridgeHubWococo;
+impl UnderlyingChainProvider for BridgeHubWestend {
+	type Chain = bp_bridge_hub_westend::BridgeHubWestend;
 }
 
-impl messages::BridgedChainWithMessages for BridgeHubWococo {}
+impl messages::BridgedChainWithMessages for BridgeHubWestend {}
 
 /// BridgeHubRococo chain from message lane point of view.
 #[derive(RuntimeDebug, Clone, Copy)]
@@ -171,64 +173,66 @@ impl ThisChainWithMessages for BridgeHubRococo {
 	type RuntimeOrigin = RuntimeOrigin;
 }
 
-/// Signed extension that refunds relayers that are delivering messages from the Wococo parachain.
-pub type BridgeRefundBridgeHubWococoMessages = RefundSignedExtensionAdapter<
+/// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
+pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter<
 	RefundBridgedParachainMessages<
 		Runtime,
-		RefundableParachain<BridgeParachainWococoInstance, bp_bridge_hub_wococo::BridgeHubWococo>,
-		RefundableMessagesLane<WithBridgeHubWococoMessagesInstance, BridgeHubWococoMessagesLane>,
+		RefundableParachain<
+			BridgeParachainWestendInstance,
+			bp_bridge_hub_westend::BridgeHubWestend,
+		>,
+		RefundableMessagesLane<
+			WithBridgeHubWestendMessagesInstance,
+			AssetHubRococoToAssetHubWestendMessagesLane,
+		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
-		StrBridgeRefundBridgeHubWococoMessages,
+		StrOnBridgeHubRococoRefundBridgeHubWestendMessages,
 	>,
 >;
-bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubWococoMessages);
+bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWestendMessages);
 
-parameter_types! {
-	pub const BridgeHubWococoMessagesLane: bp_messages::LaneId = DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO;
-}
-
-/// Add XCM messages support for BridgeHubRococo to support Rococo->Wococo XCM messages
-pub type WithBridgeHubWococoMessagesInstance = pallet_bridge_messages::Instance1;
-impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Runtime {
+/// Add XCM messages support for BridgeHubRococo to support Rococo->Westend XCM messages
+pub type WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance3;
+impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_messages_rococo_to_wococo::WeightInfo<Runtime>;
-	type BridgedChainId = BridgeHubWococoChainId;
-	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWococo;
+	type WeightInfo = weights::pallet_bridge_messages_rococo_to_westend::WeightInfo<Runtime>;
+	type BridgedChainId = BridgeHubWestendChainId;
+	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
 	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
-	type MaximalOutboundPayloadSize = ToBridgeHubWococoMaximalOutboundPayloadSize;
+	type MaximalOutboundPayloadSize = ToBridgeHubWestendMaximalOutboundPayloadSize;
 	type OutboundPayload = XcmAsPlainPayload;
 
 	type InboundPayload = XcmAsPlainPayload;
 	type InboundRelayer = AccountId;
 	type DeliveryPayments = ();
 
-	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
-	type LaneMessageVerifier = ToBridgeHubWococoMessageVerifier;
+	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubWestendMessageBridge>;
+	type LaneMessageVerifier = ToBridgeHubWestendMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
-		WithBridgeHubWococoMessagesInstance,
+		WithBridgeHubWestendMessagesInstance,
 		DeliveryRewardInBalance,
 	>;
 
-	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
+	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWestendMessageBridge>;
 	type MessageDispatch = XcmBlobMessageDispatch<
-		OnBridgeHubRococoBlobDispatcher,
+		FromWestendMessageBlobDispatcher,
 		Self::WeightInfo,
 		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
 			AssetHubRococoParaId,
 			Runtime,
 		>,
 	>;
-	type OnMessagesDelivered = OnMessagesDelivered;
+	type OnMessagesDelivered = OnMessagesDeliveredFromWestend;
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::bridge_common_config::BridgeGrandpaWococoInstance;
+	use crate::bridge_common_config::BridgeGrandpaWestendInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
 		integrity::{
@@ -255,9 +259,9 @@ mod tests {
 		check_message_lane_weights::<
 			bp_bridge_hub_rococo::BridgeHubRococo,
 			Runtime,
-			WithBridgeHubWococoMessagesInstance,
+			WithBridgeHubWestendMessagesInstance,
 		>(
-			bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE,
+			bp_bridge_hub_westend::EXTRA_STORAGE_PROOF_SIZE,
 			bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 			bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 			true,
@@ -268,18 +272,18 @@ mod tests {
 	fn ensure_bridge_integrity() {
 		assert_complete_bridge_types!(
 			runtime: Runtime,
-			with_bridged_chain_grandpa_instance: BridgeGrandpaWococoInstance,
-			with_bridged_chain_messages_instance: WithBridgeHubWococoMessagesInstance,
-			bridge: WithBridgeHubWococoMessageBridge,
+			with_bridged_chain_grandpa_instance: BridgeGrandpaWestendInstance,
+			with_bridged_chain_messages_instance: WithBridgeHubWestendMessagesInstance,
+			bridge: WithBridgeHubWestendMessageBridge,
 			this_chain: bp_rococo::Rococo,
-			bridged_chain: bp_wococo::Wococo,
+			bridged_chain: bp_westend::Westend,
 		);
 
 		assert_complete_bridge_constants::<
 			Runtime,
-			BridgeGrandpaWococoInstance,
-			WithBridgeHubWococoMessagesInstance,
-			WithBridgeHubWococoMessageBridge,
+			BridgeGrandpaWestendInstance,
+			WithBridgeHubWestendMessagesInstance,
+			WithBridgeHubWestendMessageBridge,
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_rococo::BlockLength::get(),
@@ -287,30 +291,31 @@ mod tests {
 			},
 			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
 				max_unrewarded_relayers_in_bridged_confirmation_tx:
-					bp_bridge_hub_wococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+					bp_bridge_hub_westend::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 				max_unconfirmed_messages_in_bridged_confirmation_tx:
-					bp_bridge_hub_wococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-				bridged_chain_id: bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID,
+					bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				bridged_chain_id: bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID,
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:
-					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME,
-				with_bridged_chain_grandpa_pallet_name: bp_wococo::WITH_WOCOCO_GRANDPA_PALLET_NAME,
+					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME,
+				with_bridged_chain_grandpa_pallet_name:
+					bp_westend::WITH_WESTEND_GRANDPA_PALLET_NAME,
 				with_bridged_chain_messages_pallet_name:
-					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_westend::WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME,
 			},
 		});
 
 		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
 			Runtime,
-			WithBridgeHubWococoMessagesInstance,
+			WithBridgeHubWestendMessagesInstance,
 			PriorityBoostPerMessage,
 		>(FEE_BOOST_PER_MESSAGE);
 
 		assert_eq!(
-			BridgeRococoToWococoMessagesPalletInstance::get(),
+			BridgeRococoToWestendMessagesPalletInstance::get(),
 			X1(PalletInstance(
-				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX
+				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX
 			))
 		);
 	}
