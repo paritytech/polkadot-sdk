@@ -34,7 +34,6 @@ sp-consensus-aura = { path = "../../../primitives/consensus/aura" }
 sc-consensus = { path = "../../../client/consensus/common" }
 sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
-sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras" }
 sc-client-api = { path = "../../../client/api" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
@@ -43,7 +42,6 @@ sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 frame-system = { path = "../../../frame/system" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false}
-sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils", features = ["all-curves"] }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }
