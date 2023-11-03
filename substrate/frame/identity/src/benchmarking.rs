@@ -22,7 +22,6 @@
 use super::*;
 
 use crate::Pallet as Identity;
-use enumflags2::BitFlag;
 use frame_benchmarking::{
 	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
 };
@@ -50,9 +49,7 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
 		Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), i, 10u32.into())?;
-		let fields = IdentityFields(
-			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all(),
-		);
+		let fields = T::IdentityInformation::all_fields();
 		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields)?;
 	}
 
@@ -78,7 +75,7 @@ fn create_sub_accounts<T: Config>(
 	// Set identity so `set_subs` does not fail.
 	if IdentityOf::<T>::get(who).is_none() {
 		let _ = T::Currency::make_free_balance_be(who, BalanceOf::<T>::max_value() / 2u32.into());
-		let info = T::IdentityInformation::create_identity_info(1);
+		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(who_origin.into(), Box::new(info))?;
 	}
 
@@ -119,10 +116,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_identity(
-		r: Linear<1, { T::MaxRegistrars::get() }>,
-		x: Linear<0, { T::MaxAdditionalFields::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn set_identity(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		add_registrars::<T>(r)?;
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -132,7 +126,7 @@ mod benchmarks {
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		// Add an initial identity
-		let initial_info = T::IdentityInformation::create_identity_info(1);
+		let initial_info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(initial_info.clone()))?;
 
 		// User requests judgement from all the registrars, and they approve
@@ -155,7 +149,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(
 			RawOrigin::Signed(caller.clone()),
-			Box::new(T::IdentityInformation::create_identity_info(x)),
+			Box::new(T::IdentityInformation::create_identity_info()),
 		);
 
 		assert_last_event::<T>(Event::<T>::IdentitySet { who: caller }.into());
@@ -202,7 +196,6 @@ mod benchmarks {
 	fn clear_identity(
 		r: Linear<1, { T::MaxRegistrars::get() }>,
 		s: Linear<0, { T::MaxSubAccounts::get() }>,
-		x: Linear<0, { T::MaxAdditionalFields::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_origin =
@@ -217,7 +210,7 @@ mod benchmarks {
 		let _ = add_sub_accounts::<T>(&caller, s)?;
 
 		// Create their main identity with x additional fields
-		let info = T::IdentityInformation::create_identity_info(x);
+		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info.clone()))?;
 
 		// User requests judgement from all the registrars, and they approve
@@ -246,10 +239,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn request_judgement(
-		r: Linear<1, { T::MaxRegistrars::get() }>,
-		x: Linear<0, { T::MaxAdditionalFields::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn request_judgement(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
@@ -257,7 +247,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Create their main identity with x additional fields
-		let info = T::IdentityInformation::create_identity_info(x);
+		let info = T::IdentityInformation::create_identity_info();
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
@@ -273,10 +263,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn cancel_request(
-		r: Linear<1, { T::MaxRegistrars::get() }>,
-		x: Linear<0, { T::MaxAdditionalFields::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn cancel_request(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
@@ -284,7 +271,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Create their main identity with x additional fields
-		let info = T::IdentityInformation::create_identity_info(x);
+		let info = T::IdentityInformation::create_identity_info();
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
@@ -368,15 +355,12 @@ mod benchmarks {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 
-		let fields = IdentityFields(
-			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all(),
-		);
-
 		let registrars = Registrars::<T>::get();
 		ensure!(
 			registrars[r as usize].as_ref().unwrap().fields == Default::default(),
 			"fields already set."
 		);
+		let fields = T::IdentityInformation::all_fields();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), r, fields);
@@ -393,7 +377,6 @@ mod benchmarks {
 	#[benchmark]
 	fn provide_judgement(
 		r: Linear<1, { T::MaxRegistrars::get() - 1 }>,
-		x: Linear<0, { T::MaxAdditionalFields::get() }>,
 	) -> Result<(), BenchmarkError> {
 		// The user
 		let user: T::AccountId = account("user", r, SEED);
@@ -408,7 +391,7 @@ mod benchmarks {
 
 		add_registrars::<T>(r)?;
 
-		let info = T::IdentityInformation::create_identity_info(x);
+		let info = T::IdentityInformation::create_identity_info();
 		let info_hash = T::Hashing::hash_of(&info);
 		Identity::<T>::set_identity(user_origin.clone(), Box::new(info))?;
 
@@ -431,7 +414,6 @@ mod benchmarks {
 	fn kill_identity(
 		r: Linear<1, { T::MaxRegistrars::get() }>,
 		s: Linear<0, { T::MaxSubAccounts::get() }>,
-		x: Linear<0, { T::MaxAdditionalFields::get() }>,
 	) -> Result<(), BenchmarkError> {
 		add_registrars::<T>(r)?;
 
@@ -441,7 +423,7 @@ mod benchmarks {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
-		let info = T::IdentityInformation::create_identity_info(x);
+		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
 		let _ = add_sub_accounts::<T>(&target, s)?;
 
