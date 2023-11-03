@@ -18,6 +18,7 @@
 
 #![warn(unused_extern_crates)]
 #![warn(missing_docs)]
+#![allow(deprecated)]
 
 //! Substrate-specific P2P networking.
 //!

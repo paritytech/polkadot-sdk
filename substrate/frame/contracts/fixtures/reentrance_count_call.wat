@@ -20,7 +20,7 @@
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -36,11 +36,11 @@
 		(call $seal_input (i32.const 32) (i32.const 36))
 
 		;; reading manually passed reentrant count
-		(set_local $expected_reentrance_count (i32.load (i32.const 32)))
+		(local.set $expected_reentrance_count (i32.load (i32.const 32)))
 
 		;; reentrance count is calculated correctly
 		(call $assert
-			(i32.eq (call $reentrance_count) (get_local $expected_reentrance_count))
+			(i32.eq (call $reentrance_count) (local.get $expected_reentrance_count))
 		)
 
 		;; re-enter 5 times in a row and assert that the reentrant counter works as expected
@@ -52,7 +52,7 @@
 				(i32.store (i32.const 32) (i32.add (i32.load (i32.const 32)) (i32.const 1)))
 
 				;; Call to itself
-				(set_local $seal_call_exit_code
+				(local.set $seal_call_exit_code
 					(call $seal_call
 						(i32.const 8)	;; Allow reentrancy flag set
 						(i32.const 0)	;; Pointer to "callee" address
@@ -66,7 +66,7 @@
 				)
 
 				(call $assert
-					(i32.eq (get_local $seal_call_exit_code) (i32.const 0))
+					(i32.eq (local.get $seal_call_exit_code) (i32.const 0))
 				)
 			)
 		)
