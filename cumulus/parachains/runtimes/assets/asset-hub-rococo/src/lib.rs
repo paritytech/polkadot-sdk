@@ -97,7 +97,7 @@ use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
 use crate::xcm_config::{
-	bridging::to_rococo::EthereumGatewayLocation, ForeignCreatorsSovereignAccountOf,
+	bridging::to_wococo::EthereumLocation, ForeignCreatorsSovereignAccountOf,
 	LocalAndForeignAssetsMultiLocationMatcher, TrustBackedAssetsPalletLocation,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -390,9 +390,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type CreateOrigin = ForeignCreators<
 		(
 			FromSiblingParachain<parachain_info::Pallet<Runtime>>,
-			snowbridge_router_primitives::inbound::FromEthereumGlobalConsensus<
-				EthereumGatewayLocation,
-			>,
+			snowbridge_router_primitives::inbound::FromEthereumGlobalConsensus<EthereumLocation>,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,

@@ -59,12 +59,11 @@ use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, HandleFee, HashedDescription, IsConcrete,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	DescribeFamily, EnsureXcmOrigin, HandleFee, HashedDescription, IsConcrete, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{ExportXcm, FeeReason, TransactAsset, WithOriginFilter},
@@ -85,16 +84,6 @@ parameter_types! {
 	// Network and location for the local Ethereum testnet.
 	pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
 	pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(EthereumNetwork::get())));
-
-	pub const EthereumGatewayAddress: [u8; 20] = hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39");
-	// The Registry contract for the bridge which is also the origin for reserves and the prefix of all assets.
-	pub EthereumGatewayLocation: MultiLocation = EthereumLocation::get()
-		.pushed_with_interior(
-			AccountKey20 {
-				network: None,
-				key: EthereumGatewayAddress::get(),
-			}
-		).unwrap();
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -428,7 +417,7 @@ pub type AgentIdOf = HashedDescription<H256, DescribeFamily<DescribeAllTerminal>
 
 pub type SnowbridgeExporter = EthereumBlobExporter<
 	UniversalLocation,
-	EthereumGatewayLocation,
+	EthereumLocation,
 	snowbridge_outbound_queue::Pallet<Runtime>,
 	AgentIdOf,
 >;
@@ -472,7 +461,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 					destination,
 					message,
 				)
-				.map(|result| ((Ethereum { chain_id: 15 }, result.0), result.1)) // TODO get network ID
+				.map(|result| ((location, result.0), result.1))
 			},
 			_ => unimplemented!("Unsupported network: {:?}", network),
 		}
