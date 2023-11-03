@@ -208,7 +208,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				// Check if the pallet has any keys set, including the storage version. If there are
 				// no keys set, the pallet was just added to the runtime and needs to have its
 				// version initialized.
-				let pallet_hashed_prefix = twox_128(#pallet_name.as_bytes());
+				let pallet_hashed_prefix = <Self as PalletInfoAccess>::name_hash();
 				let exists = contains_prefixed_key(&pallet_hashed_prefix);
 				if !exists {
 					#initialize_on_chain_storage_version
