@@ -275,8 +275,6 @@ pub mod pallet {
 		fn build(&self) {
 			#[cfg(feature = "construct-dummy-ring-context")]
 			{
-				// TODO @davxy : this is a temporary solution for node-sassafras development.
-				// (load a pre-constructed one from chain-spec?)
 				debug!(target: LOG_TARGET, "Constructing dummy ring context");
 				let ring_ctx = vrf::RingContext::new_testing();
 				RingContext::<T>::put(ring_ctx);
@@ -328,8 +326,6 @@ pub mod pallet {
 
 		/// Block finalization
 		fn on_finalize(_now: BlockNumberFor<T>) {
-			// TODO @davxy: check if the validator has been disabled during execution.
-
 			// At the end of the block, we can safely include the new VRF output from
 			// this block into the randomness accumulator. If we've determined
 			// that this block was the first in a new epoch, the changeover logic has
@@ -580,10 +576,9 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		// TODO: @davxy. Remove comments.
-		// if next_authorities != authoritues {
-		Self::update_ring_verifier(&next_authorities);
-		// }
+		if next_authorities != authoritues {
+			Self::update_ring_verifier(&next_authorities);
+		}
 
 		// Update authorities
 		Authorities::<T>::put(&authorities);
@@ -971,8 +966,7 @@ impl<T: Config> Pallet<T> {
 	/// The submitted tickets are added to the next epoch outstanding tickets as long as the
 	/// extrinsic is called within the first half of the epoch. Tickets received during the
 	/// second half are dropped.
-	///
-	/// TODO @davxy: directly use a bounded vector???
+	// TODO @davxy: directly use a bounded vector???
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
