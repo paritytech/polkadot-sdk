@@ -102,7 +102,7 @@ pub enum MessageOrigin {
 	/// The message came from the relay-chain.
 	Parent,
 	/// The message came from a sibling para-chain.
-	Sibling(ParaId)
+	Sibling(ParaId),
 }
 
 impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
@@ -111,18 +111,10 @@ impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
 		match origin {
 			Here => MultiLocation::here(),
 			Parent => MultiLocation::parent(),
-			Sibling(id) => {
-				MultiLocation::new(1, Junction::Parachain(id.into()))
-			},
-			Export(MessageOrigin::Here) => {
-				MultiLocation::here()
-			},
-			Export(MessageOrigin::Parent) => {
-				MultiLocation::parent()
-			},
-			Export(MessageOrigin::Sibling(id)) => {
-				MultiLocation::new(1, Junction::Parachain(id.into()))
-			}
+			Sibling(id) => MultiLocation::new(1, Junction::Parachain(id.into())),
+			Export(MessageOrigin::Here) => MultiLocation::here(),
+			Export(MessageOrigin::Parent) => MultiLocation::parent(),
+			Export(MessageOrigin::Sibling(id)) => MultiLocation::new(1, Junction::Parachain(id.into())),
 		}
 	}
 }
