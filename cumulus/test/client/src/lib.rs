@@ -90,6 +90,7 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 			cumulus_test_service::testnet_genesis(
 				cumulus_test_service::get_account_id_from_seed::<sr25519::Public>("Alice"),
 				self.endowed_accounts.clone(),
+				None,
 			)
 			.build_storage()
 			.unwrap()
@@ -136,7 +137,7 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 }
 
 fn genesis_config() -> RuntimeGenesisConfig {
-	cumulus_test_service::testnet_genesis_with_default_endowed(Default::default())
+	cumulus_test_service::testnet_genesis_with_default_endowed(Default::default(), None)
 }
 
 /// Create an unsigned extrinsic from a runtime call.
