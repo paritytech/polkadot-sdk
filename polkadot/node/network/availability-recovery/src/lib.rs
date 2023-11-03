@@ -453,14 +453,15 @@ async fn handle_recover<Context>(
 									chunk_size.saturating_mul(session_info.validators.len()) / 3;
 								small_pov_size = pov_size_estimate < small_pov_limit;
 
-								gum::trace!(
-									target: LOG_TARGET,
-									?candidate_hash,
-									pov_size_estimate,
-									small_pov_limit,
-									enabled = small_pov_size,
-									"Prefer fetch from backing group",
-								);
+								if small_pov_size {
+									gum::trace!(
+										target: LOG_TARGET,
+										?candidate_hash,
+										pov_size_estimate,
+										small_pov_limit,
+										"Prefer fetch from backing group",
+									);
+								}
 							} else {
 								// we have a POV limit but were not able to query the chunk size, so
 								// don't use the backing group.

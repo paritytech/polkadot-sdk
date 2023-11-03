@@ -23,12 +23,6 @@ use polkadot_node_subsystem_util::metrics::{
 	},
 };
 
-/// Label value used for regular chunk fetching.
-pub const REGULAR_CHUNK_LABEL: &str = "regular";
-
-/// Label value used for systematic chunk fetching.
-pub const SYSTEMATIC_CHUNK_LABEL: &str = "systematic";
-
 /// Availability Distribution metrics.
 #[derive(Clone, Default)]
 pub struct Metrics(Option<MetricsInner>);
@@ -40,13 +34,13 @@ struct MetricsInner {
 	/// Gets incremented on each sent chunk requests.
 	///
 	/// Split by chunk type:
-	/// - `regular`
-	/// - `systematic`
+	/// - `regular_chunks`
+	/// - `systematic_chunks`
 	chunk_requests_issued: CounterVec<U64>,
 
 	/// A counter for finished chunk requests.
 	///
-	/// Split by the chunk type (`regular` or `systematic`)
+	/// Split by the chunk type (`regular_chunks` or `systematic_chunks`)
 	///
 	/// Also split by result:
 	/// - `no_such_chunk` ... peer did not have the requested chunk
@@ -58,17 +52,18 @@ struct MetricsInner {
 
 	/// The duration of request to response.
 	///
-	/// Split by chunk type (`regular` or `systematic`).
+	/// Split by chunk type (`regular_chunks` or `systematic_chunks`).
 	time_chunk_request: HistogramVec,
 
 	/// The duration between the pure recovery and verification.
 	///
-	/// Split by chunk type (`regular` or `systematic`).
+	/// Split by recovery type (`regular_chunks`, `systematic_chunks` or `full_from_backers`).
 	time_erasure_recovery: HistogramVec,
 
 	/// How much time it takes to reconstruct the available data from chunks.
 	///
-	/// Split by chunk type (`regular` or `systematic`), ass the algorithms are different.
+	/// Split by chunk type (`regular_chunks` or `systematic_chunks`), as the algorithms are
+	/// different.
 	time_erasure_reconstruct: HistogramVec,
 
 	/// How much time it takes to re-encode the data into erasure chunks in order to verify

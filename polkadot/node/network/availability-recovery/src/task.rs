@@ -18,11 +18,7 @@
 
 #![warn(missing_docs)]
 
-use crate::{
-	futures_undead::FuturesUndead,
-	metrics::{Metrics, REGULAR_CHUNK_LABEL, SYSTEMATIC_CHUNK_LABEL},
-	ErasureTask, LOG_TARGET,
-};
+use crate::{futures_undead::FuturesUndead, metrics::Metrics, ErasureTask, LOG_TARGET};
 use futures::{channel::oneshot, SinkExt};
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
@@ -266,7 +262,7 @@ impl State {
 	/// Launch chunk requests in parallel, according to the parameters.
 	async fn launch_parallel_chunk_requests<Sender>(
 		&mut self,
-		chunk_type: &str,
+		strategy_type: &str,
 		params: &RecoveryParams,
 		sender: &mut Sender,
 		desired_requests_count: usize,
@@ -313,8 +309,8 @@ impl State {
 				let (req, res) = OutgoingRequest::new(Recipient::Authority(validator), raw_request);
 				requests.push(Requests::ChunkFetchingV1(req));
 
-				params.metrics.on_chunk_request_issued(chunk_type);
-				let timer = params.metrics.time_chunk_request(chunk_type);
+				params.metrics.on_chunk_request_issued(strategy_type);
+				let timer = params.metrics.time_chunk_request(strategy_type);
 
 				requesting_chunks.push(Box::pin(async move {
 					let _timer = timer;
@@ -345,7 +341,7 @@ impl State {
 	/// Wait for a sufficient amount of chunks to reconstruct according to the provided `params`.
 	async fn wait_for_chunks(
 		&mut self,
-		chunk_type: &str,
+		strategy_type: &str,
 		params: &RecoveryParams,
 		retry_threshold: u32,
 		validators: &mut VecDeque<(ChunkIndex, ValidatorIndex)>,
@@ -384,7 +380,7 @@ impl State {
 			match request_result {
 				Ok(Some(chunk)) =>
 					if is_chunk_valid(params, &chunk) {
-						metrics.on_chunk_request_succeeded(chunk_type);
+						metrics.on_chunk_request_succeeded(strategy_type);
 						gum::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?params.candidate_hash,
@@ -394,14 +390,14 @@ impl State {
 						);
 						self.insert_chunk(chunk.index, chunk);
 					} else {
-						metrics.on_chunk_request_invalid(chunk_type);
+						metrics.on_chunk_request_invalid(strategy_type);
 						error_count += 1;
 						// Record that we got an invalid chunk so that subsequent strategies don't
 						// try requesting this again.
 						self.record_error_fatal(chunk_index, validator_index);
 					},
 				Ok(None) => {
-					metrics.on_chunk_request_no_such_chunk(chunk_type);
+					metrics.on_chunk_request_no_such_chunk(strategy_type);
 					gum::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?params.candidate_hash,
@@ -428,7 +424,7 @@ impl State {
 
 					match err {
 						RequestError::InvalidResponse(_) => {
-							metrics.on_chunk_request_invalid(chunk_type);
+							metrics.on_chunk_request_invalid(strategy_type);
 
 							gum::debug!(
 								target: LOG_TARGET,
@@ -447,9 +443,9 @@ impl State {
 							// No debug logs on general network errors - that became very spammy
 							// occasionally.
 							if let RequestFailure::Network(OutboundFailure::Timeout) = err {
-								metrics.on_chunk_request_timeout(chunk_type);
+								metrics.on_chunk_request_timeout(strategy_type);
 							} else {
-								metrics.on_chunk_request_error(chunk_type);
+								metrics.on_chunk_request_error(strategy_type);
 							}
 
 							self.record_error_non_fatal(chunk_index, validator_index);
@@ -461,7 +457,7 @@ impl State {
 							}
 						},
 						RequestError::Canceled(_) => {
-							metrics.on_chunk_request_error(chunk_type);
+							metrics.on_chunk_request_error(strategy_type);
 
 							self.record_error_non_fatal(chunk_index, validator_index);
 							if self.can_retry_request(chunk_index, validator_index, retry_threshold)
@@ -643,8 +639,10 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		sender: &mut Sender,
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
+		let strategy_type = RecoveryStrategy::<Sender>::strategy_type(&*self);
+
 		loop {
-			// Pop the next validator, and proceed to next fetch_chunks_task if we're out.
+			// Pop the next validator.
 			let validator_index =
 				self.params.validators.pop().ok_or_else(|| RecoveryError::Unavailable)?;
 
@@ -667,6 +665,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 			match response.await {
 				Ok(req_res::v1::AvailableDataFetchingResponse::AvailableData(data)) => {
+					let recovery_duration =
+						common_params.metrics.time_erasure_recovery(strategy_type);
 					let (reencode_tx, reencode_rx) = oneshot::channel();
 					self.params
 						.erasure_task_tx
@@ -691,6 +691,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 						return Ok(data)
 					} else {
+						recovery_duration.map(|rd| rd.stop_and_discard());
+
 						gum::debug!(
 							target: LOG_TARGET,
 							candidate_hash = ?common_params.candidate_hash,
@@ -776,14 +778,14 @@ impl FetchSystematicChunks {
 		std::cmp::min(max_requests_boundary, remaining_chunks)
 	}
 
-	async fn attempt_systematic_recovery(
+	async fn attempt_systematic_recovery<Sender: overseer::AvailabilityRecoverySenderTrait>(
 		&mut self,
 		state: &mut State,
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
-		let recovery_duration = common_params.metrics.time_erasure_recovery(SYSTEMATIC_CHUNK_LABEL);
-		let reconstruct_duration =
-			common_params.metrics.time_erasure_reconstruct(SYSTEMATIC_CHUNK_LABEL);
+		let strategy_type = RecoveryStrategy::<Sender>::strategy_type(self);
+		let recovery_duration = common_params.metrics.time_erasure_recovery(strategy_type);
+		let reconstruct_duration = common_params.metrics.time_erasure_reconstruct(strategy_type);
 		let chunks = state
 			.received_chunks
 			.range(
@@ -923,7 +925,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// If received_chunks has `systematic_chunk_threshold` entries, attempt to recover the
 			// data.
 			if systematic_chunk_count >= self.threshold {
-				return self.attempt_systematic_recovery(state, common_params).await
+				return self.attempt_systematic_recovery::<Sender>(state, common_params).await
 			}
 
 			if Self::is_unavailable(
@@ -960,9 +962,11 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				"Requesting systematic availability chunks for a candidate",
 			);
 
+			let strategy_type = RecoveryStrategy::<Sender>::strategy_type(&*self);
+
 			state
 				.launch_parallel_chunk_requests(
-					SYSTEMATIC_CHUNK_LABEL,
+					strategy_type,
 					common_params,
 					sender,
 					desired_requests_count,
@@ -973,7 +977,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 			let (total_responses, error_count) = state
 				.wait_for_chunks(
-					SYSTEMATIC_CHUNK_LABEL,
+					strategy_type,
 					common_params,
 					SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
 					&mut validators_queue,
@@ -1074,12 +1078,14 @@ impl FetchChunks {
 		)
 	}
 
-	async fn attempt_recovery(
+	async fn attempt_recovery<Sender: overseer::AvailabilityRecoverySenderTrait>(
 		&mut self,
 		state: &mut State,
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
-		let recovery_duration = common_params.metrics.time_erasure_recovery(REGULAR_CHUNK_LABEL);
+		let recovery_duration = common_params
+			.metrics
+			.time_erasure_recovery(RecoveryStrategy::<Sender>::strategy_type(self));
 
 		// Send request to reconstruct available data from chunks.
 		let (avilable_data_tx, available_data_rx) = oneshot::channel();
@@ -1191,7 +1197,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// Do this before requesting any chunks because we may have enough of them coming from
 			// past RecoveryStrategies.
 			if state.chunk_count() >= common_params.threshold {
-				return self.attempt_recovery(state, common_params).await
+				return self.attempt_recovery::<Sender>(state, common_params).await
 			}
 
 			if Self::is_unavailable(
@@ -1228,9 +1234,11 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				"Requesting availability chunks for a candidate",
 			);
 
+			let strategy_type = RecoveryStrategy::<Sender>::strategy_type(&*self);
+
 			state
 				.launch_parallel_chunk_requests(
-					REGULAR_CHUNK_LABEL,
+					strategy_type,
 					common_params,
 					sender,
 					desired_requests_count,
@@ -1241,7 +1249,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 			let (total_responses, error_count) = state
 				.wait_for_chunks(
-					REGULAR_CHUNK_LABEL,
+					strategy_type,
 					common_params,
 					REGULAR_CHUNKS_REQ_RETRY_LIMIT,
 					&mut validators_queue,
