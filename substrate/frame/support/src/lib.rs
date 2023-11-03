@@ -51,7 +51,9 @@ pub mod __private {
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
-	pub use sp_runtime::{traits::Dispatchable, RuntimeDebug, StateVersion};
+	pub use sp_runtime::{
+		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
 	pub use sp_std;
@@ -779,6 +781,31 @@ macro_rules! assert_error_encoded_size {
 		runtime = [{ $runtime:ident }]
 		assert_message = [{ $assert_message:literal }]
 	} => {};
+}
+
+/// Do something hypothetically by rolling back any changes afterwards.
+///
+/// Returns the original result of the closure.
+#[macro_export]
+#[cfg(feature = "experimental")]
+macro_rules! hypothetically {
+	( $e:expr ) => {
+		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
+			$crate::__private::TransactionOutcome::Rollback(Ok($e))
+		},
+		).expect("Always returning Ok; qed")
+	};
+}
+
+/// Assert something to be *hypothetically* `Ok`, without actually committing it.
+///
+/// Reverts any storage changes made by the closure.
+#[macro_export]
+#[cfg(feature = "experimental")]
+macro_rules! hypothetically_ok {
+	($e:expr $(, $args:expr)* $(,)?) => {
+		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
+	};
 }
 
 #[doc(hidden)]

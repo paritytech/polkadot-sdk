@@ -71,6 +71,9 @@ pub type QueryId = u64;
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
+/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
 pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 environmental::environmental!(instructions_count: u8);
