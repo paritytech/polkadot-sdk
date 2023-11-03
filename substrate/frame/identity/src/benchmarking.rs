@@ -539,7 +539,7 @@ mod benchmarks {
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
 		// set identity
-		let info = T::IdentityInformation::create_identity_info(1);
+		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(
 			RawOrigin::Signed(target.clone()).into(),
 			Box::new(info.clone()),
@@ -579,7 +579,7 @@ mod benchmarks {
 	fn poke_deposit() -> Result<(), BenchmarkError> {
 		let target: T::AccountId = account("target", 0, SEED);
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
-		let additional_fields = 0;
+		let default_info = T::IdentityInformation::create_identity_info();
 
 		// insert identity into storage with zero deposit
 		IdentityOf::<T>::insert(
@@ -587,7 +587,7 @@ mod benchmarks {
 			Registration {
 				judgements: BoundedVec::default(),
 				deposit: Zero::zero(),
-				info: T::IdentityInformation::create_identity_info(additional_fields),
+				info: default_info.clone(),
 			},
 		);
 
@@ -600,9 +600,10 @@ mod benchmarks {
 		>(&target, (Zero::zero(), subs));
 
 		// expected deposits
-		let expected_id_deposit = T::FieldDeposit::get()
-			.saturating_mul(additional_fields.into())
-			.saturating_add(T::BasicDeposit::get());
+		let expected_id_deposit = T::BasicDeposit::get().saturating_add(
+			T::ByteDeposit::get()
+				.saturating_mul(<BalanceOf<T>>::from(default_info.encoded_size() as u32)),
+		);
 		let expected_sub_deposit = T::SubAccountDeposit::get(); // only 1
 
 		#[block]

@@ -79,8 +79,10 @@ mod tests;
 mod types;
 pub mod weights;
 
+use codec::Encode;
 use frame_support::{
-	pallet_prelude::DispatchResult,
+	ensure,
+	pallet_prelude::{DispatchError, DispatchResult},
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
 };
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
@@ -955,7 +957,7 @@ impl<T: Config> Pallet<T> {
 	/// Parameters:
 	/// - `target`: The account for which to reap identity state.
 	///
-	/// Return type is a tuple of the number of registrars, additional fields, and sub accounts,
+	/// Return type is a tuple of the number of registrars, `IdentityInfo` bytes, and sub accounts,
 	/// respectively.
 	///
 	/// NOTE: This function is here temporarily for migration of Identity info from the Polkadot
@@ -965,8 +967,7 @@ impl<T: Config> Pallet<T> {
 		// identity
 		let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
 		let registrars = id.judgements.len() as u32;
-		#[allow(deprecated)]
-		let fields = id.info.additional() as u32;
+		let encoded_byte_size = id.info.encoded_size() as u32;
 
 		// subs
 		let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
@@ -979,7 +980,7 @@ impl<T: Config> Pallet<T> {
 		let deposit = id.total_deposit().saturating_add(subs_deposit);
 		let err_amount = T::Currency::unreserve(&who, deposit);
 		debug_assert!(err_amount.is_zero());
-		Ok((registrars, fields, actual_subs))
+		Ok((registrars, encoded_byte_size, actual_subs))
 	}
 
 	/// Update the deposits held by `target` for its identity info.
@@ -1001,10 +1002,10 @@ impl<T: Config> Pallet<T> {
 			|registration| -> Result<BalanceOf<T>, DispatchError> {
 				let reg = registration.as_mut().ok_or(Error::<T>::NoIdentity)?;
 				// Calculate what deposit should be
-				#[allow(deprecated)]
-				let field_deposit = T::FieldDeposit::get()
-					.saturating_mul(BalanceOf::<T>::from(reg.info.additional() as u32));
-				let new_id_deposit = T::BasicDeposit::get().saturating_add(field_deposit);
+				let encoded_byte_size = reg.info.encoded_size() as u32;
+				let byte_deposit =
+					T::ByteDeposit::get().saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
+				let new_id_deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
 
 				// Update account
 				Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
