@@ -134,14 +134,9 @@ type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 
 /// Interface required for identity verification.
 pub trait IdentityVerifier<AccountId> {
-	type FieldsBitFlags;
-
-	/// Returns the relevant identities that an account is required to have set.
-	fn required_identities() -> Self::FieldsBitFlags;
-
-	/// Function that returns whether an account has an identity registered with the identity
-	/// provider.
-	fn has_identity(who: &AccountId, fields: Self::FieldsBitFlags) -> bool;
+	/// Function that returns whether an account has the required identities registered with the
+	/// identity provider.
+	fn has_required_identities(who: &AccountId) -> bool;
 
 	/// Whether an account has been deemed "good" by the provider.
 	fn has_good_judgement(who: &AccountId) -> bool;
@@ -153,13 +148,7 @@ pub trait IdentityVerifier<AccountId> {
 
 /// The non-provider. Imposes no restrictions on account identity.
 impl<AccountId> IdentityVerifier<AccountId> for () {
-	type FieldsBitFlags = ();
-
-	fn required_identities() -> Self::FieldsBitFlags {
-		()
-	}
-
-	fn has_identity(_who: &AccountId, _fields: Self::FieldsBitFlags) -> bool {
+	fn has_required_identities(_who: &AccountId) -> bool {
 		true
 	}
 
@@ -1094,7 +1083,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn has_identity(who: &T::AccountId) -> DispatchResult {
 		let judgement = |who: &T::AccountId| -> DispatchResult {
 			ensure!(
-				T::IdentityVerifier::has_identity(who, T::IdentityVerifier::required_identities()),
+				T::IdentityVerifier::has_required_identities(who),
 				Error::<T, I>::WithoutRequiredIdentityFields
 			);
 			ensure!(

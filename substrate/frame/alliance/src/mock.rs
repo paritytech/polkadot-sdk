@@ -33,7 +33,7 @@ pub use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
-	Data, IdentityInformationProvider, Judgement,
+	Data, Judgement,
 };
 
 pub use crate as pallet_alliance;
@@ -135,14 +135,8 @@ impl pallet_identity::Config for Test {
 
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
-	type FieldsBitFlags = <<Test as pallet_identity::Config>::IdentityInformation as IdentityInformationProvider>::FieldsBitFlags;
-
-	fn required_identities() -> Self::FieldsBitFlags {
-		(IdentityField::Display | IdentityField::Web).bits()
-	}
-
-	fn has_identity(who: &AccountId, fields: Self::FieldsBitFlags) -> bool {
-		Identity::has_identity(who, fields)
+	fn has_required_identities(who: &AccountId) -> bool {
+		Identity::has_identity(who, (IdentityField::Display | IdentityField::Web).bits())
 	}
 
 	fn has_good_judgement(who: &AccountId) -> bool {

@@ -57,15 +57,8 @@ impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
 
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
-	type FieldsBitFlags =
-		<<Runtime as pallet_identity::Config>::IdentityInformation as IdentityInformationProvider>::FieldsBitFlags;
-
-	fn required_identities() -> Self::FieldsBitFlags {
-		(IdentityField::Display | IdentityField::Web).bits()
-	}
-
-	fn has_identity(who: &AccountId, fields: Self::FieldsBitFlags) -> bool {
-		crate::Identity::has_identity(who, fields)
+	fn has_required_identities(who: &AccountId) -> bool {
+		crate::Identity::has_identity(who, (IdentityField::Display | IdentityField::Web).bits())
 	}
 
 	fn has_good_judgement(who: &AccountId) -> bool {
