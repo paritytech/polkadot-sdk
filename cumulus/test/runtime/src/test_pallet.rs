@@ -66,8 +66,8 @@ pub mod pallet {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4].encode());
 			self.self_para_id.map(|para_id| {
-			sp_io::storage::set(
-				&sp_io::hashing::twox_128(&PARACHAIN_ID_RUNTIME_KEY),
+				sp_io::storage::set(
+					&sp_io::hashing::twox_128(&PARACHAIN_ID_RUNTIME_KEY),
 					&para_id.encode(),
 				)
 			});
