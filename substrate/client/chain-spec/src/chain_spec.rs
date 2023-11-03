@@ -266,10 +266,9 @@ enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
 	/// and the runtime code.
-	// #[serde(skip_deserializing, rename(serialize = "runtime"))]
-	#[deprecated(
-		note = "`RuntimeAndCode` is planned to be removed in December 2023. Use `RuntimeGenesis` instead."
-	)]
+	// #[deprecated(
+	// 	note = "`RuntimeAndCode` is planned to be removed in December 2023. Use `RuntimeGenesis`
+	// instead." )]
 	RuntimeAndCode(RuntimeInnerWrapper<G>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
