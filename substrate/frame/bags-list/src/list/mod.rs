@@ -799,12 +799,6 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	pub fn std_iter(&self) -> impl Iterator<Item = Node<T, I>> {
 		sp_std::iter::successors(self.head(), |prev| prev.next())
 	}
-
-	/// Check if the bag contains a node with `id`.
-	#[cfg(any(test, feature = "fuzz"))]
-	fn contains(&self, id: &T::AccountId) -> bool {
-		self.iter().any(|n| n.id() == id)
-	}
 }
 
 /// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
