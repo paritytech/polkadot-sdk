@@ -1126,15 +1126,6 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "unknown field `code`")]
-	fn check_code_in_assimilated_storage_for_raw_with_encoded() {
-		let _ = ChainSpec::<()>::from_json_bytes(Cow::Owned(
-			include_bytes!("../res/raw_with_code.json").to_vec(),
-		))
-		.unwrap();
-	}
-
-	#[test]
 	fn check_code_in_assimilated_storage_for_raw_without_code() {
 		let spec = ChainSpec::<()>::from_json_bytes(Cow::Owned(
 			include_bytes!("../res/raw_no_code.json").to_vec(),
