@@ -589,6 +589,13 @@
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -852,7 +859,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{authorities::AuthoritySetChanges, BlockNumberOps, ClientError, SetId};
 	<span class="kw">use </span>futures::executor::block_on;
-	<span class="kw">use </span>sc_block_builder::BlockBuilderProvider;
+	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_client_api::{apply_aux, LockImportRun};
 	<span class="kw">use </span>sp_consensus::BlockOrigin;
 	<span class="kw">use </span>sp_consensus_grandpa::GRANDPA_ENGINE_ID <span class="kw">as </span>ID;
@@ -914,7 +921,14 @@
 
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks = Vec::new();
 		<span class="kw">for _ in </span><span class="number">0</span>..number_of_blocks {
-			<span class="kw">let </span>block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+			<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
 			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 			blocks.push(block);
 		}

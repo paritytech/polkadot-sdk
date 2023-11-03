@@ -388,6 +388,55 @@
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -419,53 +468,144 @@
 </span><span class="kw">use </span>codec::Encode;
 
 <span class="kw">use </span>sp_api::{
-	ApiExt, ApiRef, Core, ProvideRuntimeApi, StorageChanges, StorageProof, TransactionOutcome,
+	ApiExt, ApiRef, CallApiAt, Core, ProvideRuntimeApi, StorageChanges, StorageProof,
+	TransactionOutcome,
 };
-<span class="kw">use </span>sp_blockchain::{ApplyExtrinsicFailed, Error};
+<span class="kw">use </span>sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 <span class="kw">use </span>sp_core::traits::CallContext;
 <span class="kw">use </span>sp_runtime::{
 	legacy,
 	traits::{Block <span class="kw">as </span>BlockT, Hash, HashingFor, Header <span class="kw">as </span>HeaderT, NumberFor, One},
 	Digest,
 };
+<span class="kw">use </span>std::marker::PhantomData;
 
-<span class="kw">use </span>sc_client_api::backend;
 <span class="kw">pub use </span>sp_block_builder::BlockBuilder <span class="kw">as </span>BlockBuilderApi;
 
-<span class="doccomment">/// Used as parameter to [`BlockBuilderProvider`] to express if proof recording should be enabled.
+<span class="doccomment">/// A builder for creating an instance of [`BlockBuilder`].
+</span><span class="kw">pub struct </span>BlockBuilderBuilder&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+	_phantom: PhantomData&lt;B&gt;,
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B, C&gt; BlockBuilderBuilder&lt;<span class="lifetime">&#39;a</span>, B, C&gt;
+<span class="kw">where
+	</span>B: BlockT,
+{
+	<span class="doccomment">/// Create a new instance of the builder.
+	///
+	/// `call_api_at`: Something that implements [`CallApiAt`].
+	</span><span class="kw">pub fn </span>new(call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ call_api_at, _phantom: PhantomData }
+	}
+
+	<span class="doccomment">/// Specify the parent block to build on top of.
+	</span><span class="kw">pub fn </span>on_parent_block(<span class="self">self</span>, parent_block: B::Hash) -&gt; BlockBuilderBuilderStage1&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
+		BlockBuilderBuilderStage1 { call_api_at: <span class="self">self</span>.call_api_at, parent_block }
+	}
+}
+
+<span class="doccomment">/// The second stage of the [`BlockBuilderBuilder`].
 ///
-/// When `RecordProof::Yes` is given, all accessed trie nodes should be saved. These recorded
-/// trie nodes can be used by a third party to proof this proposal without having access to the
-/// full storage.
-</span><span class="attr">#[derive(Copy, Clone, PartialEq)]
-</span><span class="kw">pub enum </span>RecordProof {
-	<span class="doccomment">/// `Yes`, record a proof.
-	</span>Yes,
-	<span class="doccomment">/// `No`, don&#39;t record any proof.
-	</span>No,
+/// This type can not be instantiated directly. To get an instance of it
+/// [`BlockBuilderBuilder::new`] needs to be used.
+</span><span class="kw">pub struct </span>BlockBuilderBuilderStage1&lt;<span class="lifetime">&#39;a</span>, B: BlockT, C&gt; {
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+	parent_block: B::Hash,
 }
 
-<span class="kw">impl </span>RecordProof {
-	<span class="doccomment">/// Returns if `Self` == `Yes`.
-	</span><span class="kw">pub fn </span>yes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Yes)
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B, C&gt; BlockBuilderBuilderStage1&lt;<span class="lifetime">&#39;a</span>, B, C&gt;
+<span class="kw">where
+	</span>B: BlockT,
+{
+	<span class="doccomment">/// Fetch the parent block number from the given `header_backend`.
+	///
+	/// The parent block number is used to initialize the block number of the new block.
+	///
+	/// Returns an error if the parent block specified in
+	/// [`on_parent_block`](BlockBuilderBuilder::on_parent_block) does not exist.
+	</span><span class="kw">pub fn </span>fetch_parent_block_number&lt;H: HeaderBackend&lt;B&gt;&gt;(
+		<span class="self">self</span>,
+		header_backend: <span class="kw-2">&amp;</span>H,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B, C&gt;, Error&gt; {
+		<span class="kw">let </span>parent_number = header_backend.number(<span class="self">self</span>.parent_block)<span class="question-mark">?</span>.ok_or_else(|| {
+			Error::Backend(<span class="macro">format!</span>(
+				<span class="string">&quot;Could not fetch block number for block: {:?}&quot;</span>,
+				<span class="self">self</span>.parent_block
+			))
+		})<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(BlockBuilderBuilderStage2 {
+			call_api_at: <span class="self">self</span>.call_api_at,
+			enable_proof_recording: <span class="bool-val">false</span>,
+			inherent_digests: Default::default(),
+			parent_block: <span class="self">self</span>.parent_block,
+			parent_number,
+		})
 	}
-}
 
-<span class="doccomment">/// Will return [`RecordProof::No`] as default value.
-</span><span class="kw">impl </span>Default <span class="kw">for </span>RecordProof {
-	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::No
-	}
-}
-
-<span class="kw">impl </span>From&lt;bool&gt; <span class="kw">for </span>RecordProof {
-	<span class="kw">fn </span>from(val: bool) -&gt; <span class="self">Self </span>{
-		<span class="kw">if </span>val {
-			<span class="self">Self</span>::Yes
-		} <span class="kw">else </span>{
-			<span class="self">Self</span>::No
+	<span class="doccomment">/// Provide the block number for the parent block directly.
+	///
+	/// The parent block is specified in [`on_parent_block`](BlockBuilderBuilder::on_parent_block).
+	/// The parent block number is used to initialize the block number of the new block.
+	</span><span class="kw">pub fn </span>with_parent_block_number(
+		<span class="self">self</span>,
+		parent_number: NumberFor&lt;B&gt;,
+	) -&gt; BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
+		BlockBuilderBuilderStage2 {
+			call_api_at: <span class="self">self</span>.call_api_at,
+			enable_proof_recording: <span class="bool-val">false</span>,
+			inherent_digests: Default::default(),
+			parent_block: <span class="self">self</span>.parent_block,
+			parent_number,
 		}
+	}
+}
+
+<span class="doccomment">/// The second stage of the [`BlockBuilderBuilder`].
+///
+/// This type can not be instantiated directly. To get an instance of it
+/// [`BlockBuilderBuilder::new`] needs to be used.
+</span><span class="kw">pub struct </span>BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B: BlockT, C&gt; {
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+	enable_proof_recording: bool,
+	inherent_digests: Digest,
+	parent_block: B::Hash,
+	parent_number: NumberFor&lt;B&gt;,
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B: BlockT, C&gt; BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
+	<span class="doccomment">/// Enable proof recording for the block builder.
+	</span><span class="kw">pub fn </span>enable_proof_recording(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.enable_proof_recording = <span class="bool-val">true</span>;
+		<span class="self">self
+	</span>}
+
+	<span class="doccomment">/// Enable/disable proof recording for the block builder.
+	</span><span class="kw">pub fn </span>with_proof_recording(<span class="kw-2">mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.enable_proof_recording = enable;
+		<span class="self">self
+	</span>}
+
+	<span class="doccomment">/// Build the block with the given inherent digests.
+	</span><span class="kw">pub fn </span>with_inherent_digests(<span class="kw-2">mut </span><span class="self">self</span>, inherent_digests: Digest) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.inherent_digests = inherent_digests;
+		<span class="self">self
+	</span>}
+
+	<span class="doccomment">/// Create the instance of the [`BlockBuilder`].
+	</span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BlockBuilder&lt;<span class="lifetime">&#39;a</span>, B, C&gt;, Error&gt;
+	<span class="kw">where
+		</span>C: CallApiAt&lt;B&gt; + ProvideRuntimeApi&lt;B&gt;,
+		C::Api: BlockBuilderApi&lt;B&gt;,
+	{
+		BlockBuilder::new(
+			<span class="self">self</span>.call_api_at,
+			<span class="self">self</span>.parent_block,
+			<span class="self">self</span>.parent_number,
+			<span class="self">self</span>.enable_proof_recording,
+			<span class="self">self</span>.inherent_digests,
+		)
 	}
 }
 
@@ -491,63 +631,34 @@
 	}
 }
 
-<span class="doccomment">/// Block builder provider
-</span><span class="kw">pub trait </span>BlockBuilderProvider&lt;B, Block, RA&gt;
-<span class="kw">where
-	</span>Block: BlockT,
-	B: backend::Backend&lt;Block&gt;,
-	<span class="self">Self</span>: Sized,
-	RA: ProvideRuntimeApi&lt;Block&gt;,
-{
-	<span class="doccomment">/// Create a new block, built on top of `parent`.
-	///
-	/// When proof recording is enabled, all accessed trie nodes are saved.
-	/// These recorded trie nodes can be used by a third party to proof the
-	/// output of this block builder without having access to the full storage.
-	</span><span class="kw">fn </span>new_block_at&lt;R: Into&lt;RecordProof&gt;&gt;(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		parent: Block::Hash,
-		inherent_digests: Digest,
-		record_proof: R,
-	) -&gt; sp_blockchain::Result&lt;BlockBuilder&lt;Block, RA, B&gt;&gt;;
-
-	<span class="doccomment">/// Create a new block, built on the head of the chain.
-	</span><span class="kw">fn </span>new_block(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		inherent_digests: Digest,
-	) -&gt; sp_blockchain::Result&lt;BlockBuilder&lt;Block, RA, B&gt;&gt;;
-}
-
 <span class="doccomment">/// Utility for building new (valid) blocks from a stream of extrinsics.
-</span><span class="kw">pub struct </span>BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block: BlockT, A: ProvideRuntimeApi&lt;Block&gt;, B&gt; {
+</span><span class="kw">pub struct </span>BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block: BlockT, C: ProvideRuntimeApi&lt;Block&gt; + <span class="lifetime">&#39;a</span>&gt; {
 	extrinsics: Vec&lt;Block::Extrinsic&gt;,
-	api: ApiRef&lt;<span class="lifetime">&#39;a</span>, A::Api&gt;,
+	api: ApiRef&lt;<span class="lifetime">&#39;a</span>, C::Api&gt;,
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
 	version: u32,
 	parent_hash: Block::Hash,
-	backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
 	<span class="doccomment">/// The estimated size of the block header.
 	</span>estimated_header_size: usize,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Block, A, B&gt; BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, A, B&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Block, C&gt; BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, C&gt;
 <span class="kw">where
 	</span>Block: BlockT,
-	A: ProvideRuntimeApi&lt;Block&gt; + <span class="lifetime">&#39;a</span>,
-	A::Api: BlockBuilderApi&lt;Block&gt; + ApiExt&lt;Block&gt;,
-	B: backend::Backend&lt;Block&gt;,
+	C: CallApiAt&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + <span class="lifetime">&#39;a</span>,
+	C::Api: BlockBuilderApi&lt;Block&gt;,
 {
 	<span class="doccomment">/// Create a new instance of builder based on the given `parent_hash` and `parent_number`.
 	///
 	/// While proof recording is enabled, all accessed trie nodes are saved.
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
-	</span><span class="kw">pub fn </span>new(
-		api: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>A,
+	</span><span class="kw">fn </span>new(
+		call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor&lt;Block&gt;,
-		record_proof: RecordProof,
+		record_proof: bool,
 		inherent_digests: Digest,
-		backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
 		<span class="kw">let </span>header = &lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header <span class="kw">as </span>HeaderT&gt;::new(
 			parent_number + One::one(),
@@ -559,9 +670,9 @@
 
 		<span class="kw">let </span>estimated_header_size = header.encoded_size();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>api = api.runtime_api();
+		<span class="kw">let </span><span class="kw-2">mut </span>api = call_api_at.runtime_api();
 
-		<span class="kw">if </span>record_proof.yes() {
+		<span class="kw">if </span>record_proof {
 			api.record_proof();
 		}
 
@@ -578,8 +689,8 @@
 			extrinsics: Vec::new(),
 			api,
 			version,
-			backend,
 			estimated_header_size,
+			call_api_at,
 		})
 	}
 
@@ -631,7 +742,7 @@
 
 		<span class="kw">let </span>proof = <span class="self">self</span>.api.extract_proof();
 
-		<span class="kw">let </span>state = <span class="self">self</span>.backend.state_at(<span class="self">self</span>.parent_hash)<span class="question-mark">?</span>;
+		<span class="kw">let </span>state = <span class="self">self</span>.call_api_at.state_at(<span class="self">self</span>.parent_hash)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>storage_changes = <span class="self">self
 			</span>.api
@@ -690,22 +801,18 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>block_building_storage_proof_does_not_include_runtime_by_default() {
 		<span class="kw">let </span>builder = substrate_test_runtime_client::TestClientBuilder::new();
-		<span class="kw">let </span>backend = builder.backend();
 		<span class="kw">let </span>client = builder.build();
 
 		<span class="kw">let </span>genesis_hash = client.info().best_hash;
 
-		<span class="kw">let </span>block = BlockBuilder::new(
-			<span class="kw-2">&amp;</span>client,
-			genesis_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			<span class="kw-2">&amp;*</span>backend,
-		)
-		.unwrap()
-		.build()
-		.unwrap();
+		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(<span class="number">0</span>)
+			.enable_proof_recording()
+			.build()
+			.unwrap()
+			.build()
+			.unwrap();
 
 		<span class="kw">let </span>proof = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>);
 		<span class="kw">let </span>genesis_state_root = client.header(genesis_hash).unwrap().unwrap().state_root;
@@ -723,18 +830,15 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>failing_extrinsic_rolls_back_changes_in_storage_proof() {
 		<span class="kw">let </span>builder = substrate_test_runtime_client::TestClientBuilder::new();
-		<span class="kw">let </span>backend = builder.backend();
 		<span class="kw">let </span>client = builder.build();
+		<span class="kw">let </span>genesis_hash = client.info().best_hash;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilder::new(
-			<span class="kw-2">&amp;</span>client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			<span class="kw-2">&amp;*</span>backend,
-		)
-		.unwrap();
+		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(<span class="number">0</span>)
+			.enable_proof_recording()
+			.build()
+			.unwrap();
 
 		block_builder.push(ExtrinsicBuilder::new_read_and_panic(<span class="number">8</span>).build()).unwrap_err();
 
@@ -742,15 +846,12 @@
 
 		<span class="kw">let </span>proof_with_panic = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>).encoded_size();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilder::new(
-			<span class="kw-2">&amp;</span>client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			<span class="kw-2">&amp;*</span>backend,
-		)
-		.unwrap();
+		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(<span class="number">0</span>)
+			.enable_proof_recording()
+			.build()
+			.unwrap();
 
 		block_builder.push(ExtrinsicBuilder::new_read(<span class="number">8</span>).build()).unwrap();
 
@@ -758,17 +859,14 @@
 
 		<span class="kw">let </span>proof_without_panic = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>).encoded_size();
 
-		<span class="kw">let </span>block = BlockBuilder::new(
-			<span class="kw-2">&amp;</span>client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			<span class="kw-2">&amp;*</span>backend,
-		)
-		.unwrap()
-		.build()
-		.unwrap();
+		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(<span class="number">0</span>)
+			.enable_proof_recording()
+			.build()
+			.unwrap()
+			.build()
+			.unwrap();
 
 		<span class="kw">let </span>proof_empty_block = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>).encoded_size();
 

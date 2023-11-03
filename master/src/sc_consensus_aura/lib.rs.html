@@ -874,6 +874,13 @@
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
 <a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1424,7 +1431,7 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>parking_lot::Mutex;
-	<span class="kw">use </span>sc_block_builder::BlockBuilderProvider;
+	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_client_api::BlockchainEvents;
 	<span class="kw">use </span>sc_consensus::BoxJustificationImport;
 	<span class="kw">use </span>sc_consensus_slots::{BackoffAuthoringOnFinalizedHeadLagging, SimpleSlotWorker};
@@ -1480,7 +1487,14 @@
 			<span class="kw">_</span>: Duration,
 			<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 		) -&gt; <span class="self">Self</span>::Proposal {
-			<span class="kw">let </span>r = <span class="self">self</span>.<span class="number">1</span>.new_block(digests).unwrap().build().map_err(|e| e.into());
+			<span class="kw">let </span>r = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">1</span>)
+				.on_parent_block(<span class="self">self</span>.<span class="number">1</span>.chain_info().best_hash)
+				.fetch_parent_block_number(<span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">1</span>)
+				.unwrap()
+				.with_inherent_digests(digests)
+				.build()
+				.unwrap()
+				.build();
 
 			future::ready(r.map(|b| Proposal {
 				block: b.block,

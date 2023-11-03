@@ -1446,6 +1446,10 @@
 <a href="#1446" id="1446">1446</a>
 <a href="#1447" id="1447">1447</a>
 <a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2468,7 +2472,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>frame_support::dispatch::DispatchInfo;
-	<span class="kw">use </span>sc_block_builder::BlockBuilderProvider;
+	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sp_api::{ApiExt, ProvideRuntimeApi};
 	<span class="kw">use </span>sp_consensus::BlockOrigin;
 	<span class="kw">use </span>sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
@@ -2500,7 +2504,11 @@
 		<span class="comment">// Create a block that sets the `:heap_pages` to 32 pages of memory which corresponds to
 		// ~2048k of heap memory.
 		</span><span class="kw">let </span>(new_at_hash, block) = {
-			<span class="kw">let </span><span class="kw-2">mut </span>builder = client.new_block(Default::default()).unwrap();
+			<span class="kw">let </span><span class="kw-2">mut </span>builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
+				.on_parent_block(best_hash)
+				.with_parent_block_number(<span class="number">0</span>)
+				.build()
+				.unwrap();
 			builder.push_storage_change(HEAP_PAGES.to_vec(), <span class="prelude-val">Some</span>(<span class="number">32u64</span>.encode())).unwrap();
 			<span class="kw">let </span>block = builder.build().unwrap().block;
 			<span class="kw">let </span>hash = block.header.hash();

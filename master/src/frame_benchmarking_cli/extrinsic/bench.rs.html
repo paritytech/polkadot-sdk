@@ -202,6 +202,12 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -221,10 +227,10 @@
 
 </span><span class="doccomment">//! Contains the core benchmarking logic.
 
-</span><span class="kw">use </span>sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+</span><span class="kw">use </span>sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 <span class="kw">use </span>sc_cli::{Error, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>sc_client_api::Backend <span class="kw">as </span>ClientBackend;
-<span class="kw">use </span>sp_api::{ApiExt, Core, ProvideRuntimeApi};
+<span class="kw">use </span>sc_client_api::UsageProvider;
+<span class="kw">use </span>sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
 <span class="kw">use </span>sp_blockchain::{
 	ApplyExtrinsicFailed::Validity,
 	Error::{ApplyExtrinsicFailed, RuntimeApiError},
@@ -265,20 +271,20 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BenchRecord = Vec&lt;u64&gt;;
 
 <span class="doccomment">/// Holds all objects needed to run the *overhead* benchmarks.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Benchmark&lt;Block, BA, C&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Benchmark&lt;Block, C&gt; {
 	client: Arc&lt;C&gt;,
 	params: BenchmarkParams,
 	inherent_data: sp_inherents::InherentData,
 	digest_items: Vec&lt;DigestItem&gt;,
-	_p: PhantomData&lt;(Block, BA)&gt;,
+	_p: PhantomData&lt;Block&gt;,
 }
 
-<span class="kw">impl</span>&lt;Block, BA, C&gt; Benchmark&lt;Block, BA, C&gt;
+<span class="kw">impl</span>&lt;Block, C&gt; Benchmark&lt;Block, C&gt;
 <span class="kw">where
 	</span>Block: BlockT&lt;Extrinsic = OpaqueExtrinsic&gt;,
-	BA: ClientBackend&lt;Block&gt;,
-	C: BlockBuilderProvider&lt;BA, Block, C&gt;
-		+ ProvideRuntimeApi&lt;Block&gt;
+	C: ProvideRuntimeApi&lt;Block&gt;
+		+ CallApiAt&lt;Block&gt;
+		+ UsageProvider&lt;Block&gt;
 		+ sp_blockchain::HeaderBackend&lt;Block&gt;,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 {
@@ -333,7 +339,13 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		ext_builder: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>ExtrinsicBuilder&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Block, <span class="prelude-ty">Option</span>&lt;u64&gt;)&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self</span>.client.new_block(Digest { logs: <span class="self">self</span>.digest_items.clone() })<span class="question-mark">?</span>;
+		<span class="kw">let </span>chain = <span class="self">self</span>.client.usage_info().chain;
+		<span class="kw">let </span><span class="kw-2">mut </span>builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span><span class="self">self</span>.client)
+			.on_parent_block(chain.best_hash)
+			.with_parent_block_number(chain.best_number)
+			.with_inherent_digests(Digest { logs: <span class="self">self</span>.digest_items.clone() })
+			.build()<span class="question-mark">?</span>;
+
 		<span class="comment">// Create and insert the inherents.
 		</span><span class="kw">let </span>inherents = builder.create_inherents(<span class="self">self</span>.inherent_data.clone())<span class="question-mark">?</span>;
 		<span class="kw">for </span>inherent <span class="kw">in </span>inherents {

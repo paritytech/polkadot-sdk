@@ -193,11 +193,11 @@
 </span><span class="doccomment">//! Contains the [`OverheadCmd`] as entry point for the CLI to execute
 //! the *overhead* benchmarks.
 
-</span><span class="kw">use </span>sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+</span><span class="kw">use </span>sc_block_builder::BlockBuilderApi;
 <span class="kw">use </span>sc_cli::{CliConfiguration, ImportParams, <span class="prelude-ty">Result</span>, SharedParams};
-<span class="kw">use </span>sc_client_api::Backend <span class="kw">as </span>ClientBackend;
+<span class="kw">use </span>sc_client_api::UsageProvider;
 <span class="kw">use </span>sc_service::Configuration;
-<span class="kw">use </span>sp_api::{ApiExt, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 <span class="kw">use </span>sp_runtime::{traits::Block <span class="kw">as </span>BlockT, DigestItem, OpaqueExtrinsic};
 
 <span class="kw">use </span>clap::{Args, Parser};
@@ -272,7 +272,7 @@
 	///
 	/// Writes the results to console and into two instances of the
 	/// `weights.hbs` template, one for each benchmark.
-	</span><span class="kw">pub fn </span>run&lt;Block, BA, C&gt;(
+	</span><span class="kw">pub fn </span>run&lt;Block, C&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		cfg: Configuration,
 		client: Arc&lt;C&gt;,
@@ -282,9 +282,9 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 	<span class="kw">where
 		</span>Block: BlockT&lt;Extrinsic = OpaqueExtrinsic&gt;,
-		BA: ClientBackend&lt;Block&gt;,
-		C: BlockBuilderProvider&lt;BA, Block, C&gt;
-			+ ProvideRuntimeApi&lt;Block&gt;
+		C: ProvideRuntimeApi&lt;Block&gt;
+			+ CallApiAt&lt;Block&gt;
+			+ UsageProvider&lt;Block&gt;
 			+ sp_blockchain::HeaderBackend&lt;Block&gt;,
 		C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 	{

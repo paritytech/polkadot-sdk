@@ -489,6 +489,15 @@
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -819,12 +828,13 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>futures::executor::block_on;
 	<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
-	<span class="kw">use </span>sc_block_builder::BlockBuilderProvider <span class="kw">as _</span>;
+	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_client_api::Backend <span class="kw">as _</span>;
 	<span class="kw">use </span>sc_network::{config::MultiaddrWithPeerId, types::ProtocolName, ReputationChange};
 	<span class="kw">use </span>sc_transaction_pool::BasicPool;
 	<span class="kw">use </span>sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 	<span class="kw">use </span>sp_consensus::BlockOrigin;
+	<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 	<span class="kw">use </span>std::{collections::HashSet, sync::Arc};
 	<span class="kw">use </span>substrate_test_runtime_client::{
 		runtime::{
@@ -961,16 +971,24 @@
 
 		<span class="kw">let </span>key = <span class="kw-2">&amp;</span><span class="string">b&quot;hello&quot;</span>[..];
 		<span class="kw">let </span>value = <span class="kw-2">&amp;</span><span class="string">b&quot;world&quot;</span>[..];
-		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = client.new_block(Default::default()).unwrap();
+		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(<span class="number">0</span>)
+			.build()
+			.unwrap();
 		<span class="kw">let </span>ext = ExtrinsicBuilder::new_offchain_index_set(key.to_vec(), value.to_vec()).build();
 		block_builder.push(ext).unwrap();
 
 		<span class="kw">let </span>block = block_builder.build().unwrap().block;
-		block_on(client.import(BlockOrigin::Own, block)).unwrap();
+		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
 		<span class="macro">assert_eq!</span>(value, <span class="kw-2">&amp;</span>offchain_db.get(sp_offchain::STORAGE_PREFIX, <span class="kw-2">&amp;</span>key).unwrap());
 
-		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = client.new_block(Default::default()).unwrap();
+		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+			.on_parent_block(block.hash())
+			.with_parent_block_number(<span class="number">1</span>)
+			.build()
+			.unwrap();
 		<span class="kw">let </span>ext = ExtrinsicBuilder::new_offchain_index_clear(key.to_vec()).nonce(<span class="number">1</span>).build();
 		block_builder.push(ext).unwrap();
 

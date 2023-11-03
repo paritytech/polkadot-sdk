@@ -418,11 +418,6 @@
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -567,7 +562,7 @@
 		RpcModule,
 	};
 	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-	<span class="kw">use </span>sc_block_builder::{BlockBuilder, RecordProof};
+	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,
 	};
@@ -760,21 +755,16 @@
 		<span class="kw">let </span>peers = <span class="kw-2">&amp;</span>[Ed25519Keyring::Alice];
 
 		<span class="kw">let </span>builder = TestClientBuilder::new();
-		<span class="kw">let </span>backend = builder.backend();
 		<span class="kw">let </span>client = builder.build();
 		<span class="kw">let </span>client = Arc::new(client);
 
-		<span class="kw">let </span>built_block = BlockBuilder::new(
-			<span class="kw-2">&amp;*</span>client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::No,
-			Default::default(),
-			<span class="kw-2">&amp;*</span>backend,
-		)
-		.unwrap()
-		.build()
-		.unwrap();
+		<span class="kw">let </span>built_block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+			.on_parent_block(client.info().best_hash)
+			.with_parent_block_number(client.info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap();
 
 		<span class="kw">let </span>block = built_block.block;
 		<span class="kw">let </span>block_hash = block.hash();

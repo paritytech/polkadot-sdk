@@ -659,6 +659,11 @@
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -700,8 +705,8 @@
 	RuntimeCall, Signature, SystemCall, UncheckedExtrinsic,
 };
 <span class="kw">use </span>node_primitives::Block;
-<span class="kw">use </span>sc_block_builder::BlockBuilderProvider;
-<span class="kw">use </span>sc_client_api::execution_extensions::ExecutionExtensions;
+<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
+<span class="kw">use </span>sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 <span class="kw">use </span>sc_client_db::PruningMode;
 <span class="kw">use </span>sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedAux};
 <span class="kw">use </span>sc_executor::{NativeElseWasmExecutor, WasmExecutionMethod, WasmtimeInstantiationStrategy};
@@ -1116,8 +1121,13 @@
 	<span class="doccomment">/// Generate new block using this database.
 	</span><span class="kw">pub fn </span>generate_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, content: BlockContent) -&gt; Block {
 		<span class="kw">let </span>client = <span class="self">self</span>.client();
+		<span class="kw">let </span>chain = client.usage_info().chain;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>block = client.new_block(Default::default()).expect(<span class="string">&quot;Block creation failed&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
+			.on_parent_block(chain.best_hash)
+			.with_parent_block_number(chain.best_number)
+			.build()
+			.expect(<span class="string">&quot;Failed to create block builder.&quot;</span>);
 
 		<span class="kw">for </span>extrinsic <span class="kw">in </span><span class="self">self</span>.generate_inherents(<span class="kw-2">&amp;</span>client) {
 			block.push(extrinsic).expect(<span class="string">&quot;Push inherent failed&quot;</span>);

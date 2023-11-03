@@ -169,6 +169,10 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -185,13 +189,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use crate</span>::{Backend, Client};
+</span><span class="kw">use </span><span class="kw">crate</span>::Client;
 <span class="kw">use </span>cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 <span class="kw">use </span>cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 <span class="kw">use </span>cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 <span class="kw">use </span>cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 <span class="kw">use </span>polkadot_primitives::{BlockNumber <span class="kw">as </span>PBlockNumber, Hash <span class="kw">as </span>PHash};
-<span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+<span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT};
 
@@ -208,7 +212,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client, Backend&gt;;
+	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
 
 	<span class="doccomment">/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -219,7 +223,7 @@
 		at: Hash,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client, Backend&gt;;
+	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
 
 	<span class="doccomment">/// Init a specific block builder that works for the test runtime.
 	///
@@ -232,7 +236,7 @@
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client, Backend&gt;;
+	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
 }
 
 <span class="kw">fn </span>init_block_builder(
@@ -241,9 +245,13 @@
 	validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 	relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -&gt; BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, Client, Backend&gt; {
-	<span class="kw">let </span><span class="kw-2">mut </span>block_builder = client
-		.new_block_at(at, Default::default(), <span class="bool-val">true</span>)
+) -&gt; BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, Client&gt; {
+	<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(at)
+		.fetch_parent_block_number(client)
+		.unwrap()
+		.enable_proof_recording()
+		.build()
 		.expect(<span class="string">&quot;Creates new block builder for test runtime&quot;</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>inherent_data = sp_inherents::InherentData::new();
@@ -289,7 +297,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; BlockBuilder&lt;Block, Client, Backend&gt; {
+	) -&gt; BlockBuilder&lt;Block, Client&gt; {
 		<span class="kw">let </span>chain_info = <span class="self">self</span>.chain_info();
 		<span class="self">self</span>.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -299,7 +307,7 @@
 		at: Hash,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; BlockBuilder&lt;Block, Client, Backend&gt; {
+	) -&gt; BlockBuilder&lt;Block, Client&gt; {
 		<span class="kw">let </span>last_timestamp = <span class="self">self</span>.runtime_api().get_last_timestamp(at).expect(<span class="string">&quot;Get last timestamp&quot;</span>);
 
 		<span class="kw">let </span>timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
@@ -313,7 +321,7 @@
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client, Backend&gt; {
+	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt; {
 		init_block_builder(<span class="self">self</span>, at, validation_data, relay_sproof_builder, timestamp)
 	}
 }
@@ -326,7 +334,7 @@
 	</span><span class="kw">fn </span>build_parachain_block(<span class="self">self</span>, parent_state_root: Hash) -&gt; ParachainBlockData&lt;Block&gt;;
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BuildParachainBlockData <span class="kw">for </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, Client, Backend&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BuildParachainBlockData <span class="kw">for </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, Client&gt; {
 	<span class="kw">fn </span>build_parachain_block(<span class="self">self</span>, parent_state_root: Hash) -&gt; ParachainBlockData&lt;Block&gt; {
 		<span class="kw">let </span>built_block = <span class="self">self</span>.build().expect(<span class="string">&quot;Builds the block&quot;</span>);
 

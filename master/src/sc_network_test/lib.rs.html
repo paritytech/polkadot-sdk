@@ -1207,7 +1207,6 @@
 <a href="#1207" id="1207">1207</a>
 <a href="#1208" id="1208">1208</a>
 <a href="#1209" id="1209">1209</a>
-<a href="#1210" id="1210">1210</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1248,7 +1247,7 @@
 <span class="kw">use </span>libp2p::{build_multiaddr, PeerId};
 <span class="kw">use </span>log::trace;
 <span class="kw">use </span>parking_lot::Mutex;
-<span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+<span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 <span class="kw">use </span>sc_client_api::{
 	backend::{AuxStore, Backend, Finalizer},
 	BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
@@ -1515,9 +1514,7 @@
 		edit_block: F,
 	) -&gt; Vec&lt;H256&gt;
 	<span class="kw">where
-		</span>F: FnMut(
-			BlockBuilder&lt;Block, PeersFullClient, substrate_test_runtime_client::Backend&gt;,
-		) -&gt; Block,
+		</span>F: FnMut(BlockBuilder&lt;Block, PeersFullClient&gt;) -&gt; Block,
 	{
 		<span class="kw">let </span>best_hash = <span class="self">self</span>.client.info().best_hash;
 		<span class="self">self</span>.generate_blocks_at(
@@ -1541,9 +1538,7 @@
 		fork_choice: ForkChoiceStrategy,
 	) -&gt; Vec&lt;H256&gt;
 	<span class="kw">where
-		</span>F: FnMut(
-			BlockBuilder&lt;Block, PeersFullClient, substrate_test_runtime_client::Backend&gt;,
-		) -&gt; Block,
+		</span>F: FnMut(BlockBuilder&lt;Block, PeersFullClient&gt;) -&gt; Block,
 	{
 		<span class="kw">let </span>best_hash = <span class="self">self</span>.client.info().best_hash;
 		<span class="self">self</span>.generate_blocks_at(
@@ -1572,15 +1567,18 @@
 		fork_choice: ForkChoiceStrategy,
 	) -&gt; Vec&lt;H256&gt;
 	<span class="kw">where
-		</span>F: FnMut(
-			BlockBuilder&lt;Block, PeersFullClient, substrate_test_runtime_client::Backend&gt;,
-		) -&gt; Block,
+		</span>F: FnMut(BlockBuilder&lt;Block, PeersFullClient&gt;) -&gt; Block,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>hashes = Vec::with_capacity(count);
 		<span class="kw">let </span>full_client = <span class="self">self</span>.client.as_client();
 		<span class="kw">let </span><span class="kw-2">mut </span>at = full_client.block_hash_from_id(<span class="kw-2">&amp;</span>at).unwrap().unwrap();
 		<span class="kw">for _ in </span><span class="number">0</span>..count {
-			<span class="kw">let </span>builder = full_client.new_block_at(at, Default::default(), <span class="bool-val">false</span>).unwrap();
+			<span class="kw">let </span>builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>full_client)
+				.on_parent_block(at)
+				.fetch_parent_block_number(<span class="kw-2">&amp;*</span>full_client)
+				.unwrap()
+				.build()
+				.unwrap();
 			<span class="kw">let </span>block = edit_block(builder);
 			<span class="kw">let </span>hash = block.header.hash();
 			<span class="macro">trace!</span>(

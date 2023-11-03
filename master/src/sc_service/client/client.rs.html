@@ -2109,47 +2109,6 @@
 <a href="#2109" id="2109">2109</a>
 <a href="#2110" id="2110">2110</a>
 <a href="#2111" id="2111">2111</a>
-<a href="#2112" id="2112">2112</a>
-<a href="#2113" id="2113">2113</a>
-<a href="#2114" id="2114">2114</a>
-<a href="#2115" id="2115">2115</a>
-<a href="#2116" id="2116">2116</a>
-<a href="#2117" id="2117">2117</a>
-<a href="#2118" id="2118">2118</a>
-<a href="#2119" id="2119">2119</a>
-<a href="#2120" id="2120">2120</a>
-<a href="#2121" id="2121">2121</a>
-<a href="#2122" id="2122">2122</a>
-<a href="#2123" id="2123">2123</a>
-<a href="#2124" id="2124">2124</a>
-<a href="#2125" id="2125">2125</a>
-<a href="#2126" id="2126">2126</a>
-<a href="#2127" id="2127">2127</a>
-<a href="#2128" id="2128">2128</a>
-<a href="#2129" id="2129">2129</a>
-<a href="#2130" id="2130">2130</a>
-<a href="#2131" id="2131">2131</a>
-<a href="#2132" id="2132">2132</a>
-<a href="#2133" id="2133">2133</a>
-<a href="#2134" id="2134">2134</a>
-<a href="#2135" id="2135">2135</a>
-<a href="#2136" id="2136">2136</a>
-<a href="#2137" id="2137">2137</a>
-<a href="#2138" id="2138">2138</a>
-<a href="#2139" id="2139">2139</a>
-<a href="#2140" id="2140">2140</a>
-<a href="#2141" id="2141">2141</a>
-<a href="#2142" id="2142">2142</a>
-<a href="#2143" id="2143">2143</a>
-<a href="#2144" id="2144">2144</a>
-<a href="#2145" id="2145">2145</a>
-<a href="#2146" id="2146">2146</a>
-<a href="#2147" id="2147">2147</a>
-<a href="#2148" id="2148">2148</a>
-<a href="#2149" id="2149">2149</a>
-<a href="#2150" id="2150">2150</a>
-<a href="#2151" id="2151">2151</a>
-<a href="#2152" id="2152">2152</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2176,7 +2135,6 @@
 <span class="kw">use </span>parking_lot::{Mutex, RwLock};
 <span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>rand::Rng;
-<span class="kw">use </span>sc_block_builder::{BlockBuilderApi, BlockBuilderProvider, RecordProof};
 <span class="kw">use </span>sc_chain_spec::{resolve_state_version_from_wasm, BuildGenesisBlock};
 <span class="kw">use </span>sc_client_api::{
 	backend::{
@@ -2222,7 +2180,7 @@
 		Block <span class="kw">as </span>BlockT, BlockIdTo, HashingFor, Header <span class="kw">as </span>HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
-	Digest, Justification, Justifications, StateVersion,
+	Justification, Justifications, StateVersion,
 };
 <span class="kw">use </span>sp_state_machine::{
 	prove_child_read, prove_range_read_with_child_with_size, prove_read,
@@ -3551,46 +3509,6 @@
 		)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(state)
-	}
-}
-
-<span class="kw">impl</span>&lt;B, E, Block, RA&gt; BlockBuilderProvider&lt;B, Block, <span class="self">Self</span>&gt; <span class="kw">for </span>Client&lt;B, E, Block, RA&gt;
-<span class="kw">where
-	</span>B: backend::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	E: CallExecutor&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	Block: BlockT,
-	<span class="self">Self</span>: ChainHeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt;,
-	&lt;<span class="self">Self </span><span class="kw">as </span>ProvideRuntimeApi&lt;Block&gt;&gt;::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
-{
-	<span class="kw">fn </span>new_block_at&lt;R: Into&lt;RecordProof&gt;&gt;(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		parent: Block::Hash,
-		inherent_digests: Digest,
-		record_proof: R,
-	) -&gt; sp_blockchain::Result&lt;sc_block_builder::BlockBuilder&lt;Block, <span class="self">Self</span>, B&gt;&gt; {
-		sc_block_builder::BlockBuilder::new(
-			<span class="self">self</span>,
-			parent,
-			<span class="self">self</span>.expect_block_number_from_id(<span class="kw-2">&amp;</span>BlockId::Hash(parent))<span class="question-mark">?</span>,
-			record_proof.into(),
-			inherent_digests,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.backend,
-		)
-	}
-
-	<span class="kw">fn </span>new_block(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		inherent_digests: Digest,
-	) -&gt; sp_blockchain::Result&lt;sc_block_builder::BlockBuilder&lt;Block, <span class="self">Self</span>, B&gt;&gt; {
-		<span class="kw">let </span>info = <span class="self">self</span>.chain_info();
-		sc_block_builder::BlockBuilder::new(
-			<span class="self">self</span>,
-			info.best_hash,
-			info.best_number,
-			RecordProof::No,
-			inherent_digests,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.backend,
-		)
 	}
 }
 

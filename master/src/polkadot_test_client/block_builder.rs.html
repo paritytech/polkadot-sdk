@@ -157,6 +157,8 @@
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -173,12 +175,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use crate</span>::{Client, FullBackend};
+</span><span class="kw">use </span><span class="kw">crate</span>::Client;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_primitives::{Block, InherentData <span class="kw">as </span>ParachainsInherentData};
 <span class="kw">use </span>polkadot_test_runtime::UncheckedExtrinsic;
 <span class="kw">use </span>polkadot_test_service::GetLastTimestamp;
-<span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+<span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_consensus_babe::{
 	digests::{PreDigest, SecondaryPlainPreDigest},
@@ -193,9 +195,7 @@
 	///
 	/// This will automatically create and push the inherents for you to make the block valid for
 	/// the test runtime.
-	</span><span class="kw">fn </span>init_polkadot_block_builder(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client, FullBackend&gt;;
+	</span><span class="kw">fn </span>init_polkadot_block_builder(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
 
 	<span class="doccomment">/// Init a Polkadot specific block builder at a specific block that works for the test runtime.
 	///
@@ -204,11 +204,11 @@
 	</span><span class="kw">fn </span>init_polkadot_block_builder_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client, FullBackend&gt;;
+	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
 }
 
 <span class="kw">impl </span>InitPolkadotBlockBuilder <span class="kw">for </span>Client {
-	<span class="kw">fn </span>init_polkadot_block_builder(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BlockBuilder&lt;Block, Client, FullBackend&gt; {
+	<span class="kw">fn </span>init_polkadot_block_builder(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BlockBuilder&lt;Block, Client&gt; {
 		<span class="kw">let </span>chain_info = <span class="self">self</span>.chain_info();
 		<span class="self">self</span>.init_polkadot_block_builder_at(chain_info.best_hash)
 	}
@@ -216,7 +216,7 @@
 	<span class="kw">fn </span>init_polkadot_block_builder_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
-	) -&gt; BlockBuilder&lt;Block, Client, FullBackend&gt; {
+	) -&gt; BlockBuilder&lt;Block, Client&gt; {
 		<span class="kw">let </span>last_timestamp =
 			<span class="self">self</span>.runtime_api().get_last_timestamp(hash).expect(<span class="string">&quot;Get last timestamp&quot;</span>);
 
@@ -249,8 +249,12 @@
 			)],
 		};
 
-		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = <span class="self">self
-			</span>.new_block_at(hash, digest, <span class="bool-val">false</span>)
+		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="self">self</span>)
+			.on_parent_block(hash)
+			.fetch_parent_block_number(<span class="kw-2">&amp;</span><span class="self">self</span>)
+			.expect(<span class="string">&quot;Fetches parent block number&quot;</span>)
+			.with_inherent_digests(digest)
+			.build()
 			.expect(<span class="string">&quot;Creates new block builder for test runtime&quot;</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>inherent_data = sp_inherents::InherentData::new();
@@ -303,7 +307,7 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_blockchain::Error&gt;;
 }
 
-<span class="kw">impl </span>BlockBuilderExt <span class="kw">for </span>BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, Client, FullBackend&gt; {
+<span class="kw">impl </span>BlockBuilderExt <span class="kw">for </span>BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, Client&gt; {
 	<span class="kw">fn </span>push_polkadot_extrinsic(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ext: UncheckedExtrinsic,

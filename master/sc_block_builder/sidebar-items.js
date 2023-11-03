@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["RecordProof"],"struct":["BlockBuilder","BuiltBlock"],"trait":["BlockBuilderApi","BlockBuilderProvider"]};
+window.SIDEBAR_ITEMS = {"struct":["BlockBuilder","BlockBuilderBuilder","BlockBuilderBuilderStage1","BlockBuilderBuilderStage2","BuiltBlock"],"trait":["BlockBuilderApi"]};

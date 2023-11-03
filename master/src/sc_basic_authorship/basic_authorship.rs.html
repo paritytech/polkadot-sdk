@@ -1134,23 +1134,6 @@
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
 <a href="#1136" id="1136">1136</a>
-<a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a>
-<a href="#1139" id="1139">1139</a>
-<a href="#1140" id="1140">1140</a>
-<a href="#1141" id="1141">1141</a>
-<a href="#1142" id="1142">1142</a>
-<a href="#1143" id="1143">1143</a>
-<a href="#1144" id="1144">1144</a>
-<a href="#1145" id="1145">1145</a>
-<a href="#1146" id="1146">1146</a>
-<a href="#1147" id="1147">1147</a>
-<a href="#1148" id="1148">1148</a>
-<a href="#1149" id="1149">1149</a>
-<a href="#1150" id="1150">1150</a>
-<a href="#1151" id="1151">1151</a>
-<a href="#1152" id="1152">1152</a>
-<a href="#1153" id="1153">1153</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1181,11 +1164,10 @@
 	select,
 };
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
-<span class="kw">use </span>sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
-<span class="kw">use </span>sc_client_api::backend;
+<span class="kw">use </span>sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 <span class="kw">use </span>sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 <span class="kw">use </span>sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-<span class="kw">use </span>sp_api::{ApiExt, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 <span class="kw">use </span>sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 <span class="kw">use </span>sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 <span class="kw">use </span>sp_core::traits::SpawnNamed;
@@ -1213,7 +1195,7 @@
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;basic-authorship&quot;</span>;
 
 <span class="doccomment">/// [`Proposer`] factory.
-</span><span class="kw">pub struct </span>ProposerFactory&lt;A, B, C, PR&gt; {
+</span><span class="kw">pub struct </span>ProposerFactory&lt;A, C, PR&gt; {
 	spawn_handle: Box&lt;<span class="kw">dyn </span>SpawnNamed&gt;,
 	<span class="doccomment">/// The client instance.
 	</span>client: Arc&lt;C&gt;,
@@ -1237,11 +1219,11 @@
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	<span class="doccomment">/// When estimating the block size, should the proof be included?
 	</span>include_proof_in_block_size_estimation: bool,
-	<span class="doccomment">/// phantom member to pin the `Backend`/`ProofRecording` type.
-	</span>_phantom: PhantomData&lt;(B, PR)&gt;,
+	<span class="doccomment">/// phantom member to pin the `ProofRecording` type.
+	</span>_phantom: PhantomData&lt;PR&gt;,
 }
 
-<span class="kw">impl</span>&lt;A, B, C&gt; ProposerFactory&lt;A, B, C, DisableProofRecording&gt; {
+<span class="kw">impl</span>&lt;A, C&gt; ProposerFactory&lt;A, C, DisableProofRecording&gt; {
 	<span class="doccomment">/// Create a new proposer factory.
 	///
 	/// Proof recording will be disabled when using proposers built by this instance to build
@@ -1267,7 +1249,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;A, B, C&gt; ProposerFactory&lt;A, B, C, EnableProofRecording&gt; {
+<span class="kw">impl</span>&lt;A, C&gt; ProposerFactory&lt;A, C, EnableProofRecording&gt; {
 	<span class="doccomment">/// Create a new proposer factory with proof recording enabled.
 	///
 	/// Each proposer created by this instance will record a proof while building a block.
@@ -1300,7 +1282,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;A, B, C, PR&gt; ProposerFactory&lt;A, B, C, PR&gt; {
+<span class="kw">impl</span>&lt;A, C, PR&gt; ProposerFactory&lt;A, C, PR&gt; {
 	<span class="doccomment">/// Set the default block size limit in bytes.
 	///
 	/// The default value for the block size limit is:
@@ -1329,29 +1311,23 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;B, Block, C, A, PR&gt; ProposerFactory&lt;A, B, C, PR&gt;
+<span class="kw">impl</span>&lt;Block, C, A, PR&gt; ProposerFactory&lt;A, C, PR&gt;
 <span class="kw">where
 	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">&#39;static</span>,
-	B: backend::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	Block: BlockT,
-	C: BlockBuilderProvider&lt;B, Block, C&gt;
-		+ HeaderBackend&lt;Block&gt;
-		+ ProvideRuntimeApi&lt;Block&gt;
-		+ Send
-		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 {
 	<span class="kw">fn </span>init_with_now(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		parent_header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header,
 		now: Box&lt;<span class="kw">dyn </span>Fn() -&gt; time::Instant + Send + Sync&gt;,
-	) -&gt; Proposer&lt;B, Block, C, A, PR&gt; {
+	) -&gt; Proposer&lt;Block, C, A, PR&gt; {
 		<span class="kw">let </span>parent_hash = parent_header.hash();
 
 		<span class="macro">info!</span>(<span class="string">&quot;🙌 Starting consensus session on top of parent {:?}&quot;</span>, parent_hash);
 
-		<span class="kw">let </span>proposer = Proposer::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, PR&gt; {
+		<span class="kw">let </span>proposer = Proposer::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, PR&gt; {
 			spawn_handle: <span class="self">self</span>.spawn_handle.clone(),
 			client: <span class="self">self</span>.client.clone(),
 			parent_hash,
@@ -1370,22 +1346,16 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;A, B, Block, C, PR&gt; sp_consensus::Environment&lt;Block&gt; <span class="kw">for </span>ProposerFactory&lt;A, B, C, PR&gt;
+<span class="kw">impl</span>&lt;A, Block, C, PR&gt; sp_consensus::Environment&lt;Block&gt; <span class="kw">for </span>ProposerFactory&lt;A, C, PR&gt;
 <span class="kw">where
 	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">&#39;static</span>,
-	B: backend::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	Block: BlockT,
-	C: BlockBuilderProvider&lt;B, Block, C&gt;
-		+ HeaderBackend&lt;Block&gt;
-		+ ProvideRuntimeApi&lt;Block&gt;
-		+ Send
-		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 	PR: ProofRecording,
 {
 	<span class="kw">type </span>CreateProposer = future::Ready&lt;<span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Proposer, <span class="self">Self</span>::Error&gt;&gt;;
-	<span class="kw">type </span>Proposer = Proposer&lt;B, Block, C, A, PR&gt;;
+	<span class="kw">type </span>Proposer = Proposer&lt;Block, C, A, PR&gt;;
 	<span class="kw">type </span>Error = sp_blockchain::Error;
 
 	<span class="kw">fn </span>init(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parent_header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; <span class="self">Self</span>::CreateProposer {
@@ -1394,7 +1364,7 @@
 }
 
 <span class="doccomment">/// The proposer logic.
-</span><span class="kw">pub struct </span>Proposer&lt;B, Block: BlockT, C, A: TransactionPool, PR&gt; {
+</span><span class="kw">pub struct </span>Proposer&lt;Block: BlockT, C, A: TransactionPool, PR&gt; {
 	spawn_handle: Box&lt;<span class="kw">dyn </span>SpawnNamed&gt;,
 	client: Arc&lt;C&gt;,
 	parent_hash: Block::Hash,
@@ -1406,20 +1376,14 @@
 	include_proof_in_block_size_estimation: bool,
 	soft_deadline_percent: Percent,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
-	_phantom: PhantomData&lt;(B, PR)&gt;,
+	_phantom: PhantomData&lt;PR&gt;,
 }
 
-<span class="kw">impl</span>&lt;A, B, Block, C, PR&gt; sp_consensus::Proposer&lt;Block&gt; <span class="kw">for </span>Proposer&lt;B, Block, C, A, PR&gt;
+<span class="kw">impl</span>&lt;A, Block, C, PR&gt; sp_consensus::Proposer&lt;Block&gt; <span class="kw">for </span>Proposer&lt;Block, C, A, PR&gt;
 <span class="kw">where
 	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">&#39;static</span>,
-	B: backend::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	Block: BlockT,
-	C: BlockBuilderProvider&lt;B, Block, C&gt;
-		+ HeaderBackend&lt;Block&gt;
-		+ ProvideRuntimeApi&lt;Block&gt;
-		+ Send
-		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 	PR: ProofRecording,
 {
@@ -1466,17 +1430,11 @@
 /// It allows us to increase block utilization.
 </span><span class="kw">const </span>MAX_SKIPPED_TRANSACTIONS: usize = <span class="number">8</span>;
 
-<span class="kw">impl</span>&lt;A, B, Block, C, PR&gt; Proposer&lt;B, Block, C, A, PR&gt;
+<span class="kw">impl</span>&lt;A, Block, C, PR&gt; Proposer&lt;Block, C, A, PR&gt;
 <span class="kw">where
 	</span>A: TransactionPool&lt;Block = Block&gt;,
-	B: backend::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	Block: BlockT,
-	C: BlockBuilderProvider&lt;B, Block, C&gt;
-		+ HeaderBackend&lt;Block&gt;
-		+ ProvideRuntimeApi&lt;Block&gt;
-		+ Send
-		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 	PR: ProofRecording,
 {
@@ -1488,8 +1446,12 @@
 		block_size_limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Proposal&lt;Block, PR::Proof&gt;, sp_blockchain::Error&gt; {
 		<span class="kw">let </span>block_timer = time::Instant::now();
-		<span class="kw">let </span><span class="kw-2">mut </span>block_builder =
-			<span class="self">self</span>.client.new_block_at(<span class="self">self</span>.parent_hash, inherent_digests, PR::ENABLED)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span><span class="self">self</span>.client)
+			.on_parent_block(<span class="self">self</span>.parent_hash)
+			.with_parent_block_number(<span class="self">self</span>.parent_number)
+			.with_proof_recording(PR::ENABLED)
+			.with_inherent_digests(inherent_digests)
+			.build()<span class="question-mark">?</span>;
 
 		<span class="self">self</span>.apply_inherents(<span class="kw-2">&amp;mut </span>block_builder, inherent_data)<span class="question-mark">?</span>;
 
@@ -1511,7 +1473,7 @@
 	<span class="doccomment">/// Apply all inherents to the block.
 	</span><span class="kw">fn </span>apply_inherents(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, C, B&gt;,
+		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, C&gt;,
 		inherent_data: InherentData,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_blockchain::Error&gt; {
 		<span class="kw">let </span>create_inherents_start = time::Instant::now();
@@ -1555,7 +1517,7 @@
 	<span class="doccomment">/// Apply as many extrinsics as possible to the block.
 	</span><span class="kw">async fn </span>apply_extrinsics(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, C, B&gt;,
+		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, C&gt;,
 		deadline: time::Instant,
 		block_size_limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;EndProposingReason, sp_blockchain::Error&gt; {
@@ -2129,8 +2091,12 @@
 		<span class="comment">// Exact block_limit, which includes:
 		// 99 (header_size) + 718 (proof@initialize_block) + 246 (one Transfer extrinsic)
 		</span><span class="kw">let </span>block_limit = {
-			<span class="kw">let </span>builder =
-				client.new_block_at(genesis_header.hash(), Default::default(), <span class="bool-val">true</span>).unwrap();
+			<span class="kw">let </span>builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+				.on_parent_block(genesis_header.hash())
+				.with_parent_block_number(<span class="number">0</span>)
+				.enable_proof_recording()
+				.build()
+				.unwrap();
 			builder.estimate_block_size(<span class="bool-val">true</span>) + extrinsics[<span class="number">0</span>].encoded_size()
 		};
 		<span class="kw">let </span>block = block_on(proposer.propose(
