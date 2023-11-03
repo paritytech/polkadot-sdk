@@ -36,7 +36,7 @@ use merlin::Transcript;
 use schnorrkel::vrf::VRFInOut;
 
 use std::{
-	cmp::{max, min},
+	cmp::min,
 	collections::{hash_map::Entry, HashMap},
 };
 
@@ -155,25 +155,6 @@ fn relay_vrf_modulo_cores(
 	// Configuration - `n_cores`.
 	max_cores: u32,
 ) -> Vec<CoreIndex> {
-	if num_samples as usize > MAX_MODULO_SAMPLES {
-		gum::warn!(
-			target: LOG_TARGET,
-			n_cores = max_cores,
-			num_samples,
-			max_modulo_samples = MAX_MODULO_SAMPLES,
-			"`num_samples` is greater than `MAX_MODU`LO_SAMPLES`",
-		);
-	}
-
-	if 2 * num_samples > max_cores {
-		gum::error!(
-			target: LOG_TARGET,
-			n_cores = max_cores,
-			num_samples,
-			max_modulo_samples = MAX_MODULO_SAMPLES,
-			"Suboptimal configuration `num_samples` should be less than `n_cores` / 2",
-		);
-	}
 	let rand_chacha =
 		ChaCha20Rng::from_seed(vrf_in_out.make_bytes::<<ChaCha20Rng as SeedableRng>::Seed>(
 			approval_types::v2::CORE_RANDOMNESS_CONTEXT,
@@ -193,7 +174,27 @@ fn generate_samples(
 	num_samples: usize,
 	max_cores: usize,
 ) -> Vec<CoreIndex> {
-	let num_samples = max(1, min(num_samples, max_cores / 2));
+	if num_samples as usize > MAX_MODULO_SAMPLES {
+		gum::warn!(
+			target: LOG_TARGET,
+			n_cores = max_cores,
+			num_samples,
+			max_modulo_samples = MAX_MODULO_SAMPLES,
+			"`num_samples` is greater than `MAX_MODULO_SAMPLES`",
+		);
+	}
+
+	if 2 * num_samples > max_cores {
+		gum::error!(
+			target: LOG_TARGET,
+			n_cores = max_cores,
+			num_samples,
+			max_modulo_samples = MAX_MODULO_SAMPLES,
+			"Suboptimal configuration `num_samples` should be less than `n_cores` / 2",
+		);
+	}
+
+	let num_samples = min(MAX_MODULO_SAMPLES, min(num_samples, max_cores / 2));
 
 	let mut random_cores = (0..max_cores as u32).map(|val| val.into()).collect::<Vec<CoreIndex>>();
 	let (samples, _) = random_cores.partial_shuffle(&mut rand_chacha, num_samples as usize);
@@ -1231,7 +1232,18 @@ mod tests {
 		let expected = vec![30].into_iter().map(Into::into).collect_vec();
 		assert_eq!(samples, expected);
 
-		let samples = generate_samples(rand_chacha, 0, 100);
+		let samples = generate_samples(rand_chacha.clone(), 0, 100);
+		let expected = vec![];
+		assert_eq!(samples, expected);
+
+		let samples = generate_samples(rand_chacha, MAX_MODULO_SAMPLES + 1, 100);
+		let expected = vec![
+			42, 54, 55, 93, 64, 27, 49, 15, 83, 71, 62, 1, 43, 77, 97, 41, 7, 69, 0, 88, 59, 14,
+			82, 19, 79, 17, 75, 66, 30,
+		]
+		.into_iter()
+		.map(Into::into)
+		.collect_vec();
 		assert_eq!(samples, expected);
 	}
 }
