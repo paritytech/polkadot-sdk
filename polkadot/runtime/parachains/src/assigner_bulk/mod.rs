@@ -219,6 +219,12 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		// Attempted to assign an invalid schedule to a core in WorkPlan
+		InvalidScheduleAssigned,
+	}
 }
 
 /// Assignments as provided by our `AssignmentProvider` implementation.
@@ -352,6 +358,39 @@ impl<T: Config> Pallet<T> {
 
 		// Needs update:
 		*workload = update.into();
+	}
+
+	// Add a schedule to the given core which starts at the given block number. 
+	// This schedule of work will be serviced indefinitely unless some new 
+	// schedule is added.
+	fn assign_core(
+		schedule: Schedule<T>,
+		core_idx: CoreIndex,
+		schedule_start: BlockNumberFor::<T>,
+	) -> Result<(), DispatchError> {
+		// TODO: Make sure this check is appropriate based on when and how we assign
+		// schedule endings
+		ensure!(schedule.end_hint.is_none(), Error::<T>::InvalidScheduleAssigned);
+
+		// Check that the total parts between all assignments do not exceed 57600
+		ensure!(schedule.assignments.iter().map(|assignment| assignment.1).fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) 
+				<= PartsOf57600::from(57600u16), Error::<T>::InvalidScheduleAssigned);
+
+		// Check that schedule_start is a higher block number than that for any other
+		// schedule for the same core
+		//ensure!(Workplan::<T>::get(core_idx).last(),
+				//Error::<T>::InvalidScheduleAssigned);
+
+		// TODO: Possibly check that schedule start isn't in the past
+
+		// Enter schedule into workplan
+
+		// Add end_hint to prior schedule, if any
+
+		// If the workplan for this core is empty but there is an active workload,
+		// set an end_hint for the active workload
+
+		Ok(())
 	}
 }
 

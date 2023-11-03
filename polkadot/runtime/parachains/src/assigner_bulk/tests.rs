@@ -90,8 +90,12 @@ fn after_assign_core_workload_is_some() {}
 #[test]
 fn end_hint_always_points_to_next_work_plan_item() {}
 
+#[test]
 // Invariants: We assume that Workplan is append only and consumed. In other words new schedules
 // inserted for a core must have a higher block number than all of the already existing
 // schedules.
-#[test]
 fn assign_core_enforces_higher_block_number() {}
+
+#[test]
+// A schedule is poorly formed if it has an end_hint from 
+fn assign_core_enforces_well_formed_schedule() {}
