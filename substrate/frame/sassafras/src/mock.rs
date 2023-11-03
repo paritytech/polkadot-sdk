@@ -38,8 +38,7 @@ use sp_runtime::{
 
 const LOG_TARGET: &str = "sassafras::tests";
 
-const SLOT_DURATION: u64 = 1000;
-const EPOCH_DURATION: u64 = 10;
+const EPOCH_LENGTH: u64 = 10;
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -76,8 +75,7 @@ where
 }
 
 impl pallet_sassafras::Config for Test {
-	type SlotDuration = ConstU64<SLOT_DURATION>;
-	type EpochDuration = ConstU64<EPOCH_DURATION>;
+	type EpochLength = ConstU64<EPOCH_LENGTH>;
 	type MaxAuthorities = ConstU32<100>;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
@@ -280,7 +278,7 @@ pub fn persist_next_epoch_tickets(tickets: &[(TicketId, TicketBody)]) {
 	// Force sorting of next epoch tickets (enactment) by explicitly querying the first of them.
 	let next_epoch = Sassafras::next_epoch();
 	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, tickets.len() as u32);
-	Sassafras::slot_ticket(next_epoch.start_slot).unwrap();
+	Sassafras::slot_ticket(next_epoch.start).unwrap();
 	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, 0);
 }
 
@@ -290,8 +288,8 @@ fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {
 
 	// Check if epoch is going to change on initialization.
 	let epoch_start = Sassafras::current_epoch_start();
-	if epoch_start != 0_u64 && slot >= epoch_start + EPOCH_DURATION {
-		epoch += slot.saturating_sub(epoch_start).saturating_div(EPOCH_DURATION);
+	if epoch_start != 0_u64 && slot >= epoch_start + EPOCH_LENGTH {
+		epoch += slot.saturating_sub(epoch_start).saturating_div(EPOCH_LENGTH);
 		randomness = crate::NextRandomness::<Test>::get();
 	}
 

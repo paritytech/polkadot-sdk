@@ -281,9 +281,8 @@ impl pallet_template::Config for Runtime {
 }
 
 impl pallet_sassafras::Config for Runtime {
-	type SlotDuration = ConstU64<6>;
-	type EpochDuration = ConstU64<3600>;
-	type MaxAuthorities = ConstU32<10>;
+	type EpochLength = ConstU64<3600>;
+	type MaxAuthorities = ConstU32<32>;
 	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
 	type WeightInfo = pallet_sassafras::weights::SubstrateWeight<Runtime>;
 }

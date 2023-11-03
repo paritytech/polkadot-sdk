@@ -96,13 +96,11 @@ pub struct EpochConfiguration {
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 pub struct Epoch {
 	/// The epoch index.
-	pub epoch_idx: u64,
+	pub index: u64,
 	/// The starting slot of the epoch.
-	pub start_slot: Slot,
-	/// Slot duration in milliseconds.
-	pub slot_duration: SlotDuration,
-	/// Duration of epoch in slots.
-	pub epoch_duration: u64,
+	pub start: Slot,
+	/// Number of slots in the epoch.
+	pub length: u64,
 	/// Authorities for the epoch.
 	pub authorities: Vec<AuthorityId>,
 	/// Randomness for the epoch.

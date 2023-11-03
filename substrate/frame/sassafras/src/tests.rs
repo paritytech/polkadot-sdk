@@ -182,8 +182,8 @@ fn on_normal_block() {
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		// We don't want to trigger an epoch change in this test.
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
-		assert!(epoch_duration > end_block);
+		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		assert!(epoch_length > end_block);
 
 		// Progress to block 2
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
@@ -240,8 +240,8 @@ fn produce_epoch_change_digest_no_config() {
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		// We want to trigger an epoch change in this test.
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
-		let end_block = start_block + epoch_duration;
+		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let end_block = start_block + epoch_length;
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
 
@@ -249,9 +249,9 @@ fn produce_epoch_change_digest_no_config() {
 
 		assert!(SlotRandomness::<Test>::exists());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot + epoch_duration);
+		assert_eq!(Sassafras::current_slot(), start_slot + epoch_length);
 		assert_eq!(Sassafras::epoch_index(), 1);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_duration);
+		assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_length);
 		assert_eq!(Sassafras::current_slot_index(), 0);
 		assert_eq!(Sassafras::randomness(), [0; 32]);
 		println!("{}", b2h(NextRandomness::<Test>::get()));
@@ -271,9 +271,9 @@ fn produce_epoch_change_digest_no_config() {
 
 		assert!(!SlotRandomness::<Test>::exists());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot + epoch_duration);
+		assert_eq!(Sassafras::current_slot(), start_slot + epoch_length);
 		assert_eq!(Sassafras::epoch_index(), 1);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_duration);
+		assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_length);
 		assert_eq!(Sassafras::current_slot_index(), 0);
 		assert_eq!(Sassafras::randomness(), [0; 32]);
 		println!("{}", b2h(NextRandomness::<Test>::get()));
@@ -318,8 +318,8 @@ fn produce_epoch_change_digest_with_config() {
 		Sassafras::plan_config_change(RuntimeOrigin::root(), config).unwrap();
 
 		// We want to trigger an epoch change in this test.
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
-		let end_block = start_block + epoch_duration;
+		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let end_block = start_block + epoch_length;
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
 
@@ -352,7 +352,7 @@ fn segments_incremental_sort_works() {
 	let start_block = 1;
 
 	ext.execute_with(|| {
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
+		let epoch_length: u64 = <Test as Config>::EpochLength::get();
 		// -3 just to have the last segment not full...
 		let submitted_tickets_count = segments_count * SEGMENT_MAX_SIZE - 3;
 
@@ -363,7 +363,7 @@ fn segments_incremental_sort_works() {
 		persist_next_epoch_tickets_as_segments(&tickets);
 
 		// Proceed to half of the epoch (sortition should not have been started yet)
-		let half_epoch_block = start_block + epoch_duration / 2;
+		let half_epoch_block = start_block + epoch_length / 2;
 		progress_to_block(half_epoch_block, pair);
 
 		let mut unsorted_tickets_count = submitted_tickets_count;
@@ -408,7 +408,7 @@ fn segments_incremental_sort_works() {
 		assert_eq!(unsorted_tickets_count, 0);
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.unsorted_tickets_count, unsorted_tickets_count);
-		assert_eq!(meta.tickets_count, [0, epoch_duration as u32]);
+		assert_eq!(meta.tickets_count, [0, epoch_length as u32]);
 		// Epoch change log should have been pushed as well
 		assert_eq!(header.digest.logs.len(), 1);
 		// No tickets for the current epoch
@@ -416,13 +416,13 @@ fn segments_incremental_sort_works() {
 
 		// Check persistence of "winning" tickets
 		tickets.sort_by_key(|t| t.0);
-		(0..epoch_duration as usize).into_iter().for_each(|i| {
+		(0..epoch_length as usize).into_iter().for_each(|i| {
 			let id = TicketsIds::<Test>::get((1, i as u32)).unwrap();
 			let body = TicketsData::<Test>::get(id).unwrap();
 			assert_eq!((id, body), tickets[i]);
 		});
 		// Check removal of "loosing" tickets
-		(epoch_duration as usize..tickets.len()).into_iter().for_each(|i| {
+		(epoch_length as usize..tickets.len()).into_iter().for_each(|i| {
 			assert!(TicketsIds::<Test>::get((1, i as u32)).is_none());
 			assert!(TicketsData::<Test>::get(tickets[i].0).is_none());
 		});
@@ -450,8 +450,8 @@ fn tickets_fetch_works_after_epoch_change() {
 		initialize_block(start_block, start_slot, Default::default(), pair);
 
 		// We don't want to trigger an epoch change in this test.
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
-		assert!(epoch_duration > 2);
+		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		assert!(epoch_length > 2);
 		progress_to_block(2, &pairs[0]).unwrap();
 
 		// Persist tickets as three different segments.
@@ -463,17 +463,17 @@ fn tickets_fetch_works_after_epoch_change() {
 		assert_eq!(meta.tickets_count, [0, 0]);
 
 		// Progress up to the last epoch slot (do not enact epoch change)
-		progress_to_block(epoch_duration, &pairs[0]).unwrap();
+		progress_to_block(epoch_length, &pairs[0]).unwrap();
 
 		// At this point next epoch tickets should have been sorted and ready to be used
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.unsorted_tickets_count, 0);
-		assert_eq!(meta.tickets_count, [0, epoch_duration as u32]);
+		assert_eq!(meta.tickets_count, [0, epoch_length as u32]);
 
 		// Compute and sort the tickets ids (aka tickets scores)
 		let mut expected_ids: Vec<_> = tickets.into_iter().map(|(id, _)| id).collect();
 		expected_ids.sort();
-		expected_ids.truncate(epoch_duration as usize);
+		expected_ids.truncate(epoch_length as usize);
 
 		// Check if we can fetch next epoch tickets ids (outside-in).
 		let slot = Sassafras::current_slot();
@@ -489,7 +489,7 @@ fn tickets_fetch_works_after_epoch_change() {
 
 		// Enact epoch change by progressing one more block
 
-		progress_to_block(epoch_duration + 1, &pairs[0]).unwrap();
+		progress_to_block(epoch_length + 1, &pairs[0]).unwrap();
 
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.unsorted_tickets_count, 0);
@@ -508,7 +508,7 @@ fn tickets_fetch_works_after_epoch_change() {
 		assert!(Sassafras::slot_ticket_id(slot + 10).is_none());
 
 		// Enact another epoch change, for which we don't have any ticket
-		progress_to_block(2 * epoch_duration + 1, &pairs[0]).unwrap();
+		progress_to_block(2 * epoch_length + 1, &pairs[0]).unwrap();
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.unsorted_tickets_count, 0);
 		assert_eq!(meta.tickets_count, [0, 0]);
@@ -523,7 +523,7 @@ fn block_allowed_to_skip_epochs() {
 	let start_block = 1;
 
 	ext.execute_with(|| {
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
+		let epoch_length: u64 = <Test as Config>::EpochLength::get();
 
 		initialize_block(start_block, start_slot, Default::default(), pair);
 
@@ -533,7 +533,7 @@ fn block_allowed_to_skip_epochs() {
 		let next_random = NextRandomness::<Test>::get();
 
 		// We want to skip 2 epochs in this test.
-		let offset = 3 * epoch_duration;
+		let offset = 3 * epoch_length;
 		go_to_block(start_block + offset, start_slot + offset, &pairs[0]);
 
 		// Post-initialization status
@@ -566,7 +566,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 	let start_block = 1;
 
 	ext.execute_with(|| {
-		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
+		let epoch_length: u64 = <Test as Config>::EpochLength::get();
 
 		initialize_block(start_block, start_slot, Default::default(), pair);
 
@@ -586,7 +586,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 		});
 
 		// Advance one epoch to enact the tickets
-		go_to_block(start_block + epoch_duration, start_slot + epoch_duration, pair);
+		go_to_block(start_block + epoch_length, start_slot + epoch_length, pair);
 		assert_eq!(TicketsMeta::<Test>::get().tickets_count, [0, 4]);
 
 		// Persist some tickets for next epoch (N+1)
@@ -607,7 +607,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 
 		// Advance to epoch 2 and check for cleanup
 
-		go_to_block(start_block + 2 * epoch_duration, start_slot + 2 * epoch_duration, pair);
+		go_to_block(start_block + 2 * epoch_length, start_slot + 2 * epoch_length, pair);
 		assert_eq!(TicketsMeta::<Test>::get().tickets_count, [6, 0]);
 
 		(0..epoch1_tickets.len()).into_iter().for_each(|i| {

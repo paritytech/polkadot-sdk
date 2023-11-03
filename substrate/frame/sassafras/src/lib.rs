@@ -63,8 +63,8 @@ use frame_system::{
 };
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
-	vrf, AuthorityId, Epoch, EpochConfiguration, Randomness, Slot, SlotDuration, TicketBody,
-	TicketEnvelope, TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
+	vrf, AuthorityId, Epoch, EpochConfiguration, Randomness, Slot, TicketBody, TicketEnvelope,
+	TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
 use sp_runtime::{generic::DigestItem, traits::One, BoundToRuntimeAppPublic};
@@ -113,13 +113,9 @@ pub mod pallet {
 	/// Configuration parameters.
 	#[pallet::config]
 	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
-		/// The amount of time, in milliseconds, that each slot should last.
+		/// The amount of slots that each epoch should last.
 		#[pallet::constant]
-		type SlotDuration: Get<u64>;
-
-		/// The amount of time, in slots, that each epoch should last.
-		#[pallet::constant]
-		type EpochDuration: Get<u64>;
+		type EpochLength: Get<u64>;
 
 		/// Max number of authorities allowed
 		#[pallet::constant]
@@ -137,12 +133,12 @@ pub mod pallet {
 
 	/// Max number of tickets allowed for the configuration.
 	///
-	/// In practice trims down the `Config::EpochDuration` value to at most u32::MAX.
+	/// In practice trims down the `Config::EpochLength` value to at most u32::MAX.
 	pub struct MaxTicketsFor<T: Config>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> Get<u32> for MaxTicketsFor<T> {
 		fn get() -> u32 {
-			T::EpochDuration::get().try_into().unwrap_or(u32::MAX)
+			T::EpochLength::get().try_into().unwrap_or(u32::MAX)
 		}
 	}
 
@@ -344,14 +340,14 @@ pub mod pallet {
 
 			// Check if we are in the epoch's second half.
 			// If so, start sorting the next epoch tickets.
-			let epoch_duration = T::EpochDuration::get();
+			let epoch_length = T::EpochLength::get();
 			let current_slot_idx = Self::current_slot_index();
-			if current_slot_idx >= epoch_duration / 2 {
+			if current_slot_idx >= epoch_length / 2 {
 				let mut metadata = TicketsMeta::<T>::get();
 				if metadata.unsorted_tickets_count != 0 {
 					let epoch_idx = EpochIndex::<T>::get() + 1;
 					let epoch_tag = (epoch_idx & 1) as u8;
-					let slots_left = epoch_duration.checked_sub(current_slot_idx).unwrap_or(1);
+					let slots_left = epoch_length.checked_sub(current_slot_idx).unwrap_or(1);
 					Self::sort_tickets(
 						metadata
 							.unsorted_tickets_count
@@ -387,11 +383,11 @@ pub mod pallet {
 
 			// Check tickets score
 			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
-			// Current slot should be less than half of epoch duration.
-			let epoch_duration = T::EpochDuration::get();
+			// Current slot should be less than half of epoch length.
+			let epoch_length = T::EpochLength::get();
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
 				next_config.redundancy_factor,
-				epoch_duration as u32,
+				epoch_length as u32,
 				next_config.attempts_number,
 				next_authorities.len() as u32,
 			);
@@ -499,17 +495,17 @@ pub mod pallet {
 					return InvalidTransaction::BadSigner.into()
 				}
 
-				// Current slot should be less than half of epoch duration.
-				let epoch_duration = T::EpochDuration::get();
+				// Current slot should be less than half of epoch length.
+				let epoch_length = T::EpochLength::get();
 
 				let current_slot_idx = Self::current_slot_index();
-				if current_slot_idx > epoch_duration / 2 {
+				if current_slot_idx > epoch_length / 2 {
 					warn!(target: LOG_TARGET, "Timeout to propose tickets, bailing out.",);
 					return InvalidTransaction::Stale.into()
 				}
 
 				// This should be set such that it is discarded after the first epoch half
-				let tickets_longevity = epoch_duration / 2 - current_slot_idx;
+				let tickets_longevity = epoch_length / 2 - current_slot_idx;
 				let tickets_tag = tickets.using_encoded(|bytes| hashing::blake2_256(bytes));
 
 				ValidTransaction::with_tag_prefix("Sassafras")
@@ -537,7 +533,7 @@ impl<T: Config> Pallet<T> {
 		// The exception is for block 1: the genesis has slot 0, so we treat epoch 0 as having
 		// started at the slot of block 1. We want to use the same randomness and validator set as
 		// signalled in the genesis, so we don't rotate the epoch.
-		now != One::one() && Self::current_slot_index() >= T::EpochDuration::get()
+		now != One::one() && Self::current_slot_index() >= T::EpochLength::get()
 	}
 
 	/// Current slot index with respect to current epoch.
@@ -599,10 +595,10 @@ impl<T: Config> Pallet<T> {
 			.expect("epoch indices will never reach 2^64 before the death of the universe; qed");
 
 		let slot_idx = CurrentSlot::<T>::get().saturating_sub(Self::epoch_start(epoch_idx));
-		if slot_idx >= T::EpochDuration::get() {
+		if slot_idx >= T::EpochLength::get() {
 			// Detected one or more skipped epochs, clear tickets data and recompute epoch index.
 			Self::reset_tickets_data();
-			let skipped_epochs = u64::from(slot_idx) / T::EpochDuration::get();
+			let skipped_epochs = u64::from(slot_idx) / T::EpochLength::get();
 			epoch_idx += skipped_epochs;
 			warn!(target: LOG_TARGET, "Detected {} skipped epochs, resuming from epoch {}", skipped_epochs, epoch_idx);
 		}
@@ -686,7 +682,7 @@ impl<T: Config> Pallet<T> {
 		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
 							 if u64 is not enough we should crash for safety; qed.";
 
-		let epoch_start = epoch_index.checked_mul(T::EpochDuration::get()).expect(PROOF);
+		let epoch_start = epoch_index.checked_mul(T::EpochLength::get()).expect(PROOF);
 
 		epoch_start.checked_add(*GenesisSlot::<T>::get()).expect(PROOF).into()
 	}
@@ -744,12 +740,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Current epoch information.
 	pub fn current_epoch() -> Epoch {
-		let epoch_idx = EpochIndex::<T>::get();
+		let index = EpochIndex::<T>::get();
 		Epoch {
-			epoch_idx,
-			start_slot: Self::epoch_start(epoch_idx),
-			slot_duration: SlotDuration::from_millis(T::SlotDuration::get()),
-			epoch_duration: T::EpochDuration::get(),
+			index,
+			start: Self::epoch_start(index),
+			length: T::EpochLength::get(),
 			authorities: Self::authorities().to_vec(),
 			randomness: Self::randomness(),
 			config: Self::config(),
@@ -758,14 +753,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Next epoch information.
 	pub fn next_epoch() -> Epoch {
-		let epoch_idx = EpochIndex::<T>::get()
+		let index = EpochIndex::<T>::get()
 			.checked_add(1)
 			.expect("epoch indices will never reach 2^64 before the death of the universe; qed");
 		Epoch {
-			epoch_idx,
-			start_slot: Self::epoch_start(epoch_idx),
-			slot_duration: SlotDuration::from_millis(T::SlotDuration::get()),
-			epoch_duration: T::EpochDuration::get(),
+			index,
+			start: Self::epoch_start(index),
+			length: T::EpochLength::get(),
 			authorities: Self::next_authorities().to_vec(),
 			randomness: Self::next_randomness(),
 			config: Self::next_config().unwrap_or_else(|| Self::config()),
@@ -796,15 +790,15 @@ impl<T: Config> Pallet<T> {
 	/// or if the slot falls beyond the next epoch.
 	pub fn slot_ticket_id(slot: Slot) -> Option<TicketId> {
 		let epoch_idx = EpochIndex::<T>::get();
-		let duration = T::EpochDuration::get();
+		let epoch_len = T::EpochLength::get();
 		let mut slot_idx = Self::slot_index(slot);
 		let mut tickets_meta = TicketsMeta::<T>::get();
 
 		let get_ticket_idx = |slot_idx| {
-			let ticket_idx = if slot_idx < duration / 2 {
+			let ticket_idx = if slot_idx < epoch_len / 2 {
 				2 * slot_idx + 1
 			} else {
-				2 * (duration - (slot_idx + 1))
+				2 * (epoch_len - (slot_idx + 1))
 			};
 			debug!(
 				target: LOG_TARGET,
@@ -817,16 +811,16 @@ impl<T: Config> Pallet<T> {
 
 		let mut epoch_tag = (epoch_idx & 1) as u8;
 
-		if duration <= slot_idx && slot_idx < 2 * duration {
+		if epoch_len <= slot_idx && slot_idx < 2 * epoch_len {
 			// Try to get a ticket for the next epoch. Since its state values were not enacted yet,
 			// we may have to finish sorting the tickets.
 			epoch_tag ^= 1;
-			slot_idx -= duration;
+			slot_idx -= epoch_len;
 			if tickets_meta.unsorted_tickets_count != 0 {
 				Self::sort_tickets(u32::MAX, epoch_tag, &mut tickets_meta);
 				TicketsMeta::<T>::set(tickets_meta);
 			}
-		} else if slot_idx >= 2 * duration {
+		} else if slot_idx >= 2 * epoch_len {
 			return None
 		}
 
