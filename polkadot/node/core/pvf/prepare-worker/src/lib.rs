@@ -32,7 +32,10 @@ use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_
 use libc;
 use nix::{
 	errno::Errno,
-	sys::{resource::{Resource, Usage, UsageWho}, wait::WaitStatus},
+	sys::{
+		resource::{Resource, Usage, UsageWho},
+		wait::WaitStatus,
+	},
 	unistd::{ForkResult, Pid},
 };
 use os_pipe::{self, PipeWriter};
@@ -443,16 +446,12 @@ fn handle_parent_process(
 				},
 			}
 		},
-		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) => {
-			Err(PrepareError::Panic("child exited with failure".to_string()))
-		},
-		Ok(WaitStatus::Exited(_, exit_status)) => {
-			Err(PrepareError::Panic(format!("child exited with unexpected status {}", exit_status)))
-		},
-		Ok(_) => {
-			Err(PrepareError::Panic("child ended unexpectedly".to_string()))
-		}
-		Err(err) => Err(PrepareError::Panic(err.to_string()))
+		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) =>
+			Err(PrepareError::Panic("child exited with failure".to_string())),
+		Ok(WaitStatus::Exited(_, exit_status)) =>
+			Err(PrepareError::Panic(format!("child exited with unexpected status {}", exit_status))),
+		Ok(_) => Err(PrepareError::Panic("child ended unexpectedly".to_string())),
+		Err(err) => Err(PrepareError::Panic(err.to_string())),
 	}
 }
 
