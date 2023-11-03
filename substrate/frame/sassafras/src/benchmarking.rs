@@ -24,13 +24,7 @@ use sp_std::vec;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-const TICKETS_DATA: &[u8] = include_bytes!("../tickets.bin");
-
-#[derive(Encode, Decode)]
-struct PreBuiltTickets {
-	authorities: Vec<AuthorityId>,
-	tickets: Vec<TicketEnvelope>,
-}
+const TICKETS_DATA: &[u8] = include_bytes!("data/25_tickets_100_auths.bin");
 
 #[benchmarks]
 mod benchmarks {
@@ -39,18 +33,19 @@ mod benchmarks {
 	const LOG_TARGET: &str = "sassafras::benchmark";
 
 	#[benchmark]
-	fn submit_tickets(x: Linear<1, 20>) {
+	fn submit_tickets(x: Linear<1, 25>) {
 		let tickets_count = x as usize;
 
 		let mut raw_data = TICKETS_DATA;
-		let PreBuiltTickets { authorities, tickets } =
-			PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
+		let (authorities, tickets): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
+			Decode::decode(&mut raw_data).expect("Failed to decode tickets buffer");
 
 		log::debug!(target: LOG_TARGET, "PreBuiltTickets: {} tickets, {} authorities", tickets.len(), authorities.len());
 
 		Pallet::<T>::update_ring_verifier(&authorities);
 
-		let next_config = EpochConfiguration { attempts_number: 20, redundancy_factor: u32::MAX };
+		// Set next epoch config to accept all the tickets
+		let next_config = EpochConfiguration { attempts_number: 1, redundancy_factor: u32::MAX };
 		NextEpochConfig::<T>::set(Some(next_config));
 
 		// Use the authorities in the pre-build tickets
@@ -88,15 +83,15 @@ mod benchmarks {
 
 	// Construction of ring verifier benchmark
 	#[benchmark]
-	fn update_ring_verifier(x: Linear<1, 20>) {
+	fn update_ring_verifier(x: Linear<1, 100>) {
 		let authorities_count = x as usize;
 
 		let ring_ctx = vrf::RingContext::new_testing();
 		RingContext::<T>::set(Some(ring_ctx));
 
 		let mut raw_data = TICKETS_DATA;
-		let PreBuiltTickets { authorities, tickets: _ } =
-			PreBuiltTickets::decode(&mut raw_data).expect("Failed to decode tickets buffer");
+		let (authorities, _): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
+			Decode::decode(&mut raw_data).expect("Failed to decode tickets buffer");
 		let authorities: Vec<_> = authorities[..authorities_count].to_vec();
 
 		#[block]

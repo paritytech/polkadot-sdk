@@ -622,25 +622,19 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 	})
 }
 
-const TICKETS_FILE: &str = "tickets.bin";
+const TICKETS_FILE: &str = "src/data/25_tickets_100_auths.bin";
 
-#[derive(Encode, Decode)]
-struct PreBuiltTickets {
-	authorities: Vec<AuthorityId>,
-	tickets: Vec<TicketEnvelope>,
-}
-
-fn tickets_data_read() -> PreBuiltTickets {
+fn data_read<T: Decode>(filename: &str) -> T {
 	use std::{fs::File, io::Read};
-	let mut file = File::open(TICKETS_FILE).unwrap();
+	let mut file = File::open(filename).unwrap();
 	let mut buf = Vec::new();
 	file.read_to_end(&mut buf).unwrap();
-	PreBuiltTickets::decode(&mut &buf[..]).unwrap()
+	T::decode(&mut &buf[..]).unwrap()
 }
 
-fn tickets_data_write(data: PreBuiltTickets) {
+fn data_write<T: Encode>(filename: &str, data: T) {
 	use std::{fs::File, io::Write};
-	let mut file = File::create(TICKETS_FILE).unwrap();
+	let mut file = File::create(filename).unwrap();
 	let buf = data.encode();
 	file.write_all(&buf).unwrap();
 }
@@ -652,16 +646,13 @@ fn tickets_data_write(data: PreBuiltTickets) {
 // `submit_ticket` call which tests for ticket validity.
 #[test]
 fn submit_tickets_with_ring_proof_check_works() {
+	use sp_core::Pair as _;
 	// env_logger::init();
 
-	use sp_core::Pair as _;
+	let (authorities, tickets): (Vec<AuthorityId>, Vec<TicketEnvelope>) = data_read(TICKETS_FILE);
 
-	let (pairs, mut ext) = new_test_ext_with_pairs(20, true);
+	let (pairs, mut ext) = new_test_ext_with_pairs(authorities.len(), true);
 	let pair = &pairs[0];
-	let submit_calls_count = 3;
-
-	let PreBuiltTickets { authorities, tickets } = tickets_data_read();
-
 	// Check if deserialized data has been generated for the correct set of authorities...
 	assert!(authorities.iter().zip(pairs.iter()).all(|(auth, pair)| auth == &pair.public()));
 
@@ -669,11 +660,9 @@ fn submit_tickets_with_ring_proof_check_works() {
 		let start_slot = Slot::from(100);
 		let start_block = 1;
 
-		// Tweak the epoch config to discard more or less the 50% of the tickets.
-		// Data is known and constant.
+		// Tweak the config to discard ~holf of the tickets.
 		let mut config = EpochConfig::<Test>::get();
-		config.redundancy_factor = 1;
-		config.attempts_number = 1;
+		config.redundancy_factor = 20;
 		EpochConfig::<Test>::set(config);
 
 		initialize_block(start_block, start_slot, Default::default(), pair);
@@ -685,8 +674,10 @@ fn submit_tickets_with_ring_proof_check_works() {
 		);
 
 		// Submit the tickets
-		let chunk_len = tickets.len().div_ceil(submit_calls_count); // as usize;
-		tickets.chunks(chunk_len).for_each(|chunk| {
+		let max_tickets_per_call = MaxTicketsFor::<Test>::get();
+		// let submit_calls_count = tickets.len().div_ceil(max_tickets_per_call as usize);
+		// let chunk_len = tickets.len().div_ceil(submit_calls_count);
+		tickets.chunks(max_tickets_per_call as usize).for_each(|chunk| {
 			let chunk = BoundedVec::truncate_from(chunk.to_vec());
 			Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap();
 		});
@@ -694,34 +685,39 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Check state after submission
 		assert_eq!(
 			TicketsMeta::<Test>::get(),
-			TicketsMetadata { unsorted_tickets_count: 11, tickets_count: [0, 0] },
+			TicketsMetadata { unsorted_tickets_count: 10, tickets_count: [0, 0] },
 		);
+		assert_eq!(NextTicketsSegments::<Test>::get(0).len(), 10);
+		assert_eq!(NextTicketsSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);
-
-		// Check against the expected results given the known inputs
-		assert_eq!(NextTicketsSegments::<Test>::get(0).len(), 11);
-		assert_eq!(NextTicketsSegments::<Test>::get(1).len(), 0);
 	})
 }
 
 #[test]
-#[ignore]
-fn serialize_test_tickets() {
+#[ignore = "test tickets generator"]
+fn make_tickets_data() {
 	use super::*;
 	use sp_core::crypto::Pair;
 
-	let authorities_count = 20;
-	let tickets_count = 20;
-
+	let tickets_authors_count = 5;
+	let authorities_count = 100;
 	let (pairs, mut ext) = new_test_ext_with_pairs(authorities_count, true);
-	let pair = &pairs[0];
 
 	let authorities: Vec<_> = pairs.iter().map(|sk| sk.public()).collect();
 
 	ext.execute_with(|| {
-		let tickets = make_tickets(tickets_count, &pair);
-		let data = PreBuiltTickets { tickets, authorities };
-		tickets_data_write(data);
+		let config = EpochConfig::<Test>::get();
+
+		let tickets_count = tickets_authors_count * config.attempts_number as usize;
+		let mut tickets = Vec::with_capacity(tickets_count);
+
+		println!("Constructing {} tickets", tickets_count);
+		pairs.iter().take(tickets_authors_count).enumerate().for_each(|(i, pair)| {
+			let t = make_tickets(config.attempts_number, pair);
+			tickets.extend(t);
+			println!("{:.2}%", 100f32 * ((i + 1) as f32 / pairs.len() as f32));
+		});
+		data_write(TICKETS_FILE, (authorities, tickets));
 	});
 }

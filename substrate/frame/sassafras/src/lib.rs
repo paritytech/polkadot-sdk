@@ -131,7 +131,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// Max number of tickets allowed for the configuration.
+	/// Max number of tickets allowed by the configuration.
 	///
 	/// In practice trims down the `Config::EpochLength` value to at most u32::MAX.
 	pub struct MaxTicketsFor<T: Config>(sp_std::marker::PhantomData<T>);
@@ -362,6 +362,9 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit next epoch tickets candidates.
+		///
+		/// The number of tickets allowed to be submitted in one call is equal to the epoch length.
+		// TODO: maybe we must be more restrictive?
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(

@@ -89,12 +89,12 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Default used for most of the tests and benchmarks.
+// Default used for most of the tests.
 //
 // The redundancy factor has been set to max value to accept all submitted
 // tickets without worrying about the threshold.
 pub const TEST_EPOCH_CONFIGURATION: EpochConfiguration =
-	EpochConfiguration { redundancy_factor: u32::MAX, attempts_number: 32 };
+	EpochConfiguration { redundancy_factor: u32::MAX, attempts_number: 5 };
 
 /// Build and returns test storage externalities
 pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
