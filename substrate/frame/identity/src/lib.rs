@@ -203,7 +203,7 @@ pub mod pallet {
 				RegistrarInfo<
 					BalanceOf<T>,
 					T::AccountId,
-					<T::IdentityInformation as IdentityInformationProvider>::FieldsBitFlags,
+					<T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
 				>,
 			>,
 			T::MaxRegistrars,
@@ -648,7 +648,7 @@ pub mod pallet {
 		pub fn set_fields(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
-			fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsBitFlags,
+			fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -901,7 +901,7 @@ impl<T: Config> Pallet<T> {
 	/// Check if the account has corresponding identity information by the identity field.
 	pub fn has_identity(
 		who: &T::AccountId,
-		fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsBitFlags,
+		fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
 	) -> bool {
 		IdentityOf::<T>::get(who)
 			.map_or(false, |registration| (registration.info.has_identity(fields)))

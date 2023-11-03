@@ -234,11 +234,11 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
 {
-	/// Type capable of representing all of the fields present in the identity information.
-	type FieldsBitFlags: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
+	/// Type capable of holding information on which identity fields are set.
+	type FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
 
 	/// Check if an identity registered information for some given `fields`.
-	fn has_identity(&self, fields: Self::FieldsBitFlags) -> bool;
+	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool;
 
 	/// Create a basic instance of the identity information.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -246,7 +246,7 @@ pub trait IdentityInformationProvider:
 
 	/// The identity information representation for all identity fields enabled.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn all_fields() -> Self::FieldsBitFlags;
+	fn all_fields() -> Self::FieldsIdentifier;
 }
 
 /// Information on an identity along with judgements from registrars.
