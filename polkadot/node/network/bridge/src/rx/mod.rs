@@ -556,7 +556,8 @@ where
 			gum::warn!(
 				target: LOG_TARGET,
 				?validator_index,
-				"Could not determine peer_id for validator"
+				"Could not determine peer_id for validator, let the team know in \n
+				https://github.com/paritytech/polkadot-sdk/issues/2138"
 			)
 		}
 		peers.push(TopologyPeerInfo {
