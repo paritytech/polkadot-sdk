@@ -82,6 +82,21 @@
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -166,4 +181,19 @@
 
 <span class="macro">decl_bridge_finality_runtime_apis!</span>(bridge_hub_rococo);
 <span class="macro">decl_bridge_messages_runtime_apis!</span>(bridge_hub_rococo);
+
+<span class="macro">frame_support::parameter_types! </span>{
+	<span class="doccomment">/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
+	/// BridgeHub.
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	</span><span class="kw">pub const </span>BridgeHubRococoBaseXcmFeeInRocs: u128 = <span class="number">1628875538</span>;
+
+	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
+	</span><span class="kw">pub const </span>BridgeHubRococoBaseDeliveryFeeInRocs: u128 = <span class="number">6417262881</span>;
+
+	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
+	</span><span class="kw">pub const </span>BridgeHubRococoBaseConfirmationFeeInRocs: u128 = <span class="number">6159996668</span>;
+}
 </code></pre></div></section></main></body></html>

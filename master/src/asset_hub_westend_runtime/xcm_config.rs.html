@@ -838,6 +838,26 @@
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1102,7 +1122,10 @@
 		<span class="comment">// Allow to change dedicated storage items (called by governance-like)
 		</span><span class="kw">match </span>call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
-				<span class="kw">if </span>items.iter().all(|(k, <span class="kw">_</span>)| k.eq(<span class="kw-2">&amp;</span>bridging::XcmBridgeHubRouterByteFee::key())) =&gt;
+				<span class="kw">if </span>items.iter().all(|(k, <span class="kw">_</span>)| k.eq(<span class="kw-2">&amp;</span>bridging::XcmBridgeHubRouterByteFee::key())) ||
+					items
+						.iter()
+						.all(|(k, <span class="kw">_</span>)| k.eq(<span class="kw-2">&amp;</span>bridging::XcmBridgeHubRouterBaseFee::key())) =&gt;
 				<span class="kw">return </span><span class="bool-val">true</span>,
 			<span class="kw">_ </span>=&gt; (),
 		};
@@ -1565,13 +1588,30 @@
 	<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
 
 	<span class="macro">parameter_types! </span>{
+		<span class="doccomment">/// Base price of every byte of the Westend -&gt; Rococo message. Can be adjusted via
+		/// governance `set_storage` call.
+		///
+		/// Default value is our estimation of the:
+		///
+		/// 1) an approximate cost of XCM execution (`ExportMessage` and surroundings) at Westend bridge hub;
+		///
+		/// 2) the approximate cost of Westend -&gt; Rococo message delivery transaction on Rococo Bridge Hub,
+		///    converted into WNDs using 1:1 conversion rate;
+		///
+		/// 3) the approximate cost of Westend -&gt; Rococo message confirmation transaction on Westend Bridge Hub.
+		</span><span class="kw">pub </span>storage XcmBridgeHubRouterBaseFee: Balance =
+			bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds::get()
+				.saturating_add(bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get())
+				.saturating_add(bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds::get());
+		<span class="doccomment">/// Price of every byte of the Westend -&gt; Rococo message. Can be adjusted via
+		/// governance `set_storage` call.
+		</span><span class="kw">pub </span>storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
+
 		<span class="kw">pub </span>SiblingBridgeHubParaId: u32 = bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 		<span class="kw">pub </span>SiblingBridgeHub: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(SiblingBridgeHubParaId::get())));
 		<span class="doccomment">/// Router expects payment with this `AssetId`.
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		</span><span class="kw">pub </span>XcmBridgeHubRouterFeeAssetId: AssetId = WestendLocation::get().into();
-		<span class="doccomment">/// Price per byte - can be adjusted via governance `set_storage` call.
-		</span><span class="kw">pub </span>storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
 
 		<span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; =
 			sp_std::vec::Vec::new().into_iter()
@@ -1614,7 +1654,7 @@
 					<span class="comment">// base delivery fee to local `BridgeHub`
 					</span><span class="prelude-val">Some</span>((
 						XcmBridgeHubRouterFeeAssetId::get(),
-						bp_asset_hub_westend::BridgeHubWestendBaseFeeInWnds::get(),
+						XcmBridgeHubRouterBaseFee::get(),
 					).into())
 				)
 			];

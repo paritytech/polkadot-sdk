@@ -115,6 +115,39 @@
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -133,10 +166,11 @@
 
 </span><span class="doccomment">//! Helpers for generating message storage proofs, that are used by tests and by benchmarks.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::messages::{BridgedChain, HashOf, HasherOf, MessageBridge};
+</span><span class="kw">use </span><span class="kw">crate</span>::messages::{AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain};
 
 <span class="kw">use </span>bp_messages::{
-	storage_keys, LaneId, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
+	storage_keys, InboundLaneData, LaneId, MessageKey, MessageNonce, MessagePayload,
+	OutboundLaneData,
 };
 <span class="kw">use </span>bp_runtime::{record_all_trie_keys, RawStorageProof, StorageProofSize};
 <span class="kw">use </span>codec::Encode;
@@ -218,6 +252,38 @@
 	</span><span class="kw">let </span>storage_proof = record_all_trie_keys::&lt;LayoutV1&lt;HasherOf&lt;BridgedChain&lt;B&gt;&gt;&gt;, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>mdb, <span class="kw-2">&amp;</span>root)
 		.map_err(|<span class="kw">_</span>| <span class="string">&quot;record_all_trie_keys has failed&quot;</span>)
 		.expect(<span class="string">&quot;record_all_trie_keys should not fail in benchmarks&quot;</span>);
+	(root, storage_proof)
+}
+
+<span class="doccomment">/// Prepare storage proof of given messages delivery.
+///
+/// Returns state trie root and nodes with prepared messages.
+</span><span class="kw">pub fn </span>prepare_message_delivery_storage_proof&lt;B&gt;(
+	lane: LaneId,
+	inbound_lane_data: InboundLaneData&lt;AccountIdOf&lt;ThisChain&lt;B&gt;&gt;&gt;,
+	size: StorageProofSize,
+) -&gt; (HashOf&lt;BridgedChain&lt;B&gt;&gt;, RawStorageProof)
+<span class="kw">where
+	</span>B: MessageBridge,
+{
+	<span class="comment">// prepare Bridged chain storage with inbound lane state
+	</span><span class="kw">let </span>storage_key = storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, <span class="kw-2">&amp;</span>lane).<span class="number">0</span>;
+	<span class="kw">let </span><span class="kw-2">mut </span>root = Default::default();
+	<span class="kw">let </span><span class="kw-2">mut </span>mdb = MemoryDB::default();
+	{
+		<span class="kw">let </span><span class="kw-2">mut </span>trie =
+			TrieDBMutBuilderV1::&lt;HasherOf&lt;BridgedChain&lt;B&gt;&gt;&gt;::new(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
+		<span class="kw">let </span>inbound_lane_data = grow_trie_leaf_value(inbound_lane_data.encode(), size);
+		trie.insert(<span class="kw-2">&amp;</span>storage_key, <span class="kw-2">&amp;</span>inbound_lane_data)
+			.map_err(|<span class="kw">_</span>| <span class="string">&quot;TrieMut::insert has failed&quot;</span>)
+			.expect(<span class="string">&quot;TrieMut::insert should not fail in benchmarks&quot;</span>);
+	}
+
+	<span class="comment">// generate storage proof to be delivered to This chain
+	</span><span class="kw">let </span>storage_proof = record_all_trie_keys::&lt;LayoutV1&lt;HasherOf&lt;BridgedChain&lt;B&gt;&gt;&gt;, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>mdb, <span class="kw-2">&amp;</span>root)
+		.map_err(|<span class="kw">_</span>| <span class="string">&quot;record_all_trie_keys has failed&quot;</span>)
+		.expect(<span class="string">&quot;record_all_trie_keys should not fail in benchmarks&quot;</span>);
+
 	(root, storage_proof)
 }
 
