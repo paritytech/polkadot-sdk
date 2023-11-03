@@ -208,7 +208,7 @@ pub fn worker_entrypoint(
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
 
-						handle_parent_process(pipe_reader, child, usage_before, execution_timeout)
+						handle_parent_process(pipe_reader, child, usage_before, execution_timeout)?
 					},
 				};
 
@@ -341,19 +341,19 @@ fn handle_parent_process(
 	child: Pid,
 	usage_before: Usage,
 	timeout: Duration,
-) -> Response {
+) -> io::Result<Response> {
 	// Read from the child.
 	let mut received_data = Vec::new();
 	if let Err(_err) = pipe_read.read_to_end(&mut received_data) {
 		// Swallow the error, it's not really helpful as to why the child died.
-		return Response::JobDied
+		return Ok(Response::JobDied)
 	}
 
 	let status = nix::sys::wait::waitpid(child, None);
 
 	let usage_after = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		Ok(usage) => usage,
-		Err(errno) => return internal_error_from_errno("getrusage after", errno),
+		Err(errno) => return Ok(internal_error_from_errno("getrusage after", errno)),
 	};
 
 	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
@@ -361,21 +361,23 @@ fn handle_parent_process(
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
-
 	if cpu_tv >= timeout {
-		return Response::TimedOut
+		return Ok(Response::TimedOut)
 	}
 
-	match status {
+	let response = match status {
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			match Response::decode(&mut received_data.as_slice()) {
 				Ok(Response::Ok { result_descriptor, duration: _ }) =>
 					Response::Ok { result_descriptor, duration: cpu_tv },
 				Ok(response) => response,
-				// This error happens when the job dies.
-				Err(_err) => Response::JobDied,
+				// There is either a bug or the job was hijacked. Should retry at any rate.
+				Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
 			}
 		},
+		// The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
+		// death. But also, receiving any signal is unexpected, so treat them all the same.
+		Ok(WaitStatus::Signaled(..)) => Response::JobDied,
 		Err(errno) => internal_error_from_errno("waitpid", errno),
 
 		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
@@ -383,7 +385,8 @@ fn handle_parent_process(
 		Ok(unexpected_wait_status) => Response::UnexpectedJobStatus(format!(
 			"unexpected status from wait: {unexpected_wait_status:?}"
 		)),
-	}
+	};
+	Ok(response)
 }
 
 /// Calculate the total CPU time from the given `usage` structure, returned from

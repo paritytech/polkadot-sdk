@@ -758,7 +758,7 @@ trait ValidationBackend {
 				Err(ValidationError::InvalidCandidate(
 					WasmInvalidCandidate::AmbiguousWorkerDeath |
 					WasmInvalidCandidate::AmbiguousJobDeath |
-					WasmInvalidCandidate::UnexpectedJobStatus,
+					WasmInvalidCandidate::UnexpectedJobStatus(_),
 				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
 				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(_)))
 					if num_panic_retries_left > 0 =>

@@ -415,7 +415,6 @@ fn handle_parent_process(
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
-
 	if cpu_tv >= timeout {
 		return Err(PrepareError::TimedOut)
 	}
@@ -424,8 +423,8 @@ fn handle_parent_process(
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
-					// This error happens when the job dies.
-					.map_err(|_err| PrepareError::JobDied)?;
+					// There is either a bug or the job was hijacked.
+					.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 			match result {
 				Err(err) => Err(err),
 				Ok(response) => {
@@ -454,6 +453,9 @@ fn handle_parent_process(
 				},
 			}
 		},
+		// The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
+		// death. But also, receiving any signal is unexpected, so treat them all the same.
+		Ok(WaitStatus::Signaled(..)) => Err(PrepareError::JobDied),
 		Err(errno) => Err(error_from_errno("waitpid", errno)),
 
 		// An attacker can make the child process return any exit status it wants. So we can treat

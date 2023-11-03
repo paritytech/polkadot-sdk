@@ -299,7 +299,45 @@ rusty_fork_test! {
 	// What happens when the forked execute job dies in the middle of its job?
 	#[test]
 	fn forked_execute_job_killed_during_job() {
-		todo!()
+		polkadot_node_core_pvf_common::sp_tracing::try_init_simple();
+
+		let rt  = tokio::runtime::Runtime::new().unwrap();
+		rt.block_on(async {
+			let host = TestHost::new().await;
+
+			// Create a new session and get the session ID.
+			let sid = unsafe { libc::setsid() };
+			assert!(sid > 0);
+
+			// Prepare the artifact ahead of time.
+			let binary = halt::wasm_binary_unwrap();
+			host.precheck_pvf(binary, Default::default()).await.unwrap();
+
+			let (result, _) = futures::join!(
+				// Choose a job that would normally take the entire timeout.
+				host.validate_candidate(
+					binary,
+					ValidationParams {
+						block_data: BlockData(Vec::new()),
+						parent_head: Default::default(),
+						relay_parent_number: 1,
+						relay_parent_storage_root: Default::default(),
+					},
+					Default::default(),
+				),
+				// Run a future that kills the job in the middle of the timeout.
+				async {
+					tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
+					kill_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false);
+				}
+			);
+
+			// Note that we get a more specific error if the job died than if the whole worker died.
+			assert_matches!(
+				result,
+				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath))
+			);
+		})
 	}
 }
 
