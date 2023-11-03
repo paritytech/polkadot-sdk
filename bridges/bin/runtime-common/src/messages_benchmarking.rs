@@ -22,24 +22,22 @@
 use crate::{
 	messages::{
 		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain,
+		AccountIdOf, BridgedChain, HashOf, MessageBridge, ThisChain,
 	},
 	messages_generation::{
-		encode_all_messages, encode_lane_data, grow_trie_leaf_value, prepare_messages_storage_proof,
+		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
+		prepare_messages_storage_proof,
 	},
 };
 
-use bp_messages::{storage_keys, MessagePayload};
+use bp_messages::MessagePayload;
 use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::{
-	record_all_trie_keys, Chain, Parachain, RawStorageProof, StorageProofSize, UnderlyingChainOf,
-};
+use bp_runtime::{Chain, Parachain, StorageProofSize, UnderlyingChainOf};
 use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 use xcm::v3::prelude::*;
 
 /// Prepare inbound bridge message according to given message proof parameters.
@@ -172,7 +170,11 @@ where
 {
 	// prepare storage proof
 	let lane = params.lane;
-	let (state_root, storage_proof) = prepare_message_delivery_proof::<B>(params);
+	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<B>(
+		params.lane,
+		params.inbound_lane_data,
+		params.size,
+	);
 
 	// update runtime storage
 	let (_, bridged_header_hash) = insert_header_to_grandpa_pallet::<R, FI>(state_root);
@@ -200,7 +202,11 @@ where
 {
 	// prepare storage proof
 	let lane = params.lane;
-	let (state_root, storage_proof) = prepare_message_delivery_proof::<B>(params);
+	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<B>(
+		params.lane,
+		params.inbound_lane_data,
+		params.size,
+	);
 
 	// update runtime storage
 	let (_, bridged_header_hash) =
@@ -211,36 +217,6 @@ where
 		storage_proof,
 		lane,
 	}
-}
-
-/// Prepare in-memory message delivery proof, without inserting anything to the runtime storage.
-fn prepare_message_delivery_proof<B>(
-	params: MessageDeliveryProofParams<AccountIdOf<ThisChain<B>>>,
-) -> (HashOf<BridgedChain<B>>, RawStorageProof)
-where
-	B: MessageBridge,
-{
-	// prepare Bridged chain storage with inbound lane state
-	let storage_key =
-		storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &params.lane).0;
-	let mut root = Default::default();
-	let mut mdb = MemoryDB::default();
-	{
-		let mut trie =
-			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
-		let inbound_lane_data =
-			grow_trie_leaf_value(params.inbound_lane_data.encode(), params.size);
-		trie.insert(&storage_key, &inbound_lane_data)
-			.map_err(|_| "TrieMut::insert has failed")
-			.expect("TrieMut::insert should not fail in benchmarks");
-	}
-
-	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
-		.map_err(|_| "record_all_trie_keys has failed")
-		.expect("record_all_trie_keys should not fail in benchmarks");
-
-	(root, storage_proof)
 }
 
 /// Insert header to the bridge GRANDPA pallet.

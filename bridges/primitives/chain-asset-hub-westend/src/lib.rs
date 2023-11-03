@@ -42,10 +42,6 @@ pub enum Call {
 frame_support::parameter_types! {
 	/// Some sane weight to execute `xcm::Transact(pallet-xcm-bridge-hub-router::Call::report_bridge_status)`.
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
-
-	/// Base delivery fee to `BridgeHubWestend`.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubWestendBaseFeeInWnds: u128 = 487441010000;
 }
 
 /// Identifier of AssetHubWestend in the Westend relay chain.
