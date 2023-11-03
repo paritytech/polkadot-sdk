@@ -719,7 +719,7 @@ pub fn node_config(
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
 	let mut spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(para_id, endowed_accounts));
+		Box::new(chain_spec::get_chain_spec_with_extra_endowed(Some(para_id), endowed_accounts));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
 

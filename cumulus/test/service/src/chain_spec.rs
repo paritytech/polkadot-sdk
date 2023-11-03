@@ -63,25 +63,25 @@ where
 /// The given accounts are initialized with funds in addition
 /// to the default known accounts.
 pub fn get_chain_spec_with_extra_endowed(
-	id: ParaId,
+	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
 ) -> ChainSpec {
 	ChainSpec::builder(
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { para_id: id.into() },
+		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(testnet_genesis_with_default_endowed(
 		extra_endowed_accounts.clone(),
-		Some(id),
+		id,
 	))
 	.build()
 }
 
 /// Get the chain spec for a specific parachain ID.
-pub fn get_chain_spec(id: ParaId) -> ChainSpec {
+pub fn get_chain_spec(id: Option<ParaId>) -> ChainSpec {
 	get_chain_spec_with_extra_endowed(id, Default::default())
 }
 
