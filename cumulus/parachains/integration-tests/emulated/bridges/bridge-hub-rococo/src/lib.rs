@@ -46,7 +46,7 @@ pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
 pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
 pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalRococoA>;
 
-/// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
+/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
 pub fn relay_test_args(amount: Balance) -> TestArgs {
 	TestArgs {
 		dest: Rococo::child_location_of(AssetHubRococo::para_id()),

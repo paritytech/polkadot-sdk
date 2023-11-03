@@ -4,6 +4,7 @@ version = "0.9.420"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo variant of Asset Hub parachain runtime"
+license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
@@ -75,7 +76,7 @@ cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-f
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../common", default-features = false }
 snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/router", default-features = false }
@@ -218,6 +219,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
+	"primitive-types/std",
 	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"snowbridge-router-primitives/std",
@@ -241,3 +243,8 @@ std = [
 ]
 
 experimental = [ "pallet-aura/experimental" ]
+
+# A feature that should be enabled when the runtime should be built for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller like logging for example.
+on-chain-release-build = [ "sp-api/disable-logging" ]

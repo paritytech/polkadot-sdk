@@ -32,6 +32,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
+	snowbridge_config::BridgeHubEthereumBaseFeeInRocs,
 	xcm_config::{
 		AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem,
 		RelayOrOtherSystemParachains,
@@ -54,7 +55,7 @@ use xcm_builder::{
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -76,7 +77,8 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
-	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -501,10 +503,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and BridgeHub get free
-					// execution.
+					// Parent, its pluralities (i.e. governance bodies), relay treasury pallet and
+					// BridgeHub get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
+						Equals<RelayTreasuryLocation>,
 						Equals<bridging::SiblingBridgeHub>,
 					)>,
 					// Subscriptions for version tracking are OK.
@@ -534,22 +537,11 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 		ForeignAssetsInstance,
 	>;
 
-parameter_types! {
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
-}
-
-pub struct RelayTreasury;
-impl Contains<MultiLocation> for RelayTreasury {
-	fn contains(location: &MultiLocation) -> bool {
-		let relay_treasury_location = RelayTreasuryLocation::get();
-		*location == relay_treasury_location
-	}
-}
-
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (RelayOrOtherSystemParachains<SystemParachains, Runtime>, RelayTreasury);
+pub type WaivedLocations =
+	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
@@ -619,7 +611,10 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+	>;
 	type MessageExporter = ();
 	type UniversalAliases =
 		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);
@@ -655,11 +650,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	ToRococoXcmRouter,
 )>;
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-}
-
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// We want to disallow users sending (arbitrary) XCMs from this chain.
@@ -677,7 +667,6 @@ impl pallet_xcm::Config for Runtime {
 	type XcmReserveTransferFilter = (
 		LocationWithAssetFilters<WithParentsZeroOrOne, AllAssets>,
 		bridging::to_rococo::AllowedReserveTransferAssets,
-		//bridging::to_rococo::AllowedReserveTransferAssetsEthereum,
 		bridging::to_wococo::AllowedReserveTransferAssets,
 	);
 
@@ -697,8 +686,6 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
@@ -903,11 +890,6 @@ pub mod bridging {
 				AssetHubRococo::get()
 			);
 
-			/*pub EtherFromEthereum: (MultiAssetFilter, MultiLocation) = (
-				EthereumGatewayLocation::get().into(),
-				EthereumGatewayLocation::get()
-			);*/
-
 			/// Set up exporters configuration.
 			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
@@ -925,11 +907,12 @@ pub mod bridging {
 				),
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					Some(sp_std::vec![
-						EthereumLocation::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1,
-					]),
-					SiblingBridgeHub::get(), // TODO check
-					None // TODO check
+					None, // TODO add Ethereum network / gateway contract
+					SiblingBridgeHub::get(),
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFeeInRocs::get(),
+					).into())
 				),
 			];
 
@@ -979,12 +962,6 @@ pub mod bridging {
 			Equals<AssetHubRococo>,
 			AllowedReserveTransferAssetsToAssetHubRococo,
 		>;
-
-		/*
-		pub type AllowedReserveTransferAssetsEthereum = LocationWithAssetFilters<
-			StartsWithExplicitGlobalConsensus<EthereumNetwork>, // TODO check
-			AllowedReserveTransferAssetsToEthereum,
-		>;*/
 
 		impl Contains<RuntimeCall> for ToRococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {

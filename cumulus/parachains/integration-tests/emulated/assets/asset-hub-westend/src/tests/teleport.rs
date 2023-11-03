@@ -53,7 +53,7 @@ fn relay_dest_assertions(t: SystemParaToRelayTest) {
 	assert_expected_events!(
 		Westend,
 		vec![
-			// Amount is witdrawn from Relay Chain's `CheckAccount`
+			// Amount is withdrawn from Relay Chain's `CheckAccount`
 			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 				who: *who == <Westend as WestendPallet>::XcmPallet::check_account(),
 				amount: *amount == t.args.amount,

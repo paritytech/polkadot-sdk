@@ -32,10 +32,9 @@ pub use sp_tracing;
 const LOG_TARGET: &str = "parachain::pvf-common";
 
 use std::{
-	io::{Read, Write},
+	io::{self, Read, Write},
 	mem,
 };
-use tokio::io;
 
 #[cfg(feature = "test-utils")]
 pub mod tests {
@@ -50,6 +49,8 @@ pub mod tests {
 pub struct SecurityStatus {
 	/// Whether the landlock features we use are fully available on this system.
 	pub can_enable_landlock: bool,
+	/// Whether the seccomp features we use are fully available on this system.
+	pub can_enable_seccomp: bool,
 	// Whether we are able to unshare the user namespace and change the filesystem root.
 	pub can_unshare_user_namespace_and_change_root: bool,
 }

@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -41,7 +41,9 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
-use xcm_executor::traits::{ConvertOrigin, Properties};
+use xcm_executor::traits::{
+	AssetTransferError, ConvertOrigin, Properties, TransferType, XcmAssetTransfers,
+};
 
 use frame_support::{
 	dispatch::GetDispatchInfo, pallet_prelude::*, traits::WithdrawReasons, PalletId,
@@ -51,7 +53,7 @@ pub use pallet::*;
 use xcm_executor::{
 	traits::{
 		CheckSuspension, ClaimAssets, ConvertLocation, DropAssets, MatchesFungible, OnResponse,
-		QueryHandler, QueryResponseStatus, VersionChangeNotifier, WeightBounds,
+		QueryHandler, QueryResponseStatus, TransactAsset, VersionChangeNotifier, WeightBounds,
 	},
 	Assets,
 };
@@ -206,7 +208,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall>;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -259,12 +261,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// A `MultiLocation` that can be reached via `XcmRouter`. Used only in benchmarks.
-		///
-		/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
-		#[cfg(feature = "runtime-benchmarks")]
-		type ReachableDest: Get<Option<MultiLocation>>;
 	}
 
 	#[pallet::event]
@@ -428,8 +424,8 @@ pub mod pallet {
 		NoSubscription,
 		/// The location is invalid since it already has a subscription from us.
 		AlreadySubscribed,
-		/// Invalid asset for the operation.
-		InvalidAsset,
+		/// Could not check-out the assets for teleportation to the destination chain.
+		CannotCheckOutTeleport,
 		/// The owner does not own (all) of the asset that they wish to do the operation on.
 		LowBalance,
 		/// The asset owner has too many locks on the asset.
@@ -442,6 +438,14 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
+		/// Invalid non-concrete asset.
+		InvalidAssetNotConcrete,
+		/// Invalid asset, reserve chain could not be determined for it.
+		InvalidAssetUnknownReserve,
+		/// Invalid asset, do not support remote asset reserves with different fees reserves.
+		InvalidAssetUnsupportedReserve,
+		/// Too many assets with different reserve locations have been attempted for transfer.
+		TooManyReserves,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -450,6 +454,15 @@ pub mod pallet {
 				SendError::Fees => Error::<T>::FeesNotMet,
 				SendError::NotApplicable => Error::<T>::Unreachable,
 				_ => Error::<T>::SendFailure,
+			}
+		}
+	}
+
+	impl<T: Config> From<AssetTransferError> for Error<T> {
+		fn from(e: AssetTransferError) -> Self {
+			match e {
+				AssetTransferError::NotConcrete => Error::<T>::InvalidAssetNotConcrete,
+				AssetTransferError::UnknownReserve => Error::<T>::InvalidAssetUnknownReserve,
 			}
 		}
 	}
@@ -1194,6 +1207,33 @@ impl<T: Config> QueryHandler for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Validate `assets` to be reserve-transferred and return their reserve location.
+	fn validate_assets_and_find_reserve(
+		assets: &[MultiAsset],
+		dest: &MultiLocation,
+	) -> Result<TransferType, Error<T>> {
+		let mut reserve = None;
+		for asset in assets.iter() {
+			if let Fungible(x) = asset.fun {
+				// If fungible asset, ensure non-zero amount.
+				ensure!(!x.is_zero(), Error::<T>::Empty);
+			}
+			let transfer_type =
+				T::XcmExecutor::determine_for(&asset, dest).map_err(Error::<T>::from)?;
+			// Ensure asset is not teleportable to `dest`.
+			ensure!(transfer_type != TransferType::Teleport, Error::<T>::Filtered);
+			if let Some(reserve) = reserve.as_ref() {
+				// Ensure transfer for multiple assets uses same reserve location (only fee may have
+				// different reserve location)
+				ensure!(reserve == &transfer_type, Error::<T>::TooManyReserves);
+			} else {
+				// asset reserve identified
+				reserve = Some(transfer_type);
+			}
+		}
+		reserve.ok_or(Error::<T>::Empty)
+	}
+
 	fn do_reserve_transfer_assets(
 		origin: OriginFor<T>,
 		dest: Box<VersionedMultiLocation>,
@@ -1211,31 +1251,63 @@ impl<T: Config> Pallet<T> {
 		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 		let value = (origin_location, assets.into_inner());
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
-		let (origin_location, assets) = value;
-		let context = T::UniversalLocation::get();
-		let fees = assets
-			.get(fee_asset_item as usize)
-			.ok_or(Error::<T>::Empty)?
-			.clone()
-			.reanchored(&dest, context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
-		let max_assets = assets.len() as u32;
-		let assets: MultiAssets = assets.into();
-		let xcm = Xcm(vec![
-			BuyExecution { fees, weight_limit },
-			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		]);
-		let mut message = Xcm(vec![
-			SetFeesMode { jit_withdraw: true },
-			TransferReserveAsset { assets, dest, xcm },
-		]);
-		let weight =
-			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
-		let hash = message.using_encoded(sp_io::hashing::blake2_256);
-		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
-		Self::deposit_event(Event::Attempted { outcome });
-		Ok(())
+		let (origin_location, mut assets) = value;
+
+		if fee_asset_item as usize >= assets.len() {
+			return Err(Error::<T>::Empty.into())
+		}
+		let fees = assets.swap_remove(fee_asset_item as usize);
+		let fees_transfer_type =
+			T::XcmExecutor::determine_for(&fees, &dest).map_err(Error::<T>::from)?;
+		let assets_transfer_type = if assets.is_empty() {
+			// Single asset to transfer (one used for fees where transfer type is determined above).
+			ensure!(fees_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
+			fees_transfer_type
+		} else {
+			// Find reserve for non-fee assets.
+			Self::validate_assets_and_find_reserve(&assets, &dest)?
+		};
+
+		let prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>;
+		if fees_transfer_type == assets_transfer_type {
+			// Same reserve location (fees not teleportable), we can batch together fees and assets
+			// in same reserve-based-transfer.
+			assets.push(fees.clone());
+			// no need for custom prefund messages, fees are batched with assets
+			prefund_fees_messages = None;
+		} else {
+			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered by
+			// branch above). The reason for this is that we'd need to send XCMs to separate chains
+			// with no guarantee of delivery order on final destination; therefore we cannot
+			// guarantee to have fees in place on final destination chain to pay for assets
+			// transfer.
+			if let TransferType::RemoteReserve(_) = assets_transfer_type {
+				return Err(Error::<T>::InvalidAssetUnsupportedReserve.into())
+			}
+			// build fees transfer instructions to be added to assets transfers XCM programs
+			prefund_fees_messages = Some(match fees_transfer_type {
+				TransferType::LocalReserve =>
+					Self::prefund_local_reserve_fees_messages(dest, fees.clone())?,
+				TransferType::DestinationReserve =>
+					Self::prefund_destination_reserve_fees_messages(dest, fees.clone())?,
+				TransferType::Teleport => Self::prefund_teleport_fees_messages(dest, fees.clone())?,
+				TransferType::RemoteReserve(_) =>
+					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
+			});
+		};
+
+		// Fees have been prefunded/transferred (or batched together with assets to be transferred
+		// here), now do reserve-transfer assets.
+		Self::build_and_execute_xcm_transfer_type(
+			origin_location,
+			dest,
+			beneficiary,
+			assets,
+			assets_transfer_type,
+			fees,
+			prefund_fees_messages,
+			weight_limit,
+		)
 	}
 
 	fn do_teleport_assets(
@@ -1256,31 +1328,358 @@ impl<T: Config> Pallet<T> {
 		let value = (origin_location, assets.into_inner());
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (origin_location, assets) = value;
+		for asset in assets.iter() {
+			let transfer_type =
+				T::XcmExecutor::determine_for(asset, &dest).map_err(Error::<T>::from)?;
+			ensure!(matches!(transfer_type, TransferType::Teleport), Error::<T>::Filtered);
+		}
+		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
+
+		Self::build_and_execute_xcm_transfer_type(
+			origin_location,
+			dest,
+			beneficiary,
+			assets,
+			TransferType::Teleport,
+			fees,
+			None,
+			weight_limit,
+		)
+	}
+
+	fn build_and_execute_xcm_transfer_type(
+		origin: MultiLocation,
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		transfer_type: TransferType,
+		fees: MultiAsset,
+		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
+		weight_limit: WeightLimit,
+	) -> DispatchResult {
+		let (mut local_xcm, remote_xcm) = match transfer_type {
+			TransferType::LocalReserve => {
+				let (local, remote) = Self::local_reserve_transfer_messages(
+					dest,
+					beneficiary,
+					assets,
+					fees,
+					prefund_fees_messages,
+					weight_limit,
+				)?;
+				(local, Some(remote))
+			},
+			TransferType::DestinationReserve => {
+				let (local, remote) = Self::destination_reserve_transfer_messages(
+					dest,
+					beneficiary,
+					assets,
+					fees,
+					prefund_fees_messages,
+					weight_limit,
+				)?;
+				(local, Some(remote))
+			},
+			TransferType::RemoteReserve(reserve) => (
+				Self::remote_reserve_transfer_message(
+					reserve,
+					dest,
+					beneficiary,
+					assets,
+					fees,
+					weight_limit,
+				)?,
+				None,
+			),
+			TransferType::Teleport =>
+				(Self::teleport_asset_message(dest, beneficiary, assets, fees, weight_limit)?, None),
+		};
+		let weight =
+			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
+		let hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
+		let outcome =
+			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
+		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+		if let Some(remote_xcm) = remote_xcm {
+			outcome.ensure_complete().map_err(|_| Error::<T>::FeesNotMet)?;
+
+			let (ticket, price) = validate_send::<T::XcmRouter>(dest, remote_xcm.clone())
+				.map_err(Error::<T>::from)?;
+			if origin != Here.into_location() {
+				Self::charge_fees(origin, price).map_err(|_| Error::<T>::FeesNotMet)?;
+			}
+			let message_id = T::XcmRouter::deliver(ticket).map_err(Error::<T>::from)?;
+
+			let e = Event::Sent { origin, destination: dest, message: remote_xcm, message_id };
+			Self::deposit_event(e);
+		}
+		Ok(())
+	}
+
+	fn prefund_local_reserve_fees_messages(
+		dest: MultiLocation,
+		fees: MultiAsset,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		let context = T::UniversalLocation::get();
-		let fees = assets
-			.get(fee_asset_item as usize)
-			.ok_or(Error::<T>::Empty)?
+		let reanchored_fees = fees
 			.clone()
 			.reanchored(&dest, context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
-		let max_assets = assets.len() as u32;
+
+		let local_execute_xcm = Xcm(vec![
+			// move `fees` to `dest`s local sovereign account
+			TransferAsset { assets: fees.into(), beneficiary: dest },
+		]);
+		let xcm_on_dest = Xcm(vec![
+			// let (dest) chain know `fees` are in its SA on reserve
+			ReserveAssetDeposited(reanchored_fees.into()),
+		]);
+		Ok((local_execute_xcm, xcm_on_dest))
+	}
+
+	fn local_reserve_transfer_messages(
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		fees: MultiAsset,
+		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
+		weight_limit: WeightLimit,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		// max assets is `assets` ( + potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + prefund_fees_messages.as_ref().map(|_| 1).unwrap_or(0);
 		let assets: MultiAssets = assets.into();
-		let xcm = Xcm(vec![
+		let context = T::UniversalLocation::get();
+		let reanchored_fees =
+			fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let mut reanchored_assets = assets.clone();
+		reanchored_assets
+			.reanchor(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+
+		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_messages
+			.map(|(local, remote)| (local.into_inner(), remote.into_inner()))
+			.unwrap_or_default();
+
+		let local_execute_xcm = Xcm(
+			// run any necessary local prefund fees instructions
+			prefund_local_xcm
+				.into_iter()
+				// move `assets` to `dest`s local sovereign account
+				.chain([TransferAsset { assets, beneficiary: dest }].into_iter())
+				.collect(),
+		);
+		let xcm_on_dest = Xcm(
+			// run any necessary remote prefund fees instructions
+			prefund_remote_xcm
+				.into_iter()
+				.chain(
+					[
+						// let (dest) chain know assets are in its SA on reserve
+						ReserveAssetDeposited(reanchored_assets),
+						// following instructions are not exec'ed on behalf of origin chain anymore
+						ClearOrigin,
+						// buy exec using `fees` in holding deposited in top instruction here
+						BuyExecution { fees: reanchored_fees, weight_limit },
+						// deposit all assets in holding to `beneficiary` location
+						DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+					]
+					.into_iter(),
+				)
+				.collect(),
+		);
+		Ok((local_execute_xcm, xcm_on_dest))
+	}
+
+	fn prefund_destination_reserve_fees_messages(
+		dest: MultiLocation,
+		fees: MultiAsset,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let context = T::UniversalLocation::get();
+		let reanchored_fees = fees
+			.clone()
+			.reanchored(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+		let fees: MultiAssets = fees.into();
+
+		let local_execute_xcm = Xcm(vec![
+			// withdraw reserve-based fees (derivatives)
+			WithdrawAsset(fees.clone()),
+			// burn derivatives
+			BurnAsset(fees),
+		]);
+		let xcm_on_dest = Xcm(vec![
+			// withdraw `fees` from origin chain's sovereign account
+			WithdrawAsset(reanchored_fees.into()),
+		]);
+		Ok((local_execute_xcm, xcm_on_dest))
+	}
+
+	fn destination_reserve_transfer_messages(
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		fees: MultiAsset,
+		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
+		weight_limit: WeightLimit,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		// max assets is `assets` ( + potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + prefund_fees_messages.as_ref().map(|_| 1).unwrap_or(0);
+		let assets: MultiAssets = assets.into();
+		let context = T::UniversalLocation::get();
+		let reanchored_fees =
+			fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let mut reanchored_assets = assets.clone();
+		reanchored_assets
+			.reanchor(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+
+		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_messages
+			.map(|(local, remote)| (local.into_inner(), remote.into_inner()))
+			// default is empty vec, so no prefund instructions required
+			.unwrap_or_default();
+
+		let local_execute_xcm = Xcm(
+			// run any necessary local prefund fees instructions
+			prefund_local_xcm
+				.into_iter()
+				// move `assets` to `dest`s local sovereign account
+				.chain(
+					[
+						// withdraw reserve-based assets
+						WithdrawAsset(assets.clone()),
+						// burn reserve-based assets
+						BurnAsset(assets),
+					]
+					.into_iter(),
+				)
+				.collect(),
+		);
+		let xcm_on_dest = Xcm(
+			// run any necessary remote prefund fees instructions
+			prefund_remote_xcm
+				.into_iter()
+				.chain(
+					[
+						// withdraw `assets` from origin chain's sovereign account
+						WithdrawAsset(reanchored_assets),
+						// following instructions are not exec'ed on behalf of origin chain anymore
+						ClearOrigin,
+						// buy exec using `fees` in holding deposited in top instruction here
+						BuyExecution { fees: reanchored_fees, weight_limit },
+						// deposit all assets in holding to `beneficiary` account(s)
+						DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+					]
+					.into_iter(),
+				)
+				.collect(),
+		);
+		Ok((local_execute_xcm, xcm_on_dest))
+	}
+
+	// function assumes fees and assets have the same remote reserve
+	fn remote_reserve_transfer_message(
+		reserve: MultiLocation,
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		fees: MultiAsset,
+		weight_limit: WeightLimit,
+	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+		let max_assets = assets.len() as u32;
+		let context = T::UniversalLocation::get();
+		// identifies fee item as seen by `reserve` - to be used at reserve chain
+		let reserve_fees = fees
+			.clone()
+			.reanchored(&reserve, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+		// identifies fee item as seen by `dest` - to be used at destination chain
+		let dest_fees = fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		// identifies `dest` as seen by `reserve`
+		let dest = dest.reanchored(&reserve, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		// xcm to be executed at dest
+		let xcm_on_dest = Xcm(vec![
+			BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
+			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+		]);
+		// xcm to be executed on reserve
+		let xcm_on_reserve = Xcm(vec![
+			BuyExecution { fees: reserve_fees, weight_limit },
+			DepositReserveAsset { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
+		]);
+		Ok(Xcm(vec![
+			WithdrawAsset(assets.into()),
+			InitiateReserveWithdraw {
+				assets: Wild(AllCounted(max_assets)),
+				reserve,
+				xcm: xcm_on_reserve,
+			},
+		]))
+	}
+
+	fn prefund_teleport_fees_messages(
+		dest: MultiLocation,
+		fees: MultiAsset,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let context = T::UniversalLocation::get();
+		let reanchored_fees = fees
+			.clone()
+			.reanchored(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+
+		// XcmContext irrelevant in teleports checks
+		let dummy_context =
+			XcmContext { origin: None, message_id: Default::default(), topic: None };
+		// We should check that the asset can actually be teleported out (for this to
+		// be in error, there would need to be an accounting violation by ourselves,
+		// so it's unlikely, but we don't want to allow that kind of bug to leak into
+		// a trusted chain.
+		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::can_check_out(
+			&dest,
+			&fees,
+			&dummy_context,
+		)
+		.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
+		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::check_out(
+			&dest,
+			&fees,
+			&dummy_context,
+		);
+
+		let fees: MultiAssets = fees.into();
+		let local_execute_xcm = Xcm(vec![
+			// withdraw fees
+			WithdrawAsset(fees.clone()),
+			// burn fees
+			BurnAsset(fees),
+		]);
+		let xcm_on_dest = Xcm(vec![
+			// (dest) chain receive teleported assets burned on origin chain
+			ReceiveTeleportedAsset(reanchored_fees.into()),
+		]);
+		Ok((local_execute_xcm, xcm_on_dest))
+	}
+
+	fn teleport_asset_message(
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		mut fees: MultiAsset,
+		weight_limit: WeightLimit,
+	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+		let context = T::UniversalLocation::get();
+		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let max_assets = assets.len() as u32;
+		let xcm_on_dest = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
 		]);
-		let mut message = Xcm(vec![
-			WithdrawAsset(assets),
+		Ok(Xcm(vec![
+			WithdrawAsset(assets.into()),
 			SetFeesMode { jit_withdraw: true },
-			InitiateTeleport { assets: Wild(AllCounted(max_assets)), dest, xcm },
-		]);
-		let weight =
-			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
-		let hash = message.using_encoded(sp_io::hashing::blake2_256);
-		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
-		Self::deposit_event(Event::Attempted { outcome });
-		Ok(())
+			InitiateTeleport { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
+		]))
 	}
 
 	/// Will always make progress, and will do its best not to use much more than `weight_cutoff`

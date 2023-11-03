@@ -53,7 +53,7 @@ pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalWestendA>;
 
-/// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
+/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
 pub fn relay_test_args(amount: Balance) -> TestArgs {
 	TestArgs {
 		dest: Westend::child_location_of(AssetHubWestend::para_id()),
@@ -70,7 +70,7 @@ pub fn relay_test_args(amount: Balance) -> TestArgs {
 	}
 }
 
-/// Returns a `TestArgs` instance to de used for the System Parachain accross integraton tests
+/// Returns a `TestArgs` instance to be used for the System Parachain across integration tests
 pub fn system_para_test_args(
 	dest: MultiLocation,
 	beneficiary_id: AccountId32,

@@ -15,51 +15,57 @@
 
 use crate::*;
 use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
+use penpal_runtime::xcm_config::XcmConfig as PenpalRococoXcmConfig;
 use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
-fn relay_origin_assertions(t: RelayToSystemParaTest) {
+fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 
-	Rococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(630_092_000, 6_196)));
+	Rococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8_799)));
 
 	assert_expected_events!(
 		Rococo,
 		vec![
-			// Amount to reserve transfer is transferred to System Parachain's Sovereign account
-			RuntimeEvent::Balances(pallet_balances::Event::Transfer { from, to, amount }) => {
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
+			RuntimeEvent::Balances(
+				pallet_balances::Event::Transfer { from, to, amount }
+			) => {
 				from: *from == t.sender.account_id,
 				to: *to == Rococo::sovereign_account_id_of(
 					t.args.dest
 				),
-				amount:  *amount == t.args.amount,
+				amount: *amount == t.args.amount,
 			},
 		]
 	);
 }
 
-fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
-	AssetHubRococo::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(1_000_000_000, 0)),
-		Some(Error::UntrustedReserveLocation),
+fn relay_to_para_receiver_assertions<Test>(_: Test) {
+	type RuntimeEvent = <PenpalRococoA as Chain>::RuntimeEvent;
+	assert_expected_events!(
+		PenpalRococoA,
+		vec![
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+				outcome: Outcome::Complete(_),
+				..
+			}) => {},
+		]
 	);
 }
 
-fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {
-	AssetHubRococo::assert_xcm_pallet_attempted_error(Some(XcmError::Barrier))
-}
-
-fn system_para_to_para_assertions(t: SystemParaToParaTest) {
+fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		630_092_000,
-		6_196,
+		864_610_000,
+		8_799,
 	)));
 
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
-			// Amount to reserve transfer is transferred to Parachain's Sovereing account
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Balances(
 				pallet_balances::Event::Transfer { from, to, amount }
 			) => {
@@ -73,18 +79,74 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	);
 }
 
+fn system_para_to_para_receiver_assertions<Test>(_: Test) {
+	type RuntimeEvent = <PenpalRococoA as Chain>::RuntimeEvent;
+	assert_expected_events!(
+		PenpalRococoA,
+		vec![
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+		]
+	);
+}
+
+fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
+	type RuntimeEvent = <PenpalRococoA as Chain>::RuntimeEvent;
+
+	PenpalRococoA::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
+		864_610_000,
+		8_799,
+	)));
+
+	assert_expected_events!(
+		PenpalRococoA,
+		vec![
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
+			RuntimeEvent::Balances(
+				pallet_balances::Event::Withdraw { who, amount }
+			) => {
+				who: *who == t.sender.account_id,
+				amount: *amount == t.args.amount,
+			},
+		]
+	);
+}
+
+fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
+	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(
+		AssetHubRococo::sibling_location_of(PenpalRococoA::para_id()),
+	);
+
+	assert_expected_events!(
+		AssetHubRococo,
+		vec![
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
+			RuntimeEvent::Balances(
+				pallet_balances::Event::Withdraw { who, amount }
+			) => {
+				who: *who == sov_penpal_on_ahr.clone().into(),
+				amount: *amount == t.args.amount,
+			},
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+		]
+	);
+}
+
 fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		676_119_000,
-		6196,
+		864_610_000,
+		8799,
 	)));
 
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
-			// Amount to reserve transfer is transferred to Parachain's Sovereing account
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Assets(
 				pallet_assets::Event::Transferred { asset_id, from, to, amount }
 			) => {
@@ -99,7 +161,7 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 	);
 }
 
-fn relay_limited_reserve_transfer_assets(t: RelayToSystemParaTest) -> DispatchResult {
+fn relay_to_para_limited_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 	<Rococo as RococoPallet>::XcmPallet::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -107,37 +169,6 @@ fn relay_limited_reserve_transfer_assets(t: RelayToSystemParaTest) -> DispatchRe
 		bx!(t.args.assets.into()),
 		t.args.fee_asset_item,
 		t.args.weight_limit,
-	)
-}
-
-fn relay_reserve_transfer_assets(t: RelayToSystemParaTest) -> DispatchResult {
-	<Rococo as RococoPallet>::XcmPallet::reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-	)
-}
-
-fn system_para_limited_reserve_transfer_assets(t: SystemParaToRelayTest) -> DispatchResult {
-	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-		t.args.weight_limit,
-	)
-}
-
-fn system_para_reserve_transfer_assets(t: SystemParaToRelayTest) -> DispatchResult {
-	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
 	)
 }
 
@@ -152,13 +183,14 @@ fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) 
 	)
 }
 
-fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
-	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::reserve_transfer_assets(
+fn para_to_system_para_limited_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
+	<PenpalRococoA as PenpalRococoAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
 		t.args.fee_asset_item,
+		t.args.weight_limit,
 	)
 }
 
@@ -166,87 +198,94 @@ fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> Dispa
 /// work
 #[test]
 fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	// Init values for Relay Chain
+	let signed_origin = <Rococo as Chain>::RuntimeOrigin::signed(RococoSender::get().into());
+	let destination = Rococo::child_location_of(AssetHubRococo::para_id());
+	let beneficiary: MultiLocation =
+		AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
-	let test_args = TestContext {
-		sender: RococoSender::get(),
-		receiver: AssetHubRococoReceiver::get(),
-		args: relay_test_args(amount_to_send),
-	};
+	let assets: MultiAssets = (Here, amount_to_send).into();
+	let fee_asset_item = 0;
 
-	let mut test = RelayToSystemParaTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<Rococo>(relay_origin_assertions);
-	test.set_assertion::<AssetHubRococo>(system_para_dest_assertions_incomplete);
-	test.set_dispatchable::<Rococo>(relay_limited_reserve_transfer_assets);
-	test.assert();
-
-	let delivery_fees = Rococo::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	// this should fail
+	Rococo::execute_with(|| {
+		let result = <Rococo as RococoPallet>::XcmPallet::limited_reserve_transfer_assets(
+			signed_origin,
+			bx!(destination.into()),
+			bx!(beneficiary.into()),
+			bx!(assets.into()),
+			fee_asset_item,
+			WeightLimit::Unlimited,
+		);
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 99,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			})
+		);
 	});
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
-/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shoudln't work
+/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
 #[test]
 fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	// Init values for System Parachain
+	let signed_origin =
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
 	let destination = AssetHubRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
+	let beneficiary: MultiLocation =
+		AccountId32Junction { network: None, id: beneficiary_id.into() }.into();
 	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
-	let assets = (Parent, amount_to_send).into();
 
-	let test_args = TestContext {
-		sender: AssetHubRococoSender::get(),
-		receiver: RococoReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
-	};
+	let assets: MultiAssets = (Parent, amount_to_send).into();
+	let fee_asset_item = 0;
 
-	let mut test = SystemParaToRelayTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<AssetHubRococo>(system_para_to_relay_assertions);
-	test.set_dispatchable::<AssetHubRococo>(system_para_limited_reserve_transfer_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
+	// this should fail
+	AssetHubRococo::execute_with(|| {
+		let result =
+			<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+				signed_origin,
+				bx!(destination.into()),
+				bx!(beneficiary.into()),
+				bx!(assets.into()),
+				fee_asset_item,
+				WeightLimit::Unlimited,
+			);
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			})
+		);
+	});
 }
 
-/// Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
+/// Limited Reserve Transfers of native asset from Relay to Parachain should work
 #[test]
-fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	// Init values for Relay Chain
+fn limited_reserve_transfer_native_asset_from_relay_to_para() {
+	// Init values for Relay
+	let destination = Rococo::child_location_of(PenpalRococoA::para_id());
+	let beneficiary_id = PenpalRococoAReceiver::get();
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
+
 	let test_args = TestContext {
 		sender: RococoSender::get(),
-		receiver: AssetHubRococoReceiver::get(),
-		args: relay_test_args(amount_to_send),
+		receiver: PenpalRococoAReceiver::get(),
+		args: relay_test_args(destination, beneficiary_id, amount_to_send),
 	};
 
-	let mut test = RelayToSystemParaTest::new(test_args);
+	let mut test = RelayToParaTest::new(test_args);
 
 	let sender_balance_before = test.sender.balance;
 	let receiver_balance_before = test.receiver.balance;
 
-	test.set_assertion::<Rococo>(relay_origin_assertions);
-	test.set_assertion::<AssetHubRococo>(system_para_dest_assertions_incomplete);
-	test.set_dispatchable::<Rococo>(relay_reserve_transfer_assets);
+	test.set_assertion::<Rococo>(relay_to_para_sender_assertions);
+	test.set_assertion::<PenpalRococoA>(relay_to_para_receiver_assertions);
+	test.set_dispatchable::<Rococo>(relay_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
@@ -258,39 +297,10 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
+	// Sender's balance is reduced
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
-}
-
-/// Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
-#[test]
-fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
-	// Init values for System Parachain
-	let destination = AssetHubRococo::parent_location();
-	let beneficiary_id = RococoReceiver::get();
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
-	let assets = (Parent, amount_to_send).into();
-
-	let test_args = TestContext {
-		sender: AssetHubRococoSender::get(),
-		receiver: RococoReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
-	};
-
-	let mut test = SystemParaToRelayTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<AssetHubRococo>(system_para_to_relay_assertions);
-	test.set_dispatchable::<AssetHubRococo>(system_para_reserve_transfer_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
 }
 
 /// Limited Reserve Transfers of native asset from System Parachain to Parachain should work
@@ -305,20 +315,21 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: PenpalRococoAReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
 	};
 
 	let mut test = SystemParaToParaTest::new(test_args);
 
 	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
 
-	test.set_assertion::<AssetHubRococo>(system_para_to_para_assertions);
-	// TODO: Add assertion for Penpal runtime. Right now message is failing with
-	// `UntrustedReserveLocation`
+	test.set_assertion::<AssetHubRococo>(system_para_to_para_sender_assertions);
+	test.set_assertion::<PenpalRococoA>(system_para_to_para_receiver_assertions);
 	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubRococo::execute_with(|| {
 		xcm_helpers::transfer_assets_delivery_fees::<
@@ -326,47 +337,58 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
+	// Sender's balance is reduced
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
-	// transfers
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
 }
 
-/// Reserve Transfers of native asset from System Parachain to Parachain should work
+/// Limited Reserve Transfers of native asset from Parachain to System Parachain should work
 #[test]
-fn reserve_transfer_native_asset_from_system_para_to_para() {
-	// Init values for System Parachain
-	let destination = AssetHubRococo::sibling_location_of(PenpalRococoA::para_id());
-	let beneficiary_id = PenpalRococoAReceiver::get();
+fn limited_reserve_transfer_native_asset_from_para_to_system_para() {
+	// Init values for Penpal Parachain
+	let destination = PenpalRococoA::sibling_location_of(AssetHubRococo::para_id());
+	let beneficiary_id = AssetHubRococoReceiver::get();
 	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
 	let assets = (Parent, amount_to_send).into();
 
 	let test_args = TestContext {
-		sender: AssetHubRococoSender::get(),
-		receiver: PenpalRococoAReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		sender: PenpalRococoASender::get(),
+		receiver: AssetHubRococoReceiver::get(),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
 	};
 
-	let mut test = SystemParaToParaTest::new(test_args);
+	let mut test = ParaToSystemParaTest::new(test_args);
 
 	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
 
-	test.set_assertion::<AssetHubRococo>(system_para_to_para_assertions);
-	// TODO: Add assertion for Penpal runtime. Right now message is failing with
-	// `UntrustedReserveLocation`
-	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_reserve_transfer_assets);
+	// MultiLocation { parents: 1, interior: X1(Parachain(PenpalRococoA::para_id().into())) };
+	let penpal_location_as_seen_by_ahr =
+		AssetHubRococo::sibling_location_of(PenpalRococoA::para_id());
+	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
+
+	// fund the Penpal's SA on AHR with the native tokens held in reserve
+	AssetHubRococo::fund_accounts(vec![(sov_penpal_on_ahr.into(), amount_to_send * 2)]);
+
+	test.set_assertion::<PenpalRococoA>(para_to_system_para_sender_assertions);
+	test.set_assertion::<AssetHubRococo>(para_to_system_para_receiver_assertions);
+	test.set_dispatchable::<PenpalRococoA>(para_to_system_para_limited_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
 
-	let delivery_fees = AssetHubRococo::execute_with(|| {
+	let delivery_fees = PenpalRococoA::execute_with(|| {
 		xcm_helpers::transfer_assets_delivery_fees::<
-			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
+			<PenpalRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
+	// Sender's balance is reduced
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
-	// transfers
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
 }
 
 /// Limited Reserve Transfers of a local asset from System Parachain to Parachain should work
@@ -390,53 +412,17 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
 			.into();
 
-	let system_para_test_args = TestContext {
+	let para_test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: PenpalRococoAReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
 	};
 
-	let mut system_para_test = SystemParaToParaTest::new(system_para_test_args);
+	let mut system_para_test = SystemParaToParaTest::new(para_test_args);
 
 	system_para_test.set_assertion::<AssetHubRococo>(system_para_to_para_assets_assertions);
 	// TODO: Add assertions when Penpal is able to manage assets
 	system_para_test
 		.set_dispatchable::<AssetHubRococo>(system_para_to_para_limited_reserve_transfer_assets);
-	system_para_test.assert();
-}
-
-/// Reserve Transfers of a local asset from System Parachain to Parachain should work
-#[test]
-fn reserve_transfer_asset_from_system_para_to_para() {
-	// Force create asset from Relay Chain and mint assets for System Parachain's sender account
-	AssetHubRococo::force_create_and_mint_asset(
-		ASSET_ID,
-		ASSET_MIN_BALANCE,
-		true,
-		AssetHubRococoSender::get(),
-		Some(Weight::from_parts(1_019_445_000, 200_000)),
-		ASSET_MIN_BALANCE * 1000000,
-	);
-
-	// Init values for System Parachain
-	let destination = AssetHubRococo::sibling_location_of(PenpalRococoA::para_id());
-	let beneficiary_id = PenpalRococoAReceiver::get();
-	let amount_to_send = ASSET_MIN_BALANCE * 1000;
-	let assets =
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
-			.into();
-
-	let system_para_test_args = TestContext {
-		sender: AssetHubRococoSender::get(),
-		receiver: PenpalRococoAReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
-	};
-
-	let mut system_para_test = SystemParaToParaTest::new(system_para_test_args);
-
-	system_para_test.set_assertion::<AssetHubRococo>(system_para_to_para_assets_assertions);
-	// TODO: Add assertions when Penpal is able to manage assets
-	system_para_test
-		.set_dispatchable::<AssetHubRococo>(system_para_to_para_reserve_transfer_assets);
 	system_para_test.assert();
 }

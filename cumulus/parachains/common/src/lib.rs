@@ -19,6 +19,7 @@ pub mod impls;
 pub mod kusama;
 pub mod polkadot;
 pub mod rococo;
+pub mod snowbridge_config;
 pub mod westend;
 pub mod wococo;
 pub mod xcm_config;

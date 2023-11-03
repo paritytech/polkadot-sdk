@@ -182,7 +182,7 @@ pub type Barrier = TrailingSetTopicAsId<
 /// Type alias to conveniently refer to `frame_system`'s `Config::AccountId`.
 pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 
-/// Asset filter that allows all assets from a certain location.
+/// Asset filter that allows all assets from a certain location matching asset id.
 pub struct AssetsFrom<T>(PhantomData<T>);
 impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFrom<T> {
 	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
@@ -190,6 +190,17 @@ impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFr
 		&loc == origin &&
 			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
 			if asset_loc.match_and_split(&loc).is_some())
+	}
+}
+
+/// Asset filter that allows native/relay asset if coming from a certain location.
+pub struct NativeAssetFrom<T>(PhantomData<T>);
+impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for NativeAssetFrom<T> {
+	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+		let loc = T::get();
+		&loc == origin &&
+			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+			if *asset_loc == MultiLocation::from(Parent))
 	}
 }
 
@@ -221,43 +232,6 @@ where
 	}
 }
 
-pub trait Reserve {
-	/// Returns assets reserve location.
-	fn reserve(&self) -> Option<MultiLocation>;
-}
-
-// Takes the chain part of a MultiAsset
-impl Reserve for MultiAsset {
-	fn reserve(&self) -> Option<MultiLocation> {
-		if let AssetId::Concrete(location) = self.id {
-			let first_interior = location.first_interior();
-			let parents = location.parent_count();
-			match (parents, first_interior) {
-				(0, Some(Parachain(id))) => Some(MultiLocation::new(0, X1(Parachain(*id)))),
-				(1, Some(Parachain(id))) => Some(MultiLocation::new(1, X1(Parachain(*id)))),
-				(1, _) => Some(MultiLocation::parent()),
-				_ => None,
-			}
-		} else {
-			None
-		}
-	}
-}
-
-/// A `FilterAssetLocation` implementation. Filters multi native assets whose
-/// reserve is same with `origin`.
-pub struct MultiNativeAsset;
-impl ContainsPair<MultiAsset, MultiLocation> for MultiNativeAsset {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
-		if let Some(ref reserve) = asset.reserve() {
-			if reserve == origin {
-				return true
-			}
-		}
-		false
-	}
-}
-
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
@@ -268,7 +242,8 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
-pub type Reserves = (NativeAsset, AssetsFrom<SystemAssetHubLocation>);
+pub type Reserves =
+	(NativeAsset, AssetsFrom<SystemAssetHubLocation>, NativeAssetFrom<SystemAssetHubLocation>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -277,7 +252,8 @@ impl xcm_executor::Config for XcmConfig {
 	// How to withdraw and deposit an asset.
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	type IsReserve = MultiNativeAsset; // TODO: maybe needed to be replaced by Reserves
+	type IsReserve = Reserves;
+	// no teleport trust established with other chains
 	type IsTeleporter = NativeAsset;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -312,11 +288,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	XcmpQueue,
 )>;
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-}
-
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -342,8 +313,6 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();

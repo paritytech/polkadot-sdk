@@ -4,6 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Assets common utilities"
+license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -43,6 +44,7 @@ std = [
 	"pallet-asset-tx-payment/std",
 	"pallet-xcm/std",
 	"parachains-common/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-std/std",

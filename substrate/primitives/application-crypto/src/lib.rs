@@ -50,6 +50,8 @@ pub mod bls377;
 #[cfg(feature = "bls-experimental")]
 pub mod bls381;
 pub mod ecdsa;
+#[cfg(feature = "bls-experimental")]
+pub mod ecdsa_bls377;
 pub mod ed25519;
 pub mod sr25519;
 mod traits;

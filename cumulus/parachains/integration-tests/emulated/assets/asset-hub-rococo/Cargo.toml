@@ -32,6 +32,9 @@ rococo-runtime = { path = "../../../../../../polkadot/runtime/rococo", default-f
 asset-test-utils = { path = "../../../../runtimes/assets/test-utils", default-features = false }
 parachains-common = { path = "../../../../common" }
 asset-hub-rococo-runtime = { path = "../../../../runtimes/assets/asset-hub-rococo" }
+penpal-runtime = { path = "../../../../runtimes/testing/penpal" }
+cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false}
+cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}

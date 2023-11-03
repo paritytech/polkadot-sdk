@@ -20,10 +20,10 @@
 use asset_hub_westend_runtime::{
 	xcm_config::{
 		AssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
-		WestendLocation,
+		LocationToAccountId, WestendLocation,
 	},
 	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, RuntimeCall,
-	RuntimeEvent,
+	RuntimeEvent, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{
 	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
@@ -526,12 +526,6 @@ asset_test_utils::include_teleports_for_native_asset_works!(
 			_ => None,
 		}
 	}),
-	Box::new(|runtime_event_encoded: Vec<u8>| {
-		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-			Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-			_ => None,
-		}
-	}),
 	1000
 );
 
@@ -665,4 +659,33 @@ fn plain_receive_teleported_asset_works() {
 				XcmExecutor::<XcmConfig>::execute_xcm(Parent, maybe_msg, message_id, RuntimeHelper::xcm_max_weight(XcmReceivedFrom::Parent));
 			assert_eq!(outcome.ensure_complete(), Ok(()));
 		})
+}
+
+#[test]
+fn reserve_transfer_native_asset_to_non_teleport_para_works() {
+	asset_test_utils::test_cases::reserve_transfer_native_asset_to_non_teleport_para_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		WeightLimit::Unlimited,
+	);
 }
