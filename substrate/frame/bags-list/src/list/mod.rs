@@ -543,7 +543,16 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			thresholds.into_iter().filter_map(|t| Bag::<T, I>::get(t))
 		};
 
-		let _ = active_bags.clone().try_for_each(|b| b.do_try_state())?;
+		// cached list of nodes in a map of bags to avoid multiple lookups
+		let mut cached_node_bags = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
+
+		let _ = active_bags.clone().try_for_each(|b| {
+			cached_node_bags.insert(
+				b.bag_upper,
+				b.iter().map(|n: Node<T, I>| n.id().clone()).collect::<Vec<_>>(),
+			);
+			b.do_try_state()
+		})?;
 
 		let nodes_in_bags_count =
 			active_bags.clone().fold(0u32, |acc, cur| acc + cur.iter().count() as u32);
@@ -554,7 +563,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// check that all nodes are sane. We check the `ListNodes` storage item directly in case we
 		// have some "stale" nodes that are not in a bag.
 		for (_id, node) in crate::ListNodes::<T, I>::iter() {
-			node.do_try_state()?
+			node.do_try_state(&cached_node_bags)?
 		}
 
 		Ok(())
@@ -792,7 +801,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	}
 
 	/// Check if the bag contains a node with `id`.
-	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
+	#[cfg(any(test, feature = "fuzz"))]
 	fn contains(&self, id: &T::AccountId) -> bool {
 		self.iter().any(|n| n.id() == id)
 	}
@@ -898,12 +907,17 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 	}
 
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	fn do_try_state(&self) -> Result<(), TryRuntimeError> {
+	fn do_try_state(
+		&self,
+		cached_node_bags: &BTreeMap<<T as Config<I>>::Score, Vec<T::AccountId>>,
+	) -> Result<(), TryRuntimeError> {
 		let expected_bag = Bag::<T, I>::get(self.bag_upper).ok_or("bag not found for node")?;
+		let cached_bag_nodes =
+			cached_node_bags.get(&self.bag_upper).ok_or("bag not found in the cache")?;
 
 		let id = self.id();
 
-		frame_support::ensure!(expected_bag.contains(id), "node does not exist in the bag");
+		frame_support::ensure!(cached_bag_nodes.contains(id), "node does not exist in the bag");
 
 		let non_terminal_check = !self.is_terminal() &&
 			expected_bag.head.as_ref() != Some(id) &&
