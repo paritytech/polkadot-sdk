@@ -401,7 +401,7 @@ macro_rules! impl_accounts_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_assert_events_helpers_for_parachain {
-	( $chain:ident ) => {
+	( $chain:ident, $ignore_weight:expr ) => {
 		$crate::impls::paste::paste! {
 			type [<$chain RuntimeEvent>] = <$chain as $crate::impls::Chain>::RuntimeEvent;
 
@@ -414,7 +414,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::PolkadotXcm(
 								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
 							) => {
-								weight: $crate::impls::weight_within_threshold(
+								weight: $ignore_weight || $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -436,7 +436,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::PolkadotXcm(
 								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
 							) => {
-								weight: $crate::impls::weight_within_threshold(
+								weight: $ignore_weight || $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -492,7 +492,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
 								outcome: $crate::impls::Outcome::Complete(weight), ..
 							}) => {
-								weight: $crate::impls::weight_within_threshold(
+								weight: $ignore_weight || $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -513,7 +513,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
 								outcome: $crate::impls::Outcome::Incomplete(weight, error), ..
 							}) => {
-								weight: $crate::impls::weight_within_threshold(
+								weight: $ignore_weight || $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -548,7 +548,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::XcmpQueue(
 								$crate::impls::cumulus_pallet_xcmp_queue::Event::Success { weight, .. }
 							) => {
-								weight: $crate::impls::weight_within_threshold(
+								weight: $ignore_weight || $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight

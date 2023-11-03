@@ -38,6 +38,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_asset_tx_payment::HandleCredit;
+use pallet_assets::Instance1;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
@@ -48,9 +49,10 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry,
 	EnsureXcmOrigin, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -126,6 +128,9 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
 	// recognized.
 	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
+	// Superuser converter for the Relay-chain (Parent) location. This will allow it to issue a
+	// transaction from the Root origin.
+	ParentAsSuperuser<RuntimeOrigin>,
 	// Native signed account converter; this just converts an `AccountId32` origin into a normal
 	// `RuntimeOrigin::Signed` origin of the same 32-byte value.
 	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
@@ -189,7 +194,7 @@ impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFr
 		let loc = T::get();
 		&loc == origin &&
 			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
-			if asset_loc.match_and_split(&loc).is_some())
+			if asset_loc.starts_with(&loc))
 	}
 }
 
@@ -219,15 +224,15 @@ where
 /// A `HandleCredit` implementation that naively transfers the fees to the block author.
 /// Will drop and burn the assets in case the transfer fails.
 pub struct AssetsToBlockAuthor<R>(PhantomData<R>);
-impl<R> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R>> for AssetsToBlockAuthor<R>
+impl<R> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R, Instance1>> for AssetsToBlockAuthor<R>
 where
-	R: pallet_authorship::Config + pallet_assets::Config,
+	R: pallet_authorship::Config + pallet_assets::Config<Instance1>,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
-	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R>>) {
+	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R, Instance1>>) {
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-			let _ = pallet_assets::Pallet::<R>::resolve(&author, credit);
+			let _ = pallet_assets::Pallet::<R, Instance1>::resolve(&author, credit);
 		}
 	}
 }

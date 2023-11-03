@@ -432,7 +432,7 @@ parameter_types! {
 // pub type AssetsForceOrigin =
 // 	EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<KsmLocation, ExecutiveBody>>>;
 
-impl pallet_assets::Config for Runtime {
+impl pallet_assets::Config<pallet_assets::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
@@ -557,7 +557,12 @@ impl pallet_asset_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
 	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
+		pallet_assets::BalanceToAssetBalance<
+			Balances,
+			Runtime,
+			ConvertInto,
+			pallet_assets::Instance1,
+		>,
 		AssetsToBlockAuthor<Runtime>,
 	>;
 }
@@ -599,7 +604,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// The main stage.
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 50,
+		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
 
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
 	}

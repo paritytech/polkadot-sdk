@@ -694,7 +694,9 @@ impl MultiAssets {
 		target: &MultiLocation,
 		context: InteriorMultiLocation,
 	) -> Result<(), ()> {
-		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))
+		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))?;
+		self.0.sort();
+		Ok(())
 	}
 
 	/// Return a reference to an item at a specific index or `None` if it doesn't exist.

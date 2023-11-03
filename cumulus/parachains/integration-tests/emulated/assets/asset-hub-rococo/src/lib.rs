@@ -78,6 +78,7 @@ pub fn para_test_args(
 	amount: Balance,
 	assets: MultiAssets,
 	asset_id: Option<u32>,
+	fee_asset_item: u32,
 ) -> TestArgs {
 	TestArgs {
 		dest,
@@ -85,7 +86,7 @@ pub fn para_test_args(
 		amount,
 		assets,
 		asset_id,
-		fee_asset_item: 0,
+		fee_asset_item,
 		weight_limit: WeightLimit::Unlimited,
 	}
 }
