@@ -27,7 +27,7 @@ use crate::{
 	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
 	chain_sync::{
 		BlockRequestAction, ChainSync, ImportBlocksAction, ImportJustificationsAction,
-		OnBlockResponse,
+		OnBlockResponse, OnStateResponse,
 	},
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
@@ -455,11 +455,9 @@ where
 		let chain_sync = ChainSync::new(
 			mode,
 			client.clone(),
-			block_announce_protocol_name.clone(),
 			max_parallel_downloads,
 			max_blocks_per_request,
 			warp_sync_config,
-			network_service.clone(),
 		)?;
 
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
@@ -1212,6 +1210,13 @@ where
 								OnBlockResponse::ImportJustifications(action) =>
 									self.import_justifications(action),
 								OnBlockResponse::Nothing => {},
+								OnBlockResponse::DisconnectPeer(BadPeer(peer_id, rep)) => {
+									self.network_service.disconnect_peer(
+										peer_id,
+										self.block_announce_protocol_name.clone(),
+									);
+									self.network_service.report_peer(peer_id, rep);
+								},
 							}
 						},
 						Err(BlockResponseError::DecodeFailed(e)) => {
@@ -1257,14 +1262,30 @@ where
 						},
 					};
 
-					if let Some(import_blocks_action) =
-						self.chain_sync.on_state_response(peer_id, response)
-					{
-						self.import_blocks(import_blocks_action);
+					match self.chain_sync.on_state_response(peer_id, response) {
+						OnStateResponse::ImportBlocks(import_blocks_action) =>
+							self.import_blocks(import_blocks_action),
+						OnStateResponse::DisconnectPeer(BadPeer(peer_id, rep)) => {
+							self.network_service.disconnect_peer(
+								peer_id,
+								self.block_announce_protocol_name.clone(),
+							);
+							self.network_service.report_peer(peer_id, rep);
+						},
+						OnStateResponse::Nothing => {},
 					}
 				},
 				PeerRequest::WarpProof => {
-					self.chain_sync.on_warp_sync_response(peer_id, EncodedProof(resp));
+					match self.chain_sync.on_warp_sync_response(&peer_id, EncodedProof(resp)) {
+						Ok(()) => (),
+						Err(BadPeer(peer_id, rep)) => {
+							self.network_service.disconnect_peer(
+								peer_id,
+								self.block_announce_protocol_name.clone(),
+							);
+							self.network_service.report_peer(peer_id, rep);
+						},
+					}
 				},
 			},
 			Ok(Err(e)) => {

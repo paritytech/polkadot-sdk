@@ -32,7 +32,6 @@ use crate::{
 	blocks::BlockCollection,
 	extra_requests::ExtraRequests,
 	schema::v1::StateResponse,
-	service::network::NetworkServiceHandle,
 	state::{ImportResult, StateSync},
 	types::{
 		BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode, SyncState,
@@ -50,7 +49,6 @@ use log::{debug, error, info, trace, warn};
 
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-use sc_network::types::ProtocolName;
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
@@ -237,7 +235,7 @@ pub enum OnBlockJustification<Block: BlockT> {
 
 // Result of [`ChainSync::on_state_data`].
 #[derive(Debug)]
-pub enum OnStateData<Block: BlockT> {
+enum OnStateData<Block: BlockT> {
 	/// The block and state that should be imported.
 	Import(BlockOrigin, IncomingBlock<Block>),
 	/// A new state request needs to be made to the given peer.
@@ -247,7 +245,7 @@ pub enum OnStateData<Block: BlockT> {
 /// Action that the parent of [`ChainSync`] should perform after reporting block response with
 /// [`ChainSync::on_block_response`].
 pub enum OnBlockResponse<B: BlockT> {
-	/// Nothing to do
+	/// Nothing to do.
 	Nothing,
 	/// Perform block request.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
@@ -255,6 +253,19 @@ pub enum OnBlockResponse<B: BlockT> {
 	ImportBlocks(ImportBlocksAction<B>),
 	/// Import justifications.
 	ImportJustifications(ImportJustificationsAction<B>),
+	/// Invalid block response, the peer should be disconnected and reported.
+	DisconnectPeer(BadPeer),
+}
+
+/// Action that the parent of [`ChainSync`] should perform after reporting state response with
+/// [`ChainSync::on_state_response`].
+pub enum OnStateResponse<B: BlockT> {
+	/// Nothing to do.
+	Nothing,
+	/// Import blocks.
+	ImportBlocks(ImportBlocksAction<B>),
+	/// Invalid state response, the peer should be disconnected and reported.
+	DisconnectPeer(BadPeer),
 }
 
 /// The main data structure which contains all the state for a chains
@@ -302,10 +313,6 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
-	/// Handle for communicating with `NetworkService`
-	network_service: NetworkServiceHandle,
-	/// Protocol name used for block announcements
-	block_announce_protocol_name: ProtocolName,
 }
 
 /// All the data we have about a Peer that we are trying to sync with
@@ -396,11 +403,9 @@ where
 	pub fn new(
 		mode: SyncMode,
 		client: Arc<Client>,
-		block_announce_protocol_name: ProtocolName,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
-		network_service: NetworkServiceHandle,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -420,10 +425,8 @@ where
 			warp_sync: None,
 			import_existing: false,
 			gap_sync: None,
-			network_service,
 			warp_sync_config,
 			warp_sync_target_block_header: None,
-			block_announce_protocol_name,
 		};
 
 		sync.reset_sync_start_point()?;
@@ -1539,12 +1542,7 @@ where
 						number,
 						justifications,
 					}),
-				Err(BadPeer(id, repu)) => {
-					self.network_service
-						.disconnect_peer(id, self.block_announce_protocol_name.clone());
-					self.network_service.report_peer(id, repu);
-					OnBlockResponse::Nothing
-				},
+				Err(bad_peer) => OnBlockResponse::DisconnectPeer(bad_peer),
 			}
 		} else {
 			match self.on_block_data(&peer_id, Some(request), block_response) {
@@ -1552,12 +1550,7 @@ where
 				Ok(OnBlockData::Request(peer_id, request)) =>
 					OnBlockResponse::SendBlockRequest { peer_id, request },
 				Ok(OnBlockData::Continue) => OnBlockResponse::Nothing,
-				Err(BadPeer(id, repu)) => {
-					self.network_service
-						.disconnect_peer(id, self.block_announce_protocol_name.clone());
-					self.network_service.report_peer(id, repu);
-					OnBlockResponse::Nothing
-				},
+				Err(bad_peer) => OnBlockResponse::DisconnectPeer(bad_peer),
 			}
 		}
 	}
@@ -1568,26 +1561,12 @@ where
 		&mut self,
 		peer_id: PeerId,
 		response: OpaqueStateResponse,
-	) -> Option<ImportBlocksAction<B>> {
+	) -> OnStateResponse<B> {
 		match self.on_state_data(&peer_id, response) {
 			Ok(OnStateData::Import(origin, block)) =>
-				Some(ImportBlocksAction { origin, blocks: vec![block] }),
-			Ok(OnStateData::Continue) => None,
-			Err(BadPeer(id, repu)) => {
-				self.network_service
-					.disconnect_peer(id, self.block_announce_protocol_name.clone());
-				self.network_service.report_peer(id, repu);
-				None
-			},
-		}
-	}
-
-	/// Submit a warp proof response received.
-	pub fn on_warp_sync_response(&mut self, peer_id: PeerId, response: EncodedProof) {
-		if let Err(BadPeer(id, repu)) = self.on_warp_sync_data(&peer_id, response) {
-			self.network_service
-				.disconnect_peer(id, self.block_announce_protocol_name.clone());
-			self.network_service.report_peer(id, repu);
+				OnStateResponse::ImportBlocks(ImportBlocksAction { origin, blocks: vec![block] }),
+			Ok(OnStateData::Continue) => OnStateResponse::Nothing,
+			Err(bad_peer) => OnStateResponse::DisconnectPeer(bad_peer),
 		}
 	}
 
@@ -1892,7 +1871,13 @@ where
 		}
 	}
 
-	fn on_warp_sync_data(&mut self, who: &PeerId, response: EncodedProof) -> Result<(), BadPeer> {
+	/// Submit a warp proof response received.
+	#[must_use]
+	pub fn on_warp_sync_response(
+		&mut self,
+		who: &PeerId,
+		response: EncodedProof,
+	) -> Result<(), BadPeer> {
 		if let Some(peer) = self.peers.get_mut(who) {
 			if let PeerSyncState::DownloadingWarpProof = peer.state {
 				peer.state = PeerSyncState::Available;
