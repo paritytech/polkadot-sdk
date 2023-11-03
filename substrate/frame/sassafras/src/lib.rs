@@ -189,6 +189,8 @@ pub mod pallet {
 	pub type NextRandomness<T> = StorageValue<_, Randomness, ValueQuery>;
 
 	/// Randomness accumulator.
+	///
+	/// During block execution doesn't include randomness which ships within that block header.
 	#[pallet::storage]
 	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
@@ -607,7 +609,7 @@ impl<T: Config> Pallet<T> {
 			.expect("epoch indices will never reach 2^64 before the death of the universe; qed");
 
 		// Updates current epoch randomness and computes the *next* epoch randomness.
-		let next_randomness = Self::update_randomness(next_epoch_index);
+		let next_randomness = Self::update_epoch_randomness(next_epoch_index);
 
 		if let Some(config) = NextEpochConfig::<T>::take() {
 			EpochConfig::<T>::put(config);
@@ -648,20 +650,21 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Call this function on epoch change to update the randomness.
+	/// Call this function on epoch change to enact current epoch randomness.
 	///
 	/// Returns the next epoch randomness.
-	fn update_randomness(next_epoch_index: u64) -> Randomness {
-		let curr_randomness = NextRandomness::<T>::get();
-		CurrentRandomness::<T>::put(curr_randomness);
+	fn update_epoch_randomness(next_epoch_index: u64) -> Randomness {
+		let curr_epoch_randomness = NextRandomness::<T>::get();
+		CurrentRandomness::<T>::put(curr_epoch_randomness);
 
 		let accumulator = RandomnessAccumulator::<T>::get();
-		let mut s = Vec::with_capacity(2 * curr_randomness.len() + 8);
-		s.extend_from_slice(&curr_randomness);
-		s.extend_from_slice(&next_epoch_index.to_le_bytes());
-		s.extend_from_slice(&accumulator);
 
-		let next_randomness = hashing::blake2_256(&s);
+		let mut buf = [0; 2 * RANDOMNESS_LENGTH + 8];
+		buf[..RANDOMNESS_LENGTH].copy_from_slice(&accumulator[..]);
+		buf[RANDOMNESS_LENGTH..2 * RANDOMNESS_LENGTH].copy_from_slice(&curr_epoch_randomness[..]);
+		buf[2 * RANDOMNESS_LENGTH..].copy_from_slice(&next_epoch_index.to_le_bytes());
+
+		let next_randomness = hashing::blake2_256(&buf);
 		NextRandomness::<T>::put(&next_randomness);
 
 		next_randomness
@@ -687,10 +690,14 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_log(log)
 	}
 
-	fn deposit_randomness(randomness: &Randomness) {
-		let mut s = RandomnessAccumulator::<T>::get().to_vec();
-		s.extend_from_slice(randomness);
-		let accumulator = hashing::blake2_256(&s);
+	fn deposit_randomness(slot_randomness: &Randomness) {
+		let accumulator = RandomnessAccumulator::<T>::get();
+
+		let mut buf = [0; 2 * RANDOMNESS_LENGTH];
+		buf[..RANDOMNESS_LENGTH].copy_from_slice(&accumulator[..]);
+		buf[RANDOMNESS_LENGTH..].copy_from_slice(&slot_randomness[..]);
+
+		let accumulator = hashing::blake2_256(&buf);
 		RandomnessAccumulator::<T>::put(accumulator);
 	}
 
@@ -701,16 +708,15 @@ impl<T: Config> Pallet<T> {
 		// should be match the previously set one.
 		let prev_authorities = Authorities::<T>::get();
 		if !prev_authorities.is_empty() {
-			if prev_authorities.to_vec() == authorities {
+			if prev_authorities.as_slice() == authorities {
 				return
 			} else {
 				panic!("Authorities already were already initialized");
 			}
 		}
 
-		let bounded_authorities =
-			WeakBoundedVec::<_, T::MaxAuthorities>::try_from(authorities.to_vec())
-				.expect("Initial number of authorities should be lower than T::MaxAuthorities");
+		let bounded_authorities = WeakBoundedVec::try_from(authorities.to_vec())
+			.expect("Initial number of authorities should be lower than T::MaxAuthorities");
 		Authorities::<T>::put(&bounded_authorities);
 		NextAuthorities::<T>::put(&bounded_authorities);
 	}
@@ -740,7 +746,7 @@ impl<T: Config> Pallet<T> {
 			index,
 			start: Self::epoch_start(index),
 			length: T::EpochLength::get(),
-			authorities: Self::authorities().to_vec(),
+			authorities: Self::authorities().into_inner(),
 			randomness: Self::randomness(),
 			config: Self::config(),
 		}
@@ -755,7 +761,7 @@ impl<T: Config> Pallet<T> {
 			index,
 			start: Self::epoch_start(index),
 			length: T::EpochLength::get(),
-			authorities: Self::next_authorities().to_vec(),
+			authorities: Self::next_authorities().into_inner(),
 			randomness: Self::next_randomness(),
 			config: Self::next_config().unwrap_or_else(|| Self::config()),
 		}

@@ -257,7 +257,7 @@ fn produce_epoch_change_digest_no_config() {
 		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
-			h2b("cb52dcf3b0caca956453d42004ac1b8005a26be669c2aaf534548e0b4c872a52"),
+			h2b("9538904054c3e6ec997f7f3cbae1af6196d96cd82fe217d97da947d2987b3a4d"),
 		);
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
@@ -279,7 +279,7 @@ fn produce_epoch_change_digest_no_config() {
 		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
-			h2b("cb52dcf3b0caca956453d42004ac1b8005a26be669c2aaf534548e0b4c872a52"),
+			h2b("9538904054c3e6ec997f7f3cbae1af6196d96cd82fe217d97da947d2987b3a4d"),
 		);
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
