@@ -5245,7 +5245,7 @@ dependencies = [
 [[package]]
 name = "fflonk"
 version = "0.1.0"
-source = "git+https://github.com/w3f/fflonk#26a5045b24e169cffc1f9328ca83d71061145c40"
+source = "git+https://github.com/w3f/fflonk#e141d4b6f42fb481aefe1b479788694945b6940d"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -18053,7 +18053,9 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-grandpa",
+ "sp-consensus-sassafras",
  "sp-core",
+ "sp-crypto-ec-utils 0.4.1",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -18104,6 +18106,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-consensus-babe",
  "sp-core",
+ "sp-crypto-ec-utils 0.4.1",
  "sp-externalities 0.19.0",
  "sp-keyring",
  "sp-keystore",
@@ -19645,7 +19648,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 

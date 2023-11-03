@@ -576,7 +576,7 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		if next_authorities != authoritues {
+		if next_authorities != authorities {
 			Self::update_ring_verifier(&next_authorities);
 		}
 

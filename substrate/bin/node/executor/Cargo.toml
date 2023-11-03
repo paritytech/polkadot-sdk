@@ -25,6 +25,7 @@ sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-tracing = { path = "../../../primitives/tracing" }
 sp-trie = { path = "../../../primitives/trie" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
+sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils", features = ["bls12-381","ed-on-bls12-381-bandersnatch"] }
 
 [dev-dependencies]
 criterion = "0.4.0"

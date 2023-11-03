@@ -1,11 +1,9 @@
 #!/bin/bash
 
+binary="./target/release/substrate-node"
+
 steps=10
 repeat=3
-
-binary="./target/release/node-template"
-# binary="./target/release/node-sassafras"
-# binary="./target/debug/node-template"
 
 export RUST_LOG="sassafras=debug"
 

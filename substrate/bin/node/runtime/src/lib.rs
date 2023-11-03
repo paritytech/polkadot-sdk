@@ -493,8 +493,7 @@ impl pallet_babe::Config for Runtime {
 }
 
 impl pallet_sassafras::Config for Runtime {
-	type SlotDuration = SlotDuration;
-	type EpochDuration = EpochDuration;
+	type EpochLength = EpochDuration;
 	type MaxAuthorities = MaxAuthorities;
 	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
 	type WeightInfo = pallet_sassafras::weights::SubstrateWeight<Runtime>;
@@ -2141,6 +2140,7 @@ construct_runtime!(
 		Statement: pallet_statement,
 		Broker: pallet_broker,
 		Mixnet: pallet_mixnet,
+		Sassafras: pallet_sassafras,
 	}
 );
 
@@ -2273,6 +2273,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
+		[pallet_sassafras, Sassafras]
 	);
 }
 
