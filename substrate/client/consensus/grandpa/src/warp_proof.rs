@@ -322,7 +322,7 @@ mod tests {
 	use crate::{AuthoritySetChanges, GrandpaJustification};
 	use parity_scale_codec::Encode;
 	use rand::prelude::*;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::HeaderBackend;
 	use sp_consensus::BlockOrigin;
 	use sp_consensus_grandpa::GRANDPA_ENGINE_ID;
@@ -348,7 +348,11 @@ mod tests {
 		let mut authority_set_changes = Vec::new();
 
 		for n in 1..=100 {
-			let mut builder = client.new_block(Default::default()).unwrap();
+			let mut builder = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap();
 			let mut new_authorities = None;
 
 			// we will trigger an authority set change every 10 blocks
