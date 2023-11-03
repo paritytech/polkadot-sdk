@@ -833,8 +833,7 @@ impl State {
 		}
 	}
 
-	// Returns the approval voting from the RuntimeApi.
-	// To avoid crossing the subsystem boundary every-time we are caching locally the values.
+	// Returns the approval voting params from the RuntimeApi.
 	#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 	async fn get_approval_voting_params_or_default<Context>(
 		&self,
@@ -861,7 +860,7 @@ impl State {
 				params
 			},
 			Ok(Err(err)) => {
-				gum::error!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?err,
 					"Could not request approval voting params from runtime using defaults"
@@ -869,7 +868,7 @@ impl State {
 				ApprovalVotingParams { max_approval_coalesce_count: 1 }
 			},
 			Err(err) => {
-				gum::error!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?err,
 					"Could not request approval voting params from runtime using defaults"
@@ -3586,8 +3585,8 @@ fn compute_delayed_approval_sending_tick(
 
 	let sign_no_later_than = min(
 		tick_now + MAX_APPROVAL_COALESCE_WAIT_TICKS as Tick,
-		// We don't want to accidentally cause, no-shows so if we are past
-		// the seconnd half of the no show time, force the sending of the
+		// We don't want to accidentally cause no-shows, so if we are past
+		// the second half of the no show time, force the sending of the
 		// approval immediately.
 		assignment_triggered_tick + no_show_duration_ticks / 2,
 	);

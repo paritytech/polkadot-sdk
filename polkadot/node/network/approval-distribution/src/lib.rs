@@ -415,9 +415,8 @@ impl Knowledge {
 
 	// Tells if all keys are contained by this peer_knowledge
 	pub fn contains_all_keys(&self, keys: &Vec<(MessageSubject, MessageKind)>) -> bool {
-		keys.iter().fold(true, |accumulator, assignment_key| {
-			accumulator && self.contains(&assignment_key.0, assignment_key.1)
-		})
+		keys.iter()
+			.all(|assignment_key| self.contains(&assignment_key.0, assignment_key.1))
 	}
 }
 
@@ -539,9 +538,9 @@ impl BlockEntry {
 
 	// Tels if all candidate_indices are valid candidates
 	pub fn contains_candidates(&self, candidate_indices: &CandidateBitfield) -> bool {
-		candidate_indices.iter_ones().fold(true, |accumulator, candidate_index| {
-			self.candidates.get(candidate_index as usize).is_some() && accumulator
-		})
+		candidate_indices
+			.iter_ones()
+			.all(|candidate_index| self.candidates.get(candidate_index as usize).is_some())
 	}
 	// Saves the given approval in all ApprovalEntries that contain an assignment for any of the
 	// candidates in the approval.
