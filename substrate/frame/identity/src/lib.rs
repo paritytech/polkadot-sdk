@@ -405,12 +405,7 @@ pub mod pallet {
 			);
 
 			let (old_deposit, old_ids) = <SubsOf<T>>::get(&sender);
-<<<<<<< HEAD
 			let new_deposit = Self::subs_deposit(subs.len() as u32);
-=======
-			let new_deposit =
-				T::SubAccountDeposit::get().saturating_mul(<BalanceOf<T>>::from(subs.len() as u32));
->>>>>>> origin
 
 			let not_other_sub =
 				subs.iter().filter_map(|i| SuperOf::<T>::get(&i.0)).all(|i| i.0 == sender);
