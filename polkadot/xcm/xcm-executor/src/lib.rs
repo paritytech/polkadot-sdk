@@ -248,7 +248,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			for asset in fees.inner() {
 				Config::AssetTransactor::withdraw_asset(&asset, &origin, None)?;
 			}
-			Config::FeeManager::handle_fee(fees, None);
+			Config::FeeManager::handle_fee(fees, None, FeeReason::ChargeFees);
 		}
 		Ok(())
 	}
@@ -851,7 +851,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					destination,
 					xcm,
 				)?;
-				self.take_fee(fee, FeeReason::Export(network))?;
+				self.take_fee(fee, FeeReason::Export { network, destination })?;
 				Config::MessageExporter::deliver(ticket)?;
 				Ok(())
 			},
@@ -962,7 +962,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		} else {
 			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
 		};
-		Config::FeeManager::handle_fee(paid, Some(&self.context));
+		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
 	}
 

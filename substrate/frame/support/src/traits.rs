@@ -61,7 +61,7 @@ pub use misc::{
 	DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly, EstimateCallFee,
 	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsSubType, IsType,
 	Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp, SameOrOther, Time,
-	TryCollect, TryDrop, TypedGet, UnixTime, WrapperKeepOpaque, WrapperOpaque,
+	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
@@ -113,7 +113,8 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePre
 mod messages;
 pub use messages::{
 	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
-	ProcessMessage, ProcessMessageError, QueuePausedQuery, ServiceQueues, TransformOrigin,
+	ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+	TransformOrigin,
 };
 
 mod safe_mode;

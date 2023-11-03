@@ -176,8 +176,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"asset-hub-rococo-local" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_local_config()),
 		// the chain spec as used for generating the upgrade genesis values
-		"asset-hub-rococo-genesis" => Box::new(chain_spec::asset_hubs::asset_hub_rococo_config()),
-		// the shell-based chain spec as used for syncing
+		"asset-hub-rococo-genesis" =>
+			Box::new(chain_spec::asset_hubs::asset_hub_rococo_genesis_config()),
 		"asset-hub-rococo" =>
 			Box::new(chain_spec::asset_hubs::AssetHubRococoChainSpec::from_json_bytes(
 				&include_bytes!("../chain-specs/asset-hub-rococo.json")[..],
@@ -189,7 +189,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"asset-hub-wococo-local" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_wococo_local_config()),
 		// the chain spec as used for generating the upgrade genesis values
-		"asset-hub-wococo-genesis" => Box::new(chain_spec::asset_hubs::asset_hub_wococo_config()),
+		"asset-hub-wococo-genesis" =>
+			Box::new(chain_spec::asset_hubs::asset_hub_wococo_genesis_config()),
 		"asset-hub-wococo" =>
 			Box::new(chain_spec::asset_hubs::AssetHubWococoChainSpec::from_json_bytes(
 				&include_bytes!("../chain-specs/asset-hub-wococo.json")[..],
@@ -466,7 +467,9 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment => {
 					let $partials = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
@@ -649,7 +652,9 @@ macro_rules! construct_async_run {
 							{ $( $code )* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
 								&$config,
@@ -975,7 +980,9 @@ pub fn run() -> Result<()> {
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
 							.map(|r| r.0),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend =>
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::bridge_hubs::westend::RuntimeApi,
 								AuraId,
