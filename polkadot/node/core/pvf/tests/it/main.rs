@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! General PVF host integration tests checking the functionality of the PVF host itself.
+
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
@@ -22,12 +24,9 @@ use polkadot_node_core_pvf::{
 	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
-use polkadot_primitives::ExecutorParams;
+use polkadot_primitives::{ExecutorParam, ExecutorParams};
 #[cfg(target_os = "linux")]
 use rusty_fork::rusty_fork_test;
-
-#[cfg(feature = "ci-only-tests")]
-use polkadot_primitives::ExecutorParam;
 
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -432,6 +431,43 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
+}
+
+// This test checks if the adder parachain runtime can be prepared with 10Mb preparation memory
+// limit enforced. At the moment of writing, the limit if far enough to prepare the PVF. If it
+// starts failing, either Wasmtime version has changed, or the PVF code itself has changed, and
+// more memory is required now. Multi-threaded preparation, if ever enabled, may also affect
+// memory consumption.
+#[tokio::test]
+async fn prechecking_within_memory_limits() {
+	let host = TestHost::new().await;
+	let result = host
+		.precheck_pvf(
+			::adder::wasm_binary_unwrap(),
+			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(10 * 1024 * 1024)][..]),
+		)
+		.await;
+
+	assert_matches!(result, Ok(_));
+}
+
+// This test checks if the adder parachain runtime can be prepared with 512Kb preparation memory
+// limit enforced. At the moment of writing, the limit if not enough to prepare the PVF, and the
+// preparation is supposed to generate an error. If the test starts failing, either Wasmtime
+// version has changed, or the PVF code itself has changed, and less memory is required now.
+#[tokio::test]
+async fn prechecking_out_of_memory() {
+	use polkadot_node_core_pvf::PrepareError;
+
+	let host = TestHost::new().await;
+	let result = host
+		.precheck_pvf(
+			::adder::wasm_binary_unwrap(),
+			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(512 * 1024)][..]),
+		)
+		.await;
+
+	assert_matches!(result, Err(PrepareError::OutOfMemory));
 }
 
 // With one worker, run multiple preparation jobs serially. They should not conflict.
