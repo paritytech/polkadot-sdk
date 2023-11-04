@@ -1159,10 +1159,8 @@ fn vested_transfer_less_than_existential_deposit_fails() {
 #[test]
 fn remove_vesting_schedule() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-		let user3_free_balance = Balances::free_balance(&3);
-		let user4_free_balance = Balances::free_balance(&4);
-		assert_eq!(user3_free_balance, 256 * 30);
-		assert_eq!(user4_free_balance, 256 * 40);
+		assert_eq!(Balances::free_balance(&3), 256 * 30);
+		assert_eq!(Balances::free_balance(&4), 256 * 40);
 		// Account 4 should not have any vesting yet.
 		assert_eq!(Vesting::vesting(&4), None);
 		// Make the schedule for the new transfer.
