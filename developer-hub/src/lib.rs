@@ -35,7 +35,7 @@
 //! it externally extremely difficult, especially with regards to making sure it is up-to-date.
 //!
 //! Consequently, we argue that the best hedge against this is to move as much of the documentation
-//! near the source code as possible. This would further incentivizes developers to keep the
+//! near the source code as possible. This would further incentivize developers to keep the
 //! documentation up-to-date, as the overhead is reduced by making sure everything is in one
 //! repository, and everything being in `.rs` files.
 //!
