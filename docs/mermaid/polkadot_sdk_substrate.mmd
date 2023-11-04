@@ -1,0 +1,8 @@
+flowchart LR
+	subgraph SubstrateChain[A Substrate-based blockchain]
+		Client
+		Runtime
+	end
+
+    FRAME -.-> Runtime
+    Substrate[Substrate Client Libraries] -.-> Client

@@ -73,19 +73,22 @@
 //!
 //! ### Summary
 //!
-//! The following diagram summarizes how components of the Polkadot-SDK work together:
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk.mmd")]
+//! The following diagram summarizes how components of the Polkadot-SDK:
+#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_substrate.mmd")]
 //!
-//! 1. A Substrate-based chain is a blockchain composed of a "Runtime" and a "Client". As noted
-//!    above, the "Runtime" is the application logic of the blockchain, and the "Client" is
-//!    everything else. See [`reference_docs::wasm_meta_protocol`] for an in-depth explanation of
-//!    this. The former is built with [`frame`], and the latter is built with Substrate client
-//!    libraries.
-//! 2. Polkadot is itself a Substrate-based chain, composed of the exact same two components.
-//!    The Polkadot client code is in [`polkadot`], and the Polkadot runtimes are controlled by the
-//!    [Polkadot Fellowship](https://github.com/polkadot-fellows).
-//! 3. A parachain is a "special" Substrate based chain, whereby both the client and the runtime
-//!    components have became "Polkadot-aware" using Cumulus.
+//! A Substrate-based chain is a blockchain composed of a "Runtime" and a "Client". As noted above,
+//! the "Runtime" is the application logic of the blockchain, and the "Client" is everything else.
+//! See [`reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The former is
+//! built with [`frame`], and the latter is built with Substrate client libraries.
+//!
+//! > You can think of a substrate-based chain as a while-labeled blockchain.
+#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_polkadot.mmd")]
+//! Polkadot is itself a Substrate-based chain, composed of the exact same two components.
+//!
+//!
+//! A parachain is a "special" Substrate-based chain, whereby both the client and the runtime
+//! components have became "Polkadot-aware" using Cumulus.
+#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_parachain.mmd")]
 //!
 //! ## History
 //!

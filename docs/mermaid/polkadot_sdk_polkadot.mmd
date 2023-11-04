@@ -1,0 +1,10 @@
+flowchart LR
+
+	subgraph Polkadot[The Polkadot Relay Chain]
+		PolkadotClient[Polkadot Client]
+		PolkadotRuntime[Polkadot Runtime]
+	end
+
+    FRAME -.-> PolkadotRuntime
+    Substrate[Substrate Client Libraries] -.-> PolkadotClient
+

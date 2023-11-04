@@ -46,3 +46,11 @@
 //!
 //!
 //! #### Pallet
+//!
+//! #### Full Node
+//!
+//! #### Archive Node
+//!
+//! #### Validator
+//!
+//! #### Collator

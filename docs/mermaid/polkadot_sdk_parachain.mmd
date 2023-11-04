@@ -1,0 +1,11 @@
+flowchart LR
+	subgraph Parachain[A Polkadot Parachain]
+		ParachainClient[Parachain Client]
+		ParachainRuntime[Parachain Runtime]
+	end
+
+    FRAME -.-> ParachainRuntime
+    Substrate[Substrate Client Libraries] -.-> ParachainClient
+
+    Cumulus[Cumulus Client Libraries] -.-> ParachainClient
+    Cumulus[Cumulus Runtime Libraries] -.-> ParachainRuntime
