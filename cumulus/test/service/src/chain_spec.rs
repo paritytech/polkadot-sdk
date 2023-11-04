@@ -17,7 +17,7 @@
 #![allow(missing_docs)]
 
 use cumulus_primitives_core::ParaId;
-use cumulus_test_runtime::{AccountId, Signature};
+use cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -25,27 +25,7 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisExt, Extensions>;
-
-/// Extension for the genesis config to add custom keys easily.
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct GenesisExt {
-	/// The runtime genesis config.
-	runtime_genesis_config: cumulus_test_runtime::RuntimeGenesisConfig,
-	/// The parachain id.
-	para_id: ParaId,
-}
-
-impl sp_runtime::BuildStorage for GenesisExt {
-	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
-		sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
-			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
-			cumulus_test_runtime::ParachainId::set(&self.para_id);
-		});
-
-		self.runtime_genesis_config.assimilate_storage(storage)
-	}
-}
+pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -90,12 +70,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		"Local Testnet",
 		"local_testnet",
 		ChainType::Local,
-		move || GenesisExt {
-			runtime_genesis_config: testnet_genesis_with_default_endowed(
-				extra_endowed_accounts.clone(),
-			),
-			para_id: id,
-		},
+		move || testnet_genesis_with_default_endowed(extra_endowed_accounts.clone(), Some(id)),
 		Vec::new(),
 		None,
 		None,
@@ -113,6 +88,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 /// Local testnet genesis for testing.
 pub fn testnet_genesis_with_default_endowed(
 	mut extra_endowed_accounts: Vec<AccountId>,
+	self_para_id: Option<ParaId>,
 ) -> cumulus_test_runtime::RuntimeGenesisConfig {
 	let mut endowed = vec![
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -130,13 +106,14 @@ pub fn testnet_genesis_with_default_endowed(
 	];
 	endowed.append(&mut extra_endowed_accounts);
 
-	testnet_genesis(get_account_id_from_seed::<sr25519::Public>("Alice"), endowed)
+	testnet_genesis(get_account_id_from_seed::<sr25519::Public>("Alice"), endowed, self_para_id)
 }
 
 /// Creates a local testnet genesis with endowed accounts.
 pub fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
+	self_para_id: Option<ParaId>,
 ) -> cumulus_test_runtime::RuntimeGenesisConfig {
 	cumulus_test_runtime::RuntimeGenesisConfig {
 		system: cumulus_test_runtime::SystemConfig {
@@ -152,5 +129,6 @@ pub fn testnet_genesis(
 		},
 		sudo: cumulus_test_runtime::SudoConfig { key: Some(root_key) },
 		transaction_payment: Default::default(),
+		test_pallet: cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() },
 	}
 }
