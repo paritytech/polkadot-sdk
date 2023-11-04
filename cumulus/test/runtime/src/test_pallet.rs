@@ -23,7 +23,7 @@ pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::test_pallet::{PARACHAIN_ID_RUNTIME_KEY, TEST_RUNTIME_UPGRADE_KEY};
+	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -64,7 +64,7 @@ pub mod pallet {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
 			self.self_para_id.map(|para_id| {
-				super::ParachainId::set(para_id);
+				crate::ParachainId::set(&para_id);
 			});
 		}
 	}
