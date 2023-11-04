@@ -16,7 +16,13 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-use nix::{sys::{resource::{Resource, Usage, UsageWho}, wait::WaitStatus, signal::Signal}, unistd::ForkResult};
+use nix::{
+	sys::{
+		resource::{Resource, Usage, UsageWho},
+		wait::WaitStatus,
+	},
+	unistd::ForkResult,
+};
 use os_pipe::PipeWriter;
 pub use polkadot_node_core_pvf_common::{
 	executor_intf::execute_artifact, worker_dir, SecurityStatus,
@@ -26,13 +32,14 @@ pub use polkadot_node_core_pvf_common::{
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
+use cpu_time::ProcessTime;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		worker_event_loop, WorkerKind,
 	},
@@ -40,11 +47,12 @@ use polkadot_node_core_pvf_common::{
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 use std::{
-	io::{self, Write, Read},
+	io::{self, Read, Write},
 	os::unix::net::UnixStream,
 	path::PathBuf,
-	sync::Arc,
-	time::Duration, process,
+	process,
+	sync::{mpsc::channel, Arc},
+	time::Duration,
 };
 
 // Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
@@ -166,42 +174,37 @@ pub fn worker_entrypoint(
 					},
 				};
 
-
 				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
 				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)?;
 
-			// SAFETY: new process is spawned within a single threaded process
-			let response = match unsafe { nix::unistd::fork() } {
-				Err(_errno) => Response::Panic(String::from("error forking")),
-				Ok(ForkResult::Child) => {
-					// Dropping the stream closes the underlying socket. We want to make sure
-					// that the sandboxed child can't get any kind of information from the
-					// outside world. The only IPC it should be able to do is sending its
-					// response over the pipe.
-					drop(stream);
+				// SAFETY: new process is spawned within a single threaded process
+				let response = match unsafe { nix::unistd::fork() } {
+					Err(_errno) => Response::Panic(String::from("error forking")),
+					Ok(ForkResult::Child) => {
+						// Dropping the stream closes the underlying socket. We want to make sure
+						// that the sandboxed child can't get any kind of information from the
+						// outside world. The only IPC it should be able to do is sending its
+						// response over the pipe.
+						drop(stream);
 
-					handle_child_process(
-						pipe_writer,
-						compiled_artifact_blob,
-						executor_params,
-						params,
-						execution_timeout,
-					)
-				},
-				// parent
-				Ok(ForkResult::Parent { child: _child }) => {
-					// the read end will wait until all write ends have been closed,
-					// this drop is necessary to avoid deadlock
-					drop(pipe_writer);
+						handle_child_process(
+							pipe_writer,
+							compiled_artifact_blob,
+							executor_params,
+							params,
+							execution_timeout,
+						)
+					},
+					// parent
+					Ok(ForkResult::Parent { child: _child }) => {
+						// the read end will wait until all write ends have been closed,
+						// this drop is necessary to avoid deadlock
+						drop(pipe_writer);
 
-					handle_parent_process(
-						pipe_reader,
-						usage_before,
-						execution_timeout,
-					)
-				},
-			};
+						handle_parent_process(pipe_reader, usage_before, execution_timeout)
+					},
+				};
 
 				gum::trace!(
 					target: LOG_TARGET,
@@ -240,8 +243,6 @@ fn validate_using_artifact(
 	Response::Ok { result_descriptor, duration: Duration::from_secs(0) }
 }
 
-
-
 /// This is used to handle child process during pvf execute worker.
 /// It execute the artifact and pipes back the response to the parent process
 ///
@@ -265,7 +266,7 @@ fn handle_child_process(
 	compiled_artifact_blob: Vec<u8>,
 	executor_params: ExecutorParams,
 	params: Vec<u8>,
-	execution_timeout: Duration
+	execution_timeout: Duration,
 ) -> ! {
 	gum::debug!(
 		target: LOG_TARGET,
@@ -283,34 +284,54 @@ fn handle_child_process(
 		send_child_response(&pipe_write, Response::Panic(err.to_string()));
 	});
 
-		// Conditional variable to notify us when a thread is done.
-		let condvar = thread::get_condvar();
+	// Conditional variable to notify us when a thread is done.
+	let condvar = thread::get_condvar();
+	let cpu_time_start = ProcessTime::now();
 
-		let executor_params_2 = executor_params.clone();
-		let execute_thread = thread::spawn_worker_thread_with_stack_size(
-			"execute thread",
-			move || {
-				validate_using_artifact(
-					&compiled_artifact_blob,
-					&executor_params_2,
-					&params,
-				)
-			},
-			Arc::clone(&condvar),
-			WaitOutcome::Finished,
-			EXECUTE_THREAD_STACK_SIZE,
-		)
-		.unwrap_or_else(|err| {
-			send_child_response(&pipe_write, Response::Panic(err.to_string()))
-		});
+	// Spawn a new thread that runs the CPU time monitor.
+	let (cpu_time_monitor_tx, cpu_time_monitor_rx) = channel::<()>();
+	let cpu_time_monitor_thread = thread::spawn_worker_thread(
+		"cpu time monitor thread",
+		move || cpu_time_monitor_loop(cpu_time_start, execution_timeout, cpu_time_monitor_rx),
+		Arc::clone(&condvar),
+		WaitOutcome::TimedOut,
+	)
+	.unwrap_or_else(|err| send_child_response(&pipe_write, Response::Panic(err.to_string())));
 
-	    // There's only one thread that can trigger the condvar, so ignore the condvar outcome and
-	    // simply join. We don't have to be concerned with timeouts, setrlimit will kill the process.
-		let response = execute_thread
-					.join()
-					.unwrap_or_else(|e| Response::Panic(stringify_panic_payload(e)));
+	let executor_params_2 = executor_params.clone();
+	let execute_thread = thread::spawn_worker_thread_with_stack_size(
+		"execute thread",
+		move || validate_using_artifact(&compiled_artifact_blob, &executor_params_2, &params),
+		Arc::clone(&condvar),
+		WaitOutcome::Finished,
+		EXECUTE_THREAD_STACK_SIZE,
+	)
+	.unwrap_or_else(|err| send_child_response(&pipe_write, Response::Panic(err.to_string())));
 
-		
+	let outcome = thread::wait_for_threads(condvar);
+
+	let response = match outcome {
+		WaitOutcome::Finished => {
+			let _ = cpu_time_monitor_tx.send(());
+			execute_thread
+				.join()
+				.unwrap_or_else(|e| Response::Panic(stringify_panic_payload(e)))
+		},
+		// If the CPU thread is not selected, we signal it to end, the join handle is
+		// dropped and the thread will finish in the background.
+		WaitOutcome::TimedOut => match cpu_time_monitor_thread.join() {
+			Ok(Some(cpu_time_elapsed)) => Response::TimedOut,
+			Ok(None) => Response::InternalError(InternalValidationError::CpuTimeMonitorThread(
+				"error communicating over finished channel".into(),
+			)),
+			Err(e) => Response::InternalError(InternalValidationError::CpuTimeMonitorThread(
+				stringify_panic_payload(e),
+			)),
+		},
+		WaitOutcome::Pending =>
+			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
+	};
+
 	send_child_response(&pipe_write, response);
 }
 
@@ -336,25 +357,21 @@ fn handle_parent_process(
 	usage_before: Usage,
 	timeout: Duration,
 ) -> Response {
+	let worker_pid = std::process::id();
 	let mut received_data = Vec::new();
 
 	// Read from the child.
-	if let Err(err) = pipe_read
-	.read_to_end(&mut received_data) {
+	if let Err(err) = pipe_read.read_to_end(&mut received_data) {
 		return Response::Panic(err.to_string())
 	}
-	  
-		let status = nix::sys::wait::wait();
+
+	let status = nix::sys::wait::wait();
 
 	let usage_after: Usage;
-	
+
 	match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
-		Ok(usage) => {
-			usage_after = usage
-		},
-		Err(err) => {
-			return Response::Panic(err.to_string())
-		}
+		Ok(usage) => usage_after = usage,
+		Err(err) => return Response::Panic(err.to_string()),
 	};
 
 	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
@@ -363,36 +380,56 @@ fn handle_parent_process(
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 
-	if cpu_tv.as_secs() >= timeout.as_secs() {
-		return Response::TimedOut
-	}
-
 	match status {
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			match Response::decode(&mut received_data.as_slice()) {
-				Ok(Response::Ok { result_descriptor, duration: _ }) => Response::Ok { result_descriptor, duration: cpu_tv },
+				Ok(Response::Ok { result_descriptor, duration: _ }) => {
+					if cpu_tv.as_secs() >= timeout.as_secs() {
+						// Log if we exceed the timeout and the other thread hasn't
+						// finished.
+						gum::warn!(
+							target: LOG_TARGET,
+							%worker_pid,
+							"execute job took {}ms cpu time, exceeded execute timeout {}ms",
+							cpu_tv.as_millis(),
+							timeout.as_millis(),
+						);
+						return Response::TimedOut
+					}
+					Response::Ok { result_descriptor, duration: cpu_tv }
+				},
+				Ok(Response::TimedOut) => {
+					// Log if we exceed the timeout and the other thread hasn't
+					// finished.
+					gum::warn!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"execute job took {}ms cpu time, exceeded execute timeout {}ms",
+						cpu_tv.as_millis(),
+						timeout.as_millis(),
+					);
+					return Response::TimedOut
+				},
 				Ok(response) => response,
-				Err(err) => Response::Panic(err.to_string())
+				Err(err) => Response::Panic(err.to_string()),
 			}
 		},
-		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) => {
-			Response::Panic("child exited with failure".to_string())
-		},
-		Ok(WaitStatus::Exited(_, exit_status)) => {
-			Response::Panic(format!("child exited with unexpected status {}", exit_status))
-		},
-		Ok(WaitStatus::Signaled(_, sig, _)) => {
-			Response::Panic(format!("child ended with unexpected signal {:?}, timeout {} cpu_tv {} after {} before {}", sig, timeout.as_secs(), cpu_tv.as_micros(),
-			 usage_after.user_time().tv_sec() + usage_after.system_time().tv_sec(), get_total_cpu_usage(usage_before).as_micros()))
-		}
-		Ok(_) => {
-			Response::Panic("child ended unexpectedly".to_string())
-		}
-		Err(err) => Response::Panic(err.to_string())
+		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) =>
+			Response::Panic("child exited with failure".to_string()),
+		Ok(WaitStatus::Exited(_, exit_status)) =>
+			Response::Panic(format!("child exited with unexpected status {}", exit_status)),
+		Ok(WaitStatus::Signaled(_, sig, _)) => Response::Panic(format!(
+			"child ended with unexpected signal {:?}, timeout {} cpu_tv {} after {} before {}",
+			sig,
+			timeout.as_secs(),
+			cpu_tv.as_micros(),
+			usage_after.user_time().tv_sec() + usage_after.system_time().tv_sec(),
+			get_total_cpu_usage(usage_before).as_micros()
+		)),
+		Ok(_) => Response::Panic("child ended unexpectedly".to_string()),
+		Err(err) => Response::Panic(err.to_string()),
 	}
 }
-
-
 
 /// Calculate the total CPU time from the given `usage` structure, returned from
 /// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user

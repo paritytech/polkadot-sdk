@@ -32,7 +32,10 @@ use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_
 use libc;
 use nix::{
 	errno::Errno,
-	sys::{resource::{Resource, Usage, UsageWho}, wait::WaitStatus},
+	sys::{
+		resource::{Resource, Usage, UsageWho},
+		wait::WaitStatus,
+	},
 	unistd::{ForkResult, Pid},
 };
 use os_pipe::{self, PipeWriter};
@@ -44,11 +47,11 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		worker_event_loop, WorkerKind,
 	},
-	worker_dir, SecurityStatus,
+	worker_dir, ProcessTime, SecurityStatus,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -57,9 +60,10 @@ use std::{
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	process,
-	sync::Arc,
+	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
+use std::fs::File;
 
 /// Contains the bytes for a successfully compiled artifact.
 #[derive(Encode, Decode)]
@@ -274,16 +278,6 @@ fn handle_child_process(
 		"worker job: preparing artifact",
 	);
 
-	// Set a hard CPU time limit for the child process.
-	nix::sys::resource::setrlimit(
-		Resource::RLIMIT_CPU,
-		preparation_timeout.as_secs(),
-		preparation_timeout.as_secs(),
-	)
-	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
-	});
-
 	// Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
 
@@ -292,6 +286,20 @@ fn handle_child_process(
 	let condvar_memory = Arc::clone(&condvar);
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
+
+	let cpu_time_start = ProcessTime::now();
+
+	// Spawn a new thread that runs the CPU time monitor.
+	let (cpu_time_monitor_tx, cpu_time_monitor_rx) = channel::<()>();
+	let cpu_time_monitor_thread = thread::spawn_worker_thread(
+		"cpu time monitor thread",
+		move || cpu_time_monitor_loop(cpu_time_start, preparation_timeout, cpu_time_monitor_rx),
+		Arc::clone(&condvar),
+		WaitOutcome::TimedOut,
+	)
+	.unwrap_or_else(|err| {
+		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
+	});
 
 	let prepare_thread = spawn_worker_thread(
 		"prepare worker",
@@ -323,39 +331,62 @@ fn handle_child_process(
 		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
 	});
 
-	// There's only one thread that can trigger the condvar, so ignore the condvar outcome and
-	// simply join. We don't have to be concerned with timeouts, setrlimit will kill the process.
-	let result = prepare_thread.join().unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(PrepareError::Panic(stringify_panic_payload(err))))
-	});
+	let outcome = thread::wait_for_threads(condvar);
 
-	let response: Result<Response, PrepareError> = match result {
-		Ok(ok) => {
-			cfg_if::cfg_if! {
-				if #[cfg(target_os = "linux")] {
-					let (artifact, max_rss) = ok;
-				} else {
-					let artifact = ok;
-				}
+	let result = match outcome {
+		WaitOutcome::Finished => {
+			let _ = cpu_time_monitor_tx.send(());
+
+			match prepare_thread.join().unwrap_or_else(|err| {
+				send_child_response(
+					&pipe_write,
+					Err(PrepareError::Panic(stringify_panic_payload(err))),
+				)
+			}) {
+				Err(err) => {
+					Err(err)
+				},
+				Ok(ok) => {
+					cfg_if::cfg_if! {
+					if #[cfg(target_os = "linux")] {
+						let (artifact, max_rss) = ok;
+					} else {
+						let artifact = ok;
+					}
+					}
+
+					// Stop the memory stats worker and get its observed memory stats.
+					#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+					let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
+
+					let memory_stats = MemoryStats {
+						#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+						memory_tracker_stats,
+						#[cfg(target_os = "linux")]
+						max_rss: extract_max_rss_stat(max_rss, process::id()),
+					};
+
+					Ok(Response { artifact, memory_stats })
+				},
 			}
-
-			// Stop the memory stats worker and get its observed memory stats.
-			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-			let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
-
-			let memory_stats = MemoryStats {
-				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-				memory_tracker_stats,
-				#[cfg(target_os = "linux")]
-				max_rss: extract_max_rss_stat(max_rss, process::id()),
-			};
-
-			Ok(Response { artifact, memory_stats })
 		},
-		Err(err) => Err(err),
+
+		// If the CPU thread is not selected, we signal it to end, the join handle is
+		// dropped and the thread will finish in the background.
+		WaitOutcome::TimedOut => {
+			match cpu_time_monitor_thread.join() {
+				Ok(Some(cpu_time_elapsed)) => Err(PrepareError::TimedOut),
+				Ok(None) =>
+					Err(PrepareError::IoErr("error communicating over closed channel".into())),
+				// Errors in this thread are independent of the PVF.
+				Err(err) => Err(PrepareError::IoErr(stringify_panic_payload(err))),
+			}
+		},
+		WaitOutcome::Pending =>
+			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
 	};
 
-	send_child_response(&pipe_write, response);
+	send_child_response(&pipe_write, result);
 }
 
 /// Waits for child process to finish and handle child response from pipe.
@@ -405,10 +436,6 @@ fn handle_parent_process(
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 
-	if cpu_tv.as_secs() >= timeout.as_secs() {
-		return Err(PrepareError::TimedOut)
-	}
-
 	return match status {
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> =
@@ -416,8 +443,30 @@ fn handle_parent_process(
 					// This error happens when the job dies.
 					.map_err(|_err| PrepareError::JobDied)?;
 			match result {
+				Err(PrepareError::TimedOut) => {
+					// Log if we exceed the timeout and the other thread hasn't
+					// finished.
+					gum::warn!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
+						cpu_tv.as_millis(),
+						timeout.as_millis(),
+					);
+					Err(PrepareError::TimedOut)
+				},
 				Err(err) => Err(err),
 				Ok(response) => {
+					if cpu_tv >= timeout {
+						gum::warn!(
+							target: LOG_TARGET,
+							%worker_pid,
+							"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
+							cpu_tv.as_millis(),
+							timeout.as_millis(),
+						);
+						return Err(PrepareError::TimedOut);
+					}
 					// Write the serialized artifact into a temp file.
 					//
 					// PVF host only keeps artifacts statuses in its memory,
@@ -443,16 +492,12 @@ fn handle_parent_process(
 				},
 			}
 		},
-		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) => {
-			Err(PrepareError::Panic("child exited with failure".to_string()))
-		},
-		Ok(WaitStatus::Exited(_, exit_status)) => {
-			Err(PrepareError::Panic(format!("child exited with unexpected status {}", exit_status)))
-		},
-		Ok(_) => {
-			Err(PrepareError::Panic("child ended unexpectedly".to_string()))
-		}
-		Err(err) => Err(PrepareError::Panic(err.to_string()))
+		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) =>
+			Err(PrepareError::Panic("child exited with failure".to_string())),
+		Ok(WaitStatus::Exited(_, exit_status)) =>
+			Err(PrepareError::Panic(format!("child exited with unexpected status {}", exit_status))),
+		Ok(_) => Err(PrepareError::Panic("child ended unexpectedly".to_string())),
+		Err(err) => Err(PrepareError::Panic(err.to_string())),
 	}
 }
 
