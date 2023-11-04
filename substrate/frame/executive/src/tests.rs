@@ -20,6 +20,7 @@
 use super::*;
 
 use sp_core::H256;
+use sp_inherents::{InherentOrder, InherentOrderError};
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
@@ -31,11 +32,13 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err, parameter_types,
+	assert_err, assert_ok,
+	pallet_prelude::*,
+	parameter_types,
 	traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
 };
-use frame_system::{ChainContext, LastRuntimeUpgradeInfo};
+use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::CurrencyAdapter;
 
@@ -43,8 +46,7 @@ const TEST_KEY: &[u8] = b":test:key:";
 
 #[frame_support::pallet(dev_mode)]
 mod custom {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use super::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -56,19 +58,15 @@ mod custom {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		// module hooks.
 		// one with block number arg and one without
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-			println!("on_initialize({})", n);
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			Weight::from_parts(175, 0)
 		}
 
-		fn on_idle(n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			println!("on_idle{}, {})", n, remaining_weight);
+		fn on_idle(_: BlockNumberFor<T>, _: Weight) -> Weight {
 			Weight::from_parts(175, 0)
 		}
 
-		fn on_finalize(n: BlockNumberFor<T>) {
-			println!("on_finalize({})", n);
-		}
+		fn on_finalize(_: BlockNumberFor<T>) {}
 
 		fn on_runtime_upgrade() -> Weight {
 			sp_io::storage::set(super::TEST_KEY, "module".as_bytes());
@@ -110,7 +108,7 @@ mod custom {
 		}
 
 		#[pallet::weight((0, DispatchClass::Mandatory))]
-		pub fn inherent_call(origin: OriginFor<T>) -> DispatchResult {
+		pub fn inherent(origin: OriginFor<T>) -> DispatchResult {
 			frame_system::ensure_none(origin)?;
 			Ok(())
 		}
@@ -135,7 +133,7 @@ mod custom {
 		}
 
 		fn is_inherent(call: &Self::Call) -> bool {
-			*call == Call::<T>::inherent_call {}
+			*call == Call::<T>::inherent {}
 		}
 	}
 
@@ -147,7 +145,130 @@ mod custom {
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
 			match call {
 				Call::allowed_unsigned { .. } => Ok(()),
-				Call::inherent_call { .. } => Ok(()),
+				Call::inherent { .. } => Ok(()),
+				_ => Err(UnknownTransaction::NoUnsignedValidator.into()),
+			}
+		}
+
+		// Inherent call is not validated as unsigned
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			match call {
+				Call::allowed_unsigned { .. } => Ok(Default::default()),
+				_ => UnknownTransaction::NoUnsignedValidator.into(),
+			}
+		}
+	}
+}
+
+#[frame_support::pallet(dev_mode)]
+mod custom2 {
+	use super::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::storage]
+	pub type RequireInherent<T> = StorageValue<_, InherentOrder, OptionQuery>;
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		// module hooks.
+		// one with block number arg and one without
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			Weight::from_parts(0, 0)
+		}
+
+		fn on_idle(_: BlockNumberFor<T>, _: Weight) -> Weight {
+			Weight::from_parts(0, 0)
+		}
+
+		fn on_finalize(_: BlockNumberFor<T>) {}
+
+		fn on_runtime_upgrade() -> Weight {
+			sp_io::storage::set(super::TEST_KEY, "module".as_bytes());
+			Weight::from_parts(0, 0)
+		}
+
+		fn offchain_worker(n: BlockNumberFor<T>) {
+			assert_eq!(BlockNumberFor::<T>::from(1u32), n);
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		pub fn some_function(origin: OriginFor<T>) -> DispatchResult {
+			// NOTE: does not make any different.
+			frame_system::ensure_signed(origin)?;
+			Ok(())
+		}
+
+		#[pallet::weight((200, DispatchClass::Operational))]
+		pub fn some_root_operation(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_root(origin)?;
+			Ok(())
+		}
+
+		pub fn some_unsigned_message(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_none(origin)?;
+			Ok(())
+		}
+
+		pub fn allowed_unsigned(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_root(origin)?;
+			Ok(())
+		}
+
+		pub fn unallowed_unsigned(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_root(origin)?;
+			Ok(())
+		}
+
+		#[pallet::weight((0, DispatchClass::Mandatory))]
+		pub fn inherent(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_none(origin)?;
+			Ok(())
+		}
+
+		pub fn calculate_storage_root(_origin: OriginFor<T>) -> DispatchResult {
+			let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
+			sp_io::storage::set("storage_root".as_bytes(), &root);
+			Ok(())
+		}
+	}
+
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
+		type Call = Call<T>;
+
+		type Error = sp_inherents::MakeFatalError<()>;
+
+		const INHERENT_IDENTIFIER: [u8; 8] = *b"test1235";
+
+		fn create_inherent(_data: &InherentData) -> Option<Self::Call> {
+			None
+		}
+
+		fn inherent_order() -> Option<InherentOrder> {
+			RequireInherent::<T>::get()
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			*call == Call::<T>::inherent {}
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		// Inherent call is accepted for being dispatched
+		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
+			match call {
+				Call::allowed_unsigned { .. } => Ok(()),
+				Call::inherent { .. } => Ok(()),
 				_ => Err(UnknownTransaction::NoUnsignedValidator.into()),
 			}
 		}
@@ -169,6 +290,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		Custom: custom::{Pallet, Call, ValidateUnsigned, Inherent},
+		Custom2: custom2::{Pallet, Call, ValidateUnsigned, Inherent},
 	}
 );
 
@@ -239,7 +361,9 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 }
+
 impl custom::Config for Runtime {}
+impl custom2::Config for Runtime {}
 
 pub struct RuntimeVersion;
 impl frame_support::traits::Get<sp_version::RuntimeVersion> for RuntimeVersion {
@@ -873,7 +997,7 @@ fn invalid_inherent_position_fail() {
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
 		sign_extra(1, 0, 0),
 	);
-	let xt2 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), None);
+	let xt2 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
@@ -898,7 +1022,7 @@ fn invalid_inherent_position_fail() {
 
 #[test]
 fn valid_inherents_position_works() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), None);
+	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
@@ -925,7 +1049,7 @@ fn valid_inherents_position_works() {
 #[test]
 #[should_panic(expected = "A call was labelled as mandatory, but resulted in an Error.")]
 fn invalid_inherents_fail_block_execution() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), sign_extra(1, 0, 0));
+	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), sign_extra(1, 0, 0));
 
 	new_test_ext(1).execute_with(|| {
 		Executive::execute_block(Block::new(
@@ -938,7 +1062,7 @@ fn invalid_inherents_fail_block_execution() {
 // Inherents are created by the runtime and don't need to be validated.
 #[test]
 fn inherents_fail_validate_block() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), None);
+	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 
 	new_test_ext(1).execute_with(|| {
 		assert_eq!(
@@ -947,4 +1071,194 @@ fn inherents_fail_validate_block() {
 			InvalidTransaction::MandatoryValidation.into()
 		);
 	})
+}
+
+/// Inherents still work while `after_initialize` forbids extrinsics.
+#[test]
+fn inherents_ok_while_exts_forbidden_works() {
+	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new(
+			1,
+			H256::default(),
+			H256::default(),
+			[69u8; 32].into(),
+			Digest::default(),
+		));
+
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		// This is not applied:
+		Executive::finalize_block()
+	});
+
+	new_test_ext(1).execute_with(|| {
+		// Tell `initialize_block` to forbid extrinsics:
+		Executive::execute_block(Block::new(header, vec![xt1]));
+	});
+}
+
+/// Same as above but no error.
+#[test]
+fn transactions_in_normal_block_works() {
+	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new(
+			1,
+			H256::default(),
+			H256::default(),
+			[69u8; 32].into(),
+			Digest::default(),
+		));
+
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
+
+		Executive::finalize_block()
+	});
+
+	new_test_ext(1).execute_with(|| {
+		// Tell `initialize_block` to forbid extrinsics:
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
+	});
+}
+
+#[test]
+#[cfg(feature = "try-runtime")]
+fn try_execute_block_works() {
+	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+
+	let header = new_test_ext(1).execute_with(|| {
+		// Let's build some fake block.
+		Executive::initialize_block(&Header::new(
+			1,
+			H256::default(),
+			H256::default(),
+			[69u8; 32].into(),
+			Digest::default(),
+		));
+
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
+
+		Executive::finalize_block()
+	});
+
+	new_test_ext(1).execute_with(|| {
+		Executive::try_execute_block(
+			Block::new(header, vec![xt1, xt2]),
+			true,
+			true,
+			frame_try_runtime::TryStateSelect::All,
+		)
+		.unwrap();
+	});
+}
+
+/// Check that `ensure_inherents_are_first` reports the correct indices.
+#[test]
+fn ensure_inherents_are_first_works() {
+	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+
+	// Mocked empty header:
+	let header = new_test_ext(1).execute_with(|| Executive::finalize_block());
+
+	new_test_ext(1).execute_with(|| {
+		assert_ok!(Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![]),), 0);
+		assert_ok!(
+			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![xt2.clone()]),),
+			0
+		);
+		assert_ok!(
+			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()]),),
+			1
+		);
+		assert_ok!(
+			Runtime::ensure_inherents_are_first(&Block::new(
+				header.clone(),
+				vec![in1.clone(), xt2.clone()]
+			),),
+			1
+		);
+		assert_ok!(
+			Runtime::ensure_inherents_are_first(&Block::new(
+				header.clone(),
+				vec![in1.clone(), in1.clone(), xt2.clone()]
+			),),
+			2
+		);
+
+		assert_eq!(
+			Runtime::ensure_inherents_are_first(&Block::new(
+				header.clone(),
+				vec![xt2.clone(), in1.clone()]
+			),),
+			Err(1)
+		);
+		assert_eq!(
+			Runtime::ensure_inherents_are_first(&Block::new(
+				header.clone(),
+				vec![xt2.clone(), xt2.clone(), in1.clone()]
+			),),
+			Err(2)
+		);
+		assert_eq!(
+			Runtime::ensure_inherents_are_first(&Block::new(
+				header.clone(),
+				vec![xt2.clone(), xt2.clone(), xt2.clone(), in1.clone()]
+			),),
+			Err(3)
+		);
+	});
+}
+
+#[test]
+fn ensure_inherents_are_ordered_works() {
+	use InherentOrder::*;
+	use InherentOrderError::*;
+
+	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let in2 = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
+
+	// Mocked empty header:
+	let header = new_test_ext(1).execute_with(|| Executive::finalize_block());
+
+	new_test_ext(1).execute_with(|| {
+		/*assert_ok!(Runtime::ensure_inherents_are_ordered(&Block::new(header.clone(), vec![]), 9));
+
+		assert_ok!(
+			Runtime::ensure_inherents_are_ordered(&Block::new(header.clone(), vec![in1.clone()]), 9),
+		);
+		assert_ok!(
+			Runtime::ensure_inherents_are_ordered(&Block::new(header.clone(), vec![in2.clone()]), 9),
+		);*/
+
+		custom2::RequireInherent::<Runtime>::set(Some(InherentOrder::Last));
+		assert_ok!(Runtime::ensure_inherents_are_ordered(
+			&Block::new(header.clone(), vec![in1.clone(), in2.clone()]),
+			9
+		),);
+
+		custom2::RequireInherent::<Runtime>::set(Some(InherentOrder::First));
+		assert_err!(
+			Runtime::ensure_inherents_are_ordered(
+				&Block::new(header.clone(), vec![in1.clone(), in2.clone()]),
+				9
+			),
+			OutOfOrder(Index(3), First),
+		);
+
+		custom2::RequireInherent::<Runtime>::set(Some(InherentOrder::Last));
+		assert_err!(
+			Runtime::ensure_inherents_are_ordered(
+				&Block::new(header.clone(), vec![in2.clone(), in2.clone()]),
+				9
+			),
+			OutOfOrder(Last, Last),
+		);
+	});
 }
