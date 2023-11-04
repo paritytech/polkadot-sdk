@@ -162,6 +162,10 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
 	};
 
+/// The SASSAFAS epoch configuration at genesis.
+pub const SASSAFRAS_GENESIS_EPOCH_CONFIG: sp_consensus_sassafras::EpochConfiguration =
+	sp_consensus_sassafras::EpochConfiguration { attempts_number: 10, redundancy_factor: 2 };
+
 /// Native version.
 #[cfg(any(feature = "std", test))]
 pub fn native_version() -> NativeVersion {

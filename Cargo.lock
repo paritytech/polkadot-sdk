@@ -7142,6 +7142,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-babe",
  "sp-consensus-grandpa",
+ "sp-consensus-sassafras",
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",

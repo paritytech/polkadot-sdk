@@ -418,10 +418,7 @@ pub fn testnet_genesis(
 		mixnet: Default::default(),
 		sassafras: SassafrasConfig {
 			authorities: initial_authorities.iter().map(|x| x.7.clone()).collect(),
-			epoch_config: sp_consensus_sassafras::EpochConfiguration {
-				attempts_number: 1,
-				redundancy_factor: 2,
-			},
+			epoch_config: kitchensink_runtime::SASSAFRAS_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 	}
