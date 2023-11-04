@@ -83,10 +83,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `3869`
 		//  Estimated: `5519 + x * (2559 ±0)`
-		// Minimum execution time: 24_955_663_000 picoseconds.
-		Weight::from_parts(13_811_366_934, 5519)
-			// Standard Error: 21_813_731
-			.saturating_add(Weight::from_parts(11_443_427_716, 0).saturating_mul(x.into()))
+		// Minimum execution time: 37_453_910_000 picoseconds.
+		Weight::from_parts(26_018_721_960, 5519)
+			// Standard Error: 25_125_935
+			.saturating_add(Weight::from_parts(11_467_127_567, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
@@ -99,33 +99,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 4_218_000 picoseconds.
-		Weight::from_parts(4_248_000, 0)
+		// Minimum execution time: 4_328_000 picoseconds.
+		Weight::from_parts(4_519_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Sassafras::RingContext` (r:1 w:0)
-	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(295412), added: 295907, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(590324), added: 590819, mode: `MaxEncodedLen`)
 	fn load_ring_context() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `295540`
-		//  Estimated: `296897`
-		// Minimum execution time: 21_626_023_000 picoseconds.
-		Weight::from_parts(21_707_209_000, 296897)
+		//  Measured:  `590452`
+		//  Estimated: `591809`
+		// Minimum execution time: 44_030_977_000 picoseconds.
+		Weight::from_parts(44_235_639_000, 591809)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Sassafras::RingContext` (r:1 w:0)
-	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(295412), added: 295907, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(590324), added: 590819, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::RingVerifierData` (r:0 w:1)
 	/// Proof: `Sassafras::RingVerifierData` (`max_values`: Some(1), `max_size`: Some(388), added: 883, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[1, 100]`.
 	fn update_ring_verifier(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `295540`
-		//  Estimated: `296897`
-		// Minimum execution time: 53_415_279_000 picoseconds.
-		Weight::from_parts(53_777_720_874, 296897)
-			// Standard Error: 4_403_362
-			.saturating_add(Weight::from_parts(105_205_616, 0).saturating_mul(x.into()))
+		//  Measured:  `590452`
+		//  Estimated: `591809`
+		// Minimum execution time: 107_140_929_000 picoseconds.
+		Weight::from_parts(107_231_935_334, 591809)
+			// Standard Error: 5_547_985
+			.saturating_add(Weight::from_parts(108_653_137, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -140,10 +140,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `219 + x * (2060 ±0)`
 		//  Estimated: `5519 + x * (4529 ±0)`
-		// Minimum execution time: 189_563_000 picoseconds.
-		Weight::from_parts(189_563_000, 5519)
-			// Standard Error: 508_242
-			.saturating_add(Weight::from_parts(169_766_212, 0).saturating_mul(x.into()))
+		// Minimum execution time: 183_071_000 picoseconds.
+		Weight::from_parts(183_071_000, 5519)
+			// Standard Error: 496_820
+			.saturating_add(Weight::from_parts(167_271_826, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes((129_u64).saturating_mul(x.into())))
@@ -174,10 +174,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `3869`
 		//  Estimated: `5519 + x * (2559 ±0)`
-		// Minimum execution time: 24_955_663_000 picoseconds.
-		Weight::from_parts(13_811_366_934, 5519)
-			// Standard Error: 21_813_731
-			.saturating_add(Weight::from_parts(11_443_427_716, 0).saturating_mul(x.into()))
+		// Minimum execution time: 37_453_910_000 picoseconds.
+		Weight::from_parts(26_018_721_960, 5519)
+			// Standard Error: 25_125_935
+			.saturating_add(Weight::from_parts(11_467_127_567, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
@@ -190,33 +190,33 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 4_218_000 picoseconds.
-		Weight::from_parts(4_248_000, 0)
+		// Minimum execution time: 4_328_000 picoseconds.
+		Weight::from_parts(4_519_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Sassafras::RingContext` (r:1 w:0)
-	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(295412), added: 295907, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(590324), added: 590819, mode: `MaxEncodedLen`)
 	fn load_ring_context() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `295540`
-		//  Estimated: `296897`
-		// Minimum execution time: 21_626_023_000 picoseconds.
-		Weight::from_parts(21_707_209_000, 296897)
+		//  Measured:  `590452`
+		//  Estimated: `591809`
+		// Minimum execution time: 44_030_977_000 picoseconds.
+		Weight::from_parts(44_235_639_000, 591809)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Sassafras::RingContext` (r:1 w:0)
-	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(295412), added: 295907, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(590324), added: 590819, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::RingVerifierData` (r:0 w:1)
 	/// Proof: `Sassafras::RingVerifierData` (`max_values`: Some(1), `max_size`: Some(388), added: 883, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[1, 100]`.
 	fn update_ring_verifier(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `295540`
-		//  Estimated: `296897`
-		// Minimum execution time: 53_415_279_000 picoseconds.
-		Weight::from_parts(53_777_720_874, 296897)
-			// Standard Error: 4_403_362
-			.saturating_add(Weight::from_parts(105_205_616, 0).saturating_mul(x.into()))
+		//  Measured:  `590452`
+		//  Estimated: `591809`
+		// Minimum execution time: 107_140_929_000 picoseconds.
+		Weight::from_parts(107_231_935_334, 591809)
+			// Standard Error: 5_547_985
+			.saturating_add(Weight::from_parts(108_653_137, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -231,10 +231,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `219 + x * (2060 ±0)`
 		//  Estimated: `5519 + x * (4529 ±0)`
-		// Minimum execution time: 189_563_000 picoseconds.
-		Weight::from_parts(189_563_000, 5519)
-			// Standard Error: 508_242
-			.saturating_add(Weight::from_parts(169_766_212, 0).saturating_mul(x.into()))
+		// Minimum execution time: 183_071_000 picoseconds.
+		Weight::from_parts(183_071_000, 5519)
+			// Standard Error: 496_820
+			.saturating_add(Weight::from_parts(167_271_826, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(RocksDbWeight::get().writes((129_u64).saturating_mul(x.into())))

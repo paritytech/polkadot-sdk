@@ -624,9 +624,9 @@ pub mod ring_vrf {
 	pub const RING_MAX_SIZE: u32 = RING_DOMAIN_MAX_SIZE - RING_DOMAIN_OVERHEAD;
 
 	/// Ring domain max size.
-	pub const RING_DOMAIN_MAX_SIZE: u32 = 1024;
+	pub const RING_DOMAIN_MAX_SIZE: u32 = 2048;
 
-	// Overhead in the domain size over the max ring size.
+	/// Overhead in the domain size over the max ring size.
 	///
 	/// Some bits of the domain are reserved for the zk proof to work.
 	pub(crate) const RING_DOMAIN_OVERHEAD: u32 = 257;
@@ -636,8 +636,15 @@ pub mod ring_vrf {
 	// The actual size is dependent on the ring domain size and this value
 	// has been computed for `RING_DOMAIN_MAX_SIZE` with compression disabled
 	// for performance reasons.
-	pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 295412;
-	// const RING_CONTEXT_SERIALIZED_SIZE: usize = 147716;
+	//
+	// 1024 uncompressed
+	// pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 295412;
+	// 1024 compressed
+	// pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 147716;
+	// 2048 uncompressed
+	pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 590324;
+	// 2048 compressed
+	// pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 295172;
 
 	pub(crate) const RING_VERIFIER_DATA_SERIALIZED_SIZE: usize = 388;
 	pub(crate) const RING_SIGNATURE_SERIALIZED_SIZE: usize = 755;

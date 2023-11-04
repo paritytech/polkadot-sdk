@@ -700,7 +700,9 @@ fn make_tickets_data() {
 	use super::*;
 	use sp_core::crypto::Pair;
 
+	// Number of authorities who produces tickets (for the sake of this test)
 	let tickets_authors_count = 5;
+	// Total number of authorities (the ring)
 	let authorities_count = 100;
 	let (pairs, mut ext) = new_test_ext_with_pairs(authorities_count, true);
 
@@ -716,7 +718,7 @@ fn make_tickets_data() {
 		pairs.iter().take(tickets_authors_count).enumerate().for_each(|(i, pair)| {
 			let t = make_tickets(config.attempts_number, pair);
 			tickets.extend(t);
-			println!("{:.2}%", 100f32 * ((i + 1) as f32 / pairs.len() as f32));
+			println!("{:.2}%", 100f32 * ((i + 1) as f32 / tickets_authors_count as f32));
 		});
 		data_write(TICKETS_FILE, (authorities, tickets));
 	});
