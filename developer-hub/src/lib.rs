@@ -133,8 +133,8 @@
 //!
 //! All of these are examples of underlying information that a contributor should:
 //!
-//! 1. try and create and they are going along.
-//! 2. back-link to if they already exist.
+//! 1. Try and create and they are going along.
+//! 2. Back-link to if they already exist.
 //!
 //! Of course, all of this is not set in stone as a either/or rule. Sometimes, it is necessary to
 //! rephrase a concept in a new context.
