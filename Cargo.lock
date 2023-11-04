@@ -4221,6 +4221,7 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
