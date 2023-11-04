@@ -50,7 +50,7 @@
 //! [![GitHub Repo](https://img.shields.io/badge/github-cumulus-white)](https://github.com/paritytech/polkadot-sdk/blob/master/cumulus)
 //!
 //! [`cumulus`] transforms FRAME-based runtimes into Polkadot-compatible parachain runtimes, and
-//! substrate-based client into Polkadot-compatible collators.
+//! Substrate-based clients into Polkadot-compatible collators.
 //!
 //! #### Polkadot
 //!
