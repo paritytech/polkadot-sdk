@@ -21,6 +21,8 @@ use ::pallet_bridge_messages::WeightInfoExt as MessagesWeightInfoExt;
 use ::pallet_bridge_parachains::WeightInfoExt as ParachainsWeightInfoExt;
 
 pub mod block_weights;
+pub mod cumulus_pallet_dmp_queue;
+pub mod cumulus_pallet_parachain_system;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
@@ -30,6 +32,7 @@ pub mod pallet_bridge_messages;
 pub mod pallet_bridge_parachains;
 pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
+pub mod pallet_message_queue;
 pub mod pallet_multisig;
 pub mod pallet_session;
 pub mod pallet_timestamp;
