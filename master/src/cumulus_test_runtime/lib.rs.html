@@ -557,10 +557,6 @@
 	<span class="kw">pub struct </span>SessionKeys {}
 }
 
-<span class="doccomment">/// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
-/// [`OnRuntimeUpgrade`] works as expected.
-</span><span class="kw">pub const </span>TEST_RUNTIME_UPGRADE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;+test_runtime_upgrade_key+&quot;</span>;
-
 <span class="doccomment">/// The para-id used in this runtime.
 </span><span class="kw">pub const </span>PARACHAIN_ID: u32 = <span class="number">100</span>;
 
@@ -774,7 +770,8 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
+	<span class="comment">// will be set by test_pallet during genesis init
+	</span><span class="kw">pub </span>storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
 }
 
 <span class="kw">impl </span>test_pallet::Config <span class="kw">for </span>Runtime {}
@@ -848,7 +845,10 @@
 
 <span class="kw">impl </span>OnRuntimeUpgrade <span class="kw">for </span>TestOnRuntimeUpgrade {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
-		<span class="macro">assert_eq!</span>(sp_io::storage::get(TEST_RUNTIME_UPGRADE_KEY), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>].into()));
+		<span class="macro">assert_eq!</span>(
+			sp_io::storage::get(test_pallet::TEST_RUNTIME_UPGRADE_KEY),
+			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>].into())
+		);
 		Weight::from_parts(<span class="number">1</span>, <span class="number">0</span>)
 	}
 }

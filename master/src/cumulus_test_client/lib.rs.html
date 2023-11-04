@@ -228,6 +228,7 @@
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -320,6 +321,7 @@
 			cumulus_test_service::testnet_genesis(
 				cumulus_test_service::get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
 				<span class="self">self</span>.endowed_accounts.clone(),
+				<span class="prelude-val">None</span>,
 			)
 			.build_storage()
 			.unwrap()
@@ -357,7 +359,7 @@
 }
 
 <span class="kw">fn </span>genesis_config() -&gt; RuntimeGenesisConfig {
-	cumulus_test_service::testnet_genesis_with_default_endowed(Default::default())
+	cumulus_test_service::testnet_genesis_with_default_endowed(Default::default(), <span class="prelude-val">None</span>)
 }
 
 <span class="doccomment">/// Create an unsigned extrinsic from a runtime call.

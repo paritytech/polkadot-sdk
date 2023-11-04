@@ -132,28 +132,6 @@
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -173,7 +151,7 @@
 </span><span class="attr">#![allow(missing_docs)]
 
 </span><span class="kw">use </span>cumulus_primitives_core::ParaId;
-<span class="kw">use </span>cumulus_test_runtime::{AccountId, Signature};
+<span class="kw">use </span>cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
 <span class="kw">use </span>sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -181,27 +159,7 @@
 <span class="kw">use </span>sp_runtime::traits::{IdentifyAccount, Verify};
 
 <span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;GenesisExt, Extensions&gt;;
-
-<span class="doccomment">/// Extension for the genesis config to add custom keys easily.
-</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize)]
-</span><span class="kw">pub struct </span>GenesisExt {
-	<span class="doccomment">/// The runtime genesis config.
-	</span>runtime_genesis_config: cumulus_test_runtime::RuntimeGenesisConfig,
-	<span class="doccomment">/// The parachain id.
-	</span>para_id: ParaId,
-}
-
-<span class="kw">impl </span>sp_runtime::BuildStorage <span class="kw">for </span>GenesisExt {
-	<span class="kw">fn </span>assimilate_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, storage: <span class="kw-2">&amp;mut </span>sp_core::storage::Storage) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-		sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
-			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
-			cumulus_test_runtime::ParachainId::set(<span class="kw-2">&amp;</span><span class="self">self</span>.para_id);
-		});
-
-		<span class="self">self</span>.runtime_genesis_config.assimilate_storage(storage)
-	}
-}
+</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;RuntimeGenesisConfig, Extensions&gt;;
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed
 </span><span class="kw">pub fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
@@ -246,12 +204,7 @@
 		<span class="string">&quot;Local Testnet&quot;</span>,
 		<span class="string">&quot;local_testnet&quot;</span>,
 		ChainType::Local,
-		<span class="kw">move </span>|| GenesisExt {
-			runtime_genesis_config: testnet_genesis_with_default_endowed(
-				extra_endowed_accounts.clone(),
-			),
-			para_id: id,
-		},
+		<span class="kw">move </span>|| testnet_genesis_with_default_endowed(extra_endowed_accounts.clone(), <span class="prelude-val">Some</span>(id)),
 		Vec::new(),
 		<span class="prelude-val">None</span>,
 		<span class="prelude-val">None</span>,
@@ -269,6 +222,7 @@
 <span class="doccomment">/// Local testnet genesis for testing.
 </span><span class="kw">pub fn </span>testnet_genesis_with_default_endowed(
 	<span class="kw-2">mut </span>extra_endowed_accounts: Vec&lt;AccountId&gt;,
+	self_para_id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 ) -&gt; cumulus_test_runtime::RuntimeGenesisConfig {
 	<span class="kw">let </span><span class="kw-2">mut </span>endowed = <span class="macro">vec!</span>[
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
@@ -286,13 +240,14 @@
 	];
 	endowed.append(<span class="kw-2">&amp;mut </span>extra_endowed_accounts);
 
-	testnet_genesis(get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>), endowed)
+	testnet_genesis(get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>), endowed, self_para_id)
 }
 
 <span class="doccomment">/// Creates a local testnet genesis with endowed accounts.
 </span><span class="kw">pub fn </span>testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec&lt;AccountId&gt;,
+	self_para_id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 ) -&gt; cumulus_test_runtime::RuntimeGenesisConfig {
 	cumulus_test_runtime::RuntimeGenesisConfig {
 		system: cumulus_test_runtime::SystemConfig {
@@ -308,6 +263,7 @@
 		},
 		sudo: cumulus_test_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
 		transaction_payment: Default::default(),
+		test_pallet: cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() },
 	}
 }
 </code></pre></div></section></main></body></html>
