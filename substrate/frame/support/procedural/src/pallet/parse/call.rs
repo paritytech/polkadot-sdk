@@ -168,7 +168,7 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
 		.map(|_| ())
 		.or_else(|_| syn::parse2::<CheckRuntimeOrigin>(ty.to_token_stream()).map(|_| ()))
 		.map_err(|e| {
-			let msg = "Invalid type: expected `OriginFor<T>`";
+			let msg = "Invalid type: expected `OriginFor<T>` or `T::RuntimeOrigin`";
 			let mut err = syn::Error::new(ty.span(), msg);
 			err.combine(e);
 			err
