@@ -760,6 +760,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -832,6 +833,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
@@ -908,6 +910,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
+ "bp-bridge-hub-westend",
  "bp-bridge-hub-wococo",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -933,6 +936,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -993,6 +997,7 @@ dependencies = [
  "pallet-asset-rate",
  "pallet-assets",
  "pallet-balances",
+ "pallet-message-queue",
  "pallet-treasury",
  "pallet-xcm",
  "parachains-common",
@@ -1018,6 +1023,7 @@ dependencies = [
  "assets-common",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
+ "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -1043,6 +1049,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -1091,7 +1098,6 @@ name = "asset-test-utils"
 version = "1.0.0"
 dependencies = [
  "assets-common",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -2027,6 +2033,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -2090,6 +2097,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -2137,14 +2145,20 @@ dependencies = [
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
+ "frame-system",
  "integration-tests-common",
+ "pallet-assets",
+ "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
+ "sp-core",
+ "sp-weights",
  "staging-xcm",
  "staging-xcm-executor",
  "xcm-emulator",
@@ -2196,6 +2210,7 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -2251,7 +2266,6 @@ dependencies = [
  "bp-runtime",
  "bp-test-utils",
  "bridge-runtime-common",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-benchmarking",
@@ -2325,6 +2339,7 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -2871,6 +2886,7 @@ dependencies = [
  "pallet-collective",
  "pallet-collective-content",
  "pallet-core-fellowship",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
  "pallet-proxy",
@@ -3087,6 +3103,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-sudo",
@@ -3792,6 +3809,7 @@ name = "cumulus-pallet-dmp-queue"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -3801,7 +3819,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
- "sp-version",
+ "sp-tracing 10.0.0",
  "staging-xcm",
 ]
 
@@ -3817,15 +3835,18 @@ dependencies = [
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "environmental",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal",
  "impl-trait-for-tuples",
  "lazy_static",
  "log",
+ "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
+ "rand 0.8.5",
  "sc-client-api",
  "scale-info",
  "sp-core",
@@ -3900,6 +3921,7 @@ dependencies = [
 name = "cumulus-pallet-xcmp-queue"
 version = "0.1.0"
 dependencies = [
+ "bounded-collections",
  "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
@@ -3908,10 +3930,10 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
- "rand_chacha 0.3.1",
  "scale-info",
  "sp-core",
  "sp-io",
@@ -4191,6 +4213,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "pallet-balances",
  "pallet-glutton",
+ "pallet-message-queue",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -6121,6 +6144,7 @@ dependencies = [
  "frame-try-runtime",
  "pallet-aura",
  "pallet-glutton",
+ "pallet-message-queue",
  "pallet-sudo",
  "pallet-timestamp",
  "parachains-common",
@@ -6692,7 +6716,6 @@ dependencies = [
  "bridge-hub-rococo-runtime",
  "bridge-runtime-common",
  "collectives-polkadot-runtime",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -11185,6 +11208,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-parachain-template",
  "pallet-session",
  "pallet-sudo",
@@ -11192,6 +11216,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-xcm",
+ "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -11231,6 +11256,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-primitives",
@@ -11254,7 +11280,6 @@ name = "parachains-runtimes-test-utils"
 version = "1.0.0"
 dependencies = [
  "assets-common",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -11506,6 +11531,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-message-queue",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
@@ -12395,15 +12421,20 @@ name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
  "cfg-if",
+ "criterion 0.4.0",
  "libc",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",
  "rayon",
+ "rococo-runtime",
  "sc-executor-common",
  "sc-executor-wasmtime",
+ "sp-maybe-compressed-blob",
  "tikv-jemalloc-ctl",
+ "tikv-jemallocator",
  "tracing-gum",
+ "tracking-allocator",
 ]
 
 [[package]]
@@ -14223,6 +14254,7 @@ dependencies = [
  "pallet-assets",
  "pallet-aura",
  "pallet-balances",
+ "pallet-message-queue",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -14737,7 +14769,6 @@ name = "sc-block-builder"
 version = "0.10.0-dev"
 dependencies = [
  "parity-scale-codec",
- "sc-client-api",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -15802,7 +15833,6 @@ dependencies = [
  "parking_lot 0.12.1",
  "pin-project",
  "rand 0.8.5",
- "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
  "sc-client-db",
@@ -15953,6 +15983,7 @@ dependencies = [
 name = "sc-sysinfo"
 version = "6.0.0-dev"
 dependencies = [
+ "derive_more",
  "futures",
  "libc",
  "log",
@@ -16563,6 +16594,7 @@ dependencies = [
  "frame-system",
  "frame-try-runtime",
  "pallet-aura",
+ "pallet-message-queue",
  "pallet-timestamp",
  "parachains-common",
  "parity-scale-codec",
@@ -19414,6 +19446,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracking-allocator"
+version = "1.0.0"
+
+[[package]]
 name = "trie-bench"
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21045,6 +21081,7 @@ name = "xcm-emulator"
 version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-test-relay-sproof-builder",
