@@ -446,7 +446,6 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(target)?;
 
-			// Efficiently get the number of vesting schedules for `who`
 			let schedules_count = Vesting::<T>::decode_len(&who).unwrap_or_default();
 			ensure!(schedule_index < schedules_count as u32, Error::<T>::InvalidScheduleParams);
 
