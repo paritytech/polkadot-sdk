@@ -3,7 +3,7 @@
 //! All Substrate based chains adhere to a unique architectural design novel to the Polkadot
 //! ecosystem. We refer to this design as the "WASM Meta Protocol".
 //!
-//! Consider the fact that a traditional blockchain software is usually a monolith artifact.
+//! Consider the fact that a traditional blockchain software is usually a monolithic artifact.
 //! Upgrading any part of the system implies upgrading the entire system. This has historically led
 //! to cumbersome forkful upgrades to be the status quo in the blockchain ecosystem.
 //!
