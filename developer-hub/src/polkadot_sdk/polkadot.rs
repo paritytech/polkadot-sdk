@@ -28,13 +28,13 @@
 //! Polkadot's answer to the above is:
 //!
 //! * Shared Security: The idea of shared economic security sits at the core of Polkadot. Polkadot
-//!   enables different blockchains (ie. "*Parachains*") to pool their economic security from
-//!   Polkadot (ie. "*Relay Chain*").
+//!   enables different blockchains (i.e. "*Parachains*") to pool their economic security from
+//!   Polkadot (i.e. "*Relay Chain*").
 //! * A framework to build blockchains: In order to materialize the multi-chain future, an easy
-//!   blockchain framework must exist. This is [`crate::polkadot_sdk::substrate`],
-//!   [`crate::polkadot_sdk::frame_runtime`] and [`crate::polkadot_sdk::cumulus`].
+//!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
+//!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
 //! * A communication language between blockchains: In order for these blockchains to communicate,
-//!   they need a shared language. [`crate::polkadot_sdk::xcm`] is one such language.
+//!   they need a shared language. [XCM](crate::polkadot_sdk::xcm) is one such language.
 //!
 //! > Note that the interoperability promised by Polkadot is unparalleled in that any two parachains
 //! > connected to Polkadot have the same security and can have much higher guarantees about the
@@ -43,10 +43,10 @@
 //! Polkadot delivers the above vision, alongside a flexible means for parachains to schedule
 //! themselves with the Relay Chain. To achieve this, Polkadot has been developed with an
 //! architecture similar to that of a computer. Polkadot Relay Chain has a number of "cores". Each
-//! is (in simple terms) is capable of progressing 1 parachain a a time. For example, a parachain
-//! can schedule itself for on a single core for 5 blocks.
+//! is (in simple terms) capable of progressing 1 parachain at a time. For example, a parachain
+//! can schedule itself on a single core for 5 blocks.
 //!
-//! Within the scope of Polkadot 1.x, two main scheduling ways has been considered:
+//! Within the scope of Polkadot 1.x, two main scheduling ways have been considered:
 //!
 //! * Long term Parachains, obtained through locking a sum of DOT in an auction system.
 //! * on-demand Parachains, purchased through paying DOT to the relay-chain whenever needed.

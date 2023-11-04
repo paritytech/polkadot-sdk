@@ -20,10 +20,10 @@
 //! The primary way to get started with the Polkadot SDK is to start writing a Substrate-based
 //! runtime using FRAME. See:
 //!
-//! 0. [`polkadot`], to understand what is Polkadot as a development platform.
-//! 1. [`substrate`], for an overview of what Substrate is.
-//! 2. Jump right into [`frame`] to learn about how to write a FRAME-based blockchain runtime.
-//! 3. Continue with the [`developer_hub`'s "getting started"](crate#getting-started).
+//! * [`polkadot`], to understand what is Polkadot as a development platform.
+//! * [`substrate`], for an overview of what Substrate is.
+//! * Jump right into [`frame`] to learn about how to write a FRAME-based blockchain runtime.
+//! * Continue with the [`developer_hub`'s "getting started"](crate#getting-started).
 //!
 //! ## Structure
 //!
@@ -58,7 +58,7 @@
 //! [![GitHub Repo](https://img.shields.io/badge/github-polkadot-e6007a?logo=polkadot)](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot)
 //!
 //! [`polkadot`] is an implementation of a Polkadot client in Rust, by `@paritytech`. The Polkadot
-//! runtimes are located under the [`fellowship/runtime`](https://github.com/polkadot-fellows/runtimes) repository.
+//! runtimes are located under the [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) repository.
 //!
 //! > [`polkadot`] contains useful links to further learn about Polkadot, **but is in general not
 //! > part of the SDK**, as it is rarely used by developers who wish to build on top of Polkadot.
@@ -81,7 +81,7 @@
 //!    everything else. See [`reference_docs::wasm_meta_protocol`] for an in-depth explanation of
 //!    this. The former is built with [`frame`], and the latter is built with Substrate client
 //!    libraries.
-//! 2. Polkadot is itself a Substrate-based chain, composed of the the exact same two components.
+//! 2. Polkadot is itself a Substrate-based chain, composed of the exact same two components.
 //!    The Polkadot client code is in [`polkadot`], and the Polkadot runtimes are controlled by the
 //!    [Polkadot Fellowship](https://github.com/polkadot-fellows).
 //! 3. A parachain is a "special" Substrate based chain, whereby both the client and the runtime
@@ -95,7 +95,7 @@
 //! - <https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f>
 //! - <https://forum.polkadot.network/t/psa-parity-is-currently-working-on-merging-the-polkadot-stack-repositories-into-one-single-repository/2883>
 //!
-//! ## Notable Upstream Crates:
+//! ## Notable Upstream Crates
 //!
 //! - [`parity-scale-codec`](https://github.com/paritytech/parity-scale-codec)
 //! - [`parity-db`](https://github.com/paritytech/parity-db)

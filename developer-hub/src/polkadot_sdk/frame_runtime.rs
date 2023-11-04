@@ -70,7 +70,7 @@
 //!
 //! ## More Examples
 //!
-//! You can find more FRAME examples that revolve around specific features at [`pallet_examples`]
+//! You can find more FRAME examples that revolve around specific features at [`pallet_examples`].
 
 #[cfg(test)]
 mod tests {

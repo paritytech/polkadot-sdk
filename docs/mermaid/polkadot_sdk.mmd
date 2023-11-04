@@ -10,7 +10,7 @@ flowchart LR
     end
 
     subgraph SubstrateChain[A Substrate-based blockchain]
-        Clinet
+        Client
         Runtime
     end
 
@@ -18,8 +18,8 @@ flowchart LR
     FRAME2[FRAME] -.-> PolkadotRuntime
     FRAME3[FRAME] -.-> ParachainRuntime
 
-    Substrate1[Substrate Client Libraries] -.-> Clinet
-    Substrate2[Substrate Client Libraries] -.-> PolkadotClinet
+    Substrate1[Substrate Client Libraries] -.-> Client
+    Substrate2[Substrate Client Libraries] -.-> PolkadotClient
     Substrate3[Substrate Client Libraries] -.-> ParachainCollator
 
     Cumulus1[Cumulus Runtime Pallets/Libraries] -.-> ParachainRuntime
