@@ -22,13 +22,13 @@ pallet-default-config-example = { path = "../substrate/frame/examples/default-co
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
 docify = "0.2.6"
 
-# Polkadot SDK docs, typically all should only be scope such that we can link to their doc item.
-
+# Polkadot SDK deps, typically all should only be scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../substrate/bin/node/cli" }
 kitchensink-runtime = { path = "../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../substrate/bin/utils/chain-spec-builder" }
 subkey = { path = "../substrate/bin/utils/subkey" }
 
+# Substrate
 sc-network = { path = "../substrate/client/network" }
 sc-rpc-api = { path = "../substrate/client/rpc-api" }
 sc-rpc = { path = "../substrate/client/rpc" }
@@ -42,13 +42,7 @@ sc-consensus-manual-seal = { path = "../substrate/client/consensus/manual-seal" 
 sc-consensus-pow = { path = "../substrate/client/consensus/pow" }
 substrate-wasm-builder = { path = "../substrate/utils/wasm-builder" }
 
-sp-io = { path = "../substrate/primitives/io" }
-sp-api = { path = "../substrate/primitives/api" }
-sp-core = { path = "../substrate/primitives/core" }
-sp-keyring = { path = "../substrate/primitives/keyring" }
-sp-runtime = { path = "../substrate/primitives/runtime" }
-
-[dev-dependencies]
+# Cumulus
 cumulus-pallet-aura-ext = { path = "../cumulus/pallets/aura-ext" }
 cumulus-pallet-parachain-system = { path = "../cumulus/pallets/parachain-system", features = [
 	"parameterized-consensus-hook",
@@ -57,5 +51,13 @@ parachain-info = { package = "staging-parachain-info", path = "../cumulus/parach
 pallet-aura = { path = "../substrate/frame/aura" }
 pallet-timestamp = { path = "../substrate/frame/timestamp" }
 
+# Primitives
+sp-io = { path = "../substrate/primitives/io" }
+sp-api = { path = "../substrate/primitives/api" }
+sp-core = { path = "../substrate/primitives/core" }
+sp-keyring = { path = "../substrate/primitives/keyring" }
+sp-runtime = { path = "../substrate/primitives/runtime" }
+
+[dev-dependencies]
 parity-scale-codec = "3.6.5"
 scale-info = "2.9.0"
