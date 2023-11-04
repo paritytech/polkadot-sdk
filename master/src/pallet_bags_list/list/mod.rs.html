@@ -918,6 +918,13 @@
 <a href="#918" id="918">918</a>
 <a href="#919" id="919">919</a>
 <a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1463,7 +1470,16 @@
 			thresholds.into_iter().filter_map(|t| Bag::&lt;T, I&gt;::get(t))
 		};
 
-		<span class="kw">let _ </span>= active_bags.clone().try_for_each(|b| b.do_try_state())<span class="question-mark">?</span>;
+		<span class="comment">// build map of bags and the corresponding nodes to avoid multiple lookups
+		</span><span class="kw">let </span><span class="kw-2">mut </span>bags_map = BTreeMap::&lt;T::Score, Vec&lt;T::AccountId&gt;&gt;::new();
+
+		<span class="kw">let _ </span>= active_bags.clone().try_for_each(|b| {
+			bags_map.insert(
+				b.bag_upper,
+				b.iter().map(|n: Node&lt;T, I&gt;| n.id().clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			);
+			b.do_try_state()
+		})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>nodes_in_bags_count =
 			active_bags.clone().fold(<span class="number">0u32</span>, |acc, cur| acc + cur.iter().count() <span class="kw">as </span>u32);
@@ -1474,7 +1490,14 @@
 		<span class="comment">// check that all nodes are sane. We check the `ListNodes` storage item directly in case we
 		// have some &quot;stale&quot; nodes that are not in a bag.
 		</span><span class="kw">for </span>(_id, node) <span class="kw">in </span><span class="kw">crate</span>::ListNodes::&lt;T, I&gt;::iter() {
-			node.do_try_state()<span class="question-mark">?
+			<span class="comment">// check that the node is in the correct bag
+			</span><span class="kw">let </span>expected_bag = bags_map
+				.get(<span class="kw-2">&amp;</span>node.bag_upper)
+				.ok_or(<span class="string">&quot;bag not found for the node in active bags&quot;</span>)<span class="question-mark">?</span>;
+			<span class="macro">frame_support::ensure!</span>(expected_bag.contains(node.id()), <span class="string">&quot;node not found in the bag&quot;</span>);
+
+			<span class="comment">// verify node state
+			</span>node.do_try_state()<span class="question-mark">?
 		</span>}
 
 		<span class="prelude-val">Ok</span>(())
@@ -1710,12 +1733,6 @@
 	</span><span class="kw">pub fn </span>std_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Node&lt;T, I&gt;&gt; {
 		sp_std::iter::successors(<span class="self">self</span>.head(), |prev| prev.next())
 	}
-
-	<span class="doccomment">/// Check if the bag contains a node with `id`.
-	</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
-	</span><span class="kw">fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
-		<span class="self">self</span>.iter().any(|n| n.id() == id)
-	}
 }
 
 <span class="doccomment">/// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
@@ -1820,10 +1837,7 @@
 	<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
 	</span><span class="kw">fn </span>do_try_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span>expected_bag = Bag::&lt;T, I&gt;::get(<span class="self">self</span>.bag_upper).ok_or(<span class="string">&quot;bag not found for node&quot;</span>)<span class="question-mark">?</span>;
-
 		<span class="kw">let </span>id = <span class="self">self</span>.id();
-
-		<span class="macro">frame_support::ensure!</span>(expected_bag.contains(id), <span class="string">&quot;node does not exist in the bag&quot;</span>);
 
 		<span class="kw">let </span>non_terminal_check = !<span class="self">self</span>.is_terminal() &amp;&amp;
 			expected_bag.head.as_ref() != <span class="prelude-val">Some</span>(id) &amp;&amp;

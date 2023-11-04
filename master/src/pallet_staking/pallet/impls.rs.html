@@ -1919,6 +1919,20 @@
 <a href="#1919" id="1919">1919</a>
 <a href="#1920" id="1920">1920</a>
 <a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3785,6 +3799,13 @@
 		<span class="comment">// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
 		</span><span class="kw">let </span>era = <span class="self">Self</span>::active_era().unwrap().index;
+
+		<span class="comment">// cache era exposures to avoid too many db reads.
+		</span><span class="kw">let </span>era_exposures = T::SessionInterface::validators()
+			.iter()
+			.map(|v| <span class="self">Self</span>::eras_stakers(era, v))
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
 		&lt;Nominators&lt;T&gt;&gt;::iter()
 			.filter_map(
 				|(nominator, nomination)| {
@@ -3799,9 +3820,8 @@
 				<span class="comment">// must be bonded.
 				</span><span class="self">Self</span>::ensure_is_stash(<span class="kw-2">&amp;</span>nominator)<span class="question-mark">?</span>;
 				<span class="kw">let </span><span class="kw-2">mut </span>sum = BalanceOf::&lt;T&gt;::zero();
-				T::SessionInterface::validators()
+				era_exposures
 					.iter()
-					.map(|v| <span class="self">Self</span>::eras_stakers(era, v))
 					.map(|e| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 						<span class="kw">let </span>individual =
 							e.others.iter().filter(|e| e.who == nominator).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -3817,6 +3837,14 @@
 						<span class="prelude-val">Ok</span>(())
 					})
 					.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+
+				<span class="comment">// We take total instead of active as the nominator might have requested to unbond
+				// some of their stake that is still exposed in the current era.
+				</span><span class="kw">if </span>sum &lt;= <span class="self">Self</span>::ledger(Stash(nominator.clone()))<span class="question-mark">?</span>.total {
+					<span class="comment">// This can happen when there is a slash in the current era so we only warn.
+					</span><span class="macro">log!</span>(warn, <span class="string">&quot;nominator stake exceeds what is bonded.&quot;</span>);
+				}
+
 				<span class="prelude-val">Ok</span>(())
 			})
 			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
