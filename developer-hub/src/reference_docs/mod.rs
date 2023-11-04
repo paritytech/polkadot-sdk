@@ -3,6 +3,8 @@
 //! This is the entry point for all reference documents that enhance one's learning experience in
 //! the Polkadot SDK.
 //!
+//! Note that this module also contains the [glossary](crate::reference_docs::glossary).
+//!
 //! ## What is a "reference document"?
 //!
 //! First, see [why we use rust-docs for everything](crate#why-rust-docs) and our documentation
@@ -16,10 +18,6 @@
 //!
 //! We can this class of documents "reference documents". Our goal should be to minimize the number
 //! of "reference" docs, as they incur maintenance burden.
-//!
-//! ## Ownership
-//!
-//! Every page must have an owner or a list of owners, who are responsible for maintaining the page.
 
 /// Learn how Substrate and FRAME use traits and associated types to make modules generic in a
 /// type-safe manner.
@@ -42,12 +40,15 @@ pub mod runtime_vs_smart_contract;
 pub mod extrinsic_encoding;
 
 /// Learn about the signed extensions that form a part of extrinsics.
+// TODO: @jsdw
 pub mod signed_extensions;
 
 /// Learn about *"Origin"* A topic in FRAME that enables complex account abstractions to be built.
-pub mod origin_account_abstraction;
+// TODO: @shawntabrizi
+pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
+// TODO: @CrackTheCode016
 pub mod safe_defensive_programming;
 
 /// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
@@ -59,4 +60,35 @@ pub mod fee_less_runtime;
 
 /// Learn about metadata, the main means through which an upgrade-able runtime communicate its
 /// properties to the outside world.
+// TODO: @jsdw
 pub mod metadata;
+
+/// Learn about how frame-system handles accountIds, nonces, consumers and providers.
+pub mod frame_system_accounts;
+
+/// Learn about the currency-related abstractions provided in FRAME.
+pub mod frame_currency;
+
+/// Learn about benchmarking and weight.
+// TODO: @shawntabrizi @ggwpez
+pub mod frame_benchmarking_weight;
+
+/// Learn about chain specification file and the genesis state of the blockchain.
+// TODO: @michalkucharczyk
+pub mod chain_spec_genesis;
+
+/// Learn about all the memory limitations of the WASM runtime when it comes to memory usage.
+// TODO: @kianenigma
+pub mod wasm_memory;
+
+/// Learn about substrate's CLI, and how it can be extended.
+// TODO: @kianenigma
+pub mod cli;
+
+/// Learn about substrate's consensus algorithms, and how you can switch between two.
+// TODO: @JoshOrndorff @kianenigma
+pub mod consensus_swapping;
+
+/// Learn about all the advance ways to test your coordinate a rutnime upgrade and data migration.
+// TODO: @liamaharon
+pub mod frame_runtime_migration;

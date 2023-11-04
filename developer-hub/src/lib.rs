@@ -99,12 +99,18 @@
 //!
 //! #### Example: Explaining `#[pallet::call]`
 //!
+//!
+//!
+//! <details>
+//! <summary>
 //! Let's consider the seemingly simple example of explaining to someone dead-simple code of a FRAME
 //! call and see how we can use the above principles.
+//! </summary>
+//!
 //!
 //! ```
-//! #[frame::pallet]
-//! pub mod pallet(dev_mode) {
+//! #[frame::pallet(dev_mode)]
+//! pub mod pallet {
 //! #   use frame::prelude::*;
 //! #   #[pallet::config]
 //! #   pub trait Config: frame_system::Config {}
@@ -112,8 +118,8 @@
 //! #   pub struct Pallet<T>(_);
 //!     #[pallet::call]
 //!     impl<T: Config> Pallet<T> {
-//!         fn a_simple_call(origin: OriginFor<T>, data: u32) -> DispatchResult {
-//!             ensure!(data > 10, "SomeStaticString")
+//!         pub fn a_simple_call(origin: OriginFor<T>, data: u32) -> DispatchResult {
+//!             ensure!(data > 10, "SomeStaticString");
 //!             todo!();
 //!         }
 //!     }
@@ -124,7 +130,7 @@
 //! [`reference_docs::trait_based_programming`].
 //! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
 //! explained in [`reference_docs::frame_composite_enums`]. Build on top of this!
-//! * Then, what is origin? Just an account id? [`reference_docs::origin_account_abstraction`].
+//! * Then, what is origin? Just an account id? [`reference_docs::frame_origin`].
 //! * Then, what is `DispatchResult`? why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
 //! * Why is `"SomeStaticString"` a valid error? because of
@@ -139,6 +145,14 @@
 //! Of course, all of this is not set in stone as a either/or rule. Sometimes, it is necessary to
 //! rephrase a concept in a new context.
 //!
+//! </details>
+//!
+//! ### `docs.substrate.io`
+//!
+//! This crate is meant to gradually replace `docs.substrate.io`. As any content is added here, the
+//! corresponding counter-part should be marked as deprecated, as described
+//! [here](https://github.com/paritytech/polkadot-sdk-docs/issues/26).
+//!
 //! ### `crates.io` and Publishing
 //!
 //! As it stands now, this crate cannot be published to crates.io because of its use of
@@ -146,7 +160,8 @@
 //! compromise, but in the long term, we should work towards finding a way to maintain different
 //! revisions of this crate.
 
-#![allow(rustdoc::invalid_html_tags)]
+#![allow(rustdoc::invalid_html_tags)] // TODO: remove later.
+#![allow(rustdoc::bare_urls)] // TODO: remove later.
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
 

@@ -72,8 +72,8 @@
 //!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`.
 //! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? this
 //!   is outside the scope of this tutorial, and you can learn more about it in the origin reference
-//!   document ([`crate::reference_docs::origin_account_abstraction`]). For now, you should only
-//!   know the signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
+//!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
+//!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result<T::AccountId, _>`. So by the end of this function call, we know that this dispatchable
 //!   was signed by `who`.
 #![doc = docify::embed!("../substrate/frame/system/src/lib.rs", ensure_signed)]
@@ -288,7 +288,7 @@
 //! study them subsequently:
 //!
 //! - [`crate::reference_docs::safe_defensive_programming`].
-//! - [`crate::reference_docs::origin_account_abstraction`].
+//! - [`crate::reference_docs::frame_origin`].
 //! - [`crate::reference_docs::frame_composite_enums`].
 //! - The pallet we wrote in this tutorial was using `dev_mode`, learn more in
 //!   [`frame::pallet_macros::config`].

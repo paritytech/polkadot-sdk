@@ -32,7 +32,7 @@
 //!
 //! ## Documentation
 //!
-//! TODO: Link to devhub
+//! See [`polkadot_sdk::frame`](../developer_hub/polkadot_sdk/frame_runtime/index.html).
 //!
 //! ## Warning: Experimental
 //!

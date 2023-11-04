@@ -2201,10 +2201,10 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		composite_enum, config, constant, disable_frame_system_supertrait_check, error, event,
+		composite_enum, config, disable_frame_system_supertrait_check, error, event,
 		extra_constants, generate_deposit, generate_store, getter, hooks, import_section, inherent,
-		no_default, no_default_bounds, origin, pallet_section, storage, storage_prefix,
-		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
+		no_default, no_default_bounds, origin, pallet_section, storage_prefix, storage_version,
+		type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
