@@ -3,7 +3,7 @@
 - **Ring size**: the actual number of validators for an epoch
 - **Domain size**: a value which bounds the max size of the ring (max_ring_size = domain_size - 256)
 
-## Verify Submitted Tickets
+## Verify Submitted Tickets (extrinsic)
 
 `x` = Number of tickets
 
@@ -35,13 +35,13 @@
 
 - Verification doesn't depend on ring size as verification key is already constructed.
 - Timing is insignificant given a number of tickets that is appropriately bounded.
-- Current bound is set to epoch-slots, which iirc for Polkadot is 3600.
+- Currently the bound is set to epoch-slots, which iirc for Polkadot is 3600.
   In this case if all the tickets are submitted in one shot timing is 39 seconds, which is not acceptable.
   TODO: find a sensible bound
 
 ---
 
-## RECOMPUTE RING VERIFIER KEY (Domain size 1024)
+## Recompute Ring Verifier Key (on epoch change)
 
 `x` = Ring size
 
