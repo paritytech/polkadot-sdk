@@ -40,11 +40,11 @@
 //! repository, and everything being in `.rs` files.
 //!
 //! > This is not say that a more visually appealing version of this crate (for example as an
-//! > `md-book`) cannot exist, but it would be the outside the scope of this crate.
+//! > `md-book`) cannot exist, but it would be outside the scope of this crate.
 //!
-//! Moreover, we acknowledge that a major pain-pint has been not only outdated *concepts*, but also
+//! Moreover, we acknowledge that a major pain point has been not only outdated *concepts*, but also
 //! *outdated code*. For this, we commit to making sure no code-snippet in this crate is left as
-//! `///ignore` or `///no_compile``, making sure all code snippets are self-contained, compile-able,
+//! `///ignore` or `///no_compile`, making sure all code snippets are self-contained, compile-able,
 //! and correct at every single revision of the entire repository.
 //!
 //! > This also allows us to have a clear versioning on the entire content of this crate. For every
@@ -69,9 +69,9 @@
 //! crate.
 //!
 //! 1. 🔺 Ground Up: Information should be layed out in the most ground-up fashion. The lowest level
-//!    (ie. "ground") is Rust-docs. The highest level (ie "up") is "outside of this crate". In
+//!    (i.e. "ground") is Rust-docs. The highest level (i.e. "up") is "outside of this crate". In
 //!    between lies [`reference_docs`] and [`tutorial`], from low to high. The point of this
-//!    principle is to document as much of the information is possible in the lower lever media, as
+//!    principle is to document as much of the information as possible in the lower level media, as
 //!    it is easier to maintain and more reachable. Then, use excessive linking to back-link when
 //!    writing in a more high level.
 //!
@@ -88,7 +88,7 @@
 //!
 //! > A prime example of this, the list of CLI arguments of a particular binary should not be
 //! > documented in multiple places across this crate. It should be only be documented in the
-//! > corresponding crate (eg. `sc_cli`).
+//! > corresponding crate (e.g. `sc_cli`).
 //!
 //! > Moreover, this means that as a contributor, **it is your responsibility to have a grasp over
 //! > what topics are already covered in this crate, and how you can build on top of the information
@@ -124,11 +124,11 @@
 //! [`reference_docs::trait_based_programming`].
 //! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
 //! explained in [`reference_docs::frame_composite_enums`]. Build on top of this!
-//! * Then, what is origin? Just an account id? [`reference_docs::origin_account_abstraction`].
-//! * Then, what is `DispatchResult`? why is this called *dispatch*? Probably something that can be
+//! * Then, what is `origin`? Just an account id? [`reference_docs::origin_account_abstraction`].
+//! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
-//! * Why is `"SomeStaticString"` a valid error? because of
-//!   [this](frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError).
+//! * Why is `"SomeStaticString"` a valid error? Because there is implementation for it that you
+//!   can see [here](frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError).
 //!
 //!
 //! All of these are examples of underlying information that a contributor should:
