@@ -248,7 +248,9 @@ enum RuntimeGenesisConfigJson {
 /// Inner variant wrapper for deprecated runtime.
 #[derive(Serialize, Deserialize, Debug)]
 struct RuntimeInnerWrapper<G> {
+	/// The native `RuntimeGenesisConfig` struct.
 	runtime: G,
+	/// Runtime code.
 	#[serde(with = "sp_core::bytes")]
 	code: Vec<u8>,
 }
@@ -261,14 +263,13 @@ struct RuntimeInnerWrapper<G> {
 enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
-	/// without the runtime code.
+	/// without the runtime code. It is required to deserialize the legacy chainspecs genereted
+	/// with `ChainsSpec::from_genesis` method.
 	Runtime(G),
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
-	/// and the runtime code.
-	// #[deprecated(
-	// 	note = "`RuntimeAndCode` is planned to be removed in December 2023. Use `RuntimeGenesis`
-	// instead." )]
+	/// and the runtime code. It is required to create and deserializa JSON chainspecs created with
+	/// deprecated `ChainSpec::from_genesis` method.
 	RuntimeAndCode(RuntimeInnerWrapper<G>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
@@ -1204,6 +1205,45 @@ mod tests {
 		assert!(json_eval_value_at_key(
 			&chain_spec_json,
 			&mut json_path!["genesis", "runtimeGenesis", "code"],
+			&|v| { *v == "0x000102040506" }
+		));
+	}
+
+	#[test]
+	fn generate_from_genesis_is_still_supported() {
+		let chain_spec: ChainSpec<substrate_test_runtime::RuntimeGenesisConfig> =
+			ChainSpec::from_genesis(
+				"TestName",
+				"test",
+				ChainType::Local,
+				move || substrate_test_runtime::RuntimeGenesisConfig {
+					babe: substrate_test_runtime::BabeConfig {
+						epoch_config: Some(
+							substrate_test_runtime::TEST_RUNTIME_BABE_EPOCH_CONFIGURATION,
+						),
+						..Default::default()
+					},
+					..Default::default()
+				},
+				Vec::new(),
+				None,
+				None,
+				None,
+				None,
+				Default::default(),
+				&vec![0, 1, 2, 4, 5, 6],
+			);
+
+		let chain_spec_json = from_str::<Value>(&chain_spec.as_json(false).unwrap()).unwrap();
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "runtimeAndCode", "code"],
+			&|v| { *v == "0x000102040506" }
+		));
+		let chain_spec_json = from_str::<Value>(&chain_spec.as_json(true).unwrap()).unwrap();
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "raw", "top", "0x3a636f6465"],
 			&|v| { *v == "0x000102040506" }
 		));
 	}

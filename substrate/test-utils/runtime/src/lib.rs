@@ -464,11 +464,10 @@ impl_opaque_keys! {
 	}
 }
 
-pub(crate) const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration =
-	BabeEpochConfiguration {
-		c: (3, 10),
-		allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
-	};
+pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEpochConfiguration {
+	c: (3, 10),
+	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
+};
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
