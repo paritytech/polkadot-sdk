@@ -65,6 +65,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false}
@@ -86,9 +87,11 @@ sp-io = { path = "../../../../../substrate/primitives/io", default-features = fa
 [features]
 default = [ "std" ]
 runtime-benchmarks = [
+	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -100,6 +103,7 @@ runtime-benchmarks = [
 	"pallet-collective-content/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-core-fellowship/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
@@ -135,6 +139,7 @@ try-runtime = [
 	"pallet-collective-content/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-core-fellowship/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
@@ -177,6 +182,7 @@ std = [
 	"pallet-collective-content/std",
 	"pallet-collective/std",
 	"pallet-core-fellowship/std",
+	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
