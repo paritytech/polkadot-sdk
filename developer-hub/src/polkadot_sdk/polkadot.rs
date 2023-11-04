@@ -12,6 +12,10 @@
 //! - [The Polkadot Parachain Host Implementers' Guide](https://paritytech.github.io/polkadot-sdk/book/)
 //! - [Whitepaper](https://www.polkadot.network/whitepaper/)
 //!
+//! ## Alternative Clients 🌈
+//!
+//! TODO:
+//!
 //! ## Platform
 //!
 //! ### Polkadot 1.x

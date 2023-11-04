@@ -39,19 +39,20 @@
 //!
 //! ## How to Get Stared
 //!
-//! While most developers use [`crate::polkadot_sdk::frame_runtime`], it is worth noting a
-//! few (niche) alternatives:
+//! Substrate offers different options at the spectrum of technical freedom <-> development ease.
 //!
-//! 1. It is entirely possible to craft a substrate-based runtime without FRAME, an example of which
-//! can be found [here](https://github.com/JoshOrndorff/frameless-node-template).
-//! 2. Substrate's client side code, as mentioned above, is also highly configurable, and many teams
-//!    embark on customizing the client, for example with a custom consensus algorithm. Notable
-//!    examples of this are:
+//! * The easiest way to use Substrate is to use tap into one of the templates (some o which listed
+//!   at [`crate::polkadot_sdk::templates`]) and only tweak the parameters of the runtime or client.
+//!   This allows you to launch a blockchain in minutes, but is limited in technical freedom.
+//! * Next, most developers wish to develop their custom runtime modules, for which the de-facto way
+//! is [`frame`](crate::polkadot_sdk::frame_runtime).
+//! * Finally, Substrate is fully highly configurable at the client side as well, but this is the
+//!   most technically demanding.
 //!
-//! - <https://github.com/Cardinal-Cryptography/aleph-node>
-//! - <https://github.com/availproject/avail>
+//! > A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
+//! > client-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
 //!
-//! 3. A number of Substrate-based templates are listed in [`crate::polkadot_sdk::templates`].
+#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_dev.mmd")]
 //!
 //! ## Structure
 //!
@@ -128,8 +129,8 @@
 //! through which Polkadot can be utilized is by building "parachains", blockchains that are
 //! connected to Polkadot's shared security.
 //!
-//! To build a parachain, one could use [`crate::polkadot_sdk::cumulus`], the library on top
-//! of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
+//! To build a parachain, one could use [`crate::polkadot_sdk::cumulus`], the library on top of
+//! Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?
 //!

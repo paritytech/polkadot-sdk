@@ -52,7 +52,6 @@
 //! The following examples showcases a minimal pallet.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
 //!
-//! ## Runtime
 //!
 //! A runtime is a collection of pallets that are amalgamated together. Each pallet typically has
 //! some configurations (exposed as a `trait Config`) that needs to be *specified* in the runtime.
@@ -71,6 +70,19 @@
 //! ## More Examples
 //!
 //! You can find more FRAME examples that revolve around specific features at [`pallet_examples`].
+//!
+//! ## Alternatives 🌈
+//!
+//! There is nothing in the Substrate's client side code-base that mandates the use of FRAME. While
+//! FRAME makes it very simple to write Substrate-based runtimes, it is by no means intended to be
+//! the only one. At the end of the day, any WASM blob that exposes the right set of runtime APIs is
+//! a valid Runtime form the point of view of a Substrate cliemt (see
+//! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
+//!
+//! * writing a runtime in pure Rust, as done in [this
+//!   template](https://github.com/JoshOrndorff/frameless-node-template).
+//! * writing a runtime in AssemblyScript,as explored in [this
+//!   project](https://github.com/LimeChain/subsembly).
 
 #[cfg(test)]
 mod tests {
