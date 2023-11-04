@@ -220,6 +220,7 @@ impl NetworkSyncForkRequest<Hash, NumberFor<Block>> for TestSync {
 
 #[derive(Debug)]
 pub(crate) struct TestNotificationService {
+	sender: TracingUnboundedSender<Event>,
 	rx: TracingUnboundedReceiver<NotificationEvent>,
 }
 
@@ -236,8 +237,8 @@ impl NotificationService for TestNotificationService {
 	}
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, _peer: &PeerId, _notification: Vec<u8>) {
-		unimplemented!();
+	fn send_sync_notification(&self, peer: &PeerId, notification: Vec<u8>) {
+		let _ = self.sender.unbounded_send(Event::WriteNotification(*peer, notification));
 	}
 
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
@@ -347,7 +348,7 @@ pub(crate) fn make_test_network() -> (impl Future<Output = Tester>, TestNetwork)
 	let (tx, rx) = tracing_unbounded("test", 100_000);
 	let (notification_tx, notification_rx) = tracing_unbounded("test-notification", 100_000);
 
-	let notification_service = TestNotificationService { rx: notification_rx };
+	let notification_service = TestNotificationService { rx: notification_rx, sender: tx.clone() };
 	let net = TestNetwork { sender: tx };
 	let sync = TestSync {};
 

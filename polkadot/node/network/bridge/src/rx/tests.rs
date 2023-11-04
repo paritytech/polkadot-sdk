@@ -198,28 +198,10 @@ impl TestNetworkHandle {
 		v
 	}
 
-	// async fn connect_peer(
-	// 	&mut self,
-	// 	peer: PeerId,
-	// 	protocol_version: ValidationVersion,
-	// 	peer_set: PeerSet,
-	// 	role: ObservedRole,
-	// ) {
-	// 	// let protocol_version = ProtocolVersion::from(protocol_version);
-	// 	// self.send_network_event(NetworkEvent::NotificationStreamOpened {
-	// 	// 	remote: peer,
-	// 	// 	protocol: self.protocol_names.get_name(peer_set, protocol_version),
-	// 	// 	negotiated_fallback: None,
-	// 	// 	role: role.into(),
-	// 	// 	received_handshake: vec![],
-	// 	// })
-	// 	// .await;
-	// }
-
 	async fn connect_peer(
 		&mut self,
 		peer: PeerId,
-		_protocol_version: ValidationVersion,
+		protocol_version: ValidationVersion,
 		peer_set: PeerSet,
 		role: ObservedRole,
 	) {
@@ -231,6 +213,19 @@ impl TestNetworkHandle {
 			}
 		}
 
+		// because of how protocol negotiation works, if two peers support at least one common
+		// protocol, the protocol is negotiated over the main protocol (`ValidationVersion::V2`) but
+		// if either one of the peers used a fallback protocol for the negotiation (meaning they
+		// don't support the main protocol but some older version of it ), `negotiated_fallback` is
+		// set to that protocol.
+		let negotiated_fallback = match protocol_version {
+			ValidationVersion::V2 => None,
+			ValidationVersion::V1 => match peer_set {
+				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/1")),
+				PeerSet::Collation => Some(ProtocolName::from("/polkadot/collation/1")),
+			},
+		};
+
 		match peer_set {
 			PeerSet::Validation => {
 				self.validation_tx
@@ -238,7 +233,7 @@ impl TestNetworkHandle {
 						peer,
 						direction: Direction::Inbound,
 						handshake: observed_role_to_handshake(&role),
-						negotiated_fallback: None,
+						negotiated_fallback,
 					})
 					.await
 					.expect("subsystem concluded early");
@@ -249,7 +244,7 @@ impl TestNetworkHandle {
 						peer,
 						direction: Direction::Inbound,
 						handshake: observed_role_to_handshake(&role),
-						negotiated_fallback: None,
+						negotiated_fallback,
 					})
 					.await
 					.expect("subsystem concluded early");
@@ -505,8 +500,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let fork_id = None;
 	let peerset_protocol_names = PeerSetProtocolNames::new(genesis_hash, fork_id);
-
-	println!("protocol names: {peerset_protocol_names:#?}");
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (network, network_handle, discovery, validation_service, collation_service) =
@@ -1449,9 +1442,7 @@ fn network_protocol_versioning_view_update() {
 	});
 }
 
-// TODO: discuss with parachains engineering
 #[test]
-#[cfg(feature = "network-protocol-staging")]
 fn network_protocol_versioning_subsystem_msg() {
 	use polkadot_primitives::CandidateHash;
 	use std::task::Poll;
