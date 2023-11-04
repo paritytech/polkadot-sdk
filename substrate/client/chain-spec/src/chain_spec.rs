@@ -1211,28 +1211,28 @@ mod tests {
 
 	#[test]
 	fn generate_from_genesis_is_still_supported() {
-		let chain_spec: ChainSpec<substrate_test_runtime::RuntimeGenesisConfig> =
-			ChainSpec::from_genesis(
-				"TestName",
-				"test",
-				ChainType::Local,
-				move || substrate_test_runtime::RuntimeGenesisConfig {
-					babe: substrate_test_runtime::BabeConfig {
-						epoch_config: Some(
-							substrate_test_runtime::TEST_RUNTIME_BABE_EPOCH_CONFIGURATION,
-						),
-						..Default::default()
-					},
+		#[allow(deprecated)]
+		let chain_spec: ChainSpec<substrate_test_runtime::RuntimeGenesisConfig> = ChainSpec::from_genesis(
+			"TestName",
+			"test",
+			ChainType::Local,
+			move || substrate_test_runtime::RuntimeGenesisConfig {
+				babe: substrate_test_runtime::BabeConfig {
+					epoch_config: Some(
+						substrate_test_runtime::TEST_RUNTIME_BABE_EPOCH_CONFIGURATION,
+					),
 					..Default::default()
 				},
-				Vec::new(),
-				None,
-				None,
-				None,
-				None,
-				Default::default(),
-				&vec![0, 1, 2, 4, 5, 6],
-			);
+				..Default::default()
+			},
+			Vec::new(),
+			None,
+			None,
+			None,
+			None,
+			Default::default(),
+			&vec![0, 1, 2, 4, 5, 6],
+		);
 
 		let chain_spec_json = from_str::<Value>(&chain_spec.as_json(false).unwrap()).unwrap();
 		assert!(json_eval_value_at_key(
