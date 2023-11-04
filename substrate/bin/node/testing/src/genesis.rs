@@ -22,8 +22,8 @@ use crate::keyring::*;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, AccountId, AssetsConfig, BabeConfig,
 	BalancesConfig, GluttonConfig, GrandpaConfig, IndicesConfig, RuntimeGenesisConfig,
-	SassafrasConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig, SystemConfig,
-	BABE_GENESIS_EPOCH_CONFIG, SASSAFRAS_GENESIS_EPOCH_CONFIG,
+	SessionConfig, SocietyConfig, StakerStatus, StakingConfig, SystemConfig,
+	BABE_GENESIS_EPOCH_CONFIG,
 };
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 use sp_runtime::Perbill;
@@ -110,10 +110,5 @@ pub fn config_endowed(code: Option<&[u8]>, extra_endowed: Vec<AccountId>) -> Run
 			..Default::default()
 		},
 		mixnet: Default::default(),
-		sassafras: SassafrasConfig {
-			authorities: vec![],
-			epoch_config: SASSAFRAS_GENESIS_EPOCH_CONFIG,
-			..Default::default()
-		},
 	}
 }

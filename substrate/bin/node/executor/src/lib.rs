@@ -28,8 +28,6 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	type ExtendHostFunctions = (
 		frame_benchmarking::benchmarking::HostFunctions,
 		sp_statement_store::runtime_api::HostFunctions,
-		sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
-		sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
 	);
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {

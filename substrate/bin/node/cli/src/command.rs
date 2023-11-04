@@ -107,11 +107,7 @@ pub fn run() -> Result<()> {
 							)
 						}
 
-						cmd.run::<Block, (
-							sp_statement_store::runtime_api::HostFunctions,
-							sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
-							sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
-						)>(config)
+						cmd.run::<Block, sp_statement_store::runtime_api::HostFunctions>(config)
 					},
 					BenchmarkCmd::Block(cmd) => {
 						// ensure that we keep the task manager alive

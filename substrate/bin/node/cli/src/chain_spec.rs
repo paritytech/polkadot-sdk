@@ -22,8 +22,8 @@ use grandpa_primitives::AuthorityId as GrandpaId;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, BabeConfig, BalancesConfig, Block, CouncilConfig,
 	DemocracyConfig, ElectionsConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
-	NominationPoolsConfig, SassafrasConfig, SessionConfig, SessionKeys, SocietyConfig,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+	NominationPoolsConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -32,7 +32,6 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_consensus_sassafras::AuthorityId as SassafrasId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::{
@@ -97,7 +96,6 @@ fn staging_testnet_config_genesis() -> RuntimeGenesisConfig {
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
-		SassafrasId,
 	)> = vec![
 		(
 			// 5Fbsd6WXDGiLTxunqeK5BATNiocfCqu9bS1yArVjCgeBLkVy
@@ -118,9 +116,6 @@ fn staging_testnet_config_genesis() -> RuntimeGenesisConfig {
 				.unchecked_into(),
 			// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
 			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
-				.unchecked_into(),
-			// DUMMY
-			array_bytes::hex2array_unchecked("0000000000000000000000000000000000000000000000000000000000000000")
 				.unchecked_into(),
 		),
 		(
@@ -143,9 +138,6 @@ fn staging_testnet_config_genesis() -> RuntimeGenesisConfig {
 			// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
 			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
 				.unchecked_into(),
-			// DUMMY
-			array_bytes::hex2array_unchecked("0000000000000000000000000000000000000000000000000000000000000001")
-				.unchecked_into(),
 		),
 		(
 			// 5DyVtKWPidondEu8iHZgi6Ffv9yrJJ1NDNLom3X9cTDi98qp
@@ -167,9 +159,6 @@ fn staging_testnet_config_genesis() -> RuntimeGenesisConfig {
 			// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
 			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
 				.unchecked_into(),
-			// DUMMY
-			array_bytes::hex2array_unchecked("0000000000000000000000000000000000000000000000000000000000000002")
-				.unchecked_into(),
 		),
 		(
 			// 5HYZnKWe5FVZQ33ZRJK1rG3WaLMztxWrrNDb1JRwaHHVWyP9
@@ -190,9 +179,6 @@ fn staging_testnet_config_genesis() -> RuntimeGenesisConfig {
 				.unchecked_into(),
 			// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
 			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
-				.unchecked_into(),
-			// DUMMY
-			array_bytes::hex2array_unchecked("0000000000000000000000000000000000000000000000000000000000000003")
 				.unchecked_into(),
 		),
 	];
@@ -246,16 +232,7 @@ where
 /// Helper function to generate stash, controller and session key from seed.
 pub fn authority_keys_from_seed(
 	seed: &str,
-) -> (
-	AccountId,
-	AccountId,
-	GrandpaId,
-	BabeId,
-	ImOnlineId,
-	AuthorityDiscoveryId,
-	MixnetId,
-	SassafrasId,
-) {
+) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
 		get_account_id_from_seed::<sr25519::Public>(seed),
@@ -264,7 +241,6 @@ pub fn authority_keys_from_seed(
 		get_from_seed::<ImOnlineId>(seed),
 		get_from_seed::<AuthorityDiscoveryId>(seed),
 		get_from_seed::<MixnetId>(seed),
-		get_from_seed::<SassafrasId>(seed),
 	)
 }
 
@@ -278,7 +254,6 @@ pub fn testnet_genesis(
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
-		SassafrasId,
 	)>,
 	initial_nominators: Vec<AccountId>,
 	root_key: AccountId,
@@ -416,11 +391,6 @@ pub fn testnet_genesis(
 		},
 		glutton: Default::default(),
 		mixnet: Default::default(),
-		sassafras: SassafrasConfig {
-			authorities: initial_authorities.iter().map(|x| x.7.clone()).collect(),
-			epoch_config: kitchensink_runtime::SASSAFRAS_GENESIS_EPOCH_CONFIG,
-			..Default::default()
-		},
 	}
 }
 

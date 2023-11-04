@@ -162,10 +162,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
 	};
 
-/// The SASSAFAS epoch configuration at genesis.
-pub const SASSAFRAS_GENESIS_EPOCH_CONFIG: sp_consensus_sassafras::EpochConfiguration =
-	sp_consensus_sassafras::EpochConfiguration { attempts_number: 10, redundancy_factor: 2 };
-
 /// Native version.
 #[cfg(any(feature = "std", test))]
 pub fn native_version() -> NativeVersion {
@@ -494,13 +490,6 @@ impl pallet_babe::Config for Runtime {
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
-}
-
-impl pallet_sassafras::Config for Runtime {
-	type EpochLength = EpochDuration;
-	type MaxAuthorities = MaxAuthorities;
-	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
-	type WeightInfo = pallet_sassafras::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -2144,7 +2133,6 @@ construct_runtime!(
 		Statement: pallet_statement,
 		Broker: pallet_broker,
 		Mixnet: pallet_mixnet,
-		Sassafras: pallet_sassafras,
 	}
 );
 
@@ -2277,7 +2265,6 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
-		[pallet_sassafras, Sassafras]
 	);
 }
 

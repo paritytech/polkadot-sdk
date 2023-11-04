@@ -12,16 +12,25 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
 
+/// Only enable the benchmarking host functions when we actually want to benchmark.
+#[cfg(feature = "runtime-benchmarks")]
+type ExtendHostFunctions = (
+	sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
+/// Otherwise we only use the default Substrate host functions.
+#[cfg(not(feature = "runtime-benchmarks"))]
+type ExtendHostFunctions = (
+	sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+);
+
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
 impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
-	/// Only enable the benchmarking host functions when we actually want to benchmark.
-	#[cfg(feature = "runtime-benchmarks")]
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-	/// Otherwise we only use the default Substrate host functions.
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ExtendHostFunctions = ();
+	type ExtendHostFunctions = ExtendHostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		node_template_runtime::api::dispatch(method, data)

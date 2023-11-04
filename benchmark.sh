@@ -1,6 +1,6 @@
 #!/bin/bash
 
-binary="./target/release/substrate-node"
+binary="./target/release/node-template"
 
 steps=10
 repeat=3

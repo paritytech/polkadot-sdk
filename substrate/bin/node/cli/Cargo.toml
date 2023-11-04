@@ -62,8 +62,6 @@ sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage
 sp-io = { path = "../../../primitives/io" }
 sp-mixnet = { path = "../../../primitives/mixnet" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
-sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras" }
-sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils", features = ["bls12-381","ed-on-bls12-381-bandersnatch"] }
 
 # client dependencies
 sc-client-api = { path = "../../../client/api" }

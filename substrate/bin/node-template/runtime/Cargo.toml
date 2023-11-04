@@ -41,6 +41,9 @@ sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-f
 sp-version = { path = "../../../primitives/version", default-features = false}
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 
+pallet-sassafras = { path = "../../../frame/sassafras", default-features = false, features = ["construct-dummy-ring-context"]}
+sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras", default-features = false}
+
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api", default-features = false}
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false}
@@ -90,6 +93,8 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"pallet-sassafras/std",
+	"sp-consensus-sassafras/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -102,6 +107,7 @@ runtime-benchmarks = [
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-sassafras/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
@@ -116,5 +122,6 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-sassafras/try-runtime",
 ]
 experimental = [ "pallet-aura/experimental" ]
