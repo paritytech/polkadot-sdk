@@ -3,7 +3,7 @@
 - **Ring size**: the actual number of validators for an epoch
 - **Domain size**: a value which bounds the max size of the ring (max_ring_size = domain_size - 256)
 
-## Submit Tickets
+## Verify Submitted Tickets
 
 `x` = Number of tickets
 
