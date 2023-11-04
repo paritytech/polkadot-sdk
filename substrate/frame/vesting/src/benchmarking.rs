@@ -405,7 +405,7 @@ force_remove_vesting_schedule {
 	verify {
 		assert_eq!(
 		Vesting::<T>::vesting(&target).unwrap().len(),
-			(s - 1) as usize,
+			schedule_index as usize,
 			"Schedule count should reduce by 1"
 		);
 	}
