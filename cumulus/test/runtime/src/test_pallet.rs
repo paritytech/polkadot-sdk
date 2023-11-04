@@ -20,8 +20,6 @@ pub use pallet::*;
 /// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
-/// Allows to set `runtime::ParachainId` in genesis:
-pub const PARACHAIN_ID_RUNTIME_KEY: &[u8] = b":ParachainId:";
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -66,10 +64,7 @@ pub mod pallet {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
 			self.self_para_id.map(|para_id| {
-				sp_io::storage::set(
-					&sp_io::hashing::twox_128(&PARACHAIN_ID_RUNTIME_KEY),
-					&para_id.encode(),
-				)
+				super::ParachainId::set(para_id);
 			});
 		}
 	}

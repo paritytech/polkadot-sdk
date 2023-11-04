@@ -66,7 +66,6 @@ pub fn get_chain_spec_with_extra_endowed(
 	id: ParaId,
 	extra_endowed_accounts: Vec<AccountId>,
 ) -> ChainSpec {
-	#[allow(deprecated)]
 	ChainSpec::from_genesis(
 		"Local Testnet",
 		"local_testnet",
