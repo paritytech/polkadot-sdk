@@ -8,8 +8,8 @@
 //!
 //! ## Example: Runtime
 //!
-//! A cumulus based runtime is fairly similar to a normal [FRAME]-based runtime. Most notably, the
-//! following changes are applied to a normal FRAME-based runtime to make it a cumulus-based
+//! A Cumulus-based runtime is fairly similar to other [FRAME]-based runtimes. Most notably, the
+//! following changes are applied to a normal FRAME-based runtime to make it a Cumulus-based
 //! runtime:
 //!
 //! #### Cumulus Pallets
@@ -21,7 +21,7 @@
 //! - [`parachain-info`]
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", system_pallets)]
 //!
-//! Given that all cumulus-based runtimes use a simple aura-based consensus mechanism, the following
+//! Given that all Cumulus-based runtimes use a simple Aura-based consensus mechanism, the following
 //! pallets also need to be added:
 //!
 //! - [`pallet-timestamp`]
@@ -30,9 +30,10 @@
 // #![doc = docify::embed!("./src/lib.rs", consensus_pallets)]
 //!
 //!
-//! Finally, a separate macro, similar to `impl_runtime_api`, which create the default set of
-//! runtime apis, will generate the parachain runtime's main additional runtime api, also known as
-//! PVF.
+//! Finally, a separate macro, similar to `impl_runtime_api`, which creates the default set of
+//! runtime APIs, will generate the parachain runtime's validation runtime API, also known as
+//! parachain validation function (PVF). Without this API, the relay chain is unable to validate blocks
+//! produced by our parachain.
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", validate_block)]
 //!
 //!

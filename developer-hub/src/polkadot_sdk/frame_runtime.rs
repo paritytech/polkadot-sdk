@@ -15,8 +15,7 @@
 //!
 //! ## Introduction
 //!
-//! recall from [`crate::reference_docs::wasm_meta_protocol`] that at a very high, a substrate-based
-//! blockchain is made with it is composed of two parts:
+//! As described in [`crate::reference_docs::wasm_meta_protocol`], at a high-level substrate-based blockchains are composed of two parts:
 //!
 //! 1. A *runtime* which represents the state transition function (i.e. "Business Logic") of a
 //! blockchain, and is encoded as a Wasm blob.
@@ -46,7 +45,7 @@
 //! - [Errors](frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
 //!
 //! Most of these components are defined using macros, the full list of which can be found in
-//! [`frame::pallet_macros`]
+//! [`frame::pallet_macros`].
 //!
 //! ### Example
 //!
@@ -71,7 +70,7 @@
 //!
 //! ## More Examples
 //!
-//! You can find more FRAME examples that revolve around specific features at [`pallet_examples`]
+//! You can find more FRAME examples that revolve around specific features at [`pallet_examples`].
 
 #[cfg(test)]
 mod tests {

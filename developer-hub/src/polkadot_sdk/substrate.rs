@@ -13,9 +13,9 @@
 //!
 //! This, makes the task of designing a correct, safe and long-lasting blockchain system hard.
 //!
-//! Nonetheless, in strive towards achieve this goal, substrate embraces the following:
+//! Nonetheless, in strive towards achieve this goal, Substrate embraces the following:
 //!
-//! 1. Use of **Rust** as a modern, and safe programming language, which limits human error through
+//! 1. Use of **Rust** as a modern and safe programming language, which limits human error through
 //!    various means, most notably memory and type safety.
 //! 2. Substrate is written from the ground-up with a *generic, modular and extensible* design. This
 //!    ensures that software components can be easily swapped and upgraded. Examples of this is
@@ -29,7 +29,7 @@
 //! In essence, the meta-protocol of all Substrate based chains is the "Runtime as WASM blob"
 //! accord. This enables the Runtime to become inherently upgradeable, crucially without forks. The
 //! upgrade is merely a matter of the WASM blob being changed in the state, which is, in principle,
-//! same as updating an account's balance. Learn more about this in detail, in
+//! same as updating an account's balance. Learn more about this in detail in
 //! [`crate::reference_docs::wasm_meta_protocol`].
 //!
 //! [`frame`], Substrate's default runtime development library, takes the above safety practices
@@ -39,10 +39,10 @@
 //!
 //! ## How to Get Stared
 //!
-//! While most developer develop using [`crate::polkadot_sdk::frame_runtime`], it is worth noting a
+//! While most developers use [`crate::polkadot_sdk::frame_runtime`], it is worth noting a
 //! few (niche) alternatives:
 //!
-//! 1.It is entirely possible to craft a substrate-based runtime without FRAME, an example of which
+//! 1. It is entirely possible to craft a substrate-based runtime without FRAME, an example of which
 //! can be found [here](https://github.com/JoshOrndorff/frameless-node-template).
 //! 2. Substrate's client side code, as mentioned above, is also highly configurable, and many teams
 //!    embark on customizing the client, for example with a custom consensus algorithm. Notable
@@ -51,7 +51,7 @@
 //! - <https://github.com/Cardinal-Cryptography/aleph-node>
 //! - <https://github.com/availproject/avail>
 //!
-//! 3. A number of substrate-based templates are listed in [`crate::polkadot_sdk::templates`].
+//! 3. A number of Substrate-based templates are listed in [`crate::polkadot_sdk::templates`].
 //!
 //! ## Structure
 //!

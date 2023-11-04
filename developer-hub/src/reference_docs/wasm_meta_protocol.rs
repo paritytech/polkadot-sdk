@@ -3,7 +3,7 @@
 //! All Substrate based chains adhere to a unique architectural design novel to the Polkadot
 //! ecosystem. We refer to this design as the "WASM Meta Protocol".
 //!
-//! Consider the fact that a traditional blockchain software is usually a monolith artifact.
+//! Consider the fact that a traditional blockchain software is usually a monolithic artifact.
 //! Upgrading any part of the system implies upgrading the entire system. This has historically led
 //! to cumbersome forkful upgrades to be the status quo in the blockchain ecosystem.
 //!
@@ -13,7 +13,7 @@
 //! Substrate mixes these two ideas together, and takes the novel approach of storing the
 //! blockchain's main "state transition function" in the main blockchain state, the same fashion
 //! that a smart contract platform stores the code of individual contracts in its state. As noted in
-//! [`crate::reference_docs::blockchain_state_machines`], This state transition function is called
+//! [`crate::reference_docs::blockchain_state_machines`], this state transition function is called
 //! the **Runtime**, and WASM is chosen as the bytecode. The Runtime is stored under a special key
 //! in the state (see [`sp_core::storage::well_known_keys`]), and can be updated as a part of the
 //! state transition function's execution, just like a user's account balance can be updated.
