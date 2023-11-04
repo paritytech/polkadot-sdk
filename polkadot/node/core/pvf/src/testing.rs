@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Various things for testing other crates.
+//! Various utilities for testing.
 
 pub use crate::{
 	host::{EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME},
@@ -59,17 +59,21 @@ pub fn validate_candidate(
 ///
 /// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
 /// paths of the built workers.
-pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
+pub fn build_workers_and_get_paths(is_bench: bool) -> (PathBuf, PathBuf) {
 	// Only needs to be called once for the current process.
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
-	fn build_workers() {
-		let build_args = vec![
+	fn build_workers(is_bench: bool) {
+		let mut build_args = vec![
 			"build",
 			"--package=polkadot",
 			"--bin=polkadot-prepare-worker",
 			"--bin=polkadot-execute-worker",
 		];
+		if is_bench {
+			// Benches require --release. Regular tests are debug (no flag needed).
+			build_args.push("--release");
+		}
 		let mut cargo = std::process::Command::new("cargo");
 		let cmd = cargo
 			// wasm runtime not needed
@@ -113,7 +117,7 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 			}
 		}
 
-		build_workers();
+		build_workers(is_bench);
 
 		Mutex::new((prepare_worker_path, execute_worker_path))
 	});

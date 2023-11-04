@@ -16,14 +16,6 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-use nix::{
-	sys::{
-		resource::{Resource, Usage, UsageWho},
-		wait::WaitStatus,
-	},
-	unistd::ForkResult,
-};
-use os_pipe::PipeWriter;
 pub use polkadot_node_core_pvf_common::{
 	executor_intf::execute_artifact, worker_dir, SecurityStatus,
 };
@@ -32,6 +24,15 @@ pub use polkadot_node_core_pvf_common::{
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
+use nix::{
+	errno::Errno,
+	sys::{
+		resource::{Resource, Usage, UsageWho},
+		wait::WaitStatus,
+	},
+	unistd::{ForkResult, Pid},
+};
+use os_pipe::PipeWriter;
 use cpu_time::ProcessTime;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
@@ -148,7 +149,7 @@ pub fn worker_entrypoint(
 		worker_version,
 		&security_status,
 		|mut stream, worker_dir_path| {
-			let worker_pid = std::process::id();
+			let worker_pid = process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
 			let Handshake { executor_params } = recv_handshake(&mut stream)?;
@@ -176,11 +177,18 @@ pub fn worker_entrypoint(
 
 				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
-				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)?;
+				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
+					Ok(usage) => usage,
+					Err(errno) => {
+						let response = internal_error_from_errno("getrusage before", errno);
+						send_response(&mut stream, response)?;
+						continue
+					},
+				};
 
 				// SAFETY: new process is spawned within a single threaded process
 				let response = match unsafe { nix::unistd::fork() } {
-					Err(_errno) => Response::Panic(String::from("error forking")),
+                    Err(errno) => internal_error_from_errno("fork", errno),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
@@ -196,13 +204,12 @@ pub fn worker_entrypoint(
 							execution_timeout,
 						)
 					},
-					// parent
-					Ok(ForkResult::Parent { child: _child }) => {
+					Ok(ForkResult::Parent { child }) => {
 						// the read end will wait until all write ends have been closed,
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
 
-						handle_parent_process(pipe_reader, usage_before, execution_timeout)
+						handle_parent_process(pipe_reader, child, usage_before, execution_timeout)?
 					},
 				};
 
@@ -240,7 +247,7 @@ fn validate_using_artifact(
 	};
 
 	// duration is set to 0 here because the process duration is calculated on the parent process
-	Response::Ok { result_descriptor, duration: Duration::from_secs(0) }
+	Response::Ok { result_descriptor, duration: Duration::ZERO }
 }
 
 /// This is used to handle child process during pvf execute worker.
@@ -254,7 +261,7 @@ fn validate_using_artifact(
 ///
 /// - `executor_params`: Deterministically serialized execution environment semantics.
 ///
-/// - `params`:
+/// - `params`: Validation parameters.
 ///
 /// - `execution_timeout`: The timeout in `Duration`.
 ///
@@ -270,7 +277,7 @@ fn handle_child_process(
 ) -> ! {
 	gum::debug!(
 		target: LOG_TARGET,
-		worker_job_pid = %std::process::id(),
+		worker_job_pid = %process::id(),
 		"worker job: executing artifact",
 	);
 
@@ -280,8 +287,8 @@ fn handle_child_process(
 		execution_timeout.as_secs(),
 		execution_timeout.as_secs(),
 	)
-	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Response::Panic(err.to_string()));
+	.unwrap_or_else(|errno| {
+		send_child_response(&pipe_write, internal_error_from_errno("setrlimit", errno));
 	});
 
 	// Conditional variable to notify us when a thread is done.
@@ -298,6 +305,8 @@ fn handle_child_process(
 	)
 	.unwrap_or_else(|err| send_child_response(&pipe_write, Response::Panic(err.to_string())));
 
+	// TODO: We may not need this since there's only one thread here now. We do still need to
+	// control the stack size (see EXECUTE_THREAD_STACK_SIZE). Look into simplifying.
 	let executor_params_2 = executor_params.clone();
 	let execute_thread = thread::spawn_worker_thread_with_stack_size(
 		"execute thread",
@@ -306,7 +315,14 @@ fn handle_child_process(
 		WaitOutcome::Finished,
 		EXECUTE_THREAD_STACK_SIZE,
 	)
-	.unwrap_or_else(|err| send_child_response(&pipe_write, Response::Panic(err.to_string())));
+	.unwrap_or_else(|err| {
+		send_child_response(
+			&pipe_write,
+			Response::InternalError(InternalValidationError::CouldNotSpawnJobThread(
+				err.to_string(),
+			)),
+		)
+	});
 
 	let outcome = thread::wait_for_threads(condvar);
 
@@ -320,7 +336,7 @@ fn handle_child_process(
 		// If the CPU thread is not selected, we signal it to end, the join handle is
 		// dropped and the thread will finish in the background.
 		WaitOutcome::TimedOut => match cpu_time_monitor_thread.join() {
-			Ok(Some(cpu_time_elapsed)) => Response::TimedOut,
+			Ok(Some(_cpu_time_elapsed)) => Response::TimedOut,
 			Ok(None) => Response::InternalError(InternalValidationError::CpuTimeMonitorThread(
 				"error communicating over finished channel".into(),
 			)),
@@ -341,40 +357,39 @@ fn handle_child_process(
 ///
 /// - `pipe_read`: A `PipeReader` used to read data from the child process.
 ///
+/// - `child`: The child pid.
+///
 /// - `usage_before`: Resource usage statistics before executing the child process.
 ///
 /// - `timeout`: The maximum allowed time for the child process to finish, in `Duration`.
 ///
 /// # Returns
 ///
-/// - If no unexpected error occurr, this function return child response
-///
-/// - If an unexpected error occurr, this function returns `Response::Panic`
-///
-/// - If the child process timeout, it returns `Response::TimedOut`.
+/// - The response, either `Ok` or some error state.
 fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
+	child: Pid,
 	usage_before: Usage,
 	timeout: Duration,
-) -> Response {
-	let worker_pid = std::process::id();
-	let mut received_data = Vec::new();
+) -> io::Result<Response> {
+    let worker_pid = std::process::id();
 
 	// Read from the child.
-	if let Err(err) = pipe_read.read_to_end(&mut received_data) {
-		return Response::Panic(err.to_string())
+	let mut received_data = Vec::new();
+	if let Err(_err) = pipe_read.read_to_end(&mut received_data) {
+		// Swallow the error, it's not really helpful as to why the child died.
+		return Ok(Response::JobDied)
 	}
 
-	let status = nix::sys::wait::wait();
+	let status = nix::sys::wait::waitpid(child, None);
 
-	let usage_after: Usage;
-
-	match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
-		Ok(usage) => usage_after = usage,
-		Err(err) => return Response::Panic(err.to_string()),
+	let usage_after = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
+		Ok(usage) => usage,
+		Err(errno) => return Ok(internal_error_from_errno("getrusage after", errno)),
 	};
 
-	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
+	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on child.
+    // to report its own time.
 	// As `getrusage` returns resource usage from all terminated child processes,
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
@@ -394,9 +409,9 @@ fn handle_parent_process(
 							cpu_tv.as_millis(),
 							timeout.as_millis(),
 						);
-						return Response::TimedOut
+						return Ok(Response::TimedOut)
 					}
-					Response::Ok { result_descriptor, duration: cpu_tv }
+					Ok(Response::Ok { result_descriptor, duration: cpu_tv })
 				},
 				Ok(Response::TimedOut) => {
 					// Log if we exceed the timeout and the other thread hasn't
@@ -408,26 +423,23 @@ fn handle_parent_process(
 						cpu_tv.as_millis(),
 						timeout.as_millis(),
 					);
-					return Response::TimedOut
+					return Ok(Response::TimedOut)
 				},
-				Ok(response) => response,
-				Err(err) => Response::Panic(err.to_string()),
+                Ok(response) => Ok(response),
+                // There is either a bug or the job was hijacked. Should retry at any rate.
+                Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
 			}
 		},
-		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) =>
-			Response::Panic("child exited with failure".to_string()),
-		Ok(WaitStatus::Exited(_, exit_status)) =>
-			Response::Panic(format!("child exited with unexpected status {}", exit_status)),
-		Ok(WaitStatus::Signaled(_, sig, _)) => Response::Panic(format!(
-			"child ended with unexpected signal {:?}, timeout {} cpu_tv {} after {} before {}",
-			sig,
-			timeout.as_secs(),
-			cpu_tv.as_micros(),
-			usage_after.user_time().tv_sec() + usage_after.system_time().tv_sec(),
-			get_total_cpu_usage(usage_before).as_micros()
-		)),
-		Ok(_) => Response::Panic("child ended unexpectedly".to_string()),
-		Err(err) => Response::Panic(err.to_string()),
+        // The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
+        // death. But also, receiving any signal is unexpected, so treat them all the same.
+        Ok(WaitStatus::Signaled(..)) => Ok(Response::JobDied),
+        Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
+
+        // It is within an attacker's power to send an unexpected exit status. So we cannot treat
+        // this as an internal error (which would make us abstain), but must vote against.
+        Ok(unexpected_wait_status) => Ok(Response::UnexpectedJobStatus(format!(
+            "unexpected status from wait: {unexpected_wait_status:?}"
+        ))),
 	}
 }
 
@@ -462,4 +474,13 @@ fn send_child_response(mut pipe_write: &PipeWriter, response: Response) -> ! {
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 	process::exit(libc::EXIT_SUCCESS)
+}
+
+fn internal_error_from_errno(context: &'static str, errno: Errno) -> Response {
+	Response::InternalError(InternalValidationError::Kernel(format!(
+		"{}: {}: {}",
+		context,
+		errno,
+		io::Error::last_os_error()
+	)))
 }

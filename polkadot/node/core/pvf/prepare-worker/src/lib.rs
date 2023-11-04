@@ -33,7 +33,7 @@ use libc;
 use nix::{
 	errno::Errno,
 	sys::{
-		resource::{Resource, Usage, UsageWho},
+		resource::{Usage, UsageWho},
 		wait::WaitStatus,
 	},
 	unistd::{ForkResult, Pid},
@@ -63,7 +63,6 @@ use std::{
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use std::fs::File;
 
 /// Contains the bytes for a successfully compiled artifact.
 #[derive(Encode, Decode)]
@@ -168,7 +167,7 @@ pub fn worker_entrypoint(
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
 					Err(errno) => {
-						let result = Err(err_from_errno("getrusage before", errno));
+						let result = Err(error_from_errno("getrusage before", errno));
 						send_response(&mut stream, result)?;
 						continue
 					},
@@ -176,7 +175,7 @@ pub fn worker_entrypoint(
 
 				// SAFETY: new process is spawned within a single threaded process
 				let result = match unsafe { nix::unistd::fork() } {
-					Err(errno) => Err(err_from_errno("fork", errno)),
+					Err(errno) => Err(error_from_errno("fork", errno)),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
@@ -192,7 +191,6 @@ pub fn worker_entrypoint(
 							executor_params,
 						)
 					},
-					// parent
 					Ok(ForkResult::Parent { child }) => {
 						// the read end will wait until all write ends have been closed,
 						// this drop is necessary to avoid deadlock
@@ -208,6 +206,13 @@ pub fn worker_entrypoint(
 						)
 					},
 				};
+
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending result to host: {:?}",
+					result
+				);
 				send_response(&mut stream, result)?;
 			}
 		},
@@ -274,7 +279,7 @@ fn handle_child_process(
 ) -> ! {
 	gum::debug!(
 		target: LOG_TARGET,
-		worker_job_pid = %std::process::id(),
+		worker_job_pid = %process::id(),
 		"worker job: preparing artifact",
 	);
 
@@ -328,7 +333,7 @@ fn handle_child_process(
 		WaitOutcome::Finished,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
+		send_child_response(&pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	let outcome = thread::wait_for_threads(condvar);
@@ -375,7 +380,7 @@ fn handle_child_process(
 		// dropped and the thread will finish in the background.
 		WaitOutcome::TimedOut => {
 			match cpu_time_monitor_thread.join() {
-				Ok(Some(cpu_time_elapsed)) => Err(PrepareError::TimedOut),
+				Ok(Some(_cpu_time_elapsed)) => Err(PrepareError::TimedOut),
 				Ok(None) =>
 					Err(PrepareError::IoErr("error communicating over closed channel".into())),
 				// Errors in this thread are independent of the PVF.
@@ -394,6 +399,8 @@ fn handle_child_process(
 /// # Arguments
 ///
 /// - `pipe_read`: A `PipeReader` used to read data from the child process.
+///
+/// - `child`: The child pid.
 ///
 /// - `temp_artifact_dest`: The destination `PathBuf` to write the temporary artifact file.
 ///
@@ -419,18 +426,19 @@ fn handle_parent_process(
 	usage_before: Usage,
 	timeout: Duration,
 ) -> Result<PrepareStats, PrepareError> {
-	let mut received_data = Vec::new();
-
 	// Read from the child.
+	let mut received_data = Vec::new();
 	pipe_read
 		.read_to_end(&mut received_data)
 		// Swallow the error, it's not really helpful as to why the child died.
 		.map_err(|_errno| PrepareError::JobDied)?;
+
 	let status = nix::sys::wait::waitpid(child, None);
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
-		.map_err(|errno| err_from_errno("getrusage after", errno))?;
+		.map_err(|errno| error_from_errno("getrusage after", errno))?;
 
-	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
+	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on child.
+	// to report its own time.
 	// As `getrusage` returns resource usage from all terminated child processes,
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
@@ -440,8 +448,8 @@ fn handle_parent_process(
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
-					// This error happens when the job dies.
-					.map_err(|_err| PrepareError::JobDied)?;
+					// There is either a bug or the job was hijacked.
+					.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 			match result {
 				Err(PrepareError::TimedOut) => {
 					// Log if we exceed the timeout and the other thread hasn't
@@ -492,12 +500,16 @@ fn handle_parent_process(
 				},
 			}
 		},
-		Ok(WaitStatus::Exited(_, libc::EXIT_FAILURE)) =>
-			Err(PrepareError::Panic("child exited with failure".to_string())),
-		Ok(WaitStatus::Exited(_, exit_status)) =>
-			Err(PrepareError::Panic(format!("child exited with unexpected status {}", exit_status))),
-		Ok(_) => Err(PrepareError::Panic("child ended unexpectedly".to_string())),
-		Err(err) => Err(PrepareError::Panic(err.to_string())),
+		// The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
+		// death. But also, receiving any signal is unexpected, so treat them all the same.
+		Ok(WaitStatus::Signaled(..)) => Err(PrepareError::JobDied),
+		Err(errno) => Err(error_from_errno("waitpid", errno)),
+
+		// An attacker can make the child process return any exit status it wants. So we can treat
+		// all unexpected cases the same way.
+		Ok(unexpected_wait_status) => Err(PrepareError::IoErr(format!(
+			"unexpected status from wait: {unexpected_wait_status:?}"
+		))),
 	}
 }
 
@@ -534,6 +546,6 @@ fn send_child_response(mut pipe_write: &PipeWriter, response: Result<Response, P
 	process::exit(libc::EXIT_SUCCESS)
 }
 
-fn err_from_errno(context: &'static str, errno: Errno) -> PrepareError {
+fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
 	PrepareError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error()))
 }

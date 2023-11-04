@@ -88,12 +88,6 @@ pub enum Outcome {
 	/// a trap. Errors related to the preparation process are not expected to be encountered by the
 	/// execution workers.
 	InvalidCandidate { err: String, idle_worker: IdleWorker },
-	/// An internal error happened during the validation. Such an error is most likely related to
-	/// some transient glitch.
-	///
-	/// Should only ever be used for errors independent of the candidate and PVF. Therefore it may
-	/// be a problem with the worker, so we terminate it.
-	InternalError { err: InternalValidationError },
 	/// The execution time exceeded the hard limit. The worker is terminated.
 	HardTimeout,
 	/// An I/O error happened during communication with the worker. This may mean that the worker
@@ -101,6 +95,22 @@ pub enum Outcome {
 	IoErr,
 	/// An unexpected panic has occurred in the execution worker.
 	Panic { err: String },
+	/// The job process has died. We must kill the worker just in case.
+	///
+	/// We cannot treat this as an internal error because malicious code may have caused this.
+	JobDied,
+	/// The execute job returned an unexpected status. We might be able to recover from this error
+	/// instead of killing the worker, but this should be very rare anyway.
+	///
+	/// We cannot treat this as an internal error because malicious code may have caused this.
+	UnexpectedJobStatus { err: String },
+
+	/// An internal error happened during the validation. Such an error is most likely related to
+	/// some transient glitch.
+	///
+	/// Should only ever be used for errors independent of the candidate and PVF. Therefore it may
+	/// be a problem with the worker, so we terminate it.
+	InternalError { err: InternalValidationError },
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -232,6 +242,9 @@ pub async fn start_work(
 			},
 			Response::TimedOut => Outcome::HardTimeout,
 			Response::Panic(err) => Outcome::Panic { err },
+			Response::JobDied => Outcome::JobDied,
+			Response::UnexpectedJobStatus(err) => Outcome::UnexpectedJobStatus{err},
+
 			Response::InternalError(err) => Outcome::InternalError { err },
 		}
 	})
