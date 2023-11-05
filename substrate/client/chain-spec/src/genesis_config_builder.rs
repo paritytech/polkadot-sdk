@@ -44,6 +44,8 @@ impl<'a> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a> {
 
 impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 	/// Creates new instance using the provided code blob.
+	///
+	/// This code is later referred to as `runtime`.
 	pub fn new(code: &'a [u8]) -> Self {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
@@ -67,7 +69,9 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 			.0
 	}
 
-	/// Calls [`sp_genesis_builder::GenesisBuilder::create_default_config`] provided by runtime.
+	/// Returns the default `GenesisConfig` provided by the `runtime`.
+	///
+	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
 		let mut t = BasicExternalities::new_empty();
 		let call_result = self
@@ -78,7 +82,9 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 		Ok(from_slice(&default_config[..]).expect("returned value is json. qed."))
 	}
 
-	/// Calls [`sp_genesis_builder::GenesisBuilder::build_config`] provided by runtime.
+	/// Build the given `GenesisConfig` and returns the genesis state.
+	///
+	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config) provided by the `runtime`.
 	pub fn get_storage_for_config(&self, config: Value) -> core::result::Result<Storage, String> {
 		let mut ext = BasicExternalities::new_empty();
 
@@ -92,7 +98,7 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 		Ok(ext.into_storages())
 	}
 
-	/// Patch default `GenesisConfig` using given JSON patch and store it in the storage.
+	/// Creates the genesis state by patching the default `GenesisConfig` and applying it.
 	///
 	/// This function generates the `GenesisConfig` for the runtime by applying a provided JSON
 	/// patch. The patch modifies the default `GenesisConfig` allowing customization of the specific

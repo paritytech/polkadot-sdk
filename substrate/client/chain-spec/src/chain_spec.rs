@@ -238,6 +238,8 @@ struct RuntimeGenesisInner {
 enum RuntimeGenesisConfigJson {
 	/// Represents the explicit and comprehensive runtime genesis config in JSON format.
 	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
+	///
+	/// Using a full config is useful for when someone wants to ensure that a change in the runtime makes the deserialization fail and not silently add some default values.
 	Config(json::Value),
 	/// Represents a patch for the default runtime genesis config in JSON format which is
 	/// essentially a list of keys that are to be customized in runtime genesis config.
@@ -268,7 +270,7 @@ enum Genesis<G> {
 	Runtime(G),
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
-	/// and the runtime code. It is required to create and deserializa JSON chainspecs created with
+	/// and the runtime code. It is required to create and deserialize JSON chainspecs created with
 	/// deprecated `ChainSpec::from_genesis` method.
 	RuntimeAndCode(RuntimeInnerWrapper<G>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
@@ -789,10 +791,7 @@ pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8])
 	let mut path = json_path!["genesis", "runtimeGenesis", "code"];
 	let mut raw_path = json_path!["genesis", "raw", "top"];
 
-	println!("xxx");
-
 	if json_contains_path(&chain_spec, &mut path) {
-		println!("xxx1");
 		#[derive(Serialize)]
 		struct Container<'a> {
 			#[serde(with = "sp_core::bytes")]
@@ -802,14 +801,12 @@ pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8])
 		crate::json_patch::merge(chain_spec, code_patch);
 		true
 	} else if json_contains_path(&chain_spec, &mut raw_path) {
-		println!("xxx2");
 		#[derive(Serialize)]
 		struct Container<'a> {
 			#[serde(with = "sp_core::bytes", rename = "0x3a636f6465")]
 			code: &'a [u8],
 		}
 		let code_patch = json::json!({"genesis":{"raw":{"top": Container { code }}}});
-		println!("xxx2 {:#?}", code_patch);
 		crate::json_patch::merge(chain_spec, code_patch);
 		true
 	} else {
