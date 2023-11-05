@@ -84,7 +84,8 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 
 	/// Build the given `GenesisConfig` and returns the genesis state.
 	///
-	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config) provided by the `runtime`.
+	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config)
+	/// provided by the `runtime`.
 	pub fn get_storage_for_config(&self, config: Value) -> core::result::Result<Storage, String> {
 		let mut ext = BasicExternalities::new_empty();
 
