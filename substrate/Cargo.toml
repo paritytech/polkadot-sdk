@@ -17,6 +17,7 @@ subkey = { path = "bin/utils/subkey" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "bin/utils/chain-spec-builder" }
 
 sc-service = { path = "client/service" }
+sc-chain-spec = { path = "client/chain-spec" }
 sc-cli = { path = "client/cli" }
 sc-consensus-aura = { path = "client/consensus/aura" }
 sc-consensus-babe = { path = "client/consensus/babe" }
