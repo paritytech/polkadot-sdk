@@ -37,12 +37,12 @@ mod benchmarks {
 		Key::<T>::put(&caller);
 
 		let new_sudoer: T::AccountId = account("sudoer", 0, 0);
-		let new_sudoer_lookup = T::Lookup::unlookup(new_sudoer);
+		let new_sudoer_lookup = T::Lookup::unlookup(new_sudoer.clone());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), new_sudoer_lookup);
+		_(RawOrigin::Signed(caller.clone()), Some(new_sudoer_lookup));
 
-		assert_last_event::<T>(Event::KeyChanged { old_sudoer: Some(caller) });
+		assert_last_event::<T>(Event::KeyChanged { old: Some(caller), new: Some(new_sudoer) });
 	}
 
 	#[benchmark]
