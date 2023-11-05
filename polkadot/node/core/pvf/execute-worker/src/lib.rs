@@ -33,13 +33,14 @@ use nix::{
 	unistd::{ForkResult, Pid},
 };
 use os_pipe::PipeWriter;
+use cpu_time::ProcessTime;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		worker_event_loop, WorkerKind,
 	},
@@ -51,7 +52,7 @@ use std::{
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	process,
-	sync::Arc,
+	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
 
@@ -187,7 +188,7 @@ pub fn worker_entrypoint(
 
 				// SAFETY: new process is spawned within a single threaded process
 				let response = match unsafe { nix::unistd::fork() } {
-					Err(errno) => internal_error_from_errno("fork", errno),
+                    Err(errno) => internal_error_from_errno("fork", errno),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
@@ -292,6 +293,17 @@ fn handle_child_process(
 
 	// Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
+	let cpu_time_start = ProcessTime::now();
+
+	// Spawn a new thread that runs the CPU time monitor.
+	let (cpu_time_monitor_tx, cpu_time_monitor_rx) = channel::<()>();
+	let cpu_time_monitor_thread = thread::spawn_worker_thread(
+		"cpu time monitor thread",
+		move || cpu_time_monitor_loop(cpu_time_start, execution_timeout, cpu_time_monitor_rx),
+		Arc::clone(&condvar),
+		WaitOutcome::TimedOut,
+	)
+	.unwrap_or_else(|err| send_child_response(&pipe_write, Response::Panic(err.to_string())));
 
 	// TODO: We may not need this since there's only one thread here now. We do still need to
 	// control the stack size (see EXECUTE_THREAD_STACK_SIZE). Look into simplifying.
@@ -312,11 +324,29 @@ fn handle_child_process(
 		)
 	});
 
-	// There's only one thread that can trigger the condvar, so ignore the condvar outcome and
-	// simply join. We don't have to be concerned with timeouts, setrlimit will kill the process.
-	let response = execute_thread
-		.join()
-		.unwrap_or_else(|e| Response::Panic(stringify_panic_payload(e)));
+	let outcome = thread::wait_for_threads(condvar);
+
+	let response = match outcome {
+		WaitOutcome::Finished => {
+			let _ = cpu_time_monitor_tx.send(());
+			execute_thread
+				.join()
+				.unwrap_or_else(|e| Response::Panic(stringify_panic_payload(e)))
+		},
+		// If the CPU thread is not selected, we signal it to end, the join handle is
+		// dropped and the thread will finish in the background.
+		WaitOutcome::TimedOut => match cpu_time_monitor_thread.join() {
+			Ok(Some(_cpu_time_elapsed)) => Response::TimedOut,
+			Ok(None) => Response::InternalError(InternalValidationError::CpuTimeMonitorThread(
+				"error communicating over finished channel".into(),
+			)),
+			Err(e) => Response::InternalError(InternalValidationError::CpuTimeMonitorThread(
+				stringify_panic_payload(e),
+			)),
+		},
+		WaitOutcome::Pending =>
+			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
+	};
 
 	send_child_response(&pipe_write, response);
 }
@@ -342,6 +372,8 @@ fn handle_parent_process(
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<Response> {
+    let worker_pid = std::process::id();
+
 	// Read from the child.
 	let mut received_data = Vec::new();
 	if let Err(_err) = pipe_read.read_to_end(&mut received_data) {
@@ -356,37 +388,59 @@ fn handle_parent_process(
 		Err(errno) => return Ok(internal_error_from_errno("getrusage after", errno)),
 	};
 
-	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
+	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on child.
+    // to report its own time.
 	// As `getrusage` returns resource usage from all terminated child processes,
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
-	if cpu_tv >= timeout {
-		return Ok(Response::TimedOut)
-	}
 
-	let response = match status {
+	match status {
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			match Response::decode(&mut received_data.as_slice()) {
-				Ok(Response::Ok { result_descriptor, duration: _ }) =>
-					Response::Ok { result_descriptor, duration: cpu_tv },
-				Ok(response) => response,
-				// There is either a bug or the job was hijacked. Should retry at any rate.
-				Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
+				Ok(Response::Ok { result_descriptor, duration: _ }) => {
+					if cpu_tv.as_secs() >= timeout.as_secs() {
+						// Log if we exceed the timeout and the other thread hasn't
+						// finished.
+						gum::warn!(
+							target: LOG_TARGET,
+							%worker_pid,
+							"execute job took {}ms cpu time, exceeded execute timeout {}ms",
+							cpu_tv.as_millis(),
+							timeout.as_millis(),
+						);
+						return Ok(Response::TimedOut)
+					}
+					Ok(Response::Ok { result_descriptor, duration: cpu_tv })
+				},
+				Ok(Response::TimedOut) => {
+					// Log if we exceed the timeout and the other thread hasn't
+					// finished.
+					gum::warn!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"execute job took {}ms cpu time, exceeded execute timeout {}ms",
+						cpu_tv.as_millis(),
+						timeout.as_millis(),
+					);
+					return Ok(Response::TimedOut)
+				},
+                Ok(response) => Ok(response),
+                // There is either a bug or the job was hijacked. Should retry at any rate.
+                Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
 			}
 		},
-		// The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
-		// death. But also, receiving any signal is unexpected, so treat them all the same.
-		Ok(WaitStatus::Signaled(..)) => Response::JobDied,
-		Err(errno) => internal_error_from_errno("waitpid", errno),
+        // The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
+        // death. But also, receiving any signal is unexpected, so treat them all the same.
+        Ok(WaitStatus::Signaled(..)) => Ok(Response::JobDied),
+        Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
 
-		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
-		// this as an internal error (which would make us abstain), but must vote against.
-		Ok(unexpected_wait_status) => Response::UnexpectedJobStatus(format!(
-			"unexpected status from wait: {unexpected_wait_status:?}"
-		)),
-	};
-	Ok(response)
+        // It is within an attacker's power to send an unexpected exit status. So we cannot treat
+        // this as an internal error (which would make us abstain), but must vote against.
+        Ok(unexpected_wait_status) => Ok(Response::UnexpectedJobStatus(format!(
+            "unexpected status from wait: {unexpected_wait_status:?}"
+        ))),
+	}
 }
 
 /// Calculate the total CPU time from the given `usage` structure, returned from
