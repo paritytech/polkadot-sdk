@@ -290,7 +290,10 @@ rusty_fork_test! {
 			);
 
 			// Note that we get a more specific error if the job died than if the whole worker died.
-			assert_matches!(result, Err(PrepareError::JobDied));
+			assert_matches!(
+				result,
+				Err(PrepareError::JobDied(err)) if err == "received signal: SIGKILL"
+			);
 		})
 	}
 
@@ -333,7 +336,8 @@ rusty_fork_test! {
 			// Note that we get a more specific error if the job died than if the whole worker died.
 			assert_matches!(
 				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err))) if err == "asdf"
+				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err)))
+					if err == "received signal: SIGKILL"
 			);
 		})
 	}

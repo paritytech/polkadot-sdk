@@ -28,7 +28,7 @@ use cpu_time::ProcessTime;
 use nix::{
 	errno::Errno,
 	sys::{
-		resource::{Resource, Usage, UsageWho},
+		resource::{Usage, UsageWho},
 		wait::WaitStatus,
 	},
 	unistd::{ForkResult, Pid},
@@ -286,16 +286,6 @@ fn handle_child_process(
 		worker_job_pid = %process::id(),
 		"worker job: executing artifact",
 	);
-
-	// Set a hard CPU time limit for the child process.
-	nix::sys::resource::setrlimit(
-		Resource::RLIMIT_CPU,
-		execution_timeout.as_secs(),
-		execution_timeout.as_secs(),
-	)
-	.unwrap_or_else(|errno| {
-		send_child_response(&pipe_write, internal_error_from_errno("setrlimit", errno));
-	});
 
 	// Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
