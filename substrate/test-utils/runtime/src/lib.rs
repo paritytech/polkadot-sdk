@@ -1020,7 +1020,7 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use frame_support::dispatch::DispatchInfo;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sp_api::{ApiExt, ProvideRuntimeApi};
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
@@ -1052,7 +1052,11 @@ mod tests {
 		// Create a block that sets the `:heap_pages` to 32 pages of memory which corresponds to
 		// ~2048k of heap memory.
 		let (new_at_hash, block) = {
-			let mut builder = client.new_block(Default::default()).unwrap();
+			let mut builder = BlockBuilderBuilder::new(&client)
+				.on_parent_block(best_hash)
+				.with_parent_block_number(0)
+				.build()
+				.unwrap();
 			builder.push_storage_change(HEAP_PAGES.to_vec(), Some(32u64.encode())).unwrap();
 			let block = builder.build().unwrap().block;
 			let hash = block.header.hash();

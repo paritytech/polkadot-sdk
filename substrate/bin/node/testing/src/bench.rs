@@ -39,8 +39,8 @@ use kitchensink_runtime::{
 	RuntimeCall, Signature, SystemCall, UncheckedExtrinsic,
 };
 use node_primitives::Block;
-use sc_block_builder::BlockBuilderProvider;
-use sc_client_api::execution_extensions::ExecutionExtensions;
+use sc_block_builder::BlockBuilderBuilder;
+use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedAux};
 use sc_executor::{NativeElseWasmExecutor, WasmExecutionMethod, WasmtimeInstantiationStrategy};
@@ -455,8 +455,13 @@ impl BenchDb {
 	/// Generate new block using this database.
 	pub fn generate_block(&mut self, content: BlockContent) -> Block {
 		let client = self.client();
+		let chain = client.usage_info().chain;
 
-		let mut block = client.new_block(Default::default()).expect("Block creation failed");
+		let mut block = BlockBuilderBuilder::new(&client)
+			.on_parent_block(chain.best_hash)
+			.with_parent_block_number(chain.best_number)
+			.build()
+			.expect("Failed to create block builder.");
 
 		for extrinsic in self.generate_inherents(&client) {
 			block.push(extrinsic).expect("Push inherent failed");
