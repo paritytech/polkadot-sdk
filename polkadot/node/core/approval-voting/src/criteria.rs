@@ -1239,7 +1239,7 @@ mod tests {
 		let samples = generate_samples(rand_chacha, MAX_MODULO_SAMPLES + 1, 100);
 		let expected = vec![
 			42, 54, 55, 93, 64, 27, 49, 15, 83, 71, 62, 1, 43, 77, 97, 41, 7, 69, 0, 88, 59, 14,
-			82, 19, 79, 17, 75, 66, 30,
+			23, 87, 47, 4, 51, 12, 74, 56, 50, 44, 9, 82, 19, 79, 17, 75, 66, 30,
 		]
 		.into_iter()
 		.map(Into::into)
