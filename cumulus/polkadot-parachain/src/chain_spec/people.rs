@@ -22,16 +22,10 @@ use std::{path::PathBuf, str::FromStr};
 /// Collects all supported People configurations.
 #[derive(Debug, PartialEq)]
 pub enum PeopleRuntimeType {
-	Kusama,
-	KusamaLocal,
-	KusamaDevelopment, // used by benchmarks
-
-	Polkadot,
-	PolkadotLocal,
-	PolkadotDevelopment, // used by benchmarks
-
 	Rococo,
+	RococoLocal,
 	Westend,
+	WestendLocal,
 }
 
 impl FromStr for PeopleRuntimeType {
@@ -39,14 +33,10 @@ impl FromStr for PeopleRuntimeType {
 
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
-			polkadot::PEOPLE_POLKADOT => Ok(PeopleRuntimeType::Polkadot),
-			polkadot::PEOPLE_POLKADOT_LOCAL => Ok(PeopleRuntimeType::PolkadotLocal),
-			polkadot::PEOPLE_POLKADOT_DEVELOPMENT => Ok(PeopleRuntimeType::PolkadotDevelopment),
-			kusama::PEOPLE_KUSAMA => Ok(PeopleRuntimeType::Kusama),
-			kusama::PEOPLE_KUSAMA_LOCAL => Ok(PeopleRuntimeType::KusamaLocal),
-			kusama::PEOPLE_KUSAMA_DEVELOPMENT => Ok(PeopleRuntimeType::KusamaDevelopment),
 			rococo::PEOPLE_ROCOCO => Ok(PeopleRuntimeType::Rococo),
+			rococo::PEOPLE_ROCOCO_LOCAL => Ok(PeopleRuntimeType::RococoLocal),
 			westend::PEOPLE_WESTEND => Ok(PeopleRuntimeType::Westend),
+			westend::PEOPLE_WESTEND_LOCAL => Ok(PeopleRuntimeType::WestendLocal),
 			_ => Err(format!("Value '{}' is not configured yet", value)),
 		}
 	}
@@ -57,60 +47,33 @@ impl PeopleRuntimeType {
 
 	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			PeopleRuntimeType::Polkadot |
-			PeopleRuntimeType::PolkadotLocal |
-			PeopleRuntimeType::PolkadotDevelopment =>
-				Ok(Box::new(polkadot::PeopleChainSpec::from_json_file(path)?)),
-			PeopleRuntimeType::Kusama |
-			PeopleRuntimeType::KusamaLocal |
-			PeopleRuntimeType::KusamaDevelopment =>
-				Ok(Box::new(kusama::PeopleChainSpec::from_json_file(path)?)),
-			PeopleRuntimeType::Rococo =>
+			PeopleRuntimeType::Rococo | PeopleRuntimeType::RococoLocal =>
 				Ok(Box::new(rococo::PeopleChainSpec::from_json_file(path)?)),
-			PeopleRuntimeType::Westend =>
+			PeopleRuntimeType::Westend | PeopleRuntimeType::WestendLocal =>
 				Ok(Box::new(westend::PeopleChainSpec::from_json_file(path)?)),
 		}
 	}
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			PeopleRuntimeType::Polkadot =>
-				Ok(Box::new(polkadot::PeopleChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/people-polkadot.json")[..],
-				)?)),
-			PeopleRuntimeType::PolkadotLocal => Ok(Box::new(polkadot::local_config(
-				polkadot::PEOPLE_POLKADOT_LOCAL,
-				"Polkadot People Local",
-				"polkadot-local",
-				ParaId::new(1010),
-			))),
-			PeopleRuntimeType::PolkadotDevelopment => Ok(Box::new(polkadot::local_config(
-				polkadot::PEOPLE_POLKADOT_DEVELOPMENT,
-				"Polkadot People Development",
-				"polkadot-dev",
-				ParaId::new(1010),
-			))),
-			PeopleRuntimeType::Kusama => Ok(Box::new(kusama::PeopleChainSpec::from_json_bytes(
-				&include_bytes!("../../../parachains/chain-specs/people-kusama.json")[..],
-			)?)),
-			PeopleRuntimeType::KusamaLocal => Ok(Box::new(kusama::local_config(
-				kusama::PEOPLE_KUSAMA_LOCAL,
-				"Kusama People Local",
-				"kusama-local",
-				ParaId::new(1010),
-			))),
-			PeopleRuntimeType::KusamaDevelopment => Ok(Box::new(kusama::local_config(
-				kusama::PEOPLE_KUSAMA_DEVELOPMENT,
-				"Kusama People Development",
-				"kusama-dev",
-				ParaId::new(1010),
-			))),
 			PeopleRuntimeType::Rococo => Ok(Box::new(rococo::PeopleChainSpec::from_json_bytes(
 				&include_bytes!("../../../parachains/chain-specs/people-rococo.json")[..],
 			)?)),
+			PeopleRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
+				rococo::PEOPLE_ROCOCO_LOCAL,
+				"Rococo People Local",
+				"rococo-local",
+				ParaId::new(1010),
+			))),
 			PeopleRuntimeType::Westend => Ok(Box::new(westend::PeopleChainSpec::from_json_bytes(
 				&include_bytes!("../../../parachains/chain-specs/people-westend.json")[..],
 			)?)),
+			PeopleRuntimeType::WestendLocal => Ok(Box::new(westend::local_config(
+				westend::PEOPLE_WESTEND_LOCAL,
+				"Westend People Local",
+				"westend-local",
+				ParaId::new(1010),
+			))),
 		}
 	}
 }
@@ -134,12 +97,13 @@ pub mod rococo {
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
-	use parachains_common::{constants::rococo_currency, AccountId, AuraId};
+	use parachains_common::{rococo::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
-	const PEOPLE_ROCOCO_ED: PeopleBalance = rococo_currency::EXISTENTIAL_DEPOSIT;
+	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
+	const PEOPLE_ROCOCO_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type PeopleChainSpec =
@@ -157,81 +121,72 @@ pub mod rococo {
 		properties.insert("tokenSymbol".into(), "ROC".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		PeopleChainSpec::from_genesis(
-			// Name
-			chain_name,
-			// ID
-			super::ensure_id(id).expect("invalid id"),
-			ChainType::Local,
-			move || {
-				genesis(
-					// initial collators.
-					vec![
-						(
-							get_account_id_from_seed::<sr25519::Public>("Alice"),
-							get_collator_keys_from_seed::<AuraId>("Alice"),
-						),
-						(
-							get_account_id_from_seed::<sr25519::Public>("Bob"),
-							get_collator_keys_from_seed::<AuraId>("Bob"),
-						),
-					],
-					vec![
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_account_id_from_seed::<sr25519::Public>("Charlie"),
-						get_account_id_from_seed::<sr25519::Public>("Dave"),
-						get_account_id_from_seed::<sr25519::Public>("Eve"),
-						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					],
-					para_id,
-				)
-			},
-			Vec::new(),
-			None,
-			None,
-			None,
-			Some(properties),
+		PeopleChainSpec::builder(
+			people_rococo_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
+		.with_name(chain_name)
+		.with_id(super::ensure_id(id).expect("invalid id"))
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(genesis(
+			// initial collators.
+			vec![
+				(
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+				),
+				(
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				),
+			],
+			vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			],
+			para_id,
+		))
+		.with_properties(properties)
+		.build()
 	}
 
 	fn genesis(
 		invulnerables: Vec<(AccountId, AuraId)>,
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
-	) -> people_rococo_runtime::RuntimeGenesisConfig {
-		people_rococo_runtime::RuntimeGenesisConfig {
-			system: people_rococo_runtime::SystemConfig {
-				code: people_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!")
-					.to_vec(),
-				..Default::default()
-			},
-			balances: people_rococo_runtime::BalancesConfig {
-				balances: endowed_accounts
+	) -> serde_json::Value {
+		serde_json::json!({
+			"balances": {
+				"balances": endowed_accounts
 					.iter()
 					.cloned()
-					.map(|k| (k, PEOPLE_ROCOCO_ED * 4096))
-					.collect(),
+					.map(|k| (k, PEOPLE_ROCOCO_ED * 524_288))
+					.collect::<Vec<_>>(),
 			},
-			parachain_info: people_rococo_runtime::ParachainInfoConfig {
-				parachain_id: id,
-				..Default::default()
+			"parachainInfo": {
+				"parachainId": id,
 			},
-			collator_selection: people_rococo_runtime::CollatorSelectionConfig {
-				invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-				candidacy_bond: PEOPLE_ROCOCO_ED * 16,
-				..Default::default()
+			"collatorSelection": {
+				"invulnerables": invulnerables
+					.iter()
+					.cloned()
+					.map(|(acc, _)| acc)
+					.collect::<Vec<_>>(),
+				"candidacyBond": PEOPLE_ROCOCO_ED * 16,
 			},
-			session: people_rococo_runtime::SessionConfig {
-				keys: invulnerables
+			"session": {
+				"keys": invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -240,16 +195,12 @@ pub mod rococo {
 							people_rococo_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
-			polkadot_xcm: people_rococo_runtime::PolkadotXcmConfig {
-				safe_xcm_version: Some(SAFE_XCM_VERSION),
-				..Default::default()
-			},
-		}
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
+			}
+		})
 	}
 }
 
@@ -259,12 +210,13 @@ pub mod westend {
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
-	use parachains_common::{constants::westend_currency, AccountId, AuraId};
+	use parachains_common::{westend::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const PEOPLE_WESTEND: &str = "people-westend";
-	const PEOPLE_WESTEND_ED: PeopleBalance = westend_currency::EXISTENTIAL_DEPOSIT;
+	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
+	const PEOPLE_WESTEND_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type PeopleChainSpec =
@@ -282,81 +234,72 @@ pub mod westend {
 		properties.insert("tokenSymbol".into(), "WND".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		PeopleChainSpec::from_genesis(
-			// Name
-			chain_name,
-			// ID
-			super::ensure_id(id).expect("invalid id"),
-			ChainType::Local,
-			move || {
-				genesis(
-					// initial collators.
-					vec![
-						(
-							get_account_id_from_seed::<sr25519::Public>("Alice"),
-							get_collator_keys_from_seed::<AuraId>("Alice"),
-						),
-						(
-							get_account_id_from_seed::<sr25519::Public>("Bob"),
-							get_collator_keys_from_seed::<AuraId>("Bob"),
-						),
-					],
-					vec![
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_account_id_from_seed::<sr25519::Public>("Charlie"),
-						get_account_id_from_seed::<sr25519::Public>("Dave"),
-						get_account_id_from_seed::<sr25519::Public>("Eve"),
-						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-						get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-						get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					],
-					para_id,
-				)
-			},
-			Vec::new(),
-			None,
-			None,
-			None,
-			Some(properties),
+		PeopleChainSpec::builder(
+			people_westend_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
+		.with_name(chain_name)
+		.with_id(super::ensure_id(id).expect("invalid id"))
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(genesis(
+			// initial collators.
+			vec![
+				(
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+				),
+				(
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				),
+			],
+			vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			],
+			para_id,
+		))
+		.with_properties(properties)
+		.build()
 	}
 
 	fn genesis(
 		invulnerables: Vec<(AccountId, AuraId)>,
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
-	) -> people_westend_runtime::RuntimeGenesisConfig {
-		people_westend_runtime::RuntimeGenesisConfig {
-			system: people_westend_runtime::SystemConfig {
-				code: people_westend_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!")
-					.to_vec(),
-				..Default::default()
-			},
-			balances: people_westend_runtime::BalancesConfig {
-				balances: endowed_accounts
+	) -> serde_json::Value {
+		serde_json::json!({
+			"balances": {
+				"balances": endowed_accounts
 					.iter()
 					.cloned()
-					.map(|k| (k, PEOPLE_WESTEND_ED * 4096))
-					.collect(),
+					.map(|k| (k, PEOPLE_WESTEND_ED * 524_288))
+					.collect::<Vec<_>>(),
 			},
-			parachain_info: people_westend_runtime::ParachainInfoConfig {
-				parachain_id: id,
-				..Default::default()
+			"parachainInfo": {
+				"parachainId": id,
 			},
-			collator_selection: people_westend_runtime::CollatorSelectionConfig {
-				invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-				candidacy_bond: PEOPLE_WESTEND_ED * 16,
-				..Default::default()
+			"collatorSelection": {
+				"invulnerables": invulnerables
+					.iter()
+					.cloned()
+					.map(|(acc, _)| acc)
+					.collect::<Vec<_>>(),
+				"candidacyBond": PEOPLE_WESTEND_ED * 16,
 			},
-			session: people_westend_runtime::SessionConfig {
-				keys: invulnerables
+			"session": {
+				"keys": invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -365,15 +308,11 @@ pub mod westend {
 							people_westend_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			aura: Default::default(),
-			aura_ext: Default::default(),
-			parachain_system: Default::default(),
-			polkadot_xcm: people_westend_runtime::PolkadotXcmConfig {
-				safe_xcm_version: Some(SAFE_XCM_VERSION),
-				..Default::default()
-			},
-		}
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
+			}
+		})
 	}
 }

@@ -549,6 +549,24 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
+			Runtime::People(parent_relay) => match parent_relay {
+				chain_spec::people::PeopleRuntimeType::Rococo |
+				chain_spec::people::PeopleRuntimeType::RococoLocal => {
+					let $partials = new_partial::<chain_spec::people::rococo::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					$code
+				},
+				chain_spec::people::PeopleRuntimeType::Westend |
+				chain_spec::people::PeopleRuntimeType::WestendLocal => {
+					let $partials = new_partial::<chain_spec::people::westend::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					$code
+				},
+			},
 		}
 	};
 }
@@ -730,33 +748,8 @@ macro_rules! construct_async_run {
 			},
 			Runtime::People(people_runtime_type) => {
 				match people_runtime_type {
-				 	chain_spec::people::PeopleRuntimeType::Polkadot |
-					chain_spec::people::PeopleRuntimeType::PolkadotLocal |
-					chain_spec::people::PeopleRuntimeType::PolkadotDevelopment => {
-						runner.async_run(|$config| {
-							let $components = new_partial::<chain_spec::people::polkadot::RuntimeApi, _>(
-								&$config,
-								crate::service::aura_build_import_queue::<_, AuraId>,
-							)?;
-
-							let task_manager = $components.task_manager;
-							{ $( $code )* }.map(|v| (v, task_manager))
-						})
-					},
-					chain_spec::people::PeopleRuntimeType::Kusama |
-					chain_spec::people::PeopleRuntimeType::KusamaLocal |
-					chain_spec::people::PeopleRuntimeType::KusamaDevelopment => {
-						runner.async_run(|$config| {
-							let $components = new_partial::<chain_spec::people::kusama::RuntimeApi, _>(
-								&$config,
-								crate::service::aura_build_import_queue::<_, AuraId>,
-							)?;
-
-							let task_manager = $components.task_manager;
-							{ $( $code )* }.map(|v| (v, task_manager))
-						})
-					},
-					chain_spec::people::PeopleRuntimeType::Rococo => {
+					chain_spec::people::PeopleRuntimeType::Rococo |
+					chain_spec::people::PeopleRuntimeType::RococoLocal => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::people::rococo::RuntimeApi, _>(
 								&$config,
@@ -767,7 +760,8 @@ macro_rules! construct_async_run {
 							{ $( $code )* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::people::PeopleRuntimeType::Westend => {
+					chain_spec::people::PeopleRuntimeType::Westend |
+					chain_spec::people::PeopleRuntimeType::WestendLocal => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::people::westend::RuntimeApi, _>(
 								&$config,
@@ -1093,32 +1087,16 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 					Runtime::People(people_runtime_type) => match people_runtime_type {
-						chain_spec::people::PeopleRuntimeType::Polkadot |
-						chain_spec::people::PeopleRuntimeType::PolkadotLocal |
-						chain_spec::people::PeopleRuntimeType::PolkadotDevelopment =>
-							crate::service::start_generic_aura_node::<
-								chain_spec::people::polkadot::RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-								.await
-								.map(|r| r.0),
-						chain_spec::people::PeopleRuntimeType::Kusama |
-						chain_spec::people::PeopleRuntimeType::KusamaLocal |
-						chain_spec::people::PeopleRuntimeType::KusamaDevelopment =>
-							crate::service::start_generic_aura_node::<
-								chain_spec::people::kusama::RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
-						chain_spec::people::PeopleRuntimeType::Rococo =>
+						chain_spec::people::PeopleRuntimeType::Rococo |
+						chain_spec::people::PeopleRuntimeType::RococoLocal =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::people::rococo::RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
 							.map(|r| r.0),
-						chain_spec::people::PeopleRuntimeType::Westend =>
+						chain_spec::people::PeopleRuntimeType::Westend |
+						chain_spec::people::PeopleRuntimeType::WestendLocal =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::people::westend::RuntimeApi,
 								AuraId,
