@@ -130,22 +130,6 @@ fn relay_vrf_modulo_transcript_v2(relay_vrf_story: RelayVRFStory) -> Transcript 
 /// A hard upper bound on num_cores * target_checkers / num_validators
 const MAX_MODULO_SAMPLES: usize = 40;
 
-use std::convert::AsMut;
-
-struct BigArray(pub [u8; MAX_MODULO_SAMPLES * 4]);
-
-impl Default for BigArray {
-	fn default() -> Self {
-		BigArray([0u8; MAX_MODULO_SAMPLES * 4])
-	}
-}
-
-impl AsMut<[u8]> for BigArray {
-	fn as_mut(&mut self) -> &mut [u8] {
-		self.0.as_mut()
-	}
-}
-
 /// Takes the VRF output as input and returns a Vec of cores the validator is assigned
 /// to as a tranche0 checker.
 fn relay_vrf_modulo_cores(
@@ -194,7 +178,7 @@ fn generate_samples(
 		);
 	}
 
-	let num_samples = min(MAX_MODULO_SAMPLES, min(num_samples, max_cores / 2));
+	let num_samples = min(MAX_MODULO_SAMPLES, min(num_samples, max_cores));
 
 	let mut random_cores = (0..max_cores as u32).map(|val| val.into()).collect::<Vec<CoreIndex>>();
 	let (samples, _) = random_cores.partial_shuffle(&mut rand_chacha, num_samples as usize);
@@ -1221,7 +1205,7 @@ mod tests {
 		assert_eq!(samples, expected);
 
 		let samples = generate_samples(rand_chacha.clone(), 6, 7);
-		let expected = vec![5, 4, 2].into_iter().map(Into::into).collect_vec();
+		let expected = vec![0, 3, 6, 5, 4, 2].into_iter().map(Into::into).collect_vec();
 		assert_eq!(samples, expected);
 
 		let samples = generate_samples(rand_chacha.clone(), 6, 12);
