@@ -74,20 +74,29 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFro
 		);
 
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
-		// We will read up to 5 instructions. This allows up to 3 `ClearOrigin` instructions. We
-		// allow for more than one since anything beyond the first is a no-op and it's conceivable
-		// that composition of operations might result in more than one being appended.
-		let end = instructions.len().min(5);
-		instructions[..end]
-			.matcher()
-			.match_next_inst(|inst| match inst {
+		fn funds_holding_register<RuntimeCall>(
+			inst: &Instruction<RuntimeCall>,
+		) -> Result<(), ProcessMessageError> {
+			match inst {
 				ReceiveTeleportedAsset(..) | ReserveAssetDeposited(..) => Ok(()),
 				WithdrawAsset(ref assets) if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION => Ok(()),
 				ClaimAsset { ref assets, .. } if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION =>
 					Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
-			})?
+			}
+		}
+		// We will read up to 6 instructions. This allows up to 3 `ClearOrigin` instructions. We
+		// allow for more than one since anything beyond the first is a no-op and it's conceivable
+		// that composition of operations might result in more than one being appended.
+		let end = instructions.len().min(6);
+		instructions[..end]
+			.matcher()
+			// ensure there is at least one instruction loading funds in holding register
+			.match_next_inst(|inst| funds_holding_register(inst))?
+			.skip_inst_while(|inst| funds_holding_register(inst).is_ok())?
+			// skip `ClearOrigin` instructions
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
+			// ensure required weight is bought using funds prepared above
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
 					if weight.all_gte(max_weight) =>
