@@ -30,8 +30,7 @@ variables:
   RUSTY_CACHIER_COMPRESSION_METHOD: zstd
   NEXTEST_FAILURE_OUTPUT: immediate-final
   NEXTEST_SUCCESS_OUTPUT: final
-  #todo: remove once zombienet is released:
-  ZOMBIENET_IMAGE: "docker.io/paritypr/zombienet:df998b63"
+  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.79"
   DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 default:
