@@ -73,7 +73,8 @@ impl<T> Spinlock<T> {
 	}
 
 	// SAFETY: It should be only called from the guard's destructor. Calling it explicitly while
-	// the guard is alive is undefined behavior.
+	// the guard is alive is undefined behavior, as it breaks the security contract of `Deref` and
+	// `DerefMut`, which implies that lock is held at the moment of dereferencing.
 	#[inline]
 	unsafe fn unlock(&self) {
 		self.lock.store(false, Ordering::Release);
