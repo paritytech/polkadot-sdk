@@ -519,7 +519,7 @@ impl<G, E> ChainSpec<G, E> {
 
 	/// Create hardcoded spec.
 	#[deprecated(
-		note = "`from_genesis` is planned to be removed in December 2023. Use `builder()` instead."
+		note = "`from_genesis` is planned to be removed in May 2024. Use `builder()` instead."
 	)]
 	// deprecated note: Genesis<G>::Runtime + GenesisSource::Factory shall also be removed
 	pub fn from_genesis<F: Fn() -> G + 'static + Send + Sync>(
