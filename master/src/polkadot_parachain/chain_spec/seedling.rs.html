@@ -55,20 +55,6 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -94,50 +80,36 @@
 <span class="kw">use </span><span class="kw">super</span>::get_collator_keys_from_seed;
 
 <span class="doccomment">/// Specialized `ChainSpec` for the seedling parachain runtime.
-</span><span class="kw">pub type </span>SeedlingChainSpec =
-	sc_service::GenericChainSpec&lt;seedling_runtime::RuntimeGenesisConfig, Extensions&gt;;
+</span><span class="kw">pub type </span>SeedlingChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="kw">pub fn </span>get_seedling_chain_spec() -&gt; SeedlingChainSpec {
-	SeedlingChainSpec::from_genesis(
-		<span class="string">&quot;Seedling Local Testnet&quot;</span>,
-		<span class="string">&quot;seedling_local_testnet&quot;</span>,
-		ChainType::Local,
-		<span class="kw">move </span>|| {
-			seedling_testnet_genesis(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				<span class="number">2000</span>.into(),
-				<span class="macro">vec!</span>[get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>)],
-			)
-		},
-		Vec::new(),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
+	SeedlingChainSpec::builder(
+		seedling_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: <span class="number">2000 </span>},
 	)
+	.with_name(<span class="string">&quot;Seedling Local Testnet&quot;</span>)
+	.with_id(<span class="string">&quot;seedling_local_testnet&quot;</span>)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(seedling_testnet_genesis(
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		<span class="number">2000</span>.into(),
+		<span class="macro">vec!</span>[get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>)],
+	))
+	.with_boot_nodes(Vec::new())
+	.build()
 }
 
 <span class="kw">fn </span>seedling_testnet_genesis(
 	root_key: AccountId,
 	parachain_id: ParaId,
 	collators: Vec&lt;AuraId&gt;,
-) -&gt; seedling_runtime::RuntimeGenesisConfig {
-	seedling_runtime::RuntimeGenesisConfig {
-		system: seedling_runtime::SystemConfig {
-			code: seedling_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not build, please build it!&quot;</span>)
-				.to_vec(),
-			..Default::default()
+) -&gt; serde_json::Value {
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key) },
+		<span class="string">&quot;parachainInfo&quot;</span>:  {
+			<span class="string">&quot;parachainId&quot;</span>: parachain_id,
 		},
-		sudo: seedling_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
-		parachain_info: seedling_runtime::ParachainInfoConfig {
-			parachain_id,
-			..Default::default()
-		},
-		parachain_system: Default::default(),
-		aura: seedling_runtime::AuraConfig { authorities: collators },
-		aura_ext: Default::default(),
-	}
+		<span class="string">&quot;aura&quot;</span>: { <span class="string">&quot;authorities&quot;</span>: collators },
+	})
 }
 </code></pre></div></section></main></body></html>

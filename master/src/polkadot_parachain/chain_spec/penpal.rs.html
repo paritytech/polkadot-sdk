@@ -119,28 +119,6 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -165,8 +143,7 @@
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>sp_core::sr25519;
 <span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-</span><span class="kw">pub type </span>PenpalChainSpec =
-	sc_service::GenericChainSpec&lt;penpal_runtime::RuntimeGenesisConfig, Extensions&gt;;
+</span><span class="kw">pub type </span>PenpalChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="kw">pub fn </span>get_penpal_chain_spec(id: ParaId, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; PenpalChainSpec {
 	<span class="comment">// Give your base currency a unit name and decimal places
@@ -175,84 +152,69 @@
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12u32</span>.into());
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42u32</span>.into());
 
-	PenpalChainSpec::from_genesis(
-		<span class="comment">// Name
-		</span><span class="string">&quot;Penpal Parachain&quot;</span>,
-		<span class="comment">// ID
-		</span><span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;penpal-{}&quot;</span>, relay_chain.replace(<span class="string">&quot;-local&quot;</span>, <span class="string">&quot;&quot;</span>)),
-		ChainType::Development,
-		<span class="kw">move </span>|| {
-			penpal_testnet_genesis(
-				<span class="comment">// initial collators.
-				</span><span class="macro">vec!</span>[
-					(
-						get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-						get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
-					),
-					(
-						get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-						get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
-					),
-				],
-				<span class="macro">vec!</span>[
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
-				],
-				id,
-			)
-		},
-		Vec::new(),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
+	PenpalChainSpec::builder(
+		penpal_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions {
 			relay_chain: relay_chain.into(), <span class="comment">// You MUST set this to the correct network!
 			</span>para_id: id.into(),
 		},
 	)
+	.with_name(<span class="string">&quot;Penpal Parachain&quot;</span>)
+	.with_id(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;penpal-{}&quot;</span>, relay_chain.replace(<span class="string">&quot;-local&quot;</span>, <span class="string">&quot;&quot;</span>)))
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(penpal_testnet_genesis(
+		<span class="comment">// initial collators.
+		</span><span class="macro">vec!</span>[
+			(
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+			),
+			(
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+			),
+		],
+		<span class="macro">vec!</span>[
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+		],
+		id,
+	))
+	.build()
 }
 
 <span class="kw">fn </span>penpal_testnet_genesis(
 	invulnerables: Vec&lt;(AccountId, AuraId)&gt;,
 	endowed_accounts: Vec&lt;AccountId&gt;,
 	id: ParaId,
-) -&gt; penpal_runtime::RuntimeGenesisConfig {
-	penpal_runtime::RuntimeGenesisConfig {
-		system: penpal_runtime::SystemConfig {
-			code: penpal_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not build, please build it!&quot;</span>)
-				.to_vec(),
-			..Default::default()
-		},
-		balances: penpal_runtime::BalancesConfig {
-			balances: endowed_accounts
+) -&gt; serde_json::Value {
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">&quot;balances&quot;</span>: {
+			<span class="string">&quot;balances&quot;</span>: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, penpal_runtime::EXISTENTIAL_DEPOSIT * <span class="number">4096</span>))
-				.collect(),
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		parachain_info: penpal_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
+		<span class="string">&quot;parachainInfo&quot;</span>: {
+			<span class="string">&quot;parachainId&quot;</span>: id,
 		},
-		collator_selection: penpal_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect(),
-			candidacy_bond: penpal_runtime::EXISTENTIAL_DEPOSIT * <span class="number">16</span>,
-			..Default::default()
+		<span class="string">&quot;collatorSelection&quot;</span>: {
+			<span class="string">&quot;invulnerables&quot;</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">&quot;candidacyBond&quot;</span>: penpal_runtime::EXISTENTIAL_DEPOSIT * <span class="number">16</span>,
 		},
-		session: penpal_runtime::SessionConfig {
-			keys: invulnerables
+		<span class="string">&quot;session&quot;</span>: {
+			<span class="string">&quot;keys&quot;</span>: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
@@ -261,21 +223,15 @@
 						</span>penpal_session_keys(aura), <span class="comment">// session keys
 					</span>)
 				})
-				.collect(),
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="comment">// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this.
-		</span>aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
-			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
-			..Default::default()
+		<span class="string">&quot;polkadotXcm&quot;</span>: {
+			<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 		},
-		sudo: penpal_runtime::SudoConfig {
-			key: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)),
+		<span class="string">&quot;sudo&quot;</span>: {
+			<span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)),
 		},
-	}
+	})
 }
 
 <span class="doccomment">/// Generate the session keys from individual elements.

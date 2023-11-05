@@ -407,10 +407,6 @@
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -664,18 +660,14 @@
 				trie_cache_maximum_size: <span class="prelude-val">None</span>,
 				state_pruning: <span class="prelude-val">None</span>,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
-				chain_spec: Box::new(GenericChainSpec::from_genesis(
-					<span class="string">&quot;test&quot;</span>,
-					<span class="string">&quot;test_id&quot;</span>,
-					ChainType::Development,
-					|| <span class="macro">unimplemented!</span>(<span class="string">&quot;Not required in tests&quot;</span>),
-					Vec::new(),
-					<span class="prelude-val">None</span>,
-					<span class="prelude-val">None</span>,
-					<span class="prelude-val">None</span>,
-					<span class="prelude-val">None</span>,
-					NoExtension::None,
-				)),
+				chain_spec: Box::new(
+					GenericChainSpec::&lt;()&gt;::builder(Default::default(), NoExtension::None)
+						.with_name(<span class="string">&quot;test&quot;</span>)
+						.with_id(<span class="string">&quot;test_id&quot;</span>)
+						.with_chain_type(ChainType::Development)
+						.with_genesis_config_patch(Default::default())
+						.build(),
+				),
 				wasm_method: Default::default(),
 				wasm_runtime_overrides: <span class="prelude-val">None</span>,
 				rpc_addr: <span class="prelude-val">None</span>,

@@ -7,7 +7,7 @@
 "polkadot_cli":[["impl Subcommand for <a class=\"enum\" href=\"polkadot_cli/enum.Subcommand.html\" title=\"enum polkadot_cli::Subcommand\">Subcommand</a>"]],
 "polkadot_parachain":[["impl Subcommand for <a class=\"enum\" href=\"polkadot_parachain/cli/enum.Subcommand.html\" title=\"enum polkadot_parachain::cli::Subcommand\">Subcommand</a>"]],
 "sc_cli":[["impl Subcommand for <a class=\"enum\" href=\"sc_cli/commands/enum.KeySubcommand.html\" title=\"enum sc_cli::commands::KeySubcommand\">KeySubcommand</a>"]],
-"staging_chain_spec_builder":[["impl Subcommand for <a class=\"enum\" href=\"staging_chain_spec_builder/enum.ChainSpecBuilder.html\" title=\"enum staging_chain_spec_builder::ChainSpecBuilder\">ChainSpecBuilder</a>"]],
+"staging_chain_spec_builder":[["impl Subcommand for <a class=\"enum\" href=\"staging_chain_spec_builder/enum.ChainSpecBuilderCmd.html\" title=\"enum staging_chain_spec_builder::ChainSpecBuilderCmd\">ChainSpecBuilderCmd</a>"]],
 "staging_node_cli":[["impl Subcommand for <a class=\"enum\" href=\"staging_node_cli/enum.Subcommand.html\" title=\"enum staging_node_cli::Subcommand\">Subcommand</a>"]],
 "staging_node_inspect":[["impl Subcommand for <a class=\"enum\" href=\"staging_node_inspect/cli/enum.InspectSubCmd.html\" title=\"enum staging_node_inspect::cli::InspectSubCmd\">InspectSubCmd</a>"]],
 "subkey":[["impl Subcommand for <a class=\"enum\" href=\"subkey/enum.Subkey.html\" title=\"enum subkey::Subkey\">Subkey</a>"]],

@@ -53,17 +53,6 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -81,12 +70,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>runtime::{BalancesConfig, RuntimeGenesisConfig, SudoConfig, SystemConfig, WASM_BINARY};
+</span><span class="kw">use </span>runtime::{BalancesConfig, SudoConfig, WASM_BINARY};
 <span class="kw">use </span>sc_service::{ChainType, Properties};
+<span class="kw">use </span>serde_json::{json, Value};
 <span class="kw">use </span>sp_keyring::AccountKeyring;
 
 <span class="doccomment">/// This is a specialization of the general Substrate ChainSpec type.
-</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;RuntimeGenesisConfig&gt;;
+</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;()&gt;;
 
 <span class="kw">fn </span>props() -&gt; Properties {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = Properties::new();
@@ -96,38 +86,26 @@
 }
 
 <span class="kw">pub fn </span>development_config() -&gt; <span class="prelude-ty">Result</span>&lt;ChainSpec, String&gt; {
-	<span class="kw">let </span>wasm_binary = WASM_BINARY.ok_or_else(|| <span class="string">&quot;Development wasm not available&quot;</span>.to_string())<span class="question-mark">?</span>;
-	<span class="prelude-val">Ok</span>(ChainSpec::from_genesis(
-		<span class="string">&quot;Development&quot;</span>,
-		<span class="string">&quot;dev&quot;</span>,
-		ChainType::Development,
-		<span class="kw">move </span>|| testnet_genesis(wasm_binary),
-		<span class="macro">vec!</span>[],
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">Some</span>(props()),
-		<span class="prelude-val">None</span>,
-	))
+	<span class="prelude-val">Ok</span>(ChainSpec::builder(WASM_BINARY.expect(<span class="string">&quot;Development wasm not available&quot;</span>), Default::default())
+		.with_name(<span class="string">&quot;Development&quot;</span>)
+		.with_id(<span class="string">&quot;dev&quot;</span>)
+		.with_chain_type(ChainType::Development)
+		.with_genesis_config_patch(testnet_genesis())
+		.with_properties(props())
+		.build())
 }
 
 <span class="doccomment">/// Configure initial storage state for FRAME pallets.
-</span><span class="kw">fn </span>testnet_genesis(wasm_binary: <span class="kw-2">&amp;</span>[u8]) -&gt; RuntimeGenesisConfig {
+</span><span class="kw">fn </span>testnet_genesis() -&gt; Value {
 	<span class="kw">use </span>frame::traits::Get;
 	<span class="kw">use </span>runtime::interface::{Balance, MinimumBalance};
 	<span class="kw">let </span>endowment = &lt;MinimumBalance <span class="kw">as </span>Get&lt;Balance&gt;&gt;::get().max(<span class="number">1</span>) * <span class="number">1000</span>;
 	<span class="kw">let </span>balances = AccountKeyring::iter()
 		.map(|a| (a.to_account_id(), endowment))
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-	RuntimeGenesisConfig {
-		system: SystemConfig {
-			<span class="comment">// Add Wasm runtime to storage.
-			</span>code: wasm_binary.to_vec(),
-			_config: Default::default(),
-		},
-		balances: BalancesConfig { balances },
-		sudo: SudoConfig { key: <span class="prelude-val">Some</span>(AccountKeyring::Alice.to_account_id()) },
-		..Default::default()
-	}
+	<span class="macro">json!</span>({
+		<span class="string">&quot;balances&quot;</span>: BalancesConfig { balances },
+		<span class="string">&quot;sudo&quot;</span>: SudoConfig { key: <span class="prelude-val">Some</span>(AccountKeyring::Alice.to_account_id()) },
+	})
 }
 </code></pre></div></section></main></body></html>

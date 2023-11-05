@@ -176,6 +176,8 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -295,10 +297,7 @@
 			.collect();
 
 		RuntimeGenesisConfig {
-			system: frame_system::GenesisConfig {
-				code: <span class="self">self</span>.wasm_code.clone().unwrap_or(wasm_binary_unwrap().to_vec()),
-				..Default::default()
-			},
+			system: Default::default(),
 			babe: pallet_babe::GenesisConfig {
 				authorities: authorities_sr25519
 					.clone()
@@ -326,6 +325,11 @@
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(heap_pages) = <span class="self">self</span>.heap_pages_override {
 			storage.top.insert(well_known_keys::HEAP_PAGES.into(), heap_pages.encode());
 		}
+
+		storage.top.insert(
+			well_known_keys::CODE.into(),
+			<span class="self">self</span>.wasm_code.clone().unwrap_or(wasm_binary_unwrap().to_vec()),
+		);
 
 		storage.top.extend(<span class="self">self</span>.extra_storage.top.clone());
 		storage.children_default.extend(<span class="self">self</span>.extra_storage.children_default.clone());

@@ -161,10 +161,6 @@
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -293,18 +289,14 @@
 		}
 
 		<span class="kw">fn </span>load_spec(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
-			<span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_genesis(
-				<span class="string">&quot;test&quot;</span>,
-				<span class="string">&quot;test_id&quot;</span>,
-				ChainType::Development,
-				|| <span class="macro">unimplemented!</span>(<span class="string">&quot;Not required in tests&quot;</span>),
-				Vec::new(),
-				<span class="prelude-val">None</span>,
-				<span class="prelude-val">None</span>,
-				<span class="prelude-val">None</span>,
-				<span class="prelude-val">None</span>,
-				NoExtension::None,
-			)))
+			<span class="prelude-val">Ok</span>(Box::new(
+				GenericChainSpec::&lt;()&gt;::builder(Default::default(), NoExtension::None)
+					.with_name(<span class="string">&quot;test&quot;</span>)
+					.with_id(<span class="string">&quot;test_id&quot;</span>)
+					.with_chain_type(ChainType::Development)
+					.with_genesis_config_patch(Default::default())
+					.build(),
+			))
 		}
 	}
 

@@ -183,7 +183,7 @@
 
 <span class="kw">impl </span>substrate_test_client::GenesisInit <span class="kw">for </span>GenesisParameters {
 	<span class="kw">fn </span>genesis_storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Storage {
-		polkadot_test_service::chain_spec::polkadot_local_testnet_genesis()
+		polkadot_test_service::chain_spec::polkadot_local_testnet_config()
 			.build_storage()
 			.expect(<span class="string">&quot;Builds test runtime genesis storage&quot;</span>)
 	}

@@ -200,35 +200,6 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachain_template_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
 <span class="kw">use </span>sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -238,8 +209,7 @@
 <span class="kw">use </span>sp_runtime::traits::{IdentifyAccount, Verify};
 
 <span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-</span><span class="kw">pub type </span>ChainSpec =
-	sc_service::GenericChainSpec&lt;parachain_template_runtime::RuntimeGenesisConfig, Extensions&gt;;
+</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="doccomment">/// The default XCM version to set in genesis config.
 </span><span class="kw">const </span>SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -299,53 +269,48 @@
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 
-	ChainSpec::from_genesis(
-		<span class="comment">// Name
-		</span><span class="string">&quot;Development&quot;</span>,
-		<span class="comment">// ID
-		</span><span class="string">&quot;dev&quot;</span>,
-		ChainType::Development,
-		<span class="kw">move </span>|| {
-			testnet_genesis(
-				<span class="comment">// initial collators.
-				</span><span class="macro">vec!</span>[
-					(
-						get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-						get_collator_keys_from_seed(<span class="string">&quot;Alice&quot;</span>),
-					),
-					(
-						get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-						get_collator_keys_from_seed(<span class="string">&quot;Bob&quot;</span>),
-					),
-				],
-				<span class="macro">vec!</span>[
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
-				],
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				<span class="number">1000</span>.into(),
-			)
-		},
-		Vec::new(),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
+	ChainSpec::builder(
+		parachain_template_runtime::WASM_BINARY
+			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions {
-			relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), <span class="comment">// You MUST set this to the correct network!
+			relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(),
+			<span class="comment">// You MUST set this to the correct network!
 			</span>para_id: <span class="number">1000</span>,
 		},
 	)
+	.with_name(<span class="string">&quot;Development&quot;</span>)
+	.with_id(<span class="string">&quot;dev&quot;</span>)
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(testnet_genesis(
+		<span class="comment">// initial collators.
+		</span><span class="macro">vec!</span>[
+			(
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_collator_keys_from_seed(<span class="string">&quot;Alice&quot;</span>),
+			),
+			(
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+				get_collator_keys_from_seed(<span class="string">&quot;Bob&quot;</span>),
+			),
+		],
+		<span class="macro">vec!</span>[
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+		],
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		<span class="number">1000</span>.into(),
+	))
+	.build()
 }
 
 <span class="kw">pub fn </span>local_testnet_config() -&gt; ChainSpec {
@@ -355,59 +320,51 @@
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 
-	ChainSpec::from_genesis(
-		<span class="comment">// Name
-		</span><span class="string">&quot;Local Testnet&quot;</span>,
-		<span class="comment">// ID
-		</span><span class="string">&quot;local_testnet&quot;</span>,
-		ChainType::Local,
-		<span class="kw">move </span>|| {
-			testnet_genesis(
-				<span class="comment">// initial collators.
-				</span><span class="macro">vec!</span>[
-					(
-						get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-						get_collator_keys_from_seed(<span class="string">&quot;Alice&quot;</span>),
-					),
-					(
-						get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-						get_collator_keys_from_seed(<span class="string">&quot;Bob&quot;</span>),
-					),
-				],
-				<span class="macro">vec!</span>[
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
-				],
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				<span class="number">1000</span>.into(),
-			)
-		},
-		<span class="comment">// Bootnodes
-		</span>Vec::new(),
-		<span class="comment">// Telemetry
-		</span><span class="prelude-val">None</span>,
-		<span class="comment">// Protocol ID
-		</span><span class="prelude-val">Some</span>(<span class="string">&quot;template-local&quot;</span>),
-		<span class="comment">// Fork ID
-		</span><span class="prelude-val">None</span>,
-		<span class="comment">// Properties
-		</span><span class="prelude-val">Some</span>(properties),
-		<span class="comment">// Extensions
-		</span>Extensions {
-			relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), <span class="comment">// You MUST set this to the correct network!
+	<span class="attr">#[allow(deprecated)]
+	</span>ChainSpec::builder(
+		parachain_template_runtime::WASM_BINARY
+			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+		Extensions {
+			relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(),
+			<span class="comment">// You MUST set this to the correct network!
 			</span>para_id: <span class="number">1000</span>,
 		},
 	)
+	.with_name(<span class="string">&quot;Local Testnet&quot;</span>)
+	.with_id(<span class="string">&quot;local_testnet&quot;</span>)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(testnet_genesis(
+		<span class="comment">// initial collators.
+		</span><span class="macro">vec!</span>[
+			(
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_collator_keys_from_seed(<span class="string">&quot;Alice&quot;</span>),
+			),
+			(
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+				get_collator_keys_from_seed(<span class="string">&quot;Bob&quot;</span>),
+			),
+		],
+		<span class="macro">vec!</span>[
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+		],
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		<span class="number">1000</span>.into(),
+	))
+	.with_protocol_id(<span class="string">&quot;template-local&quot;</span>)
+	.with_properties(properties)
+	.build()
 }
 
 <span class="kw">fn </span>testnet_genesis(
@@ -415,28 +372,20 @@
 	endowed_accounts: Vec&lt;AccountId&gt;,
 	root: AccountId,
 	id: ParaId,
-) -&gt; parachain_template_runtime::RuntimeGenesisConfig {
-	parachain_template_runtime::RuntimeGenesisConfig {
-		system: parachain_template_runtime::SystemConfig {
-			code: parachain_template_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not build, please build it!&quot;</span>)
-				.to_vec(),
-			..Default::default()
+) -&gt; serde_json::Value {
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">&quot;balances&quot;</span>: {
+			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1u64 </span>&lt;&lt; <span class="number">60</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		balances: parachain_template_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1 </span>&lt;&lt; <span class="number">60</span>)).collect(),
+		<span class="string">&quot;parachainInfo&quot;</span>: {
+			<span class="string">&quot;parachainId&quot;</span>: id,
 		},
-		parachain_info: parachain_template_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
+		<span class="string">&quot;collatorSelection&quot;</span>: {
+			<span class="string">&quot;invulnerables&quot;</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">&quot;candidacyBond&quot;</span>: EXISTENTIAL_DEPOSIT * <span class="number">16</span>,
 		},
-		collator_selection: parachain_template_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect(),
-			candidacy_bond: EXISTENTIAL_DEPOSIT * <span class="number">16</span>,
-			..Default::default()
-		},
-		session: parachain_template_runtime::SessionConfig {
-			keys: invulnerables
+		<span class="string">&quot;session&quot;</span>: {
+			<span class="string">&quot;keys&quot;</span>: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
@@ -445,19 +394,12 @@
 						</span>template_session_keys(aura), <span class="comment">// session keys
 					</span>)
 				})
-				.collect(),
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="comment">// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this.
-		</span>aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: parachain_template_runtime::PolkadotXcmConfig {
-			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
-			..Default::default()
+		<span class="string">&quot;polkadotXcm&quot;</span>: {
+			<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 		},
-		transaction_payment: Default::default(),
-		sudo: parachain_template_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root) },
-	}
+		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root) }
+	})
 }
 </code></pre></div></section></main></body></html>

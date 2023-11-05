@@ -108,10 +108,6 @@
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -134,22 +130,21 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::keyring::<span class="kw-2">*</span>;
 <span class="kw">use </span>kitchensink_runtime::{
-	constants::currency::<span class="kw-2">*</span>, wasm_binary_unwrap, AccountId, AssetsConfig, BabeConfig,
-	BalancesConfig, GluttonConfig, GrandpaConfig, IndicesConfig, RuntimeGenesisConfig,
-	SessionConfig, SocietyConfig, StakerStatus, StakingConfig, SystemConfig,
-	BABE_GENESIS_EPOCH_CONFIG,
+	constants::currency::<span class="kw-2">*</span>, AccountId, AssetsConfig, BabeConfig, BalancesConfig, GluttonConfig,
+	GrandpaConfig, IndicesConfig, RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus,
+	StakingConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 <span class="kw">use </span>sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 <span class="kw">use </span>sp_runtime::Perbill;
 
 <span class="doccomment">/// Create genesis runtime configuration for tests.
-</span><span class="kw">pub fn </span>config(code: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; RuntimeGenesisConfig {
-	config_endowed(code, Default::default())
+</span><span class="kw">pub fn </span>config() -&gt; RuntimeGenesisConfig {
+	config_endowed(Default::default())
 }
 
 <span class="doccomment">/// Create genesis runtime configuration for tests with some extra
 /// endowed accounts.
-</span><span class="kw">pub fn </span>config_endowed(code: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;, extra_endowed: Vec&lt;AccountId&gt;) -&gt; RuntimeGenesisConfig {
+</span><span class="kw">pub fn </span>config_endowed(extra_endowed: Vec&lt;AccountId&gt;) -&gt; RuntimeGenesisConfig {
 	<span class="kw">let </span><span class="kw-2">mut </span>endowed = <span class="macro">vec!</span>[
 		(alice(), <span class="number">111 </span>* DOLLARS),
 		(bob(), <span class="number">100 </span>* DOLLARS),
@@ -162,10 +157,7 @@
 	endowed.extend(extra_endowed.into_iter().map(|endowed| (endowed, <span class="number">100 </span>* DOLLARS)));
 
 	RuntimeGenesisConfig {
-		system: SystemConfig {
-			code: code.map(|x| x.to_vec()).unwrap_or_else(|| wasm_binary_unwrap().to_vec()),
-			..Default::default()
-		},
+		system: Default::default(),
 		indices: IndicesConfig { indices: <span class="macro">vec!</span>[] },
 		balances: BalancesConfig { balances: endowed },
 		session: SessionConfig {

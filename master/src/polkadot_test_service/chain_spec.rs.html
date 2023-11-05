@@ -186,23 +186,6 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -236,8 +219,7 @@
 <span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">&quot;dot&quot;</span>;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for polkadot test runtime.
-</span><span class="kw">pub type </span>PolkadotChainSpec =
-	sc_service::GenericChainSpec&lt;polkadot_test_runtime::RuntimeGenesisConfig, Extensions&gt;;
+</span><span class="kw">pub type </span>PolkadotChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="doccomment">/// Returns the properties for the [`PolkadotChainSpec`].
 </span><span class="kw">pub fn </span>polkadot_chain_spec_properties() -&gt; serde_json::map::Map&lt;String, serde_json::Value&gt; {
@@ -251,22 +233,21 @@
 
 <span class="doccomment">/// Local testnet config (multivalidator Alice + Bob)
 </span><span class="kw">pub fn </span>polkadot_local_testnet_config() -&gt; PolkadotChainSpec {
-	PolkadotChainSpec::from_genesis(
-		<span class="string">&quot;Local Testnet&quot;</span>,
-		<span class="string">&quot;local_testnet&quot;</span>,
-		ChainType::Local,
-		|| polkadot_local_testnet_genesis(),
-		<span class="macro">vec!</span>[],
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">Some</span>(DEFAULT_PROTOCOL_ID),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">Some</span>(polkadot_chain_spec_properties()),
+	PolkadotChainSpec::builder(
+		polkadot_test_runtime::WASM_BINARY.expect(<span class="string">&quot;Wasm binary must be built for testing&quot;</span>),
 		Default::default(),
 	)
+	.with_name(<span class="string">&quot;Local Testnet&quot;</span>)
+	.with_id(<span class="string">&quot;local_testnet&quot;</span>)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(polkadot_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.with_properties(polkadot_chain_spec_properties())
+	.build()
 }
 
 <span class="doccomment">/// Local testnet genesis config (multivalidator Alice + Bob)
-</span><span class="kw">pub fn </span>polkadot_local_testnet_genesis() -&gt; polkadot_test_runtime::RuntimeGenesisConfig {
+</span><span class="kw">pub fn </span>polkadot_local_testnet_genesis() -&gt; serde_json::Value {
 	polkadot_testnet_genesis(
 		<span class="macro">vec!</span>[get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>), get_authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>)],
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
@@ -319,7 +300,7 @@
 	)&gt;,
 	root_key: AccountId,
 	endowed_accounts: <span class="prelude-ty">Option</span>&lt;Vec&lt;AccountId&gt;&gt;,
-) -&gt; polkadot_test_runtime::RuntimeGenesisConfig {
+) -&gt; serde_json::Value {
 	<span class="kw">use </span>polkadot_test_runtime <span class="kw">as </span>runtime;
 
 	<span class="kw">let </span>endowed_accounts: Vec&lt;AccountId&gt; = endowed_accounts.unwrap_or_else(testnet_accounts);
@@ -327,17 +308,12 @@
 	<span class="kw">const </span>ENDOWMENT: u128 = <span class="number">1_000_000 </span>* DOTS;
 	<span class="kw">const </span>STASH: u128 = <span class="number">100 </span>* DOTS;
 
-	runtime::RuntimeGenesisConfig {
-		system: runtime::SystemConfig {
-			code: runtime::WASM_BINARY.expect(<span class="string">&quot;Wasm binary must be built for testing&quot;</span>).to_vec(),
-			..Default::default()
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">&quot;balances&quot;</span>: {
+			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		indices: runtime::IndicesConfig { indices: <span class="macro">vec!</span>[] },
-		balances: runtime::BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
-		},
-		session: runtime::SessionConfig {
-			keys: initial_authorities
+		<span class="string">&quot;session&quot;</span>: {
+			<span class="string">&quot;keys&quot;</span>: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -354,33 +330,23 @@
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		staking: runtime::StakingConfig {
-			minimum_validator_count: <span class="number">1</span>,
-			validator_count: <span class="number">2</span>,
-			stakers: initial_authorities
+		<span class="string">&quot;staking&quot;</span>: {
+			<span class="string">&quot;minimumValidatorCount&quot;</span>: <span class="number">1</span>,
+			<span class="string">&quot;validatorCount&quot;</span>: <span class="number">2</span>,
+			<span class="string">&quot;stakers&quot;</span>: initial_authorities
 				.iter()
-				.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, runtime::StakerStatus::Validator))
-				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect(),
-			force_era: Forcing::NotForcing,
-			slash_reward_fraction: Perbill::from_percent(<span class="number">10</span>),
-			..Default::default()
+				.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, runtime::StakerStatus::&lt;AccountId&gt;::Validator))
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">&quot;invulnerables&quot;</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">&quot;forceEra&quot;</span>: Forcing::NotForcing,
+			<span class="string">&quot;slashRewardFraction&quot;</span>: Perbill::from_percent(<span class="number">10</span>),
 		},
-		babe: runtime::BabeConfig {
-			authorities: <span class="macro">vec!</span>[],
-			epoch_config: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		<span class="string">&quot;babe&quot;</span>: {
+			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		authority_discovery: runtime::AuthorityDiscoveryConfig {
-			keys: <span class="macro">vec!</span>[],
-			..Default::default()
-		},
-		claims: runtime::ClaimsConfig { claims: <span class="macro">vec!</span>[], vesting: <span class="macro">vec!</span>[] },
-		vesting: runtime::VestingConfig { vesting: <span class="macro">vec!</span>[] },
-		sudo: runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
-		configuration: runtime::ConfigurationConfig {
-			config: polkadot_runtime_parachains::configuration::HostConfiguration {
+		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key) },
+		<span class="string">&quot;configuration&quot;</span>: {
+			<span class="string">&quot;config&quot;</span>: polkadot_runtime_parachains::configuration::HostConfiguration {
 				validation_upgrade_cooldown: <span class="number">10u32</span>,
 				validation_upgrade_delay: <span class="number">5</span>,
 				code_retention_period: <span class="number">1200</span>,
@@ -393,8 +359,8 @@
 				minimum_validation_upgrade_delay: <span class="number">5</span>,
 				..Default::default()
 			},
-		},
-	}
+		}
+	})
 }
 
 <span class="doccomment">/// Can be called for a `Configuration` to check if it is a configuration for the `Test` network.

@@ -1450,6 +1450,19 @@
 <a href="#1450" id="1450">1450</a>
 <a href="#1451" id="1451">1451</a>
 <a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1916,11 +1929,10 @@
 	}
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration =
-	BabeEpochConfiguration {
-		c: (<span class="number">3</span>, <span class="number">10</span>),
-		allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
-	};
+<span class="kw">pub const </span>TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEpochConfiguration {
+	c: (<span class="number">3</span>, <span class="number">10</span>),
+	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
+};
 
 <span class="macro">impl_runtime_apis! </span>{
 	<span class="kw">impl </span>sp_api::Core&lt;Block&gt; <span class="kw">for </span>Runtime {
@@ -2689,7 +2701,7 @@
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_minimal_genesis_config_works() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>default_minimal_json = <span class="string">r#&quot;{&quot;system&quot;:{&quot;code&quot;:&quot;0x&quot;},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:{&quot;c&quot;: [ 3, 10 ],&quot;allowed_slots&quot;:&quot;PrimaryAndSecondaryPlainSlots&quot;}},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
+			<span class="kw">let </span>default_minimal_json = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:{&quot;c&quot;: [ 3, 10 ],&quot;allowed_slots&quot;:&quot;PrimaryAndSecondaryPlainSlots&quot;}},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 
 			executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>default_minimal_json.encode())
@@ -2716,8 +2728,6 @@
 
 				<span class="comment">// System|LastRuntimeUpgrade
 				</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8&quot;</span>,
-				<span class="comment">// :code
-				</span><span class="string">&quot;3a636f6465&quot;</span>,
 				<span class="comment">// :extrinsic_index
 				</span><span class="string">&quot;3a65787472696e7369635f696e646578&quot;</span>,
 				<span class="comment">// Balances|TotalIssuance
@@ -2746,35 +2756,55 @@
 			<span class="kw">let </span>r = Vec::&lt;u8&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="kw">let </span>json = String::from_utf8(r.into()).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
 
-			<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{&quot;code&quot;:&quot;0x&quot;},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:null},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
+			<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:null},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
 			<span class="macro">assert_eq!</span>(expected.to_string(), json);
 		}
 
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_config_from_json_works() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;test_json/default_genesis_config.json&quot;</span>);
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config.json&quot;</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]);
 			<span class="macro">assert!</span>(r.is_ok());
 
-			<span class="kw">let </span>keys = t.into_storages().top.keys().cloned().map(hex).collect::&lt;Vec&lt;String&gt;&gt;();
+			<span class="kw">let </span><span class="kw-2">mut </span>keys = t.into_storages().top.keys().cloned().map(hex).collect::&lt;Vec&lt;String&gt;&gt;();
+
+			<span class="comment">// following keys are not placed during `&lt;RuntimeGenesisConfig as GenesisBuild&gt;::build`
+			// process, add them `keys` to assert against known keys.
+			</span>keys.push(hex(<span class="string">b&quot;:code&quot;</span>));
+			keys.sort();
+
 			<span class="macro">assert_eq!</span>(keys, storage_key_generator::get_expected_storage_hashed_keys(<span class="bool-val">false</span>));
 		}
 
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_config_from_invalid_json_fails() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;test_json/default_genesis_config_invalid.json&quot;</span>);
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_invalid.json&quot;</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="macro">log::info!</span>(<span class="string">&quot;result: {:#?}&quot;</span>, r);
 			<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Err</span>(
 				sp_runtime::RuntimeString::Owned(
-					<span class="string">&quot;Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 6 column 25&quot;</span>.to_string(),
+					<span class="string">&quot;Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25&quot;</span>.to_string(),
+				))
+			);
+		}
+
+		<span class="attr">#[test]
+		</span><span class="kw">fn </span>build_config_from_invalid_json_fails_2() {
+			sp_tracing::try_init_simple();
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_invalid_2.json&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
+			<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Err</span>(
+				sp_runtime::RuntimeString::Owned(
+					<span class="string">&quot;Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9&quot;</span>.to_string(),
 				))
 			);
 		}
@@ -2782,7 +2812,7 @@
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_config_from_incomplete_json_fails() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;test_json/default_genesis_config_incomplete.json&quot;</span>);
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_incomplete.json&quot;</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
@@ -2791,7 +2821,7 @@
 			<span class="macro">assert_eq!</span>(
 				r,
 				<span class="prelude-val">Err</span>(sp_runtime::RuntimeString::Owned(
-					<span class="string">&quot;Invalid JSON blob: missing field `authorities` at line 13 column 3&quot;
+					<span class="string">&quot;Invalid JSON blob: missing field `authorities` at line 11 column 3&quot;
 						</span>.to_string()
 				))
 			);
@@ -2889,10 +2919,6 @@
 				<span class="string">&quot;c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80&quot;</span>,
 			);
 			<span class="macro">assert_eq!</span>(u64::decode(<span class="kw-2">&amp;mut &amp;</span>value[..]).unwrap(), <span class="number">0</span>);
-
-			<span class="comment">// :code
-			</span><span class="kw">let </span>value: Vec&lt;u8&gt; = get_from_storage(<span class="string">&quot;3a636f6465&quot;</span>);
-			<span class="macro">assert!</span>(Vec::&lt;u8&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>value[..]).is_err());
 
 			<span class="comment">//System|ParentHash
 			</span><span class="kw">let </span>value: Vec&lt;u8&gt; = get_from_storage(

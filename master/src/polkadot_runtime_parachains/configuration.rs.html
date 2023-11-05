@@ -1385,6 +1385,7 @@
 <a href="#1385" id="1385">1385</a>
 <a href="#1386" id="1386">1386</a>
 <a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1443,6 +1444,7 @@
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>HostConfiguration&lt;BlockNumber&gt; {
 	<span class="comment">// NOTE: This structure is used by parachains via merkle proofs. Therefore, this struct
 	// requires special treatment.

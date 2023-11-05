@@ -53,7 +53,7 @@
 
 <span class="doccomment">/// Returns the initial head data for a parachain ID.
 </span><span class="kw">pub fn </span>initial_head_data(para_id: ParaId) -&gt; HeadData {
-	<span class="kw">let </span>spec = <span class="kw">crate</span>::chain_spec::get_chain_spec(para_id);
+	<span class="kw">let </span>spec = <span class="kw">crate</span>::chain_spec::get_chain_spec(<span class="prelude-val">Some</span>(para_id));
 	<span class="kw">let </span>block: Block = generate_genesis_block(<span class="kw-2">&amp;</span>spec, sp_runtime::StateVersion::V1).unwrap();
 	<span class="kw">let </span>genesis_state = block.header().encode();
 	genesis_state.into()

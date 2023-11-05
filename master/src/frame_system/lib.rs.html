@@ -1868,9 +1868,6 @@
 <a href="#1868" id="1868">1868</a>
 <a href="#1869" id="1869">1869</a>
 <a href="#1870" id="1870">1870</a>
-<a href="#1871" id="1871">1871</a>
-<a href="#1872" id="1872">1872</a>
-<a href="#1873" id="1873">1873</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2597,8 +2594,6 @@
 	<span class="attr">#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
-		<span class="attr">#[serde(with = <span class="string">&quot;sp_core::bytes&quot;</span>)]
-		</span><span class="kw">pub </span>code: Vec&lt;u8&gt;,
 		<span class="attr">#[serde(skip)]
 		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
 	}
@@ -2612,7 +2607,6 @@
 			&lt;UpgradedToU32RefCount&lt;T&gt;&gt;::put(<span class="bool-val">true</span>);
 			&lt;UpgradedToTripleRefCount&lt;T&gt;&gt;::put(<span class="bool-val">true</span>);
 
-			sp_io::storage::set(well_known_keys::CODE, <span class="kw-2">&amp;</span><span class="self">self</span>.code);
 			sp_io::storage::set(well_known_keys::EXTRINSIC_INDEX, <span class="kw-2">&amp;</span><span class="number">0u32</span>.encode());
 		}
 	}

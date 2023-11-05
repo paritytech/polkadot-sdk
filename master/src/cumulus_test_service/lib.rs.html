@@ -1630,7 +1630,7 @@
 	<span class="kw">let </span>role = <span class="kw">if </span>is_collator { Role::Authority } <span class="kw">else </span>{ Role::Full };
 	<span class="kw">let </span>key_seed = key.to_seed();
 	<span class="kw">let </span><span class="kw-2">mut </span>spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(para_id, endowed_accounts));
+		Box::new(chain_spec::get_chain_spec_with_extra_endowed(<span class="prelude-val">Some</span>(para_id), endowed_accounts));
 
 	<span class="kw">let </span><span class="kw-2">mut </span>storage = spec.as_storage_builder().build_storage().expect(<span class="string">&quot;could not build storage&quot;</span>);
 

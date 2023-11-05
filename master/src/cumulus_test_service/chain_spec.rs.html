@@ -123,15 +123,6 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -197,25 +188,25 @@
 /// The given accounts are initialized with funds in addition
 /// to the default known accounts.
 </span><span class="kw">pub fn </span>get_chain_spec_with_extra_endowed(
-	id: ParaId,
+	id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 	extra_endowed_accounts: Vec&lt;AccountId&gt;,
 ) -&gt; ChainSpec {
-	ChainSpec::from_genesis(
-		<span class="string">&quot;Local Testnet&quot;</span>,
-		<span class="string">&quot;local_testnet&quot;</span>,
-		ChainType::Local,
-		<span class="kw">move </span>|| testnet_genesis_with_default_endowed(extra_endowed_accounts.clone(), <span class="prelude-val">Some</span>(id)),
-		Vec::new(),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		Extensions { para_id: id.into() },
+	ChainSpec::builder(
+		cumulus_test_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
+	.with_name(<span class="string">&quot;Local Testnet&quot;</span>)
+	.with_id(<span class="string">&quot;local_testnet&quot;</span>)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(testnet_genesis_with_default_endowed(
+		extra_endowed_accounts.clone(),
+		id,
+	))
+	.build()
 }
 
 <span class="doccomment">/// Get the chain spec for a specific parachain ID.
-</span><span class="kw">pub fn </span>get_chain_spec(id: ParaId) -&gt; ChainSpec {
+</span><span class="kw">pub fn </span>get_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; ChainSpec {
 	get_chain_spec_with_extra_endowed(id, Default::default())
 }
 
@@ -223,7 +214,7 @@
 </span><span class="kw">pub fn </span>testnet_genesis_with_default_endowed(
 	<span class="kw-2">mut </span>extra_endowed_accounts: Vec&lt;AccountId&gt;,
 	self_para_id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
-) -&gt; cumulus_test_runtime::RuntimeGenesisConfig {
+) -&gt; serde_json::Value {
 	<span class="kw">let </span><span class="kw-2">mut </span>endowed = <span class="macro">vec!</span>[
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
@@ -248,22 +239,13 @@
 	root_key: AccountId,
 	endowed_accounts: Vec&lt;AccountId&gt;,
 	self_para_id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
-) -&gt; cumulus_test_runtime::RuntimeGenesisConfig {
-	cumulus_test_runtime::RuntimeGenesisConfig {
-		system: cumulus_test_runtime::SystemConfig {
-			code: cumulus_test_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not build, please build it!&quot;</span>)
-				.to_vec(),
-			..Default::default()
-		},
-		glutton: Default::default(),
-		parachain_system: Default::default(),
-		balances: cumulus_test_runtime::BalancesConfig {
+) -&gt; serde_json::Value {
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">&quot;balances&quot;</span>: cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1 </span>&lt;&lt; <span class="number">60</span>)).collect(),
 		},
-		sudo: cumulus_test_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
-		transaction_payment: Default::default(),
-		test_pallet: cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() },
-	}
+		<span class="string">&quot;sudo&quot;</span>: cumulus_test_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
+		<span class="string">&quot;testPallet&quot;</span>: cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() }
+	})
 }
 </code></pre></div></section></main></body></html>

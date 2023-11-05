@@ -307,7 +307,7 @@ var srcIndex = JSON.parse('{\
 "sc_authority_discovery":["",[["worker",[],["addr_cache.rs"]]],["error.rs","interval.rs","lib.rs","service.rs","worker.rs"]],\
 "sc_basic_authorship":["",[],["basic_authorship.rs","lib.rs"]],\
 "sc_block_builder":["",[],["lib.rs"]],\
-"sc_chain_spec":["",[],["chain_spec.rs","extension.rs","genesis.rs","lib.rs"]],\
+"sc_chain_spec":["",[],["chain_spec.rs","extension.rs","genesis_block.rs","genesis_config_builder.rs","json_patch.rs","lib.rs"]],\
 "sc_chain_spec_derive":["",[],["impls.rs","lib.rs"]],\
 "sc_cli":["",[["commands",[["test",[],["mod.rs"]]],["build_spec_cmd.rs","chain_info_cmd.rs","check_block_cmd.rs","export_blocks_cmd.rs","export_state_cmd.rs","generate.rs","generate_node_key.rs","import_blocks_cmd.rs","insert_key.rs","inspect_key.rs","inspect_node_key.rs","key.rs","mod.rs","purge_chain_cmd.rs","revert_cmd.rs","run_cmd.rs","sign.rs","utils.rs","vanity.rs","verify.rs"]],["params",[],["database_params.rs","import_params.rs","keystore_params.rs","message_params.rs","mixnet_params.rs","mod.rs","network_params.rs","node_key_params.rs","offchain_worker_params.rs","prometheus_params.rs","pruning_params.rs","runtime_params.rs","shared_params.rs","telemetry_params.rs","transaction_pool_params.rs"]]],["arg_enums.rs","config.rs","error.rs","lib.rs","runner.rs","signals.rs"]],\
 "sc_client_api":["",[["notifications",[],["registry.rs"]]],["backend.rs","call_executor.rs","client.rs","execution_extensions.rs","in_mem.rs","leaves.rs","lib.rs","notifications.rs","proof_provider.rs"]],\

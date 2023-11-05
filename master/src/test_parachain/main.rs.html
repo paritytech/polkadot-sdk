@@ -224,7 +224,7 @@
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.sync_run(|_config| {
 				<span class="kw">let </span>parachain_id = ParaId::from(cmd.parachain_id);
-				<span class="kw">let </span>spec = cumulus_test_service::get_chain_spec(parachain_id);
+				<span class="kw">let </span>spec = cumulus_test_service::get_chain_spec(<span class="prelude-val">Some</span>(parachain_id));
 				cmd.base.run(<span class="kw-2">&amp;</span>spec)
 			})
 		},

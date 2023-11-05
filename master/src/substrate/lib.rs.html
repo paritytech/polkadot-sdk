@@ -236,6 +236,10 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -379,8 +383,9 @@
 //!   side features. The corresponding runtime, called [`kitchensink_runtime`] contains all of the
 //!   modules that are provided with `FRAME`. This node and runtime is only used for testing and
 //!   demonstration.
-//!     * [`chain-spec-builder`]: Utility to build more detailed chain-specs for the aforementioned
-//!       node. Other projects typically contain a `build-spec` subcommand that does the same.
+//! * [`chain-spec-builder`]: Utility to build more detailed [chain-spec][`sc-chain-spec`] for the
+//!   aforementioned node. Other projects typically contain a `build-spec` subcommand that does the
+//!   same.
 //! * [`node-template`]: a template node that contains a minimal set of features and can act as a
 //!   starting point of a project.
 //! * [`subkey`]: Substrate&#39;s key management utility.
@@ -415,6 +420,8 @@
 //!
 //! Additional noteworthy crates within substrate:
 //!
+//! - Chain specification of a Substrate node:
+//!     - [`sc-chain-spec`]
 //! - RPC APIs of a Substrate node: [`sc-rpc-api`]/[`sc-rpc`]
 //! - CLI Options of a Substrate node: [`sc-cli`]
 //! - All of the consensus related crates provided by Substrate:
@@ -455,6 +462,7 @@
 //! [`sp-api`]: ../sp_api/index.html
 //! [`sp-api`]: ../sp_api/index.html
 //! [`sc-client-db`]: ../sc_client_db/index.html
+//! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`sc-network`]: ../sc_network/index.html
 //! [`sc-rpc-api`]: ../sc_rpc_api/index.html
 //! [`sc-rpc`]: ../sc_rpc/index.html

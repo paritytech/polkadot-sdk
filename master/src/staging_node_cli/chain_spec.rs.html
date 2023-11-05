@@ -497,34 +497,6 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -547,10 +519,7 @@
 
 </span><span class="kw">use </span>grandpa_primitives::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>kitchensink_runtime::{
-	constants::currency::<span class="kw-2">*</span>, wasm_binary_unwrap, BabeConfig, BalancesConfig, Block, CouncilConfig,
-	DemocracyConfig, ElectionsConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
-	NominationPoolsConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+	constants::currency::<span class="kw-2">*</span>, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
 <span class="kw">use </span>pallet_im_online::sr25519::AuthorityId <span class="kw">as </span>ImOnlineId;
 <span class="kw">use </span>sc_chain_spec::ChainSpecExtension;
@@ -572,6 +541,8 @@
 <span class="kw">type </span>AccountPublic = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
 
 <span class="kw">const </span>STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wss://telemetry.polkadot.io/submit/&quot;</span>;
+<span class="kw">const </span>ENDOWMENT: Balance = <span class="number">10_000_000 </span>* DOLLARS;
+<span class="kw">const </span>STASH: Balance = ENDOWMENT / <span class="number">1000</span>;
 
 <span class="doccomment">/// Node `ChainSpec` extensions.
 ///
@@ -605,7 +576,11 @@
 	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet }
 }
 
-<span class="kw">fn </span>staging_testnet_config_genesis() -&gt; RuntimeGenesisConfig {
+<span class="kw">fn </span>configure_accounts_for_staging_testnet() -&gt; (
+	Vec&lt;(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)&gt;,
+	AccountId,
+	Vec&lt;AccountId&gt;,
+) {
 	<span class="attr">#[rustfmt::skip]
 	</span><span class="comment">// stash, controller, session-key
 	// generated with secret:
@@ -717,28 +692,27 @@
 	);
 
 	<span class="kw">let </span>endowed_accounts: Vec&lt;AccountId&gt; = <span class="macro">vec!</span>[root_key.clone()];
+	(initial_authorities, root_key, endowed_accounts)
+}
 
+<span class="kw">fn </span>staging_testnet_config_genesis() -&gt; serde_json::Value {
+	<span class="kw">let </span>(initial_authorities, root_key, endowed_accounts) =
+		configure_accounts_for_staging_testnet();
 	testnet_genesis(initial_authorities, <span class="macro">vec!</span>[], root_key, <span class="prelude-val">Some</span>(endowed_accounts))
 }
 
 <span class="doccomment">/// Staging testnet config.
 </span><span class="kw">pub fn </span>staging_testnet_config() -&gt; ChainSpec {
-	<span class="kw">let </span>boot_nodes = <span class="macro">vec!</span>[];
-	ChainSpec::from_genesis(
-		<span class="string">&quot;Staging Testnet&quot;</span>,
-		<span class="string">&quot;staging_testnet&quot;</span>,
-		ChainType::Live,
-		staging_testnet_config_genesis,
-		boot_nodes,
-		<span class="prelude-val">Some</span>(
+	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
+		.with_name(<span class="string">&quot;Staging Testnet&quot;</span>)
+		.with_id(<span class="string">&quot;staging_testnet&quot;</span>)
+		.with_chain_type(ChainType::Live)
+		.with_genesis_config_patch(staging_testnet_config_genesis())
+		.with_telemetry_endpoints(
 			TelemetryEndpoints::new(<span class="macro">vec!</span>[(STAGING_TELEMETRY_URL.to_string(), <span class="number">0</span>)])
 				.expect(<span class="string">&quot;Staging telemetry url is valid; qed&quot;</span>),
-		),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		Default::default(),
-	)
+		)
+		.build()
 }
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed.
@@ -771,8 +745,7 @@
 	)
 }
 
-<span class="doccomment">/// Helper function to create RuntimeGenesisConfig for testing.
-</span><span class="kw">pub fn </span>testnet_genesis(
+<span class="kw">fn </span>configure_accounts(
 	initial_authorities: Vec&lt;(
 		AccountId,
 		AccountId,
@@ -783,9 +756,14 @@
 		MixnetId,
 	)&gt;,
 	initial_nominators: Vec&lt;AccountId&gt;,
-	root_key: AccountId,
 	endowed_accounts: <span class="prelude-ty">Option</span>&lt;Vec&lt;AccountId&gt;&gt;,
-) -&gt; RuntimeGenesisConfig {
+	stash: Balance,
+) -&gt; (
+	Vec&lt;(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)&gt;,
+	Vec&lt;AccountId&gt;,
+	usize,
+	Vec&lt;(AccountId, AccountId, Balance, StakerStatus&lt;AccountId&gt;)&gt;,
+) {
 	<span class="kw">let </span><span class="kw-2">mut </span>endowed_accounts: Vec&lt;AccountId&gt; = endowed_accounts.unwrap_or_else(|| {
 		<span class="macro">vec!</span>[
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
@@ -817,7 +795,7 @@
 	</span><span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
 	<span class="kw">let </span>stakers = initial_authorities
 		.iter()
-		.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, StakerStatus::Validator))
+		.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), stash, StakerStatus::Validator))
 		.chain(initial_nominators.iter().map(|x| {
 			<span class="kw">use </span>rand::{seq::SliceRandom, Rng};
 			<span class="kw">let </span>limit = (MaxNominations::get() <span class="kw">as </span>usize).min(initial_authorities.len());
@@ -828,23 +806,39 @@
 				.into_iter()
 				.map(|choice| choice.<span class="number">0</span>.clone())
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-			(x.clone(), x.clone(), STASH, StakerStatus::Nominator(nominations))
+			(x.clone(), x.clone(), stash, StakerStatus::Nominator(nominations))
 		}))
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 	<span class="kw">let </span>num_endowed_accounts = endowed_accounts.len();
 
-	<span class="kw">const </span>ENDOWMENT: Balance = <span class="number">10_000_000 </span>* DOLLARS;
-	<span class="kw">const </span>STASH: Balance = ENDOWMENT / <span class="number">1000</span>;
+	(initial_authorities, endowed_accounts, num_endowed_accounts, stakers)
+}
 
-	RuntimeGenesisConfig {
-		system: SystemConfig { code: wasm_binary_unwrap().to_vec(), ..Default::default() },
-		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect(),
+<span class="doccomment">/// Helper function to create RuntimeGenesisConfig json patch for testing.
+</span><span class="kw">pub fn </span>testnet_genesis(
+	initial_authorities: Vec&lt;(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+		MixnetId,
+	)&gt;,
+	initial_nominators: Vec&lt;AccountId&gt;,
+	root_key: AccountId,
+	endowed_accounts: <span class="prelude-ty">Option</span>&lt;Vec&lt;AccountId&gt;&gt;,
+) -&gt; serde_json::Value {
+	<span class="kw">let </span>(initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
+		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
+
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">&quot;balances&quot;</span>: {
+			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		indices: IndicesConfig { indices: <span class="macro">vec!</span>[] },
-		session: SessionConfig {
-			keys: initial_authorities
+		<span class="string">&quot;session&quot;</span>: {
+			<span class="string">&quot;keys&quot;</span>: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -861,67 +855,45 @@
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		staking: StakingConfig {
-			validator_count: initial_authorities.len() <span class="kw">as </span>u32,
-			minimum_validator_count: initial_authorities.len() <span class="kw">as </span>u32,
-			invulnerables: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect(),
-			slash_reward_fraction: Perbill::from_percent(<span class="number">10</span>),
-			stakers,
-			..Default::default()
+		<span class="string">&quot;staking&quot;</span>: {
+			<span class="string">&quot;validatorCount&quot;</span>: initial_authorities.len() <span class="kw">as </span>u32,
+			<span class="string">&quot;minimumValidatorCount&quot;</span>: initial_authorities.len() <span class="kw">as </span>u32,
+			<span class="string">&quot;invulnerables&quot;</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">&quot;slashRewardFraction&quot;</span>: Perbill::from_percent(<span class="number">10</span>),
+			<span class="string">&quot;stakers&quot;</span>: stakers.clone(),
 		},
-		democracy: DemocracyConfig::default(),
-		elections: ElectionsConfig {
-			members: endowed_accounts
+		<span class="string">&quot;elections&quot;</span>: {
+			<span class="string">&quot;members&quot;</span>: endowed_accounts
 				.iter()
 				.take((num_endowed_accounts + <span class="number">1</span>) / <span class="number">2</span>)
 				.cloned()
 				.map(|member| (member, STASH))
-				.collect(),
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		council: CouncilConfig::default(),
-		technical_committee: TechnicalCommitteeConfig {
-			members: endowed_accounts
+		<span class="string">&quot;technicalCommittee&quot;</span>: {
+			<span class="string">&quot;members&quot;</span>: endowed_accounts
 				.iter()
 				.take((num_endowed_accounts + <span class="number">1</span>) / <span class="number">2</span>)
 				.cloned()
-				.collect(),
-			phantom: Default::default(),
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		sudo: SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
-		babe: BabeConfig {
-			epoch_config: <span class="prelude-val">Some</span>(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key.clone()) },
+		<span class="string">&quot;babe&quot;</span>: {
+			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		im_online: ImOnlineConfig { keys: <span class="macro">vec!</span>[] },
-		authority_discovery: Default::default(),
-		grandpa: Default::default(),
-		technical_membership: Default::default(),
-		treasury: Default::default(),
-		society: SocietyConfig { pot: <span class="number">0 </span>},
-		vesting: Default::default(),
-		assets: pallet_assets::GenesisConfig {
+		<span class="string">&quot;society&quot;</span>: { <span class="string">&quot;pot&quot;</span>: <span class="number">0 </span>},
+		<span class="string">&quot;assets&quot;</span>: {
 			<span class="comment">// This asset is used by the NIS pallet as counterpart currency.
-			</span>assets: <span class="macro">vec!</span>[(<span class="number">9</span>, get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>), <span class="bool-val">true</span>, <span class="number">1</span>)],
-			..Default::default()
+			</span><span class="string">&quot;assets&quot;</span>: <span class="macro">vec!</span>[(<span class="number">9</span>, get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>), <span class="bool-val">true</span>, <span class="number">1</span>)],
 		},
-		pool_assets: Default::default(),
-		transaction_storage: Default::default(),
-		transaction_payment: Default::default(),
-		alliance: Default::default(),
-		safe_mode: Default::default(),
-		tx_pause: Default::default(),
-		alliance_motion: Default::default(),
-		nomination_pools: NominationPoolsConfig {
-			min_create_bond: <span class="number">10 </span>* DOLLARS,
-			min_join_bond: <span class="number">1 </span>* DOLLARS,
-			..Default::default()
+		<span class="string">&quot;nominationPools&quot;</span>: {
+			<span class="string">&quot;minCreateBond&quot;</span>: <span class="number">10 </span>* DOLLARS,
+			<span class="string">&quot;minJoinBond&quot;</span>: <span class="number">1 </span>* DOLLARS,
 		},
-		glutton: Default::default(),
-		mixnet: Default::default(),
-	}
+	})
 }
 
-<span class="kw">fn </span>development_config_genesis() -&gt; RuntimeGenesisConfig {
+<span class="kw">fn </span>development_config_genesis_json() -&gt; serde_json::Value {
 	testnet_genesis(
 		<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
 		<span class="macro">vec!</span>[],
@@ -932,21 +904,15 @@
 
 <span class="doccomment">/// Development config (single validator Alice).
 </span><span class="kw">pub fn </span>development_config() -&gt; ChainSpec {
-	ChainSpec::from_genesis(
-		<span class="string">&quot;Development&quot;</span>,
-		<span class="string">&quot;dev&quot;</span>,
-		ChainType::Development,
-		development_config_genesis,
-		<span class="macro">vec!</span>[],
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		Default::default(),
-	)
+	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
+		.with_name(<span class="string">&quot;Development&quot;</span>)
+		.with_id(<span class="string">&quot;dev&quot;</span>)
+		.with_chain_type(ChainType::Development)
+		.with_genesis_config_patch(development_config_genesis_json())
+		.build()
 }
 
-<span class="kw">fn </span>local_testnet_genesis() -&gt; RuntimeGenesisConfig {
+<span class="kw">fn </span>local_testnet_genesis() -&gt; serde_json::Value {
 	testnet_genesis(
 		<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>), authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>)],
 		<span class="macro">vec!</span>[],
@@ -957,18 +923,12 @@
 
 <span class="doccomment">/// Local testnet config (multivalidator Alice + Bob).
 </span><span class="kw">pub fn </span>local_testnet_config() -&gt; ChainSpec {
-	ChainSpec::from_genesis(
-		<span class="string">&quot;Local Testnet&quot;</span>,
-		<span class="string">&quot;local_testnet&quot;</span>,
-		ChainType::Local,
-		local_testnet_genesis,
-		<span class="macro">vec!</span>[],
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		Default::default(),
-	)
+	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
+		.with_name(<span class="string">&quot;Local Testnet&quot;</span>)
+		.with_id(<span class="string">&quot;local_testnet&quot;</span>)
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(local_testnet_genesis())
+		.build()
 }
 
 <span class="attr">#[cfg(test)]
@@ -978,45 +938,29 @@
 	<span class="kw">use </span>sc_service_test;
 	<span class="kw">use </span>sp_runtime::BuildStorage;
 
-	<span class="kw">fn </span>local_testnet_genesis_instant_single() -&gt; RuntimeGenesisConfig {
-		testnet_genesis(
-			<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
-			<span class="macro">vec!</span>[],
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			<span class="prelude-val">None</span>,
-		)
-	}
-
 	<span class="doccomment">/// Local testnet config (single validator - Alice).
 	</span><span class="kw">pub fn </span>integration_test_config_with_single_authority() -&gt; ChainSpec {
-		ChainSpec::from_genesis(
-			<span class="string">&quot;Integration Test&quot;</span>,
-			<span class="string">&quot;test&quot;</span>,
-			ChainType::Development,
-			local_testnet_genesis_instant_single,
-			<span class="macro">vec!</span>[],
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			Default::default(),
-		)
+		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
+			.with_name(<span class="string">&quot;Integration Test&quot;</span>)
+			.with_id(<span class="string">&quot;test&quot;</span>)
+			.with_chain_type(ChainType::Development)
+			.with_genesis_config_patch(testnet_genesis(
+				<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
+				<span class="macro">vec!</span>[],
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+				<span class="prelude-val">None</span>,
+			))
+			.build()
 	}
 
 	<span class="doccomment">/// Local testnet config (multivalidator Alice + Bob).
 	</span><span class="kw">pub fn </span>integration_test_config_with_two_authorities() -&gt; ChainSpec {
-		ChainSpec::from_genesis(
-			<span class="string">&quot;Integration Test&quot;</span>,
-			<span class="string">&quot;test&quot;</span>,
-			ChainType::Development,
-			local_testnet_genesis,
-			<span class="macro">vec!</span>[],
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			Default::default(),
-		)
+		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
+			.with_name(<span class="string">&quot;Integration Test&quot;</span>)
+			.with_id(<span class="string">&quot;test&quot;</span>)
+			.with_chain_type(ChainType::Development)
+			.with_genesis_config_patch(local_testnet_genesis())
+			.build()
 	}
 
 	<span class="attr">#[test]

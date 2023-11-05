@@ -1267,11 +1267,6 @@
 <a href="#1267" id="1267">1267</a>
 <a href="#1268" id="1268">1268</a>
 <a href="#1269" id="1269">1269</a>
-<a href="#1270" id="1270">1270</a>
-<a href="#1271" id="1271">1271</a>
-<a href="#1272" id="1272">1272</a>
-<a href="#1273" id="1273">1273</a>
-<a href="#1274" id="1274">1274</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2474,35 +2469,30 @@
 		cfg_file_path
 	}
 
-	<span class="kw">pub type </span>DummyChainSpec&lt;E&gt; =
-		sc_service::GenericChainSpec&lt;rococo_parachain_runtime::RuntimeGenesisConfig, E&gt;;
+	<span class="kw">pub type </span>DummyChainSpec&lt;E&gt; = sc_service::GenericChainSpec&lt;(), E&gt;;
 
 	<span class="kw">pub fn </span>create_default_with_extensions&lt;E: Extension&gt;(
 		id: <span class="kw-2">&amp;</span>str,
 		extension: E,
 	) -&gt; DummyChainSpec&lt;E&gt; {
-		DummyChainSpec::from_genesis(
-			<span class="string">&quot;Dummy local testnet&quot;</span>,
-			id,
-			ChainType::Local,
-			<span class="kw">move </span>|| {
-				<span class="kw">crate</span>::chain_spec::rococo_parachain::testnet_genesis(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					<span class="macro">vec!</span>[
-						get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
-						get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
-					],
-					<span class="macro">vec!</span>[get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)],
-					<span class="number">1000</span>.into(),
-				)
-			},
-			Vec::new(),
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
-			<span class="prelude-val">None</span>,
+		DummyChainSpec::builder(
+			rococo_parachain_runtime::WASM_BINARY
+				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 			extension,
 		)
+		.with_name(<span class="string">&quot;Dummy local testnet&quot;</span>)
+		.with_id(id)
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(<span class="kw">crate</span>::chain_spec::rococo_parachain::testnet_genesis(
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+			<span class="macro">vec!</span>[
+				get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+			],
+			<span class="macro">vec!</span>[get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)],
+			<span class="number">1000</span>.into(),
+		))
+		.build()
 	}
 
 	<span class="attr">#[test]

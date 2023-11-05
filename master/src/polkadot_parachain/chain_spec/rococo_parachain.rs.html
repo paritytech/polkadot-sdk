@@ -102,28 +102,6 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -151,73 +129,61 @@
 <span class="kw">use </span>sc_chain_spec::ChainType;
 <span class="kw">use </span>sp_core::{crypto::UncheckedInto, sr25519};
 
-<span class="kw">pub type </span>RococoParachainChainSpec =
-	sc_service::GenericChainSpec&lt;rococo_parachain_runtime::RuntimeGenesisConfig, Extensions&gt;;
+<span class="kw">pub type </span>RococoParachainChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="kw">pub fn </span>rococo_parachain_local_config() -&gt; RococoParachainChainSpec {
-	RococoParachainChainSpec::from_genesis(
-		<span class="string">&quot;Rococo Parachain Local&quot;</span>,
-		<span class="string">&quot;local_testnet&quot;</span>,
-		ChainType::Local,
-		<span class="kw">move </span>|| {
-			testnet_genesis(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				<span class="macro">vec!</span>[get_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>), get_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>)],
-				<span class="macro">vec!</span>[
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
-				],
-				<span class="number">1000</span>.into(),
-			)
-		},
-		Vec::new(),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
+	RococoParachainChainSpec::builder(
+		rococo_parachain_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)
+	.with_name(<span class="string">&quot;Rococo Parachain Local&quot;</span>)
+	.with_id(<span class="string">&quot;local_testnet&quot;</span>)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(testnet_genesis(
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		<span class="macro">vec!</span>[get_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>), get_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>)],
+		<span class="macro">vec!</span>[
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+		],
+		<span class="number">1000</span>.into(),
+	))
+	.build()
 }
 
 <span class="kw">pub fn </span>staging_rococo_parachain_local_config() -&gt; RococoParachainChainSpec {
-	RococoParachainChainSpec::from_genesis(
-		<span class="string">&quot;Staging Rococo Parachain Local&quot;</span>,
-		<span class="string">&quot;staging_testnet&quot;</span>,
-		ChainType::Live,
-		<span class="kw">move </span>|| {
-			testnet_genesis(
-				<span class="macro">hex!</span>[<span class="string">&quot;9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00&quot;</span>].into(),
-				<span class="macro">vec!</span>[
-					<span class="comment">// $secret//one
-					</span><span class="macro">hex!</span>[<span class="string">&quot;aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33&quot;</span>]
-						.unchecked_into(),
-					<span class="comment">// $secret//two
-					</span><span class="macro">hex!</span>[<span class="string">&quot;d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212&quot;</span>]
-						.unchecked_into(),
-				],
-				<span class="macro">vec!</span>[
-					<span class="macro">hex!</span>[<span class="string">&quot;9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00&quot;</span>].into()
-				],
-				<span class="number">1000</span>.into(),
-			)
-		},
-		Vec::new(),
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
-		<span class="prelude-val">None</span>,
+	<span class="attr">#[allow(deprecated)]
+	</span>RococoParachainChainSpec::builder(
+		rococo_parachain_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)
+	.with_name(<span class="string">&quot;Staging Rococo Parachain Local&quot;</span>)
+	.with_id(<span class="string">&quot;staging_testnet&quot;</span>)
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(testnet_genesis(
+		<span class="macro">hex!</span>[<span class="string">&quot;9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00&quot;</span>].into(),
+		<span class="macro">vec!</span>[
+			<span class="comment">// $secret//one
+			</span><span class="macro">hex!</span>[<span class="string">&quot;aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33&quot;</span>]
+				.unchecked_into(),
+			<span class="comment">// $secret//two
+			</span><span class="macro">hex!</span>[<span class="string">&quot;d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212&quot;</span>]
+				.unchecked_into(),
+		],
+		<span class="macro">vec!</span>[<span class="macro">hex!</span>[<span class="string">&quot;9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00&quot;</span>].into()],
+		<span class="number">1000</span>.into(),
+	))
+	.build()
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>testnet_genesis(
@@ -225,29 +191,19 @@
 	initial_authorities: Vec&lt;AuraId&gt;,
 	endowed_accounts: Vec&lt;AccountId&gt;,
 	id: ParaId,
-) -&gt; rococo_parachain_runtime::RuntimeGenesisConfig {
-	rococo_parachain_runtime::RuntimeGenesisConfig {
-		system: rococo_parachain_runtime::SystemConfig {
-			code: rococo_parachain_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not build, please build it!&quot;</span>)
-				.to_vec(),
-			..Default::default()
+) -&gt; serde_json::Value {
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">&quot;balances&quot;</span>: {
+			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1u64 </span>&lt;&lt; <span class="number">60</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		balances: rococo_parachain_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1 </span>&lt;&lt; <span class="number">60</span>)).collect(),
+		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key) },
+		<span class="string">&quot;parachainInfo&quot;</span>: {
+			<span class="string">&quot;parachainId&quot;</span>: id,
 		},
-		sudo: rococo_parachain_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
-		parachain_info: rococo_parachain_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
+		<span class="string">&quot;aura&quot;</span>: { <span class="string">&quot;authorities&quot;</span>: initial_authorities },
+		<span class="string">&quot;polkadotXcm&quot;</span>: {
+			<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 		},
-		aura: rococo_parachain_runtime::AuraConfig { authorities: initial_authorities },
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: rococo_parachain_runtime::PolkadotXcmConfig {
-			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
-			..Default::default()
-		},
-	}
+	})
 }
 </code></pre></div></section></main></body></html>
