@@ -605,14 +605,35 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 
 		logger.init()?;
 
-		if let Some(new_limit) = fdlimit::raise_fd_limit() {
-			if new_limit < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+		match std::panic::catch_unwind(fdlimit::raise_fd_limit) {
+			Ok(Some(new_limit)) =>
+				if new_limit < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+					warn!(
+						"Low open file descriptor limit configured for the process. \
+						Current value: {:?}, recommended value: {:?}.",
+						new_limit, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					);
+				},
+			Ok(None) => {
+				// Unsupported platform (non-Linux)
+			},
+			Err(error) => {
+				let error = if let Some(error) = error.downcast_ref::<&str>() {
+					*error
+				} else if let Some(error) = error.downcast_ref::<String>() {
+					error
+				} else {
+					unreachable!(
+						"Should be unreachable as `fdlimit` uses panic macro, \
+						which should return either `&str` or `String`"
+					)
+				};
 				warn!(
-					"Low open file descriptor limit configured for the process. \
-					Current value: {:?}, recommended value: {:?}.",
-					new_limit, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					"Failed to configure file descriptor limit for the process: \
+					{}, recommended value: {:?}.",
+					error, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 				);
-			}
+			},
 		}
 
 		Ok(())
