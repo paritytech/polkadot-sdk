@@ -103,7 +103,7 @@ pub enum Outcome {
 	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
 	///
 	/// The worker might still be usable, but we kill it just in case.
-	JobDied,
+	JobDied(String),
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -225,7 +225,7 @@ async fn handle_response(
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-		Err(PrepareError::JobDied) => return Outcome::JobDied,
+		Err(PrepareError::JobDied(err)) => return Outcome::JobDied(err),
 		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(_) => return Outcome::Concluded { worker, result },
 	};

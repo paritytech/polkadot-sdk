@@ -509,8 +509,7 @@ fn handle_parent_process(
 	let mut received_data = Vec::new();
 	pipe_read
 		.read_to_end(&mut received_data)
-		// Swallow the error, it's not really helpful as to why the child died.
-		.map_err(|_errno| PrepareError::JobDied)?;
+		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(child, None);
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
@@ -524,7 +523,7 @@ fn handle_parent_process(
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 
 	return match status {
-		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
+		Ok(WaitStatus::Exited(_pid, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
 					// There is either a bug or the job was hijacked.
@@ -579,14 +578,17 @@ fn handle_parent_process(
 				},
 			}
 		},
-		// The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
-		// death. But also, receiving any signal is unexpected, so treat them all the same.
-		Ok(WaitStatus::Signaled(..)) => Err(PrepareError::JobDied),
+		// The job was killed by the given signal.
+		//
+		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
+		// other reason, so we still need to check for seccomp violations elsewhere.
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) =>
+			Err(PrepareError::JobDied(format!("received signal: {signal:?}"))),
 		Err(errno) => Err(error_from_errno("waitpid", errno)),
 
 		// An attacker can make the child process return any exit status it wants. So we can treat
 		// all unexpected cases the same way.
-		Ok(unexpected_wait_status) => Err(PrepareError::IoErr(format!(
+		Ok(unexpected_wait_status) => Err(PrepareError::JobDied(format!(
 			"unexpected status from wait: {unexpected_wait_status:?}"
 		))),
 	}

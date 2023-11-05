@@ -209,7 +209,13 @@ pub fn worker_entrypoint(
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
 
-						handle_parent_process(pipe_reader, child, usage_before, execution_timeout)?
+						handle_parent_process(
+							pipe_reader,
+							child,
+							worker_pid,
+							usage_before,
+							execution_timeout,
+						)?
 					},
 				};
 
@@ -369,17 +375,13 @@ fn handle_child_process(
 fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
 	child: Pid,
+	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<Response> {
-	let worker_pid = std::process::id();
-
 	// Read from the child.
 	let mut received_data = Vec::new();
-	if let Err(_err) = pipe_read.read_to_end(&mut received_data) {
-		// Swallow the error, it's not really helpful as to why the child died.
-		return Ok(Response::JobDied)
-	}
+	pipe_read.read_to_end(&mut received_data)?;
 
 	let status = nix::sys::wait::waitpid(child, None);
 
@@ -430,14 +432,17 @@ fn handle_parent_process(
 				Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
 			}
 		},
-		// The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
-		// death. But also, receiving any signal is unexpected, so treat them all the same.
-		Ok(WaitStatus::Signaled(..)) => Ok(Response::JobDied),
+		// The job was killed by the given signal.
+		//
+		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
+		// other reason, so we still need to check for seccomp violations elsewhere.
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) =>
+			Ok(Response::JobDied(format!("received signal: {signal:?}"))),
 		Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
 
 		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
-		Ok(unexpected_wait_status) => Ok(Response::UnexpectedJobStatus(format!(
+		Ok(unexpected_wait_status) => Ok(Response::JobDied(format!(
 			"unexpected status from wait: {unexpected_wait_status:?}"
 		))),
 	}

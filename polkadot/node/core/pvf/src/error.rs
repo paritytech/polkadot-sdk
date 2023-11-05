@@ -61,11 +61,7 @@ pub enum InvalidCandidate {
 	/// (c) Some other reason, perhaps transient or perhaps caused by malicious code.
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
-	AmbiguousJobDeath,
-	/// The execute job returned an unexpected status.
-	///
-	/// We cannot treat this as an internal error because malicious code may have caused this.
-	UnexpectedJobStatus(String),
+	AmbiguousJobDeath(String),
 }
 
 impl From<InternalValidationError> for ValidationError {

@@ -357,14 +357,9 @@ fn handle_job_finish(
 		),
 		Outcome::Panic { err } =>
 			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::Panic(err))), None),
-		Outcome::JobDied => (
+		Outcome::JobDied { err } => (
 			None,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath)),
-			None,
-		),
-		Outcome::UnexpectedJobStatus { err } => (
-			None,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::UnexpectedJobStatus(err))),
+			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err))),
 			None,
 		),
 	};

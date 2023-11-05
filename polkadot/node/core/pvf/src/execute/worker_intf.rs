@@ -98,12 +98,7 @@ pub enum Outcome {
 	/// The job process has died. We must kill the worker just in case.
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
-	JobDied,
-	/// The execute job returned an unexpected status. We might be able to recover from this error
-	/// instead of killing the worker, but this should be very rare anyway.
-	///
-	/// We cannot treat this as an internal error because malicious code may have caused this.
-	UnexpectedJobStatus { err: String },
+	JobDied { err: String },
 
 	/// An internal error happened during the validation. Such an error is most likely related to
 	/// some transient glitch.
@@ -242,8 +237,7 @@ pub async fn start_work(
 			},
 			Response::TimedOut => Outcome::HardTimeout,
 			Response::Panic(err) => Outcome::Panic { err },
-			Response::JobDied => Outcome::JobDied,
-			Response::UnexpectedJobStatus(err) => Outcome::UnexpectedJobStatus{err},
+			Response::JobDied(err) => Outcome::JobDied { err },
 
 			Response::InternalError(err) => Outcome::InternalError { err },
 		}

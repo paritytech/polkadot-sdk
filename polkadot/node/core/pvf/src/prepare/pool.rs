@@ -388,14 +388,14 @@ fn handle_mux(
 					Ok(())
 				},
 				// The worker might still be usable, but we kill it just in case.
-				Outcome::JobDied => {
+				Outcome::JobDied(err) => {
 					if attempt_retire(metrics, spawned, worker) {
 						reply(
 							from_pool,
 							FromPool::Concluded {
 								worker,
 								rip: true,
-								result: Err(PrepareError::JobDied),
+								result: Err(PrepareError::JobDied(err)),
 							},
 						)?;
 					}

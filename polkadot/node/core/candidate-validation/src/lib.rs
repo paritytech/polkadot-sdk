@@ -648,12 +648,10 @@ async fn validate_candidate_exhaustive(
 		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
-				"ambiguous job death".to_string(),
-			))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::UnexpectedJobStatus(err))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(err))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
+				"ambiguous job death: {err}"
+			)))),
 		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) => {
 			// In principle if preparation of the `WASM` fails, the current candidate can not be the
 			// reason for that. So we can't say whether it is invalid or not. In addition, with
@@ -757,8 +755,7 @@ trait ValidationBackend {
 			match validation_result {
 				Err(ValidationError::InvalidCandidate(
 					WasmInvalidCandidate::AmbiguousWorkerDeath |
-					WasmInvalidCandidate::AmbiguousJobDeath |
-					WasmInvalidCandidate::UnexpectedJobStatus(_),
+					WasmInvalidCandidate::AmbiguousJobDeath(_),
 				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
 				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(_)))
 					if num_panic_retries_left > 0 =>
