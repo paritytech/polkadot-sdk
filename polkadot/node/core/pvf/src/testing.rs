@@ -36,8 +36,8 @@ pub fn validate_candidate(
 	code: &[u8],
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+	use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
 	use polkadot_node_core_pvf_execute_worker::execute_artifact;
-	use polkadot_node_core_pvf_prepare_worker::{prepare, prevalidate};
 
 	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
 		.expect("Decompressing code failed");

@@ -23,29 +23,36 @@ use std::fmt;
 pub type PrepareResult = Result<PrepareStats, PrepareError>;
 
 /// An error that occurred during the prepare part of the PVF pipeline.
+// Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD` below)
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum PrepareError {
 	/// During the prevalidation stage of preparation an issue was found with the PVF.
+	#[codec(index = 0)]
 	Prevalidation(String),
 	/// Compilation failed for the given PVF.
+	#[codec(index = 1)]
 	Preparation(String),
 	/// Instantiation of the WASM module instance failed.
+	#[codec(index = 2)]
 	RuntimeConstruction(String),
 	/// An unexpected panic has occurred in the preparation job.
+	#[codec(index = 3)]
 	Panic(String),
 	/// Failed to prepare the PVF due to the time limit.
+	#[codec(index = 4)]
 	TimedOut,
 	/// An IO error occurred. This state is reported by either the validation host or by the
 	/// worker.
+	#[codec(index = 5)]
 	IoErr(String),
-	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
-	JobDied,
 	/// The temporary file for the artifact could not be created at the given cache path. This
 	/// state is reported by the validation host (not by the worker).
+	#[codec(index = 6)]
 	CreateTmpFile(String),
 	/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
+	#[codec(index = 7)]
 	RenameTmpFile {
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
@@ -53,13 +60,24 @@ pub enum PrepareError {
 		src: Option<String>,
 		dest: Option<String>,
 	},
+	/// Memory limit reached
+	#[codec(index = 8)]
+	OutOfMemory,
 	/// The response from the worker is received, but the worker cache could not be cleared. The
 	/// worker has to be killed to avoid jobs having access to data from other jobs. This state is
 	/// reported by the validation host (not by the worker).
+	#[codec(index = 9)]
 	ClearWorkerDir(String),
+	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	JobDied,
+	#[codec(index = 10)]
 	/// Some error occurred when interfacing with the kernel.
+	#[codec(index = 11)]
 	Kernel(String),
 }
+
+/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
+pub const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 impl PrepareError {
 	/// Returns whether this is a deterministic error, i.e. one that should trigger reliably. Those
@@ -71,7 +89,7 @@ impl PrepareError {
 	pub fn is_deterministic(&self) -> bool {
 		use PrepareError::*;
 		match self {
-			Prevalidation(_) | Preparation(_) | Panic(_) => true,
+			Prevalidation(_) | Preparation(_) | Panic(_) | OutOfMemory => true,
 			IoErr(_) |
 			JobDied |
 			CreateTmpFile(_) |
@@ -100,6 +118,7 @@ impl fmt::Display for PrepareError {
 			CreateTmpFile(err) => write!(f, "prepare: error creating tmp file: {}", err),
 			RenameTmpFile { err, src, dest } =>
 				write!(f, "prepare: error renaming tmp file ({:?} -> {:?}): {}", src, dest, err),
+			OutOfMemory => write!(f, "prepare: out of memory"),
 			ClearWorkerDir(err) => write!(f, "prepare: error clearing worker cache: {}", err),
 			Kernel(err) => write!(f, "prepare: error interfacing with the kernel: {}", err),
 		}
@@ -166,4 +185,12 @@ impl fmt::Display for InternalValidationError {
 			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),
 		}
 	}
+}
+
+#[test]
+fn pre_encoded_payloads() {
+	let oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
+	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
+	oom_payload.extend(oom_enc);
+	assert_eq!(oom_payload, OOM_PAYLOAD);
 }

@@ -76,10 +76,6 @@ impl_opaque_keys! {
 	pub struct SessionKeys {}
 }
 
-/// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
-/// [`OnRuntimeUpgrade`] works as expected.
-pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
-
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
@@ -278,11 +274,13 @@ impl pallet_glutton::Config for Runtime {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
+	type WeightInfo = ();
 	type SelfParaId = ParachainId;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type OutboundXcmpMessageSource = ();
-	type DmpMessageHandler = ();
+	// Ignore all DMP messages by enqueueing them into `()`:
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 	type ReservedDmpWeight = ();
 	type XcmpMessageHandler = ();
 	type ReservedXcmpWeight = ();
@@ -291,6 +289,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 }
 
 parameter_types! {
+	// will be set by test_pallet during genesis init
 	pub storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
 }
 
@@ -365,7 +364,10 @@ pub struct TestOnRuntimeUpgrade;
 
 impl OnRuntimeUpgrade for TestOnRuntimeUpgrade {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		assert_eq!(sp_io::storage::get(TEST_RUNTIME_UPGRADE_KEY), Some(vec![1, 2, 3, 4].into()));
+		assert_eq!(
+			sp_io::storage::get(test_pallet::TEST_RUNTIME_UPGRADE_KEY),
+			Some(vec![1, 2, 3, 4].into())
+		);
 		Weight::from_parts(1, 0)
 	}
 }

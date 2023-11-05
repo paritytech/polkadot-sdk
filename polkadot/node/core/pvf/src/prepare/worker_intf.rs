@@ -98,6 +98,8 @@ pub enum Outcome {
 	///
 	/// This doesn't return an idle worker instance, thus this worker is no longer usable.
 	IoErr(String),
+	/// The worker ran out of memory and is aborting. The worker should be ripped.
+	OutOfMemory,
 	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
 	///
 	/// The worker might still be usable, but we kill it just in case.
@@ -223,8 +225,8 @@ async fn handle_response(
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-		// The prepare job died.
 		Err(PrepareError::JobDied) => return Outcome::JobDied,
+		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(_) => return Outcome::Concluded { worker, result },
 	};
 

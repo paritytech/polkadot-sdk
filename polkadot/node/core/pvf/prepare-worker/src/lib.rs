@@ -16,10 +16,9 @@
 
 //! Contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary.
 
-mod executor_intf;
 mod memory_stats;
 
-pub use executor_intf::{prepare, prevalidate};
+use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -41,7 +40,7 @@ use nix::{
 use os_pipe::{self, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrepareError, PrepareResult, OOM_PAYLOAD},
 	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
@@ -57,12 +56,25 @@ use polkadot_primitives::ExecutorParams;
 use std::{
 	fs,
 	io::{self, Read, Write},
-	os::unix::net::UnixStream,
+	os::{
+		fd::{AsRawFd, RawFd},
+		unix::net::UnixStream,
+	},
 	path::PathBuf,
 	process,
 	sync::Arc,
 	time::Duration,
 };
+use tracking_allocator::TrackingAllocator;
+
+#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+#[global_allocator]
+static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
+	TrackingAllocator(tikv_jemallocator::Jemalloc);
+
+#[cfg(not(any(target_os = "linux", feature = "jemalloc-allocator")))]
+#[global_allocator]
+static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
 
 /// Contains the bytes for a successfully compiled artifact.
 #[derive(Encode, Decode)]
@@ -94,6 +106,44 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 
 fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
 	framed_send_blocking(stream, &result.encode())
+}
+
+fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
+	unsafe {
+		// SAFETY: Inside the failure handler, the allocator is locked and no allocations or
+		// deallocations are possible. For Linux, that always holds for the code below, so it's
+		// safe. For MacOS, that technically holds at the time of writing, but there are no future
+		// guarantees.
+		// The arguments of unsafe `libc` calls are valid, the payload validity is covered with
+		// a test.
+		ALLOC.start_tracking(
+			limit,
+			Some(Box::new(move || {
+				#[cfg(target_os = "linux")]
+				{
+					// Syscalls never allocate or deallocate, so this is safe.
+					libc::syscall(libc::SYS_write, fd, OOM_PAYLOAD.as_ptr(), OOM_PAYLOAD.len());
+					libc::syscall(libc::SYS_close, fd);
+					libc::syscall(libc::SYS_exit, 1);
+				}
+				#[cfg(not(target_os = "linux"))]
+				{
+					// Syscalls are not available on MacOS, so we have to use `libc` wrappers.
+					// Technically, there may be allocations inside, although they shouldn't be
+					// there. In that case, we'll see deadlocks on MacOS after the OOM condition
+					// triggered. As we consider running a validator on MacOS unsafe, and this
+					// code is only run by a validator, it's a lesser evil.
+					libc::write(fd, OOM_PAYLOAD.as_ptr().cast(), OOM_PAYLOAD.len());
+					libc::close(fd);
+					std::process::exit(1);
+				}
+			})),
+		);
+	}
+}
+
+fn end_memory_tracking() -> isize {
+	ALLOC.end_tracking()
 }
 
 /// The entrypoint that the spawned prepare worker should start with.
@@ -302,6 +352,21 @@ fn handle_child_process(
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
 
+	start_memory_tracking(
+		stream.as_raw_fd(),
+		executor_params.prechecking_max_memory().map(|v| {
+			v.try_into().unwrap_or_else(|_| {
+				gum::warn!(
+					LOG_TARGET,
+					%worker_pid,
+					"Illegal pre-checking max memory value {} discarded",
+					v,
+				);
+				0
+			})
+		}),
+	);
+
 	let prepare_thread = spawn_worker_thread(
 		"prepare worker",
 		move || {
@@ -338,6 +403,17 @@ fn handle_child_process(
 		send_child_response(&pipe_write, Err(PrepareError::Panic(stringify_panic_payload(err))))
 	});
 
+	let peak_alloc = {
+		let peak = end_memory_tracking();
+		gum::debug!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"prepare job peak allocation is {} bytes",
+			peak,
+		);
+		peak
+	};
+
 	let response: Result<Response, PrepareError> = match result {
 		Ok(ok) => {
 			cfg_if::cfg_if! {
@@ -357,6 +433,10 @@ fn handle_child_process(
 				memory_tracker_stats,
 				#[cfg(target_os = "linux")]
 				max_rss: extract_max_rss_stat(max_rss, process::id()),
+				// Negative peak allocation values are legit; they are narrow
+				// corner cases and shouldn't affect overall statistics
+				// significantly
+				peak_tracked_alloc: if peak_alloc > 0 { peak_alloc as u64 } else { 0u64 },
 			};
 
 			Ok(Response { artifact, memory_stats })
