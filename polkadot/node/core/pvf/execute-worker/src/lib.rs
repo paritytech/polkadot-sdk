@@ -24,6 +24,7 @@ pub use polkadot_node_core_pvf_common::{
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
+use cpu_time::ProcessTime;
 use nix::{
 	errno::Errno,
 	sys::{
@@ -33,7 +34,6 @@ use nix::{
 	unistd::{ForkResult, Pid},
 };
 use os_pipe::PipeWriter;
-use cpu_time::ProcessTime;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
@@ -188,7 +188,7 @@ pub fn worker_entrypoint(
 
 				// SAFETY: new process is spawned within a single threaded process
 				let response = match unsafe { nix::unistd::fork() } {
-                    Err(errno) => internal_error_from_errno("fork", errno),
+					Err(errno) => internal_error_from_errno("fork", errno),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
@@ -372,7 +372,7 @@ fn handle_parent_process(
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<Response> {
-    let worker_pid = std::process::id();
+	let worker_pid = std::process::id();
 
 	// Read from the child.
 	let mut received_data = Vec::new();
@@ -388,8 +388,8 @@ fn handle_parent_process(
 		Err(errno) => return Ok(internal_error_from_errno("getrusage after", errno)),
 	};
 
-	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on child.
-    // to report its own time.
+	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
+	// child. to report its own time.
 	// As `getrusage` returns resource usage from all terminated child processes,
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
@@ -425,21 +425,21 @@ fn handle_parent_process(
 					);
 					return Ok(Response::TimedOut)
 				},
-                Ok(response) => Ok(response),
-                // There is either a bug or the job was hijacked. Should retry at any rate.
-                Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
+				Ok(response) => Ok(response),
+				// There is either a bug or the job was hijacked. Should retry at any rate.
+				Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
 			}
 		},
-        // The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
-        // death. But also, receiving any signal is unexpected, so treat them all the same.
-        Ok(WaitStatus::Signaled(..)) => Ok(Response::JobDied),
-        Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
+		// The job gets SIGSYS on seccomp violations. We can also treat other termination signals as
+		// death. But also, receiving any signal is unexpected, so treat them all the same.
+		Ok(WaitStatus::Signaled(..)) => Ok(Response::JobDied),
+		Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
 
-        // It is within an attacker's power to send an unexpected exit status. So we cannot treat
-        // this as an internal error (which would make us abstain), but must vote against.
-        Ok(unexpected_wait_status) => Ok(Response::UnexpectedJobStatus(format!(
-            "unexpected status from wait: {unexpected_wait_status:?}"
-        ))),
+		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
+		// this as an internal error (which would make us abstain), but must vote against.
+		Ok(unexpected_wait_status) => Ok(Response::UnexpectedJobStatus(format!(
+			"unexpected status from wait: {unexpected_wait_status:?}"
+		))),
 	}
 }
 
