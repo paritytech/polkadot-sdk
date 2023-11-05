@@ -52,9 +52,7 @@ enum GenesisSource<G> {
 	File(PathBuf),
 	Binary(Cow<'static, [u8]>),
 	/// factory function + code
-	#[deprecated(
-		note = "Factory and G type parameter are planned to be removed in December 2023. Use `GenesisBuilderApi` instead."
-	)]
+	//Factory and G type parameter shall be removed togheter with `ChainSpec::from_genesis`
 	Factory(Arc<dyn Fn() -> G + Send + Sync>, Vec<u8>),
 	Storage(Storage),
 	/// build action + code
@@ -66,7 +64,6 @@ impl<G> Clone for GenesisSource<G> {
 		match *self {
 			Self::File(ref path) => Self::File(path.clone()),
 			Self::Binary(ref d) => Self::Binary(d.clone()),
-			#[allow(deprecated)]
 			Self::Factory(ref f, ref c) => Self::Factory(f.clone(), c.clone()),
 			Self::Storage(ref s) => Self::Storage(s.clone()),
 			Self::GenesisBuilderApi(ref s, ref c) => Self::GenesisBuilderApi(s.clone(), c.clone()),
@@ -106,7 +103,6 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 					.map_err(|e| format!("Error parsing embedded file: {}", e))?;
 				Ok(genesis.genesis)
 			},
-			#[allow(deprecated)]
 			Self::Factory(f, code) => Ok(Genesis::RuntimeAndCode(RuntimeInnerWrapper {
 				runtime: f(),
 				code: code.clone(),
@@ -239,7 +235,8 @@ enum RuntimeGenesisConfigJson {
 	/// Represents the explicit and comprehensive runtime genesis config in JSON format.
 	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
 	///
-	/// Using a full config is useful for when someone wants to ensure that a change in the runtime makes the deserialization fail and not silently add some default values.
+	/// Using a full config is useful for when someone wants to ensure that a change in the runtime
+	/// makes the deserialization fail and not silently add some default values.
 	Config(json::Value),
 	/// Represents a patch for the default runtime genesis config in JSON format which is
 	/// essentially a list of keys that are to be customized in runtime genesis config.
@@ -261,7 +258,6 @@ struct RuntimeInnerWrapper<G> {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
-#[allow(deprecated)]
 enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
@@ -554,7 +550,6 @@ impl<G, E> ChainSpec<G, E> {
 			code_substitutes: BTreeMap::new(),
 		};
 
-		#[allow(deprecated)]
 		ChainSpec {
 			client_spec,
 			genesis: GenesisSource::Factory(Arc::new(constructor), code.into()),
@@ -761,8 +756,10 @@ fn json_eval_value_at_key(
 	path: &mut VecDeque<&str>,
 	fun: &dyn Fn(&json::Value) -> bool,
 ) -> bool {
-	let Some(key) = path.pop() else { return false; }
-	
+	let Some(key) = path.pop_front() else {
+		return false;
+	};
+
 	if path.is_empty() {
 		doc.as_object().map_or(false, |o| o.get(key).map_or(false, |v| fun(v)))
 	} else {
