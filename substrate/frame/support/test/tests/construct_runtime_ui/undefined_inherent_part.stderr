@@ -119,3 +119,24 @@ error[E0599]: no function or associated item named `is_inherent_required` found 
    = note: the following trait defines an item `is_inherent_required`, perhaps you need to implement it:
            candidate #1: `ProvideInherent`
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no function or associated item named `inherent_order` found for struct `pallet::Pallet` in the current scope
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:65:1
+   |
+28 |       pub struct Pallet<T>(_);
+   |       -------------------- function or associated item `inherent_order` not found for this struct
+...
+65 |   construct_runtime! {
+   |  _^
+66 | |     pub struct Runtime
+67 | |     {
+68 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+69 | |         Pallet: pallet expanded::{}::{Pallet, Inherent},
+70 | |     }
+71 | | }
+   | |_^ function or associated item not found in `Pallet<Runtime>`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `inherent_order`, perhaps you need to implement it:
+           candidate #1: `ProvideInherent`
+   = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
