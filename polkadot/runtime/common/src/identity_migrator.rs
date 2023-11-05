@@ -135,3 +135,91 @@ impl<AccountId> OnReapIdentity<AccountId> for () {
 		Ok(())
 	}
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
+#[cfg(feature = "runtime-benchmarks")]
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+	use frame_support::traits::EnsureOrigin;
+	use frame_system::RawOrigin;
+	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
+	use sp_runtime::traits::{Hash, StaticLookup};
+
+	const SEED: u32 = 0;
+
+	#[benchmark]
+	fn reap_identity(
+		r: Linear<0, { T::MaxRegistrars::get() }>,
+		s: Linear<0, { T::MaxSubAccounts::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// set up target
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_origin =
+			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(1_000_000u32));
+
+		// add registrars
+		for ii in 0..r {
+			let registrar: T::AccountId = account("registrar", ii, SEED);
+			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
+			let _ = <T as pallet_identity::Config>::Currency::make_free_balance_be(
+				&registrar,
+				<BalanceOf<T>>::from(1_000_000u32),
+			);
+			let registrar_origin = T::RegistrarOrigin::try_successful_origin()
+				.expect("RegistrarOrigin has no successful origin required for the benchmark");
+			Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
+			Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), ii, 10u32.into())?;
+			let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
+			Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), ii, fields)?;
+		}
+
+		// set identity
+		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
+		Identity::<T>::set_identity(
+			RawOrigin::Signed(target.clone()).into(),
+			Box::new(info.clone()),
+		)?;
+
+		// create and set subs
+		let mut subs = Vec::new();
+		let data = Data::Raw(vec![0; 32].try_into().unwrap());
+		for ii in 0..s {
+			let sub_account = account("sub", ii, SEED);
+			subs.push((sub_account, data.clone()));
+		}
+		Identity::<T>::set_subs(target_origin.clone(), subs.clone())?;
+
+		// provide judgements
+		for ii in 0..r {
+			let registrar: T::AccountId = account("registrar", ii, SEED);
+			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into())?;
+			Identity::<T>::provide_judgement(
+				RawOrigin::Signed(registrar).into(),
+				ii,
+				target_lookup.clone(),
+				Judgement::Reasonable,
+				<T as frame_system::Config>::Hashing::hash_of(&info),
+			)?;
+		}
+
+		let origin = T::Reaper::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, target.clone());
+
+		let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
+		assert!(!Identity::<T>::has_identity(&target, fields));
+		assert_eq!(Identity::<T>::subs(&target).len(), 0);
+
+		Ok(())
+	}
+
+	// #[benchmark]
+	// fn poke_deposit() {}
+
+	impl_benchmark_test_suite!(Migrator, crate::tests::new_test_ext(), crate::tests::Test);
+}
