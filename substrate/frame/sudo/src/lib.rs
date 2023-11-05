@@ -304,9 +304,9 @@ pub mod pallet {
 	}
 
 	#[pallet::error]
-	/// Error for the Sudo pallet
+	/// Error for the Sudo pallet.
 	pub enum Error<T> {
-		/// Sender must be the Sudo account
+		/// Sender must be the Sudo account.
 		RequireSudo,
 	}
 
