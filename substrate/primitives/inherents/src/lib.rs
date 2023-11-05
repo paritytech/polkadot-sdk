@@ -171,6 +171,8 @@ use sp_std::{
 
 #[cfg(feature = "std")]
 mod client_side;
+#[cfg(test)]
+mod tests;
 
 #[cfg(feature = "std")]
 pub use client_side::*;
@@ -408,8 +410,6 @@ impl Ord for InherentOrder {
 	}
 }
 
-// FAIL-CI: test
-
 impl PartialOrd for InherentOrder {
 	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 		Some(self.cmp(other))
@@ -446,7 +446,7 @@ impl<E: codec::Encode> IsFatalError for MakeFatalError<E> {
 }
 
 #[cfg(test)]
-mod tests {
+mod unit_tests {
 	use super::*;
 	use codec::{Decode, Encode};
 
