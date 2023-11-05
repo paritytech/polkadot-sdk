@@ -761,10 +761,11 @@ fn json_eval_value_at_key(
 	path: &mut VecDeque<&str>,
 	fun: &dyn Fn(&json::Value) -> bool,
 ) -> bool {
-	if path.len() == 1 {
-		doc.as_object().map_or(false, |o| o.get(path[0]).map_or(false, |v| fun(v)))
+	let Some(key) = path.pop() else { return false; }
+	
+	if path.is_empty() {
+		doc.as_object().map_or(false, |o| o.get(key).map_or(false, |v| fun(v)))
 	} else {
-		let key = path.pop_front().unwrap();
 		doc.as_object()
 			.map_or(false, |o| o.get(key).map_or(false, |v| json_eval_value_at_key(v, path, fun)))
 	}
