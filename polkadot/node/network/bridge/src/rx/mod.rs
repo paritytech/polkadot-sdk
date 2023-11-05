@@ -553,7 +553,7 @@ where
 		let addr = get_peer_id_by_authority_id(ads, discovery_id.clone()).await;
 		if addr.is_none() {
 			// See on why is not good in https://github.com/paritytech/polkadot-sdk/issues/2138
-			gum::warn!(
+			gum::debug!(
 				target: LOG_TARGET,
 				?validator_index,
 				"Could not determine peer_id for validator, let the team know in \n
