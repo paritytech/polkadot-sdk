@@ -72,8 +72,10 @@ impl<T> Spinlock<T> {
 		}
 	}
 
+	// SAFETY: It should be only called from the guard's destructor. Calling it explicitly while
+	// the guard is alive is undefined behavior.
 	#[inline]
-	fn unlock(&self) {
+	unsafe fn unlock(&self) {
 		self.lock.store(false, Ordering::Release);
 	}
 }
@@ -97,7 +99,9 @@ impl<T> DerefMut for SpinlockGuard<'_, T> {
 
 impl<T> Drop for SpinlockGuard<'_, T> {
 	fn drop(&mut self) {
-		self.lock.unlock();
+		// SAFETY: Calling `unlock` is only safe when it's guaranteed no guard outlives the
+		// unlocking point; here, the guard is dropped, so it is safe.
+		unsafe { self.lock.unlock() }
 	}
 }
 
