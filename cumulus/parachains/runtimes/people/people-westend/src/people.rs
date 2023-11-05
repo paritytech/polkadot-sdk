@@ -16,11 +16,11 @@
 
 use super::*;
 use frame_support::{parameter_types, traits::ConstU32};
-use pallet_identity::simple::IdentityInfo;
+use pallet_identity::legacy::IdentityInfo;
 
 parameter_types! {
-	pub const BasicDeposit: Balance = deposit(1, 258);
-	pub const FieldDeposit: Balance = deposit(0, 66);
+	pub const BasicDeposit: Balance = deposit(1, 17);
+	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
 }
 
@@ -28,11 +28,10 @@ impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
-	type FieldDeposit = FieldDeposit;
+	type ByteDeposit = ByteDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = ConstU32<100>;
-	type MaxAdditionalFields = ConstU32<100>;
-	type IdentityInformation = IdentityInfo<ConstU32<100>>;
+	type IdentityInformation = IdentityInfo<ConstU32<10>>;
 	type MaxRegistrars = ConstU32<20>;
 	// todo: consider teleporting to treasury.
 	type Slashed = ();

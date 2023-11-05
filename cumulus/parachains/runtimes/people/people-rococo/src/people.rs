@@ -21,14 +21,18 @@ use frame_support::{
 	parameter_types, traits::ConstU32, CloneNoBound, EqNoBound, PartialEqNoBound,
 	RuntimeDebugNoBound,
 };
-use pallet_identity::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag};
+use pallet_identity::{Data, IdentityInformationProvider};
 use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
 parameter_types! {
-	pub const BasicDeposit: Balance = deposit(1, 258);
-	pub const FieldDeposit: Balance = deposit(0, 66);
+	//   27 | Min encoded size of `Registration`
+	// - 10 | Min encoded size of `IdentityInfo`
+	// -----|
+	//   17 | Min size without `IdentityInfo` (accounted for in byte deposit)
+	pub const BasicDeposit: Balance = deposit(1, 17);
+	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
 }
 
@@ -36,10 +40,9 @@ impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
-	type FieldDeposit = FieldDeposit;
+	type ByteDeposit = ByteDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = ConstU32<100>;
-	type MaxAdditionalFields = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
 	type MaxRegistrars = ConstU32<20>;
 	// todo: consider teleporting to treasury.
@@ -88,8 +91,6 @@ impl TypeInfo for IdentityField {
 	}
 }
 
-impl U64BitFlag for IdentityField {}
-
 /// Information concerning the identity of the controller of an account.
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
@@ -127,7 +128,8 @@ pub struct IdentityInfo {
 	/// Stored as UTF-8.
 	pub web: Data,
 
-	/// The Matrix (e.g. for Element) handle held by the controller of the account.
+	/// The Matrix (e.g. for Element) handle held by the controller of the account. Previously, this
+	/// was called `riot`.
 	///
 	/// Stored as UTF-8.
 	pub matrix: Data,
@@ -155,18 +157,14 @@ pub struct IdentityInfo {
 }
 
 impl IdentityInformationProvider for IdentityInfo {
-	type IdentityField = IdentityField;
+	type FieldsIdentifier = u64;
 
-	fn has_identity(&self, fields: u64) -> bool {
-		self.fields().0.bits() & fields == fields
-	}
-
-	fn additional(&self) -> usize {
-		0
+	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool {
+		self.fields().bits() & fields == fields
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_identity_info(num_fields: u32) -> Self {
+	fn create_identity_info() -> Self {
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
@@ -182,11 +180,16 @@ impl IdentityInformationProvider for IdentityInfo {
 			discord: data,
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn all_fields() -> Self::FieldsIdentifier {
+		use enumflags2::BitFlag;
+		IdentityField::all().bits()
+	}
 }
 
 impl IdentityInfo {
-	#[allow(unused)]
-	pub(crate) fn fields(&self) -> IdentityFields<IdentityField> {
+	pub(crate) fn fields(&self) -> BitFlags<IdentityField> {
 		let mut res = <BitFlags<IdentityField>>::empty();
 		if !self.display.is_none() {
 			res.insert(IdentityField::Display);
@@ -218,6 +221,6 @@ impl IdentityInfo {
 		if !self.discord.is_none() {
 			res.insert(IdentityField::Discord);
 		}
-		IdentityFields(res)
+		res
 	}
 }

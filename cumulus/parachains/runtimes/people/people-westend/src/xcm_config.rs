@@ -54,6 +54,13 @@ parameter_types! {
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
 
+pub type PriceForParentDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	ParachainSystem,
+>;
+
 pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
 	FeeAssetId,
 	BaseDeliveryFee,
@@ -164,7 +171,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						pallet_collator_selection::Call::remove_invulnerable { .. },
 				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::DmpQueue(..)
+				RuntimeCall::MessageQueue(..)
 		)
 	}
 }
