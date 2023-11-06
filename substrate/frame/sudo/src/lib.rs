@@ -334,10 +334,10 @@ pub mod pallet {
 		pub(crate) fn ensure_sudo(origin: OriginFor<T>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			if Self::key() != Some(sender) {
-				Err(Error::<T>::RequireSudo.into())
-			} else {
+			if Self::key().map_or(false, |k| k == sender) {
 				Ok(())
+			} else {
+				Err(Error::<T>::RequireSudo.into())
 			}
 		}
 	}
