@@ -34,7 +34,6 @@ use sp_std::fmt::Debug;
 
 /// Abstraction over a block header for a substrate chain.
 #[derive(Encode, Decode, PartialEq, Eq, Clone, sp_core::RuntimeDebug, TypeInfo)]
-#[scale_info(skip_type_params(Hash))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -93,7 +92,7 @@ where
 		+ Into<U256>
 		+ TryFrom<U256>
 		+ TypeInfo,
-	Hash: HashT,
+	Hash: HashT + TypeInfo,
 {
 	type Number = Number;
 	type Hash = <Hash as HashT>::Output;
