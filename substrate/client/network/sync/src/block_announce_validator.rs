@@ -16,10 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! `BlockAnnounceValidator` is responsible for async validation of block announcements.
+//! [`BlockAnnounceValidator`] is responsible for async validation of block announcements.
+//! [`Stream`] implemented by [`BlockAnnounceValidator`] never terminates.
 
 use crate::futures_stream::FuturesStream;
-use futures::{Future, FutureExt, Stream, StreamExt};
+use futures::{stream::FusedStream, Future, FutureExt, Stream, StreamExt};
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
 use sc_network_common::sync::message::BlockAnnounce;
@@ -297,6 +298,13 @@ impl<B: BlockT> Stream for BlockAnnounceValidator<B> {
 		self.deallocate_slot_for_block_announce_validation(validation.peer_id());
 
 		Poll::Ready(Some(validation))
+	}
+}
+
+// As [`BlockAnnounceValidator`] never terminates, we can easily implement [`FusedStream`] for it.
+impl<B: BlockT> FusedStream for BlockAnnounceValidator<B> {
+	fn is_terminated(&self) -> bool {
+		false
 	}
 }
 
