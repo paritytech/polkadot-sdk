@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Implements common code for nemesis. Currently, only `FakeValidationResult`
+//! Implements common code for nemesis. Currently, only `ReplaceValidationResult`
 //! interceptor is implemented.
 use crate::{
 	interceptor::*,
