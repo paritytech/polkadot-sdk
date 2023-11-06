@@ -24,6 +24,7 @@ sp-core = { path = "../../../primitives/core" }
 
 frame-system = { path = "../../system" }
 frame-support = { path = "../../support" }
+frame-support-test = { path = "../../support/test" }
 frame-election-provider-support = { path = "../../election-provider-support" }
 
 pallet-timestamp = { path = "../../timestamp" }

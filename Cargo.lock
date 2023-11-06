@@ -9360,6 +9360,7 @@ version = "4.0.0-dev"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
+ "frame-support-test",
  "frame-system",
  "log",
  "pallet-authorship",
@@ -9757,6 +9758,7 @@ version = "1.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
+ "frame-support-test",
  "frame-system",
  "log",
  "pallet-bags-list",
@@ -9932,6 +9934,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
+ "frame-support-test",
  "frame-system",
  "log",
  "pallet-balances",
@@ -9975,6 +9978,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
+ "frame-support-test",
  "frame-system",
  "log",
  "pallet-authorship",
@@ -10343,6 +10347,7 @@ version = "1.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
+ "frame-support-test",
  "frame-system",
  "log",
  "pallet-bags-list",
@@ -10560,6 +10565,7 @@ version = "1.0.0-dev"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
+ "frame-support-test",
  "frame-system",
  "pallet-balances",
  "pallet-session",
@@ -10731,6 +10737,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
+ "frame-support-test",
  "frame-system",
  "log",
  "pallet-authorship",

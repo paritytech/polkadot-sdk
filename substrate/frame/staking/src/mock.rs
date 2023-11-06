@@ -30,6 +30,7 @@ use frame_support::{
 	},
 	weights::constants::RocksDbWeight,
 };
+use frame_support_test::TestRandomness;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
 use sp_io;
@@ -318,6 +319,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type Randomness = TestRandomness<Self>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

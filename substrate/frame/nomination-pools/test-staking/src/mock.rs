@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{ConstU64, ConstU8},
 	PalletId,
 };
+use frame_support_test::TestRandomness;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -137,6 +138,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = Pools;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type Randomness = TestRandomness<Self>;
 }
 
 parameter_types! {

@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{ConstU64, Currency},
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
+use frame_support_test::TestRandomness;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage,
@@ -145,6 +146,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type Randomness = TestRandomness<Self>;
 }
 
 pub struct BalanceToU256;

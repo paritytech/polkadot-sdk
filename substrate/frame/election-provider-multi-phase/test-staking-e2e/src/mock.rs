@@ -22,6 +22,7 @@ use frame_support::{
 	traits::{Hooks, UnfilteredDispatchable},
 	weights::constants,
 };
+use frame_support_test::TestRandomness;
 use frame_system::EnsureRoot;
 use sp_core::{ConstU32, Get};
 use sp_npos_elections::{ElectionScore, VoteWeight};
@@ -280,6 +281,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type Randomness = TestRandomness<Self>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime

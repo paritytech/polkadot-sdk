@@ -187,6 +187,7 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type Randomness = pallet_babe::ParentBlockRandomness<Self>;
 }
 
 impl pallet_offences::Config for Test {

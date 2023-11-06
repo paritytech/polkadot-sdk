@@ -47,6 +47,7 @@ pallet-bags-list = { path = "../bags-list" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
+frame-support-test = { path = "../support/test" }
 
 [features]
 default = [ "std" ]
