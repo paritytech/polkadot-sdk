@@ -23,7 +23,11 @@ pub use crate::{
 };
 
 // Substrate
-pub use frame_support::{assert_ok, traits::fungibles::Inspect};
+pub use frame_support::{
+	assert_ok,
+	traits::fungibles::Inspect,
+	weights::{Weight, WeightMeter},
+};
 pub use pallet_assets;
 pub use pallet_message_queue;
 use sp_core::Get;
@@ -34,7 +38,6 @@ use bp_messages::{
 	LaneId, MessageKey, OutboundLaneData,
 };
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-pub use cumulus_pallet_dmp_queue;
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
@@ -54,7 +57,7 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm, Weight},
+	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm},
 	v3::Error,
 	DoubleEncoded,
 };
@@ -489,8 +492,8 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
-								outcome: $crate::impls::Outcome::Complete(weight), ..
+							[<$chain RuntimeEvent>]::MessageQueue(pallet_message_queue::Event::Processed {
+								success: true, weight_used: weight, ..
 							}) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -505,36 +508,32 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 				/// Asserts a XCM from Relay Chain is incompletely executed
 				pub fn assert_dmp_queue_incomplete(
 					expected_weight: Option<$crate::impls::Weight>,
-					expected_error: Option<$crate::impls::Error>,
 				) {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
-								outcome: $crate::impls::Outcome::Incomplete(weight, error), ..
+							[<$chain RuntimeEvent>]::MessageQueue(pallet_message_queue::Event::Processed {
+								success: false, weight_used: weight, ..
 							}) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
 								),
-								error: *error == expected_error.unwrap_or(*error),
 							},
 						]
 					);
 				}
 
 				/// Asserts a XCM from Relay Chain is executed with error
-				pub fn assert_dmp_queue_error(
-					expected_error: $crate::impls::Error,
-				) {
+				pub fn assert_dmp_queue_error() {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
-								outcome: $crate::impls::Outcome::Error(error), ..
+							[<$chain RuntimeEvent>]::MessageQueue($crate::impls::pallet_message_queue::Event::ProcessingFailed {
+								..
 							}) => {
-								error: *error == expected_error,
+
 							},
 						]
 					);
@@ -545,8 +544,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							[<$chain RuntimeEvent>]::XcmpQueue(
-								$crate::impls::cumulus_pallet_xcmp_queue::Event::Success { weight, .. }
+							[<$chain RuntimeEvent>]::MessageQueue(pallet_message_queue::Event::Processed { success: true, weight_used: weight, .. }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),

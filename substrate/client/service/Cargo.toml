@@ -69,7 +69,6 @@ sp-transaction-storage-proof = { path = "../../primitives/transaction-storage-pr
 sc-rpc-server = { path = "../rpc-servers" }
 sc-rpc = { path = "../rpc" }
 sc-rpc-spec-v2 = { path = "../rpc-spec-v2" }
-sc-block-builder = { path = "../block-builder" }
 sc-informant = { path = "../informant" }
 sc-telemetry = { path = "../telemetry" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
