@@ -194,7 +194,7 @@ mod benchmarks {
 		let target_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(1_000_000u32));
+		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(u32::MAX));
 
 		// add registrars
 		for ii in 0..r {
@@ -202,7 +202,7 @@ mod benchmarks {
 			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
 			let _ = <T as pallet_identity::Config>::Currency::make_free_balance_be(
 				&registrar,
-				<BalanceOf<T>>::from(1_000_000u32),
+				<BalanceOf<T>>::from(u32::MAX),
 			);
 			let registrar_origin = T::RegistrarOrigin::try_successful_origin()
 				.expect("RegistrarOrigin has no successful origin required for the benchmark");
@@ -258,7 +258,7 @@ mod benchmarks {
 	#[benchmark]
 	fn poke_deposit() -> Result<(), BenchmarkError> {
 		let target: T::AccountId = account("target", 0, SEED);
-		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(1_000_000u32));
+		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(u32::MAX));
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
 
 		let _ = Identity::<T>::set_identity_no_deposit(&target, info.clone());
