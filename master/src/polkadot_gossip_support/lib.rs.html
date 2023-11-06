@@ -662,6 +662,7 @@
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1141,6 +1142,7 @@
 				</span><span class="kw">match </span>message {
 					Versioned::V1(m) =&gt; <span class="kw">match </span>m {},
 					Versioned::V2(m) =&gt; <span class="kw">match </span>m {},
+					Versioned::VStaging(m) =&gt; <span class="kw">match </span>m {},
 				}
 			},
 		}

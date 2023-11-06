@@ -254,7 +254,7 @@ var srcIndex = JSON.parse('{\
 "polkadot_gossip_support":["",[],["lib.rs","metrics.rs"]],\
 "polkadot_network_bridge":["",[["rx",[],["mod.rs"]],["tx",[],["mod.rs"]]],["errors.rs","lib.rs","metrics.rs","network.rs","validator_discovery.rs"]],\
 "polkadot_node_collation_generation":["",[],["error.rs","lib.rs","metrics.rs"]],\
-"polkadot_node_core_approval_voting":["",[["approval_db",[["v1",[],["mod.rs"]]],["mod.rs"]]],["approval_checking.rs","backend.rs","criteria.rs","import.rs","lib.rs","ops.rs","persisted_entries.rs","time.rs"]],\
+"polkadot_node_core_approval_voting":["",[["approval_db",[["v1",[],["mod.rs"]],["v2",[],["migration_helpers.rs","mod.rs"]]],["mod.rs"]]],["approval_checking.rs","backend.rs","criteria.rs","import.rs","lib.rs","ops.rs","persisted_entries.rs","time.rs"]],\
 "polkadot_node_core_av_store":["",[],["lib.rs","metrics.rs"]],\
 "polkadot_node_core_backing":["",[],["error.rs","lib.rs","metrics.rs"]],\
 "polkadot_node_core_bitfield_signing":["",[],["lib.rs","metrics.rs"]],\

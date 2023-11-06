@@ -578,6 +578,18 @@
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -698,8 +710,15 @@
 	/// Networking layer relies on `get_main_version()` being the version
 	/// of the main protocol name reported by [`PeerSetProtocolNames::get_main_name()`].
 	</span><span class="kw">pub fn </span>get_main_version(<span class="self">self</span>) -&gt; ProtocolVersion {
-		<span class="kw">match </span><span class="self">self </span>{
+		<span class="attr">#[cfg(not(feature = <span class="string">&quot;network-protocol-staging&quot;</span>))]
+		</span><span class="kw">match </span><span class="self">self </span>{
 			PeerSet::Validation =&gt; ValidationVersion::V2.into(),
+			PeerSet::Collation =&gt; CollationVersion::V2.into(),
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">&quot;network-protocol-staging&quot;</span>)]
+		</span><span class="kw">match </span><span class="self">self </span>{
+			PeerSet::Validation =&gt; ValidationVersion::VStaging.into(),
 			PeerSet::Collation =&gt; CollationVersion::V2.into(),
 		}
 	}
@@ -727,6 +746,8 @@
 					<span class="prelude-val">Some</span>(<span class="string">&quot;validation/1&quot;</span>)
 				} <span class="kw">else if </span>version == ValidationVersion::V2.into() {
 					<span class="prelude-val">Some</span>(<span class="string">&quot;validation/2&quot;</span>)
+				} <span class="kw">else if </span>version == ValidationVersion::VStaging.into() {
+					<span class="prelude-val">Some</span>(<span class="string">&quot;validation/3&quot;</span>)
 				} <span class="kw">else </span>{
 					<span class="prelude-val">None
 				</span>},
@@ -798,6 +819,9 @@
 	</span>V1 = <span class="number">1</span>,
 	<span class="doccomment">/// The second version.
 	</span>V2 = <span class="number">2</span>,
+	<span class="doccomment">/// The staging version to gather changes
+	/// that before the release become v3.
+	</span>VStaging = <span class="number">3</span>,
 }
 
 <span class="doccomment">/// Supported collation protocol versions. Only versions defined here must be used in the codebase.

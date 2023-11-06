@@ -305,9 +305,10 @@ slightly different usage for the assignments module, and might require more info
 <p>Assignment criteria compute actual assignments using stories and the validators' secret approval assignment key.
 Assignment criteria output a <code>Position</code> consisting of both a <code>ParaId</code> to be checked, as well as a precedence
 <code>DelayTranche</code> for when the assignment becomes valid.</p>
-<p>Assignment criteria come in three flavors, <code>RelayVRFModulo</code>, <code>RelayVRFDelay</code> and <code>RelayEquivocation</code>.  Among these, both
-<code>RelayVRFModulo</code> and <code>RelayVRFDelay</code> run a VRF whose input is the output of a <code>RelayVRFStory</code>, while <code>RelayEquivocation</code>
-runs a VRF whose input is the output of a <code>RelayEquivocationStory</code>.</p>
+<p>Assignment criteria come in four flavors, <code>RelayVRFModuloCompact</code>, <code>RelayVRFDelay</code>, <code>RelayEquivocation</code> and the
+deprecated <code>RelayVRFModulo</code>.  Among these, <code>RelayVRFModulo</code>, <code>RelayVRFModuloCompact</code> and <code>RelayVRFDelay</code> run a
+VRF whose input is the output of a <code>RelayVRFStory</code>, while <code>RelayEquivocation</code> runs a VRF whose input is the
+output of a <code>RelayEquivocationStory</code>.</p>
 <p>Among these, we have two distinct VRF output computations:</p>
 <p><code>RelayVRFModulo</code> runs several distinct samples whose VRF input is the <code>RelayVRFStory</code> and the sample number.  It
 computes the VRF output with <code>schnorrkel::vrf::VRFInOut::make_bytes</code> using the context &quot;A&amp;V Core&quot;, reduces this number
@@ -316,6 +317,11 @@ leaving, that availability core.  We drop any samples that return no candidate b
 sampled availability core in this relay chain block.  We choose three samples initially, but we could make Polkadot more
 secure and efficient by increasing this to four or five, and reducing the backing checks accordingly.  All successful
 <code>RelayVRFModulo</code> samples are assigned delay tranche zero.</p>
+<p><code>RelayVRFModuloCompact</code> runs a single samples whose VRF input is the <code>RelayVRFStory</code> and the sample count. Similar
+to <code>RelayVRFModulo</code> introduces multiple core assignments for tranche zero. It computes the VRF output with
+<code>schnorrkel::vrf::VRFInOut::make_bytes</code> using the context &quot;A&amp;V Core v2&quot; and samples up to 160 bytes of the output
+as an array of <code>u32</code>. Then reduces each <code>u32</code> modulo the number of availability cores, and outputs up
+to <code>relay_vrf_modulo_samples</code> availability core indices.</p>
 <p>There is no sampling process for <code>RelayVRFDelay</code> and <code>RelayEquivocation</code>.  We instead run them on specific candidates
 and they compute a delay from their VRF output.  <code>RelayVRFDelay</code> runs for all candidates included under, aka declared
 available by, a relay chain block, and inputs the associated VRF output via <code>RelayVRFStory</code>.  <code>RelayEquivocation</code> runs
@@ -331,13 +337,13 @@ cannot merge those with the same delay and different stories because <code>Relay
 <p>We track all validators' announced approval assignments for each candidate associated to each relay chain block, which
 tells us which validators were assigned to which candidates.</p>
 <p>We permit at most one assignment per candidate per story per validator, so one validator could be assigned under both
-the <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> criteria, but not under both <code>RelayVRFModulo</code> and <code>RelayVRFDelay</code> criteria,
-since those both use the same story.  We permit only one approval vote per candidate per validator, which counts for any
-applicable criteria.</p>
+the <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> criteria, but not under both <code>RelayVRFModulo/RelayVRFModuloCompact</code>
+and <code>RelayVRFDelay</code> criteria, since those both use the same story.  We permit only one approval vote per candidate per
+validator, which counts for any applicable criteria.</p>
 <p>We announce, and start checking for, our own assignments when the delay of their tranche is reached, but only if the
-tracker says the assignee candidate requires more approval checkers.  We never announce an assignment we believe
-unnecessary because early announcements gives an adversary information.  All delay tranche zero assignments always get
-announced, which includes all <code>RelayVRFModulo</code> assignments.</p>
+tracker says the assignee candidate requires more approval checkers.  We never announce an assignment we believe unnecessary
+because early announcements gives an adversary information.  All delay tranche zero assignments always get announced,
+which includes all <code>RelayVRFModulo</code> and <code>RelayVRFModuloCompact</code> assignments.</p>
 <p>In other words, if some candidate <code>C</code> needs more approval checkers by the time we reach round <code>t</code> then any validators
 with an assignment to <code>C</code> in delay tranche <code>t</code> gossip their send assignment notice for <code>C</code>, and begin reconstruction and
 validation for 'C.  If however <code>C</code> reached enough assignments, then validators with later assignments skip announcing
@@ -401,10 +407,10 @@ valid, but the chain ignores for being too slow.</p>
 <p>We need the chain to win in this case, but doing this requires imposing an annoyingly long overarching delay upon
 finality.  We might explore limits on postponement too, but this sounds much harder.</p>
 <h2 id="parameters"><a class="header" href="#parameters">Parameters</a></h2>
-<p>We prefer doing approval checkers assignments under <code>RelayVRFModulo</code> as opposed to <code>RelayVRFDelay</code> because
-<code>RelayVRFModulo</code> avoids giving individual checkers too many assignments and tranche zero assignments benefit security
-the most.  We suggest assigning at least 16 checkers under <code>RelayVRFModulo</code> although assignment levels have never been
-properly analyzed.</p>
+<p>We prefer doing approval checkers assignments under <code>RelayVRFModulo</code> or <code>RelayVRFModuloCompact</code> as opposed to
+<code>RelayVRFDelay</code> because <code>RelayVRFModulo</code> avoids giving individual checkers too many assignments and tranche zero
+assignments benefit security the most.  We suggest assigning at least 16 checkers under <code>RelayVRFModulo</code> or
+<code>RelayVRFModuloCompact</code> although assignment levels have never been properly analyzed.</p>
 <p>Our delay criteria <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> both have two primary paramaters, expected checkers per
 tranche and the zeroth delay tranche width.</p>
 <p>We require expected checkers per tranche to be less than three because otherwise an adversary with 1/3 stake could force
@@ -450,7 +456,7 @@ this, we should discover if reconstruction performs adequately with a complete g
 restrictions.  At this point, an assignment notices could implicitly request pieces from a random 1/3rd, perhaps
 topology restricted, which saves one gossip round.  If this preliminary fast reconstruction fails, then nodes' request
 alternative pieces directly.  There is an interesting design space in how this overlaps with &quot;slow availability&quot; claims.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

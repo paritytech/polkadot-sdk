@@ -962,6 +962,22 @@
 <a href="#962" id="962">962</a>
 <a href="#963" id="963">963</a>
 <a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -989,14 +1005,15 @@
 </span><span class="kw">use </span>always_assert::never;
 <span class="kw">use </span>futures::{channel::oneshot, FutureExt};
 
+<span class="kw">use </span>net_protocol::filter_by_peer_version;
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	<span class="self">self </span><span class="kw">as </span>net_protocol,
 	grid_topology::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, OurView, PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
-	Versioned, View,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, OurView, PeerId,
+	UnifiedReputationChange <span class="kw">as </span>Rep, Versioned, View,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
 	jaeger, messages::<span class="kw-2">*</span>, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
@@ -1065,6 +1082,11 @@
 					<span class="self">self</span>.relay_parent,
 					<span class="self">self</span>.signed_availability.into(),
 				)),
+			<span class="prelude-val">Some</span>(ValidationVersion::VStaging) =&gt;
+				Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+					<span class="self">self</span>.relay_parent,
+					<span class="self">self</span>.signed_availability.into(),
+				)),
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">never!</span>(<span class="string">&quot;Peers should only have supported protocol versions.&quot;</span>);
 
@@ -1095,9 +1117,9 @@
 
 <span class="doccomment">/// Data used to track information of peers and relay parents the
 /// overseer ordered us to work on.
-</span><span class="attr">#[derive(Default, Debug)]
+</span><span class="attr">#[derive(Default)]
 </span><span class="kw">struct </span>ProtocolState {
-	<span class="doccomment">/// Track all active peers and their views
+	<span class="doccomment">/// Track all active peer views and protocol versions
 	/// to determine what is relevant to them.
 	</span>peer_data: HashMap&lt;PeerId, PeerData&gt;,
 
@@ -1456,17 +1478,13 @@
 	} <span class="kw">else </span>{
 		<span class="kw">let </span>_span = span.child(<span class="string">&quot;gossip&quot;</span>);
 
-		<span class="kw">let </span>filter_by_version = |peers: <span class="kw-2">&amp;</span>[(PeerId, ProtocolVersion)],
-		                         version: ValidationVersion| {
-			peers
-				.iter()
-				.filter(|(<span class="kw">_</span>, v)| v == <span class="kw-2">&amp;</span>version.into())
-				.map(|(peer_id, <span class="kw">_</span>)| <span class="kw-2">*</span>peer_id)
-				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-		};
+		<span class="kw">let </span>v1_interested_peers =
+			filter_by_peer_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V1.into());
+		<span class="kw">let </span>v2_interested_peers =
+			filter_by_peer_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V2.into());
 
-		<span class="kw">let </span>v1_interested_peers = filter_by_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V1);
-		<span class="kw">let </span>v2_interested_peers = filter_by_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V2);
+		<span class="kw">let </span>vstaging_interested_peers =
+			filter_by_peer_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::VStaging.into());
 
 		<span class="kw">if </span>!v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -1479,7 +1497,15 @@
 		<span class="kw">if </span>!v2_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 				v2_interested_peers,
-				message.into_validation_protocol(ValidationVersion::V2.into()),
+				message.clone().into_validation_protocol(ValidationVersion::V2.into()),
+			))
+			.<span class="kw">await
+		</span>}
+
+		<span class="kw">if </span>!vstaging_interested_peers.is_empty() {
+			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+				vstaging_interested_peers,
+				message.into_validation_protocol(ValidationVersion::VStaging.into()),
 			))
 			.<span class="kw">await
 		</span>}
@@ -1502,6 +1528,10 @@
 			bitfield,
 		)) =&gt; (relay_parent, bitfield),
 		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
+			relay_parent,
+			bitfield,
+		)) |
+		Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) =&gt; (relay_parent, bitfield),
@@ -1738,9 +1768,11 @@
 				handle_peer_view_change(ctx, state, new_peer, old_view, rng).<span class="kw">await</span>;
 			}
 		},
-		NetworkBridgeEvent::PeerViewChange(peerid, new_view) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peerid, <span class="question-mark">?</span>new_view, <span class="string">&quot;Peer view change&quot;</span>);
-			handle_peer_view_change(ctx, state, peerid, new_view, rng).<span class="kw">await</span>;
+		NetworkBridgeEvent::PeerViewChange(peer_id, new_view) =&gt; {
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>new_view, <span class="string">&quot;Peer view change&quot;</span>);
+			<span class="kw">if </span>state.peer_data.get(<span class="kw-2">&amp;</span>peer_id).is_some() {
+				handle_peer_view_change(ctx, state, peer_id, new_view, rng).<span class="kw">await</span>;
+			}
 		},
 		NetworkBridgeEvent::OurViewChange(new_view) =&gt; {
 			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>new_view, <span class="string">&quot;Our view change&quot;</span>);

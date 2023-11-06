@@ -403,61 +403,6 @@
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -478,9 +423,7 @@
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames, ValidationVersion},
-	request_response::ReqProtocolNames,
-	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, PeerId, Versioned,
+	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, Versioned,
 };
 
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -501,7 +444,10 @@
 <span class="doccomment">/// Actual interfacing to the network based on the `Network` trait.
 ///
 /// Defines the `Network` trait with an implementation for an `Arc&lt;NetworkService&gt;`.
-</span><span class="kw">use </span><span class="kw">crate</span>::network::{send_message, Network};
+</span><span class="kw">use </span><span class="kw">crate</span>::network::{
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
+};
 
 <span class="kw">use </span><span class="kw">crate</span>::metrics::Metrics;
 
@@ -647,11 +593,19 @@
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				action = <span class="string">&quot;SendValidationMessages&quot;</span>,
+				<span class="question-mark">?</span>msg,
 				num_messages = <span class="number">1usize</span>,
 			);
 
 			<span class="kw">match </span>msg {
 				Versioned::V1(msg) =&gt; send_validation_message_v1(
+					<span class="kw-2">&amp;mut </span>network_service,
+					peers,
+					peerset_protocol_names,
+					WireMessage::ProtocolMessage(msg),
+					<span class="kw-2">&amp;</span>metrics,
+				),
+				Versioned::VStaging(msg) =&gt; send_validation_message_vstaging(
 					<span class="kw-2">&amp;mut </span>network_service,
 					peers,
 					peerset_protocol_names,
@@ -672,11 +626,19 @@
 				target: LOG_TARGET,
 				action = <span class="string">&quot;SendValidationMessages&quot;</span>,
 				num_messages = %msgs.len(),
+				<span class="question-mark">?</span>msgs,
 			);
 
 			<span class="kw">for </span>(peers, msg) <span class="kw">in </span>msgs {
 				<span class="kw">match </span>msg {
 					Versioned::V1(msg) =&gt; send_validation_message_v1(
+						<span class="kw-2">&amp;mut </span>network_service,
+						peers,
+						peerset_protocol_names,
+						WireMessage::ProtocolMessage(msg),
+						<span class="kw-2">&amp;</span>metrics,
+					),
+					Versioned::VStaging(msg) =&gt; send_validation_message_vstaging(
 						<span class="kw-2">&amp;mut </span>network_service,
 						peers,
 						peerset_protocol_names,
@@ -708,7 +670,7 @@
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
 				),
-				Versioned::V2(msg) =&gt; send_collation_message_v2(
+				Versioned::V2(msg) | Versioned::VStaging(msg) =&gt; send_collation_message_v2(
 					<span class="kw-2">&amp;mut </span>network_service,
 					peers,
 					peerset_protocol_names,
@@ -733,7 +695,7 @@
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,
 					),
-					Versioned::V2(msg) =&gt; send_collation_message_v2(
+					Versioned::V2(msg) | Versioned::VStaging(msg) =&gt; send_collation_message_v2(
 						<span class="kw-2">&amp;mut </span>network_service,
 						peers,
 						peerset_protocol_names,
@@ -845,77 +807,5 @@
 	.<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
-}
-
-<span class="kw">fn </span>send_validation_message_v1(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v1::ValidationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-<span class="kw">fn </span>send_collation_message_v1(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v1::CollationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-<span class="kw">fn </span>send_validation_message_v2(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v2::ValidationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-<span class="kw">fn </span>send_collation_message_v2(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v2::CollationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
 }
 </code></pre></div></section></main></body></html>

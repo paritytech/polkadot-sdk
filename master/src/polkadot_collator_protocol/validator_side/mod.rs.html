@@ -2008,6 +2008,14 @@
 <a href="#2008" id="2008">2008</a>
 <a href="#2009" id="2009">2009</a>
 <a href="#2010" id="2010">2010</a>
+<a href="#2011" id="2011">2011</a>
+<a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
+<a href="#2015" id="2015">2015</a>
+<a href="#2016" id="2016">2016</a>
+<a href="#2017" id="2017">2017</a>
+<a href="#2018" id="2018">2018</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2786,7 +2794,8 @@
 
 	<span class="kw">match </span>msg {
 		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::V2(V2::Declare(collator_id, para_id, signature)) =&gt; {
+		Versioned::V2(V2::Declare(collator_id, para_id, signature)) |
+		Versioned::VStaging(V2::Declare(collator_id, para_id, signature)) =&gt; {
 			<span class="kw">if </span>collator_peer_id(<span class="kw-2">&amp;</span>state.peer_data, <span class="kw-2">&amp;</span>collator_id).is_some() {
 				modify_reputation(
 					<span class="kw-2">&amp;mut </span>state.reputation,
@@ -2902,6 +2911,11 @@
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
+		}) |
+		Versioned::VStaging(V2::AdvertiseCollation {
+			relay_parent,
+			candidate_hash,
+			parent_head_data_hash,
 		}) =&gt;
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle_advertisement(
 				ctx.sender(),
@@ -2925,7 +2939,9 @@
 					modify_reputation(<span class="kw-2">&amp;mut </span>state.reputation, ctx.sender(), origin, rep).<span class="kw">await</span>;
 				}
 			},
-		Versioned::V1(V1::CollationSeconded(..)) | Versioned::V2(V2::CollationSeconded(..)) =&gt; {
+		Versioned::V1(V1::CollationSeconded(..)) |
+		Versioned::V2(V2::CollationSeconded(..)) |
+		Versioned::VStaging(V2::CollationSeconded(..)) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				peer_id = <span class="question-mark">?</span>origin,

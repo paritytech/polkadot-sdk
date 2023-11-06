@@ -175,6 +175,14 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -218,7 +226,15 @@
 		</span><span class="kw">pub const </span>COL_SESSION_WINDOW_DATA: u32 = <span class="number">5</span>;
 	}
 
-	<span class="kw">pub mod </span>v3 {
+	<span class="comment">// Version 4 only changed structures in approval voting, so we can re-export the v4 definitions.
+	</span><span class="kw">pub mod </span>v3 {
+		<span class="kw">pub use </span><span class="kw">super</span>::v4::{
+			COL_APPROVAL_DATA, COL_AVAILABILITY_DATA, COL_AVAILABILITY_META,
+			COL_CHAIN_SELECTION_DATA, COL_DISPUTE_COORDINATOR_DATA, NUM_COLUMNS, ORDERED_COL,
+		};
+	}
+
+	<span class="kw">pub mod </span>v4 {
 		<span class="kw">pub const </span>NUM_COLUMNS: u32 = <span class="number">5</span>;
 		<span class="kw">pub const </span>COL_AVAILABILITY_DATA: u32 = <span class="number">0</span>;
 		<span class="kw">pub const </span>COL_AVAILABILITY_META: u32 = <span class="number">1</span>;
@@ -250,14 +266,14 @@
 <span class="doccomment">/// The real columns used by the parachains DB.
 </span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;full-node&quot;</span>))]
 </span><span class="kw">pub const </span>REAL_COLUMNS: ColumnsConfig = ColumnsConfig {
-	col_availability_data: columns::v3::COL_AVAILABILITY_DATA,
-	col_availability_meta: columns::v3::COL_AVAILABILITY_META,
-	col_approval_data: columns::v3::COL_APPROVAL_DATA,
-	col_chain_selection_data: columns::v3::COL_CHAIN_SELECTION_DATA,
-	col_dispute_coordinator_data: columns::v3::COL_DISPUTE_COORDINATOR_DATA,
+	col_availability_data: columns::v4::COL_AVAILABILITY_DATA,
+	col_availability_meta: columns::v4::COL_AVAILABILITY_META,
+	col_approval_data: columns::v4::COL_APPROVAL_DATA,
+	col_chain_selection_data: columns::v4::COL_CHAIN_SELECTION_DATA,
+	col_dispute_coordinator_data: columns::v4::COL_DISPUTE_COORDINATOR_DATA,
 };
 
-<span class="attr">#[derive(PartialEq)]
+<span class="attr">#[derive(PartialEq, Copy, Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>DatabaseKind {
 	ParityDB,
 	RocksDB,
@@ -302,28 +318,28 @@
 
 	<span class="kw">let </span>path = root.join(<span class="string">&quot;parachains&quot;</span>).join(<span class="string">&quot;db&quot;</span>);
 
-	<span class="kw">let </span><span class="kw-2">mut </span>db_config = DatabaseConfig::with_columns(columns::v3::NUM_COLUMNS);
+	<span class="kw">let </span><span class="kw-2">mut </span>db_config = DatabaseConfig::with_columns(columns::v4::NUM_COLUMNS);
 
 	<span class="kw">let _ </span>= db_config
 		.memory_budget
-		.insert(columns::v3::COL_AVAILABILITY_DATA, cache_sizes.availability_data);
+		.insert(columns::v4::COL_AVAILABILITY_DATA, cache_sizes.availability_data);
 	<span class="kw">let _ </span>= db_config
 		.memory_budget
-		.insert(columns::v3::COL_AVAILABILITY_META, cache_sizes.availability_meta);
+		.insert(columns::v4::COL_AVAILABILITY_META, cache_sizes.availability_meta);
 	<span class="kw">let _ </span>= db_config
 		.memory_budget
-		.insert(columns::v3::COL_APPROVAL_DATA, cache_sizes.approval_data);
+		.insert(columns::v4::COL_APPROVAL_DATA, cache_sizes.approval_data);
 
 	<span class="kw">let </span>path_str = path
 		.to_str()
 		.ok_or_else(|| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Bad database path: {:?}&quot;</span>, path)))<span class="question-mark">?</span>;
 
 	std::fs::create_dir_all(<span class="kw-2">&amp;</span>path_str)<span class="question-mark">?</span>;
-	upgrade::try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::RocksDB)<span class="question-mark">?</span>;
+	upgrade::try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::RocksDB, upgrade::CURRENT_VERSION)<span class="question-mark">?</span>;
 	<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_config, <span class="kw-2">&amp;</span>path_str)<span class="question-mark">?</span>;
 	<span class="kw">let </span>db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(
 		db,
-		columns::v3::ORDERED_COL,
+		columns::v4::ORDERED_COL,
 	);
 
 	<span class="prelude-val">Ok</span>(Arc::new(db))
@@ -341,14 +357,14 @@
 		.ok_or_else(|| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Bad database path: {:?}&quot;</span>, path)))<span class="question-mark">?</span>;
 
 	std::fs::create_dir_all(<span class="kw-2">&amp;</span>path_str)<span class="question-mark">?</span>;
-	upgrade::try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::ParityDB)<span class="question-mark">?</span>;
+	upgrade::try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::ParityDB, upgrade::CURRENT_VERSION)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>db = parity_db::Db::open_or_create(<span class="kw-2">&amp;</span>upgrade::paritydb_version_3_config(<span class="kw-2">&amp;</span>path))
 		.map_err(|err| io::Error::new(io::ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>db = polkadot_node_subsystem_util::database::paritydb_impl::DbAdapter::new(
 		db,
-		columns::v3::ORDERED_COL,
+		columns::v4::ORDERED_COL,
 	);
 	<span class="prelude-val">Ok</span>(Arc::new(db))
 }

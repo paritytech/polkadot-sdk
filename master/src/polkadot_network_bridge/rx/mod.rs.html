@@ -1038,47 +1038,6 @@
 <a href="#1038" id="1038">1038</a>
 <a href="#1039" id="1039">1039</a>
 <a href="#1040" id="1040">1040</a>
-<a href="#1041" id="1041">1041</a>
-<a href="#1042" id="1042">1042</a>
-<a href="#1043" id="1043">1043</a>
-<a href="#1044" id="1044">1044</a>
-<a href="#1045" id="1045">1045</a>
-<a href="#1046" id="1046">1046</a>
-<a href="#1047" id="1047">1047</a>
-<a href="#1048" id="1048">1048</a>
-<a href="#1049" id="1049">1049</a>
-<a href="#1050" id="1050">1050</a>
-<a href="#1051" id="1051">1051</a>
-<a href="#1052" id="1052">1052</a>
-<a href="#1053" id="1053">1053</a>
-<a href="#1054" id="1054">1054</a>
-<a href="#1055" id="1055">1055</a>
-<a href="#1056" id="1056">1056</a>
-<a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
-<a href="#1059" id="1059">1059</a>
-<a href="#1060" id="1060">1060</a>
-<a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
-<a href="#1066" id="1066">1066</a>
-<a href="#1067" id="1067">1067</a>
-<a href="#1068" id="1068">1068</a>
-<a href="#1069" id="1069">1069</a>
-<a href="#1070" id="1070">1070</a>
-<a href="#1071" id="1071">1071</a>
-<a href="#1072" id="1072">1072</a>
-<a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
-<a href="#1075" id="1075">1075</a>
-<a href="#1076" id="1076">1076</a>
-<a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1102,6 +1061,7 @@
 <span class="kw">use </span>always_assert::never;
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures::stream::{BoxStream, StreamExt};
+<span class="kw">use </span>net_protocol::filter_by_peer_version;
 <span class="kw">use </span>parity_scale_codec::{Decode, DecodeAll};
 
 <span class="kw">use </span>sc_network::Event <span class="kw">as </span>NetworkEvent;
@@ -1114,8 +1074,8 @@
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, ObservedRole, OurView, PeerId,
-	UnifiedReputationChange <span class="kw">as </span>Rep, View,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, ObservedRole, OurView,
+	PeerId, UnifiedReputationChange <span class="kw">as </span>Rep, View,
 };
 
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -1145,9 +1105,11 @@
 <span class="doccomment">/// Actual interfacing to the network based on the `Network` trait.
 ///
 /// Defines the `Network` trait with an implementation for an `Arc&lt;NetworkService&gt;`.
-</span><span class="kw">use </span><span class="kw">crate</span>::network::{send_message, Network};
-
-<span class="kw">use </span><span class="kw">crate</span>::network::get_peer_id_by_authority_id;
+</span><span class="kw">use </span><span class="kw">crate</span>::network::{
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
+};
+<span class="kw">use crate</span>::{network::get_peer_id_by_authority_id, WireMessage};
 
 <span class="kw">use </span><span class="kw">super</span>::metrics::Metrics;
 
@@ -1332,22 +1294,27 @@
 						<span class="kw">match </span>ValidationVersion::try_from(version)
 							.expect(<span class="string">&quot;try_get_protocol has already checked version is known; qed&quot;</span>)
 						{
-							ValidationVersion::V1 =&gt; send_message(
+							ValidationVersion::V1 =&gt; send_validation_message_v1(
 								<span class="kw-2">&amp;mut </span>network_service,
 								<span class="macro">vec!</span>[peer],
-								PeerSet::Validation,
-								version,
 								<span class="kw-2">&amp;</span>peerset_protocol_names,
 								WireMessage::&lt;protocol_v1::ValidationProtocol&gt;::ViewUpdate(
 									local_view,
 								),
 								<span class="kw-2">&amp;</span>metrics,
 							),
-							ValidationVersion::V2 =&gt; send_message(
+							ValidationVersion::VStaging =&gt; send_validation_message_vstaging(
 								<span class="kw-2">&amp;mut </span>network_service,
 								<span class="macro">vec!</span>[peer],
-								PeerSet::Validation,
-								version,
+								<span class="kw-2">&amp;</span>peerset_protocol_names,
+								WireMessage::&lt;protocol_vstaging::ValidationProtocol&gt;::ViewUpdate(
+									local_view,
+								),
+								<span class="kw-2">&amp;</span>metrics,
+							),
+							ValidationVersion::V2 =&gt; send_validation_message_v2(
+								<span class="kw-2">&amp;mut </span>network_service,
+								<span class="macro">vec!</span>[peer],
 								<span class="kw-2">&amp;</span>peerset_protocol_names,
 								WireMessage::&lt;protocol_v2::ValidationProtocol&gt;::ViewUpdate(
 									local_view,
@@ -1374,22 +1341,18 @@
 						<span class="kw">match </span>CollationVersion::try_from(version)
 							.expect(<span class="string">&quot;try_get_protocol has already checked version is known; qed&quot;</span>)
 						{
-							CollationVersion::V1 =&gt; send_message(
+							CollationVersion::V1 =&gt; send_collation_message_v1(
 								<span class="kw-2">&amp;mut </span>network_service,
 								<span class="macro">vec!</span>[peer],
-								PeerSet::Collation,
-								version,
 								<span class="kw-2">&amp;</span>peerset_protocol_names,
 								WireMessage::&lt;protocol_v1::CollationProtocol&gt;::ViewUpdate(
 									local_view,
 								),
 								<span class="kw-2">&amp;</span>metrics,
 							),
-							CollationVersion::V2 =&gt; send_message(
+							CollationVersion::V2 =&gt; send_collation_message_v2(
 								<span class="kw-2">&amp;mut </span>network_service,
 								<span class="macro">vec!</span>[peer],
-								PeerSet::Collation,
-								version,
 								<span class="kw-2">&amp;</span>peerset_protocol_names,
 								WireMessage::&lt;protocol_v2::CollationProtocol&gt;::ViewUpdate(
 									local_view,
@@ -1467,8 +1430,16 @@
 					.filter_map(|(protocol, msg_bytes)| {
 						<span class="comment">// version doesn&#39;t matter because we always receive on the &#39;correct&#39;
 						// protocol name, not the negotiated fallback.
-						</span><span class="kw">let </span>(peer_set, _version) =
+						</span><span class="kw">let </span>(peer_set, version) =
 							peerset_protocol_names.try_get_protocol(protocol)<span class="question-mark">?</span>;
+						<span class="macro">gum::trace!</span>(
+							target: LOG_TARGET,
+							<span class="question-mark">?</span>peer_set,
+							<span class="question-mark">?</span>protocol,
+							<span class="question-mark">?</span>version,
+							<span class="string">&quot;Received notification&quot;
+						</span>);
+
 						<span class="kw">if </span>peer_set == PeerSet::Validation {
 							<span class="kw">if </span>expected_versions[PeerSet::Validation].is_none() {
 								<span class="kw">return </span><span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(UNCONNECTED_PEERSET_COST))
@@ -1549,6 +1520,16 @@
 						<span class="prelude-val">Some</span>(ValidationVersion::V2.into())
 					{
 						handle_peer_messages::&lt;protocol_v2::ValidationProtocol, <span class="kw">_</span>&gt;(
+							remote,
+							PeerSet::Validation,
+							<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
+							v_messages,
+							<span class="kw-2">&amp;</span>metrics,
+						)
+					} <span class="kw">else if </span>expected_versions[PeerSet::Validation] ==
+						<span class="prelude-val">Some</span>(ValidationVersion::VStaging.into())
+					{
+						handle_peer_messages::&lt;protocol_vstaging::ValidationProtocol, <span class="kw">_</span>&gt;(
 							remote,
 							PeerSet::Validation,
 							<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
@@ -1896,15 +1877,16 @@
 		)
 	};
 
-	<span class="kw">let </span>filter_by_version = |peers: <span class="kw-2">&amp;</span>[(PeerId, ProtocolVersion)], version| {
-		peers.iter().filter(|(<span class="kw">_</span>, v)| v == <span class="kw-2">&amp;</span>version).map(|(p, <span class="kw">_</span>)| <span class="kw-2">*</span>p).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-	};
+	<span class="kw">let </span>v1_validation_peers =
+		filter_by_peer_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V1.into());
+	<span class="kw">let </span>v1_collation_peers = filter_by_peer_version(<span class="kw-2">&amp;</span>collation_peers, CollationVersion::V1.into());
 
-	<span class="kw">let </span>v1_validation_peers = filter_by_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V1.into());
-	<span class="kw">let </span>v1_collation_peers = filter_by_version(<span class="kw-2">&amp;</span>collation_peers, CollationVersion::V1.into());
+	<span class="kw">let </span>v2_validation_peers =
+		filter_by_peer_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V2.into());
+	<span class="kw">let </span>v2_collation_peers = filter_by_peer_version(<span class="kw-2">&amp;</span>collation_peers, CollationVersion::V2.into());
 
-	<span class="kw">let </span>v2_validation_peers = filter_by_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V2.into());
-	<span class="kw">let </span>v2_collation_peers = filter_by_version(<span class="kw-2">&amp;</span>collation_peers, ValidationVersion::V2.into());
+	<span class="kw">let </span>vstaging_validation_peers =
+		filter_by_peer_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::VStaging.into());
 
 	send_validation_message_v1(
 		net,
@@ -1934,7 +1916,15 @@
 		net,
 		v2_collation_peers,
 		peerset_protocol_names,
-		WireMessage::ViewUpdate(new_view),
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+	);
+
+	send_validation_message_vstaging(
+		net,
+		vstaging_validation_peers,
+		peerset_protocol_names,
+		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 	);
 
@@ -2005,78 +1995,6 @@
 	}
 
 	(outgoing_events, reports)
-}
-
-<span class="kw">fn </span>send_validation_message_v1(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	peerset_protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v1::ValidationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		peerset_protocol_names,
-		message,
-		metrics,
-	);
-}
-
-<span class="kw">fn </span>send_collation_message_v1(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	peerset_protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v1::CollationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
-		peerset_protocol_names,
-		message,
-		metrics,
-	);
-}
-
-<span class="kw">fn </span>send_validation_message_v2(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v2::ValidationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-<span class="kw">fn </span>send_collation_message_v2(
-	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
-	peers: Vec&lt;PeerId&gt;,
-	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_v2::CollationProtocol&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V2.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
 }
 
 <span class="kw">async fn </span>dispatch_validation_event_to_all(

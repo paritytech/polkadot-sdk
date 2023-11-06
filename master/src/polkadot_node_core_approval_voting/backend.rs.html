@@ -219,6 +219,20 @@
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -248,7 +262,7 @@
 <span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use super</span>::{
-	approval_db::v1::StoredBlockRange,
+	approval_db::v2::StoredBlockRange,
 	persisted_entries::{BlockEntry, CandidateEntry},
 };
 
@@ -265,6 +279,7 @@
 }
 
 <span class="doccomment">/// An abstraction over backend storage for the logic of this subsystem.
+/// Implementation must always target latest storage version.
 </span><span class="kw">pub trait </span>Backend {
 	<span class="doccomment">/// Load a block entry from the DB.
 	</span><span class="kw">fn </span>load_block_entry(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>Hash) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;BlockEntry&gt;&gt;;
@@ -273,6 +288,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
 	) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;CandidateEntry&gt;&gt;;
+
 	<span class="doccomment">/// Load all blocks at a specific height.
 	</span><span class="kw">fn </span>load_blocks_at_height(<span class="kw-2">&amp;</span><span class="self">self</span>, height: <span class="kw-2">&amp;</span>BlockNumber) -&gt; SubsystemResult&lt;Vec&lt;Hash&gt;&gt;;
 	<span class="doccomment">/// Load all block from the DB.
@@ -283,6 +299,18 @@
 	</span><span class="kw">fn </span>write&lt;I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ops: I) -&gt; SubsystemResult&lt;()&gt;
 	<span class="kw">where
 		</span>I: IntoIterator&lt;Item = BackendWriteOp&gt;;
+}
+
+<span class="doccomment">/// A read only backend to enable db migration from version 1 of DB.
+</span><span class="kw">pub trait </span>V1ReadBackend: Backend {
+	<span class="doccomment">/// Load a candidate entry from the DB with scheme version 1.
+	</span><span class="kw">fn </span>load_candidate_entry_v1(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
+	) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;CandidateEntry&gt;&gt;;
+
+	<span class="doccomment">/// Load a block entry from the DB with scheme version 1.
+	</span><span class="kw">fn </span>load_block_entry_v1(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: <span class="kw-2">&amp;</span>Hash) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;BlockEntry&gt;&gt;;
 }
 
 <span class="comment">// Status of block range in the `OverlayedBackend`.

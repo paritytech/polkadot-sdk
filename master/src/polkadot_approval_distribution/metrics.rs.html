@@ -148,6 +148,29 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -165,6 +188,7 @@
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>polkadot_node_metrics::metrics::{prometheus, Metrics <span class="kw">as </span>MetricsTrait};
+<span class="kw">use </span>polkadot_node_primitives::approval::v2::AssignmentCertKindV2;
 
 <span class="doccomment">/// Approval Distribution metrics.
 </span><span class="attr">#[derive(Default, Clone)]
@@ -172,21 +196,34 @@
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">struct </span>MetricsInner {
-	assignments_imported_total: prometheus::Counter&lt;prometheus::U64&gt;,
+	assignments_imported_total: prometheus::CounterVec&lt;prometheus::U64&gt;,
 	approvals_imported_total: prometheus::Counter&lt;prometheus::U64&gt;,
 	unified_with_peer_total: prometheus::Counter&lt;prometheus::U64&gt;,
 	aggression_l1_messages_total: prometheus::Counter&lt;prometheus::U64&gt;,
 	aggression_l2_messages_total: prometheus::Counter&lt;prometheus::U64&gt;,
-
 	time_unify_with_peer: prometheus::Histogram,
 	time_import_pending_now_known: prometheus::Histogram,
 	time_awaiting_approval_voting: prometheus::Histogram,
 }
 
+<span class="kw">trait </span>AsLabel {
+	<span class="kw">fn </span>as_label(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str;
+}
+
+<span class="kw">impl </span>AsLabel <span class="kw">for </span><span class="kw-2">&amp;</span>AssignmentCertKindV2 {
+	<span class="kw">fn </span>as_label(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+		<span class="kw">match </span><span class="self">self </span>{
+			AssignmentCertKindV2::RelayVRFDelay { .. } =&gt; <span class="string">&quot;VRF Delay&quot;</span>,
+			AssignmentCertKindV2::RelayVRFModulo { .. } =&gt; <span class="string">&quot;VRF Modulo&quot;</span>,
+			AssignmentCertKindV2::RelayVRFModuloCompact { .. } =&gt; <span class="string">&quot;VRF Modulo Compact&quot;</span>,
+		}
+	}
+}
+
 <span class="kw">impl </span>Metrics {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_assignment_imported(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_assignment_imported(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: <span class="kw-2">&amp;</span>AssignmentCertKindV2) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_imported_total.inc();
+			metrics.assignments_imported_total.with_label_values(<span class="kw-2">&amp;</span>[kind.as_label()]).inc();
 		}
 	}
 
@@ -239,9 +276,12 @@
 	<span class="kw">fn </span>try_register(registry: <span class="kw-2">&amp;</span>prometheus::Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, prometheus::PrometheusError&gt; {
 		<span class="kw">let </span>metrics = MetricsInner {
 			assignments_imported_total: prometheus::register(
-				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_parachain_assignments_imported_total&quot;</span>,
-					<span class="string">&quot;Number of valid assignments imported locally or from other peers.&quot;</span>,
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						<span class="string">&quot;polkadot_parachain_assignments_imported_total&quot;</span>,
+						<span class="string">&quot;Number of valid assignments imported locally or from other peers.&quot;</span>,
+					),
+					<span class="kw-2">&amp;</span>[<span class="string">&quot;kind&quot;</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -274,10 +314,16 @@
 				registry,
 			)<span class="question-mark">?</span>,
 			time_unify_with_peer: prometheus::register(
-				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					<span class="string">&quot;polkadot_parachain_time_unify_with_peer&quot;</span>,
-					<span class="string">&quot;Time spent within fn `unify_with_peer`.&quot;</span>,
-				).buckets(<span class="macro">vec!</span>[<span class="number">0.000625</span>, <span class="number">0.00125</span>,<span class="number">0.0025</span>, <span class="number">0.005</span>, <span class="number">0.0075</span>, <span class="number">0.01</span>, <span class="number">0.025</span>, <span class="number">0.05</span>, <span class="number">0.1</span>, <span class="number">0.25</span>, <span class="number">0.5</span>, <span class="number">1.0</span>, <span class="number">2.5</span>, <span class="number">5.0</span>, <span class="number">10.0</span>,]))<span class="question-mark">?</span>,
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						<span class="string">&quot;polkadot_parachain_time_unify_with_peer&quot;</span>,
+						<span class="string">&quot;Time spent within fn `unify_with_peer`.&quot;</span>,
+					)
+					.buckets(<span class="macro">vec!</span>[
+						<span class="number">0.000625</span>, <span class="number">0.00125</span>, <span class="number">0.0025</span>, <span class="number">0.005</span>, <span class="number">0.0075</span>, <span class="number">0.01</span>, <span class="number">0.025</span>, <span class="number">0.05</span>, <span class="number">0.1</span>, <span class="number">0.25</span>,
+						<span class="number">0.5</span>, <span class="number">1.0</span>, <span class="number">2.5</span>, <span class="number">5.0</span>, <span class="number">10.0</span>,
+					]),
+				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			time_import_pending_now_known: prometheus::register(

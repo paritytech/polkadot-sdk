@@ -200,7 +200,7 @@
 	pub zeroth_delay_tranche_width: u32,
 	/// The number of validators needed to approve a block.
 	pub needed_approvals: u32,
-	/// The number of samples to do of the RelayVRFModulo approval assignment criterion.
+	/// The number of samples to use in `RelayVRFModulo` or `RelayVRFModuloCompact` approval assignment criterions.
 	pub relay_vrf_modulo_samples: u32,
 	/// Total number of individual messages allowed in the parachain -&gt; relay-chain message queue.
 	pub max_upward_queue_count: u32,
@@ -269,7 +269,7 @@
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-08-18, commit: <a href="https://github.com/paritytech/polkadot/commit/5174b9d2d7">5174b9d2d7</a></footer>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

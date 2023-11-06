@@ -432,6 +432,9 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -461,7 +464,7 @@
 
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{v1 <span class="kw">as </span>request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
-	v2 <span class="kw">as </span>protocol_v2, Versioned,
+	v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, Versioned,
 };
 <span class="kw">use </span>polkadot_node_primitives::StatementWithPVD;
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -833,9 +836,12 @@
 						NetworkBridgeEvent::PeerMessage(<span class="kw">_</span>, message) =&gt; <span class="kw">match </span>message {
 							Versioned::V2(
 								protocol_v2::StatementDistributionMessage::V1Compatibility(<span class="kw">_</span>),
+							) |
+							Versioned::VStaging(
+								protocol_vstaging::StatementDistributionMessage::V1Compatibility(<span class="kw">_</span>),
 							) =&gt; VersionTarget::Legacy,
 							Versioned::V1(<span class="kw">_</span>) =&gt; VersionTarget::Legacy,
-							Versioned::V2(<span class="kw">_</span>) =&gt; VersionTarget::Current,
+							Versioned::V2(<span class="kw">_</span>) | Versioned::VStaging(<span class="kw">_</span>) =&gt; VersionTarget::Current,
 						},
 						<span class="kw">_ </span>=&gt; VersionTarget::Both,
 					};

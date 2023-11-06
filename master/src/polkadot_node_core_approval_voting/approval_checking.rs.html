@@ -1400,7 +1400,7 @@
 </span><span class="doccomment">//! Utilities for checking whether a candidate has been approved under a given block.
 
 </span><span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, slice::BitSlice};
-<span class="kw">use </span>polkadot_node_primitives::approval::DelayTranche;
+<span class="kw">use </span>polkadot_node_primitives::approval::v1::DelayTranche;
 <span class="kw">use </span>polkadot_primitives::ValidatorIndex;
 
 <span class="kw">use crate</span>::{
@@ -1855,9 +1855,9 @@
 		}
 		.into();
 
-		<span class="kw">let </span>approval_entry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
-			assignments: BitVec::default(),
+			assigned_validators: BitVec::default(),
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -1892,22 +1892,22 @@
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		<span class="kw">let </span>approval_entry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: <span class="macro">vec!</span>[
-				approval_db::v1::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: <span class="number">0</span>,
 					assignments: (<span class="number">0</span>..<span class="number">2</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
-				approval_db::v1::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: <span class="number">1</span>,
 					assignments: (<span class="number">2</span>..<span class="number">5</span>).map(|i| (ValidatorIndex(i), <span class="number">1</span>.into())).collect(),
 				},
-				approval_db::v1::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: <span class="number">2</span>,
 					assignments: (<span class="number">5</span>..<span class="number">10</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
 			],
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">1</span>; <span class="number">10</span>],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">1</span>; <span class="number">10</span>],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -1964,22 +1964,22 @@
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		<span class="kw">let </span>approval_entry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: <span class="macro">vec!</span>[
-				approval_db::v1::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: <span class="number">0</span>,
 					assignments: (<span class="number">0</span>..<span class="number">4</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
-				approval_db::v1::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: <span class="number">1</span>,
 					assignments: (<span class="number">4</span>..<span class="number">6</span>).map(|i| (ValidatorIndex(i), <span class="number">1</span>.into())).collect(),
 				},
-				approval_db::v1::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: <span class="number">2</span>,
 					assignments: (<span class="number">6</span>..<span class="number">10</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
 			],
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">1</span>; <span class="number">10</span>],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">1</span>; <span class="number">10</span>],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2030,9 +2030,9 @@
 		<span class="kw">let </span>no_show_duration = <span class="number">10</span>;
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">5</span>],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">5</span>],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2074,9 +2074,9 @@
 		<span class="kw">let </span>no_show_duration = <span class="number">10</span>;
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2114,9 +2114,9 @@
 		<span class="kw">let </span>no_show_duration = <span class="number">10</span>;
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2159,9 +2159,9 @@
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 		<span class="kw">let </span>n_validators = <span class="number">8</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2226,9 +2226,9 @@
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 		<span class="kw">let </span>n_validators = <span class="number">8</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2317,9 +2317,9 @@
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 		<span class="kw">let </span>n_validators = <span class="number">8</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2424,15 +2424,15 @@
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		<span class="kw">let </span>approval_entry = approval_db::v1::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: <span class="macro">vec!</span>[
 				<span class="comment">// Assignments with invalid validator indexes.
-				</span>approval_db::v1::TrancheEntry {
+				</span>approval_db::v2::TrancheEntry {
 					tranche: <span class="number">1</span>,
 					assignments: (<span class="number">2</span>..<span class="number">5</span>).map(|i| (ValidatorIndex(i), <span class="number">1</span>.into())).collect(),
 				},
 			],
-			assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">1</span>; <span class="number">3</span>],
+			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">1</span>; <span class="number">3</span>],
 			our_assignment: <span class="prelude-val">None</span>,
 			our_approval_sig: <span class="prelude-val">None</span>,
 			backing_group: GroupIndex(<span class="number">0</span>),
@@ -2477,12 +2477,12 @@
 		</span>];
 
 		<span class="kw">for </span>test_tranche <span class="kw">in </span>test_tranches {
-			<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v1::ApprovalEntry {
+			<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 				tranches: Vec::new(),
 				backing_group: GroupIndex(<span class="number">0</span>),
 				our_assignment: <span class="prelude-val">None</span>,
 				our_approval_sig: <span class="prelude-val">None</span>,
-				assignments: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">3</span>],
+				assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">3</span>],
 				approved: <span class="bool-val">false</span>,
 			}
 			.into();

@@ -1139,6 +1139,11 @@
 <a href="#1139" id="1139">1139</a>
 <a href="#1140" id="1140">1140</a>
 <a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1173,7 +1178,10 @@
 	<span class="self">self </span><span class="kw">as </span>net_protocol, peer_set::PeerSet, request_response::Requests, PeerId,
 };
 <span class="kw">use </span>polkadot_node_primitives::{
-	approval::{BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote},
+	approval::{
+		v1::{BlockApprovalMeta, IndirectSignedApprovalVote},
+		v2::{CandidateBitfield, IndirectAssignmentCertV2},
+	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
 	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
 	SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD, SubmitCollationParams,
@@ -1982,6 +1990,8 @@
 	</span>InvalidCert(ValidatorIndex, String),
 	<span class="attr">#[error(<span class="string">&quot;Internal state mismatch: {0:?}, {1:?}&quot;</span>)]
 	</span>Internal(Hash, CandidateHash),
+	<span class="attr">#[error(<span class="string">&quot;Oversized candidate or core bitfield &gt;= {0}&quot;</span>)]
+	</span>InvalidBitfield(usize),
 }
 
 <span class="doccomment">/// The result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
@@ -2047,8 +2057,8 @@
 	<span class="doccomment">/// Check if the assignment is valid and can be accepted by our view of the protocol.
 	/// Should not be sent unless the block hash is known.
 	</span>CheckAndImportAssignment(
-		IndirectAssignmentCert,
-		CandidateIndex,
+		IndirectAssignmentCertV2,
+		CandidateBitfield,
 		oneshot::Sender&lt;AssignmentCheckResult&gt;,
 	),
 	<span class="doccomment">/// Check if the approval vote is valid and can be accepted by our view of the
@@ -2083,7 +2093,7 @@
 	</span>NewBlocks(Vec&lt;BlockApprovalMeta&gt;),
 	<span class="doccomment">/// Distribute an assignment cert from the local validator. The cert is assumed
 	/// to be valid, relevant, and for the given relay-parent and validator index.
-	</span>DistributeAssignment(IndirectAssignmentCert, CandidateIndex),
+	</span>DistributeAssignment(IndirectAssignmentCertV2, CandidateBitfield),
 	<span class="doccomment">/// Distribute an approval vote for the local validator. The approval vote is assumed to be
 	/// valid, relevant, and the corresponding approval already issued.
 	/// If not, the subsystem is free to drop the message.

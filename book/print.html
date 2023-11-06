@@ -488,9 +488,10 @@ slightly different usage for the assignments module, and might require more info
 <p>Assignment criteria compute actual assignments using stories and the validators' secret approval assignment key.
 Assignment criteria output a <code>Position</code> consisting of both a <code>ParaId</code> to be checked, as well as a precedence
 <code>DelayTranche</code> for when the assignment becomes valid.</p>
-<p>Assignment criteria come in three flavors, <code>RelayVRFModulo</code>, <code>RelayVRFDelay</code> and <code>RelayEquivocation</code>.  Among these, both
-<code>RelayVRFModulo</code> and <code>RelayVRFDelay</code> run a VRF whose input is the output of a <code>RelayVRFStory</code>, while <code>RelayEquivocation</code>
-runs a VRF whose input is the output of a <code>RelayEquivocationStory</code>.</p>
+<p>Assignment criteria come in four flavors, <code>RelayVRFModuloCompact</code>, <code>RelayVRFDelay</code>, <code>RelayEquivocation</code> and the
+deprecated <code>RelayVRFModulo</code>.  Among these, <code>RelayVRFModulo</code>, <code>RelayVRFModuloCompact</code> and <code>RelayVRFDelay</code> run a
+VRF whose input is the output of a <code>RelayVRFStory</code>, while <code>RelayEquivocation</code> runs a VRF whose input is the
+output of a <code>RelayEquivocationStory</code>.</p>
 <p>Among these, we have two distinct VRF output computations:</p>
 <p><code>RelayVRFModulo</code> runs several distinct samples whose VRF input is the <code>RelayVRFStory</code> and the sample number.  It
 computes the VRF output with <code>schnorrkel::vrf::VRFInOut::make_bytes</code> using the context &quot;A&amp;V Core&quot;, reduces this number
@@ -499,6 +500,11 @@ leaving, that availability core.  We drop any samples that return no candidate b
 sampled availability core in this relay chain block.  We choose three samples initially, but we could make Polkadot more
 secure and efficient by increasing this to four or five, and reducing the backing checks accordingly.  All successful
 <code>RelayVRFModulo</code> samples are assigned delay tranche zero.</p>
+<p><code>RelayVRFModuloCompact</code> runs a single samples whose VRF input is the <code>RelayVRFStory</code> and the sample count. Similar
+to <code>RelayVRFModulo</code> introduces multiple core assignments for tranche zero. It computes the VRF output with
+<code>schnorrkel::vrf::VRFInOut::make_bytes</code> using the context &quot;A&amp;V Core v2&quot; and samples up to 160 bytes of the output
+as an array of <code>u32</code>. Then reduces each <code>u32</code> modulo the number of availability cores, and outputs up
+to <code>relay_vrf_modulo_samples</code> availability core indices.</p>
 <p>There is no sampling process for <code>RelayVRFDelay</code> and <code>RelayEquivocation</code>.  We instead run them on specific candidates
 and they compute a delay from their VRF output.  <code>RelayVRFDelay</code> runs for all candidates included under, aka declared
 available by, a relay chain block, and inputs the associated VRF output via <code>RelayVRFStory</code>.  <code>RelayEquivocation</code> runs
@@ -514,13 +520,13 @@ cannot merge those with the same delay and different stories because <code>Relay
 <p>We track all validators' announced approval assignments for each candidate associated to each relay chain block, which
 tells us which validators were assigned to which candidates.</p>
 <p>We permit at most one assignment per candidate per story per validator, so one validator could be assigned under both
-the <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> criteria, but not under both <code>RelayVRFModulo</code> and <code>RelayVRFDelay</code> criteria,
-since those both use the same story.  We permit only one approval vote per candidate per validator, which counts for any
-applicable criteria.</p>
+the <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> criteria, but not under both <code>RelayVRFModulo/RelayVRFModuloCompact</code>
+and <code>RelayVRFDelay</code> criteria, since those both use the same story.  We permit only one approval vote per candidate per
+validator, which counts for any applicable criteria.</p>
 <p>We announce, and start checking for, our own assignments when the delay of their tranche is reached, but only if the
-tracker says the assignee candidate requires more approval checkers.  We never announce an assignment we believe
-unnecessary because early announcements gives an adversary information.  All delay tranche zero assignments always get
-announced, which includes all <code>RelayVRFModulo</code> assignments.</p>
+tracker says the assignee candidate requires more approval checkers.  We never announce an assignment we believe unnecessary
+because early announcements gives an adversary information.  All delay tranche zero assignments always get announced,
+which includes all <code>RelayVRFModulo</code> and <code>RelayVRFModuloCompact</code> assignments.</p>
 <p>In other words, if some candidate <code>C</code> needs more approval checkers by the time we reach round <code>t</code> then any validators
 with an assignment to <code>C</code> in delay tranche <code>t</code> gossip their send assignment notice for <code>C</code>, and begin reconstruction and
 validation for 'C.  If however <code>C</code> reached enough assignments, then validators with later assignments skip announcing
@@ -584,10 +590,10 @@ valid, but the chain ignores for being too slow.</p>
 <p>We need the chain to win in this case, but doing this requires imposing an annoyingly long overarching delay upon
 finality.  We might explore limits on postponement too, but this sounds much harder.</p>
 <h2 id="parameters"><a class="header" href="#parameters">Parameters</a></h2>
-<p>We prefer doing approval checkers assignments under <code>RelayVRFModulo</code> as opposed to <code>RelayVRFDelay</code> because
-<code>RelayVRFModulo</code> avoids giving individual checkers too many assignments and tranche zero assignments benefit security
-the most.  We suggest assigning at least 16 checkers under <code>RelayVRFModulo</code> although assignment levels have never been
-properly analyzed.</p>
+<p>We prefer doing approval checkers assignments under <code>RelayVRFModulo</code> or <code>RelayVRFModuloCompact</code> as opposed to
+<code>RelayVRFDelay</code> because <code>RelayVRFModulo</code> avoids giving individual checkers too many assignments and tranche zero
+assignments benefit security the most.  We suggest assigning at least 16 checkers under <code>RelayVRFModulo</code> or
+<code>RelayVRFModuloCompact</code> although assignment levels have never been properly analyzed.</p>
 <p>Our delay criteria <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> both have two primary paramaters, expected checkers per
 tranche and the zeroth delay tranche width.</p>
 <p>We require expected checkers per tranche to be less than three because otherwise an adversary with 1/3 stake could force
@@ -633,7 +639,7 @@ this, we should discover if reconstruction performs adequately with a complete g
 restrictions.  At this point, an assignment notices could implicitly request pieces from a random 1/3rd, perhaps
 topology restricted, which saves one gossip round.  If this preliminary fast reconstruction fails, then nodes' request
 alternative pieces directly.  There is an interesting design space in how this overlaps with &quot;slow availability&quot; claims.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
 <p>Fast forward to <a href="./disputes-flow.html">more detailed disputes requirements</a>.</p>
 <h2 id="motivation-and-background"><a class="header" href="#motivation-and-background">Motivation and Background</a></h2>
 <p>All parachain blocks that end up in the finalized relay chain should be valid. This does not apply to blocks that are
@@ -5315,21 +5321,26 @@ they appear in.</p>
     assignments: Vec&lt;(ValidatorIndex, Tick)&gt;,
 }
 
-struct OurAssignment {
-  cert: AssignmentCert,
-  tranche: DelayTranche,
-  validator_index: ValidatorIndex,
-  triggered: bool,
+pub struct OurAssignment {
+	/// Our assignment certificate.
+	cert: AssignmentCertV2,
+	/// The tranche for which the assignment refers to.
+	tranche: DelayTranche,
+	/// Our validator index for the session in which the candidates were included.
+	validator_index: ValidatorIndex,
+	/// Whether the assignment has been triggered already.
+	triggered: bool,
 }
 
-struct ApprovalEntry {
-    tranches: Vec&lt;TrancheEntry&gt;, // sorted ascending by tranche number.
-    backing_group: GroupIndex,
-    our_assignment: Option&lt;OurAssignment&gt;,
-    our_approval_sig: Option&lt;ValidatorSignature&gt;,
-    assignments: Bitfield, // n_validators bits
-    approved: bool,
+pub struct ApprovalEntry {
+	tranches: Vec&lt;TrancheEntry&gt;, // sorted ascending by tranche number.
+	backing_group: GroupIndex,
+	our_assignment: Option&lt;OurAssignment&gt;,
+	our_approval_sig: Option&lt;ValidatorSignature&gt;,
+	assigned_validators: Bitfield, // `n_validators` bits.
+	approved: bool,
 }
+
 
 struct CandidateEntry {
     candidate: CandidateReceipt,
@@ -5498,29 +5509,57 @@ covered by the auxiliary signature aggregated in the <code>VRFPRoof</code>.</li>
 <p>On receiving a <code>ApprovalVotingMessage::CheckAndImportAssignment</code> message, we check the assignment cert against the block
 entry. The cert itself contains information necessary to determine the candidate that is being assigned-to. In detail:</p>
 <ul>
-<li>Load the <code>BlockEntry</code> for the relay-parent referenced by the message. If there is none, return
-<code>AssignmentCheckResult::Bad</code>.</li>
-<li>Fetch the <code>SessionInfo</code> for the session of the block</li>
-<li>Determine the assignment key of the validator based on that.</li>
-<li>Determine the claimed core index by looking up the candidate with given index in <code>block_entry.candidates</code>. Return
-<code>AssignmentCheckResult::Bad</code> if missing.</li>
-<li>Check the assignment cert
+<li>
+<p>Load the <code>BlockEntry</code> for the relay-parent referenced by the message. If there is none, return
+<code>AssignmentCheckResult::Bad</code>.</p>
+</li>
+<li>
+<p>Fetch the <code>SessionInfo</code> for the session of the block</p>
+</li>
+<li>
+<p>Determine the assignment key of the validator based on that.</p>
+</li>
+<li>
+<p>Determine the claimed core index by looking up the candidate with given index in <code>block_entry.candidates</code>. Return
+<code>AssignmentCheckResult::Bad</code> if missing.</p>
+</li>
+<li>
+<p>Check the assignment cert</p>
 <ul>
-<li>If the cert kind is <code>RelayVRFModulo</code>, then the certificate is valid as long as <code>sample &lt; session_info.relay_vrf_samples</code> and the VRF is valid for the validator's key with the input
-<code>block_entry.relay_vrf_story ++ sample.encode()</code> as described with <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol
-section</a>. We set <code>core_index = vrf.make_bytes().to_u32() % session_info.n_cores</code>. If the <code>BlockEntry</code> causes inclusion of a candidate at <code>core_index</code>, then this is a valid
-assignment for the candidate at <code>core_index</code> and has delay tranche 0. Otherwise, it can be ignored.</li>
-<li>If the cert kind is <code>RelayVRFDelay</code>, then we check if the VRF is valid for the validator's key with the input
-<code>block_entry.relay_vrf_story ++ cert.core_index.encode()</code> as described in <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol
-section</a>. The cert can be ignored if the block did not cause
-inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included candidate. The
-delay tranche for the assignment is determined by reducing <code>(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)</code>.</li>
-<li>We also check that the core index derived by the output is covered by the <code>VRFProof</code> by means of an auxiliary
-signature.</li>
-<li>If the delay tranche is too far in the future, return <code>AssignmentCheckResult::TooFarInFuture</code>.</li>
+<li>
+<p>If the cert kind is <code>RelayVRFModulo</code>, then the certificate is valid as long as <code>sample &lt; session_info.relay_vrf_samples</code> and the VRF is valid for the validator's key with the input
+<code>block_entry.relay_vrf_story ++ sample.encode()</code> as described with
+<a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>. We set
+<code>core_index = vrf.make_bytes().to_u32() % session_info.n_cores</code>. If the <code>BlockEntry</code> causes
+inclusion of a candidate at <code>core_index</code>, then this is a valid assignment for the candidate
+at <code>core_index</code> and has delay tranche 0. Otherwise, it can be ignored.</p>
+</li>
+<li>
+<p>If the cert kind is <code>RelayVRFModuloCompact</code>, then the certificate is valid as long as the VRF
+is valid for the validator's key with the input <code>block_entry.relay_vrf_story ++ relay_vrf_samples.encode()</code>
+as described with <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>.
+We enforce that all <code>core_bitfield</code> indices are included in the set of the core indices sampled from the
+VRF Output. The assignment is considered a valid tranche0 assignment for all claimed candidates if all
+<code>core_bitfield</code> indices match the core indices where the claimed candidates were included at.</p>
+</li>
+<li>
+<p>If the cert kind is <code>RelayVRFDelay</code>, then we check if the VRF is valid for the validator's key with the
+input <code>block_entry.relay_vrf_story ++ cert.core_index.encode()</code> as described in <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol
+section</a>. The cert can be ignored if the block did not
+cause inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included
+candidate. The delay tranche for the assignment is determined by reducing
+<code>(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)</code>.</p>
+</li>
+<li>
+<p>We also check that the core index derived by the output is covered by the <code>VRFProof</code> by means of an auxiliary signature.</p>
+</li>
+<li>
+<p>If the delay tranche is too far in the future, return <code>AssignmentCheckResult::TooFarInFuture</code>.</p>
+</li>
 </ul>
 </li>
-<li>Import the assignment.
+<li>
+<p>Import the assignment.</p>
 <ul>
 <li>Load the candidate in question and access the <code>approval_entry</code> for the block hash the cert references.</li>
 <li>Ignore if we already observe the validator as having been assigned.</li>
@@ -5530,8 +5569,12 @@ signature.</li>
 <li>Note the candidate index within the approval entry.</li>
 </ul>
 </li>
-<li><a href="node/approval/approval-voting.html#schedule-wakeup">Schedule a wakeup</a> for this block, candidate pair.</li>
-<li>return the appropriate <code>AssignmentCheckResult</code> on the response channel.</li>
+<li>
+<p><a href="node/approval/approval-voting.html#schedule-wakeup">Schedule a wakeup</a> for this block, candidate pair.</p>
+</li>
+<li>
+<p>return the appropriate <code>AssignmentCheckResult</code> on the response channel.</p>
+</li>
 </ul>
 <h4 id="approvalvotingmessagecheckandimportapproval"><a class="header" href="#approvalvotingmessagecheckandimportapproval"><code>ApprovalVotingMessage::CheckAndImportApproval</code></a></h4>
 <p>On receiving a <code>CheckAndImportApproval(indirect_approval_vote, response_channel)</code> message:</p>
@@ -5768,7 +5811,7 @@ false.</li>
 <li>Given the slot number of a block, and the current time, this informs about the current tranche.</li>
 <li>Convert <code>time.saturating_sub(slot_number.to_time())</code> to a delay tranches value</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
 <p>A subsystem for the distribution of assignments and approvals for approval checks on candidates over the network.</p>
 <p>The <a href="node/approval/approval-voting.html">Approval Voting</a> subsystem is responsible for active participation in a protocol designed to
 select a sufficient number of validators to check each and every candidate which appears in the relay chain. Statements
@@ -9325,7 +9368,7 @@ pub enum PvfCheckerMessage { }
 	pub zeroth_delay_tranche_width: u32,
 	/// The number of validators needed to approve a block.
 	pub needed_approvals: u32,
-	/// The number of samples to do of the RelayVRFModulo approval assignment criterion.
+	/// The number of samples to use in `RelayVRFModulo` or `RelayVRFModuloCompact` approval assignment criterions.
 	pub relay_vrf_modulo_samples: u32,
 	/// Total number of individual messages allowed in the parachain -&gt; relay-chain message queue.
 	pub max_upward_queue_count: u32,
@@ -9394,7 +9437,7 @@ pub enum PvfCheckerMessage { }
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-08-18, commit: <a href="https://github.com/paritytech/polkadot/commit/5174b9d2d7">5174b9d2d7</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="message-types"><a class="header" href="#message-types">Message types</a></h1>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="message-types"><a class="header" href="#message-types">Message types</a></h1>
 <p>Types of messages that are passed between parachains and the relay chain: UMP, DMP, XCMP.</p>
 <p>There is also HRMP (Horizontally Relay-routed Message Passing) which provides the same functionality
 although with smaller scalability potential.</p>
@@ -9660,6 +9703,35 @@ block state will also provide further context about the availability core states
     }
 }
 
+enum AssignmentCertKindV2 {
+    /// Multiple assignment stories based on the VRF that authorized the relay-chain block where the
+    /// candidates were included.
+    ///
+    /// The context is [`v2::RELAY_VRF_MODULO_CONTEXT`]
+    RelayVRFModuloCompact {
+        /// A bitfield representing the core indices claimed by this assignment.
+        core_bitfield: CoreBitfield,
+    },
+    /// An assignment story based on the VRF that authorized the relay-chain block where the
+    /// candidate was included combined with the index of a particular core.
+    ///
+    /// The context is [`v2::RELAY_VRF_DELAY_CONTEXT`]
+    RelayVRFDelay {
+        /// The core index chosen in this cert.
+        core_index: CoreIndex,
+    },
+    /// Deprectated assignment. Soon to be removed.
+    ///  
+    /// An assignment story based on the VRF that authorized the relay-chain block where the
+    /// candidate was included combined with a sample number.
+    ///
+    /// The context used to produce bytes is [`v1::RELAY_VRF_MODULO_CONTEXT`]
+    RelayVRFModulo {
+        /// The sample number used in this cert.
+        sample: u32,
+    },
+}
+
 struct AssignmentCert {
     // The criterion which is claimed to be met by this cert.
     kind: AssignmentCertKind,
@@ -9740,7 +9812,7 @@ have actually been done. Fields should be accessible via getters, not direct str
 </span>type DelayTranche = u32;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-2"><a class="header" href="#disputes-2">Disputes</a></h1>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-2"><a class="header" href="#disputes-2">Disputes</a></h1>
 <h2 id="disputestatementset"><a class="header" href="#disputestatementset"><code>DisputeStatementSet</code></a></h2>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

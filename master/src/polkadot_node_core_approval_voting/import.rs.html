@@ -1445,6 +1445,12 @@
 <a href="#1445" id="1445">1445</a>
 <a href="#1446" id="1446">1446</a>
 <a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1477,7 +1483,10 @@
 
 </span><span class="kw">use </span>polkadot_node_jaeger <span class="kw">as </span>jaeger;
 <span class="kw">use </span>polkadot_node_primitives::{
-	approval::{<span class="self">self </span><span class="kw">as </span>approval_types, BlockApprovalMeta, RelayVRFStory},
+	approval::{
+		<span class="self">self </span><span class="kw">as </span>approval_types,
+		v1::{BlockApprovalMeta, RelayVRFStory},
+	},
 	MAX_FINALITY_LAG,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -1500,7 +1509,7 @@
 
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">use </span><span class="kw">super</span>::approval_db::v1;
+<span class="kw">use </span><span class="kw">super</span>::approval_db::v2;
 <span class="kw">use crate</span>::{
 	backend::{Backend, OverlayedBackend},
 	criteria::{AssignmentCriteria, OurAssignment},
@@ -1539,7 +1548,7 @@
 	</span>FutureCancelled(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, futures::channel::oneshot::Canceled),
 
 	<span class="attr">#[error(transparent)]
-	</span>ApprovalError(approval_types::ApprovalError),
+	</span>ApprovalError(approval_types::v1::ApprovalError),
 
 	<span class="attr">#[error(<span class="string">&quot;block is already finalized&quot;</span>)]
 	</span>BlockAlreadyFinalized,
@@ -1663,7 +1672,7 @@
 		</span>.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>(assignments, slot, relay_vrf_story) = {
-		<span class="kw">let </span>unsafe_vrf = approval_types::babe_unsafe_vrf_info(<span class="kw-2">&amp;</span>block_header);
+		<span class="kw">let </span>unsafe_vrf = approval_types::v1::babe_unsafe_vrf_info(<span class="kw-2">&amp;</span>block_header);
 
 		<span class="kw">match </span>unsafe_vrf {
 			<span class="prelude-val">Some</span>(unsafe_vrf) =&gt; {
@@ -1944,7 +1953,7 @@
 			ctx.send_message(ChainSelectionMessage::Approved(block_hash)).<span class="kw">await</span>;
 		}
 
-		<span class="kw">let </span>block_entry = v1::BlockEntry {
+		<span class="kw">let </span>block_entry = v2::BlockEntry {
 			block_hash,
 			parent_hash: block_header.parent_hash,
 			block_number: block_header.number,
@@ -1957,6 +1966,7 @@
 				.collect(),
 			approved_bitfield,
 			children: Vec::new(),
+			distributed_assignments: Default::default(),
 		};
 
 		<span class="macro">gum::trace!</span>(
@@ -2035,11 +2045,11 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use crate</span>::{approval_db::v1::DbBackend, RuntimeInfo, RuntimeInfoConfig};
+	<span class="kw">use crate</span>::{approval_db::v2::DbBackend, RuntimeInfo, RuntimeInfoConfig};
 	<span class="kw">use </span>::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>polkadot_node_primitives::{
-		approval::{VrfSignature, VrfTranscript},
+		approval::v1::{VrfSignature, VrfTranscript},
 		DISPUTE_WINDOW,
 	};
 	<span class="kw">use </span>polkadot_node_subsystem::messages::{AllMessages, ApprovalVotingMessage};
@@ -2057,7 +2067,7 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_runtime::{Digest, DigestItem};
 	<span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
-	<span class="kw">use crate</span>::{approval_db::v1::Config <span class="kw">as </span>DatabaseConfig, criteria, BlockEntry};
+	<span class="kw">use crate</span>::{approval_db::v2::Config <span class="kw">as </span>DatabaseConfig, criteria, BlockEntry};
 
 	<span class="kw">const </span>DATA_COL: u32 = <span class="number">0</span>;
 
@@ -2103,7 +2113,7 @@
 		<span class="kw">fn </span>compute_assignments(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			_keystore: <span class="kw-2">&amp;</span>LocalKeystore,
-			_relay_vrf_story: polkadot_node_primitives::approval::RelayVRFStory,
+			_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 			_config: <span class="kw-2">&amp;</span>criteria::Config,
 			_leaving_cores: Vec&lt;(
 				CandidateHash,
@@ -2116,13 +2126,14 @@
 
 		<span class="kw">fn </span>check_assignment_cert(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			_claimed_core_index: polkadot_primitives::CoreIndex,
+			_claimed_core_bitfield: polkadot_node_primitives::approval::v2::CoreBitfield,
 			_validator_index: polkadot_primitives::ValidatorIndex,
 			_config: <span class="kw-2">&amp;</span>criteria::Config,
-			_relay_vrf_story: polkadot_node_primitives::approval::RelayVRFStory,
-			_assignment: <span class="kw-2">&amp;</span>polkadot_node_primitives::approval::AssignmentCert,
-			_backing_group: polkadot_primitives::GroupIndex,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;polkadot_node_primitives::approval::DelayTranche, criteria::InvalidAssignment&gt; {
+			_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
+			_assignment: <span class="kw-2">&amp;</span>polkadot_node_primitives::approval::v2::AssignmentCertV2,
+			_backing_groups: Vec&lt;polkadot_primitives::GroupIndex&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment&gt;
+		{
 			<span class="prelude-val">Ok</span>(<span class="number">0</span>)
 		}
 	}
@@ -2743,7 +2754,7 @@
 
 		<span class="kw">let </span>(state, <span class="kw-2">mut </span>session_info_provider) = single_session_state();
 		overlay_db.write_block_entry(
-			v1::BlockEntry {
+			v2::BlockEntry {
 				block_hash: parent_hash,
 				parent_hash: Default::default(),
 				block_number: <span class="number">4</span>,
@@ -2753,6 +2764,7 @@
 				candidates: Vec::new(),
 				approved_bitfield: Default::default(),
 				children: Vec::new(),
+				distributed_assignments: Default::default(),
 			}
 			.into(),
 		);
@@ -2785,7 +2797,7 @@
 				<span class="comment">// the first candidate should be insta-approved
 				// the second should not
 				</span><span class="kw">let </span>entry: BlockEntry =
-					v1::load_block_entry(db_writer.as_ref(), <span class="kw-2">&amp;</span>TEST_CONFIG, <span class="kw-2">&amp;</span>hash)
+					v2::load_block_entry(db_writer.as_ref(), <span class="kw-2">&amp;</span>TEST_CONFIG, <span class="kw-2">&amp;</span>hash)
 						.unwrap()
 						.unwrap()
 						.into();

@@ -839,6 +839,98 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1094,25 +1186,29 @@
 
 <span class="doccomment">/// A protocol-versioned type.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>Versioned&lt;V1, V2&gt; {
+</span><span class="kw">pub enum </span>Versioned&lt;V1, V2, VStaging = V2&gt; {
 	<span class="doccomment">/// V1 type.
 	</span>V1(V1),
 	<span class="doccomment">/// V2 type.
 	</span>V2(V2),
+	<span class="doccomment">/// VStaging type
+	</span>VStaging(VStaging),
 }
 
-<span class="kw">impl</span>&lt;V1: Clone, V2: Clone&gt; Versioned&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V1, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V2&gt; {
+<span class="kw">impl</span>&lt;V1: Clone, V2: Clone, VStaging: Clone&gt; Versioned&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V1, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V2, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>VStaging&gt; {
 	<span class="doccomment">/// Convert to a fully-owned version of the message.
-	</span><span class="kw">pub fn </span>clone_inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Versioned&lt;V1, V2&gt; {
+	</span><span class="kw">pub fn </span>clone_inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Versioned&lt;V1, V2, VStaging&gt; {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			Versioned::V1(inner) =&gt; Versioned::V1(inner.clone()),
 			Versioned::V2(inner) =&gt; Versioned::V2(inner.clone()),
+			Versioned::VStaging(inner) =&gt; Versioned::VStaging(inner.clone()),
 		}
 	}
 }
 
 <span class="doccomment">/// All supported versions of the validation protocol message.
-</span><span class="kw">pub type </span>VersionedValidationProtocol = Versioned&lt;v1::ValidationProtocol, v2::ValidationProtocol&gt;;
+</span><span class="kw">pub type </span>VersionedValidationProtocol =
+	Versioned&lt;v1::ValidationProtocol, v2::ValidationProtocol, vstaging::ValidationProtocol&gt;;
 
 <span class="kw">impl </span>From&lt;v1::ValidationProtocol&gt; <span class="kw">for </span>VersionedValidationProtocol {
 	<span class="kw">fn </span>from(v1: v1::ValidationProtocol) -&gt; <span class="self">Self </span>{
@@ -1123,6 +1219,12 @@
 <span class="kw">impl </span>From&lt;v2::ValidationProtocol&gt; <span class="kw">for </span>VersionedValidationProtocol {
 	<span class="kw">fn </span>from(v2: v2::ValidationProtocol) -&gt; <span class="self">Self </span>{
 		VersionedValidationProtocol::V2(v2)
+	}
+}
+
+<span class="kw">impl </span>From&lt;vstaging::ValidationProtocol&gt; <span class="kw">for </span>VersionedValidationProtocol {
+	<span class="kw">fn </span>from(vstaging: vstaging::ValidationProtocol) -&gt; <span class="self">Self </span>{
+		VersionedValidationProtocol::VStaging(vstaging)
 	}
 }
 
@@ -1148,12 +1250,12 @@
 				<span class="kw">match </span>versioned_from {
 					Versioned::V1(x) =&gt; Versioned::V1(x.into()),
 					Versioned::V2(x) =&gt; Versioned::V2(x.into()),
+					Versioned::VStaging(x) =&gt; Versioned::VStaging(x.into()),
 				}
 			}
 		}
 	};
 }
-
 <span class="doccomment">/// Implement `TryFrom` for one versioned enum variant into the inner type.
 /// `$m_ty::$variant(inner) -&gt; Ok(inner)`
 </span><span class="macro">macro_rules! </span>impl_versioned_try_from {
@@ -1161,7 +1263,8 @@
 		<span class="macro-nonterminal">$from</span>:ty,
 		<span class="macro-nonterminal">$out</span>:ty,
 		<span class="macro-nonterminal">$v1_pat</span>:pat =&gt; <span class="macro-nonterminal">$v1_out</span>:expr,
-		<span class="macro-nonterminal">$v2_pat</span>:pat =&gt; <span class="macro-nonterminal">$v2_out</span>:expr
+		<span class="macro-nonterminal">$v2_pat</span>:pat =&gt; <span class="macro-nonterminal">$v2_out</span>:expr,
+		<span class="macro-nonterminal">$vstaging_pat</span>:pat =&gt; <span class="macro-nonterminal">$vstaging_out</span>:expr
 	) =&gt; {
 		<span class="kw">impl </span>TryFrom&lt;<span class="macro-nonterminal">$from</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$out </span>{
 			<span class="kw">type </span>Error = <span class="kw">crate</span>::WrongVariant;
@@ -1171,6 +1274,7 @@
 				</span><span class="kw">match </span>x {
 					Versioned::V1(<span class="macro-nonterminal">$v1_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V1(<span class="macro-nonterminal">$v1_out</span>)),
 					Versioned::V2(<span class="macro-nonterminal">$v2_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V2(<span class="macro-nonterminal">$v2_out</span>)),
+					Versioned::VStaging(<span class="macro-nonterminal">$vstaging_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::VStaging(<span class="macro-nonterminal">$vstaging_out</span>)),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="kw">crate</span>::WrongVariant),
 				}
 			}
@@ -1184,6 +1288,8 @@
 				</span><span class="kw">match </span>x {
 					Versioned::V1(<span class="macro-nonterminal">$v1_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V1(<span class="macro-nonterminal">$v1_out</span>.clone())),
 					Versioned::V2(<span class="macro-nonterminal">$v2_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V2(<span class="macro-nonterminal">$v2_out</span>.clone())),
+					Versioned::VStaging(<span class="macro-nonterminal">$vstaging_pat</span>) =&gt;
+						<span class="prelude-val">Ok</span>(Versioned::VStaging(<span class="macro-nonterminal">$vstaging_out</span>.clone())),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="kw">crate</span>::WrongVariant),
 				}
 			}
@@ -1192,8 +1298,11 @@
 }
 
 <span class="doccomment">/// Version-annotated messages used by the bitfield distribution subsystem.
-</span><span class="kw">pub type </span>BitfieldDistributionMessage =
-	Versioned&lt;v1::BitfieldDistributionMessage, v2::BitfieldDistributionMessage&gt;;
+</span><span class="kw">pub type </span>BitfieldDistributionMessage = Versioned&lt;
+	v1::BitfieldDistributionMessage,
+	v2::BitfieldDistributionMessage,
+	vstaging::BitfieldDistributionMessage,
+&gt;;
 <span class="macro">impl_versioned_full_protocol_from!</span>(
 	BitfieldDistributionMessage,
 	VersionedValidationProtocol,
@@ -1203,12 +1312,16 @@
 	VersionedValidationProtocol,
 	BitfieldDistributionMessage,
 	v1::ValidationProtocol::BitfieldDistribution(x) =&gt; x,
-	v2::ValidationProtocol::BitfieldDistribution(x) =&gt; x
+	v2::ValidationProtocol::BitfieldDistribution(x) =&gt; x,
+	vstaging::ValidationProtocol::BitfieldDistribution(x) =&gt; x
 );
 
 <span class="doccomment">/// Version-annotated messages used by the statement distribution subsystem.
-</span><span class="kw">pub type </span>StatementDistributionMessage =
-	Versioned&lt;v1::StatementDistributionMessage, v2::StatementDistributionMessage&gt;;
+</span><span class="kw">pub type </span>StatementDistributionMessage = Versioned&lt;
+	v1::StatementDistributionMessage,
+	v2::StatementDistributionMessage,
+	vstaging::StatementDistributionMessage,
+&gt;;
 <span class="macro">impl_versioned_full_protocol_from!</span>(
 	StatementDistributionMessage,
 	VersionedValidationProtocol,
@@ -1218,12 +1331,16 @@
 	VersionedValidationProtocol,
 	StatementDistributionMessage,
 	v1::ValidationProtocol::StatementDistribution(x) =&gt; x,
-	v2::ValidationProtocol::StatementDistribution(x) =&gt; x
+	v2::ValidationProtocol::StatementDistribution(x) =&gt; x,
+	vstaging::ValidationProtocol::StatementDistribution(x) =&gt; x
 );
 
 <span class="doccomment">/// Version-annotated messages used by the approval distribution subsystem.
-</span><span class="kw">pub type </span>ApprovalDistributionMessage =
-	Versioned&lt;v1::ApprovalDistributionMessage, v2::ApprovalDistributionMessage&gt;;
+</span><span class="kw">pub type </span>ApprovalDistributionMessage = Versioned&lt;
+	v1::ApprovalDistributionMessage,
+	v2::ApprovalDistributionMessage,
+	vstaging::ApprovalDistributionMessage,
+&gt;;
 <span class="macro">impl_versioned_full_protocol_from!</span>(
 	ApprovalDistributionMessage,
 	VersionedValidationProtocol,
@@ -1233,13 +1350,18 @@
 	VersionedValidationProtocol,
 	ApprovalDistributionMessage,
 	v1::ValidationProtocol::ApprovalDistribution(x) =&gt; x,
-	v2::ValidationProtocol::ApprovalDistribution(x) =&gt; x
+	v2::ValidationProtocol::ApprovalDistribution(x) =&gt; x,
+	vstaging::ValidationProtocol::ApprovalDistribution(x) =&gt; x
 
 );
 
 <span class="doccomment">/// Version-annotated messages used by the gossip-support subsystem (this is void).
-</span><span class="kw">pub type </span>GossipSupportNetworkMessage =
-	Versioned&lt;v1::GossipSupportNetworkMessage, v2::GossipSupportNetworkMessage&gt;;
+</span><span class="kw">pub type </span>GossipSupportNetworkMessage = Versioned&lt;
+	v1::GossipSupportNetworkMessage,
+	v2::GossipSupportNetworkMessage,
+	vstaging::GossipSupportNetworkMessage,
+&gt;;
+
 <span class="comment">// This is a void enum placeholder, so never gets sent over the wire.
 </span><span class="kw">impl </span>TryFrom&lt;VersionedValidationProtocol&gt; <span class="kw">for </span>GossipSupportNetworkMessage {
 	<span class="kw">type </span>Error = WrongVariant;
@@ -1267,6 +1389,7 @@
 	VersionedCollationProtocol,
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) =&gt; x,
+	v2::CollationProtocol::CollatorProtocol(x) =&gt; x,
 	v2::CollationProtocol::CollatorProtocol(x) =&gt; x
 );
 
@@ -1280,7 +1403,7 @@
 	};
 
 	<span class="kw">use </span>polkadot_node_primitives::{
-		approval::{IndirectAssignmentCert, IndirectSignedApprovalVote},
+		approval::v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
 		UncheckedSignedFullStatement,
 	};
 
@@ -1439,7 +1562,7 @@
 	};
 
 	<span class="kw">use </span>polkadot_node_primitives::{
-		approval::{IndirectAssignmentCert, IndirectSignedApprovalVote},
+		approval::v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
 		UncheckedSignedFullStatement,
 	};
 
@@ -1679,5 +1802,66 @@
 		payload.extend_from_slice(<span class="string">b&quot;COLL&quot;</span>);
 		payload
 	}
+}
+
+<span class="doccomment">/// vstaging network protocol types, intended to become v3.
+/// Initial purpose is for chaning ApprovalDistributionMessage to
+/// include more than one assignment in the message.
+</span><span class="kw">pub mod </span>vstaging {
+	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+
+	<span class="kw">use </span>polkadot_node_primitives::approval::{
+		v1::IndirectSignedApprovalVote,
+		v2::{CandidateBitfield, IndirectAssignmentCertV2},
+	};
+
+	<span class="doccomment">/// This parts of the protocol did not change from v2, so just alias them in vstaging,
+	/// no reason why they can&#39;t be change untill vstaging becomes v3 and is released.
+	</span><span class="kw">pub use </span><span class="kw">super</span>::v2::{
+		declare_signature_payload, BackedCandidateAcknowledgement, BackedCandidateManifest,
+		BitfieldDistributionMessage, GossipSupportNetworkMessage, StatementDistributionMessage,
+		StatementFilter,
+	};
+
+	<span class="doccomment">/// Network messages used by the approval distribution subsystem.
+	</span><span class="attr">#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	</span><span class="kw">pub enum </span>ApprovalDistributionMessage {
+		<span class="doccomment">/// Assignments for candidates in recent, unfinalized blocks.
+		/// We use a bitfield to reference claimed candidates, where the bit index is equal to
+		/// candidate index.
+		///
+		/// Actually checking the assignment may yield a different result.
+		/// TODO: Look at getting rid of bitfield in the future.
+		</span><span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span>Assignments(Vec&lt;(IndirectAssignmentCertV2, CandidateBitfield)&gt;),
+		<span class="doccomment">/// Approvals for candidates in some recent, unfinalized block.
+		</span><span class="attr">#[codec(index = <span class="number">1</span>)]
+		</span>Approvals(Vec&lt;IndirectSignedApprovalVote&gt;),
+	}
+
+	<span class="doccomment">/// All network messages on the validation peer-set.
+	</span><span class="attr">#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
+	</span><span class="kw">pub enum </span>ValidationProtocol {
+		<span class="doccomment">/// Bitfield distribution messages
+		</span><span class="attr">#[codec(index = <span class="number">1</span>)]
+		#[from]
+		</span>BitfieldDistribution(BitfieldDistributionMessage),
+		<span class="doccomment">/// Statement distribution messages
+		</span><span class="attr">#[codec(index = <span class="number">3</span>)]
+		#[from]
+		</span>StatementDistribution(StatementDistributionMessage),
+		<span class="doccomment">/// Approval distribution messages
+		</span><span class="attr">#[codec(index = <span class="number">4</span>)]
+		#[from]
+		</span>ApprovalDistribution(ApprovalDistributionMessage),
+	}
+}
+
+<span class="doccomment">/// Returns the subset of `peers` with the specified `version`.
+</span><span class="kw">pub fn </span>filter_by_peer_version(
+	peers: <span class="kw-2">&amp;</span>[(PeerId, peer_set::ProtocolVersion)],
+	version: peer_set::ProtocolVersion,
+) -&gt; Vec&lt;PeerId&gt; {
+	peers.iter().filter(|(<span class="kw">_</span>, v)| v == <span class="kw-2">&amp;</span>version).map(|(p, <span class="kw">_</span>)| <span class="kw-2">*</span>p).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 }
 </code></pre></div></section></main></body></html>
