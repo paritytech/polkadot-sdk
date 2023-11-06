@@ -74,7 +74,6 @@ rm -rf $BRIDGES_FOLDER/primitives/beefy
 rm -rf $BRIDGES_FOLDER/primitives/chain-millau
 rm -rf $BRIDGES_FOLDER/primitives/chain-rialto
 rm -rf $BRIDGES_FOLDER/primitives/chain-rialto-parachain
-rm -rf $BRIDGES_FOLDER/primitives/chain-westend
 rm -rf $BRIDGES_FOLDER/relays
 rm -rf $BRIDGES_FOLDER/scripts/add_license.sh
 rm -rf $BRIDGES_FOLDER/scripts/build-containers.sh

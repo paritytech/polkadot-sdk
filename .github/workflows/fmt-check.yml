@@ -14,7 +14,7 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     container:
-      image: paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      image: paritytech/ci-unified:bullseye-1.73.0-2023-11-01-v20231025
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 

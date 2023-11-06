@@ -12,6 +12,12 @@ codec = { package = "parity-scale-codec", version = "3.4.0", default-features = 
 
 # Substrate
 frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../../../../substrate/frame/system", default-features = false}
+sp-core = { path = "../../../../../../substrate/primitives/core", default-features = false}
+sp-weights = { path = "../../../../../../substrate/primitives/weights", default-features = false}
+pallet-balances = { path = "../../../../../../substrate/frame/balances", default-features = false}
+pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false}
+pallet-message-queue = { path = "../../../../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
 polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}

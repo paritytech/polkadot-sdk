@@ -21,6 +21,7 @@ use super::{Pallet as TransactionStorage, *};
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use sp_runtime::{DispatchError, TokenError::FundsUnavailable};
 use sp_transaction_storage_proof::registration::build_proof;
 
 const MAX_DATA_SIZE: u32 = DEFAULT_MAX_TRANSACTION_SIZE;
@@ -71,7 +72,7 @@ fn burns_fee() {
 				RawOrigin::Signed(5).into(),
 				vec![0u8; 2000 as usize]
 			),
-			Error::<Test>::InsufficientFunds,
+			DispatchError::Token(FundsUnavailable),
 		);
 		assert_ok!(TransactionStorage::<Test>::store(
 			RawOrigin::Signed(caller).into(),
