@@ -214,15 +214,15 @@ pub trait NetworkComponent {
 }
 
 pub trait OnHooks {
-	fn on_initialize_hook(n: BlockNumber) -> Weight;
-	fn on_finalize_hook(n: BlockNumber);
+	fn on_initialize(n: BlockNumber) -> Weight;
+	fn on_finalize(n: BlockNumber);
 }
 
 impl OnHooks for () {
-	fn on_initialize_hook(_n: BlockNumber) -> Weight {
+	fn on_initialize(_n: BlockNumber) -> Weight {
 		Weight::default()
 	}
-	fn on_finalize_hook(_n: BlockNumber) {}
+	fn on_finalize(_n: BlockNumber) {}
 }
 
 pub trait Chain: TestExt + NetworkComponent {
@@ -665,7 +665,7 @@ macro_rules! decl_test_parachains {
 						);
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
-						<$name as Chain>::Hooks::on_initialize_hook(block_number);
+						<<$name as Chain>::Hooks as OnHooks>::on_initialize(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
@@ -680,7 +680,7 @@ macro_rules! decl_test_parachains {
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
 						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
-						<$name as Chain>::Hooks::on_finalize_hook(block_number);
+						<<$name as Chain>::Hooks as OnHooks>::on_finalize(block_number);
 					});
 
 					Self::set_last_head();
