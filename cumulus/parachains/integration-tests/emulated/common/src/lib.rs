@@ -24,9 +24,10 @@ use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
+	BuildStorage,
 	MultiSignature,
 };
 
@@ -81,6 +82,17 @@ pub fn get_host_config() -> HostConfiguration<BlockNumber> {
 		hrmp_max_parachain_inbound_channels: 30,
 		..Default::default()
 	}
+}
+
+/// Helper function used in tests to build the genesis storage using given RuntimeGenesisConfig and
+/// code Used in `legacy_vs_json_check` submods to verify storage building with JSON patch against
+/// building with RuntimeGenesisConfig struct.
+pub fn build_genesis_storage_legacy(builder: &dyn BuildStorage, code: &[u8]) -> Storage {
+	let mut storage = builder.build_storage().unwrap();
+	storage
+		.top
+		.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.into());
+	storage
 }
 
 pub mod accounts {

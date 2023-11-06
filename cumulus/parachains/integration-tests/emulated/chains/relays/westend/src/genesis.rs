@@ -20,13 +20,19 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::storage::Storage;
-use sp_runtime::{BuildStorage, Perbill};
+use sp_runtime::Perbill;
 
 // Polkadot
 use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
-use emulated_integration_tests_common::{accounts, get_from_seed, get_host_config, validators};
+use emulated_integration_tests_common::{
+	accounts,
+	validators,
+	get_host_config,
+	get_from_seed,
+	build_genesis_storage_legacy,
+};
 use parachains_common::Balance;
 use westend_runtime_constants::currency::UNITS as WND;
 
@@ -56,12 +62,13 @@ fn session_keys(
 
 pub fn genesis() -> Storage {
 	let genesis_config = westend_runtime::RuntimeGenesisConfig {
-		system: westend_runtime::SystemConfig {
-			code: westend_runtime::WASM_BINARY.unwrap().to_vec(),
-			..Default::default()
-		},
+		system: westend_runtime::SystemConfig::default(),
 		balances: westend_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.cloned()
+				.map(|k| (k, ENDOWMENT))
+				.collect(),
 		},
 		session: westend_runtime::SessionConfig {
 			keys: validators::initial_authorities()
@@ -89,10 +96,18 @@ pub fn genesis() -> Storage {
 			stakers: validators::initial_authorities()
 				.iter()
 				.map(|x| {
-					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
+					(
+						x.0.clone(),
+						x.1.clone(),
+						STASH,
+						westend_runtime::StakerStatus::Validator,
+					)
 				})
 				.collect(),
-			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
+			invulnerables: validators::initial_authorities()
+				.iter()
+				.map(|x| x.0.clone())
+				.collect(),
 			force_era: pallet_staking::Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
@@ -106,5 +121,5 @@ pub fn genesis() -> Storage {
 		..Default::default()
 	};
 
-	genesis_config.build_storage().unwrap()
+	build_genesis_storage_legacy(&genesis_config, westend_runtime::WASM_BINARY.unwrap())
 }

@@ -20,14 +20,18 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage};
-use sp_runtime::BuildStorage;
 
 // Polkadot
 use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, get_account_id_from_seed, get_from_seed, get_host_config, validators,
+	accounts,
+	validators,
+	get_host_config,
+	get_from_seed,
+	get_account_id_from_seed,
+	build_genesis_storage_legacy,
 };
 use parachains_common::Balance;
 use rococo_runtime_constants::currency::UNITS as ROC;
@@ -57,14 +61,13 @@ fn session_keys(
 
 pub fn genesis() -> Storage {
 	let genesis_config = rococo_runtime::RuntimeGenesisConfig {
-		system: rococo_runtime::SystemConfig {
-			code: rococo_runtime::WASM_BINARY.unwrap().to_vec(),
-			..Default::default()
-		},
+		system: rococo_runtime::SystemConfig::default(),
 		balances: rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.map(|k| (k.clone(), ENDOWMENT))
+				.collect(),
 		},
-		// indices: rococo_runtime::IndicesConfig { indices: vec![] },
 		session: rococo_runtime::SessionConfig {
 			keys: validators::initial_authorities()
 				.iter()
@@ -101,5 +104,5 @@ pub fn genesis() -> Storage {
 		..Default::default()
 	};
 
-	genesis_config.build_storage().unwrap()
+	build_genesis_storage_legacy(&genesis_config, rococo_runtime::WASM_BINARY.unwrap())
 }

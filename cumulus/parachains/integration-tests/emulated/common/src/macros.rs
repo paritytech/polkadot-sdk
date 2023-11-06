@@ -18,6 +18,7 @@ pub use paste;
 // Substrate
 pub use pallet_balances;
 pub use pallet_xcm;
+pub use pallet_message_queue;
 
 // Polkadot
 pub use xcm::prelude::{AccountId32, WeightLimit};
@@ -25,6 +26,7 @@ pub use xcm::prelude::{AccountId32, WeightLimit};
 // Cumulus
 pub use cumulus_pallet_xcmp_queue;
 pub use xcm_emulator::Chain;
+pub use asset_test_utils;
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
@@ -90,8 +92,8 @@ macro_rules! test_parachain_is_trusted_teleporter {
 								RuntimeEvent::Balances(
 									$crate::macros::pallet_balances::Event::Deposit { who: receiver, .. }
 								) => {},
-								RuntimeEvent::XcmpQueue(
-									$crate::macros::cumulus_pallet_xcmp_queue::Event::Success { .. }
+								RuntimeEvent::MessageQueue(
+									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
 								) => {},
 							]
 						);
@@ -103,7 +105,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					let para_receiver_balance_after =
 						<$receiver_para as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
 					let delivery_fees = <$sender_para>::execute_with(|| {
-						asset_test_utils::xcm_helpers::transfer_assets_delivery_fees::<
+						$crate::macros::asset_test_utils::xcm_helpers::transfer_assets_delivery_fees::<
 							<$sender_xcm_config as xcm_executor::Config>::XcmSender,
 						>($assets.clone(), fee_asset_item, weight_limit.clone(), beneficiary, para_destination)
 					});

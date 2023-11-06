@@ -15,11 +15,14 @@
 
 // Substrate
 use sp_core::{sr25519, storage::Storage};
-use sp_runtime::BuildStorage;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
+	accounts,
+	collators,
+	get_account_id_from_seed,
+	build_genesis_storage_legacy,
+	SAFE_XCM_VERSION
 };
 use parachains_common::Balance;
 
@@ -28,21 +31,24 @@ pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT
 
 pub fn genesis() -> Storage {
 	let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
-		system: bridge_hub_rococo_runtime::SystemConfig {
-			code: bridge_hub_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
+		system: bridge_hub_rococo_runtime::SystemConfig::default(),
 		balances: bridge_hub_rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			balances: accounts::init_balances()
+				.iter()
+				.cloned()
+				.map(|k| (k, ED * 4096))
+				.collect(),
 		},
 		parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
 			..Default::default()
 		},
 		collator_selection: bridge_hub_rococo_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: collators::invulnerables()
+				.iter()
+				.cloned()
+				.map(|(acc, _)| acc)
+				.collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
@@ -70,18 +76,20 @@ pub fn genesis() -> Storage {
 			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			..Default::default()
 		},
-		bridge_wococo_to_rococo_messages:
-			bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
-				owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-				..Default::default()
-			},
-		bridge_rococo_to_wococo_messages:
-			bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
-				owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-				..Default::default()
-			},
+		bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
+			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			..Default::default()
+		},
+		bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			..Default::default()
+		},
 		..Default::default()
 	};
 
-	genesis_config.build_storage().unwrap()
+	build_genesis_storage_legacy(
+		&genesis_config,
+		bridge_hub_rococo_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
 }

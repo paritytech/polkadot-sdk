@@ -12,6 +12,7 @@ codec = { package = "parity-scale-codec", version = "3.4.0", default-features = 
 
 # Substrate
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false}
+pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false}

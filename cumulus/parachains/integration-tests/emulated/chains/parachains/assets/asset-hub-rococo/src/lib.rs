@@ -35,7 +35,6 @@ decl_test_parachains! {
 		runtime = asset_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: asset_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: asset_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
 		},

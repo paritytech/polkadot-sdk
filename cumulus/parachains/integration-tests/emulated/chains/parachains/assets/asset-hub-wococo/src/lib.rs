@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod genesis;
+// pub mod genesis;
 
 // Substrate
 use frame_support::traits::OnInitialize;
@@ -28,14 +28,13 @@ use wococo_emulated_chain::Wococo;
 // AssetHubWococo Parachain declaration
 decl_test_parachains! {
 	pub struct AssetHubWococo {
-		genesis = genesis::genesis(),
+		genesis = asset_hub_rococo_emulated_chain::genesis::genesis(),
 		on_init = {
 			asset_hub_rococo_runtime::AuraExt::on_initialize(1);
 		},
 		runtime = asset_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: asset_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: asset_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
 		},

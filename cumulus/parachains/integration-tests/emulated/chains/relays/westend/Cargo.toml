@@ -8,6 +8,8 @@ description = "Westend emulated chain"
 publish = false
 
 [dependencies]
+serde_json = "1.0.104"
+
 # Substrate
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }

@@ -15,10 +15,14 @@
 
 // Substrate
 use sp_core::storage::Storage;
-use sp_runtime::BuildStorage;
 
 // Cumulus
-use emulated_integration_tests_common::{accounts, collators, SAFE_XCM_VERSION};
+use emulated_integration_tests_common::{
+	accounts,
+	collators,
+	build_genesis_storage_legacy,
+	SAFE_XCM_VERSION
+};
 use parachains_common::Balance;
 
 pub const PARA_ID: u32 = 1000;
@@ -26,12 +30,7 @@ pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT
 
 pub fn genesis() -> Storage {
 	let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
-		system: asset_hub_rococo_runtime::SystemConfig {
-			code: asset_hub_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
+		system: asset_hub_rococo_runtime::SystemConfig::default(),
 		balances: asset_hub_rococo_runtime::BalancesConfig {
 			balances: accounts::init_balances()
 				.iter()
@@ -44,7 +43,11 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: collators::invulnerables()
+				.iter()
+				.cloned()
+				.map(|(acc, _)| acc)
+				.collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
@@ -67,5 +70,9 @@ pub fn genesis() -> Storage {
 		..Default::default()
 	};
 
-	genesis_config.build_storage().unwrap()
+	build_genesis_storage_legacy(
+		&genesis_config,
+		asset_hub_rococo_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
 }

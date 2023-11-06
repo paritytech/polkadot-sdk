@@ -33,6 +33,8 @@ parameter_types! {
 	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 	pub const WococoBridgeParachainPalletName: &'static str = "Paras";
 	pub const MaxWococoParaHeadDataSize: u32 = bp_wococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
+	pub const WestendBridgeParachainPalletName: &'static str = "Paras";
+	pub const MaxWestendParaHeadDataSize: u32 = bp_westend::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 	pub const RelayerStakeLease: u32 = 8;
@@ -85,6 +87,29 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
+}
+
+/// Add GRANDPA bridge pallet to track Westend relay chain.
+pub type BridgeGrandpaWestendInstance = pallet_bridge_grandpa::Instance3;
+impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgedChain = bp_westend::Westend;
+	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type HeadersToKeep = RelayChainHeadersToKeep;
+	type WeightInfo = weights::pallet_bridge_grandpa_westend_finality::WeightInfo<Runtime>;
+}
+
+/// Add parachain bridge pallet to track Westend BridgeHub parachain
+pub type BridgeParachainWestendInstance = pallet_bridge_parachains::Instance3;
+impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_bridge_parachains_within_westend::WeightInfo<Runtime>;
+	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
+	type ParasPalletName = WestendBridgeParachainPalletName;
+	type ParaStoredHeaderDataBuilder =
+		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
+	type HeadsToKeep = ParachainHeadsToKeep;
+	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
 
 /// Allows collect and claim rewards for relayers

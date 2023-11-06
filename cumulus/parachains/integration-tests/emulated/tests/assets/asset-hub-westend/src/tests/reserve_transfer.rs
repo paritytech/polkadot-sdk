@@ -38,7 +38,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 }
 
 fn system_para_dest_assertions(_t: RelayToSystemParaTest) {
-	AssetHubWestend::assert_dmp_queue_error(Error::WeightNotComputable);
+	AssetHubWestend::assert_dmp_queue_incomplete(Some(Weight::from_parts(31_352_000, 1489)));
 }
 
 fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {

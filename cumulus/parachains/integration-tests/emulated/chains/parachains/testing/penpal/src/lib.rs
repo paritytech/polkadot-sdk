@@ -34,7 +34,6 @@ decl_test_parachains! {
 		runtime = penpal_runtime,
 		core = {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
 		},
@@ -51,7 +50,6 @@ decl_test_parachains! {
 		runtime = penpal_runtime,
 		core = {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
 		},

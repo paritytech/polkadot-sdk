@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod genesis;
-
 // Substrate
 use frame_support::traits::OnInitialize;
 
@@ -27,14 +25,13 @@ use emulated_integration_tests_common::{
 // BridgeHubWococo Parachain declaration
 decl_test_parachains! {
 	pub struct BridgeHubWococo {
-		genesis = genesis::genesis(),
+		genesis = bridge_hub_rococo_emulated_chain::genesis::genesis(),
 		on_init = {
 			bridge_hub_rococo_runtime::AuraExt::on_initialize(1);
 		},
 		runtime = bridge_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
 		},

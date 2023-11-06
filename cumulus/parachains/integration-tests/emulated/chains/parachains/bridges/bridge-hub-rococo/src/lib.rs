@@ -34,7 +34,6 @@ decl_test_parachains! {
 		runtime = bridge_hub_rococo_runtime,
 		core = {
 			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
 			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
 		},

@@ -9,6 +9,7 @@ description = "Common resources for integration testing with xcm-emulator"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 paste = "1.0.14"
+serde_json = "1.0.104"
 
 # Substrate
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
@@ -34,9 +35,9 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 parachains-common = { path = "../../../common" }
 cumulus-primitives-core = { path = "../../../../primitives/core" }
 xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false}
-cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
+asset-test-utils = { path = "../../../runtimes/assets/test-utils", default-features = false }
 
 # Bridges
 bp-messages = { path = "../../../../../bridges/primitives/messages" }

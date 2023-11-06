@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod genesis;
-
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_relay_chain, impl_assert_events_helpers_for_relay_chain,
@@ -26,7 +24,7 @@ use emulated_integration_tests_common::{
 decl_test_relay_chains! {
 	#[api_version(8)]
 	pub struct Wococo {
-		genesis = genesis::genesis(),
+		genesis = rococo_emulated_chain::genesis::genesis(),
 		on_init = (),
 		runtime = rococo_runtime,
 		core = {
