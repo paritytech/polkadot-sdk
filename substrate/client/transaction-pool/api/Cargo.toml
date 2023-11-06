@@ -20,4 +20,4 @@ sp-core = { path = "../../../primitives/core", default-features = false}
 sp-runtime = { path = "../../../primitives/runtime", default-features = false}
 
 [dev-dependencies]
-serde_json = "1.0"
+serde_json = "1.0.108"

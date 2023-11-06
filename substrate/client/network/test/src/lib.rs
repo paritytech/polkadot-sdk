@@ -38,7 +38,7 @@ use futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::*};
 use libp2p::{build_multiaddr, PeerId};
 use log::trace;
 use parking_lot::Mutex;
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sc_client_api::{
 	backend::{AuxStore, Backend, Finalizer},
 	BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
@@ -305,9 +305,7 @@ where
 		edit_block: F,
 	) -> Vec<H256>
 	where
-		F: FnMut(
-			BlockBuilder<Block, PeersFullClient, substrate_test_runtime_client::Backend>,
-		) -> Block,
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
 		let best_hash = self.client.info().best_hash;
 		self.generate_blocks_at(
@@ -331,9 +329,7 @@ where
 		fork_choice: ForkChoiceStrategy,
 	) -> Vec<H256>
 	where
-		F: FnMut(
-			BlockBuilder<Block, PeersFullClient, substrate_test_runtime_client::Backend>,
-		) -> Block,
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
 		let best_hash = self.client.info().best_hash;
 		self.generate_blocks_at(
@@ -362,15 +358,18 @@ where
 		fork_choice: ForkChoiceStrategy,
 	) -> Vec<H256>
 	where
-		F: FnMut(
-			BlockBuilder<Block, PeersFullClient, substrate_test_runtime_client::Backend>,
-		) -> Block,
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
 		let mut hashes = Vec::with_capacity(count);
 		let full_client = self.client.as_client();
 		let mut at = full_client.block_hash_from_id(&at).unwrap().unwrap();
 		for _ in 0..count {
-			let builder = full_client.new_block_at(at, Default::default(), false).unwrap();
+			let builder = BlockBuilderBuilder::new(&*full_client)
+				.on_parent_block(at)
+				.fetch_parent_block_number(&*full_client)
+				.unwrap()
+				.build()
+				.unwrap();
 			let block = edit_block(builder);
 			let hash = block.header.hash();
 			trace!(
