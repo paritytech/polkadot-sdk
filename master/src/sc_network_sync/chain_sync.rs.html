@@ -2449,16 +2449,6 @@
 <a href="#2449" id="2449">2449</a>
 <a href="#2450" id="2450">2450</a>
 <a href="#2451" id="2451">2451</a>
-<a href="#2452" id="2452">2452</a>
-<a href="#2453" id="2453">2453</a>
-<a href="#2454" id="2454">2454</a>
-<a href="#2455" id="2455">2455</a>
-<a href="#2456" id="2456">2456</a>
-<a href="#2457" id="2457">2457</a>
-<a href="#2458" id="2458">2458</a>
-<a href="#2459" id="2459">2459</a>
-<a href="#2460" id="2460">2460</a>
-<a href="#2461" id="2461">2461</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2493,7 +2483,6 @@
 	blocks::BlockCollection,
 	extra_requests::ExtraRequests,
 	schema::v1::StateResponse,
-	service::network::NetworkServiceHandle,
 	state::{ImportResult, StateSync},
 	types::{
 		BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode, SyncState,
@@ -2511,7 +2500,6 @@
 
 <span class="kw">use </span>sc_client_api::{BlockBackend, ProofProvider};
 <span class="kw">use </span>sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-<span class="kw">use </span>sc_network::types::ProtocolName;
 <span class="kw">use </span>sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
@@ -2673,7 +2661,7 @@
 
 <span class="doccomment">/// Result of [`ChainSync::on_block_data`].
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>OnBlockData&lt;Block: BlockT&gt; {
+</span><span class="kw">enum </span>OnBlockData&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// The block should be imported.
 	</span>Import(ImportBlocksAction&lt;Block&gt;),
 	<span class="doccomment">/// A new block request needs to be made to the given peer.
@@ -2684,7 +2672,7 @@
 
 <span class="doccomment">/// Result of [`ChainSync::on_block_justification`].
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>OnBlockJustification&lt;Block: BlockT&gt; {
+</span><span class="kw">enum </span>OnBlockJustification&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// The justification needs no further handling.
 	</span>Nothing,
 	<span class="doccomment">/// The justification should be imported.
@@ -2698,7 +2686,7 @@
 
 <span class="comment">// Result of [`ChainSync::on_state_data`].
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>OnStateData&lt;Block: BlockT&gt; {
+</span><span class="kw">enum </span>OnStateData&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// The block and state that should be imported.
 	</span>Import(BlockOrigin, IncomingBlock&lt;Block&gt;),
 	<span class="doccomment">/// A new state request needs to be made to the given peer.
@@ -2708,7 +2696,7 @@
 <span class="doccomment">/// Action that the parent of [`ChainSync`] should perform after reporting block response with
 /// [`ChainSync::on_block_response`].
 </span><span class="kw">pub enum </span>OnBlockResponse&lt;B: BlockT&gt; {
-	<span class="doccomment">/// Nothing to do
+	<span class="doccomment">/// Nothing to do.
 	</span>Nothing,
 	<span class="doccomment">/// Perform block request.
 	</span>SendBlockRequest { peer_id: PeerId, request: BlockRequest&lt;B&gt; },
@@ -2716,6 +2704,19 @@
 	</span>ImportBlocks(ImportBlocksAction&lt;B&gt;),
 	<span class="doccomment">/// Import justifications.
 	</span>ImportJustifications(ImportJustificationsAction&lt;B&gt;),
+	<span class="doccomment">/// Invalid block response, the peer should be disconnected and reported.
+	</span>DisconnectPeer(BadPeer),
+}
+
+<span class="doccomment">/// Action that the parent of [`ChainSync`] should perform after reporting state response with
+/// [`ChainSync::on_state_response`].
+</span><span class="kw">pub enum </span>OnStateResponse&lt;B: BlockT&gt; {
+	<span class="doccomment">/// Nothing to do.
+	</span>Nothing,
+	<span class="doccomment">/// Import blocks.
+	</span>ImportBlocks(ImportBlocksAction&lt;B&gt;),
+	<span class="doccomment">/// Invalid state response, the peer should be disconnected and reported.
+	</span>DisconnectPeer(BadPeer),
 }
 
 <span class="doccomment">/// The main data structure which contains all the state for a chains
@@ -2763,10 +2764,6 @@
 	</span>import_existing: bool,
 	<span class="doccomment">/// Gap download process.
 	</span>gap_sync: <span class="prelude-ty">Option</span>&lt;GapSync&lt;B&gt;&gt;,
-	<span class="doccomment">/// Handle for communicating with `NetworkService`
-	</span>network_service: NetworkServiceHandle,
-	<span class="doccomment">/// Protocol name used for block announcements
-	</span>block_announce_protocol_name: ProtocolName,
 }
 
 <span class="doccomment">/// All the data we have about a Peer that we are trying to sync with
@@ -2857,11 +2854,9 @@
 	</span><span class="kw">pub fn </span>new(
 		mode: SyncMode,
 		client: Arc&lt;Client&gt;,
-		block_announce_protocol_name: ProtocolName,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		warp_sync_config: <span class="prelude-ty">Option</span>&lt;WarpSyncConfig&lt;B&gt;&gt;,
-		network_service: NetworkServiceHandle,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ClientError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>sync = <span class="self">Self </span>{
 			client,
@@ -2881,10 +2876,8 @@
 			warp_sync: <span class="prelude-val">None</span>,
 			import_existing: <span class="bool-val">false</span>,
 			gap_sync: <span class="prelude-val">None</span>,
-			network_service,
 			warp_sync_config,
 			warp_sync_target_block_header: <span class="prelude-val">None</span>,
-			block_announce_protocol_name,
 		};
 
 		sync.reset_sync_start_point()<span class="question-mark">?</span>;
@@ -2892,9 +2885,9 @@
 	}
 
 	<span class="doccomment">/// Get peer&#39;s best hash &amp; number.
-	</span><span class="kw">pub fn </span>peer_info(<span class="kw-2">&amp;</span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;PeerInfo&lt;B&gt;&gt; {
+	</span><span class="kw">pub fn </span>peer_info(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;PeerInfo&lt;B&gt;&gt; {
 		<span class="self">self</span>.peers
-			.get(who)
+			.get(peer_id)
 			.map(|p| PeerInfo { best_hash: p.best_hash, best_number: p.best_number })
 	}
 
@@ -2970,7 +2963,7 @@
 	</span><span class="attr">#[must_use]
 	</span><span class="kw">pub fn </span>new_peer(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		who: PeerId,
+		peer_id: PeerId,
 		best_hash: B::Hash,
 		best_number: NumberFor&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockRequest&lt;B&gt;&gt;, BadPeer&gt; {
@@ -2978,19 +2971,21 @@
 		</span><span class="kw">match </span><span class="self">self</span>.block_status(<span class="kw-2">&amp;</span>best_hash) {
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">debug!</span>(target:LOG_TARGET, <span class="string">&quot;Error reading blockchain: {e}&quot;</span>);
-				<span class="prelude-val">Err</span>(BadPeer(who, rep::BLOCKCHAIN_READ_ERROR))
+				<span class="prelude-val">Err</span>(BadPeer(peer_id, rep::BLOCKCHAIN_READ_ERROR))
 			},
 			<span class="prelude-val">Ok</span>(BlockStatus::KnownBad) =&gt; {
-				<span class="macro">info!</span>(<span class="string">&quot;💔 New peer {who} with known bad best block {best_hash} ({best_number}).&quot;</span>);
-				<span class="prelude-val">Err</span>(BadPeer(who, rep::BAD_BLOCK))
+				<span class="macro">info!</span>(
+					<span class="string">&quot;💔 New peer {peer_id} with known bad best block {best_hash} ({best_number}).&quot;
+				</span>);
+				<span class="prelude-val">Err</span>(BadPeer(peer_id, rep::BAD_BLOCK))
 			},
 			<span class="prelude-val">Ok</span>(BlockStatus::Unknown) =&gt; {
 				<span class="kw">if </span>best_number.is_zero() {
 					<span class="macro">info!</span>(
 						<span class="string">&quot;💔 New peer {} with unknown genesis hash {} ({}).&quot;</span>,
-						who, best_hash, best_number,
+						peer_id, best_hash, best_number,
 					);
-					<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(who, rep::GENESIS_MISMATCH))
+					<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::GENESIS_MISMATCH))
 				}
 
 				<span class="comment">// If there are more than `MAJOR_SYNC_BLOCKS` in the import queue then we have
@@ -3000,14 +2995,14 @@
 					<span class="macro">debug!</span>(
 						target:LOG_TARGET,
 						<span class="string">&quot;New peer {} with unknown best hash {} ({}), assuming common block.&quot;</span>,
-						who,
+						peer_id,
 						<span class="self">self</span>.best_queued_hash,
 						<span class="self">self</span>.best_queued_number
 					);
 					<span class="self">self</span>.peers.insert(
-						who,
+						peer_id,
 						PeerSync {
-							peer_id: who,
+							peer_id,
 							common_number: <span class="self">self</span>.best_queued_number,
 							best_hash,
 							best_number,
@@ -3021,7 +3016,7 @@
 				</span><span class="kw">let </span>(state, req) = <span class="kw">if </span><span class="self">self</span>.best_queued_number.is_zero() {
 					<span class="macro">debug!</span>(
 						target:LOG_TARGET,
-						<span class="string">&quot;New peer {who} with best hash {best_hash} ({best_number}).&quot;</span>,
+						<span class="string">&quot;New peer {peer_id} with best hash {best_hash} ({best_number}).&quot;</span>,
 					);
 
 					(PeerSyncState::Available, <span class="prelude-val">None</span>)
@@ -3031,7 +3026,7 @@
 					<span class="macro">debug!</span>(
 						target:LOG_TARGET,
 						<span class="string">&quot;New peer {} with unknown best hash {} ({}), searching for common ancestor.&quot;</span>,
-						who,
+						peer_id,
 						best_hash,
 						best_number
 					);
@@ -3046,11 +3041,11 @@
 					)
 				};
 
-				<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>who);
+				<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>peer_id);
 				<span class="self">self</span>.peers.insert(
-					who,
+					peer_id,
 					PeerSync {
-						peer_id: who,
+						peer_id,
 						common_number: Zero::zero(),
 						best_hash,
 						best_number,
@@ -3079,19 +3074,19 @@
 			<span class="prelude-val">Ok</span>(BlockStatus::InChainPruned) =&gt; {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;New peer {who} with known best hash {best_hash} ({best_number}).&quot;</span>,
+					<span class="string">&quot;New peer {peer_id} with known best hash {best_hash} ({best_number}).&quot;</span>,
 				);
 				<span class="self">self</span>.peers.insert(
-					who,
+					peer_id,
 					PeerSync {
-						peer_id: who,
+						peer_id,
 						common_number: std::cmp::min(<span class="self">self</span>.best_queued_number, best_number),
 						best_hash,
 						best_number,
 						state: PeerSyncState::Available,
 					},
 				);
-				<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>who);
+				<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>peer_id);
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 			},
 		}
@@ -3178,41 +3173,41 @@
 
 	<span class="doccomment">/// Submit a block response for processing.
 	</span><span class="attr">#[must_use]
-	</span><span class="kw">pub fn </span>on_block_data(
+	</span><span class="kw">fn </span>on_block_data(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span>PeerId,
+		peer_id: <span class="kw-2">&amp;</span>PeerId,
 		request: <span class="prelude-ty">Option</span>&lt;BlockRequest&lt;B&gt;&gt;,
 		response: BlockResponse&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;OnBlockData&lt;B&gt;, BadPeer&gt; {
 		<span class="self">self</span>.downloaded_blocks += response.blocks.len();
 		<span class="kw">let </span><span class="kw-2">mut </span>gap = <span class="bool-val">false</span>;
-		<span class="kw">let </span>new_blocks: Vec&lt;IncomingBlock&lt;B&gt;&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(who) {
+		<span class="kw">let </span>new_blocks: Vec&lt;IncomingBlock&lt;B&gt;&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(peer_id) {
 			<span class="kw">let </span><span class="kw-2">mut </span>blocks = response.blocks;
 			<span class="kw">if </span>request.as_ref().map_or(<span class="bool-val">false</span>, |r| r.direction == Direction::Descending) {
 				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Reversing incoming block list&quot;</span>);
 				blocks.reverse()
 			}
-			<span class="self">self</span>.allowed_requests.add(who);
+			<span class="self">self</span>.allowed_requests.add(peer_id);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(request) = request {
 				<span class="kw">match </span><span class="kw-2">&amp;mut </span>peer.state {
 					PeerSyncState::DownloadingNew(<span class="kw">_</span>) =&gt; {
-						<span class="self">self</span>.blocks.clear_peer_download(who);
+						<span class="self">self</span>.blocks.clear_peer_download(peer_id);
 						peer.state = PeerSyncState::Available;
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(start_block) =
-							validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, who, <span class="prelude-val">Some</span>(request))<span class="question-mark">?
+							validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, peer_id, <span class="prelude-val">Some</span>(request))<span class="question-mark">?
 						</span>{
-							<span class="self">self</span>.blocks.insert(start_block, blocks, <span class="kw-2">*</span>who);
+							<span class="self">self</span>.blocks.insert(start_block, blocks, <span class="kw-2">*</span>peer_id);
 						}
 						<span class="self">self</span>.ready_blocks()
 					},
 					PeerSyncState::DownloadingGap(<span class="kw">_</span>) =&gt; {
 						peer.state = PeerSyncState::Available;
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(gap_sync) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.gap_sync {
-							gap_sync.blocks.clear_peer_download(who);
+							gap_sync.blocks.clear_peer_download(peer_id);
 							<span class="kw">if let </span><span class="prelude-val">Some</span>(start_block) =
-								validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, who, <span class="prelude-val">Some</span>(request))<span class="question-mark">?
+								validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, peer_id, <span class="prelude-val">Some</span>(request))<span class="question-mark">?
 							</span>{
-								gap_sync.blocks.insert(start_block, blocks, <span class="kw-2">*</span>who);
+								gap_sync.blocks.insert(start_block, blocks, <span class="kw-2">*</span>peer_id);
 							}
 							gap = <span class="bool-val">true</span>;
 							<span class="kw">let </span>blocks: Vec&lt;<span class="kw">_</span>&gt; = gap_sync
@@ -3248,17 +3243,17 @@
 							);
 							blocks
 						} <span class="kw">else </span>{
-							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Unexpected gap block response from {who}&quot;</span>);
-							<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NO_BLOCK))
+							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Unexpected gap block response from {peer_id}&quot;</span>);
+							<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NO_BLOCK))
 						}
 					},
 					PeerSyncState::DownloadingStale(<span class="kw">_</span>) =&gt; {
 						peer.state = PeerSyncState::Available;
 						<span class="kw">if </span>blocks.is_empty() {
-							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Empty block response from {who}&quot;</span>);
-							<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NO_BLOCK))
+							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Empty block response from {peer_id}&quot;</span>);
+							<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NO_BLOCK))
 						}
-						validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, who, <span class="prelude-val">Some</span>(request))<span class="question-mark">?</span>;
+						validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, peer_id, <span class="prelude-val">Some</span>(request))<span class="question-mark">?</span>;
 						blocks
 							.into_iter()
 							.map(|b| {
@@ -3271,7 +3266,7 @@
 									body: b.body,
 									indexed_body: <span class="prelude-val">None</span>,
 									justifications,
-									origin: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>who),
+									origin: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>peer_id),
 									allow_missing_state: <span class="bool-val">true</span>,
 									import_existing: <span class="self">self</span>.import_existing,
 									skip_execution: <span class="self">self</span>.skip_execution(),
@@ -3288,23 +3283,23 @@
 									<span class="string">&quot;Got ancestry block #{} ({}) from peer {}&quot;</span>,
 									current,
 									block.hash,
-									who,
+									peer_id,
 								);
 								maybe_our_block_hash.filter(|x| x == <span class="kw-2">&amp;</span>block.hash)
 							},
 							(<span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; {
 								<span class="macro">debug!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;Invalid response when searching for ancestor from {who}&quot;</span>,
+									<span class="string">&quot;Invalid response when searching for ancestor from {peer_id}&quot;</span>,
 								);
-								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::UNKNOWN_ANCESTOR))
+								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::UNKNOWN_ANCESTOR))
 							},
 							(<span class="kw">_</span>, <span class="prelude-val">Err</span>(e)) =&gt; {
 								<span class="macro">info!</span>(
 									target: LOG_TARGET,
 									<span class="string">&quot;❌ Error answering legitimate blockchain query: {e}&quot;</span>,
 								);
-								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::BLOCKCHAIN_READ_ERROR))
+								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::BLOCKCHAIN_READ_ERROR))
 							},
 						};
 						<span class="kw">if </span>matching_hash.is_some() {
@@ -3317,7 +3312,7 @@
 								</span><span class="macro">trace!</span>(
 									target: LOG_TARGET,
 									<span class="string">&quot;Ancestry search: opportunistically updating peer {} common number from={} =&gt; to={}.&quot;</span>,
-									<span class="kw-2">*</span>who,
+									<span class="kw-2">*</span>peer_id,
 									peer.common_number,
 									<span class="self">self</span>.best_queued_number,
 								);
@@ -3326,7 +3321,7 @@
 								<span class="macro">trace!</span>(
 									target: LOG_TARGET,
 									<span class="string">&quot;Ancestry search: updating peer {} common number from={} =&gt; to={}.&quot;</span>,
-									<span class="kw-2">*</span>who,
+									<span class="kw-2">*</span>peer_id,
 									peer.common_number,
 									<span class="kw-2">*</span>current,
 								);
@@ -3336,9 +3331,9 @@
 						<span class="kw">if </span>matching_hash.is_none() &amp;&amp; current.is_zero() {
 							<span class="macro">trace!</span>(
 								target:LOG_TARGET,
-								<span class="string">&quot;Ancestry search: genesis mismatch for peer {who}&quot;</span>,
+								<span class="string">&quot;Ancestry search: genesis mismatch for peer {peer_id}&quot;</span>,
 							);
-							<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::GENESIS_MISMATCH))
+							<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::GENESIS_MISMATCH))
 						}
 						<span class="kw">if let </span><span class="prelude-val">Some</span>((next_state, next_num)) =
 							handle_ancestor_search_state(state, <span class="kw-2">*</span>current, matching_hash.is_some())
@@ -3348,7 +3343,10 @@
 								start: <span class="kw-2">*</span>start,
 								state: next_state,
 							};
-							<span class="kw">return </span><span class="prelude-val">Ok</span>(OnBlockData::Request(<span class="kw-2">*</span>who, ancestry_request::&lt;B&gt;(next_num)))
+							<span class="kw">return </span><span class="prelude-val">Ok</span>(OnBlockData::Request(
+								<span class="kw-2">*</span>peer_id,
+								ancestry_request::&lt;B&gt;(next_num),
+							))
 						} <span class="kw">else </span>{
 							<span class="comment">// Ancestry search is complete. Check if peer is on a stale fork unknown
 							// to us and add it to sync targets if necessary.
@@ -3369,7 +3367,7 @@
 									target: LOG_TARGET,
 									<span class="string">&quot;Added fork target {} for {}&quot;</span>,
 									peer.best_hash,
-									who,
+									peer_id,
 								);
 								<span class="self">self</span>.fork_targets
 									.entry(peer.best_hash)
@@ -3379,7 +3377,7 @@
 										peers: Default::default(),
 									})
 									.peers
-									.insert(<span class="kw-2">*</span>who);
+									.insert(<span class="kw-2">*</span>peer_id);
 							}
 							peer.state = PeerSyncState::Available;
 							Vec::new()
@@ -3389,32 +3387,32 @@
 						peer.state = PeerSyncState::Available;
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(warp_sync) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.warp_sync {
 							<span class="kw">if </span>blocks.len() == <span class="number">1 </span>{
-								validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, who, <span class="prelude-val">Some</span>(request))<span class="question-mark">?</span>;
+								validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, peer_id, <span class="prelude-val">Some</span>(request))<span class="question-mark">?</span>;
 								<span class="kw">match </span>warp_sync.import_target_block(
 									blocks.pop().expect(<span class="string">&quot;`blocks` len checked above.&quot;</span>),
 								) {
 									warp::TargetBlockImportResult::Success =&gt;
 										<span class="kw">return </span><span class="prelude-val">Ok</span>(OnBlockData::Continue),
 									warp::TargetBlockImportResult::BadResponse =&gt;
-										<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::VERIFICATION_FAIL)),
+										<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::VERIFICATION_FAIL)),
 								}
 							} <span class="kw">else if </span>blocks.is_empty() {
-								<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Empty block response from {who}&quot;</span>);
-								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NO_BLOCK))
+								<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Empty block response from {peer_id}&quot;</span>);
+								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NO_BLOCK))
 							} <span class="kw">else </span>{
 								<span class="macro">debug!</span>(
 									target: LOG_TARGET,
 									<span class="string">&quot;Too many blocks ({}) in warp target block response from {}&quot;</span>,
 									blocks.len(),
-									who,
+									peer_id,
 								);
-								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NOT_REQUESTED))
+								<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NOT_REQUESTED))
 							}
 						} <span class="kw">else </span>{
 							<span class="macro">debug!</span>(
 								target: LOG_TARGET,
 								<span class="string">&quot;Logic error: we think we are downloading warp target block from {}, but no warp sync is happening.&quot;</span>,
-								who,
+								peer_id,
 							);
 							<span class="kw">return </span><span class="prelude-val">Ok</span>(OnBlockData::Continue)
 						}
@@ -3426,7 +3424,7 @@
 				}
 			} <span class="kw">else </span>{
 				<span class="comment">// When request.is_none() this is a block announcement. Just accept blocks.
-				</span>validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, who, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+				</span>validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, peer_id, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				blocks
 					.into_iter()
 					.map(|b| {
@@ -3439,7 +3437,7 @@
 							body: b.body,
 							indexed_body: <span class="prelude-val">None</span>,
 							justifications,
-							origin: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>who),
+							origin: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>peer_id),
 							allow_missing_state: <span class="bool-val">true</span>,
 							import_existing: <span class="bool-val">false</span>,
 							skip_execution: <span class="bool-val">true</span>,
@@ -3450,7 +3448,7 @@
 			}
 		} <span class="kw">else </span>{
 			<span class="comment">// We don&#39;t know of this peer, so we also did not request anything from it.
-			</span><span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NOT_REQUESTED))
+			</span><span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NOT_REQUESTED))
 		};
 
 		<span class="prelude-val">Ok</span>(OnBlockData::Import(<span class="self">self</span>.validate_and_queue_blocks(new_blocks, gap)))
@@ -3458,12 +3456,12 @@
 
 	<span class="doccomment">/// Submit a justification response for processing.
 	</span><span class="attr">#[must_use]
-	</span><span class="kw">pub fn </span>on_block_justification(
+	</span><span class="kw">fn </span>on_block_justification(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		who: PeerId,
+		peer_id: PeerId,
 		response: BlockResponse&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;OnBlockJustification&lt;B&gt;, BadPeer&gt; {
-		<span class="kw">let </span>peer = <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>who) {
+		<span class="kw">let </span>peer = <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer_id) {
 			peer
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(
@@ -3473,7 +3471,7 @@
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(OnBlockJustification::Nothing)
 		};
 
-		<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>who);
+		<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>peer_id);
 		<span class="kw">if let </span>PeerSyncState::DownloadingJustification(hash) = peer.state {
 			peer.state = PeerSyncState::Available;
 
@@ -3483,11 +3481,11 @@
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
 						<span class="string">&quot;💔 Invalid block justification provided by {}: requested: {:?} got: {:?}&quot;</span>,
-						who,
+						peer_id,
 						hash,
 						block.hash,
 					);
-					<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(who, rep::BAD_JUSTIFICATION))
+					<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::BAD_JUSTIFICATION))
 				}
 
 				block
@@ -3498,14 +3496,14 @@
 				// had but didn&#39;t (regardless of whether it had a justification for it or not).
 				</span><span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Peer {who:?} provided empty response for justification request {hash:?}&quot;</span>,
+					<span class="string">&quot;Peer {peer_id:?} provided empty response for justification request {hash:?}&quot;</span>,
 				);
 
 				<span class="prelude-val">None
 			</span>};
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((peer_id, hash, number, justifications)) =
-				<span class="self">self</span>.extra_justifications.on_response(who, justification)
+				<span class="self">self</span>.extra_justifications.on_response(peer_id, justification)
 			{
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(OnBlockJustification::Import { peer_id, hash, number, justifications })
 			}
@@ -3566,7 +3564,7 @@
 	</span><span class="kw">pub fn </span>on_validated_block_announce(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		is_best: bool,
-		who: PeerId,
+		peer_id: PeerId,
 		announce: <span class="kw-2">&amp;</span>BlockAnnounce&lt;B::Header&gt;,
 	) {
 		<span class="kw">let </span>number = <span class="kw-2">*</span>announce.header.number();
@@ -3577,7 +3575,7 @@
 		<span class="kw">let </span>ancient_parent = parent_status == BlockStatus::InChainPruned;
 
 		<span class="kw">let </span>known = <span class="self">self</span>.is_known(<span class="kw-2">&amp;</span>hash);
-		<span class="kw">let </span>peer = <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>who) {
+		<span class="kw">let </span>peer = <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer_id) {
 			peer
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;💔 Called `on_validated_block_announce` with a bad peer ID&quot;</span>);
@@ -3585,7 +3583,7 @@
 		</span>};
 
 		<span class="kw">if let </span>PeerSyncState::AncestorSearch { .. } = peer.state {
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Peer {} is in the ancestor search state.&quot;</span>, who);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Peer {} is in the ancestor search state.&quot;</span>, peer_id);
 			<span class="kw">return
 		</span>}
 
@@ -3599,20 +3597,20 @@
 		// is either one further ahead or it&#39;s the one they just announced, if we know about it.
 		</span><span class="kw">if </span>is_best {
 			<span class="kw">if </span>known &amp;&amp; <span class="self">self</span>.best_queued_number &gt;= number {
-				<span class="self">self</span>.update_peer_common_number(<span class="kw-2">&amp;</span>who, number);
+				<span class="self">self</span>.update_peer_common_number(<span class="kw-2">&amp;</span>peer_id, number);
 			} <span class="kw">else if </span>announce.header.parent_hash() == <span class="kw-2">&amp;</span><span class="self">self</span>.best_queued_hash ||
 				known_parent &amp;&amp; <span class="self">self</span>.best_queued_number &gt;= number
 			{
-				<span class="self">self</span>.update_peer_common_number(<span class="kw-2">&amp;</span>who, number.saturating_sub(One::one()));
+				<span class="self">self</span>.update_peer_common_number(<span class="kw-2">&amp;</span>peer_id, number.saturating_sub(One::one()));
 			}
 		}
-		<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>who);
+		<span class="self">self</span>.allowed_requests.add(<span class="kw-2">&amp;</span>peer_id);
 
 		<span class="comment">// known block case
 		</span><span class="kw">if </span>known || <span class="self">self</span>.is_already_downloading(<span class="kw-2">&amp;</span>hash) {
-			<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Known block announce from {}: {}&quot;</span>, who, hash);
+			<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Known block announce from {}: {}&quot;</span>, peer_id, hash);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(target) = <span class="self">self</span>.fork_targets.get_mut(<span class="kw-2">&amp;</span>hash) {
-				target.peers.insert(who);
+				target.peers.insert(peer_id);
 			}
 			<span class="kw">return
 		</span>}
@@ -3621,7 +3619,7 @@
 			<span class="macro">trace!</span>(
 				target: <span class="string">&quot;sync&quot;</span>,
 				<span class="string">&quot;Ignored ancient block announced from {}: {} {:?}&quot;</span>,
-				who,
+				peer_id,
 				hash,
 				announce.header,
 			);
@@ -3632,7 +3630,7 @@
 			<span class="macro">trace!</span>(
 				target: <span class="string">&quot;sync&quot;</span>,
 				<span class="string">&quot;Added sync target for block announced from {}: {} {:?}&quot;</span>,
-				who,
+				peer_id,
 				hash,
 				announce.summary(),
 			);
@@ -3644,22 +3642,22 @@
 					peers: Default::default(),
 				})
 				.peers
-				.insert(who);
+				.insert(peer_id);
 		}
 	}
 
 	<span class="doccomment">/// Notify that a sync peer has disconnected.
 	</span><span class="attr">#[must_use]
-	</span><span class="kw">pub fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ImportBlocksAction&lt;B&gt;&gt; {
-		<span class="self">self</span>.blocks.clear_peer_download(who);
+	</span><span class="kw">pub fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ImportBlocksAction&lt;B&gt;&gt; {
+		<span class="self">self</span>.blocks.clear_peer_download(peer_id);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(gap_sync) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.gap_sync {
-			gap_sync.blocks.clear_peer_download(who)
+			gap_sync.blocks.clear_peer_download(peer_id)
 		}
-		<span class="self">self</span>.peers.remove(who);
-		<span class="self">self</span>.extra_justifications.peer_disconnected(who);
+		<span class="self">self</span>.peers.remove(peer_id);
+		<span class="self">self</span>.extra_justifications.peer_disconnected(peer_id);
 		<span class="self">self</span>.allowed_requests.set_all();
 		<span class="self">self</span>.fork_targets.retain(|<span class="kw">_</span>, target| {
-			target.peers.remove(who);
+			target.peers.remove(peer_id);
 			!target.peers.is_empty()
 		});
 
@@ -4026,12 +4024,7 @@
 						number,
 						justifications,
 					}),
-				<span class="prelude-val">Err</span>(BadPeer(id, repu)) =&gt; {
-					<span class="self">self</span>.network_service
-						.disconnect_peer(id, <span class="self">self</span>.block_announce_protocol_name.clone());
-					<span class="self">self</span>.network_service.report_peer(id, repu);
-					OnBlockResponse::Nothing
-				},
+				<span class="prelude-val">Err</span>(bad_peer) =&gt; OnBlockResponse::DisconnectPeer(bad_peer),
 			}
 		} <span class="kw">else </span>{
 			<span class="kw">match </span><span class="self">self</span>.on_block_data(<span class="kw-2">&amp;</span>peer_id, <span class="prelude-val">Some</span>(request), block_response) {
@@ -4039,12 +4032,7 @@
 				<span class="prelude-val">Ok</span>(OnBlockData::Request(peer_id, request)) =&gt;
 					OnBlockResponse::SendBlockRequest { peer_id, request },
 				<span class="prelude-val">Ok</span>(OnBlockData::Continue) =&gt; OnBlockResponse::Nothing,
-				<span class="prelude-val">Err</span>(BadPeer(id, repu)) =&gt; {
-					<span class="self">self</span>.network_service
-						.disconnect_peer(id, <span class="self">self</span>.block_announce_protocol_name.clone());
-					<span class="self">self</span>.network_service.report_peer(id, repu);
-					OnBlockResponse::Nothing
-				},
+				<span class="prelude-val">Err</span>(bad_peer) =&gt; OnBlockResponse::DisconnectPeer(bad_peer),
 			}
 		}
 	}
@@ -4055,26 +4043,12 @@
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer_id: PeerId,
 		response: OpaqueStateResponse,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;ImportBlocksAction&lt;B&gt;&gt; {
+	) -&gt; OnStateResponse&lt;B&gt; {
 		<span class="kw">match </span><span class="self">self</span>.on_state_data(<span class="kw-2">&amp;</span>peer_id, response) {
 			<span class="prelude-val">Ok</span>(OnStateData::Import(origin, block)) =&gt;
-				<span class="prelude-val">Some</span>(ImportBlocksAction { origin, blocks: <span class="macro">vec!</span>[block] }),
-			<span class="prelude-val">Ok</span>(OnStateData::Continue) =&gt; <span class="prelude-val">None</span>,
-			<span class="prelude-val">Err</span>(BadPeer(id, repu)) =&gt; {
-				<span class="self">self</span>.network_service
-					.disconnect_peer(id, <span class="self">self</span>.block_announce_protocol_name.clone());
-				<span class="self">self</span>.network_service.report_peer(id, repu);
-				<span class="prelude-val">None
-			</span>},
-		}
-	}
-
-	<span class="doccomment">/// Submit a warp proof response received.
-	</span><span class="kw">pub fn </span>on_warp_sync_response(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, response: EncodedProof) {
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(BadPeer(id, repu)) = <span class="self">self</span>.on_warp_sync_data(<span class="kw-2">&amp;</span>peer_id, response) {
-			<span class="self">self</span>.network_service
-				.disconnect_peer(id, <span class="self">self</span>.block_announce_protocol_name.clone());
-			<span class="self">self</span>.network_service.report_peer(id, repu);
+				OnStateResponse::ImportBlocks(ImportBlocksAction { origin, blocks: <span class="macro">vec!</span>[block] }),
+			<span class="prelude-val">Ok</span>(OnStateData::Continue) =&gt; OnStateResponse::Nothing,
+			<span class="prelude-val">Err</span>(bad_peer) =&gt; OnStateResponse::DisconnectPeer(bad_peer),
 		}
 	}
 
@@ -4312,7 +4286,7 @@
 
 	<span class="kw">fn </span>on_state_data(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		who: <span class="kw-2">&amp;</span>PeerId,
+		peer_id: <span class="kw-2">&amp;</span>PeerId,
 		response: OpaqueStateResponse,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;OnStateData&lt;B&gt;, BadPeer&gt; {
 		<span class="kw">let </span>response: Box&lt;StateResponse&gt; = response.<span class="number">0</span>.downcast().map_err(|_error| {
@@ -4321,10 +4295,10 @@
 				<span class="string">&quot;Failed to downcast opaque state response, this is an implementation bug.&quot;
 			</span>);
 
-			BadPeer(<span class="kw-2">*</span>who, rep::BAD_RESPONSE)
+			BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_RESPONSE)
 		})<span class="question-mark">?</span>;
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(who) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(peer_id) {
 			<span class="kw">if let </span>PeerSyncState::DownloadingState = peer.state {
 				peer.state = PeerSyncState::Available;
 				<span class="self">self</span>.allowed_requests.set_all();
@@ -4334,7 +4308,7 @@
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;Importing state data from {} with {} keys, {} proof nodes.&quot;</span>,
-				who,
+				peer_id,
 				response.entries.len(),
 				response.proof.len(),
 			);
@@ -4343,14 +4317,14 @@
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;Importing state data from {} with {} keys, {} proof nodes.&quot;</span>,
-				who,
+				peer_id,
 				response.entries.len(),
 				response.proof.len(),
 			);
 			sync.import_state(<span class="kw-2">*</span>response)
 		} <span class="kw">else </span>{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ignored obsolete state response from {who}&quot;</span>);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NOT_REQUESTED))
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ignored obsolete state response from {peer_id}&quot;</span>);
+			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NOT_REQUESTED))
 		};
 
 		<span class="kw">match </span>import_result {
@@ -4373,14 +4347,20 @@
 			},
 			ImportResult::Continue =&gt; <span class="prelude-val">Ok</span>(OnStateData::Continue),
 			ImportResult::BadResponse =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Bad state data received from {who}&quot;</span>);
-				<span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::BAD_BLOCK))
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Bad state data received from {peer_id}&quot;</span>);
+				<span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_BLOCK))
 			},
 		}
 	}
 
-	<span class="kw">fn </span>on_warp_sync_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId, response: EncodedProof) -&gt; <span class="prelude-ty">Result</span>&lt;(), BadPeer&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(who) {
+	<span class="doccomment">/// Submit a warp proof response received.
+	</span><span class="attr">#[must_use]
+	</span><span class="kw">pub fn </span>on_warp_sync_response(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer_id: <span class="kw-2">&amp;</span>PeerId,
+		response: EncodedProof,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BadPeer&gt; {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(peer_id) {
 			<span class="kw">if let </span>PeerSyncState::DownloadingWarpProof = peer.state {
 				peer.state = PeerSyncState::Available;
 				<span class="self">self</span>.allowed_requests.set_all();
@@ -4390,20 +4370,20 @@
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;Importing warp proof data from {}, {} bytes.&quot;</span>,
-				who,
+				peer_id,
 				response.<span class="number">0</span>.len(),
 			);
 			sync.import_warp_proof(response)
 		} <span class="kw">else </span>{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ignored obsolete warp sync response from {who}&quot;</span>);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NOT_REQUESTED))
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ignored obsolete warp sync response from {peer_id}&quot;</span>);
+			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NOT_REQUESTED))
 		};
 
 		<span class="kw">match </span>import_result {
 			WarpProofImportResult::Success =&gt; <span class="prelude-val">Ok</span>(()),
 			WarpProofImportResult::BadResponse =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Bad proof data received from {who}&quot;</span>);
-				<span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::BAD_BLOCK))
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Bad proof data received from {peer_id}&quot;</span>);
+				<span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_BLOCK))
 			},
 		}
 	}
@@ -4440,11 +4420,11 @@
 			has_error |= result.is_err();
 
 			<span class="kw">match </span>result {
-				<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedKnown(number, who)) =&gt;
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = who {
+				<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedKnown(number, peer_id)) =&gt;
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer_id {
 						<span class="self">self</span>.update_peer_common_number(<span class="kw-2">&amp;</span>peer, number);
 					},
-				<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedUnknown(number, aux, who)) =&gt; {
+				<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedUnknown(number, aux, peer_id)) =&gt; {
 					<span class="kw">if </span>aux.clear_justification_requests {
 						<span class="macro">trace!</span>(
 							target: LOG_TARGET,
@@ -4462,13 +4442,13 @@
 					}
 
 					<span class="kw">if </span>aux.bad_justification {
-						<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>peer) = who {
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>peer) = peer_id {
 							<span class="macro">warn!</span>(<span class="string">&quot;💔 Sent block with bad justification to import&quot;</span>);
 							output.push(<span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer, rep::BAD_JUSTIFICATION)));
 						}
 					}
 
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = who {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer_id {
 						<span class="self">self</span>.update_peer_common_number(<span class="kw-2">&amp;</span>peer, number);
 					}
 					<span class="kw">let </span>state_sync_complete =
@@ -4507,8 +4487,8 @@
 						<span class="self">self</span>.gap_sync = <span class="prelude-val">None</span>;
 					}
 				},
-				<span class="prelude-val">Err</span>(BlockImportError::IncompleteHeader(who)) =&gt;
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = who {
+				<span class="prelude-val">Err</span>(BlockImportError::IncompleteHeader(peer_id)) =&gt;
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer_id {
 						<span class="macro">warn!</span>(
 							target: LOG_TARGET,
 							<span class="string">&quot;💔 Peer sent block with incomplete header to import&quot;</span>,
@@ -4516,23 +4496,23 @@
 						output.push(<span class="prelude-val">Err</span>(BadPeer(peer, rep::INCOMPLETE_HEADER)));
 						output.extend(<span class="self">self</span>.restart());
 					},
-				<span class="prelude-val">Err</span>(BlockImportError::VerificationFailed(who, e)) =&gt; {
-					<span class="kw">let </span>extra_message =
-						who.map_or_else(|| <span class="string">&quot;&quot;</span>.into(), |peer| <span class="macro">format!</span>(<span class="string">&quot; received from ({peer})&quot;</span>));
+				<span class="prelude-val">Err</span>(BlockImportError::VerificationFailed(peer_id, e)) =&gt; {
+					<span class="kw">let </span>extra_message = peer_id
+						.map_or_else(|| <span class="string">&quot;&quot;</span>.into(), |peer| <span class="macro">format!</span>(<span class="string">&quot; received from ({peer})&quot;</span>));
 
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
 						<span class="string">&quot;💔 Verification failed for block {hash:?}{extra_message}: {e:?}&quot;</span>,
 					);
 
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = who {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer_id {
 						output.push(<span class="prelude-val">Err</span>(BadPeer(peer, rep::VERIFICATION_FAIL)));
 					}
 
 					output.extend(<span class="self">self</span>.restart());
 				},
-				<span class="prelude-val">Err</span>(BlockImportError::BadBlock(who)) =&gt;
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = who {
+				<span class="prelude-val">Err</span>(BlockImportError::BadBlock(peer_id)) =&gt;
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer_id {
 						<span class="macro">warn!</span>(
 							target: LOG_TARGET,
 							<span class="string">&quot;💔 Block {hash:?} received from peer {peer} has been blacklisted&quot;</span>,
@@ -4826,7 +4806,7 @@
 /// It is expected that `blocks` are in ascending order.
 </span><span class="kw">fn </span>validate_blocks&lt;Block: BlockT&gt;(
 	blocks: <span class="kw-2">&amp;</span>Vec&lt;BlockData&lt;Block&gt;&gt;,
-	who: <span class="kw-2">&amp;</span>PeerId,
+	peer_id: <span class="kw-2">&amp;</span>PeerId,
 	request: <span class="prelude-ty">Option</span>&lt;BlockRequest&lt;Block&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NumberFor&lt;Block&gt;&gt;, BadPeer&gt; {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(request) = request {
@@ -4834,12 +4814,12 @@
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;Received more blocks than requested from {}. Expected in maximum {:?}, got {}.&quot;</span>,
-				who,
+				peer_id,
 				request.max,
 				blocks.len(),
 			);
 
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NOT_REQUESTED))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NOT_REQUESTED))
 		}
 
 		<span class="kw">let </span>block_header =
@@ -4859,7 +4839,7 @@
 				block_header,
 			);
 
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::NOT_REQUESTED))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::NOT_REQUESTED))
 		}
 
 		<span class="kw">if </span>request.fields.contains(BlockAttributes::HEADER) &amp;&amp;
@@ -4867,20 +4847,20 @@
 		{
 			<span class="macro">trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Missing requested header for a block in response from {who}.&quot;</span>,
+				<span class="string">&quot;Missing requested header for a block in response from {peer_id}.&quot;</span>,
 			);
 
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::BAD_RESPONSE))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_RESPONSE))
 		}
 
 		<span class="kw">if </span>request.fields.contains(BlockAttributes::BODY) &amp;&amp; blocks.iter().any(|b| b.body.is_none())
 		{
 			<span class="macro">trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Missing requested body for a block in response from {who}.&quot;</span>,
+				<span class="string">&quot;Missing requested body for a block in response from {peer_id}.&quot;</span>,
 			);
 
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::BAD_RESPONSE))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_RESPONSE))
 		}
 	}
 
@@ -4891,11 +4871,11 @@
 				<span class="macro">debug!</span>(
 					target:LOG_TARGET,
 					<span class="string">&quot;Bad header received from {}. Expected hash {:?}, got {:?}&quot;</span>,
-					who,
+					peer_id,
 					b.hash,
 					hash,
 				);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::BAD_BLOCK))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_BLOCK))
 			}
 		}
 		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(header), <span class="prelude-val">Some</span>(body)) = (<span class="kw-2">&amp;</span>b.header, <span class="kw-2">&amp;</span>b.body) {
@@ -4909,11 +4889,11 @@
 					target:LOG_TARGET,
 					<span class="string">&quot;Bad extrinsic root for a block {} received from {}. Expected {:?}, got {:?}&quot;</span>,
 					b.hash,
-					who,
+					peer_id,
 					expected,
 					got,
 				);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>who, rep::BAD_BLOCK))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_BLOCK))
 			}
 		}
 	}
