@@ -118,3 +118,7 @@ rules:
       - minApprovals: 1
         teams:
           - ci
+
+preventReviewRequests:
+  teams:
+    - core-devs

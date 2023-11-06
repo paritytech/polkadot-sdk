@@ -42,6 +42,7 @@ use node_executor::ExecutorDispatch;
 use node_primitives::{BlockNumber, Hash};
 use node_testing::keyring::*;
 use sp_externalities::Externalities;
+use staging_node_executor as node_executor;
 
 pub const TEST_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 
@@ -123,7 +124,7 @@ pub fn executor_call(
 pub fn new_test_ext(code: &[u8]) -> TestExternalities<BlakeTwo256> {
 	let ext = TestExternalities::new_with_code(
 		code,
-		node_testing::genesis::config(Some(code)).build_storage().unwrap(),
+		node_testing::genesis::config().build_storage().unwrap(),
 	);
 	ext
 }

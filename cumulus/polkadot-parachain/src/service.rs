@@ -988,6 +988,7 @@ pub async fn start_rococo_parachain_node(
 				collator_service,
 				// Very limited proposal time.
 				authoring_duration: Duration::from_millis(500),
+				collation_request_receiver: None,
 			};
 
 			let fut = basic_aura::run::<
@@ -1380,6 +1381,7 @@ where
 				collator_service,
 				// Very limited proposal time.
 				authoring_duration: Duration::from_millis(500),
+				collation_request_receiver: None,
 			};
 
 			let fut =
@@ -1520,6 +1522,7 @@ where
 					collator_service,
 					// Very limited proposal time.
 					authoring_duration: Duration::from_millis(500),
+					collation_request_receiver: Some(request_stream),
 				};
 
 				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params)
@@ -1925,6 +1928,7 @@ pub async fn start_contracts_rococo_node(
 				collator_service,
 				// Very limited proposal time.
 				authoring_duration: Duration::from_millis(500),
+				collation_request_receiver: None,
 			};
 
 			let fut = basic_aura::run::<
@@ -1951,10 +1955,11 @@ pub async fn start_contracts_rococo_node(
 fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	// Polkadot para-chains should generally use these requirements to ensure that the relay-chain
 	// will not take longer than expected to import its blocks.
-	if !frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
+	if let Err(err) = frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
 		log::warn!(
-			"⚠️  The hardware does not meet the minimal requirements for role 'Authority' find out more at:\n\
-			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"
+			"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+			err
 		);
 	}
 }

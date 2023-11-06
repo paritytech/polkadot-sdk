@@ -89,6 +89,7 @@ macro_rules! versioned_type {
 		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
+		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
 		pub enum $n {
 			$(#[$index3])*
@@ -150,6 +151,7 @@ macro_rules! versioned_type {
 		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
+		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
 		pub enum $n {
 			$(#[$index2])*
@@ -310,6 +312,7 @@ versioned_type! {
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
 	#[codec(index = 2)]
 	V2(v2::Xcm<RuntimeCall>),
