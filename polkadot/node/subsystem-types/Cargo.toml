@@ -25,3 +25,4 @@ smallvec = "1.8.0"
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 thiserror = "1.0.48"
 async-trait = "0.1.57"
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
