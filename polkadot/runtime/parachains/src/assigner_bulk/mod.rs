@@ -17,6 +17,15 @@
 //! The parachain bulk assignment module.
 //!
 //! Handles scheduling of bulk core time.
+//!
+//! Invariant: For efficiency the schedule, starting from the current workload always form a linked
+//! list:
+//!
+//! Workload (type `WorkState`) is only `Idle` if `WorkPlan` is empty for that core. Otherwise it
+//! is either `Scheduled` pointing to the next item in `WorkPlan` for the queue or `WorkState`
+//! where `end_hint` will be pointing to the next item in `WorkPlan`. `end_hint` will only ever be
+//! `None` if `WorkPlan` for that core is empty. Each `Schedule` item in `WorkPlan` also always
+//! points to the next `Schedule` coming afterwards via `end_hint`, if it exists.
 
 mod mock_helpers;
 #[cfg(test)]
@@ -79,22 +88,27 @@ struct Schedule<N> {
 	end_hint: Option<N>,
 }
 
-// TODO: end_hint should probably be chosen in a smarter way.
-impl<N> Default for Schedule<N> {
-	fn default() -> Self {
-		Schedule {
-			assignments: vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))],
-			end_hint: None,
-		}
-	}
-}
-
 /// An instantiated `Schedule`.
 ///
 /// This is the state of assignments currently being served via the `AssignmentProvider` interface,
 /// as opposed to `Schedule` which is upcoming not yet served assignments.
 #[derive(Encode, Decode, TypeInfo)]
-struct CoreState<N> {
+enum CoreState<N> {
+	/// No work for this core right now and also nothing scheduled.
+	Idle,
+	/// No work for this core right now, but work coming up at block `N`.
+	Scheduled(N),
+	/// Work is currently performed on this core, details in current `WorkState`.
+	Working(WorkState),
+}
+
+impl<N> Default for CoreState<N> {
+	fn default() -> Self {
+		Self::Idle
+	}
+}
+
+struct WorkState<N> {
 	/// Assignments with current state.
 	///
 	/// Assignments and book keeping on how much has been served already. We keep track of serviced
@@ -120,12 +134,6 @@ struct CoreState<N> {
 	step: PartsOf57600,
 }
 
-impl<N> Default for CoreState<N> {
-	fn default() -> Self {
-		CoreState::from(Schedule::default())
-	}
-}
-
 #[derive(Encode, Decode, TypeInfo)]
 struct AssignmentState {
 	/// Ratio of the core this assignment has.
@@ -136,11 +144,11 @@ struct AssignmentState {
 	///
 	/// At the beginning of each round this will be set to ratio + credit, then everytime we get
 	/// scheduled we subtract a core worth of points. Once we reach 0 or a number lower than what a
-	/// core is worth, we move on to the next item in the vec.
+	/// core is worth (CoreState::step size), we move on to the next item in the vec.
 	remaining: PartsOf57600,
 }
 
-impl<N> From<Schedule<N>> for CoreState<N> {
+impl<N> From<Schedule<N>> for WorkState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
 		let Schedule { assignments, end_hint } = schedule;
 		let step =
@@ -191,13 +199,13 @@ pub mod pallet {
 		Twox256,
 		(BlockNumberFor<T>, CoreIndex),
 		Schedule<BlockNumberFor<T>>,
-		ValueQuery,
-		GetDefault,
+		OptionQuery,
 	>;
 
 	/// Latest schedule for the given core.
 	///
 	/// Used for updating `end_hint` of that latest schedule based on newly appended schedules.
+	/// (See described invariant above.)
 	#[pallet::storage]
 	pub(super) type LatestCoreSchedule<T: Config> =
 		StorageMap<_, Twox256, CoreIndex, BlockNumberFor<T>, OptionQuery>;
@@ -252,7 +260,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn migrate_old_to_current(
 		old: Self::OldAssignmentType,
-		core: CoreIndex,
+		_core: CoreIndex,
 	) -> Self::AssignmentType {
 		old
 	}
@@ -267,18 +275,25 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		Workload::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
 
-			core_state.pos = core_state.pos % core_state.assignments.len() as u16;
-			let (a_type, a_state) = &mut core_state
+			let work_state = match core_state {
+				CoreState::Working(w) => w,
+				CoreState::Scheduled(_) => return None,
+				CoreState::Idle => return None,
+			};
+
+
+			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
+			let (a_type, a_state) = &mut work_state
 				.assignments
-				.get_mut(core_state.pos as usize)
+				.get_mut(work_state.pos as usize)
 				.expect("We limited pos to the size of the vec one line above. qed");
 
 			// advance:
-			a_state.remaining -= core_state.step;
-			if a_state.remaining < core_state.step {
+			a_state.remaining -= work_state.step;
+			if a_state.remaining < work_state.step {
 				// Assignment exhausted, need to move to the next and credit remaining for
 				// next round.
-				core_state.pos += 1;
+				work_state.pos += 1;
 				// Reset to ratio + still remaining "credits":
 				a_state.remaining += a_state.ratio;
 			}
@@ -335,24 +350,29 @@ impl<T: Config> Pallet<T> {
 		core_idx: CoreIndex,
 		workload: &mut CoreState<BlockNumberFor<T>>,
 	) {
-		let update = {
-			match workload.end_hint {
-				Some(end_hint) if end_hint < now => {
-					// Invariant: Always points to next item in `Workplan`, if such an item exists.
-					let n = end_hint.saturating_add(BlockNumberFor::<T>::from(1u32));
-					// Workload expired - update to whatever is scheduled or `None` if nothing is:
-					Workplan::<T>::take((n, core_idx))
-				},
-				// Still alive:
-				Some(_) => return,
-				// Invariant: If there is no workload, workplan must be empty for core.
-				// Therefore nothing to do here.
-				None => return,
+		let next_scheduled = match workload {
+			// Nothing to do here (`WorkPlan` is empty for this core):
+			CoreState::Idle => return,
+			CoreState::Scheduled(n) => *n,
+			CoreState::Working(w) => if let Some(end_hint) = w.end_hint {
+				end_hint.saturating_add(1u32.into())
+			} else {
+				// Nothing to do here (Empty `WorkPlan`).
+				return
 			}
 		};
 
-		// Needs update:
-		*workload = update.into();
+		if next_scheduled > now {
+			return
+		}
+
+		// Workload expired - update to whatever is scheduled or `None` if nothing is:
+		let update = Workplan::<T>::take((next_scheduled, core_idx));
+		if let Some(update) = update {
+			*workload = CoreState::Working(update.into());
+		} else {
+			*workload = CoreState::Idle;
+		}
 	}
 }
 
