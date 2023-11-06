@@ -114,6 +114,9 @@ pub mod system_parachain {
 	}
 }
 
+/// Westend Treasury pallet instance.
+pub const TREASURY_PALLET_ID: u8 = 37;
+
 /// XCM protocol related constants.
 pub mod xcm {
 	/// Pluralistic bodies existing within the consensus.

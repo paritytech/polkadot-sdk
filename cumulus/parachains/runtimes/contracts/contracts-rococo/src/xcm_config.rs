@@ -18,9 +18,10 @@ use super::{
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use crate::common::rococo::currency::CENTS;
+use cumulus_primitives_core::AggregateMessageOrigin;
 use frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Everything, Nothing},
+	traits::{ConstU32, EitherOfDiverse, Equals, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -31,7 +32,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain::SystemParachains;
+use rococo_runtime_constants::system_parachain;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -41,7 +42,7 @@ use xcm_builder::{
 	NativeAsset, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
+	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -51,7 +52,8 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
-	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.
@@ -140,8 +142,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and its pluralities (i.e. governance bodies) get free execution.
-					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
+					// Parent, its pluralities (i.e. governance bodies) and relay treasury pallet
+					// get free execution.
+					AllowExplicitUnpaidExecutionFrom<(
+						ParentOrParentsPlurality,
+						Equals<RelayTreasuryLocation>,
+					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
 				),
@@ -151,6 +157,26 @@ pub type Barrier = TrailingSetTopicAsId<
 		),
 	>,
 >;
+
+match_types! {
+	pub type SystemParachains: impl Contains<MultiLocation> = {
+		MultiLocation {
+			parents: 1,
+			interior: X1(Parachain(
+				system_parachain::ASSET_HUB_ID |
+				system_parachain::BRIDGE_HUB_ID |
+				system_parachain::CONTRACTS_ID |
+				system_parachain::ENCOINTER_ID
+			)),
+		}
+	};
+}
+
+/// Locations that will not be charged fees in the executor,
+/// either execution or delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations =
+	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
 
 pub type TrustedTeleporter = ConcreteAssetFromSystem<RelayLocation>;
 
@@ -174,11 +200,9 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = ConstU32<8>;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeesToAccount<
-		Self,
-		RelayOrOtherSystemParachains<SystemParachains, Runtime>,
-		AccountId,
-		TreasuryAccount,
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
@@ -262,10 +286,19 @@ pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender:
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = PolkadotXcm;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	// Enqueue XCMP messages from siblings for later processing.
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmpQueue = ();
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmpQueue = frame_support::traits::TransformOrigin<
+		crate::MessageQueue,
+		AggregateMessageOrigin,
+		cumulus_primitives_core::ParaId,
+		parachains_common::message_queue::ParaIdToSibling,
+	>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EnsureXcm<IsMajorityOfBody<RelayLocation, ExecutiveBody>>,
@@ -275,8 +308,12 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
+parameter_types! {
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+}
+
 impl cumulus_pallet_dmp_queue::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = cumulus_pallet_dmp_queue::weights::SubstrateWeight<Runtime>;
+	type RuntimeEvent = crate::RuntimeEvent;
+	type DmpSink = frame_support::traits::EnqueueWithOrigin<crate::MessageQueue, RelayOrigin>;
 }

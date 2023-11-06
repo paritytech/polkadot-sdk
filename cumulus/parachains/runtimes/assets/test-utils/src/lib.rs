@@ -19,4 +19,48 @@
 pub mod test_cases;
 pub mod test_cases_over_bridge;
 pub mod xcm_helpers;
+
+use frame_support::traits::ProcessMessageError;
 pub use parachains_runtimes_test_utils::*;
+use std::fmt::Debug;
+
+use xcm::latest::prelude::*;
+use xcm_builder::{CreateMatcher, MatchXcm};
+
+/// Helper function to verify `xcm` contains all relevant instructions expected on destination
+/// chain as part of a reserve-asset-transfer.
+pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall: Debug>(
+	xcm: &mut Xcm<RuntimeCall>,
+	expected_reserve_assets_deposited: &MultiAssets,
+	expected_beneficiary: &MultiLocation,
+) {
+	let _ = xcm
+		.0
+		.matcher()
+		.skip_inst_while(|inst| !matches!(inst, ReserveAssetDeposited(..)))
+		.expect("no instruction ReserveAssetDeposited?")
+		.match_next_inst(|instr| match instr {
+			ReserveAssetDeposited(reserve_assets) => {
+				assert_eq!(reserve_assets, expected_reserve_assets_deposited);
+				Ok(())
+			},
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction ReserveAssetDeposited")
+		.match_next_inst(|instr| match instr {
+			ClearOrigin => Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction ClearOrigin")
+		.match_next_inst(|instr| match instr {
+			BuyExecution { .. } => Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction BuyExecution")
+		.match_next_inst(|instr| match instr {
+			DepositAsset { assets: _, beneficiary } if beneficiary == expected_beneficiary =>
+				Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction DepositAsset");
+}

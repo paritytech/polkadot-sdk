@@ -16,10 +16,9 @@
 
 //! Contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary.
 
-mod executor_intf;
 mod memory_stats;
 
-pub use executor_intf::{prepare, prevalidate};
+use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -31,7 +30,7 @@ use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrepareError, PrepareResult, OOM_PAYLOAD},
 	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
@@ -45,12 +44,25 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
-	os::unix::net::UnixStream,
+	fs, io,
+	os::{
+		fd::{AsRawFd, RawFd},
+		unix::net::UnixStream,
+	},
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use tokio::io;
+use tracking_allocator::TrackingAllocator;
+
+#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+#[global_allocator]
+static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
+	TrackingAllocator(tikv_jemallocator::Jemalloc);
+
+#[cfg(not(any(target_os = "linux", feature = "jemalloc-allocator")))]
+#[global_allocator]
+static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
 
 /// Contains the bytes for a successfully compiled artifact.
 pub struct CompiledArtifact(Vec<u8>);
@@ -81,6 +93,44 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 
 fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
 	framed_send_blocking(stream, &result.encode())
+}
+
+fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
+	unsafe {
+		// SAFETY: Inside the failure handler, the allocator is locked and no allocations or
+		// deallocations are possible. For Linux, that always holds for the code below, so it's
+		// safe. For MacOS, that technically holds at the time of writing, but there are no future
+		// guarantees.
+		// The arguments of unsafe `libc` calls are valid, the payload validity is covered with
+		// a test.
+		ALLOC.start_tracking(
+			limit,
+			Some(Box::new(move || {
+				#[cfg(target_os = "linux")]
+				{
+					// Syscalls never allocate or deallocate, so this is safe.
+					libc::syscall(libc::SYS_write, fd, OOM_PAYLOAD.as_ptr(), OOM_PAYLOAD.len());
+					libc::syscall(libc::SYS_close, fd);
+					libc::syscall(libc::SYS_exit, 1);
+				}
+				#[cfg(not(target_os = "linux"))]
+				{
+					// Syscalls are not available on MacOS, so we have to use `libc` wrappers.
+					// Technicaly, there may be allocations inside, although they shouldn't be
+					// there. In that case, we'll see deadlocks on MacOS after the OOM condition
+					// triggered. As we consider running a validator on MacOS unsafe, and this
+					// code is only run by a validator, it's a lesser evil.
+					libc::write(fd, OOM_PAYLOAD.as_ptr().cast(), OOM_PAYLOAD.len());
+					libc::close(fd);
+					std::process::exit(1);
+				}
+			})),
+		);
+	}
+}
+
+fn end_memory_tracking() -> isize {
+	ALLOC.end_tracking()
 }
 
 /// The entrypoint that the spawned prepare worker should start with.
@@ -131,7 +181,7 @@ pub fn worker_entrypoint(
 		node_version,
 		worker_version,
 		&security_status,
-		|mut stream, worker_dir_path| async move {
+		|mut stream, worker_dir_path| {
 			let worker_pid = std::process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
@@ -172,6 +222,22 @@ pub fn worker_entrypoint(
 					Arc::clone(&condvar),
 					WaitOutcome::TimedOut,
 				)?;
+
+				start_memory_tracking(
+					stream.as_raw_fd(),
+					executor_params.prechecking_max_memory().map(|v| {
+						v.try_into().unwrap_or_else(|_| {
+							gum::warn!(
+								LOG_TARGET,
+								%worker_pid,
+								"Illegal pre-checking max memory value {} discarded",
+								v,
+							);
+							0
+						})
+					}),
+				);
+
 				// Spawn another thread for preparation.
 				let prepare_thread = thread::spawn_worker_thread(
 					"prepare thread",
@@ -207,6 +273,17 @@ pub fn worker_entrypoint(
 
 				let outcome = thread::wait_for_threads(condvar);
 
+				let peak_alloc = {
+					let peak = end_memory_tracking();
+					gum::debug!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"prepare job peak allocation is {} bytes",
+						peak,
+					);
+					peak
+				};
+
 				let result = match outcome {
 					WaitOutcome::Finished => {
 						let _ = cpu_time_monitor_tx.send(());
@@ -229,8 +306,7 @@ pub fn worker_entrypoint(
 
 								// Stop the memory stats worker and get its observed memory stats.
 								#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-								let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid)
-									.await;
+								let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid);
 								let memory_stats = MemoryStats {
 									#[cfg(any(
 										target_os = "linux",
@@ -239,6 +315,14 @@ pub fn worker_entrypoint(
 									memory_tracker_stats,
 									#[cfg(target_os = "linux")]
 									max_rss: extract_max_rss_stat(max_rss, worker_pid),
+									// Negative peak allocation values are legit; they are narrow
+									// corner cases and shouldn't affect overall statistics
+									// significantly
+									peak_tracked_alloc: if peak_alloc > 0 {
+										peak_alloc as u64
+									} else {
+										0u64
+									},
 								};
 
 								// Write the serialized artifact into a temp file.
@@ -255,7 +339,7 @@ pub fn worker_entrypoint(
 									"worker: writing artifact to {}",
 									temp_artifact_dest.display(),
 								);
-								tokio::fs::write(&temp_artifact_dest, &artifact).await?;
+								fs::write(&temp_artifact_dest, &artifact)?;
 
 								Ok(PrepareStats { cpu_time_elapsed, memory_stats })
 							},
