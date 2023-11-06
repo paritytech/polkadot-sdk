@@ -1269,10 +1269,12 @@ macro_rules! assert_expected_events {
 				);
 			} else if !event_received {
 				message.push(
-					format!("\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}",
-					stringify!($chain),
-					stringify!($event_pat),
-					<$chain>::events())
+					format!(
+						"\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}",
+						stringify!($chain),
+						stringify!($event_pat),
+						<$chain as $crate::Chain>::events(),
+					)
 				);
 			} else {
 				// If we find a perfect match we remove the event to avoid being potentially assessed multiple times
