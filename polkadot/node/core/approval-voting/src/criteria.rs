@@ -169,7 +169,7 @@ fn generate_samples(
 	}
 
 	if 2 * num_samples > max_cores {
-		gum::error!(
+		gum::debug!(
 			target: LOG_TARGET,
 			n_cores = max_cores,
 			num_samples,
