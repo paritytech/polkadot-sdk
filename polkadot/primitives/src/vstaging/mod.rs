@@ -17,3 +17,13 @@
 //! Staging Primitives.
 
 // Put any primitives used by staging APIs functions here
+
+use parity_scale_codec::{Decode, Encode};
+use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
+
+bitflags::bitflags! {
+	#[derive(Default, TypeInfo, Encode, Decode, Serialize, Deserialize)]
+	/// Bit indices in the `HostCoonfiguration.client_features` that correspond to different client features.
+	pub struct ClientFeatures: u64 {}
+}

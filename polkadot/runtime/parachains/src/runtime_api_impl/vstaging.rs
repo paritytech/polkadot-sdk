@@ -16,8 +16,8 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::shared;
-use primitives::ValidatorIndex;
+use crate::{configuration, initializer, shared};
+use primitives::{vstaging::ClientFeatures, ValidatorIndex};
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
 /// Implementation for `DisabledValidators`
@@ -41,4 +41,9 @@ where
 		.iter()
 		.filter_map(|v| reverse_index.get(v).cloned())
 		.collect()
+}
+
+/// Returns the current state of the client features.
+pub fn client_features<T: initializer::Config>() -> ClientFeatures {
+	<configuration::Pallet<T>>::config().client_features
 }

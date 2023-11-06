@@ -173,6 +173,8 @@ where
 				.cache_para_backing_state((relay_parent, para_id), constraints),
 			AsyncBackingParams(relay_parent, params) =>
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
+			ClientFeatures(relay_parent, params) =>
+				self.requests_cache.cache_client_features(relay_parent, params),
 		}
 	}
 
@@ -313,6 +315,8 @@ where
 					Some(Request::MinimumBackingVotes(index, sender))
 				}
 			},
+			Request::ClientFeatures(sender) =>
+				query!(client_features(), sender).map(|sender| Request::ClientFeatures(sender)),
 		}
 	}
 
@@ -591,5 +595,11 @@ where
 				sender
 			)
 		},
+		Request::ClientFeatures(sender) => query!(
+			ClientFeatures,
+			client_features(),
+			ver = Request::CLIENT_FEATURES_RUNTIME_REQUIREMENT,
+			sender
+		),
 	}
 }

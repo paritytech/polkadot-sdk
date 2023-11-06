@@ -318,6 +318,7 @@ fn setting_pending_config_members() {
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32,
 			minimum_backing_votes: 5,
+			client_features: ClientFeatures::empty(),
 		};
 
 		Configuration::set_validation_upgrade_cooldown(

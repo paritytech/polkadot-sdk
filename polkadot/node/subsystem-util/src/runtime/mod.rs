@@ -30,10 +30,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	slashing, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	slashing, vstaging::ClientFeatures, AsyncBackingParams, CandidateEvent, CandidateHash,
+	CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec,
+	OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext,
+	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
@@ -505,5 +506,29 @@ pub async fn request_min_backing_votes(
 		Ok(LEGACY_MIN_BACKING_VOTES)
 	} else {
 		min_backing_votes_res
+	}
+}
+
+/// Request the client features enabled in the runtime.
+/// Prior to runtime API version 9, just return `None`.
+pub async fn request_client_features(
+	parent: Hash,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<Option<ClientFeatures>> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| RuntimeApiRequest::ClientFeatures(tx)).await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the client features from the runtime is not supported by the current Runtime API",
+		);
+
+		Ok(None)
+	} else {
+		res.map(Some)
 	}
 }

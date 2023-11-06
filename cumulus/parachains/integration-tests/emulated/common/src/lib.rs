@@ -45,7 +45,7 @@ pub use pallet_xcm;
 pub use xcm::prelude::{AccountId32, WeightLimit};
 
 decl_test_relay_chains! {
-	#[api_version(8)]
+	#[api_version(9)]
 	pub struct Westend {
 		genesis = westend::genesis(),
 		on_init = (),
@@ -62,7 +62,7 @@ decl_test_relay_chains! {
 			AssetRate: westend_runtime::AssetRate,
 		}
 	},
-	#[api_version(8)]
+	#[api_version(9)]
 	pub struct Rococo {
 		genesis = rococo::genesis(),
 		on_init = (),
@@ -78,7 +78,7 @@ decl_test_relay_chains! {
 			Hrmp: rococo_runtime::Hrmp,
 		}
 	},
-	#[api_version(8)]
+	#[api_version(9)]
 	pub struct Wococo {
 		genesis = rococo::genesis(),
 		on_init = (),

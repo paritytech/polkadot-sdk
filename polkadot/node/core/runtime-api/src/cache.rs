@@ -20,7 +20,7 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	async_backing, slashing, vstaging, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
 	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
@@ -67,6 +67,7 @@ pub(crate) struct RequestResultCache {
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
+	client_features: LruMap<Hash, vstaging::ClientFeatures>,
 }
 
 impl Default for RequestResultCache {
@@ -100,6 +101,7 @@ impl Default for RequestResultCache {
 			disabled_validators: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			client_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -446,6 +448,14 @@ impl RequestResultCache {
 		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
+	pub(crate) fn client_features(&mut self, key: &Hash) -> Option<vstaging::ClientFeatures> {
+		self.client_features.get(key).copied()
+	}
+
+	pub(crate) fn cache_client_features(&mut self, key: Hash, features: vstaging::ClientFeatures) {
+		self.client_features.insert(key, features);
+	}
+
 	pub(crate) fn disabled_validators(
 		&mut self,
 		relay_parent: &Hash,
@@ -540,4 +550,5 @@ pub(crate) enum RequestResult {
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
+	ClientFeatures(Hash, vstaging::ClientFeatures),
 }
