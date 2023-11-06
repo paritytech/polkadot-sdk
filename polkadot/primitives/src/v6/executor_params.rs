@@ -311,16 +311,12 @@ impl ExecutorParams {
 		}
 
 		if let (Some(backing), Some(approval)) = (
-			seen.get("PvfExecKind::Backing")
-				.or(Some(&DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
+			seen.get("PvfExecKind::Backing").or(Some(&DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
 			seen.get("PvfExecKind::Approval")
 				.or(Some(&DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
 		) {
 			if *backing >= *approval {
-				return Err(IncompatibleValues(
-					"PvfExecKind::Backing",
-					"PvfExecKind::Approval",
-				))
+				return Err(IncompatibleValues("PvfExecKind::Backing", "PvfExecKind::Approval"))
 			}
 		}
 

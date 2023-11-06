@@ -45,8 +45,8 @@ use polkadot_parachain_primitives::primitives::{
 };
 use polkadot_primitives::{
 	executor_params::{
-		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT, self,
+		self, DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepTimeoutKind,
@@ -624,25 +624,18 @@ async fn validate_candidate_exhaustive(
 				PrepareJobKind::Compilation,
 			);
 
-			validation_backend
-			.validate_candidate(
-				pvf,
-				exec_timeout,
-				params.encode(),
-			)
-			.await
+			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).await
 		},
-		PvfExecKind::Approval => {
+		PvfExecKind::Approval =>
 			validation_backend
-			.validate_candidate_with_retry(
-				raw_validation_code.to_vec(),
-				pvf_exec_timeout(&executor_params, exec_timeout_kind),
-				exec_timeout_kind,
-				params,
-				executor_params,
-			)
-			.await
-		}
+				.validate_candidate_with_retry(
+					raw_validation_code.to_vec(),
+					pvf_exec_timeout(&executor_params, exec_timeout_kind),
+					exec_timeout_kind,
+					params,
+					executor_params,
+				)
+				.await,
 	};
 
 	if let Err(ref error) = result {
