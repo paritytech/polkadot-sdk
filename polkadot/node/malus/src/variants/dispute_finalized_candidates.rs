@@ -72,6 +72,48 @@ where
 					"😈 Block Finalized Interception!"
 				);
 
+				//Ensure that the block is actually deep enough to be disputed
+				if n <= self.dispute_offset {
+					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(h, n)));
+				}
+
+				let dispute_offset = self.dispute_offset;
+				let mut sender = subsystem_sender.clone();
+				self.spawner.spawn_blocking(
+					"malus-dispute-finalized-block",
+					Some("malus"),
+					Box::pin(async move {
+						// Query chain for the block header at the disputed depth
+						let (tx, rx) = oneshot::channel();
+						sender.send_message(ChainApiMessage::FinalizedBlockHash(n - dispute_offset, tx)).await;
+
+						// Fetch hash of the block to be disputed
+						let disputable_hash = match rx.await {
+							Ok(Ok(Some(hash))) => hash,
+							_ => {
+								gum::info!(
+									target: MALUS,
+									"😈 Target ancestor already out of scope!"
+								);
+								return; // Early return from the async block
+							},
+						};
+
+						gum::info!(
+							target: MALUS,
+							"😈 Time to dispute: {:?}", disputable_hash
+						);
+
+						// Start dispute
+						// subsystem_sender.send_unbounded_message(DisputeCoordinatorMessage::IssueLocalStatement(
+						// 	session_index,
+						// 	candidate_hash,
+						// 	candidate.clone(),
+						// 	false, // indicates candidate is invalid -> dispute starts
+						// ));
+					}),
+				);
+
 				// Passthrough the finalization signal as usual (using it as hook only)
 				Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(h, n)))
 			},
