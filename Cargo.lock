@@ -12998,20 +12998,32 @@ dependencies = [
  "async-trait",
  "clap 4.4.6",
  "color-eyre",
+ "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "log",
+ "parity-scale-codec",
+ "polkadot-availability-recovery",
  "polkadot-erasure-coding",
- "polkadot-node-core-backing",
+ "polkadot-node-metrics",
+ "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "prometheus",
  "rand 0.8.5",
+ "sc-network",
+ "sc-service",
+ "sp-application-crypto",
  "sp-core",
+ "sp-keyring",
  "sp-keystore",
  "substrate-build-script-utils",
+ "tokio",
  "tracing-gum",
 ]
 
@@ -18675,9 +18687,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.32.0"
+version = "1.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17ed6077ed6cd6c74735e21f37eb16dc3935f96878b1fe961074089cc80893f9"
+checksum = "4f38200e3ef7995e5ef13baec2f432a6da0aa9ac495b2c0e8f3b7eec2c92d653"
 dependencies = [
  "backtrace",
  "bytes",

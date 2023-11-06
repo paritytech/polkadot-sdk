@@ -65,7 +65,7 @@ mod error;
 mod futures_undead;
 mod metrics;
 mod task;
-use metrics::Metrics;
+pub use metrics::Metrics;
 
 #[cfg(test)]
 mod tests;
@@ -582,7 +582,7 @@ impl AvailabilityRecoverySubsystem {
 		}
 	}
 
-	async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
+	pub async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
 		let mut state = State::default();
 		let Self { mut req_receiver, metrics, recovery_strategy_kind, bypass_availability_store } =
 			self;
@@ -617,9 +617,12 @@ impl AvailabilityRecoverySubsystem {
 		.into_iter()
 		.cycle();
 
+		gum::debug!("Subsystem running");
 		loop {
 			let recv_req = req_receiver.recv(|| vec![COST_INVALID_REQUEST]).fuse();
 			pin_mut!(recv_req);
+			gum::debug!("waiting for message");
+
 			futures::select! {
 				erasure_task = erasure_task_rx.next() => {
 					match erasure_task {
@@ -640,7 +643,7 @@ impl AvailabilityRecoverySubsystem {
 							}
 						},
 						None => {
-							gum::debug!(
+							gum::trace!(
 								target: LOG_TARGET,
 								"Erasure task channel closed",
 							);
@@ -655,6 +658,7 @@ impl AvailabilityRecoverySubsystem {
 							&mut state,
 							signal,
 						).await? {
+							gum::debug!(target: LOG_TARGET, "subsystem concluded");
 							return Ok(());
 						}
 						FromOrchestra::Communication { msg } => {
@@ -818,10 +822,11 @@ async fn erasure_task_thread(
 				let _ = sender.send(maybe_data);
 			},
 			None => {
-				gum::debug!(
+				gum::trace!(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
+				break
 			},
 		}
 	}
