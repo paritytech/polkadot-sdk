@@ -95,6 +95,7 @@ std = [
 	"pallet-timestamp/std",
 	"parachain-info/std",
 	"parachains-common/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
