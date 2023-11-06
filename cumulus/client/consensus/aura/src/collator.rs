@@ -226,6 +226,17 @@ where
 				block_data.storage_proof().encode().len() as f64 / 1024f64,
 			);
 
+			// Hacky print for debugging:
+			{
+				let block_data = block_data.using_encoded(|d| array_bytes::bytes2hex("0x", d));
+				let collation_data = collation.using_encoded(|d| array_bytes::bytes2hex("0x", d));
+
+				tracing::trace!(
+					target: "aura-collation-dump",
+					"SCALE encoded parachain block: {:?}, SCALE encoded collation: {:?}", block_data, collation_data,
+				);
+			}
+
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 				tracing::info!(
 					target: crate::LOG_TARGET,

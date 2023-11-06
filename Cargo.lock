@@ -3588,6 +3588,7 @@ dependencies = [
 name = "cumulus-client-consensus-aura"
 version = "0.1.0"
 dependencies = [
+ "array-bytes 6.1.0",
  "async-trait",
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
