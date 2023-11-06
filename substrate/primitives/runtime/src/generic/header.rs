@@ -78,6 +78,7 @@ where
 
 impl<Number, Hash> traits::Header for Header<Number, Hash>
 where
+	Self: TypeInfo,
 	Number: Member
 		+ MaybeSerializeDeserialize
 		+ MaybeFromStr
@@ -92,7 +93,7 @@ where
 		+ Into<U256>
 		+ TryFrom<U256>
 		+ TypeInfo,
-	Hash: HashT + TypeInfo,
+	Hash: HashT,
 {
 	type Number = Number;
 	type Hash = <Hash as HashT>::Output;
