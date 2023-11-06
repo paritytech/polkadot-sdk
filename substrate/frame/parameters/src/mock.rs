@@ -64,15 +64,21 @@ pub mod dynamic_params {
 
 	#[dynamic_pallet_params(crate::Parameters::<Runtime>, Parameters)]
 	pub mod pallet1 {
+		#[codec(index = 0)]
 		pub static Key1: u64 = 0;
+		#[codec(index = 1)]
 		pub static Key2: u32 = 1;
+		#[codec(index = 2)]
 		pub static Key3: u128 = 2;
 	}
 
 	#[dynamic_pallet_params(crate::Parameters::<Runtime>, Parameters)]
 	pub mod pallet2 {
+		#[codec(index = 0)]
 		pub static Key1: u64 = 0;
+		#[codec(index = 1)]
 		pub static Key2: u32 = 2;
+		#[codec(index = 2)]
 		pub static Key3: u128 = 4;
 	}
 }

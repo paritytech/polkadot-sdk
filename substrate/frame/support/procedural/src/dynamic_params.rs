@@ -70,7 +70,13 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 		})
 		.collect::<Vec<_>>();
 
-	let indices = items.iter().enumerate().map(|(i, _)| i).collect::<Vec<_>>();
+	let attrs = items
+		.iter()
+		.filter_map(|item| match item {
+			syn::Item::Static(static_item) => Some(static_item.attrs.first().clone()),
+			_ => None,
+		})
+		.collect::<Vec<_>>();
 
 	let value_types = items
 		.iter()
@@ -100,7 +106,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 			)]
 			#vis enum #name {
 				#(
-					#[codec(index = #indices)]
+					#attrs
 					#key_names(#key_names, Option<#value_types>),
 				)*
 			}
@@ -118,7 +124,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 			)]
 			#vis enum #key_ident {
 				#(
-					#[codec(index = #indices)]
+					#attrs
 					#key_names(#key_names),
 				)*
 			}
@@ -136,7 +142,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 			)]
 			#vis enum #value_ident {
 				#(
-					#[codec(index = #indices)]
+					#attrs
 					#key_names(#value_types),
 				)*
 			}
