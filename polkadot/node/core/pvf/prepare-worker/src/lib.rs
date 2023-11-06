@@ -40,7 +40,7 @@ use nix::{
 use os_pipe::{self, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult, OOM_PAYLOAD},
+	error::{PrepareError, PrepareResult},
 	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
@@ -614,7 +614,7 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 /// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-fn send_child_response(mut pipe_write: &PipeWriter, response: Result<Response, PrepareError>) -> ! {
+fn send_child_response(mut pipe_write: &PipeWriter, response: JobResponse) -> ! {
 	pipe_write
 		.write_all(response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
@@ -624,4 +624,18 @@ fn send_child_response(mut pipe_write: &PipeWriter, response: Result<Response, P
 
 fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
 	PrepareError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error()))
+}
+
+type JobResponse = Result<Response, PrepareError>;
+
+/// Pre-encoded length-prefixed `Result::Err(PrepareError::OutOfMemory)`
+const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
+
+#[test]
+fn pre_encoded_payloads() {
+	// NOTE: This must match the type of `response` in `send_child_response`.
+	let oom_enc: JobResponse = Result::Err(PrepareError::OutOfMemory).encode();
+	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
+	oom_payload.extend(oom_enc);
+	assert_eq!(oom_payload, OOM_PAYLOAD);
 }

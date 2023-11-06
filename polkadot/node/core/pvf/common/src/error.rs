@@ -76,9 +76,6 @@ pub enum PrepareError {
 	Kernel(String),
 }
 
-/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
-pub const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
-
 impl PrepareError {
 	/// Returns whether this is a deterministic error, i.e. one that should trigger reliably. Those
 	/// errors depend on the PVF itself and the sc-executor/wasmtime logic.
@@ -173,12 +170,4 @@ impl fmt::Display for InternalValidationError {
 			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),
 		}
 	}
-}
-
-#[test]
-fn pre_encoded_payloads() {
-	let oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
-	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
-	oom_payload.extend(oom_enc);
-	assert_eq!(oom_payload, OOM_PAYLOAD);
 }

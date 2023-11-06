@@ -126,7 +126,7 @@ impl TestHost {
 }
 
 #[tokio::test]
-async fn terminates_on_timeout() {
+async fn execute_job_terminates_on_timeout() {
 	let host = TestHost::new().await;
 
 	let start = std::time::Instant::now();
