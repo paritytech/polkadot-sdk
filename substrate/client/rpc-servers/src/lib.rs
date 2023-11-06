@@ -22,12 +22,13 @@
 
 pub mod middleware;
 
-use std::{error::Error as StdError, net::SocketAddr, time::Duration};
+use std::{error::Error as StdError, net::SocketAddr, time::Duration, sync::Arc};
 
 use http::header::HeaderValue;
 use jsonrpsee::{
 	server::{
 		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
+		middleware::rpc::RpcServiceBuilder,
 		PingConfig,
 	},
 	RpcModule,
@@ -35,7 +36,7 @@ use jsonrpsee::{
 use tokio::net::TcpListener;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use crate::middleware::RpcMetrics;
+pub use crate::middleware::{RpcMetrics, RateLimit, Metrics};
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
@@ -84,7 +85,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		max_payload_out_mb,
 		max_connections,
 		max_subs_per_conn,
-		metrics,
+		mut metrics,
 		message_buffer_capacity,
 		id_provider,
 		tokio_handle,
@@ -94,12 +95,20 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
+	let metrics = Arc::new(metrics.take().unwrap());
 
-	let middleware = tower::ServiceBuilder::new()
+	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
 		// Proxy `GET /health` requests to internal `system_health` method.
 		.layer(ProxyGetRequestLayer::new("/health", "system_health")?)
 		.layer(try_into_cors(cors)?);
+
+	// not used...
+	let (tx, _rx) = tokio::sync::mpsc::channel(1);
+
+	let rpc_middleware = RpcServiceBuilder::new()
+		.layer_fn(move |service| RateLimit::per_conn(service, tx.clone()))
+		.layer_fn(move |service| Metrics::new(service, metrics.clone()));
 
 	let mut builder = jsonrpsee::server::Server::builder()
 		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
@@ -108,7 +117,8 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.max_subscriptions_per_connection(max_subs_per_conn)
 		.ping_interval(PingConfig::WithoutInactivityCheck(Duration::from_secs(30)))
 		.unwrap()
-		.set_http_middleware(middleware)
+		.set_http_middleware(http_middleware)
+		.set_rpc_middleware(rpc_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
 		.custom_tokio_runtime(tokio_handle);
 
@@ -118,8 +128,9 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
 	};
 
-	let rpc_svc = builder.to_service(build_rpc_api(rpc_api));
-	let handle = crate::middleware::start_server(std_listener, rpc_svc, metrics)?;
+	let rpc_api = build_rpc_api(rpc_api);
+	let server = builder.build_from_tcp(std_listener)?;
+	let handle = server.start(rpc_api);
 
 	log::info!(
 		"Running JSON-RPC server: addr={}, allowed origins={}",

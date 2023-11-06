@@ -32,9 +32,10 @@ use std::{
 };
 
 use futures::FutureExt;
+use jsonrpsee::types::{Id, Params};
 use jsonrpsee::server::{
 	http, middleware::rpc::*, ws, ConnectionGuard, ServerHandle, ServiceConfig, ServiceData,
-	StopHandle,
+	StopHandle, MethodCallback
 };
 
 /// Start the rpc server.
@@ -50,6 +51,7 @@ where
 	use hyper::{
 		server::conn::AddrStream,
 		service::{make_service_fn, service_fn},
+		Method,
 	};
 
 	// TODO: fix me niklas is lazy.
@@ -67,9 +69,6 @@ where
 
 	// And a MakeService to handle each connection...
 	let make_service = make_service_fn(move |conn: &AddrStream| {
-		// You may use `conn` or the actual HTTP request to deny a certain peer.
-
-		// Connection state.
 		let conn_id = conn_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 		let remote_addr = conn.remote_addr();
 		let stop_handle = stop_handle2.clone();
@@ -92,6 +91,20 @@ where
 					return async { Ok::<_, Infallible>(http::response::too_many_requests()) }
 						.boxed();
 				};
+
+				// Process health requests.
+				if req.uri() == "/health" && req.method() == Method::GET {
+					let methods = svc.methods.clone();
+
+					return async move {
+						if let Some(MethodCallback::Async(f)) = methods.method("system_health") {
+							let rp = f(Id::Number(0), Params::new(None), 0, 1024 * 1024).await;
+							Ok(http::response::ok_response(rp.result))
+						} else {
+							Ok(http::response::denied())
+						}
+					}.boxed()
+				}
 
 				if ws::is_upgrade_request(&req) && svc.settings.enable_ws {
 					let svc = svc.clone();

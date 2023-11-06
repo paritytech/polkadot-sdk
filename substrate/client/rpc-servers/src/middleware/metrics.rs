@@ -127,6 +127,7 @@ impl RpcMetrics {
 	}
 }
 
+#[derive(Clone)]
 pub struct Metrics<S> {
 	service: S,
 	metrics: Arc<RpcMetrics>,
