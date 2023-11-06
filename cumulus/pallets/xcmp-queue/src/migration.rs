@@ -274,7 +274,7 @@ pub fn lazy_migrate_inbound_queue<T: Config>() {
 #[allow(deprecated)]
 pub fn migrate_to_v4<T: Config>() -> Weight {
 	let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
-		use std::cmp::max;
+		use sp_std::cmp::max;
 
 		let default = QueueConfigData::default();
 		let post = QueueConfigData {
