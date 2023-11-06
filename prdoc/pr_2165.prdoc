@@ -1,9 +1,9 @@
-title: Allow `sudo::set_key` to remove the key
+title: Add sudo::remove_key
 
 doc:
   - audience: Core Dev
     description: |
-      Pallet `Sudo` now has the ability to remove the sudo key. This is a less-invasive way of rendering the sudo pallet useless without needing a code upgrade.
+      Pallet `Sudo` now has the ability to remove the sudo key via `remove_key`. This is a less-invasive way of rendering the sudo pallet useless without needing a code upgrade.
 
 migrations:
   db: []
