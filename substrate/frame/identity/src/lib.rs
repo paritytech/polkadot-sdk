@@ -1027,4 +1027,34 @@ impl<T: Config> Pallet<T> {
 		)?;
 		Ok((new_id_deposit, new_subs_deposit))
 	}
+
+	/// Set an identity with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn set_identity_no_deposit(
+		who: &T::AccountId,
+		info: T::IdentityInformation,
+	) -> DispatchResult {
+		use frame_support::BoundedVec;
+		IdentityOf::<T>::insert(
+			&who,
+			Registration {
+				judgements: BoundedVec::default(),
+				deposit: Zero::zero(),
+				info: info.clone(),
+			},
+		);
+		Ok(())
+	}
+
+	/// Set subs with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn set_sub_no_deposit(who: &T::AccountId, sub: T::AccountId) -> DispatchResult {
+		use frame_support::BoundedVec;
+		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub]).unwrap();
+		SubsOf::<T>::insert::<
+			&T::AccountId,
+			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),
+		>(&who, (Zero::zero(), subs));
+		Ok(())
+	}
 }

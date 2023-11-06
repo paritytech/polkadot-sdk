@@ -24,10 +24,34 @@
 //!
 //! After the migration is complete, the pallet may be removed from both chains' runtimes.
 
-use frame_support::{dispatch::DispatchResult, traits::Currency};
+use frame_support::{dispatch::DispatchResult, traits::Currency, weights::Weight};
 pub use pallet::*;
-use pallet_identity::{self, WeightInfo};
+use pallet_identity;
 use sp_core::Get;
+
+pub trait WeightInfo {
+	fn reap_identity(r: u32, s: u32) -> Weight;
+	fn poke_deposit() -> Weight;
+}
+
+impl WeightInfo for () {
+	fn reap_identity(_r: u32, _s: u32) -> Weight {
+		Weight::MAX
+	}
+	fn poke_deposit() -> Weight {
+		Weight::MAX
+	}
+}
+
+pub struct TestWeightInfo;
+impl WeightInfo for TestWeightInfo {
+	fn reap_identity(_r: u32, _s: u32) -> Weight {
+		Weight::zero()
+	}
+	fn poke_deposit() -> Weight {
+		Weight::zero()
+	}
+}
 
 type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
@@ -59,7 +83,7 @@ pub mod pallet {
 		type ReapIdentityHandler: OnReapIdentity<Self::AccountId>;
 
 		/// Weight information for the extrinsics in the pallet.
-		type WeightInfo: pallet_identity::WeightInfo;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
@@ -145,9 +169,20 @@ mod benchmarks {
 	use frame_support::traits::EnsureOrigin;
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
-	use sp_runtime::traits::{Hash, StaticLookup};
+	use parity_scale_codec::Encode;
+	use sp_runtime::{
+		traits::{Hash, StaticLookup},
+		Saturating,
+	};
 
 	const SEED: u32 = 0;
+
+	fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+		let events = frame_system::Pallet::<T>::events();
+		let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+		let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
+		assert_eq!(event, &system_event);
+	}
 
 	#[benchmark]
 	fn reap_identity(
@@ -211,6 +246,8 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, target.clone());
 
+		assert_last_event::<T>(Event::<T>::IdentityReaped { who: target.clone() }.into());
+
 		let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
 		assert!(!Identity::<T>::has_identity(&target, fields));
 		assert_eq!(Identity::<T>::subs(&target).len(), 0);
@@ -218,8 +255,44 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// #[benchmark]
-	// fn poke_deposit() {}
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
+		let target: T::AccountId = account("target", 0, SEED);
+		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(1_000_000u32));
+		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
 
-	impl_benchmark_test_suite!(Migrator, crate::tests::new_test_ext(), crate::tests::Test);
+		let _ = Identity::<T>::set_identity_no_deposit(&target, info.clone());
+
+		let sub_account: T::AccountId = account("sub", 0, SEED);
+		let _ = Identity::<T>::set_sub_no_deposit(&target, sub_account.clone());
+
+		// expected deposits
+		let expected_id_deposit = <T as pallet_identity::Config>::BasicDeposit::get()
+			.saturating_add(
+				<T as pallet_identity::Config>::ByteDeposit::get()
+					.saturating_mul(<BalanceOf<T>>::from(info.encoded_size() as u32)),
+			);
+		// only 1 sub
+		let expected_sub_deposit = <T as pallet_identity::Config>::SubAccountDeposit::get();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, target.clone());
+
+		assert_last_event::<T>(
+			Event::<T>::DepositUpdated {
+				who: target,
+				identity: expected_id_deposit,
+				subs: expected_sub_deposit,
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
+	impl_benchmark_test_suite!(
+		IdentityMigrator,
+		crate::integration_tests::new_test_ext(),
+		crate::integration_tests::Test,
+	);
 }

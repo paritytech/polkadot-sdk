@@ -1079,7 +1079,7 @@ impl identity_migrator::Config for Runtime {
 	// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
 	type Reaper = EnsureRoot<AccountId>;
 	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime, Self::AccountId>;
-	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 type NisCounterpartInstance = pallet_balances::Instance2;

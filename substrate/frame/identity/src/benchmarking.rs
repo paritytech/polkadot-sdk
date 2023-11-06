@@ -28,7 +28,6 @@ use frame_benchmarking::{
 use frame_support::{
 	ensure,
 	traits::{EnsureOrigin, Get},
-	BoundedVec,
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
@@ -520,102 +519,6 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()));
 
 		ensure!(!SuperOf::<T>::contains_key(&caller), "Sub not removed");
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn reap_identity(
-		r: Linear<0, { T::MaxRegistrars::get() }>,
-		s: Linear<0, { T::MaxSubAccounts::get() }>,
-	) -> Result<(), BenchmarkError> {
-		add_registrars::<T>(r)?;
-
-		// target
-		let target: T::AccountId = account("target", 0, SEED);
-		let target_origin =
-			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
-		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
-
-		// set identity
-		let info = T::IdentityInformation::create_identity_info();
-		Identity::<T>::set_identity(
-			RawOrigin::Signed(target.clone()).into(),
-			Box::new(info.clone()),
-		)?;
-
-		// set `s` subs
-		let _ = add_sub_accounts::<T>(&target, s)?;
-
-		// provide judgements
-		for ii in 0..r {
-			let registrar: T::AccountId = account("registrar", ii, SEED);
-			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
-			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
-
-			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into())?;
-			Identity::<T>::provide_judgement(
-				RawOrigin::Signed(registrar).into(),
-				ii,
-				target_lookup.clone(),
-				Judgement::Reasonable,
-				T::Hashing::hash_of(&info),
-			)?;
-		}
-
-		#[block]
-		{
-			let _ = Identity::<T>::reap_identity(&target);
-		}
-
-		assert!(IdentityOf::<T>::get(&target).is_none());
-		assert_eq!(SubsOf::<T>::get(&target).0, Zero::zero());
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn poke_deposit() -> Result<(), BenchmarkError> {
-		let target: T::AccountId = account("target", 0, SEED);
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
-		let default_info = T::IdentityInformation::create_identity_info();
-
-		// insert identity into storage with zero deposit
-		IdentityOf::<T>::insert(
-			&target,
-			Registration {
-				judgements: BoundedVec::default(),
-				deposit: Zero::zero(),
-				info: default_info.clone(),
-			},
-		);
-
-		// insert subs into storage with zero deposit
-		let sub_account = account("sub", 0, SEED);
-		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub_account]).unwrap();
-		SubsOf::<T>::insert::<
-			&T::AccountId,
-			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),
-		>(&target, (Zero::zero(), subs));
-
-		// expected deposits
-		let expected_id_deposit = T::BasicDeposit::get().saturating_add(
-			T::ByteDeposit::get()
-				.saturating_mul(<BalanceOf<T>>::from(default_info.encoded_size() as u32)),
-		);
-		let expected_sub_deposit = T::SubAccountDeposit::get(); // only 1
-
-		#[block]
-		{
-			let _ = Identity::<T>::poke_deposit(&target);
-		}
-
-		let info = IdentityOf::<T>::get(&target).unwrap();
-		assert_eq!(info.deposit, expected_id_deposit);
-
-		let subs = SubsOf::<T>::get(&target);
-		assert_eq!(subs.0, expected_sub_deposit);
 
 		Ok(())
 	}
