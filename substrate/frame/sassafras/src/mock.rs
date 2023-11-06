@@ -114,12 +114,12 @@ pub fn new_test_ext_with_pairs(
 		.map(|i| AuthorityPair::from_seed(&U256::from(i).into()))
 		.collect::<Vec<_>>();
 
-	let authorities = pairs.iter().map(|p| p.public()).collect();
+	let authorities: Vec<_> = pairs.iter().map(|p| p.public()).collect();
 
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_sassafras::GenesisConfig::<Test> {
-		authorities,
+		authorities: authorities.clone(),
 		epoch_config: TEST_EPOCH_CONFIGURATION,
 		_phantom: sp_std::marker::PhantomData,
 	}
@@ -133,6 +133,7 @@ pub fn new_test_ext_with_pairs(
 			log::debug!(target: LOG_TARGET, "Building new testing ring context");
 			let ring_ctx = vrf::RingContext::new_testing();
 			RingContext::<Test>::set(Some(ring_ctx.clone()));
+			Sassafras::update_ring_verifier(&authorities);
 		});
 	}
 

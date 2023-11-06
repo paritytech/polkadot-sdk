@@ -87,13 +87,17 @@ const LOG_TARGET: &str = "sassafras::runtime 🌳";
 // Contextual string used by the VRF to generate per-block randomness.
 const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasRandomness";
 
-pub(crate) const SEGMENT_MAX_SIZE: u32 = 128;
+// Max length for segments holding unsorted tickets.
+const SEGMENT_MAX_SIZE: u32 = 128;
 
-/// Tickets related metadata that is commonly used together.
+/// Tickets metadata.
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy)]
 pub struct TicketsMetadata {
 	/// Number of outstanding next epoch tickets requiring to be sorted.
+	///
+	/// These tickets are held in segments containing at most `SEGMENT_MAX_SIZE` items.
 	pub unsorted_tickets_count: u32,
+
 	/// Number of tickets available into the tickets buffers for current and next epoch.
 	///
 	/// The array entry to be used for the current epoch is computed as epoch index modulo 2.
@@ -113,11 +117,11 @@ pub mod pallet {
 	/// Configuration parameters.
 	#[pallet::config]
 	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
-		/// The amount of slots that each epoch should last.
+		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
 		type EpochLength: Get<u64>;
 
-		/// Max number of authorities allowed
+		/// Max number of authorities allowed.
 		#[pallet::constant]
 		type MaxAuthorities: Get<u32>;
 
@@ -166,14 +170,15 @@ pub mod pallet {
 	pub type NextAuthorities<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
-	/// The slot at which the first epoch started.
+	/// First block slot number.
 	///
-	/// This is `None` until the first block is imported on chain.
+	/// As the slots may not be zero-based, we recond the slot value for the fist block.
+	/// This allows to always compute relative indices for epochs and slots.
 	#[pallet::storage]
 	#[pallet::getter(fn genesis_slot)]
 	pub type GenesisSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
-	/// Current slot number.
+	/// Current block slot number.
 	#[pallet::storage]
 	#[pallet::getter(fn current_slot)]
 	pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
@@ -192,14 +197,7 @@ pub mod pallet {
 	///
 	/// During block execution doesn't include randomness which ships within that block header.
 	#[pallet::storage]
-	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
-
-	/// Per-slot randomness value which is `Some` if per-block initialization has already been
-	/// called for current block.
-	///
-	/// Cleared on block finalization.
-	#[pallet::storage]
-	pub(crate) type SlotRandomness<T> = StorageValue<_, Randomness>;
+	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]
@@ -218,34 +216,44 @@ pub mod pallet {
 	/// This is to maintain coherence for already submitted tickets for epoch N+1 that where
 	/// computed using configuration parameters stored for epoch N+1.
 	#[pallet::storage]
-	pub(super) type PendingEpochConfigChange<T> = StorageValue<_, EpochConfiguration>;
+	pub type PendingEpochConfigChange<T> = StorageValue<_, EpochConfiguration>;
 
 	/// Stored tickets metadata.
 	#[pallet::storage]
 	pub type TicketsMeta<T> = StorageValue<_, TicketsMetadata, ValueQuery>;
 
-	/// Tickets identifiers.
+	/// Tickets identifiers map.
+	///
+	/// The map holds tickets ids for the current and next epoch.
 	///
 	/// The key is a tuple composed by:
-	/// - `u8` equal to epoch-index mod 2
-	/// - `u32` equal to the after-sort ticket position.
+	/// - `u8` equal to epoch's index modulo 2;
+	/// - `u32` equal to the ticket's index in a lexicographically sorted list of epoch's tickets.
+	///
+	/// Epoch X first N-th ticket has key (X mod 2, N)
+	///
+	/// Note that the ticket's index doesn't directly correspond to the slot index within the epoch.
+	/// The assigment is computed dynamically using an *outside-in* strategy.
+	///
+	/// Beaware that entries within this map are never removed, only overwritten.
+	/// Last element index should be fetched from the [`TicketsMeta`] value.
 	#[pallet::storage]
-	pub(crate) type TicketsIds<T> = StorageMap<_, Identity, (u8, u32), TicketId>;
+	pub type TicketsIds<T> = StorageMap<_, Identity, (u8, u32), TicketId>;
 
 	/// Tickets to be used for current and next epoch.
 	#[pallet::storage]
-	pub(crate) type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
+	pub type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
 
-	/// Next epoch tickets accumulator.
+	/// Next epoch tickets unsorted segments.
 	///
-	/// Contains lists of tickets where each list represents a burst of tickets received
-	/// via the `submit_tickets` extrinsic.
-	/// Given that each list max capacity is bounded by the max tickets we can handle
-	/// in one epoch, there's enough space for tickets here.
+	/// Contains lists of tickets where each list represents a batch of tickets
+	/// received via the `submit_tickets` extrinsic.
+	///
+	/// Each segment has max length [`SEGMENT_MAX_SIZE`].
 	///
 	/// Special `u32::MAX` key is reserved for the most recently sorted segment.
 	#[pallet::storage]
-	pub(crate) type NextTicketsSegments<T: Config> =
+	pub type NextTicketsSegments<T: Config> =
 		StorageMap<_, Identity, u32, BoundedVec<TicketId, ConstU32<SEGMENT_MAX_SIZE>>, ValueQuery>;
 
 	/// Parameters used to construct the epoch's ring verifier.
@@ -253,11 +261,17 @@ pub mod pallet {
 	/// In practice: Updatable Universal Reference String and the seed.
 	#[pallet::storage]
 	#[pallet::getter(fn ring_context)]
-	pub(crate) type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
+	pub type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
 
 	/// Ring verifier data for the current epoch.
 	#[pallet::storage]
-	pub(crate) type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
+	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
+
+	/// Slot claim vrf-preoutput used to generate per-slot randomness.
+	///
+	/// The value is ephemeral and is cleared on block finalization.
+	#[pallet::storage]
+	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfOutput>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -275,20 +289,22 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			EpochConfig::<T>::put(self.epoch_config);
+			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
+
 			#[cfg(feature = "construct-dummy-ring-context")]
 			{
 				debug!(target: LOG_TARGET, "Constructing dummy ring context");
 				let ring_ctx = vrf::RingContext::new_testing();
 				RingContext::<T>::put(ring_ctx);
+				Pallet::<T>::update_ring_verifier(&self.authorities);
 			}
-			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
-			EpochConfig::<T>::put(self.epoch_config);
 		}
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Block initialization
+		/// Block initialization.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let claim = <frame_system::Pallet<T>>::digest()
 				.logs
@@ -299,41 +315,48 @@ pub mod pallet {
 
 			CurrentSlot::<T>::put(claim.slot);
 
-			// On the first non-zero block (i.e. block #1) this is where the first epoch
-			// (epoch #0) actually starts. We need to adjust internal storage accordingly.
-			if *GenesisSlot::<T>::get() == 0 {
-				Self::initialize_genesis_epoch(claim.slot)
+			// As the slots may not be zero-based, we need to keep track of what is the
+			// slot used fo the first block.
+			if <frame_system::Pallet<T>>::block_number() == One::one() {
+				GenesisSlot::<T>::put(claim.slot);
+
+				// Deposit a log as this is the first block in first epoch.
+				let next_epoch = NextEpochDescriptor {
+					authorities: Self::next_authorities().into_inner(),
+					randomness: Self::next_randomness(),
+					config: None,
+				};
+				Self::deposit_next_epoch_descriptor_digest(next_epoch);
 			}
 
-			// Enact epoch change, if necessary.
-			T::EpochChangeTrigger::trigger::<T>(now);
-
-			// This should be the last action, after
-			let randomness_input = vrf::slot_claim_input(
-				&Self::randomness(),
-				CurrentSlot::<T>::get(),
-				EpochIndex::<T>::get(),
-			);
 			let randomness_output = claim
 				.vrf_signature
 				.outputs
 				.get(0)
 				.expect("Presence should have been already checked by the client; qed");
-			let randomness = randomness_output
-				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
-			SlotRandomness::<T>::put(randomness);
+			ClaimTemporaryData::<T>::put(randomness_output);
+
+			// Enact epoch change, if necessary.
+			T::EpochChangeTrigger::trigger::<T>(now);
 
 			Weight::zero()
 		}
 
-		/// Block finalization
+		/// Block finalization.
 		fn on_finalize(_now: BlockNumberFor<T>) {
-			// At the end of the block, we can safely include the new VRF output from
-			// this block into the randomness accumulator. If we've determined
-			// that this block was the first in a new epoch, the changeover logic has
-			// already occurred at this point.
-			let randomness = SlotRandomness::<T>::take()
+			// At the end of the block, we can safely include the current slot randomness
+			// to the randomness accumulator. If we've determined that this block was the
+			// first in a new epoch, the changeover logic has already occurred at this point
+			// (i.e. `enact_epoch_change` has already been called).
+			let randomness_input = vrf::slot_claim_input(
+				&Self::randomness(),
+				CurrentSlot::<T>::get(),
+				EpochIndex::<T>::get(),
+			);
+			let randomness_output = ClaimTemporaryData::<T>::take()
 				.expect("Finalization is called after initialization; qed");
+			let randomness = randomness_output
+				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 			Self::deposit_randomness(&randomness);
 
 			// Check if we are in the epoch's second half.
@@ -376,8 +399,8 @@ pub mod pallet {
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
 			let Some(verifier) = RingVerifierData::<T>::get().map(|v| v.into()) else {
-				warn!(target: LOG_TARGET, "Ring verifier not initialized");
-				return Err("Ring context not initialized".into())
+				warn!(target: LOG_TARGET, "Ring verifier key not initialized");
+				return Err("Ring verifier key not initialized".into())
 			};
 
 			let next_authorities = Self::next_authorities();
@@ -525,6 +548,7 @@ pub mod pallet {
 // Inherent methods
 impl<T: Config> Pallet<T> {
 	/// Determine whether an epoch change should take place at this block.
+	///
 	/// Assumes that initialization has already taken place.
 	pub fn should_end_epoch(now: BlockNumberFor<T>) -> bool {
 		// The epoch has technically ended during the passage of time between this block and the
@@ -537,7 +561,7 @@ impl<T: Config> Pallet<T> {
 		now != One::one() && Self::current_slot_index() >= T::EpochLength::get()
 	}
 
-	/// Current slot index with respect to current epoch.
+	/// Current slot index relative to the current epoch.
 	fn current_slot_index() -> u64 {
 		Self::slot_index(CurrentSlot::<T>::get())
 	}
@@ -548,6 +572,24 @@ impl<T: Config> Pallet<T> {
 			return 0
 		}
 		slot.checked_sub(Self::current_epoch_start().into()).unwrap_or(u64::MAX)
+	}
+
+	/// Finds the start slot of the current epoch.
+	///
+	/// Only guaranteed to give correct results after `initialize` of the first
+	/// block in the chain (as its result is based off of `GenesisSlot`).
+	fn current_epoch_start() -> Slot {
+		Self::epoch_start(EpochIndex::<T>::get())
+	}
+
+	// Get the spoch's first slot.
+	fn epoch_start(epoch_index: u64) -> Slot {
+		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
+							 if u64 is not enough we should crash for safety; qed.";
+
+		let epoch_start = epoch_index.checked_mul(T::EpochLength::get()).expect(PROOF);
+
+		epoch_start.checked_add(*GenesisSlot::<T>::get()).expect(PROOF).into()
 	}
 
 	pub(crate) fn update_ring_verifier(authorities: &[AuthorityId]) {
@@ -630,7 +672,7 @@ impl<T: Config> Pallet<T> {
 			randomness: next_randomness,
 			config: next_config,
 		};
-		Self::deposit_consensus(ConsensusLog::NextEpochData(next_epoch));
+		Self::deposit_next_epoch_descriptor_digest(next_epoch);
 
 		let epoch_tag = (epoch_idx & 1) as u8;
 		// Optionally finish sorting
@@ -673,23 +715,10 @@ impl<T: Config> Pallet<T> {
 		next_randomness
 	}
 
-	/// Finds the start slot of the current epoch. Only guaranteed to give correct results after
-	/// `initialize` of the first block in the chain (as its result is based off of `GenesisSlot`).
-	pub fn current_epoch_start() -> Slot {
-		Self::epoch_start(EpochIndex::<T>::get())
-	}
-
-	fn epoch_start(epoch_index: u64) -> Slot {
-		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
-							 if u64 is not enough we should crash for safety; qed.";
-
-		let epoch_start = epoch_index.checked_mul(T::EpochLength::get()).expect(PROOF);
-
-		epoch_start.checked_add(*GenesisSlot::<T>::get()).expect(PROOF).into()
-	}
-
-	fn deposit_consensus<U: Encode>(new: U) {
-		let log = DigestItem::Consensus(SASSAFRAS_ENGINE_ID, new.encode());
+	// Deposit next epoch descriptor in the block header digest.
+	fn deposit_next_epoch_descriptor_digest(desc: NextEpochDescriptor) {
+		let item = ConsensusLog::NextEpochData(desc);
+		let log = DigestItem::Consensus(SASSAFRAS_ENGINE_ID, item.encode());
 		<frame_system::Pallet<T>>::deposit_log(log)
 	}
 
@@ -718,28 +747,10 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		let bounded_authorities = WeakBoundedVec::try_from(authorities.to_vec())
+		let authorities = WeakBoundedVec::try_from(authorities.to_vec())
 			.expect("Initial number of authorities should be lower than T::MaxAuthorities");
-		Authorities::<T>::put(&bounded_authorities);
-		NextAuthorities::<T>::put(&bounded_authorities);
-	}
-
-	fn initialize_genesis_epoch(genesis_slot: Slot) {
-		debug!(target: LOG_TARGET, "Genesis slot: {:?}", genesis_slot);
-
-		GenesisSlot::<T>::put(genesis_slot);
-
-		let next_authorities = Self::next_authorities().into_inner();
-		Self::update_ring_verifier(&next_authorities);
-
-		// Deposit a log because this is the first block in epoch #0.
-		// We use the same values as genesis because we haven't collected any randomness yet.
-		let next_epoch = NextEpochDescriptor {
-			authorities: next_authorities,
-			randomness: Self::next_randomness(),
-			config: None,
-		};
-		Self::deposit_consensus(ConsensusLog::NextEpochData(next_epoch));
+		Authorities::<T>::put(&authorities);
+		NextAuthorities::<T>::put(&authorities);
 	}
 
 	/// Current epoch information.

@@ -370,6 +370,8 @@ pub mod vrf {
 		}
 	}
 
+	impl EncodeLike for VrfOutput {}
+
 	impl MaxEncodedLen for VrfOutput {
 		fn max_encoded_len() -> usize {
 			<[u8; PREOUT_SERIALIZED_SIZE]>::max_encoded_len()
