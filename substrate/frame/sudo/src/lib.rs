@@ -239,13 +239,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_key())]
 		pub fn set_key(
 			origin: OriginFor<T>,
-			new: Option<AccountIdLookupOf<T>>,
+			new: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_sudo(origin)?;
 
-			let new = new.map(T::Lookup::lookup).transpose()?;
+			let new = T::Lookup::lookup(new)?;
 			Self::deposit_event(Event::KeyChanged { old: Key::<T>::get(), new: new.clone() });
-			Key::<T>::set(new);
+			Key::<T>::put(new);
 
 			// Sudo user does not pay a fee.
 			Ok(Pays::No.into())
@@ -279,6 +279,21 @@ pub mod pallet {
 			// Sudo user does not pay a fee.
 			Ok(Pays::No.into())
 		}
+
+		/// Permanently removes the sudo key.
+		///
+		/// **This cannot be un-done.**
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::remove_key())]
+		pub fn remove_key(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			Self::ensure_sudo(origin)?;
+
+			Self::deposit_event(Event::KeyRemoved {});
+			Key::<T>::kill();
+
+			// Sudo user does not pay a fee.
+			Ok(Pays::No.into())
+		}
 	}
 
 	#[pallet::event]
@@ -294,8 +309,10 @@ pub mod pallet {
 			/// The old sudo key (if one was previously set).
 			old: Option<T::AccountId>,
 			/// The new sudo key (if one was set).
-			new: Option<T::AccountId>,
+			new: T::AccountId,
 		},
+		/// The key was permanently removed.
+		KeyRemoved,
 		/// A [sudo_as](Pallet::sudo_as) call just took place.
 		SudoAsDone {
 			/// The result of the call made by the sudo user.

@@ -134,14 +134,14 @@ fn sudo_unchecked_weight_emits_events_correctly() {
 fn set_key_basics() {
 	new_test_ext(1).execute_with(|| {
 		// A root `key` can change the root `key`
-		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), Some(2)));
+		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
 		assert_eq!(Sudo::key(), Some(2u64));
 	});
 
 	new_test_ext(1).execute_with(|| {
 		// A non-root `key` will trigger a `RequireSudo` error and a non-root `key` cannot change
 		// the root `key`.
-		assert_noop!(Sudo::set_key(RuntimeOrigin::signed(2), Some(3)), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::set_key(RuntimeOrigin::signed(2), 3), Error::<Test>::RequireSudo);
 	});
 }
 
@@ -149,23 +149,23 @@ fn set_key_basics() {
 fn set_key_emits_events_correctly() {
 	new_test_ext(1).execute_with(|| {
 		// A root `key` can change the root `key`.
-		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), Some(2)));
-		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(1), new: Some(2) }));
+		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
+		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(1), new: 2 }));
 		// Double check.
-		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(2), Some(4)));
-		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(2), new: Some(4) }));
+		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(2), 4));
+		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(2), new: 4 }));
 	});
 }
 
 #[test]
-fn set_key_remove_key() {
+fn remove_key_works() {
 	new_test_ext(1).execute_with(|| {
-		// A root `key` can change the root `key` to `None`
-		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), None));
+		assert_ok!(Sudo::remove_key(RuntimeOrigin::signed(1)));
 		assert!(Sudo::key().is_none());
-		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(1), new: None }));
+		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
 
-		assert_noop!(Sudo::set_key(RuntimeOrigin::signed(1), Some(1)), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::remove_key(RuntimeOrigin::signed(1)), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::set_key(RuntimeOrigin::signed(1), 1), Error::<Test>::RequireSudo);
 	});
 }
 

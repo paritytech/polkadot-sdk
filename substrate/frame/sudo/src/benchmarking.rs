@@ -40,9 +40,9 @@ mod benchmarks {
 		let new_sudoer_lookup = T::Lookup::unlookup(new_sudoer.clone());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Some(new_sudoer_lookup));
+		_(RawOrigin::Signed(caller.clone()), new_sudoer_lookup);
 
-		assert_last_event::<T>(Event::KeyChanged { old: Some(caller), new: Some(new_sudoer) });
+		assert_last_event::<T>(Event::KeyChanged { old: Some(caller), new: new_sudoer });
 	}
 
 	#[benchmark]
@@ -72,6 +72,17 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), who_lookup, Box::new(call));
 
 		assert_last_event::<T>(Event::SudoAsDone { sudo_result: Ok(()) })
+	}
+
+	#[benchmark]
+	fn remove_key() {
+		let caller: T::AccountId = whitelisted_caller();
+		Key::<T>::put(&caller);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()));
+
+		assert_last_event::<T>(Event::KeyRemoved {});
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_bench_ext(), crate::mock::Test);

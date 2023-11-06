@@ -53,6 +53,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for pallet_sudo.
 pub trait WeightInfo {
 	fn set_key() -> Weight;
+	fn remove_key() -> Weight;
 	fn sudo() -> Weight;
 	fn sudo_as() -> Weight;
 }
@@ -60,6 +61,9 @@ pub trait WeightInfo {
 /// Weights for pallet_sudo using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn remove_key() -> Weight {
+		Weight::zero() // FAIL-CI
+	}
 	/// Storage: Sudo Key (r:1 w:1)
 	/// Proof: Sudo Key (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
 	fn set_key() -> Weight {
@@ -95,6 +99,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
+	fn remove_key() -> Weight {
+		Weight::zero() // FAIL-CI
+	}
 	/// Storage: Sudo Key (r:1 w:1)
 	/// Proof: Sudo Key (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
 	fn set_key() -> Weight {
