@@ -318,16 +318,12 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[allow(clippy::absurd_extreme_comparisons)]
 		fn integrity_test() {
 			assert!(T::MinEligibleCollators::get() > 0, "chain must require at least one collator");
 			assert!(
-				T::MaxCandidates::get() <= u32::MAX,
-				"the extrinsics below rely on `MaxCandidates` fitting in a `u32`"
-			);
-			assert!(
-				T::MinEligibleCollators::get() <= u32::MAX,
-				"the extrinsics below rely `MinEligibleCollators` fitting in a `u32`"
+				T::MaxInvulnerables::get().saturating_add(T::MaxCandidates::get()) >=
+					T::MinEligibleCollators::get(),
+				"invulnerables and candidates must be able to satisfy collator demand"
 			);
 		}
 	}
