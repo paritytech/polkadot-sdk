@@ -1377,8 +1377,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.8.5",
- "rand_core 0.6.4",
+ "serde",
+ "unicode-normalization",
+]
+
+[[package]]
+name = "bip39"
+version = "2.0.0"
+source = "git+https://github.com/michalkucharczyk/rust-bip39?branch=mku-unicode-normalization-in-no-std#e63f0b2f487a596450637be66b88c91b79e9adc7"
+dependencies = [
+ "bitcoin_hashes",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -14739,7 +14749,7 @@ name = "sc-cli"
 version = "0.10.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
- "bip39",
+ "bip39 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono",
  "clap 4.4.6",
  "fdlimit",
@@ -16667,7 +16677,7 @@ dependencies = [
  "async-lock",
  "atomic-take",
  "base64 0.21.2",
- "bip39",
+ "bip39 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2-rfc",
  "bs58 0.5.0",
  "chacha20 0.9.1",
@@ -17084,7 +17094,7 @@ version = "21.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "bandersnatch_vrfs",
- "bip39",
+ "bip39 2.0.0 (git+https://github.com/michalkucharczyk/rust-bip39?branch=mku-unicode-normalization-in-no-std)",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
