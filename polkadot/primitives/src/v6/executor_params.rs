@@ -45,7 +45,7 @@ pub const PRECHECK_MEM_MAX_LO: u64 = 256 * 1024 * 1024;
 pub const PRECHECK_MEM_MAX_HI: u64 = 16 * 1024 * 1024 * 1024;
 
 // Default PVF timeouts. Must never be changed! Use executor environment parameters to adjust them.
-// See also `PvfPrepTimeoutKind` and `PvfExecTimeoutKind` docs.
+// See also `PvfPrepTimeoutKind` and `PvfExecKind` docs.
 
 /// Default PVF preparation timeout for prechecking requests.
 pub const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
@@ -311,15 +311,15 @@ impl ExecutorParams {
 		}
 
 		if let (Some(backing), Some(approval)) = (
-			seen.get("PvfExecTimeoutKind::Backing")
+			seen.get("PvfExecKind::Backing")
 				.or(Some(&DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
-			seen.get("PvfExecTimeoutKind::Approval")
+			seen.get("PvfExecKind::Approval")
 				.or(Some(&DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
 		) {
 			if *backing >= *approval {
 				return Err(IncompatibleValues(
-					"PvfExecTimeoutKind::Backing",
-					"PvfExecTimeoutKind::Approval",
+					"PvfExecKind::Backing",
+					"PvfExecKind::Approval",
 				))
 			}
 		}
