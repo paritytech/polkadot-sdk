@@ -363,9 +363,7 @@ where
 	/// Execute all `OnRuntimeUpgrade` of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
-	pub fn try_runtime_upgrade(
-		checks: frame_try_runtime::UpgradeCheckSelect,
-	) -> Result<Weight, TryRuntimeError> {
+	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let weight =
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
