@@ -327,6 +327,14 @@ pub mod pallet {
 					config: None,
 				};
 				Self::deposit_next_epoch_descriptor_digest(next_epoch);
+
+				// #[cfg(feature = "construct-dummy-ring-context")]
+				// {
+				// 	debug!(target: LOG_TARGET, "Constructing dummy ring context");
+				// 	let ring_ctx = vrf::RingContext::new_testing();
+				// 	RingContext::<T>::put(ring_ctx);
+				// 	Self::update_ring_verifier(&Self::next_authorities().into_inner());
+				// }
 			}
 
 			let randomness_output = claim

@@ -108,7 +108,7 @@ keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyrin
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { version = "1.24.2", features = ["macros"] }
 
@@ -313,7 +313,7 @@ try-runtime = [
 ]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
-fast-runtime = []
+fast-runtime = [ "rococo-runtime-constants/fast-runtime" ]
 
 runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
 
