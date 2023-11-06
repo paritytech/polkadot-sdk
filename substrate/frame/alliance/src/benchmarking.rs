@@ -782,7 +782,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn add_scrupulous_items(
+	fn add_unscrupulous_items(
 		n: Linear<0, { T::MaxUnscrupulousItems::get() }>,
 		l: Linear<0, { T::MaxWebsiteUrlLength::get() }>,
 	) -> Result<(), BenchmarkError> {
