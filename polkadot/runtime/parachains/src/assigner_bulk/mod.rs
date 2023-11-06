@@ -345,7 +345,8 @@ impl<T: Config> Pallet<T> {
 				},
 				// Still alive:
 				Some(_) => return,
-				// No end in sight, still valid:
+				// Invariant: If there is no workload, workplan must be empty for core.
+				// Therefore nothing to do here.
 				None => return,
 			}
 		};
