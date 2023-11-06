@@ -208,8 +208,6 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		);
 	});
 
-	// One block for the MessageQueue to process the message.
-	AssetHubWestend::execute_with(|| {});
 	// Receive XCM message in Assets Parachain in the next block.
 	AssetHubWestend::execute_with(|| {
 		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
