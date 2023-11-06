@@ -34,37 +34,13 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 	let type_use_gen = &def.type_use_generics(span);
 	let pallet_ident = &def.pallet_struct.pallet;
 	let frame_system = &def.frame_system;
+	let current_version = &def.pallet_struct.storage_version;
 	let pallet_name = quote::quote! {
 		<
 			<T as #frame_system::Config>::PalletInfo
 			as
 			#frame_support::traits::PalletInfo
 		>::name::<Self>().unwrap_or("<unknown pallet name>")
-	};
-
-	let initialize_on_chain_storage_version = if let Some(current_version) =
-		&def.pallet_struct.storage_version
-	{
-		quote::quote! {
-			#frame_support::__private::log::info!(
-				target: #frame_support::LOG_TARGET,
-				"🐥 New pallet {:?} detected in the runtime. Initializing the on-chain storage version to match the storage version defined in the pallet: {:?}",
-				#pallet_name,
-				#current_version
-			);
-			#current_version.put::<Self>();
-		}
-	} else {
-		quote::quote! {
-			let default_version = #frame_support::traits::StorageVersion::new(0);
-			#frame_support::__private::log::info!(
-				target: #frame_support::LOG_TARGET,
-				"🐥 New pallet {:?} detected in the runtime. The pallet has not defined storage version, so the on-chain version is being initialized to {:?}.",
-				#pallet_name,
-				default_version
-			);
-			default_version.put::<Self>();
-		}
 	};
 
 	let log_runtime_upgrade = if has_runtime_upgrade {
@@ -198,7 +174,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 			for #pallet_ident<#type_use_gen> #where_clause
 		{
 			fn before_all_runtime_migrations() -> #frame_support::weights::Weight {
-				use #frame_support::traits::Get;
+				use #frame_support::traits::{Get, PalletInfoAccess};
 				use #frame_support::__private::hashing::twox_128;
 				use #frame_support::storage::unhashed::contains_prefixed_key;
 				#frame_support::__private::sp_tracing::enter_span!(
@@ -211,7 +187,13 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				let pallet_hashed_prefix = <Self as PalletInfoAccess>::name_hash();
 				let exists = contains_prefixed_key(&pallet_hashed_prefix);
 				if !exists {
-					#initialize_on_chain_storage_version
+					#frame_support::__private::log::info!(
+						target: #frame_support::LOG_TARGET,
+						"🐥 New pallet {:?} detected in the runtime. Initializing the on-chain storage version to match the storage version defined in the pallet: {:?}",
+						#pallet_name,
+						#current_version
+					);
+					#current_version.put::<Self>();
 					<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 1)
 				} else {
 					<T as #frame_system::Config>::DbWeight::get().reads(1)
