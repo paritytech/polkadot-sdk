@@ -965,6 +965,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -4294,6 +4295,7 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -4360,6 +4362,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde",
+ "serde_json",
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -6856,7 +6859,9 @@ dependencies = [
  "polkadot-service",
  "rococo-runtime",
  "rococo-runtime-constants",
+ "sc-chain-spec",
  "sc-consensus-grandpa",
+ "serde_json",
  "sp-authority-discovery",
  "sp-consensus-babe",
  "sp-consensus-beefy",
@@ -7277,6 +7282,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
+ "serde_json",
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -8317,6 +8323,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
+ "serde_json",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -8333,6 +8340,7 @@ name = "minimal-runtime"
 version = "0.1.0"
 dependencies = [
  "frame",
+ "frame-support",
  "pallet-balances",
  "pallet-sudo",
  "pallet-timestamp",
@@ -8340,6 +8348,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "scale-info",
+ "sp-genesis-builder",
  "substrate-wasm-builder",
 ]
 
@@ -8797,6 +8806,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
+ "serde_json",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -8848,6 +8858,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "scale-info",
+ "serde_json",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -11286,6 +11297,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde",
+ "serde_json",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -12863,6 +12875,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-timestamp",
+ "sp-tracing 10.0.0",
  "sp-transaction-pool",
  "staging-xcm",
  "substrate-build-script-utils",
@@ -14903,7 +14916,11 @@ dependencies = [
 name = "sc-chain-spec"
 version = "4.0.0-dev"
 dependencies = [
+ "array-bytes 6.1.0",
+ "docify",
+ "log",
  "memmap2",
+ "parity-scale-codec",
  "sc-chain-spec-derive",
  "sc-client-api",
  "sc-executor",
@@ -14911,10 +14928,16 @@ dependencies = [
  "sc-telemetry",
  "serde",
  "serde_json",
+ "sp-application-crypto",
  "sp-blockchain",
+ "sp-consensus-babe",
  "sp-core",
+ "sp-genesis-builder",
+ "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
+ "substrate-test-runtime",
 ]
 
 [[package]]
@@ -18106,11 +18129,15 @@ version = "2.0.0"
 dependencies = [
  "ansi_term",
  "clap 4.4.6",
+ "kitchensink-runtime",
+ "log",
  "rand 0.8.5",
  "sc-chain-spec",
  "sc-keystore",
+ "serde_json",
  "sp-core",
  "sp-keystore",
+ "sp-tracing 10.0.0",
  "staging-node-cli",
 ]
 
@@ -18230,6 +18257,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-executor",
  "scale-info",
+ "serde_json",
  "sp-application-crypto",
  "sp-consensus-babe",
  "sp-core",
@@ -18459,6 +18487,7 @@ name = "substrate"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "sc-chain-spec",
  "sc-cli",
  "sc-consensus-aura",
  "sc-consensus-babe",
