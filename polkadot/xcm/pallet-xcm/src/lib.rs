@@ -1247,6 +1247,11 @@ impl<T: Config> Pallet<T> {
 		let beneficiary: MultiLocation =
 			(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
 		let assets: MultiAssets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
+		log::trace!(
+			target: "xcm::pallet_xcm::do_reserve_transfer_assets",
+			"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}",
+			origin_location, dest, beneficiary, assets, fee_asset_item,
+		);
 
 		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 		let value = (origin_location, assets.into_inner());
@@ -1357,6 +1362,11 @@ impl<T: Config> Pallet<T> {
 		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
+		log::trace!(
+			target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
+			"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, transfer_type {:?}, fees {:?}, prefund_xcm: {:?}",
+			origin, dest, beneficiary, assets, transfer_type, fees, prefund_fees_messages,
+		);
 		let (mut local_xcm, remote_xcm) = match transfer_type {
 			TransferType::LocalReserve => {
 				let (local, remote) = Self::local_reserve_transfer_messages(
@@ -1584,11 +1594,17 @@ impl<T: Config> Pallet<T> {
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
-		fees: MultiAsset,
+		mut fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let max_assets = assets.len() as u32;
 		let context = T::UniversalLocation::get();
+		// we spend up to half of fees for execution on reserve and other half for execution on
+		// destination
+		match &mut fees.fun {
+			Fungible(amount) => *amount = amount.saturating_div(2),
+			NonFungible(_) => return Err(Error::<T>::FeesNotMet),
+		};
 		// identifies fee item as seen by `reserve` - to be used at reserve chain
 		let reserve_fees = fees
 			.clone()
