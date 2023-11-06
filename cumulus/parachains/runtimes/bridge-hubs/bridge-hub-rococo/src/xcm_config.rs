@@ -325,6 +325,7 @@ impl xcm_executor::Config for XcmConfig {
 		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
 		crate::bridge_to_wococo_config::ToBridgeHubWococoHaulBlobExporter,
 		crate::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
+		crate::bridge_to_ethereum_config::ToBridgeHubEthereumHaulBlobExporter,
 	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;

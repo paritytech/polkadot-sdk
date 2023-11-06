@@ -963,7 +963,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Ethereum` global
 /// consensus with dynamic fees and back-pressure.
-pub type ToEthereumXcmRouterInstance = pallet_assets::Instance3;
+pub type ToEthereumXcmRouterInstance = pallet_assets::Instance4;
 impl pallet_xcm_bridge_hub_router::Config<ToEthereumXcmRouterInstance> for Runtime {
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_ethereum::WeightInfo<Runtime>;
 
@@ -1032,7 +1032,7 @@ construct_runtime!(
 		ToWococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance1>::{Pallet, Storage, Call} = 43,
 		ToRococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance2>::{Pallet, Storage, Call} = 44,
 		ToWestendXcmRouter: pallet_xcm_bridge_hub_router::<Instance3>::{Pallet, Storage, Call} = 45,
-		ToEthereumXcmRouter: pallet_xcm_bridge_hub_router::<Instance3>::{Pallet, Storage, Call} = 46,
+		ToEthereumXcmRouter: pallet_xcm_bridge_hub_router::<Instance4>::{Pallet, Storage, Call} = 46,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
