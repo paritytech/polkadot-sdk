@@ -17,11 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
-use frame_support::{
-	pallet_prelude::*,
-	traits::{Defensive},
-	weights::Weight,
-};
+use frame_support::{pallet_prelude::*, traits::Defensive, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{vstaging::ClientFeatures, SessionIndex};
 use sp_std::vec::Vec;
@@ -86,14 +82,13 @@ impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV10<T> {
 	}
 }
 
-pub type MigrateToV10<T> =
-	frame_support::migrations::VersionedMigration<
-		9,
-		10,
-		VersionUncheckedMigrateToV10<T>,
-		Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+pub type MigrateToV10<T> = frame_support::migrations::VersionedMigration<
+	9,
+	10,
+	VersionUncheckedMigrateToV10<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 // Unusual formatting is justified:
 // - make it easier to verify that fields assign what they supposed to assign.
