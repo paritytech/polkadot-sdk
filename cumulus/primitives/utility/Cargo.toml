@@ -45,6 +45,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",

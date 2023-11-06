@@ -27,6 +27,7 @@ pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-convers
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false}
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false}
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false}
 pallet-nft-fractionalization = { path = "../../../../../substrate/frame/nft-fractionalization", default-features = false}
 pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features = false}
@@ -84,9 +85,11 @@ snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/
 # Bridges
 pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
 bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
+bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
 bp-asset-hub-wococo = { path = "../../../../../bridges/primitives/chain-asset-hub-wococo", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-wococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false }
+bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils" }
@@ -172,9 +175,11 @@ try-runtime = [
 std = [
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
+	"bp-asset-hub-westend/std",
 	"bp-asset-hub-wococo/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-wococo/std",
+	"bp-bridge-hub-westend/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
