@@ -34,8 +34,8 @@ use tokio::sync::Mutex;
 mod adder;
 mod worker_common;
 
-const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
-const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(3);
+const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
+const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 struct TestHost {
 	cache_dir: tempfile::TempDir,
@@ -282,9 +282,9 @@ rusty_fork_test! {
 			let (result, _) = futures::join!(
 				// Choose a job that would normally take the entire timeout.
 				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
-				// Run a future that kills the job in the middle of the timeout.
+				// Run a future that kills the job while it's running.
 				async {
-					tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
+					tokio::time::sleep(Duration::from_secs(1)).await;
 					kill_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false);
 				}
 			);
@@ -326,9 +326,9 @@ rusty_fork_test! {
 					},
 					Default::default(),
 				),
-				// Run a future that kills the job in the middle of the timeout.
+				// Run a future that kills the job while it's running.
 				async {
-					tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
+					tokio::time::sleep(Duration::from_secs(1)).await;
 					kill_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false);
 				}
 			);

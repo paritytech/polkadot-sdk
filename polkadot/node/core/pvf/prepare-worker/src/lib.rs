@@ -232,6 +232,8 @@ pub fn worker_entrypoint(
 						// outside world. The only IPC it should be able to do is sending its
 						// response over the pipe.
 						drop(stream);
+						// Drop the read end so we don't have too many FDs open.
+						drop(pipe_reader);
 
 						handle_child_process(
 							pvf,
@@ -331,6 +333,8 @@ fn handle_child_process(
 	gum::debug!(
 		target: LOG_TARGET,
 		%worker_job_pid,
+		?prepare_job_kind,
+		?preparation_timeout,
 		"worker job: preparing artifact",
 	);
 
@@ -508,6 +512,13 @@ fn handle_parent_process(
 		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(child, None);
+	gum::trace!(
+		target: LOG_TARGET,
+		%worker_pid,
+		"prepare worker received wait status from job: {:?}",
+		status,
+	);
+
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 		.map_err(|errno| error_from_errno("getrusage after", errno))?;
 
@@ -517,38 +528,26 @@ fn handle_parent_process(
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
+	if cpu_tv >= timeout {
+		gum::warn!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
+			cpu_tv.as_millis(),
+			timeout.as_millis(),
+		);
+		return Err(PrepareError::TimedOut)
+	}
 
-	return match status {
+	match status {
 		Ok(WaitStatus::Exited(_pid, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
 					// There is either a bug or the job was hijacked.
 					.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 			match result {
-				Err(PrepareError::TimedOut) => {
-					// Log if we exceed the timeout and the other thread hasn't
-					// finished.
-					gum::warn!(
-						target: LOG_TARGET,
-						%worker_pid,
-						"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
-						cpu_tv.as_millis(),
-						timeout.as_millis(),
-					);
-					Err(PrepareError::TimedOut)
-				},
 				Err(err) => Err(err),
 				Ok(response) => {
-					if cpu_tv >= timeout {
-						gum::warn!(
-							target: LOG_TARGET,
-							%worker_pid,
-							"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
-							cpu_tv.as_millis(),
-							timeout.as_millis(),
-						);
-						return Err(PrepareError::TimedOut);
-					}
 					// Write the serialized artifact into a temp file.
 					//
 					// PVF host only keeps artifacts statuses in its memory,

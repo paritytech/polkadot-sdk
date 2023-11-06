@@ -195,6 +195,8 @@ pub fn worker_entrypoint(
 						// outside world. The only IPC it should be able to do is sending its
 						// response over the pipe.
 						drop(stream);
+						// Drop the read end so we don't have too many FDs open.
+						drop(pipe_reader);
 
 						handle_child_process(
 							pipe_writer,
@@ -367,6 +369,12 @@ fn handle_parent_process(
 	pipe_read.read_to_end(&mut received_data)?;
 
 	let status = nix::sys::wait::waitpid(child, None);
+	gum::trace!(
+		target: LOG_TARGET,
+		%worker_pid,
+		"execute worker received wait status from job: {:?}",
+		status,
+	);
 
 	let usage_after = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		Ok(usage) => usage,
