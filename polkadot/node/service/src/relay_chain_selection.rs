@@ -189,7 +189,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B> SelectChain<PolkadotBlock> for SelectRelayChain<B>
 where
 	B: sc_client_api::Backend<PolkadotBlock> + 'static,
@@ -309,12 +308,10 @@ enum Error {
 /// Decoupling trait for the overseer handle.
 ///
 /// Required for testing purposes.
-#[async_trait::async_trait]
 pub trait OverseerHandleT: Clone + Send + Sync {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str);
 }
 
-#[async_trait::async_trait]
 impl OverseerHandleT for Handle {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str) {
 		Handle::send_msg(self, msg, origin).await

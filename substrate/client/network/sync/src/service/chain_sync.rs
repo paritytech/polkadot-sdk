@@ -188,7 +188,6 @@ impl<B: BlockT> JustificationSyncLink<B> for SyncingService<B> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT> SyncStatusProvider<B> for SyncingService<B> {
 	/// Get high-level view of the syncing status.
 	async fn status(&self) -> Result<SyncStatus<B>, ()> {

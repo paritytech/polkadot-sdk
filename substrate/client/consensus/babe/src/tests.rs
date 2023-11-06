@@ -137,7 +137,6 @@ thread_local! {
 #[derive(Clone)]
 pub struct PanickingBlockImport<B>(B);
 
-#[async_trait::async_trait]
 impl<B: BlockImport<TestBlock>> BlockImport<TestBlock> for PanickingBlockImport<B>
 where
 	B: Send,
@@ -187,7 +186,6 @@ pub struct TestVerifier {
 	mutator: Mutator,
 }
 
-#[async_trait::async_trait]
 impl Verifier<TestBlock> for TestVerifier {
 	/// Verify the given data and return the BlockImportParams and an optional
 	/// new set of validators to import. If not, err with an Error-Message

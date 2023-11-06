@@ -179,7 +179,6 @@ impl ParachainInherentData {
 	}
 }
 
-#[async_trait::async_trait]
 impl sp_inherents::InherentDataProvider for ParachainInherentData {
 	async fn provide_inherent_data(
 		&self,

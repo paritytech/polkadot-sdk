@@ -32,7 +32,6 @@ use sp_runtime::traits::{Block as BlockT, NumberFor};
 /// some implementations.
 ///
 /// Non-deterministically finalizing chains may only use the `_authoring` functions.
-#[async_trait::async_trait]
 pub trait SelectChain<Block: BlockT>: Sync + Send + Clone {
 	/// Get all leaves of the chain, i.e. block hashes that have no children currently.
 	/// Leaves that can never be finalized will not be returned.

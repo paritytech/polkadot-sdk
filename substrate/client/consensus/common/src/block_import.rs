@@ -301,7 +301,6 @@ impl<Block: BlockT> BlockImportParams<Block> {
 }
 
 /// Block import trait.
-#[async_trait::async_trait]
 pub trait BlockImport<B: BlockT> {
 	/// The error type.
 	type Error: std::error::Error + Send + 'static;
@@ -319,7 +318,6 @@ pub trait BlockImport<B: BlockT> {
 	) -> Result<ImportResult, Self::Error>;
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 	type Error = sp_consensus::error::Error;
 
@@ -340,7 +338,6 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT, T, E: std::error::Error + Send + 'static> BlockImport<B> for Arc<T>
 where
 	for<'r> &'r T: BlockImport<B, Error = E>,
@@ -364,7 +361,6 @@ where
 }
 
 /// Justification import trait
-#[async_trait::async_trait]
 pub trait JustificationImport<B: BlockT> {
 	type Error: std::error::Error + Send + 'static;
 

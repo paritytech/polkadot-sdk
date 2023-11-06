@@ -23,12 +23,7 @@ use futures::{FutureExt, StreamExt};
 use log::warn;
 use std::sync::Arc;
 
-use jsonrpsee::{
-	core::{async_trait, RpcResult},
-	proc_macros::rpc,
-	types::SubscriptionResult,
-	SubscriptionSink,
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc, types::SubscriptionResult, SubscriptionSink};
 
 mod error;
 mod finality;
@@ -89,7 +84,6 @@ impl<AuthoritySet, VoterState, Block: BlockT, ProofProvider>
 	}
 }
 
-#[async_trait]
 impl<AuthoritySet, VoterState, Block, ProofProvider>
 	GrandpaApiServer<JustificationNotification, Block::Hash, NumberFor<Block>>
 	for Grandpa<AuthoritySet, VoterState, Block, ProofProvider>

@@ -153,13 +153,11 @@ impl<S: SpawnNamed + Clone + Send + Sync> crate::gen::Spawner for SpawnGlue<S> {
 }
 
 /// Whether a header supports parachain consensus or not.
-#[async_trait::async_trait]
 pub trait HeadSupportsParachains {
 	/// Return true if the given header supports parachain consensus. Otherwise, false.
 	async fn head_supports_parachains(&self, head: &Hash) -> bool;
 }
 
-#[async_trait::async_trait]
 impl<Client> HeadSupportsParachains for Arc<Client>
 where
 	Client: RuntimeApiSubsystemClient + Sync + Send,
@@ -429,7 +427,6 @@ pub async fn forward_events<P: BlockchainEvents<Block>>(client: Arc<P>, mut hand
 ///
 /// struct AlwaysSupportsParachains;
 ///
-/// #[async_trait::async_trait]
 /// impl HeadSupportsParachains for AlwaysSupportsParachains {
 ///      async fn head_supports_parachains(&self, _head: &Hash) -> bool { true }
 /// }

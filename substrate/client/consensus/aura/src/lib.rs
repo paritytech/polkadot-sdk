@@ -322,7 +322,6 @@ struct AuraWorker<C, E, I, P, SO, L, BS, N> {
 	_phantom: PhantomData<fn() -> P>,
 }
 
-#[async_trait::async_trait]
 impl<B, C, E, I, P, Error, SO, L, BS> sc_consensus_slots::SimpleSlotWorker<B>
 	for AuraWorker<C, E, I, P, SO, L, BS, NumberFor<B>>
 where

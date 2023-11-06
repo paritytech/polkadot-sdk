@@ -37,7 +37,6 @@ pub trait ClientExt<Block: BlockT>: Sized {
 }
 
 /// Extension trait for a test client around block importing.
-#[async_trait::async_trait]
 pub trait ClientBlockImportExt<Block: BlockT>: Sized {
 	/// Import block to the chain. No finality.
 	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError>;
@@ -86,7 +85,6 @@ where
 }
 
 /// This implementation is required, because of the weird api requirements around `BlockImport`.
-#[async_trait::async_trait]
 impl<Block: BlockT, T> ClientBlockImportExt<Block> for std::sync::Arc<T>
 where
 	for<'r> &'r T: BlockImport<Block, Error = ConsensusError>,
@@ -145,7 +143,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, E, RA, Block: BlockT> ClientBlockImportExt<Block> for Client<B, E, Block, RA>
 where
 	Self: BlockImport<Block, Error = ConsensusError>,

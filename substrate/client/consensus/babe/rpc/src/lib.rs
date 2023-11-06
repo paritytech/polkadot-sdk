@@ -22,7 +22,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::TryFutureExt;
 use jsonrpsee::{
-	core::{async_trait, Error as JsonRpseeError, RpcResult},
+	core::{Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
 	types::{error::CallError, ErrorObject},
 };
@@ -78,7 +78,6 @@ impl<B: BlockT, C, SC> Babe<B, C, SC> {
 	}
 }
 
-#[async_trait]
 impl<B: BlockT, C, SC> BabeApiServer for Babe<B, C, SC>
 where
 	B: BlockT,

@@ -26,7 +26,6 @@ use sp_runtime::traits::Block as BlockT;
 /// The crate already provides some convience implementations of this trait for
 /// `Box<dyn CreateInherentDataProviders>` and closures. So, it should not be required to implement
 /// this trait manually.
-#[async_trait::async_trait]
 pub trait CreateInherentDataProviders<Block: BlockT, ExtraArgs>: Send + Sync {
 	/// The inherent data providers that will be created.
 	type InherentDataProviders: InherentDataProvider;
@@ -39,7 +38,6 @@ pub trait CreateInherentDataProviders<Block: BlockT, ExtraArgs>: Send + Sync {
 	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
 }
 
-#[async_trait::async_trait]
 impl<F, Block, IDP, ExtraArgs, Fut> CreateInherentDataProviders<Block, ExtraArgs> for F
 where
 	Block: BlockT,
@@ -61,7 +59,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<Block: BlockT, ExtraArgs: Send, IDPS: InherentDataProvider>
 	CreateInherentDataProviders<Block, ExtraArgs>
 	for Box<dyn CreateInherentDataProviders<Block, ExtraArgs, InherentDataProviders = IDPS>>
@@ -78,7 +75,6 @@ impl<Block: BlockT, ExtraArgs: Send, IDPS: InherentDataProvider>
 }
 
 /// Something that provides inherent data.
-#[async_trait::async_trait]
 pub trait InherentDataProvider: Send + Sync {
 	/// Convenience function for creating [`InherentData`].
 	///
@@ -105,7 +101,6 @@ pub trait InherentDataProvider: Send + Sync {
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
-#[async_trait::async_trait]
 impl InherentDataProvider for Tuple {
 	for_tuples!( where #( Tuple: Send + Sync )* );
 	async fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {

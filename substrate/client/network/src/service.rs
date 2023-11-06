@@ -831,7 +831,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, H> NetworkStatusProvider for NetworkService<B, H>
 where
 	B: BlockT + 'static,
@@ -1075,7 +1074,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, H> NetworkRequest for NetworkService<B, H>
 where
 	B: BlockT + 'static,
@@ -1132,7 +1130,6 @@ pub struct NotificationSender {
 	notification_size_metric: Option<Histogram>,
 }
 
-#[async_trait::async_trait]
 impl NotificationSenderT for NotificationSender {
 	async fn ready(
 		&self,

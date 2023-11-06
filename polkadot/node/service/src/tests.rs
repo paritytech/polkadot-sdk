@@ -48,7 +48,6 @@ use polkadot_overseer::{SubsystemContext, SubsystemSender};
 
 type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
 
-#[async_trait::async_trait]
 impl OverseerHandleT for TestSubsystemSender {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, _origin: &'static str) {
 		TestSubsystemSender::send_message(self, msg.into()).await;

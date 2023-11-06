@@ -76,7 +76,6 @@ struct Verifier<P, Client, Block, CIDP> {
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
 }
 
-#[async_trait::async_trait]
 impl<P, Client, Block, CIDP> VerifierT<Block> for Verifier<P, Client, Block, CIDP>
 where
 	P: Pair,

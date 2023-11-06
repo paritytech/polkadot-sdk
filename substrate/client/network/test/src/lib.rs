@@ -111,7 +111,6 @@ impl PassThroughVerifier {
 }
 
 /// This `Verifier` accepts all data as valid.
-#[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for PassThroughVerifier {
 	async fn verify(
 		&mut self,
@@ -205,7 +204,6 @@ impl PeersClient {
 	}
 }
 
-#[async_trait::async_trait]
 impl BlockImport<Block> for PeersClient {
 	type Error = ConsensusError;
 
@@ -578,7 +576,6 @@ impl<I> BlockImportAdapter<I> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<I> BlockImport<Block> for BlockImportAdapter<I>
 where
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync,
@@ -606,7 +603,6 @@ struct VerifierAdapter<B: BlockT> {
 	failed_verifications: Arc<Mutex<HashMap<B::Hash, String>>>,
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for VerifierAdapter<B> {
 	async fn verify(
 		&mut self,
@@ -693,7 +689,6 @@ pub struct FullPeerConfig {
 	pub target_block: Option<<Block as BlockT>::Header>,
 }
 
-#[async_trait::async_trait]
 pub trait TestNetFactory: Default + Sized + Send {
 	type Verifier: 'static + Verifier<Block>;
 	type BlockImport: BlockImport<Block, Error = ConsensusError> + Clone + Send + Sync + 'static;
@@ -1147,7 +1142,6 @@ impl TestNetFactory for TestNet {
 
 pub struct ForceFinalized(PeersClient);
 
-#[async_trait::async_trait]
 impl JustificationImport<Block> for ForceFinalized {
 	type Error = ConsensusError;
 

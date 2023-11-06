@@ -86,7 +86,6 @@ mockall::mock! {
 mockall::mock! {
 	pub BlockDownloader<Block: BlockT> {}
 
-	#[async_trait::async_trait]
 	impl<Block: BlockT> BlockDownloaderT<Block> for BlockDownloader<Block> {
 		async fn download_blocks(
 			&self,

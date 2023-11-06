@@ -1753,7 +1753,6 @@ where
 /// NOTE: only use this implementation when you are sure there are NO consensus-level BlockImport
 /// objects. Otherwise, importing blocks directly into the client would be bypassing
 /// important verification work.
-#[async_trait::async_trait]
 impl<B, E, Block, RA> sc_consensus::BlockImport<Block> for &Client<B, E, Block, RA>
 where
 	B: backend::Backend<Block>,
@@ -1862,7 +1861,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, E, Block, RA> sc_consensus::BlockImport<Block> for Client<B, E, Block, RA>
 where
 	B: backend::Backend<Block>,

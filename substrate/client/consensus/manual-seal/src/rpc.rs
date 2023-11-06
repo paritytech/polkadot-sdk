@@ -24,7 +24,7 @@ use futures::{
 	SinkExt,
 };
 use jsonrpsee::{
-	core::{async_trait, Error as JsonRpseeError, RpcResult},
+	core::{Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
 };
 use sc_consensus::ImportedAux;
@@ -108,7 +108,6 @@ impl<Hash> ManualSeal<Hash> {
 	}
 }
 
-#[async_trait]
 impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 	async fn create_block(
 		&self,

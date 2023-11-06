@@ -24,7 +24,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 use codec::{Codec, Decode, Encode};
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::RpcResult,
 	proc_macros::rpc,
 	types::error::{CallError, ErrorObject},
 };
@@ -143,7 +143,6 @@ impl<C, B, S> Mmr<C, B, S> {
 	}
 }
 
-#[async_trait]
 impl<Client, Block, MmrHash, S> MmrApiServer<<Block as BlockT>::Hash, NumberFor<Block>, MmrHash>
 	for Mmr<Client, (Block, MmrHash), S>
 where

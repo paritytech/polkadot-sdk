@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use async_trait::async_trait;
 use polkadot_primitives::{
 	async_backing, runtime_api::ParachainHost, slashing, Block, BlockNumber, CandidateCommitments,
 	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
@@ -30,7 +29,6 @@ use sp_consensus_babe::{BabeApi, Epoch};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// Exposes all runtime calls that are used by the runtime API subsystem.
-#[async_trait]
 pub trait RuntimeApiSubsystemClient {
 	/// Parachain host API version
 	async fn api_version_parachain_host(&self, at: Hash) -> Result<Option<u32>, ApiError>;
@@ -277,7 +275,6 @@ impl<Client> DefaultSubsystemClient<Client> {
 	}
 }
 
-#[async_trait]
 impl<Client> RuntimeApiSubsystemClient for DefaultSubsystemClient<Client>
 where
 	Client: ProvideRuntimeApi<Block> + Send + Sync,

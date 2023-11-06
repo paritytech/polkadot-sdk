@@ -29,7 +29,7 @@ use std::sync::Arc;
 use crate::SubscriptionTaskExecutor;
 
 use jsonrpsee::{
-	core::{async_trait, server::rpc_module::SubscriptionSink, Error as JsonRpseeError, RpcResult},
+	core::{server::rpc_module::SubscriptionSink, Error as JsonRpseeError, RpcResult},
 	types::SubscriptionResult,
 };
 
@@ -54,7 +54,6 @@ use sp_blockchain::{HeaderBackend, HeaderMetadata};
 const STORAGE_KEYS_PAGED_MAX_COUNT: u32 = 1000;
 
 /// State backend API.
-#[async_trait]
 pub trait StateBackend<Block: BlockT, Client>: Send + Sync + 'static
 where
 	Block: BlockT + 'static,
@@ -201,7 +200,6 @@ pub struct State<Block, Client> {
 	deny_unsafe: DenyUnsafe,
 }
 
-#[async_trait]
 impl<Block, Client> StateApiServer<Block::Hash> for State<Block, Client>
 where
 	Block: BlockT + 'static,

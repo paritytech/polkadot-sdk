@@ -19,7 +19,7 @@
 //! Substrate statement store API.
 
 use codec::{Decode, Encode};
-use jsonrpsee::core::{async_trait, RpcResult};
+use jsonrpsee::core::RpcResult;
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::statement::{error::Error, StatementApiServer};
 use sc_rpc_api::DenyUnsafe;
@@ -43,7 +43,6 @@ impl StatementStore {
 	}
 }
 
-#[async_trait]
 impl StatementApiServer for StatementStore {
 	fn dump(&self) -> RpcResult<Vec<Bytes>> {
 		self.deny_unsafe.check_if_safe()?;

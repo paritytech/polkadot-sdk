@@ -25,7 +25,7 @@ use crate::{
 };
 
 use codec::Encode;
-use jsonrpsee::core::{async_trait, RpcResult};
+use jsonrpsee::core::RpcResult;
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, StorageProvider,
 };
@@ -76,7 +76,6 @@ fn parse_hex_param(param: String) -> Result<Vec<u8>, ArchiveError> {
 	array_bytes::hex2bytes(&param).map_err(|_| ArchiveError::InvalidParam(param))
 }
 
-#[async_trait]
 impl<BE, Block, Client> ArchiveApiServer<Block::Hash> for Archive<BE, Block, Client>
 where
 	Block: BlockT + 'static,

@@ -106,29 +106,11 @@ pub struct NetworkStatus {
 }
 
 /// Provides high-level status information about network.
-#[async_trait::async_trait]
 pub trait NetworkStatusProvider {
 	/// High-level network status information.
 	///
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	async fn status(&self) -> Result<NetworkStatus, ()>;
-}
-
-// Manual implementation to avoid extra boxing here
-impl<T> NetworkStatusProvider for Arc<T>
-where
-	T: ?Sized,
-	T: NetworkStatusProvider,
-{
-	fn status<'life0, 'async_trait>(
-		&'life0 self,
-	) -> Pin<Box<dyn Future<Output = Result<NetworkStatus, ()>> + Send + 'async_trait>>
-	where
-		'life0: 'async_trait,
-		Self: 'async_trait,
-	{
-		T::status(self)
-	}
 }
 
 /// Provides low-level API for manipulating network peers.
@@ -361,7 +343,6 @@ pub trait NotificationSenderReady {
 }
 
 /// A `NotificationSender` allows for sending notifications to a peer with a chosen protocol.
-#[async_trait::async_trait]
 pub trait NotificationSender: Send + Sync + 'static {
 	/// Returns a future that resolves when the `NotificationSender` is ready to send a
 	/// notification.
@@ -478,7 +459,7 @@ pub trait NetworkNotification {
 		&self,
 		target: PeerId,
 		protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError>;
+	) -> Result<impl NotificationSender, NotificationSenderError>;
 
 	/// Set handshake for the notification protocol.
 	fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>);
@@ -497,7 +478,7 @@ where
 		&self,
 		target: PeerId,
 		protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
+	) -> Result<impl NotificationSender, NotificationSenderError> {
 		T::notification_sender(self, target, protocol)
 	}
 
@@ -507,7 +488,6 @@ where
 }
 
 /// Provides ability to send network requests.
-#[async_trait::async_trait]
 pub trait NetworkRequest {
 	/// Sends a single targeted request to a specific peer. On success, returns the response of
 	/// the peer.
@@ -552,38 +532,6 @@ pub trait NetworkRequest {
 		tx: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
 		connect: IfDisconnected,
 	);
-}
-
-// Manual implementation to avoid extra boxing here
-impl<T> NetworkRequest for Arc<T>
-where
-	T: ?Sized,
-	T: NetworkRequest,
-{
-	fn request<'life0, 'async_trait>(
-		&'life0 self,
-		target: PeerId,
-		protocol: ProtocolName,
-		request: Vec<u8>,
-		connect: IfDisconnected,
-	) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, RequestFailure>> + Send + 'async_trait>>
-	where
-		'life0: 'async_trait,
-		Self: 'async_trait,
-	{
-		T::request(self, target, protocol, request, connect)
-	}
-
-	fn start_request(
-		&self,
-		target: PeerId,
-		protocol: ProtocolName,
-		request: Vec<u8>,
-		tx: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
-		connect: IfDisconnected,
-	) {
-		T::start_request(self, target, protocol, request, tx, connect)
-	}
 }
 
 /// Provides ability to announce blocks to the network.

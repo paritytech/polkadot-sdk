@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use async_trait::async_trait;
 use cumulus_primitives_core::relay_chain::BlockId;
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
@@ -76,7 +75,6 @@ impl DummyRelayChainInterface {
 	}
 }
 
-#[async_trait]
 impl RelayChainInterface for DummyRelayChainInterface {
 	async fn validators(&self, _: PHash) -> RelayChainResult<Vec<ValidatorId>> {
 		Ok(self.data.lock().validators.clone())

@@ -25,7 +25,6 @@ use std::sync::Arc;
 
 /// The serving side of the block relay protocol. It runs a single instance
 /// of the server task that processes the incoming protocol messages.
-#[async_trait::async_trait]
 pub trait BlockServer<Block: BlockT>: Send {
 	/// Starts the protocol processing.
 	async fn run(&mut self);
@@ -33,7 +32,6 @@ pub trait BlockServer<Block: BlockT>: Send {
 
 /// The client side stub to download blocks from peers. This is a handle
 /// that can be used to initiate concurrent downloads.
-#[async_trait::async_trait]
 pub trait BlockDownloader<Block: BlockT>: Send + Sync {
 	/// Performs the protocol specific sequence to fetch the blocks from the peer.
 	/// Output: if the download succeeds, the response is a `Vec<u8>` which is

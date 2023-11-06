@@ -16,7 +16,6 @@
 
 use crate::*;
 
-use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
@@ -89,7 +88,6 @@ impl Relaychain {
 	}
 }
 
-#[async_trait]
 impl RelayChainInterface for Relaychain {
 	async fn validators(&self, _: PHash) -> RelayChainResult<Vec<ValidatorId>> {
 		unimplemented!("Not needed for test")

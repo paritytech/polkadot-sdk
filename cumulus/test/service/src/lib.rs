@@ -94,7 +94,6 @@ const LOG_TARGET: &str = "cumulus-test-service";
 #[derive(Clone)]
 struct NullConsensus;
 
-#[async_trait::async_trait]
 impl ParachainConsensus<Block> for NullConsensus {
 	async fn produce_candidate(
 		&mut self,
@@ -153,7 +152,6 @@ impl FailingRecoveryHandle {
 	}
 }
 
-#[async_trait::async_trait]
 impl RecoveryHandle for FailingRecoveryHandle {
 	async fn send_recovery_msg(
 		&mut self,

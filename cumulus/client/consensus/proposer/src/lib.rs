@@ -19,8 +19,6 @@
 //!
 //! This utility is designed to be composed within any collator consensus algorithm.
 
-use async_trait::async_trait;
-
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use sp_consensus::{EnableProofRecording, Environment, Proposal, Proposer as SubstrateProposer};
 use sp_inherents::InherentData;
@@ -53,7 +51,6 @@ impl Error {
 pub type ProposalOf<B> = Proposal<B, StorageProof>;
 
 /// An interface for proposers.
-#[async_trait]
 pub trait ProposerInterface<Block: BlockT> {
 	/// Propose a collation using the supplied `InherentData` and the provided
 	/// `ParachainInherentData`.
@@ -92,7 +89,6 @@ impl<B, T> Proposer<B, T> {
 	}
 }
 
-#[async_trait]
 impl<B, T> ProposerInterface<B> for Proposer<B, T>
 where
 	B: sp_runtime::traits::Block,

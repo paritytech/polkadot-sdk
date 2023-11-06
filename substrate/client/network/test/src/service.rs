@@ -131,7 +131,6 @@ impl TestNetworkBuilder {
 		#[derive(Clone)]
 		struct PassThroughVerifier(bool);
 
-		#[async_trait::async_trait]
 		impl<B: BlockT> sc_consensus::Verifier<B> for PassThroughVerifier {
 			async fn verify(
 				&mut self,

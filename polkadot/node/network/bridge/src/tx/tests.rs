@@ -18,7 +18,6 @@ use super::*;
 use futures::{executor, stream::BoxStream};
 use polkadot_node_subsystem_util::TimeoutExt;
 
-use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::collections::HashSet;
 
@@ -87,7 +86,6 @@ fn new_test_network(
 	)
 }
 
-#[async_trait]
 impl Network for TestNetwork {
 	fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
 		self.net_events
@@ -148,7 +146,6 @@ impl Network for TestNetwork {
 	}
 }
 
-#[async_trait]
 impl validator_discovery::AuthorityDiscovery for TestAuthorityDiscovery {
 	async fn get_addresses_by_authority_id(
 		&mut self,

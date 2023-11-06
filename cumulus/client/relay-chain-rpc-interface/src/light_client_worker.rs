@@ -60,7 +60,6 @@ struct SimpleStringSender {
 	chain_id: ChainId,
 }
 
-#[async_trait::async_trait]
 impl TransportSenderT for SimpleStringSender {
 	type Error = LightClientError;
 
@@ -76,7 +75,6 @@ struct SimpleStringReceiver {
 	inner: JsonRpcResponses,
 }
 
-#[async_trait::async_trait]
 impl TransportReceiverT for SimpleStringReceiver {
 	type Error = LightClientError;
 

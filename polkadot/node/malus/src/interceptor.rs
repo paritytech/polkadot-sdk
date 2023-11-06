@@ -71,7 +71,6 @@ pub struct InterceptedSender<Sender, Fil> {
 	message_filter: Fil,
 }
 
-#[async_trait::async_trait]
 impl<OutgoingMessage, Sender, Fil> overseer::SubsystemSender<OutgoingMessage> for InterceptedSender<Sender, Fil>
 where
 	OutgoingMessage: overseer::AssociateOutgoing + Send + 'static + TryFrom<overseer::AllMessages>,
@@ -193,7 +192,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<Context, Fil> overseer::SubsystemContext for InterceptedContext<Context, Fil>
 where
 	Context: overseer::SubsystemContext<Error=SubsystemError,Signal=OverseerSignal>,

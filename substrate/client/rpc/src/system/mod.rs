@@ -23,7 +23,7 @@ mod tests;
 
 use futures::channel::oneshot;
 use jsonrpsee::{
-	core::{async_trait, error::Error as JsonRpseeError, JsonValue, RpcResult},
+	core::{error::Error as JsonRpseeError, JsonValue, RpcResult},
 	types::error::{CallError, ErrorCode, ErrorObject},
 };
 use sc_rpc_api::DenyUnsafe;
@@ -82,7 +82,6 @@ impl<B: traits::Block> System<B> {
 	}
 }
 
-#[async_trait]
 impl<B: traits::Block> SystemApiServer<B::Hash, <B::Header as HeaderT>::Number> for System<B> {
 	fn system_name(&self) -> RpcResult<String> {
 		Ok(self.info.impl_name.clone())

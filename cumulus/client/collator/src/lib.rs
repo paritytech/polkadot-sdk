@@ -333,7 +333,6 @@ pub fn start_collator_sync<Block, RA, BS, Spawner>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use async_trait::async_trait;
 	use cumulus_client_consensus_common::ParachainCandidate;
 	use cumulus_primitives_core::ParachainBlockData;
 	use cumulus_test_client::{
@@ -355,7 +354,6 @@ mod tests {
 
 	struct AlwaysSupportsParachains;
 
-	#[async_trait]
 	impl HeadSupportsParachains for AlwaysSupportsParachains {
 		async fn head_supports_parachains(&self, _head: &PHash) -> bool {
 			true
@@ -367,7 +365,6 @@ mod tests {
 		client: Arc<Client>,
 	}
 
-	#[async_trait::async_trait]
 	impl ParachainConsensus<Block> for DummyParachainConsensus {
 		async fn produce_candidate(
 			&mut self,

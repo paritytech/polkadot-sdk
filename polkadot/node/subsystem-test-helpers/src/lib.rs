@@ -150,7 +150,6 @@ pub fn sender_receiver() -> (TestSubsystemSender, mpsc::UnboundedReceiver<AllMes
 	(TestSubsystemSender { tx }, rx)
 }
 
-#[async_trait::async_trait]
 impl<OutgoingMessage> overseer::SubsystemSender<OutgoingMessage> for TestSubsystemSender
 where
 	AllMessages: From<OutgoingMessage>,
@@ -189,7 +188,6 @@ pub struct TestSubsystemContext<M, S> {
 	spawn: S,
 }
 
-#[async_trait::async_trait]
 impl<M, Spawner> overseer::SubsystemContext for TestSubsystemContext<M, Spawner>
 where
 	M: overseer::AssociateOutgoing + std::fmt::Debug + Send + 'static,

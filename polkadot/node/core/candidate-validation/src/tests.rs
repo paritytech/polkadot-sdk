@@ -361,7 +361,6 @@ impl MockValidateCandidateBackend {
 	}
 }
 
-#[async_trait]
 impl ValidationBackend for MockValidateCandidateBackend {
 	async fn validate_candidate(
 		&mut self,
@@ -1021,7 +1020,6 @@ impl MockPreCheckBackend {
 	}
 }
 
-#[async_trait]
 impl ValidationBackend for MockPreCheckBackend {
 	async fn validate_candidate(
 		&mut self,

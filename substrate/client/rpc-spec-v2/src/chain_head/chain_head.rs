@@ -36,7 +36,7 @@ use crate::{
 use codec::Encode;
 use futures::future::FutureExt;
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::RpcResult,
 	types::{SubscriptionEmptyError, SubscriptionId, SubscriptionResult},
 	SubscriptionSink,
 };
@@ -179,7 +179,6 @@ fn parse_hex_param(param: String) -> Result<Vec<u8>, ChainHeadRpcError> {
 	}
 }
 
-#[async_trait]
 impl<BE, Block, Client> ChainHeadApiServer<Block::Hash> for ChainHead<BE, Block, Client>
 where
 	Block: BlockT + 'static,

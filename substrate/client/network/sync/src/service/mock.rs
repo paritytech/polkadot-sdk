@@ -107,7 +107,6 @@ mockall::mock! {
 		fn sync_num_connected(&self) -> usize;
 	}
 
-	#[async_trait::async_trait]
 	impl NetworkRequest for Network {
 		async fn request(
 			&self,

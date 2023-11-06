@@ -43,7 +43,6 @@ impl<Client, Block, CIDP> Verifier<Client, Block, CIDP> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<Client, Block, CIDP> VerifierT<Block> for Verifier<Client, Block, CIDP>
 where
 	Block: BlockT,

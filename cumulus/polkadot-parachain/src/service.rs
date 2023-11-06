@@ -1173,7 +1173,6 @@ impl<Client, AuraId> Clone for WaitForAuraConsensus<Client, AuraId> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<Client, AuraId> ParachainConsensus<Block> for WaitForAuraConsensus<Client, AuraId>
 where
 	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,
@@ -1215,7 +1214,6 @@ struct Verifier<Client, AuraId> {
 	_phantom: PhantomData<AuraId>,
 }
 
-#[async_trait::async_trait]
 impl<Client, AuraId> VerifierT<Block> for Verifier<Client, AuraId>
 where
 	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,

@@ -89,7 +89,6 @@ impl<B: BlockT, C> BabeVerifier<B, C> {
 }
 
 /// The verifier for the manual seal engine; instantly finalizes.
-#[async_trait::async_trait]
 impl<B, C> Verifier<B> for BabeVerifier<B, C>
 where
 	B: BlockT,

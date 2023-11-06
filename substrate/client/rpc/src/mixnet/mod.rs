@@ -18,7 +18,7 @@
 
 //! Substrate mixnet API.
 
-use jsonrpsee::core::{async_trait, RpcResult};
+use jsonrpsee::core::RpcResult;
 use sc_mixnet::Api;
 use sc_rpc_api::mixnet::error::Error;
 pub use sc_rpc_api::mixnet::MixnetApiServer;
@@ -34,7 +34,6 @@ impl Mixnet {
 	}
 }
 
-#[async_trait]
 impl MixnetApiServer for Mixnet {
 	async fn submit_extrinsic(&self, extrinsic: Bytes) -> RpcResult<()> {
 		// We only hold the lock while pushing the request into the requests channel

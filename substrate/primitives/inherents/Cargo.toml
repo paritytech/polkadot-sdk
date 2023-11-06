@@ -14,7 +14,6 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = { version = "0.1.57", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
@@ -28,7 +27,6 @@ futures = "0.3.21"
 [features]
 default = [ "std" ]
 std = [
-	"async-trait",
 	"codec/std",
 	"scale-info/std",
 	"sp-runtime/std",

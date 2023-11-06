@@ -82,7 +82,6 @@ const LOG_TARGET: &str = "cumulus-pov-recovery";
 
 /// Test-friendly wrapper trait for the overseer handle.
 /// Can be used to simulate failing recovery requests.
-#[async_trait::async_trait]
 pub trait RecoveryHandle: Send {
 	async fn send_recovery_msg(
 		&mut self,
@@ -91,7 +90,6 @@ pub trait RecoveryHandle: Send {
 	);
 }
 
-#[async_trait::async_trait]
 impl RecoveryHandle for OverseerHandle {
 	async fn send_recovery_msg(
 		&mut self,

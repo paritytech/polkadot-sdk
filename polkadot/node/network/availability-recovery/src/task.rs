@@ -58,7 +58,6 @@ const TIMEOUT_START_NEW_REQUESTS: Duration = CHUNK_REQUEST_TIMEOUT;
 #[cfg(test)]
 const TIMEOUT_START_NEW_REQUESTS: Duration = Duration::from_millis(100);
 
-#[async_trait::async_trait]
 /// Common trait for runnable recovery strategies.
 pub trait RecoveryStrategy<Sender: overseer::AvailabilityRecoverySenderTrait>: Send {
 	/// Main entry point of the strategy.
@@ -465,7 +464,6 @@ impl FetchFull {
 	}
 }
 
-#[async_trait::async_trait]
 impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender> for FetchFull {
 	fn display_name(&self) -> &'static str {
 		"Full recovery from backers"
@@ -699,7 +697,6 @@ impl FetchChunks {
 	}
 }
 
-#[async_trait::async_trait]
 impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender> for FetchChunks {
 	fn display_name(&self) -> &'static str {
 		"Fetch chunks"

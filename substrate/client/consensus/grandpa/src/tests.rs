@@ -20,7 +20,6 @@
 
 use super::*;
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use environment::HasVoted;
 use futures_timer::Delay;
 use parking_lot::{Mutex, RwLock};
@@ -230,7 +229,6 @@ impl MockSelectChain {
 	}
 }
 
-#[async_trait]
 impl SelectChain<Block> for MockSelectChain {
 	async fn leaves(&self) -> Result<Vec<Hash>, ConsensusError> {
 		Ok(self.leaves.lock().take().unwrap())

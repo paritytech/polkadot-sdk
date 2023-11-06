@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -64,7 +63,6 @@ impl RelayChainRpcInterface {
 	}
 }
 
-#[async_trait]
 impl RelayChainInterface for RelayChainRpcInterface {
 	async fn retrieve_dmq_contents(
 		&self,

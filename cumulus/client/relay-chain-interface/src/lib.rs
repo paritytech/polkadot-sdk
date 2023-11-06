@@ -21,7 +21,6 @@ use sc_client_api::StorageProof;
 
 use futures::Stream;
 
-use async_trait::async_trait;
 use jsonrpsee_core::Error as JsonRpcError;
 use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
@@ -96,7 +95,6 @@ impl<T: std::error::Error + Send + Sync + 'static> From<Box<T>> for RelayChainEr
 }
 
 /// Trait that provides all necessary methods for interaction between collator and relay chain.
-#[async_trait]
 pub trait RelayChainInterface: Send + Sync {
 	/// Fetch a storage item by key.
 	async fn get_storage_by_key(
@@ -196,7 +194,6 @@ pub trait RelayChainInterface: Send + Sync {
 	) -> RelayChainResult<StorageProof>;
 }
 
-#[async_trait]
 impl<T> RelayChainInterface for Arc<T>
 where
 	T: RelayChainInterface + ?Sized,

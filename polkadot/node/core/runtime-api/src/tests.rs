@@ -58,7 +58,6 @@ struct MockSubsystemClient {
 	candidate_events: Vec<CandidateEvent>,
 }
 
-#[async_trait::async_trait]
 impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn api_version_parachain_host(&self, _: Hash) -> Result<Option<u32>, ApiError> {
 		Ok(Some(5))

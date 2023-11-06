@@ -22,7 +22,7 @@
 mod tests;
 
 use self::error::Error;
-use jsonrpsee::core::{async_trait, Error as JsonRpseeError, RpcResult};
+use jsonrpsee::core::{Error as JsonRpseeError, RpcResult};
 use parking_lot::RwLock;
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::offchain::*;
@@ -48,7 +48,6 @@ impl<T: OffchainStorage> Offchain<T> {
 	}
 }
 
-#[async_trait]
 impl<T: OffchainStorage + 'static> OffchainApiServer for Offchain<T> {
 	fn set_local_storage(&self, kind: StorageKind, key: Bytes, value: Bytes) -> RpcResult<()> {
 		self.deny_unsafe.check_if_safe()?;

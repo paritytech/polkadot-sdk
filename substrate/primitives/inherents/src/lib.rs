@@ -54,7 +54,6 @@
 //! /// Some custom inherent data provider
 //! struct InherentDataProvider;
 //!
-//! #[async_trait::async_trait]
 //! impl sp_inherents::InherentDataProvider for InherentDataProvider {
 //! 	async fn provide_inherent_data(
 //! 		&self,
@@ -104,7 +103,6 @@
 //! # type Block = sp_runtime::testing::Block<ExtrinsicWrapper<()>>;
 //! # const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh0";
 //! # struct InherentDataProvider;
-//! # #[async_trait::async_trait]
 //! # impl sp_inherents::InherentDataProvider for InherentDataProvider {
 //! # 	async fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), sp_inherents::Error> {
 //! # 		inherent_data.put_data(INHERENT_IDENTIFIER, &"hello")
@@ -441,7 +439,6 @@ mod tests {
 
 	const ERROR_TO_STRING: &str = "Found error!";
 
-	#[async_trait::async_trait]
 	impl InherentDataProvider for TestInherentDataProvider {
 		async fn provide_inherent_data(&self, data: &mut InherentData) -> Result<(), Error> {
 			data.put_data(TEST_INHERENT_0, &42)

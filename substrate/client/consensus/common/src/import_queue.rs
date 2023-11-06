@@ -92,7 +92,6 @@ pub struct IncomingBlock<B: BlockT> {
 }
 
 /// Verify a justification of a block
-#[async_trait::async_trait]
 pub trait Verifier<B: BlockT>: Send {
 	/// Verify the given block data and return the `BlockImportParams` to
 	/// continue the block import process.
@@ -117,7 +116,6 @@ pub trait ImportQueueService<B: BlockT>: Send {
 	);
 }
 
-#[async_trait::async_trait]
 pub trait ImportQueue<B: BlockT>: Send {
 	/// Get a copy of the handle to [`ImportQueueService`].
 	fn service(&self) -> Box<dyn ImportQueueService<B>>;

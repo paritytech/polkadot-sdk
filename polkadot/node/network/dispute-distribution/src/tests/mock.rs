@@ -17,14 +17,12 @@
 
 //! Mock data and utility functions for unit tests in this subsystem.
 
+use lazy_static::lazy_static;
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
 	time::Instant,
 };
-
-use async_trait::async_trait;
-use lazy_static::lazy_static;
 
 use polkadot_node_network_protocol::{authority_discovery::AuthorityDiscovery, PeerId};
 use sc_keystore::LocalKeystore;
@@ -203,7 +201,6 @@ impl MockAuthorityDiscovery {
 	}
 }
 
-#[async_trait]
 impl AuthorityDiscovery for MockAuthorityDiscovery {
 	async fn get_addresses_by_authority_id(
 		&mut self,

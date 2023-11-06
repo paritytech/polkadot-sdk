@@ -21,7 +21,6 @@ use polkadot_node_network_protocol::{self as net_protocol, OurView};
 use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::{
 	collections::HashSet,
@@ -100,7 +99,6 @@ fn new_test_network(
 	)
 }
 
-#[async_trait]
 impl Network for TestNetwork {
 	fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
 		self.net_events
@@ -161,7 +159,6 @@ impl Network for TestNetwork {
 	}
 }
 
-#[async_trait]
 impl validator_discovery::AuthorityDiscovery for TestAuthorityDiscovery {
 	async fn get_addresses_by_authority_id(
 		&mut self,

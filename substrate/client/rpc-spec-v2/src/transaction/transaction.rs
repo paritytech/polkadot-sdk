@@ -30,7 +30,6 @@ use crate::{
 	SubscriptionTaskExecutor,
 };
 use jsonrpsee::{
-	core::async_trait,
 	types::{
 		error::{CallError, ErrorObject},
 		SubscriptionResult,
@@ -82,7 +81,6 @@ const TX_SOURCE: TransactionSource = TransactionSource::External;
 /// This is similar to the old `author` API error code.
 const BAD_FORMAT: i32 = 1001;
 
-#[async_trait]
 impl<Pool, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
 where
 	Pool: TransactionPool + Sync + Send + 'static,

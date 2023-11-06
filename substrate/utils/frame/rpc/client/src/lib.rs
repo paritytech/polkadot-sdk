@@ -37,7 +37,6 @@
 //! }
 //! ```
 
-use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::collections::VecDeque;
@@ -71,7 +70,6 @@ pub async fn ws_client(uri: impl AsRef<str>) -> Result<WsClient, String> {
 }
 
 /// Abstraction over RPC calling for headers.
-#[async_trait]
 pub trait HeaderProvider<Block: BlockT>
 where
 	Block::Header: HeaderT,
@@ -80,7 +78,6 @@ where
 	async fn get_header(&self, hash: Block::Hash) -> Block::Header;
 }
 
-#[async_trait]
 impl<Block: BlockT> HeaderProvider<Block> for WsClient
 where
 	Block::Header: DeserializeOwned,
@@ -94,7 +91,6 @@ where
 }
 
 /// Abstraction over RPC subscription for finalized headers.
-#[async_trait]
 pub trait HeaderSubscription<Block: BlockT>
 where
 	Block::Header: HeaderT,
@@ -106,7 +102,6 @@ where
 	async fn next_header(&mut self) -> Option<Block::Header>;
 }
 
-#[async_trait]
 impl<Block: BlockT> HeaderSubscription<Block> for Subscription<Block::Header>
 where
 	Block::Header: DeserializeOwned,
@@ -219,7 +214,6 @@ mod tests {
 		headers
 	}
 
-	#[async_trait]
 	impl HeaderProvider<Block> for MockHeaderProvider {
 		async fn get_header(&self, _hash: Hash) -> Header {
 			let height = self.0.lock().await.pop_front().unwrap();
@@ -229,7 +223,6 @@ mod tests {
 
 	struct MockHeaderSubscription(pub VecDeque<BlockNumber>);
 
-	#[async_trait]
 	impl HeaderSubscription<Block> for MockHeaderSubscription {
 		async fn next_header(&mut self) -> Option<Header> {
 			self.0.pop_front().map(|h| headers()[h as usize].clone())

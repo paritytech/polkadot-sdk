@@ -21,7 +21,7 @@ use std::{fmt::Display, sync::Arc};
 
 use codec::{self, Codec, Decode, Encode};
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::RpcResult,
 	proc_macros::rpc,
 	types::error::{CallError, ErrorObject},
 };
@@ -84,7 +84,6 @@ impl<P: TransactionPool, C, B> System<P, C, B> {
 	}
 }
 
-#[async_trait]
 impl<P, C, Block, AccountId, Nonce>
 	SystemApiServer<<Block as traits::Block>::Hash, AccountId, Nonce> for System<P, C, Block>
 where

@@ -34,7 +34,6 @@ use sp_timestamp::TimestampInherentData;
 ///
 /// This module already provides some convenience implementation of this trait for closures. So, it
 /// should not be required to implement it directly.
-#[async_trait::async_trait]
 pub trait BlockBuildingInfoProvider<Block: BlockT, ExtraArgs = ()> {
 	type InherentDataProviders: InherentDataProvider;
 
@@ -45,7 +44,6 @@ pub trait BlockBuildingInfoProvider<Block: BlockT, ExtraArgs = ()> {
 	) -> Result<(Self::InherentDataProviders, Vec<DigestItem>)>;
 }
 
-#[async_trait::async_trait]
 impl<F, Block, IDP, ExtraArgs, Fut> BlockBuildingInfoProvider<Block, ExtraArgs> for F
 where
 	Block: BlockT,

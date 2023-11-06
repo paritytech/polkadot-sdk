@@ -310,7 +310,6 @@ impl std::fmt::Display for RpcTransactionError {
 }
 
 /// An extension trait for `RpcHandlers`.
-#[async_trait::async_trait]
 pub trait RpcHandlersExt {
 	/// Send a transaction through the RpcHandlers.
 	async fn send_transaction(
@@ -319,7 +318,6 @@ pub trait RpcHandlersExt {
 	) -> Result<RpcTransactionOutput, RpcTransactionError>;
 }
 
-#[async_trait::async_trait]
 impl RpcHandlersExt for RpcHandlers {
 	async fn send_transaction(
 		&self,

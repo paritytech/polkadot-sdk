@@ -87,7 +87,6 @@ impl<Backend, Block: BlockT, Client, SC: Clone> Clone
 	}
 }
 
-#[async_trait::async_trait]
 impl<BE, Block: BlockT, Client, SC> JustificationImport<Block>
 	for GrandpaBlockImport<BE, Block, Client, SC>
 where
@@ -507,7 +506,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<BE, Block: BlockT, Client, SC> BlockImport<Block> for GrandpaBlockImport<BE, Block, Client, SC>
 where
 	NumberFor<Block>: finality_grandpa::BlockNumberOps,

@@ -150,7 +150,6 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 
 /// Wrapper for [`AuthorityDiscoveryApi`](sp_authority_discovery::AuthorityDiscoveryApi). Can be
 /// be implemented by any struct without dependency on the runtime.
-#[async_trait::async_trait]
 pub trait AuthorityDiscovery<Block: BlockT> {
 	/// Retrieve authority identifiers of the current and next authority set.
 	async fn authorities(&self, at: Block::Hash)
@@ -160,7 +159,6 @@ pub trait AuthorityDiscovery<Block: BlockT> {
 	async fn best_hash(&self) -> std::result::Result<Block::Hash, Error>;
 }
 
-#[async_trait::async_trait]
 impl<Block, T> AuthorityDiscovery<Block> for T
 where
 	T: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync,

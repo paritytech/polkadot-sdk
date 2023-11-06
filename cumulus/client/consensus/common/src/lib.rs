@@ -77,7 +77,6 @@ pub struct ParachainCandidate<B> {
 /// decide if this specific collator should build a candidate for the given relay chain block. The
 /// consensus implementation could, for example, check whether this specific collator is part of a
 /// staked set.
-#[async_trait::async_trait]
 pub trait ParachainConsensus<B: BlockT>: Send + Sync + dyn_clone::DynClone {
 	/// Produce a new candidate at the given parent block and relay-parent blocks.
 	///
@@ -97,7 +96,6 @@ pub trait ParachainConsensus<B: BlockT>: Send + Sync + dyn_clone::DynClone {
 
 dyn_clone::clone_trait_object!(<B> ParachainConsensus<B> where B: BlockT);
 
-#[async_trait::async_trait]
 impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send + Sync> {
 	async fn produce_candidate(
 		&mut self,
@@ -151,7 +149,6 @@ impl<Block: BlockT, I: Clone, BE> Clone for ParachainBlockImport<Block, I, BE> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<Block, BI, BE> BlockImport<Block> for ParachainBlockImport<Block, BI, BE>
 where
 	Block: BlockT,

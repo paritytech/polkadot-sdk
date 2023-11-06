@@ -140,7 +140,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, PF, BI, RCInterface, CIDP> ParachainConsensus<B>
 	for RelayChainConsensus<B, PF, BI, RCInterface, CIDP>
 where

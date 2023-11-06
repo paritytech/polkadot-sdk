@@ -191,7 +191,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, CIDP, W> ParachainConsensus<B> for AuraConsensus<B, CIDP, W>
 where
 	B: BlockT,

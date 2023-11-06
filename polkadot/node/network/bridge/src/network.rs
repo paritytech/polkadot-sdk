@@ -14,10 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, sync::Arc};
-
-use async_trait::async_trait;
 use futures::{prelude::*, stream::BoxStream};
+use std::{collections::HashSet, sync::Arc};
 
 use parity_scale_codec::Encode;
 
@@ -83,7 +81,6 @@ pub(crate) fn send_message<M>(
 }
 
 /// An abstraction over networking for the purposes of this subsystem.
-#[async_trait]
 pub trait Network: Clone + Send + 'static {
 	/// Get a stream of all events occurring on the network. This may include events unrelated
 	/// to the Polkadot protocol - the user of this function should filter only for events related
@@ -126,7 +123,6 @@ pub trait Network: Clone + Send + 'static {
 	fn write_notification(&self, who: PeerId, protocol: ProtocolName, message: Vec<u8>);
 }
 
-#[async_trait]
 impl Network for Arc<NetworkService<Block, Hash>> {
 	fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
 		NetworkService::event_stream(self, "polkadot-network-bridge").boxed()

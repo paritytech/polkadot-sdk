@@ -36,7 +36,6 @@ mockall::mock! {
 mockall::mock! {
 	pub ImportQueue<B: BlockT> {}
 
-	#[async_trait::async_trait]
 	impl<B: BlockT> ImportQueue<B> for ImportQueue<B> {
 		fn service(&self) -> Box<dyn ImportQueueService<B>>;
 		fn service_ref(&mut self) -> &mut dyn ImportQueueService<B>;

@@ -28,7 +28,7 @@ use crate::SubscriptionTaskExecutor;
 use codec::{Decode, Encode};
 use futures::{FutureExt, TryFutureExt};
 use jsonrpsee::{
-	core::{async_trait, Error as JsonRpseeError, RpcResult},
+	core::{Error as JsonRpseeError, RpcResult},
 	types::SubscriptionResult,
 	SubscriptionSink,
 };
@@ -82,7 +82,6 @@ impl<P, Client> Author<P, Client> {
 /// some unique transactions via RPC and have them included in the pool.
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
-#[async_trait]
 impl<P, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
 where
 	P: TransactionPool + Sync + Send + 'static,

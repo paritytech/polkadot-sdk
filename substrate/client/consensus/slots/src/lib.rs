@@ -68,7 +68,6 @@ pub struct SlotResult<Block: BlockT, Proof> {
 ///
 /// The implementation should not make any assumptions of the slot being bound to the time or
 /// similar. The only valid assumption is that the slot number is always increasing.
-#[async_trait::async_trait]
 pub trait SlotWorker<B: BlockT, Proof> {
 	/// Called when a new slot is triggered.
 	///
@@ -80,7 +79,6 @@ pub trait SlotWorker<B: BlockT, Proof> {
 /// A skeleton implementation for `SlotWorker` which tries to claim a slot at
 /// its beginning and tries to produce a block if successfully claimed, timing
 /// out if block production takes too long.
-#[async_trait::async_trait]
 pub trait SimpleSlotWorker<B: BlockT> {
 	/// A handle to a `BlockImport`.
 	type BlockImport: BlockImport<B> + Send + 'static;
@@ -455,7 +453,6 @@ pub trait SimpleSlotWorker<B: BlockT> {
 /// that would prevent downstream users to implement [`SlotWorker`] for their own types.
 pub struct SimpleSlotWorkerToSlotWorker<T>(pub T);
 
-#[async_trait::async_trait]
 impl<T: SimpleSlotWorker<B> + Send + Sync, B: BlockT>
 	SlotWorker<B, <T::Proposer as Proposer<B>>::Proof> for SimpleSlotWorkerToSlotWorker<T>
 {

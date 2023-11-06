@@ -168,7 +168,6 @@ mod tests {
 	use super::*;
 	use crate::network::Network;
 
-	use async_trait::async_trait;
 	use futures::stream::BoxStream;
 	use polkadot_node_network_protocol::{
 		request_response::{outgoing::Requests, ReqProtocolNames},
@@ -222,7 +221,6 @@ mod tests {
 		}
 	}
 
-	#[async_trait]
 	impl Network for TestNetwork {
 		fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
 			panic!()
@@ -268,7 +266,6 @@ mod tests {
 		}
 	}
 
-	#[async_trait]
 	impl AuthorityDiscovery for TestAuthorityDiscovery {
 		async fn get_addresses_by_authority_id(
 			&mut self,

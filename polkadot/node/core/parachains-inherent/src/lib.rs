@@ -124,7 +124,6 @@ impl<C: sp_blockchain::HeaderBackend<Block>> ParachainsInherentDataProvider<C> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<C: sp_blockchain::HeaderBackend<Block>> sp_inherents::InherentDataProvider
 	for ParachainsInherentDataProvider<C>
 {

@@ -19,7 +19,6 @@
 use std::{collections::HashSet, time::Duration};
 
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use futures::{executor, future, Future};
 use lazy_static::lazy_static;
 
@@ -113,7 +112,6 @@ impl MockAuthorityDiscovery {
 	}
 }
 
-#[async_trait]
 impl AuthorityDiscovery for MockAuthorityDiscovery {
 	async fn get_addresses_by_authority_id(
 		&mut self,

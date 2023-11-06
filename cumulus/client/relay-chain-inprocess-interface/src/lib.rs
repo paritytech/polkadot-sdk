@@ -16,7 +16,6 @@
 
 use std::{pin::Pin, sync::Arc, time::Duration};
 
-use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
 		runtime_api::ParachainHost, Block as PBlock, BlockId, CommittedCandidateReceipt,
@@ -66,7 +65,6 @@ impl RelayChainInProcessInterface {
 	}
 }
 
-#[async_trait]
 impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn retrieve_dmq_contents(
 		&self,

@@ -132,7 +132,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, Block> SelectChain<Block> for LongestChain<B, Block>
 where
 	B: backend::Backend<Block>,

@@ -297,7 +297,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, I, C, S, Algorithm, CIDP> BlockImport<B> for PowBlockImport<B, I, C, S, Algorithm, CIDP>
 where
 	B: BlockT,
@@ -435,7 +434,6 @@ impl<B: BlockT, Algorithm> PowVerifier<B, Algorithm> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT, Algorithm> Verifier<B> for PowVerifier<B, Algorithm>
 where
 	Algorithm: PowAlgorithm<B> + Send + Sync,

@@ -148,7 +148,6 @@ impl MockXcmConfig {
 	}
 }
 
-#[async_trait::async_trait]
 impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 	for MockValidationDataInherentDataProvider<R>
 {

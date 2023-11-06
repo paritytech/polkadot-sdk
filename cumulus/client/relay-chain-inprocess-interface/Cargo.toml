@@ -5,7 +5,6 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-async-trait = "0.1.73"
 futures = "0.3.28"
 futures-timer = "3.0.2"
 

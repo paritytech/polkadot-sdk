@@ -53,7 +53,6 @@ impl BlockChainRpcClient {
 	}
 }
 
-#[async_trait::async_trait]
 impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn validators(
 		&self,
@@ -366,7 +365,6 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	}
 }
 
-#[async_trait::async_trait]
 impl AuthorityDiscovery<Block> for BlockChainRpcClient {
 	async fn authorities(
 		&self,

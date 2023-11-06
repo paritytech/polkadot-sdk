@@ -28,7 +28,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use futures::{task::SpawnError, FutureExt, StreamExt};
 use jsonrpsee::{
-	core::{async_trait, Error as JsonRpseeError, RpcResult},
+	core::{Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
 	types::{error::CallError, ErrorObject, SubscriptionResult},
 	SubscriptionSink,
@@ -132,7 +132,6 @@ where
 	}
 }
 
-#[async_trait]
 impl<Block> BeefyApiServer<notification::EncodedVersionedFinalityProof, Block::Hash>
 	for Beefy<Block>
 where

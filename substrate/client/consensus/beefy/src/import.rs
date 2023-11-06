@@ -113,7 +113,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<Block, BE, Runtime, I> BlockImport<Block> for BeefyBlockImport<Block, BE, Runtime, I>
 where
 	Block: BlockT,

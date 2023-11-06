@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use async_trait::async_trait;
 use futures::{executor, pending, pin_mut, poll, select, stream, FutureExt};
 use std::{collections::HashMap, sync::atomic, task::Poll};
 
@@ -147,7 +146,6 @@ where
 
 struct MockSupportsParachains;
 
-#[async_trait]
 impl HeadSupportsParachains for MockSupportsParachains {
 	async fn head_supports_parachains(&self, _head: &Hash) -> bool {
 		true

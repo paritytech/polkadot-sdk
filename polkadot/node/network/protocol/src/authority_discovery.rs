@@ -18,8 +18,6 @@
 
 use std::{collections::HashSet, fmt::Debug};
 
-use async_trait::async_trait;
-
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 
 use polkadot_primitives::AuthorityDiscoveryId;
@@ -28,7 +26,6 @@ use sc_network::{Multiaddr, PeerId};
 /// An abstraction over the authority discovery service.
 ///
 /// Needed for mocking in tests mostly.
-#[async_trait]
 pub trait AuthorityDiscovery: Send + Debug + 'static {
 	/// Get the addresses for the given [`AuthorityDiscoveryId`] from the local address cache.
 	async fn get_addresses_by_authority_id(
@@ -42,7 +39,6 @@ pub trait AuthorityDiscovery: Send + Debug + 'static {
 	) -> Option<HashSet<AuthorityDiscoveryId>>;
 }
 
-#[async_trait]
 impl AuthorityDiscovery for AuthorityDiscoveryService {
 	async fn get_addresses_by_authority_id(
 		&mut self,

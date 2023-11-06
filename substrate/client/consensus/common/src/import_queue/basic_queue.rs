@@ -162,7 +162,6 @@ impl<B: BlockT> ImportQueueService<B> for BasicQueueHandle<B> {
 	}
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	/// Get handle to [`ImportQueueService`].
 	fn service(&self) -> Box<dyn ImportQueueService<B>> {
@@ -507,7 +506,6 @@ mod tests {
 	use futures::{executor::block_on, Future};
 	use sp_test_primitives::{Block, BlockNumber, Hash, Header};
 
-	#[async_trait::async_trait]
 	impl Verifier<Block> for () {
 		async fn verify(
 			&mut self,
@@ -517,7 +515,6 @@ mod tests {
 		}
 	}
 
-	#[async_trait::async_trait]
 	impl BlockImport<Block> for () {
 		type Error = sp_consensus::Error;
 
@@ -536,7 +533,6 @@ mod tests {
 		}
 	}
 
-	#[async_trait::async_trait]
 	impl JustificationImport<Block> for () {
 		type Error = sp_consensus::Error;
 

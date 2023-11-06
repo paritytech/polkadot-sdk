@@ -460,7 +460,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B, Client> BlockServer<B> for BlockRequestHandler<B, Client>
 where
 	B: BlockT,
@@ -562,7 +561,6 @@ impl FullBlockDownloader {
 	}
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
 	async fn download_blocks(
 		&self,

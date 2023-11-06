@@ -63,8 +63,6 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use async_trait::async_trait;
-
 mod metrics;
 use self::metrics::Metrics;
 
@@ -691,7 +689,6 @@ async fn validate_candidate_exhaustive(
 	}
 }
 
-#[async_trait]
 trait ValidationBackend {
 	/// Tries executing a PVF a single time (no retries).
 	async fn validate_candidate(
@@ -788,7 +785,6 @@ trait ValidationBackend {
 	async fn precheck_pvf(&mut self, pvf: PvfPrepData) -> Result<PrepareStats, PrepareError>;
 }
 
-#[async_trait]
 impl ValidationBackend for ValidationHost {
 	/// Tries executing a PVF a single time (no retries).
 	async fn validate_candidate(

@@ -136,7 +136,6 @@ impl SlotTimestampProvider {
 	}
 }
 
-#[async_trait::async_trait]
 impl InherentDataProvider for SlotTimestampProvider {
 	async fn provide_inherent_data(
 		&self,

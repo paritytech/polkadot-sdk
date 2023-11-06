@@ -21,7 +21,6 @@
 
 pub mod error;
 
-use async_trait::async_trait;
 use codec::Codec;
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -322,7 +321,6 @@ impl<B: BlockT> ChainEvent<B> {
 }
 
 /// Trait for transaction pool maintenance.
-#[async_trait]
 pub trait MaintainedTransactionPool: TransactionPool {
 	/// Perform maintenance
 	async fn maintain(&self, event: ChainEvent<Self::Block>);

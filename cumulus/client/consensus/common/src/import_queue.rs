@@ -47,7 +47,6 @@ use crate::ParachainBlockImportMarker;
 /// This should only be used when the runtime is responsible for checking block seals and inherents.
 pub struct VerifyNothing;
 
-#[async_trait::async_trait]
 impl<Block: BlockT> Verifier<Block> for VerifyNothing {
 	async fn verify(
 		&mut self,

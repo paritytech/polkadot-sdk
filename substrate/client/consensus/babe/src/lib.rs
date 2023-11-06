@@ -713,7 +713,6 @@ struct BabeSlotWorker<B: BlockT, C, E, I, SO, L, BS> {
 	telemetry: Option<TelemetryHandle>,
 }
 
-#[async_trait::async_trait]
 impl<B, C, E, I, Error, SO, L, BS> sc_consensus_slots::SimpleSlotWorker<B>
 	for BabeSlotWorker<B, C, E, I, SO, L, BS>
 where
@@ -1110,7 +1109,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<Block, Client, SelectChain, CIDP> Verifier<Block>
 	for BabeVerifier<Block, Client, SelectChain, CIDP>
 where
@@ -1387,7 +1385,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<Block, Client, Inner> BlockImport<Block> for BabeBlockImport<Block, Client, Inner>
 where
 	Block: BlockT,

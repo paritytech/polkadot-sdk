@@ -32,7 +32,6 @@ sp-application-crypto = { path = "../../../../substrate/primitives/application-c
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 [dev-dependencies]
-async-trait = "0.1.57"
 parking_lot = "0.12.0"
 rand_core = "0.5.1" #                                                                       should match schnorrkel
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }

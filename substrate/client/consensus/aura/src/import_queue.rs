@@ -162,7 +162,6 @@ where
 	}
 }
 
-#[async_trait::async_trait]
 impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
 where
 	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,

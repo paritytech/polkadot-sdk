@@ -32,7 +32,6 @@ mod revalidation;
 mod tests;
 
 pub use crate::api::FullChainApi;
-use async_trait::async_trait;
 use enactment_state::{EnactmentAction, EnactmentState};
 use futures::{
 	channel::oneshot,
@@ -720,7 +719,6 @@ where
 	}
 }
 
-#[async_trait]
 impl<PoolApi, Block> MaintainedTransactionPool for BasicPool<PoolApi, Block>
 where
 	Block: BlockT,
