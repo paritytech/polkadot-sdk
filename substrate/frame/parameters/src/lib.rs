@@ -99,8 +99,7 @@ use frame_system::pallet_prelude::*;
 
 use frame_support::traits::EnsureOriginWithArg;
 
-pub mod traits;
-use traits::AggregratedKeyValue;
+use frame_support::traits::AggregratedKeyValue;
 
 mod mock;
 mod tests;

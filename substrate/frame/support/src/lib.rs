@@ -44,7 +44,7 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
-	pub use sp_core::{OpaqueMetadata, Void};
+	pub use sp_core::{Get, OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
 	pub use sp_inherents;
 	pub use sp_io::{self, storage::root as storage_root};
@@ -170,6 +170,10 @@ impl TypeId for PalletId {
 pub use frame_support_procedural::storage_alias;
 
 pub use frame_support_procedural::derive_impl;
+
+pub use frame_support_procedural::{
+	dynamic_aggregated_params, dynamic_pallet_params, dynamic_params,
+};
 
 /// Create new implementations of the [`Get`](crate::traits::Get) trait.
 ///

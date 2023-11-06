@@ -1,8 +1,7 @@
 #![cfg(test)]
 
-use crate::define_aggregrated_parameters;
 use frame_support::{
-	construct_runtime,
+	construct_runtime, dynamic_pallet_params, dynamic_params,
 	traits::{ConstU32, ConstU64, EnsureOriginWithArg, Everything},
 };
 use sp_core::H256;
@@ -59,49 +58,22 @@ impl pallet_balances::Config for Runtime {
 }
 
 #[docify::export]
+#[dynamic_params(RuntimeParameters)]
 pub mod dynamic_params {
 	use super::*;
 
+	#[dynamic_pallet_params(crate::Parameters::<Runtime>, Parameters)]
 	pub mod pallet1 {
-		use super::*;
-
-		crate::define_parameters! {
-			pub Parameters = {
-				#[codec(index = 0)]
-				Key1: u64 = 0,
-				#[codec(index = 1)]
-				Key2: u32 = 1,
-				#[codec(index = 2)]
-				Key3: u128 = 2,
-			},
-			Pallet = crate::Parameters::<Runtime>,
-			Aggregation = RuntimeParameters::Pallet1
-		}
+		pub static Key1: u64 = 0;
+		pub static Key2: u32 = 1;
+		pub static Key3: u128 = 2;
 	}
+
+	#[dynamic_pallet_params(crate::Parameters::<Runtime>, Parameters)]
 	pub mod pallet2 {
-		use super::*;
-
-		crate::define_parameters! {
-			pub Parameters = {
-				#[codec(index = 0)]
-				Key1: u64 = 0,
-				#[codec(index = 1)]
-				Key2: u32 = 2,
-				#[codec(index = 2)]
-				Key3: u128 = 4,
-			},
-			Pallet = crate::Parameters::<Runtime>,
-			Aggregation = RuntimeParameters::Pallet2
-		}
-	}
-
-	define_aggregrated_parameters! {
-		pub RuntimeParameters = {
-			#[codec(index = 0)]
-			Pallet1: pallet1::Parameters,
-			#[codec(index = 1)]
-			Pallet2: pallet2::Parameters,
-		}
+		pub static Key1: u64 = 0;
+		pub static Key2: u32 = 2;
+		pub static Key3: u128 = 4;
 	}
 }
 pub use dynamic_params::*;
