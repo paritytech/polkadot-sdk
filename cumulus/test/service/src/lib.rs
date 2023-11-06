@@ -250,6 +250,7 @@ async fn build_relay_chain_interface(
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
+	parachain_role: Role,
 ) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
 	let relay_chain_full_node = match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
@@ -267,13 +268,18 @@ async fn build_relay_chain_interface(
 				relay_chain_config,
 				task_manager,
 				rpc_target_urls,
+				parachain_role,
 			)
 			.await
 			.map(|r| r.0),
 		cumulus_client_cli::RelayChainMode::LightClient =>
-			return build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager)
-				.await
-				.map(|r| r.0),
+			return build_minimal_relay_chain_node_light_client(
+				relay_chain_config,
+				task_manager,
+				parachain_role,
+			)
+			.await
+			.map(|r| r.0),
 	};
 
 	task_manager.add_child(relay_chain_full_node.task_manager);
@@ -329,6 +335,7 @@ where
 		collator_key.clone(),
 		collator_options.clone(),
 		&mut task_manager,
+		parachain_config.role,
 	)
 	.await
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
