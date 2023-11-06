@@ -27,14 +27,14 @@ use frame_support::{
 };
 
 /// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 pub const LOG: &str = "runtime::xcmp-queue-migration";
 
 /// Migrates the pallet storage to the most recent version.
-pub struct MigrationToV3<T: Config>(PhantomData<T>);
+pub struct MigrationToV4<T: Config>(PhantomData<T>);
 
-impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
+impl<T: Config> OnRuntimeUpgrade for MigrationToV4<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 
@@ -266,7 +266,7 @@ pub fn lazy_migrate_inbound_queue<T: Config>() {
 	v3::InboundXcmpStatus::<T>::put(states);
 }
 
-/// Migrates `QueueConfigData` from v2 to v4, removing deprecated fields and bumping page
+/// Migrates `QueueConfigData` to v4, removing deprecated fields and bumping page
 /// thresholds to at least the default values.
 ///
 /// NOTE: Only use this function if you know what you're doing. Default to using

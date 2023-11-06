@@ -100,7 +100,7 @@ pub type UncheckedExtrinsic =
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::MigrationToV4<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	// unreleased
 );
