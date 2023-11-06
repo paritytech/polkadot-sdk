@@ -1379,12 +1379,14 @@ impl<T: Config> SnapshotWrapper<T> {
 	/// exist.
 	#[cfg(feature = "try-runtime")]
 	pub fn is_consistent() -> bool {
-		(<Snapshot<T>>::exists() &&
-			<SnapshotMetadata<T>>::exists() &&
-			<DesiredTargets<T>>::exists()) ||
-			(!<Snapshot<T>>::exists() &&
-				!<SnapshotMetadata<T>>::exists() &&
-				!<DesiredTargets<T>>::exists())
+		let snapshots = [
+			<Snapshot<T>>::exists(),
+			<SnapshotMetadata<T>>::exists(),
+			<DesiredTargets<T>>::exists(),
+		];
+
+		// All should either exist or not exist
+		snapshots.iter().skip(1).all(|v| snapshots[0] == v)
 	}
 }
 
