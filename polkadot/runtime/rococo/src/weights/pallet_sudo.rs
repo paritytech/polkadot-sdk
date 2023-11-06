@@ -47,6 +47,9 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_sudo`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_sudo::WeightInfo for WeightInfo<T> {
+	fn remove_key() -> Weight {
+		Weight::zero() // FAIL-CI
+	}
 	/// Storage: Sudo Key (r:1 w:1)
 	/// Proof: Sudo Key (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
 	fn set_key() -> Weight {
