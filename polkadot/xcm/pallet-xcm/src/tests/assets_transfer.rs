@@ -977,10 +977,15 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
 		let expected_dest_on_reserve = dest.reanchored(&usdc_chain, context).unwrap();
-		let expected_fee_on_reserve =
-			assets.get(fee_index).unwrap().clone().reanchored(&usdc_chain, context).unwrap();
-		let mut expected_assets = assets.clone();
-		expected_assets.reanchor(&dest, context).unwrap();
+		let mut fees = assets.get(fee_index).unwrap().clone();
+		match &mut fees.fun {
+			Fungible(amount) => *amount = amount.saturating_div(2),
+			NonFungible(_) => unreachable!(),
+		};
+		let mut expected_assets_on_reserve = assets.clone();
+		expected_assets_on_reserve.reanchor(&usdc_chain, context).unwrap();
+		let expected_fee_on_reserve = fees.clone().reanchored(&usdc_chain, context).unwrap();
+		let expected_fee_on_dest = fees.clone().reanchored(&dest, context).unwrap();
 
 		// balances checks before
 		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
@@ -1022,7 +1027,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 				// first message sent to reserve chain
 				usdc_chain,
 				Xcm(vec![
-					WithdrawAsset(expected_fee_on_reserve.clone().into()),
+					WithdrawAsset(expected_assets_on_reserve),
 					ClearOrigin,
 					BuyExecution { fees: expected_fee_on_reserve, weight_limit: Unlimited },
 					DepositReserveAsset {
@@ -1031,10 +1036,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 						dest: expected_dest_on_reserve,
 						// message sent onward to `dest`
 						xcm: Xcm(vec![
-							buy_limited_execution(
-								expected_assets.get(0).unwrap().clone(),
-								Unlimited
-							),
+							buy_limited_execution(expected_fee_on_dest, Unlimited),
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])
 					}
