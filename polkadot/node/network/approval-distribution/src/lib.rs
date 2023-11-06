@@ -418,6 +418,12 @@ impl Knowledge {
 		keys.iter()
 			.all(|assignment_key| self.contains(&assignment_key.0, assignment_key.1))
 	}
+
+	// Tells if all keys are contained by this peer_knowledge
+	pub fn contains_any(&self, keys: &Vec<(MessageSubject, MessageKind)>) -> bool {
+		keys.iter()
+			.any(|assignment_key| self.contains(&assignment_key.0, assignment_key.1))
+	}
 }
 
 /// Information that has been circulated to and from a peer.
@@ -432,6 +438,62 @@ struct PeerKnowledge {
 impl PeerKnowledge {
 	fn contains(&self, message: &MessageSubject, kind: MessageKind) -> bool {
 		self.sent.contains(message, kind) || self.received.contains(message, kind)
+	}
+
+	/// Partition a list of assignments into two lists.
+	///
+	/// The the first one contains the list of assignments that we had
+	/// sent to the peer and the second one the list of assignments that
+	/// we have no knowledge if the peer has it or not.
+	fn partition_sent_notknown<'a>(
+		&self,
+		assignments: &'a Vec<(IndirectAssignmentCertV2, CandidateBitfield)>,
+	) -> (
+		Vec<&'a (IndirectAssignmentCertV2, CandidateBitfield)>,
+		Vec<&'a (IndirectAssignmentCertV2, CandidateBitfield)>,
+	) {
+		let (sent, not_sent): (
+			Vec<&'a (IndirectAssignmentCertV2, CandidateBitfield)>,
+			Vec<&'a (IndirectAssignmentCertV2, CandidateBitfield)>,
+		) = assignments.iter().partition(|assignment| {
+			self.sent.contains(
+				&MessageSubject(
+					assignment.0.block_hash,
+					assignment.1.clone(),
+					assignment.0.validator,
+				),
+				MessageKind::Assignment,
+			)
+		});
+
+		let notknown_by_peer = not_sent
+			.into_iter()
+			.filter(|(assignment, candidate_bitfield)| {
+				!self.contains(
+					&MessageSubject(
+						assignment.block_hash,
+						candidate_bitfield.clone(),
+						assignment.validator,
+					),
+					MessageKind::Assignment,
+				)
+			})
+			.collect_vec();
+
+		(sent, notknown_by_peer)
+	}
+
+	fn mark_sent(&mut self, assignments: &Vec<(IndirectAssignmentCertV2, CandidateBitfield)>) {
+		for assignment in assignments {
+			self.sent.insert(
+				MessageSubject(
+					assignment.0.block_hash,
+					assignment.1.clone(),
+					assignment.0.validator,
+				),
+				MessageKind::Assignment,
+			);
+		}
 	}
 
 	// Tells if all assignments for a given approval are included in the knowledge of the peer
@@ -542,6 +604,40 @@ impl BlockEntry {
 			.iter_ones()
 			.all(|candidate_index| self.candidates.get(candidate_index as usize).is_some())
 	}
+
+	// Returns all assignments covering the candidates in a given `approval`
+	pub fn assignments_for_approval(
+		&self,
+		approval: &IndirectSignedApprovalVoteV2,
+	) -> Result<Vec<(IndirectAssignmentCertV2, CandidateBitfield)>, ApprovalEntryError> {
+		let mut assignments = Vec::new();
+
+		if self.candidates.len() < approval.candidate_indices.len() as usize {
+			return Err(ApprovalEntryError::CandidateIndexOutOfBounds)
+		}
+
+		// First determine all assignments bitfields that might be covered by this approval
+		let covered_assignments_bitfields: HashSet<CandidateBitfield> = approval
+			.candidate_indices
+			.iter_ones()
+			.filter_map(|candidate_index| {
+				self.candidates.get(candidate_index).map_or(None, |candidate_entry| {
+					candidate_entry.assignments.get(&approval.validator).cloned()
+				})
+			})
+			.collect();
+
+		for assignment_bitfield in covered_assignments_bitfields {
+			if let Some(approval_entry) =
+				self.approval_entries.get(&(approval.validator, assignment_bitfield.clone()))
+			{
+				assignments.push((approval_entry.assignment.clone(), assignment_bitfield.clone()))
+			}
+		}
+
+		Ok(assignments)
+	}
+
 	// Saves the given approval in all ApprovalEntries that contain an assignment for any of the
 	// candidates in the approval.
 	//
@@ -1425,6 +1521,7 @@ impl State {
 			if !topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false) {
 				continue
 			}
+
 			// Note: at this point, we haven't received the message from any peers
 			// other than the source peer, and we just got it, so we haven't sent it
 			// to any peers either.
@@ -1715,6 +1812,8 @@ impl State {
 			},
 		};
 
+		let assignments = entry.assignments_for_approval(&vote).unwrap_or_default();
+
 		// Invariant: to our knowledge, none of the peers except for the `source` know about the
 		// approval.
 		metrics.on_approval_imported();
@@ -1740,7 +1839,7 @@ impl State {
 			//   3. Any randomly selected peers have been sent the assignment already.
 			let in_topology = topology
 				.map_or(false, |t| t.local_grid_neighbors().route_to_peer(required_routing, peer));
-			in_topology || knowledge.sent.contains_all_keys(&assignments_knowledge_keys)
+			in_topology || knowledge.sent.contains_any(&assignments_knowledge_keys)
 		};
 
 		let peers = entry
@@ -1754,6 +1853,27 @@ impl State {
 		for peer in peers.iter() {
 			// we already filtered peers above, so this should always be Some
 			if let Some(entry) = entry.known_by.get_mut(&peer.0) {
+				// A random assignment could have been sent to the peer, so we need to make sure
+				// we send all the other assignments, before we can send the corresponding approval.
+				let (sent_to_peer, notknown_by_peer) = entry.partition_sent_notknown(&assignments);
+				if !notknown_by_peer.is_empty() {
+					let notknown_by_peer = notknown_by_peer
+						.into_iter()
+						.map(|(assignment, bitfield)| (assignment.clone(), bitfield.clone()))
+						.collect_vec();
+					gum::trace!(
+						target: LOG_TARGET,
+						?block_hash,
+						?peer,
+						missing = notknown_by_peer.len(),
+						part1 = sent_to_peer.len(),
+						"Sending missing assignments",
+					);
+
+					entry.mark_sent(&notknown_by_peer);
+					send_assignments_batched(ctx.sender(), notknown_by_peer, &[(peer.0, peer.1)]).await;
+				}
+
 				entry.sent.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1);
 			}
 		}
@@ -1851,75 +1971,99 @@ impl State {
 				if entry.known_by.contains_key(&peer_id) {
 					break
 				}
+				let approvals_to_send_this_block = {
+					let peer_knowledge = entry.known_by.entry(peer_id).or_default();
+					let topology = topologies.get_topology(entry.session);
 
-				let peer_knowledge = entry.known_by.entry(peer_id).or_default();
-				let topology = topologies.get_topology(entry.session);
+					let mut approvals_to_send_this_block = HashMap::new();
+					// We want to iterate the `approval_entries` of the block entry as these contain
+					// all assignments that also link all approval votes.
+					for approval_entry in entry.approval_entries.values_mut() {
+						// Propagate the message to all peers in the required routing set OR
+						// randomly sample peers.
+						{
+							let required_routing = approval_entry.routing_info().required_routing;
+							let random_routing =
+								&mut approval_entry.routing_info_mut().random_routing;
+							let rng = &mut *rng;
+							let mut peer_filter = move |peer_id| {
+								let in_topology = topology.as_ref().map_or(false, |t| {
+									t.local_grid_neighbors()
+										.route_to_peer(required_routing, peer_id)
+								});
+								in_topology || {
+									if !topology
+										.map(|topology| topology.is_validator(peer_id))
+										.unwrap_or(false)
+									{
+										return false
+									}
 
-				let mut approvals_to_send_this_block = HashMap::new();
-				// We want to iterate the `approval_entries` of the block entry as these contain all
-				// assignments that also link all approval votes.
-				for approval_entry in entry.approval_entries.values_mut() {
-					// Propagate the message to all peers in the required routing set OR
-					// randomly sample peers.
-					{
-						let required_routing = approval_entry.routing_info().required_routing;
-						let random_routing = &mut approval_entry.routing_info_mut().random_routing;
-						let rng = &mut *rng;
-						let mut peer_filter = move |peer_id| {
-							let in_topology = topology.as_ref().map_or(false, |t| {
-								t.local_grid_neighbors().route_to_peer(required_routing, peer_id)
-							});
-							in_topology || {
-								if !topology
-									.map(|topology| topology.is_validator(peer_id))
-									.unwrap_or(false)
+									let route_random = random_routing.sample(total_peers, rng);
+									if route_random {
+										random_routing.inc_sent();
+									}
+
+									route_random
+								}
+							};
+
+							if !peer_filter(&peer_id) {
+								continue
+							}
+						}
+
+						let assignment_message = approval_entry.assignment();
+						let approval_messages = approval_entry.approvals();
+						let (assignment_knowledge, message_kind) =
+							approval_entry.create_assignment_knowledge(block);
+
+						// Only send stuff a peer doesn't know in the context of a relay chain
+						// block.
+						if !peer_knowledge.contains(&assignment_knowledge, message_kind) {
+							peer_knowledge.sent.insert(assignment_knowledge, message_kind);
+							assignments_to_send.push(assignment_message);
+						}
+
+						// Filter approval votes.
+						for approval_message in approval_messages {
+							let approval_knowledge =
+								PeerKnowledge::generate_approval_key(&approval_message);
+
+							if !peer_knowledge.contains(&approval_knowledge.0, approval_knowledge.1)
+							{
+								if !approvals_to_send_this_block.contains_key(&approval_knowledge.0)
 								{
-									return false
+									approvals_to_send_this_block
+										.insert(approval_knowledge.0.clone(), approval_message);
 								}
-
-								let route_random = random_routing.sample(total_peers, rng);
-								if route_random {
-									random_routing.inc_sent();
-								}
-
-								route_random
-							}
-						};
-
-						if !peer_filter(&peer_id) {
-							continue
-						}
-					}
-
-					let assignment_message = approval_entry.assignment();
-					let approval_messages = approval_entry.approvals();
-					let (assignment_knowledge, message_kind) =
-						approval_entry.create_assignment_knowledge(block);
-
-					// Only send stuff a peer doesn't know in the context of a relay chain block.
-					if !peer_knowledge.contains(&assignment_knowledge, message_kind) {
-						peer_knowledge.sent.insert(assignment_knowledge, message_kind);
-						assignments_to_send.push(assignment_message);
-					}
-
-					// Filter approval votes.
-					for approval_message in approval_messages {
-						let approval_knowledge =
-							PeerKnowledge::generate_approval_key(&approval_message);
-
-						if !peer_knowledge.contains(&approval_knowledge.0, approval_knowledge.1) {
-							if !approvals_to_send_this_block.contains_key(&approval_knowledge.0) {
-								approvals_to_send_this_block
-									.insert(approval_knowledge.0.clone(), approval_message);
 							}
 						}
 					}
-				}
+					approvals_to_send_this_block
+				};
 
 				// An approval can span multiple assignments/ApprovalEntries, so after we processed
 				// all of the assignments decide which of the approvals we can safely send, because
 				// all of assignments are already sent or about to be sent.
 				for (approval_key, approval) in approvals_to_send_this_block {
+					let assignments = entry.assignments_for_approval(&approval).unwrap_or_default();
+					let peer_knowledge = entry.known_by.entry(peer_id).or_default();
+					let (sent_to_peer, notknown_by_peer) = peer_knowledge.partition_sent_notknown(&assignments);
+					if !sent_to_peer.is_empty() {
+						let notknown_by_peer = notknown_by_peer
+							.into_iter()
+							.map(|(assignment, bitfield)| (assignment.clone(), bitfield.clone()))
+							.collect_vec();
+						gum::trace!(
+							target: LOG_TARGET,
+							?notknown_by_peer,
+							part1 = sent_to_peer.len(),
+							"Sending missing assignment unify_with_peer",
+						);
+						peer_knowledge.mark_sent(&notknown_by_peer);
+						assignments_to_send.extend(notknown_by_peer);
+					}
 					if peer_knowledge.contains_assignments_for_approval(&approval) {
 						approvals_to_send.push(approval);
 						peer_knowledge.sent.insert(approval_key, MessageKind::Approval);
@@ -2243,8 +2387,26 @@ async fn adjust_required_routing_and_propagate<Context, BlockFilter, RoutingModi
 		// all of the assignments decide which of the approvals we can safely send, because
 		// all of assignments are already sent or about to be sent.
 		for (peer_id, approvals) in approvals_to_send_for_this_block {
-			if let Some(peer_knowledge) = block_entry.known_by.get_mut(&peer_id) {
-				for approval in approvals {
+			for approval in approvals {
+				let assignments = block_entry.assignments_for_approval(&approval).unwrap_or_default();
+				if let Some(peer_knowledge) = block_entry.known_by.get_mut(&peer_id) {
+					// A random assignment could have been sent to the peer, so we need to make sure
+					// we send all the other assignments, before we can send the corresponding approval.
+					let (sent_to_peer, notknown_by_peer) = peer_knowledge.partition_sent_notknown(&assignments);
+					if !sent_to_peer.is_empty() {
+						let notknown_by_peer = notknown_by_peer
+							.into_iter()
+							.map(|(assignment, bitfield)| (assignment.clone(), bitfield.clone()))
+							.collect_vec();
+						gum::trace!(
+							target: LOG_TARGET,
+							?notknown_by_peer,
+							notknown_by_peer = notknown_by_peer.len(),
+							"Sending missing assignment adjust_required",
+						);
+						peer_knowledge.mark_sent(&notknown_by_peer);
+						peer_assignments.entry(peer_id).or_insert_with(Vec::new).extend(notknown_by_peer);
+					}
 					if peer_knowledge.contains_assignments_for_approval(&approval) {
 						let approval_key = PeerKnowledge::generate_approval_key(&approval);
 						peer_knowledge.sent.insert(approval_key.0, approval_key.1);
