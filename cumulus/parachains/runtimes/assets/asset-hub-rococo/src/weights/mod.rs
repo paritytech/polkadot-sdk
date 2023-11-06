@@ -33,6 +33,7 @@ pub mod pallet_timestamp;
 pub mod pallet_uniques;
 pub mod pallet_utility;
 pub mod pallet_xcm;
+pub mod pallet_xcm_bridge_hub_router_to_ethereum;
 pub mod pallet_xcm_bridge_hub_router_to_rococo;
 pub mod pallet_xcm_bridge_hub_router_to_wococo;
 pub mod paritydb_weights;

@@ -17,8 +17,8 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
 	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
-	ToRococoXcmRouter, ToWococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance,
-	WeightToFee, XcmpQueue,
+	ToEthereumXcmRouter, ToRococoXcmRouter, ToWococoXcmRouter, TransactionByteFee,
+	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
@@ -59,6 +59,7 @@ use xcm_builder::{
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
+use crate::ToEthereumXcmRouterInstance;
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_primitives_core::ParaId;
 
@@ -563,8 +564,8 @@ impl xcm_executor::Config for XcmConfig {
 	// Users must use teleport where allowed (e.g. ROC with the Relay Chain).
 	type IsReserve = (
 		bridging::to_wococo::IsTrustedBridgedReserveLocationForConcreteAsset,
-		bridging::to_wococo::IsTrustedBridgedReserveLocationForForeignAsset,
 		bridging::to_rococo::IsTrustedBridgedReserveLocationForConcreteAsset,
+		bridging::to_ethereum::IsTrustedBridgedReserveLocationForForeignAsset,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
@@ -616,8 +617,11 @@ impl xcm_executor::Config for XcmConfig {
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
-	type UniversalAliases =
-		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);
+	type UniversalAliases = (
+		bridging::to_wococo::UniversalAliases,
+		bridging::to_rococo::UniversalAliases,
+		bridging::to_ethereum::UniversalAliases,
+	);
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
@@ -648,6 +652,9 @@ pub type XcmRouter = WithUniqueTopic<(
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Rococo
 	// GlobalConsensus
 	ToRococoXcmRouter,
+	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
+	// GlobalConsensus
+	ToEthereumXcmRouter,
 )>;
 
 impl pallet_xcm::Config for Runtime {
@@ -762,6 +769,7 @@ pub mod bridging {
 			sp_std::vec::Vec::new().into_iter()
 			.chain(to_wococo::BridgeTable::get())
 			.chain(to_rococo::BridgeTable::get())
+			.chain(to_ethereum::BridgeTable::get())
 			.collect();
 	}
 
@@ -782,8 +790,6 @@ pub mod bridging {
 			pub const WococoNetwork: NetworkId = NetworkId::Wococo;
 			pub AssetHubWococo: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(WococoNetwork::get()), Parachain(bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID)));
 			pub WocLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(WococoNetwork::get())));
-			pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
-			pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(EthereumNetwork::get())));
 
 			pub WocFromAssetHubWococo: (MultiAssetFilter, MultiLocation) = (
 				Wild(AllOf { fun: WildFungible, id: Concrete(WocLocation::get()) }),
@@ -805,17 +811,6 @@ pub mod bridging {
 						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
 					).into())
 				),
-				NetworkExportTableItem::new(
-					EthereumNetwork::get(),
-					Some(sp_std::vec![
-						EthereumLocation::get().interior.split_global().expect("invalid configuration for Ethereum").1,
-					]),
-					SiblingBridgeHub::get(),
-					Some((
-						XcmBridgeHubRouterFeeAssetId::get(),
-						BridgeHubEthereumBaseFeeInRocs::get(),
-					).into())
-				),
 			];
 
 			/// Allowed assets for reserve transfer to `AssetHubWococo`.
@@ -829,13 +824,9 @@ pub mod bridging {
 			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
 					(SiblingBridgeHubWithBridgeHubWococoInstance::get(), GlobalConsensus(WococoNetwork::get())),
-					(SiblingBridgeHub::get(), GlobalConsensus(EthereumNetwork::get())),
 				]
 			);
 		}
-
-		pub type IsTrustedBridgedReserveLocationForForeignAsset =
-			matching::IsForeignConcreteAsset<FromNetwork<EthereumNetwork>>;
 
 		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
 			fn contains(alias: &(MultiLocation, Junction)) -> bool {
@@ -955,6 +946,58 @@ pub mod bridging {
 				matches!(
 					call,
 					RuntimeCall::ToRococoXcmRouter(
+						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
+					)
+				)
+			}
+		}
+	}
+
+	pub mod to_ethereum {
+		use super::*;
+
+		parameter_types! {
+			pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
+			pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(EthereumNetwork::get())));
+
+			/// Set up exporters configuration.
+			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					EthereumNetwork::get(),
+					Some(sp_std::vec![
+						EthereumLocation::get().interior.split_global().expect("invalid configuration for Ethereum").1,
+					]),
+					SiblingBridgeHub::get(),
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFeeInRocs::get(),
+					).into())
+				),
+			];
+
+			/// Universal aliases
+			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+				sp_std::vec![
+					(SiblingBridgeHub::get(), GlobalConsensus(EthereumNetwork::get())),
+				]
+			);
+		}
+
+		pub type IsTrustedBridgedReserveLocationForForeignAsset =
+			matching::IsForeignConcreteAsset<FromNetwork<EthereumNetwork>>;
+
+		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
+			fn contains(alias: &(MultiLocation, Junction)) -> bool {
+				UniversalAliases::get().contains(alias)
+			}
+		}
+
+		impl Contains<RuntimeCall> for ToEthereumXcmRouter {
+			fn contains(call: &RuntimeCall) -> bool {
+				matches!(
+					call,
+					RuntimeCall::ToEthereumXcmRouter(
 						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 					)
 				)
