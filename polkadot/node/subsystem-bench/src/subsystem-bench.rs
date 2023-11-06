@@ -24,7 +24,7 @@ use sc_service::TaskManager;
 
 pub(crate) mod availability;
 
-use availability::{EnvParams, TestEnvironment};
+use availability::{EnvParams, TestEnvironment, TestInput, TestState};
 const LOG_TARGET: &str = "subsystem-bench";
 
 /// Define the supported benchmarks targets
@@ -45,6 +45,7 @@ struct BenchCli {
 fn new_runtime() -> tokio::runtime::Runtime {
 	tokio::runtime::Builder::new_multi_thread()
 		.thread_name("subsystem-bench")
+		.max_blocking_threads(32)
 		.enable_all()
 		.thread_stack_size(3 * 1024 * 1024)
 		.build()
@@ -63,8 +64,9 @@ impl BenchCli {
 		let runtime = new_runtime();
 		let registry = Registry::new();
 
-		let params = availability::bench_chunk_recovery_params();
-		let mut env = TestEnvironment::new(runtime.handle().clone(), params, registry.clone());
+		let state = TestState::new(TestInput::default());
+
+		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
 
 		runtime.block_on(availability::bench_chunk_recovery(&mut env));
 
@@ -119,7 +121,7 @@ fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	let _ = env_logger::builder()
 		.is_test(true)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Debug)
+		.filter(Some(LOG_TARGET), log::LevelFilter::Info)
 		.try_init();
 
 	let cli: BenchCli = BenchCli::parse();

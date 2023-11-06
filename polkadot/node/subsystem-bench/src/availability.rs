@@ -14,10 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 use assert_matches::assert_matches;
-use env_logger::Env;
+use color_eyre::owo_colors::colors::xterm;
 use futures::{
 	channel::{mpsc, oneshot},
 	executor, future, Future, FutureExt, SinkExt,
@@ -52,20 +55,14 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 
 use polkadot_erasure_coding::recovery_threshold;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
-// use polkadot_node_subsystem::{
-// 	errors::RecoveryError,
-// 	jaeger,
-// 	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
-// 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
-// 	SubsystemContext, SubsystemError, SubsystemResult,
-// };
+
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
+	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, IndexedVec,
-	PersistedValidationData, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData,
+	IndexedVec, PersistedValidationData, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
@@ -97,12 +94,18 @@ pub struct TestEnvironment {
 	to_subsystem: mpsc::Sender<FromOrchestra<AvailabilityRecoveryMessage>>,
 	// Parameters
 	params: EnvParams,
-	// Subsystem instance, currently keeps req/response protocol channel senders.
+	// Subsystem instance, currently keeps req/response protocol channel senders
+	// for the whole duration of the test.
 	instance: AvailabilityRecoverySubsystemInstance,
+	// The test intial state. The current state is owned by the task doing the overseer/subsystem
+	// mockings.
+	state: TestState,
 }
 
 impl TestEnvironment {
-	pub fn new(runtime: tokio::runtime::Handle, mut params: EnvParams, registry: Registry) -> Self {
+	// Create a new test environment with specified initial state and prometheus registry.
+	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
+	pub fn new(runtime: tokio::runtime::Handle, state: TestState, registry: Registry) -> Self {
 		let task_manager: TaskManager = TaskManager::new(runtime.clone(), Some(&registry)).unwrap();
 		let (instance, virtual_overseer) = AvailabilityRecoverySubsystemInstance::new(
 			&registry,
@@ -112,25 +115,28 @@ impl TestEnvironment {
 
 		// TODO: support parametrization of initial test state
 		// n_validator, n_cores.
-		let state = TestState::new(params.candidate.clone());
-		// Override candidate after computing erasure in `TestState::new`
-		params.candidate = state.candidate();
+		let params = EnvParams { candidate: state.candidate() };
 
-		// Create channel to inject messages int the subsystem.
+		// Copy sender for later when we need to inject messages in to the subsystem.
 		let to_subsystem = virtual_overseer.tx.clone();
 
+		let task_state = state.clone();
 		// We need to start a receiver to process messages from the subsystem.
+		// This mocks an overseer and all dependent subsystems
 		task_manager.spawn_handle().spawn_blocking(
 			"test-environment",
 			"test-environment",
-			async move { Self::env_task(virtual_overseer, state).await },
+			async move { Self::env_task(virtual_overseer, task_state).await },
 		);
 
-		TestEnvironment { runtime, task_manager, registry, to_subsystem, params, instance }
+		TestEnvironment { runtime, task_manager, registry, to_subsystem, params, instance, state }
 	}
 
 	pub fn params(&self) -> &EnvParams {
 		&self.params
+	}
+	pub fn input(&self) -> &TestInput {
+		self.state.input()
 	}
 
 	async fn respond_to_send_request(state: &mut TestState, request: Requests) {
@@ -234,7 +240,8 @@ impl AvailabilityRecoverySubsystemInstance {
 		spawn_task_handle: SpawnTaskHandle,
 		runtime: tokio::runtime::Handle,
 	) -> (Self, TestSubsystemContextHandle<AvailabilityRecoveryMessage>) {
-		let (context, virtual_overseer) = make_subsystem_context(spawn_task_handle.clone());
+		let (context, virtual_overseer) =
+			make_buffered_subsystem_context(spawn_task_handle.clone(), 4096);
 		let (collation_req_receiver, req_cfg) =
 			IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
 		let subsystem = AvailabilityRecoverySubsystem::with_chunks_only(
@@ -291,7 +298,7 @@ impl Has {
 }
 
 #[derive(Clone)]
-struct TestState {
+pub struct TestState {
 	validators: Vec<Sr25519Keyring>,
 	validator_public: IndexedVec<ValidatorIndex, ValidatorId>,
 	validator_authority_id: Vec<AuthorityDiscoveryId>,
@@ -305,9 +312,14 @@ struct TestState {
 	available_data: AvailableData,
 	chunks: Vec<ErasureChunk>,
 	invalid_chunks: Vec<ErasureChunk>,
+	input: TestInput,
 }
 
 impl TestState {
+	fn input(&self) -> &TestInput {
+		&self.input
+	}
+
 	fn candidate(&self) -> CandidateReceipt {
 		self.candidate.clone()
 	}
@@ -362,53 +374,14 @@ impl TestState {
 
 		let _ = tx.send(v);
 	}
-}
 
-fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> IndexedVec<ValidatorIndex, ValidatorId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
-}
+	pub fn new(input: TestInput) -> Self {
+		let validators = (0..input.n_validators as u64)
+			.into_iter()
+			.map(|v| Sr25519Keyring::Alice)
+			.collect::<Vec<_>>();
 
-fn validator_authority_id(val_ids: &[Sr25519Keyring]) -> Vec<AuthorityDiscoveryId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
-}
-
-fn derive_erasure_chunks_with_proofs_and_root(
-	n_validators: usize,
-	available_data: &AvailableData,
-	alter_chunk: impl Fn(usize, &mut Vec<u8>),
-) -> (Vec<ErasureChunk>, Hash) {
-	let mut chunks: Vec<Vec<u8>> = obtain_chunks(n_validators, available_data).unwrap();
-
-	for (i, chunk) in chunks.iter_mut().enumerate() {
-		alter_chunk(i, chunk)
-	}
-
-	// create proofs for each erasure chunk
-	let branches = branches(chunks.as_ref());
-
-	let root = branches.root();
-	let erasure_chunks = branches
-		.enumerate()
-		.map(|(index, (proof, chunk))| ErasureChunk {
-			chunk: chunk.to_vec(),
-			index: ValidatorIndex(index as _),
-			proof: Proof::try_from(proof).unwrap(),
-		})
-		.collect::<Vec<ErasureChunk>>();
-
-	(erasure_chunks, root)
-}
-
-impl TestState {
-	fn new(mut candidate: CandidateReceipt) -> Self {
-		let validators = vec![
-			Sr25519Keyring::Ferdie, // <- this node, role: validator
-			Sr25519Keyring::Alice,
-			Sr25519Keyring::Bob,
-			Sr25519Keyring::Charlie,
-			Sr25519Keyring::Dave,
-		];
-
+		let mut candidate = dummy_candidate_receipt(dummy_hash());
 		let validator_public = validator_pubkeys(&validators);
 		let validator_authority_id = validator_authority_id(&validators);
 		let validator_index = ValidatorIndex(0);
@@ -465,15 +438,66 @@ impl TestState {
 			available_data,
 			chunks,
 			invalid_chunks,
+			input,
 		}
 	}
 }
 
-pub fn bench_chunk_recovery_params() -> EnvParams {
-	let mut candidate = dummy_candidate_receipt(dummy_hash());
-	EnvParams { candidate }
+fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> IndexedVec<ValidatorIndex, ValidatorId> {
+	val_ids.iter().map(|v| v.public().into()).collect()
 }
+
+fn validator_authority_id(val_ids: &[Sr25519Keyring]) -> Vec<AuthorityDiscoveryId> {
+	val_ids.iter().map(|v| v.public().into()).collect()
+}
+
+fn derive_erasure_chunks_with_proofs_and_root(
+	n_validators: usize,
+	available_data: &AvailableData,
+	alter_chunk: impl Fn(usize, &mut Vec<u8>),
+) -> (Vec<ErasureChunk>, Hash) {
+	let mut chunks: Vec<Vec<u8>> = obtain_chunks(n_validators, available_data).unwrap();
+
+	for (i, chunk) in chunks.iter_mut().enumerate() {
+		alter_chunk(i, chunk)
+	}
+
+	// create proofs for each erasure chunk
+	let branches = branches(chunks.as_ref());
+
+	let root = branches.root();
+	let erasure_chunks = branches
+		.enumerate()
+		.map(|(index, (proof, chunk))| ErasureChunk {
+			chunk: chunk.to_vec(),
+			index: ValidatorIndex(index as _),
+			proof: Proof::try_from(proof).unwrap(),
+		})
+		.collect::<Vec<ErasureChunk>>();
+
+	(erasure_chunks, root)
+}
+
+/// The test input parameters
+#[derive(Clone)]
+pub struct TestInput {
+	pub n_validators: usize,
+	pub n_cores: usize,
+	pub pov_size: usize,
+	// This parameter is used to determine how many recoveries we batch in parallel
+	// similarly to how in practice tranche0 assignments work.
+	pub vrf_modulo_samples: usize,
+}
+
+impl Default for TestInput {
+	fn default() -> Self {
+		Self { n_validators: 300, n_cores: 50, pov_size: 5 * 1024 * 1024, vrf_modulo_samples: 6 }
+	}
+}
+
 pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
+	let input = env.input().clone();
+
 	env.send_signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 		Hash::repeat_byte(1),
 		1,
@@ -482,8 +506,12 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 
 	let mut candidate = env.params().candidate.clone();
 
-	for candidate_num in 0..10u64 {
+	let start_marker = Instant::now();
+
+	let mut batch = Vec::new();
+	for candidate_num in 0..input.n_cores as u64 {
 		let (tx, rx) = oneshot::channel();
+		batch.push(rx);
 
 		candidate.descriptor.relay_parent = Hash::from_low_u64_be(candidate_num);
 
@@ -495,7 +523,20 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 		))
 		.await;
 
+		if batch.len() >= input.vrf_modulo_samples {
+			for rx in std::mem::take(&mut batch) {
+				let available_data = rx.await.unwrap().unwrap();
+			}
+		}
+	}
+
+	for rx in std::mem::take(&mut batch) {
 		let available_data = rx.await.unwrap().unwrap();
 	}
+
 	env.send_signal(OverseerSignal::Conclude).await;
+	let duration = start_marker.elapsed().as_millis();
+	let tput = ((input.n_cores * input.pov_size) as u128) / duration * 1000;
+	println!("Benchmark completed in {:?}ms", duration);
+	println!("Throughput: {}KiB/s", tput / 1024);
 }
