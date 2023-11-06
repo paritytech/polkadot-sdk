@@ -872,18 +872,8 @@ pub trait Pair: CryptoType + Sized {
 		phrase: &str,
 		password: Option<&str>,
 	) -> Result<(Self, Self::Seed), SecretStringError> {
-		let mnemonic = {
-			#[cfg(feature = "std")]
-			{
-				Mnemonic::parse_in(Language::English, phrase)
-			}
-			#[cfg(not(feature = "std"))]
-			{
-				Mnemonic::parse_in_normalized(Language::English, phrase)
-			}
-		}
-		.map_err(|_| SecretStringError::InvalidPhrase)?;
-
+		let mnemonic = Mnemonic::parse_in(Language::English, phrase)
+			.map_err(|_| SecretStringError::InvalidPhrase)?;
 		let (entropy, entropy_len) = mnemonic.to_entropy_array();
 		let big_seed =
 			substrate_bip39::seed_from_entropy(&entropy[0..entropy_len], password.unwrap_or(""))
