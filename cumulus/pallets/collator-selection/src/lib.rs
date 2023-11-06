@@ -326,6 +326,11 @@ pub mod pallet {
 				"invulnerables and candidates must be able to satisfy collator demand"
 			);
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -852,6 +857,35 @@ pub mod pallet {
 					idx.saturating_dec();
 				}
 			}
+		}
+
+		/// Ensure the correctness of the state of this pallet.
+		///
+		/// This should be valid before or after each state transition of this pallet.
+		///
+		/// # Invariants
+		///
+		/// ## `DesiredCandidates`
+		///
+		/// * The current desired candidate count should not exceed the candidate list capacity.
+		/// * The number of selected candidates together with the invulnerables must be greater than
+		///   or equal to the minimum number of eligible collators.
+		#[cfg(any(test, feature = "try-runtime"))]
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			let desired_candidates = <DesiredCandidates<T>>::get();
+
+			frame_support::ensure!(
+				desired_candidates <= T::MaxCandidates::get(),
+				"Shouldn't demand more candidates than the pallet config allows."
+			);
+
+			frame_support::ensure!(
+				desired_candidates.saturating_add(T::MaxInvulnerables::get()) >=
+					T::MinEligibleCollators::get(),
+				"Invulnerable set together with desired candidates should be able to meet the collator quota."
+			);
+
+			Ok(())
 		}
 	}
 
