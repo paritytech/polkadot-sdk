@@ -23,6 +23,7 @@ use sp_std::boxed::Box;
 use xcm::prelude::*;
 use xcm_executor::traits::QueryHandler;
 
+/// Umbrella trait for all Controller traits.
 pub trait Controller<Origin, RuntimeCall, Timeout>:
 	ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout>
 {
