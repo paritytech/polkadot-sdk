@@ -353,8 +353,11 @@ extern crate frame_benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	define_benchmarks!(
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_glutton, Glutton]
+		[pallet_message_queue, MessageQueue]
+		[pallet_timestamp, Timestamp]
 	);
 }
 
