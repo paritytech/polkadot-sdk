@@ -1,0 +1,10 @@
+graph TB
+subgraph Substrate
+	direction LR
+	subgraph Client
+	end
+	subgraph Runtime
+	end
+	Client --runtime-api--> Runtime
+	Runtime --host-functions--> Client
+end
