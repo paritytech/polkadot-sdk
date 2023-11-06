@@ -17,6 +17,11 @@
 
 //! Try-runtime specific traits and types.
 
+pub mod decode_entire_state;
+pub use decode_entire_state::{TryDecodeEntireStorage, TryDecodeEntireStorageError};
+
+use super::StorageInstance;
+
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_runtime::TryRuntimeError;
@@ -35,6 +40,13 @@ pub enum Select {
 	///
 	/// Pallet names are obtained from [`super::PalletInfoAccess`].
 	Only(Vec<Vec<u8>>),
+}
+
+impl Select {
+	/// Whether to run any checks at all.
+	pub fn any(&self) -> bool {
+		!matches!(self, Select::None)
+	}
 }
 
 impl Default for Select {
@@ -104,6 +116,11 @@ impl UpgradeCheckSelect {
 	/// Whether the try-state checks are selected.
 	pub fn try_state(&self) -> bool {
 		matches!(self, Self::All | Self::TryState)
+	}
+
+	/// Whether to run any checks at all.
+	pub fn any(&self) -> bool {
+		!matches!(self, Self::None)
 	}
 }
 
