@@ -36,6 +36,8 @@ enum NemesisVariant {
 	BackGarbageCandidate(BackGarbageCandidateOptions),
 	/// Delayed disputing of ancestors that are perfectly fine.
 	DisputeAncestor(DisputeAncestorOptions),
+	/// Delayed disputing of finalized candidates.
+	DisputeFinalizedCandidates(DisputeFinalizedCandidatesOptions),
 }
 
 #[derive(Debug, Parser)]
@@ -77,6 +79,15 @@ impl MalusCli {
 				polkadot_cli::run_node(
 					cli,
 					DisputeValidCandidates { fake_validation, fake_validation_error, percentage },
+					finality_delay,
+				)?
+			},
+			NemesisVariant::DisputeFinalizedCandidates(opts) => {
+				let DisputeFinalizedCandidatesOptions { dispute_offset, cli } = opts;
+
+				polkadot_cli::run_node(
+					cli,
+					DisputeFinalizedCandidates { dispute_offset },
 					finality_delay,
 				)?
 			},

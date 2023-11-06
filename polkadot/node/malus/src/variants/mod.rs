@@ -20,10 +20,12 @@ mod back_garbage_candidate;
 mod common;
 mod dispute_valid_candidates;
 mod suggest_garbage_candidate;
+mod dispute_finalized_candidates;
 
 pub(crate) use self::{
 	back_garbage_candidate::{BackGarbageCandidateOptions, BackGarbageCandidates},
 	dispute_valid_candidates::{DisputeAncestorOptions, DisputeValidCandidates},
 	suggest_garbage_candidate::{SuggestGarbageCandidateOptions, SuggestGarbageCandidates},
+	dispute_finalized_candidates::{DisputeFinalizedCandidatesOptions, DisputeFinalizedCandidates},
 };
 pub(crate) use common::*;
