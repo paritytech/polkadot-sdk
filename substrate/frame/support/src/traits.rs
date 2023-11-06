@@ -113,7 +113,8 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePre
 mod messages;
 pub use messages::{
 	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
-	ProcessMessage, ProcessMessageError, QueuePausedQuery, ServiceQueues, TransformOrigin,
+	ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+	TransformOrigin,
 };
 
 mod safe_mode;

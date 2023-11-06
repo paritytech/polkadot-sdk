@@ -20,33 +20,34 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
 log = { version = "0.4.17", default-features = false }
+serde_json = { version = "1.0.85", default-features = false, features = ["alloc", "arbitrary_precision"] }
 
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info", "num-traits"] }
 
 # primitives
-sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false}
-sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false}
-sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false}
+sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features=["serde"] }
+sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false, features=["serde"] }
+sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features=["serde"] }
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false}
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 sp-inherents = { path = "../../../primitives/inherents", default-features = false}
 node-primitives = { path = "../primitives", default-features = false}
 sp-mixnet = { path = "../../../primitives/mixnet", default-features = false }
 sp-offchain = { path = "../../../primitives/offchain", default-features = false}
-sp-core = { path = "../../../primitives/core", default-features = false}
+sp-core = { path = "../../../primitives/core", default-features = false, features=["serde"] }
 sp-std = { path = "../../../primitives/std", default-features = false}
 sp-api = { path = "../../../primitives/api", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
-sp-staking = { path = "../../../primitives/staking", default-features = false}
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, features=["serde"] }
+sp-staking = { path = "../../../primitives/staking", default-features = false, features=["serde"] }
 sp-storage = { path = "../../../primitives/storage", default-features = false}
 sp-session = { path = "../../../primitives/session", default-features = false}
 sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false}
-sp-statement-store = { path = "../../../primitives/statement-store", default-features = false}
-sp-version = { path = "../../../primitives/version", default-features = false}
+sp-statement-store = { path = "../../../primitives/statement-store", default-features = false, features=["serde"] }
+sp-version = { path = "../../../primitives/version", default-features = false, features=["serde"] }
 sp-io = { path = "../../../primitives/io", default-features = false}
 
 # frame dependencies
@@ -230,6 +231,7 @@ std = [
 	"pallet-whitelist/std",
 	"primitive-types/std",
 	"scale-info/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",

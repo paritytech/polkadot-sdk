@@ -105,6 +105,9 @@ fn init_members_works() {
 #[test]
 fn disband_works() {
 	new_test_ext().execute_with(|| {
+		let id_deposit = test_identity_info_deposit();
+		let expected_join_deposit = <Test as Config>::AllyDeposit::get();
+		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 		// ensure alliance is set
 		assert_eq!(Alliance::voting_members(), vec![1, 2, 3]);
 
@@ -113,10 +116,10 @@ fn disband_works() {
 		assert!(Alliance::is_member_of(&2, MemberRole::Retiring));
 
 		// join alliance and reserve funds
-		assert_eq!(Balances::free_balance(9), 40);
+		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(9)));
-		assert_eq!(Alliance::deposit_of(9), Some(25));
-		assert_eq!(Balances::free_balance(9), 15);
+		assert_eq!(Alliance::deposit_of(9), Some(expected_join_deposit));
+		assert_eq!(Balances::free_balance(9), 1000 - id_deposit - expected_join_deposit);
 		assert!(Alliance::is_member_of(&9, MemberRole::Ally));
 
 		// fails without root
@@ -146,7 +149,7 @@ fn disband_works() {
 		// assert a retiring member from the previous Alliance not removed
 		assert!(Alliance::is_member_of(&2, MemberRole::Retiring));
 		// deposit unreserved
-		assert_eq!(Balances::free_balance(9), 40);
+		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::AllianceDisbanded {
 			fellow_members: 2,
@@ -358,6 +361,9 @@ fn remove_announcement_works() {
 #[test]
 fn join_alliance_works() {
 	new_test_ext().execute_with(|| {
+		let id_deposit = test_identity_info_deposit();
+		let join_deposit = <Test as Config>::AllyDeposit::get();
+		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 		// check already member
 		assert_noop!(
 			Alliance::join_alliance(RuntimeOrigin::signed(1)),
@@ -384,8 +390,10 @@ fn join_alliance_works() {
 			Error::<Test, ()>::InsufficientFunds
 		);
 
+		assert_eq!(Balances::free_balance(4), 1000 - id_deposit);
 		// success to submit
 		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(4)));
+		assert_eq!(Balances::free_balance(4), 1000 - id_deposit - join_deposit);
 		assert_eq!(Alliance::deposit_of(4), Some(25));
 		assert_eq!(Alliance::members(MemberRole::Ally), vec![4]);
 
@@ -405,7 +413,7 @@ fn join_alliance_works() {
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
 			Alliance::join_alliance(RuntimeOrigin::signed(7)),
-			Error::<Test, ()>::WithoutIdentityDisplayAndWebsite
+			Error::<Test, ()>::WithoutRequiredIdentityFields
 		);
 	});
 }
@@ -460,7 +468,7 @@ fn nominate_ally_works() {
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
 			Alliance::join_alliance(RuntimeOrigin::signed(7)),
-			Error::<Test, ()>::WithoutIdentityDisplayAndWebsite
+			Error::<Test, ()>::WithoutRequiredIdentityFields
 		);
 	});
 }
