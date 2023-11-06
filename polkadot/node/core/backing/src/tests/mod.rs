@@ -33,7 +33,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData, PvfExecTimeoutKind,
+	CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData, PvfExecKind,
 	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use sp_application_crypto::AppCrypto;
@@ -351,7 +351,7 @@ async fn assert_validate_from_exhaustive(
 		) if _pvd == *pvd &&
 			_validation_code == *validation_code &&
 			*_pov == *pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-			timeout == PvfExecTimeoutKind::Backing &&
+			timeout == PvfExecKind::Backing &&
 			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 		{
 			tx.send(Ok(ValidationResult::Valid(
@@ -557,7 +557,7 @@ fn backing_works() {
 			) if _pvd == pvd &&
 				_validation_code == validation_code &&
 				*_pov == pov && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				tx.send(Ok(
@@ -736,7 +736,7 @@ fn backing_works_while_validation_ongoing() {
 			) if _pvd == pvd &&
 				_validation_code == validation_code &&
 				*_pov == pov && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				// we never validate the candidate. our local node
@@ -897,7 +897,7 @@ fn backing_misbehavior_works() {
 			) if _pvd == pvd &&
 				_validation_code == validation_code &&
 				*_pov == pov && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				tx.send(Ok(
@@ -1064,7 +1064,7 @@ fn backing_dont_second_invalid() {
 			) if _pvd == pvd_a &&
 				_validation_code == validation_code_a &&
 				*_pov == pov_block_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate_a.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1104,7 +1104,7 @@ fn backing_dont_second_invalid() {
 			) if pvd == pvd_b &&
 				_validation_code == validation_code_b &&
 				*_pov == pov_block_b && &candidate_receipt.descriptor == candidate_b.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate_b.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				tx.send(Ok(
@@ -1231,7 +1231,7 @@ fn backing_second_after_first_fails_works() {
 			) if _pvd == pvd &&
 				_validation_code == validation_code &&
 				*_pov == pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1375,7 +1375,7 @@ fn backing_works_after_failed_validation() {
 			) if _pvd == pvd &&
 				_validation_code == validation_code &&
 				*_pov == pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				tx.send(Err(ValidationFailed("Internal test error".into()))).unwrap();
@@ -1641,7 +1641,7 @@ fn retry_works() {
 			) if _pvd == pvd &&
 				_validation_code == validation_code &&
 				*_pov == pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+				timeout == PvfExecKind::Backing &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash
 		);
 		virtual_overseer

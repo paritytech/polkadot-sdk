@@ -29,8 +29,8 @@ use polkadot_node_subsystem_types::messages::{
 	NetworkBridgeEvent, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PvfExecTimeoutKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+    CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
+    PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 
 use crate::{
@@ -103,11 +103,11 @@ where
 
 						let (tx, _) = oneshot::channel();
 						ctx.send_message(CandidateValidationMessage::ValidateFromChainState(
-							candidate_receipt,
-							PoV { block_data: BlockData(Vec::new()) }.into(),
-							Default::default(),
-							PvfExecTimeoutKind::Backing,
-							tx,
+                            candidate_receipt,
+                            PoV { block_data: BlockData(Vec::new()) }.into(),
+                            Default::default(),
+                            PvfExecKind::Backing,
+                            tx,
 						))
 						.await;
 						c += 1;
@@ -801,11 +801,11 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 	};
 
 	CandidateValidationMessage::ValidateFromChainState(
-		candidate_receipt,
-		pov,
-		Default::default(),
-		PvfExecTimeoutKind::Backing,
-		sender,
+        candidate_receipt,
+        pov,
+        Default::default(),
+        PvfExecKind::Backing,
+        sender,
 	)
 }
 

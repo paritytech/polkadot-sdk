@@ -21,7 +21,7 @@
 //! by the first element of the vector). Decoding to a usable semantics structure is
 //! done in `polkadot-node-core-pvf`.
 
-use crate::{BlakeTwo256, HashT as _, PvfExecTimeoutKind, PvfPrepTimeoutKind};
+use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepTimeoutKind};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -104,7 +104,7 @@ pub enum ExecutorParam {
 	/// Always ensure that `backing_timeout` < `approval_timeout`.
 	/// When absent, the default values will be used.
 	#[codec(index = 6)]
-	PvfExecTimeout(PvfExecTimeoutKind, u64),
+	PvfExecTimeout(PvfExecKind, u64),
 	/// Enables WASM bulk memory proposal
 	#[codec(index = 7)]
 	WasmExtBulkMemory,
@@ -186,7 +186,7 @@ impl ExecutorParams {
 	}
 
 	/// Returns a PVF execution timeout, if any
-	pub fn pvf_exec_timeout(&self, kind: PvfExecTimeoutKind) -> Option<Duration> {
+	pub fn pvf_exec_timeout(&self, kind: PvfExecKind) -> Option<Duration> {
 		for param in &self.0 {
 			if let ExecutorParam::PvfExecTimeout(k, timeout) = param {
 				if kind == *k {
@@ -246,8 +246,8 @@ impl ExecutorParams {
 					PvfPrepTimeoutKind::Lenient => "PvfPrepTimeoutKind::Lenient",
 				},
 				PvfExecTimeout(kind, _) => match kind {
-					PvfExecTimeoutKind::Backing => "PvfExecTimeoutKind::Backing",
-					PvfExecTimeoutKind::Approval => "PvfExecTimeoutKind::Approval",
+					PvfExecKind::Backing => "PvfExecKind::Backing",
+					PvfExecKind::Approval => "PvfExecKind::Approval",
 				},
 				WasmExtBulkMemory => "WasmExtBulkMemory",
 			};

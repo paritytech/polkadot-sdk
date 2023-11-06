@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, Hash, PvfExecTimeoutKind, SessionIndex,
+    BlockNumber, CandidateHash, CandidateReceipt, Hash, PvfExecKind, SessionIndex,
 };
 
 use crate::LOG_TARGET;
@@ -381,13 +381,13 @@ async fn participate(
 	let (validation_tx, validation_rx) = oneshot::channel();
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-			available_data.validation_data,
-			validation_code,
-			req.candidate_receipt().clone(),
-			available_data.pov,
-			req.executor_params(),
-			PvfExecTimeoutKind::Approval,
-			validation_tx,
+            available_data.validation_data,
+            validation_code,
+            req.candidate_receipt().clone(),
+            available_data.pov,
+            req.executor_params(),
+            PvfExecKind::Approval,
+            validation_tx,
 		))
 		.await;
 

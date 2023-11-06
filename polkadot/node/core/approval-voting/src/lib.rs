@@ -54,7 +54,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement,
-	ExecutorParams, GroupIndex, Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo,
+	ExecutorParams, GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo,
 	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
@@ -2867,7 +2867,7 @@ async fn launch_approval<Context>(
 				candidate.clone(),
 				available_data.pov,
 				executor_params,
-				PvfExecTimeoutKind::Approval,
+				PvfExecKind::Approval,
 				val_tx,
 			))
 			.await;

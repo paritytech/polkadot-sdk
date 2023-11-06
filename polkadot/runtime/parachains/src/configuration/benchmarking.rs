@@ -17,7 +17,7 @@
 use crate::configuration::*;
 use frame_benchmarking::{benchmarks, BenchmarkError, BenchmarkResult};
 use frame_system::RawOrigin;
-use primitives::{ExecutorParam, ExecutorParams, PvfExecTimeoutKind, PvfPrepTimeoutKind};
+use primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepTimeoutKind};
 use sp_runtime::traits::One;
 
 benchmarks! {
@@ -43,8 +43,8 @@ benchmarks! {
 		ExecutorParam::PrecheckingMaxMemory(2 * 1024 * 1024 * 1024),
 		ExecutorParam::PvfPrepTimeout(PvfPrepTimeoutKind::Precheck, 60_000),
 		ExecutorParam::PvfPrepTimeout(PvfPrepTimeoutKind::Lenient, 360_000),
-		ExecutorParam::PvfExecTimeout(PvfExecTimeoutKind::Backing, 2_000),
-		ExecutorParam::PvfExecTimeout(PvfExecTimeoutKind::Approval, 12_000),
+		ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2_000),
+		ExecutorParam::PvfExecTimeout(PvfExecKind::Approval, 12_000),
 	][..]))
 
 	set_config_with_perbill {}: set_on_demand_fee_variability(RawOrigin::Root, Perbill::from_percent(100))

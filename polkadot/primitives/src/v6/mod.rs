@@ -1794,13 +1794,15 @@ pub enum PvfPrepTimeoutKind {
 	Lenient,
 }
 
-/// Type discriminator for PVF execution timeouts
+/// Type discriminator for PVF execution timeouts and retries
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PvfExecTimeoutKind {
+pub enum PvfExecKind {
 	/// The amount of time to spend on execution during backing.
+	/// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and honest backers getting slashed.
 	Backing,
 
 	/// The amount of time to spend on execution during approval or disputes.
+	/// With retry enabled.
 	///
 	/// This should be much longer than the backing execution timeout to ensure that in the
 	/// absence of extremely large disparities between hardware, blocks that pass backing are

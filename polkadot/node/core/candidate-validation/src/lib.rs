@@ -46,10 +46,10 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::{
 	executor_params::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
+		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT, self,
 	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
-	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
+	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepTimeoutKind,
 	ValidationCode, ValidationCodeHash,
 };
 
@@ -498,7 +498,7 @@ async fn validate_from_chain_state<Sender>(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_timeout_kind: PvfExecTimeoutKind,
+	exec_timeout_kind: PvfExecKind,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed>
 where
@@ -554,7 +554,7 @@ async fn validate_candidate_exhaustive(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_timeout_kind: PvfExecTimeoutKind,
+	exec_timeout_kind: PvfExecKind,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -613,15 +613,37 @@ async fn validate_candidate_exhaustive(
 		relay_parent_storage_root: persisted_validation_data.relay_parent_storage_root,
 	};
 
-	let result = validation_backend
-		.validate_candidate_with_retry(
-			raw_validation_code.to_vec(),
-			pvf_exec_timeout(&executor_params, exec_timeout_kind),
-			exec_timeout_kind,
-			params,
-			executor_params,
-		)
-		.await;
+	let result = match exec_timeout_kind {
+		PvfExecKind::Backing => {
+			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepTimeoutKind::Lenient);
+			let exec_timeout = pvf_exec_timeout(&executor_params, exec_timeout_kind);
+			let pvf = PvfPrepData::from_code(
+				raw_validation_code.to_vec(),
+				executor_params,
+				prep_timeout,
+				PrepareJobKind::Compilation,
+			);
+
+			validation_backend
+			.validate_candidate(
+				pvf,
+				exec_timeout,
+				params.encode(),
+			)
+			.await
+		},
+		PvfExecKind::Approval => {
+			validation_backend
+			.validate_candidate_with_retry(
+				raw_validation_code.to_vec(),
+				pvf_exec_timeout(&executor_params, exec_timeout_kind),
+				exec_timeout_kind,
+				params,
+				executor_params,
+			)
+			.await
+		}
+	};
 
 	if let Err(ref error) = result {
 		gum::info!(target: LOG_TARGET, ?para_id, ?error, "Failed to validate candidate");
@@ -710,7 +732,7 @@ trait ValidationBackend {
 		&mut self,
 		raw_validation_code: Vec<u8>,
 		exec_timeout: Duration,
-		exec_timeout_kind: PvfExecTimeoutKind,
+		exec_timeout_kind: PvfExecKind,
 		params: ValidationParams,
 		executor_params: ExecutorParams,
 	) -> Result<WasmValidationResult, ValidationError> {
@@ -733,8 +755,8 @@ trait ValidationBackend {
 		}
 
 		let retry_delay = match exec_timeout_kind {
-			PvfExecTimeoutKind::Backing => PVF_BACKING_EXECUTION_RETRY_DELAY,
-			PvfExecTimeoutKind::Approval => PVF_APPROVAL_EXECUTION_RETRY_DELAY,
+			PvfExecKind::Backing => PVF_BACKING_EXECUTION_RETRY_DELAY,
+			PvfExecKind::Approval => PVF_APPROVAL_EXECUTION_RETRY_DELAY,
 		};
 
 		// Allow limited retries for each kind of error.
@@ -868,12 +890,12 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepTimeoutKind) 
 	}
 }
 
-fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecTimeoutKind) -> Duration {
+fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_exec_timeout(kind) {
 		return timeout
 	}
 	match kind {
-		PvfExecTimeoutKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		PvfExecTimeoutKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
+		PvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		PvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
 	}
 }

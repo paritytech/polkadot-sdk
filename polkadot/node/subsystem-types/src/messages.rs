@@ -47,7 +47,7 @@ use polkadot_primitives::{
 	CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
 	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
 	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
@@ -147,8 +147,8 @@ pub enum CandidateValidationMessage {
 		CandidateReceipt,
 		Arc<PoV>,
 		ExecutorParams,
-		/// Execution timeout
-		PvfExecTimeoutKind,
+		/// Execution timeout and retry
+		PvfExecKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	),
 	/// Validate a candidate with provided, exhaustive parameters for validation.
@@ -166,8 +166,8 @@ pub enum CandidateValidationMessage {
 		CandidateReceipt,
 		Arc<PoV>,
 		ExecutorParams,
-		/// Execution timeout
-		PvfExecTimeoutKind,
+		/// Execution timeout and retry
+		PvfExecKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	),
 	/// Try to compile the given validation code and send back

@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
 
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,
-	PvfExecTimeoutKind,
+	PvfExecKind,
 };
 
 use futures::channel::oneshot;
@@ -90,10 +90,10 @@ impl FakeCandidateValidation {
 		}
 	}
 
-	fn should_misbehave(&self, timeout: PvfExecTimeoutKind) -> bool {
+	fn should_misbehave(&self, timeout: PvfExecKind) -> bool {
 		match timeout {
-			PvfExecTimeoutKind::Backing => self.includes_backing(),
-			PvfExecTimeoutKind::Approval => self.includes_approval(),
+			PvfExecKind::Backing => self.includes_backing(),
+			PvfExecKind::Approval => self.includes_approval(),
 		}
 	}
 }
