@@ -27,8 +27,8 @@ use polkadot_primitives::{
 	AssignmentId, AssignmentPair, CandidateHash, CoreIndex, GroupIndex, IndexedVec, SessionInfo,
 	ValidatorIndex,
 };
-use rand::Rng;
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand::{seq::SliceRandom, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::ByteArray;
 
@@ -37,7 +37,7 @@ use schnorrkel::vrf::VRFInOut;
 
 use std::{
 	cmp::min,
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap},
 };
 
 use super::LOG_TARGET;
@@ -130,26 +130,6 @@ fn relay_vrf_modulo_transcript_v2(relay_vrf_story: RelayVRFStory) -> Transcript 
 /// A hard upper bound on num_cores * target_checkers / num_validators
 const MAX_MODULO_SAMPLES: usize = 40;
 
-/// The maximum number of samples we take to try to obtain an
-/// a distinct core_index.
-const MAX_SAMPLING_ITERATIONS: usize = 20;
-
-use std::convert::AsMut;
-
-struct BigArray(pub [u8; MAX_MODULO_SAMPLES * 4]);
-
-impl Default for BigArray {
-	fn default() -> Self {
-		BigArray([0u8; MAX_MODULO_SAMPLES * 4])
-	}
-}
-
-impl AsMut<[u8]> for BigArray {
-	fn as_mut(&mut self) -> &mut [u8] {
-		self.0.as_mut()
-	}
-}
-
 /// Takes the VRF output as input and returns a Vec of cores the validator is assigned
 /// to as a tranche0 checker.
 fn relay_vrf_modulo_cores(
@@ -158,6 +138,25 @@ fn relay_vrf_modulo_cores(
 	num_samples: u32,
 	// Configuration - `n_cores`.
 	max_cores: u32,
+) -> Vec<CoreIndex> {
+	let rand_chacha =
+		ChaCha20Rng::from_seed(vrf_in_out.make_bytes::<<ChaCha20Rng as SeedableRng>::Seed>(
+			approval_types::v2::CORE_RANDOMNESS_CONTEXT,
+		));
+	generate_samples(rand_chacha, num_samples as usize, max_cores as usize)
+}
+
+/// Generates `num_sumples` randomly from (0..max_cores) range
+///
+/// Note! The algorithm can't change because validators on the other
+/// side won't be able to check the assignments until they update.
+/// This invariant is tested with `generate_samples_invariant`, so the
+/// tests will catch any subtle changes in the implementation of this function
+/// and its dependencies.
+fn generate_samples(
+	mut rand_chacha: ChaCha20Rng,
+	num_samples: usize,
+	max_cores: usize,
 ) -> Vec<CoreIndex> {
 	if num_samples as usize > MAX_MODULO_SAMPLES {
 		gum::warn!(
@@ -170,7 +169,7 @@ fn relay_vrf_modulo_cores(
 	}
 
 	if 2 * num_samples > max_cores {
-		gum::error!(
+		gum::debug!(
 			target: LOG_TARGET,
 			n_cores = max_cores,
 			num_samples,
@@ -179,28 +178,11 @@ fn relay_vrf_modulo_cores(
 		);
 	}
 
-	let mut rand_chacha =
-		ChaCha20Rng::from_seed(vrf_in_out.make_bytes::<<ChaCha20Rng as SeedableRng>::Seed>(
-			approval_types::v2::CORE_RANDOMNESS_CONTEXT,
-		));
+	let num_samples = min(MAX_MODULO_SAMPLES, min(num_samples, max_cores));
 
-	let mut res = HashSet::with_capacity(num_samples as usize);
-	while res.len() < min(num_samples, max_cores) as usize {
-		// Production networks should run with num_samples no larger than `n_cores/2`, so on worst
-		// case on each iteration this loop has >1/2 chance of finishing.
-		// With our current production parameters the chances for each iteration not hitting
-		// a duplicate are around 90%.
-		// See: https://github.com/paritytech/polkadot-sdk/pull/1178#discussion_r1376501206
-		// for more details.
-		for _ in 0..MAX_SAMPLING_ITERATIONS {
-			let random_core = rand_chacha.gen_range(0..max_cores).into();
-			if !res.contains(&random_core) {
-				res.insert(random_core);
-				break
-			}
-		}
-	}
-	res.into_iter().collect_vec()
+	let mut random_cores = (0..max_cores as u32).map(|val| val.into()).collect::<Vec<CoreIndex>>();
+	let (samples, _) = random_cores.partial_shuffle(&mut rand_chacha, num_samples as usize);
+	samples.into_iter().map(|val| *val).collect_vec()
 }
 
 fn relay_vrf_modulo_core(vrf_in_out: &VRFInOut, n_cores: u32) -> CoreIndex {
@@ -1208,5 +1190,44 @@ mod tests {
 				_ => None, // skip everything else.
 			}
 		});
+	}
+
+	#[test]
+	fn generate_samples_invariant() {
+		let seed = [
+			1, 0, 52, 0, 0, 0, 0, 0, 1, 0, 10, 0, 22, 32, 0, 0, 2, 0, 55, 49, 0, 11, 0, 0, 3, 0, 0,
+			0, 0, 0, 2, 92,
+		];
+		let rand_chacha = ChaCha20Rng::from_seed(seed);
+
+		let samples = generate_samples(rand_chacha.clone(), 6, 100);
+		let expected = vec![19, 79, 17, 75, 66, 30].into_iter().map(Into::into).collect_vec();
+		assert_eq!(samples, expected);
+
+		let samples = generate_samples(rand_chacha.clone(), 6, 7);
+		let expected = vec![0, 3, 6, 5, 4, 2].into_iter().map(Into::into).collect_vec();
+		assert_eq!(samples, expected);
+
+		let samples = generate_samples(rand_chacha.clone(), 6, 12);
+		let expected = vec![2, 4, 7, 5, 11, 3].into_iter().map(Into::into).collect_vec();
+		assert_eq!(samples, expected);
+
+		let samples = generate_samples(rand_chacha.clone(), 1, 100);
+		let expected = vec![30].into_iter().map(Into::into).collect_vec();
+		assert_eq!(samples, expected);
+
+		let samples = generate_samples(rand_chacha.clone(), 0, 100);
+		let expected = vec![];
+		assert_eq!(samples, expected);
+
+		let samples = generate_samples(rand_chacha, MAX_MODULO_SAMPLES + 1, 100);
+		let expected = vec![
+			42, 54, 55, 93, 64, 27, 49, 15, 83, 71, 62, 1, 43, 77, 97, 41, 7, 69, 0, 88, 59, 14,
+			23, 87, 47, 4, 51, 12, 74, 56, 50, 44, 9, 82, 19, 79, 17, 75, 66, 30,
+		]
+		.into_iter()
+		.map(Into::into)
+		.collect_vec();
+		assert_eq!(samples, expected);
 	}
 }
