@@ -63,6 +63,7 @@ std = [
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
+	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
