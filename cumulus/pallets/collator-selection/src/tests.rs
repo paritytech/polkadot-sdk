@@ -23,6 +23,128 @@ use pallet_balances::Error as BalancesError;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, BuildStorage};
 
 #[test]
+fn pivot_up_works() {
+	let mut list: Vec<_> = (0..10).map(|i| CandidateInfo { who: i, deposit: i * 10 }).collect();
+
+	// Have 4 bid as much as 8.
+	list[4].deposit = list[8].deposit;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	// Move 4 up the list.
+	CollatorSelection::pivot_up(list.as_mut(), 4);
+	assert_eq!(list, expected);
+	// It should be behind 8 though since 8 has the same bid but is older.
+	assert_eq!(list[7].who, 4);
+	assert_eq!(list[8].who, 8);
+
+	let last_idx = list.len() - 1;
+	let who = list[5].who;
+	// Make 5 the top bidder.
+	list[5].deposit = list.iter().map(|info| info.deposit).max().unwrap() + 100;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	CollatorSelection::pivot_up(list.as_mut(), 5);
+	assert_eq!(list, expected);
+	// 5 should now be on the top spot.
+	assert_eq!(list[last_idx].who, who);
+	// And the last top bidder should have fallen one place.
+	assert_eq!(list[last_idx - 1].who as usize, last_idx);
+
+	// Make the top bidder increase their bid.
+	list[last_idx].deposit = list[last_idx].deposit + 100;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	// Nobody should change places.
+	CollatorSelection::pivot_up(list.as_mut(), last_idx);
+	assert_eq!(list, expected);
+	assert_eq!(list[last_idx].who, who);
+	assert_eq!(list[last_idx - 1].who as usize, last_idx);
+
+	// Out of bounds call is a noop.
+	CollatorSelection::pivot_up(list.as_mut(), last_idx + 1);
+	assert_eq!(list, expected);
+
+	// Have the lowest bidder increase their bid to be the top bid.
+	list[0].deposit = list[last_idx].deposit + 100;
+	let who = list[0].who;
+	let prev_top_bidder = list[last_idx].who;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	CollatorSelection::pivot_up(list.as_mut(), 0);
+	assert_eq!(list, expected);
+	// 0 should now be on the top spot.
+	assert_eq!(list[last_idx].who, who);
+	// The previous top bidder should have fallen one place.
+	assert_eq!(list[last_idx - 1].who, prev_top_bidder);
+}
+
+#[test]
+fn pivot_down_works() {
+	let mut list: Vec<_> =
+		(0..10).map(|i| CandidateInfo { who: i, deposit: (i * 10) + 100 }).collect();
+
+	// Have 8 bid as much as 4.
+	list[8].deposit = list[4].deposit;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	// The stable sort puts 8 ahead of 4 since that was their original order in the list, but in our
+	// expected list we want 8 to be ahead of 4 because 4 has the same bid but has the least recent
+	// change to their bid.
+	expected.swap(4, 5);
+	// Move 8 down the list.
+	CollatorSelection::pivot_down(list.as_mut(), 8);
+	assert_eq!(list, expected);
+	// It should be ahead of 4 though since 4 has the same bid but is older.
+	assert_eq!(list[4].who, 8);
+	assert_eq!(list[5].who, 4);
+
+	let who = list[6].who;
+	// Make 6 the lowest bidder.
+	list[6].deposit = list.iter().map(|info| info.deposit).min().unwrap() - 10;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	// Move 6 down the list.
+	CollatorSelection::pivot_down(list.as_mut(), 6);
+	assert_eq!(list, expected);
+	// 6 should now be on the lowest spot.
+	assert_eq!(list[0].who, who);
+	// And the last lowest bidder should have gained one place.
+	assert_eq!(list[1].who, 0);
+
+	// Make the lowest bidder decrease their bid.
+	list[0].deposit = list[0].deposit - 10;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	// Nobody should change places.
+	CollatorSelection::pivot_down(list.as_mut(), 0);
+	assert_eq!(list, expected);
+	assert_eq!(list[0].who, who);
+	assert_eq!(list[1].who, 0);
+
+	// Should be a noop as there were no bid changes.
+	CollatorSelection::pivot_down(list.as_mut(), 0);
+	assert_eq!(list, expected);
+
+	let last_idx = list.len() - 1;
+	// Have the top bidder decrease their bid to be the lowest bid.
+	list[last_idx].deposit = list[0].deposit - 10;
+	let who = list[last_idx].who;
+	let prev_lowest_bidder = list[0].who;
+	let mut expected = list.clone();
+	expected.sort_by_key(|info| info.deposit);
+	CollatorSelection::pivot_down(list.as_mut(), last_idx);
+	assert_eq!(list, expected);
+	// 9 should now be on the lowest spot.
+	assert_eq!(list[0].who, who);
+	// The previous lowest bidder should have gained one place.
+	assert_eq!(list[1].who, prev_lowest_bidder);
+
+	// Out of bounds call should be a noop.
+	CollatorSelection::pivot_down(list.as_mut(), last_idx + 1);
+	assert_eq!(list, expected);
+}
+
+#[test]
 fn basic_setup_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(CollatorSelection::desired_candidates(), 2);

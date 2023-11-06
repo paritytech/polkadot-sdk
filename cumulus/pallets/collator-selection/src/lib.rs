@@ -617,7 +617,7 @@ pub mod pallet {
 			// position of the entry in the list, used for weight calculation.
 			let length =
 				<CandidateList<T>>::try_mutate(|candidates| -> Result<usize, DispatchError> {
-					let mut idx = candidates
+					let idx = candidates
 						.iter()
 						.position(|candidate_info| candidate_info.who == who)
 						.ok_or_else(|| Error::<T>::NotCandidate)?;
@@ -637,25 +637,10 @@ pub mod pallet {
 						return Err(Error::<T>::IdenticalDeposit.into())
 					}
 					candidates[idx].deposit = new_deposit;
-					// Since `idx` is at most `T::MaxCandidates - 1`, because it's the position of
-					// an entry in a list that is at most `T::MaxCandidates` long, it will never be
-					// an out of bounds index access. Furthermore, the increment will not be an
-					// overflow since `idx` is `usize` and it can be at most `T::MaxCandidates`,
-					// which is `u32`.
-					if new_deposit > old_deposit && idx < candidate_count {
-						// Since the lowest value for `idx` would be `0`, the first element in the
-						// list, and the fact we do an increment of `idx` before iterating, we
-						// ensure the `idx - 1` list access in the loop is not an underflow.
-						idx += 1;
-						while idx < candidate_count && candidates[idx].deposit < new_deposit {
-							candidates.as_mut().swap(idx - 1, idx);
-							idx += 1;
-						}
+					if new_deposit > old_deposit {
+						Self::pivot_up(candidates.as_mut(), idx);
 					} else {
-						while idx > 0 && candidates[idx].deposit >= new_deposit {
-							candidates.as_mut().swap(idx - 1, idx);
-							idx -= 1;
-						}
+						Self::pivot_down(candidates.as_mut(), idx);
 					}
 
 					Ok(candidate_count)
@@ -737,21 +722,10 @@ pub mod pallet {
 			// Replace the old candidate in the list with the new candidate and then move them up
 			// the list to the correct place, if necessary.
 			<CandidateList<T>>::try_mutate(|list| {
-				let mut idx = target_info_idx;
+				let idx = target_info_idx;
 				list[idx].who = who.clone();
 				list[idx].deposit = deposit;
-				// Since `idx` is at most `T::MaxCandidates - 1`, because it's the position of an
-				// entry in a list that is at most `T::MaxCandidates` long, it will never be an out
-				// of bounds index access. Furthermore, the increment will not be an overflow since
-				// `idx` is `usize` and it can be at most `T::MaxCandidates`, which is `u32`. Since
-				// the lowest value for `idx` would be `0`, the first element in the list`, and the
-				// fact we do an increment of `idx` before iterating, we ensure the `idx - 1` list
-				// access in the loop is not an underflow.
-				idx += 1;
-				while idx < list.len() && list[idx].deposit < deposit {
-					list.as_mut().swap(idx - 1, idx);
-					idx += 1;
-				}
+				Self::pivot_up(list.as_mut(), idx);
 				Ok::<(), Error<T>>(())
 			})?;
 
@@ -854,6 +828,34 @@ pub mod pallet {
 				.count()
 				.try_into()
 				.expect("filter_map operation can't result in a bounded vec larger than its original; qed")
+		}
+
+		/// Given a sorted list of candidates and a potentially out of place candidate at index
+		/// `start`, pivot the candidate upwards in the list to the correct spot.
+		pub(super) fn pivot_up(
+			list: &mut [CandidateInfo<T::AccountId, BalanceOf<T>>],
+			start: usize,
+		) {
+			let mut idx = start.saturating_add(1);
+			while idx < list.len() && list[idx].deposit < list[idx.saturating_sub(1)].deposit {
+				list.swap(idx.saturating_sub(1), idx);
+				idx.saturating_inc();
+			}
+		}
+
+		/// Given a sorted list of candidates and a potentially out of place candidate at index
+		/// `start`, pivot the candidate downwards in the list to the correct spot.
+		pub(super) fn pivot_down(
+			list: &mut [CandidateInfo<T::AccountId, BalanceOf<T>>],
+			start: usize,
+		) {
+			if start < list.len() {
+				let mut idx = start;
+				while idx > 0 && list[idx].deposit <= list[idx.saturating_sub(1)].deposit {
+					list.swap(idx.saturating_sub(1), idx);
+					idx.saturating_dec();
+				}
+			}
 		}
 	}
 
