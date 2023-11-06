@@ -144,18 +144,10 @@ pub enum InternalValidationError {
 		// conversion to `Option<String>`.
 		path: Option<String>,
 	},
-	/// An error occurred in the CPU time monitor thread. Should be totally unrelated to
-	/// validation.
-	CpuTimeMonitorThread(String),
-	/// Could not spawn the execution job thread.
-	CouldNotSpawnJobThread(String),
 	/// Some error occurred when interfacing with the kernel.
 	Kernel(String),
 
 	/// Some non-deterministic preparation error occurred.
-	///
-	/// It is OK if attackers can trigger such errors. We assume that such attacks are filtered
-	/// during pre-checking.
 	NonDeterministicPrepareError(PrepareError),
 }
 
@@ -177,10 +169,6 @@ impl fmt::Display for InternalValidationError {
 				"validation: host could not clear the worker cache ({:?}) after a job: {}",
 				path, err
 			),
-			CpuTimeMonitorThread(err) =>
-				write!(f, "validation: an error occurred in the CPU time monitor thread: {}", err),
-			CouldNotSpawnJobThread(err) =>
-				write!(f, "validation: could not spawn execution job thread: {}", err),
 			Kernel(err) => write!(f, "validation: error interfacing with the kernel: {}", err),
 			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),
 		}

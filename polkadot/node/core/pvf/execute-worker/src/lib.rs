@@ -37,7 +37,7 @@ use os_pipe::PipeWriter;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, Response},
+	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
 		cpu_time_monitor_loop, stringify_panic_payload,
@@ -115,7 +115,7 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
 	Ok((params, execution_timeout))
 }
 
-fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> {
+fn send_response(stream: &mut UnixStream, response: WorkerResponse) -> io::Result<()> {
 	framed_send_blocking(stream, &response.encode())
 }
 
@@ -167,7 +167,7 @@ pub fn worker_entrypoint(
 				let compiled_artifact_blob = match std::fs::read(&artifact_path) {
 					Ok(bytes) => bytes,
 					Err(err) => {
-						let response = Response::InternalError(
+						let response = WorkerResponse::InternalError(
 							InternalValidationError::CouldNotOpenFile(err.to_string()),
 						);
 						send_response(&mut stream, response)?;
@@ -235,25 +235,27 @@ fn validate_using_artifact(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
-) -> Response {
+) -> JobResponse {
 	let descriptor_bytes = match unsafe {
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
 		//         [`executor_intf::prepare`].
 		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
-		Err(err) => return Response::format_invalid("execute", &err),
+		Err(err) => return JobResponse::format_invalid("execute", &err),
 		Ok(d) => d,
 	};
 
 	let result_descriptor = match ValidationResult::decode(&mut &descriptor_bytes[..]) {
 		Err(err) =>
-			return Response::format_invalid("validation result decoding failed", &err.to_string()),
+			return JobResponse::format_invalid(
+				"validation result decoding failed",
+				&err.to_string(),
+			),
 		Ok(r) => r,
 	};
 
-	// duration is set to 0 here because the process duration is calculated on the parent process
-	Response::Ok { result_descriptor, duration: Duration::ZERO }
+	JobResponse::Ok { result_descriptor }
 }
 
 /// This is used to handle child process during pvf execute worker.
@@ -273,7 +275,7 @@ fn validate_using_artifact(
 ///
 /// # Returns
 ///
-/// - pipe back `Response` to the parent process.
+/// - pipe back `JobResponse` to the parent process.
 fn handle_child_process(
 	pipe_write: os_pipe::PipeWriter,
 	compiled_artifact_blob: Vec<u8>,
@@ -299,10 +301,10 @@ fn handle_child_process(
 		Arc::clone(&condvar),
 		WaitOutcome::TimedOut,
 	)
-	.unwrap_or_else(|err| send_child_response(&pipe_write, Response::Panic(err.to_string())));
+	.unwrap_or_else(|err| {
+		send_child_response(&pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
+	});
 
-	// TODO: We may not need this since there's only one thread here now. We do still need to
-	// control the stack size (see EXECUTE_THREAD_STACK_SIZE). Look into simplifying.
 	let executor_params_2 = executor_params.clone();
 	let execute_thread = thread::spawn_worker_thread_with_stack_size(
 		"execute thread",
@@ -312,12 +314,7 @@ fn handle_child_process(
 		EXECUTE_THREAD_STACK_SIZE,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(
-			&pipe_write,
-			Response::InternalError(InternalValidationError::CouldNotSpawnJobThread(
-				err.to_string(),
-			)),
-		)
+		send_child_response(&pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
 	});
 
 	let outcome = thread::wait_for_threads(condvar);
@@ -325,20 +322,16 @@ fn handle_child_process(
 	let response = match outcome {
 		WaitOutcome::Finished => {
 			let _ = cpu_time_monitor_tx.send(());
-			execute_thread
-				.join()
-				.unwrap_or_else(|e| Response::Panic(stringify_panic_payload(e)))
+			execute_thread.join().map_err(|e| JobError::Panic(stringify_panic_payload(e)))
 		},
 		// If the CPU thread is not selected, we signal it to end, the join handle is
 		// dropped and the thread will finish in the background.
 		WaitOutcome::TimedOut => match cpu_time_monitor_thread.join() {
-			Ok(Some(_cpu_time_elapsed)) => Response::TimedOut,
-			Ok(None) => Response::InternalError(InternalValidationError::CpuTimeMonitorThread(
+			Ok(Some(_cpu_time_elapsed)) => Err(JobError::TimedOut),
+			Ok(None) => Err(JobError::CpuTimeMonitorThread(
 				"error communicating over finished channel".into(),
 			)),
-			Err(e) => Response::InternalError(InternalValidationError::CpuTimeMonitorThread(
-				stringify_panic_payload(e),
-			)),
+			Err(e) => Err(JobError::CpuTimeMonitorThread(stringify_panic_payload(e))),
 		},
 		WaitOutcome::Pending =>
 			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
@@ -368,7 +361,7 @@ fn handle_parent_process(
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
-) -> io::Result<Response> {
+) -> io::Result<WorkerResponse> {
 	// Read from the child.
 	let mut received_data = Vec::new();
 	pipe_read.read_to_end(&mut received_data)?;
@@ -386,40 +379,40 @@ fn handle_parent_process(
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
+	if cpu_tv >= timeout {
+		gum::warn!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"execute job took {}ms cpu time, exceeded execute timeout {}ms",
+			cpu_tv.as_millis(),
+			timeout.as_millis(),
+		);
+		return Ok(WorkerResponse::JobTimedOut)
+	}
 
 	match status {
 		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
-			match Response::decode(&mut received_data.as_slice()) {
-				Ok(Response::Ok { result_descriptor, duration: _ }) => {
-					if cpu_tv.as_secs() >= timeout.as_secs() {
-						// Log if we exceed the timeout and the other thread hasn't
-						// finished.
-						gum::warn!(
-							target: LOG_TARGET,
-							%worker_pid,
-							"execute job took {}ms cpu time, exceeded execute timeout {}ms",
-							cpu_tv.as_millis(),
-							timeout.as_millis(),
-						);
-						return Ok(Response::TimedOut)
-					}
-					Ok(Response::Ok { result_descriptor, duration: cpu_tv })
-				},
-				Ok(Response::TimedOut) => {
-					// Log if we exceed the timeout and the other thread hasn't
-					// finished.
+			match JobResult::decode(&mut received_data.as_slice()) {
+				Ok(Ok(JobResponse::Ok { result_descriptor })) =>
+					Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv }),
+				Ok(Ok(JobResponse::InvalidCandidate(err))) =>
+					Ok(WorkerResponse::InvalidCandidate(err)),
+				Ok(Err(job_error)) => {
 					gum::warn!(
 						target: LOG_TARGET,
 						%worker_pid,
-						"execute job took {}ms cpu time, exceeded execute timeout {}ms",
-						cpu_tv.as_millis(),
-						timeout.as_millis(),
+						"execute job error: {}",
+						job_error,
 					);
-					return Ok(Response::TimedOut)
+					if matches!(job_error, JobError::TimedOut) {
+						Ok(WorkerResponse::JobTimedOut)
+					} else {
+						Ok(WorkerResponse::JobError(job_error.to_string()))
+					}
 				},
-				Ok(response) => Ok(response),
-				// There is either a bug or the job was hijacked. Should retry at any rate.
-				Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
+				// Could not decode job response. There is either a bug or the job was hijacked.
+				// Should retry at any rate.
+				Err(err) => Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
 			}
 		},
 		// The job was killed by the given signal.
@@ -427,12 +420,12 @@ fn handle_parent_process(
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
 		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) =>
-			Ok(Response::JobDied(format!("received signal: {signal:?}"))),
+			Ok(WorkerResponse::JobDied(format!("received signal: {signal:?}"))),
 		Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
 
 		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
-		Ok(unexpected_wait_status) => Ok(Response::JobDied(format!(
+		Ok(unexpected_wait_status) => Ok(WorkerResponse::JobDied(format!(
 			"unexpected status from wait: {unexpected_wait_status:?}"
 		))),
 	}
@@ -462,17 +455,17 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 ///
 /// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
 ///
-/// - `response`: Child process response
-fn send_child_response(mut pipe_write: &PipeWriter, response: Response) -> ! {
+/// - `result`: Child process response, or error.
+fn send_child_response(mut pipe_write: &PipeWriter, result: JobResult) -> ! {
 	pipe_write
-		.write_all(response.encode().as_slice())
+		.write_all(result.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 	process::exit(libc::EXIT_SUCCESS)
 }
 
-fn internal_error_from_errno(context: &'static str, errno: Errno) -> Response {
-	Response::InternalError(InternalValidationError::Kernel(format!(
+fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerResponse {
+	WorkerResponse::InternalError(InternalValidationError::Kernel(format!(
 		"{}: {}: {}",
 		context,
 		errno,

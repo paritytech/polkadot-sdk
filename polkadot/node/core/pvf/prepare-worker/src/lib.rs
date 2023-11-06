@@ -457,14 +457,10 @@ fn handle_child_process(
 
 		// If the CPU thread is not selected, we signal it to end, the join handle is
 		// dropped and the thread will finish in the background.
-		WaitOutcome::TimedOut => {
-			match cpu_time_monitor_thread.join() {
-				Ok(Some(_cpu_time_elapsed)) => Err(PrepareError::TimedOut),
-				Ok(None) =>
-					Err(PrepareError::IoErr("error communicating over closed channel".into())),
-				// Errors in this thread are independent of the PVF.
-				Err(err) => Err(PrepareError::IoErr(stringify_panic_payload(err))),
-			}
+		WaitOutcome::TimedOut => match cpu_time_monitor_thread.join() {
+			Ok(Some(_cpu_time_elapsed)) => Err(PrepareError::TimedOut),
+			Ok(None) => Err(PrepareError::IoErr("error communicating over closed channel".into())),
+			Err(err) => Err(PrepareError::IoErr(stringify_panic_payload(err))),
 		},
 		WaitOutcome::Pending =>
 			unreachable!("we run wait_while until the outcome is no longer pending; qed"),

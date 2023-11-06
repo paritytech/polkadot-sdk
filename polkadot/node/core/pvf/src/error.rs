@@ -33,22 +33,17 @@ pub enum ValidationError {
 pub enum InvalidCandidate {
 	/// PVF preparation ended up with a deterministic error.
 	PrepareError(String),
-	/// The failure is reported by the execution worker. The string contains the error message.
-	WorkerReportedError(String),
+	/// The candidate is reported to be invalid by the execution worker. The string contains the
+	/// error message.
+	WorkerReportedInvalid(String),
 	/// The worker process (not the job) has died during validation of a candidate.
 	///
-	/// It's unlikely that this is caused by malicious code since workers now spawn separate job
+	/// It's unlikely that this is caused by malicious code since workers spawn separate job
 	/// processes, and those job processes are sandboxed. But, it is possible. We retry in this
 	/// case, and if the error persists, we assume it's caused by the candidate and vote against.
 	AmbiguousWorkerDeath,
 	/// PVF execution (compilation is not included) took more time than was allotted.
 	HardTimeout,
-	/// A panic occurred and we can't be sure whether the candidate is really invalid or some
-	/// internal glitch occurred. Whenever we are unsure, we can never treat an error as internal
-	/// as we would abstain from voting. This is bad because if the issue was due to the candidate,
-	/// then all validators would abstain, stalling finality on the chain. So we will first retry
-	/// the candidate, and if the issue persists we are forced to vote invalid.
-	Panic(String),
 	/// The job process (not the worker) has died for one of the following reasons:
 	///
 	/// (a) A seccomp violation occurred, most likely due to an attempt by malicious code to
@@ -62,6 +57,13 @@ pub enum InvalidCandidate {
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
 	AmbiguousJobDeath(String),
+	/// An unexpected error occurred in the job process and we can't be sure whether the candidate
+	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
+	/// treat an error as internal as we would abstain from voting. This is bad because if the
+	/// issue was due to the candidate, then all validators would abstain, stalling finality on the
+	/// chain. So we will first retry the candidate, and if the issue persists we are forced to
+	/// vote invalid.
+	JobError(String),
 }
 
 impl From<InternalValidationError> for ValidationError {
