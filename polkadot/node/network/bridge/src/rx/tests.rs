@@ -1248,6 +1248,9 @@ fn network_protocol_versioning_view_update() {
 				ValidationVersion::V2 =>
 					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
+				ValidationVersion::VStaging =>
+					WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(view.clone())
+						.encode(),
 			};
 			assert_network_actions_contains(
 				&actions,

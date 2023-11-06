@@ -59,7 +59,7 @@ substrate-test-runtime-client = { path = "client" }
 sp-tracing = { path = "../../primitives/tracing" }
 json-patch = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.188", features = ["alloc", "derive"], default-features = false }
-serde_json = { version = "1.0.107", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.108", default-features = false, features = ["alloc"] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true }

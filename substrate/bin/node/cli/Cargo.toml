@@ -108,7 +108,7 @@ sc-cli = { path = "../../../client/cli", optional = true}
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }
