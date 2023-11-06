@@ -1633,6 +1633,52 @@
 <a href="#1633" id="1633">1633</a>
 <a href="#1634" id="1634">1634</a>
 <a href="#1635" id="1635">1635</a>
+<a href="#1636" id="1636">1636</a>
+<a href="#1637" id="1637">1637</a>
+<a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
+<a href="#1646" id="1646">1646</a>
+<a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
+<a href="#1660" id="1660">1660</a>
+<a href="#1661" id="1661">1661</a>
+<a href="#1662" id="1662">1662</a>
+<a href="#1663" id="1663">1663</a>
+<a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1774,9 +1820,15 @@
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-</span><span class="kw">use </span>log;
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-</span><span class="kw">use </span>sp_runtime::TryRuntimeError;
+</span><span class="kw">use </span>::{
+	frame_support::{
+		traits::{TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState},
+		StorageNoopGuard,
+	},
+	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
+	log,
+	sp_runtime::TryRuntimeError,
+};
 
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::executive&quot;</span>;
@@ -1864,7 +1916,8 @@
 			+ OnIdle&lt;BlockNumberFor&lt;System&gt;&gt;
 			+ OnFinalize&lt;BlockNumberFor&lt;System&gt;&gt;
 			+ OffchainWorker&lt;BlockNumberFor&lt;System&gt;&gt;
-			+ frame_support::traits::TryState&lt;BlockNumberFor&lt;System&gt;&gt;,
+			+ TryState&lt;BlockNumberFor&lt;System&gt;&gt;
+			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	&gt; Executive&lt;System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade&gt;
 <span class="kw">where
@@ -1943,11 +1996,15 @@
 		</span><span class="kw">let </span>_guard = frame_support::StorageNoopGuard::default();
 		&lt;AllPalletsWithSystem <span class="kw">as </span>frame_support::traits::TryState&lt;
 			BlockNumberFor&lt;System&gt;,
-		&gt;&gt;::try_state(<span class="kw-2">*</span>header.number(), select)
+		&gt;&gt;::try_state(<span class="kw-2">*</span>header.number(), select.clone())
 		.map_err(|e| {
 			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;failure: {:?}&quot;</span>, e);
 			e
 		})<span class="question-mark">?</span>;
+		<span class="kw">if </span>select.any() {
+			<span class="kw">let </span>res = AllPalletsWithSystem::try_decode_entire_state();
+			<span class="self">Self</span>::log_decode_result(res)<span class="question-mark">?</span>;
+		}
 		drop(_guard);
 
 		<span class="comment">// do some of the checks that would normally happen in `final_checks`, but perhaps skip
@@ -1987,25 +2044,60 @@
 	<span class="doccomment">/// Execute all `OnRuntimeUpgrade` of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
-	</span><span class="kw">pub fn </span>try_runtime_upgrade(
-		checks: frame_try_runtime::UpgradeCheckSelect,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, TryRuntimeError&gt; {
+	</span><span class="kw">pub fn </span>try_runtime_upgrade(checks: UpgradeCheckSelect) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, TryRuntimeError&gt; {
 		<span class="kw">let </span>weight =
 			&lt;(COnRuntimeUpgrade, AllPalletsWithSystem) <span class="kw">as </span>OnRuntimeUpgrade&gt;::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)<span class="question-mark">?</span>;
+		<span class="comment">// Nothing should modify the state after the migrations ran:
+		</span><span class="kw">let </span>_guard = StorageNoopGuard::default();
 
-		<span class="kw">if </span>checks.try_state() {
-			<span class="kw">let </span>_guard = frame_support::StorageNoopGuard::default();
-			&lt;AllPalletsWithSystem <span class="kw">as </span>frame_support::traits::TryState&lt;
-				BlockNumberFor&lt;System&gt;,
-			&gt;&gt;::try_state(
+		<span class="comment">// The state must be decodable:
+		</span><span class="kw">if </span>checks.any() {
+			<span class="kw">let </span>res = AllPalletsWithSystem::try_decode_entire_state();
+			<span class="self">Self</span>::log_decode_result(res)<span class="question-mark">?</span>;
+		}
+
+		<span class="comment">// Check all storage invariants:
+		</span><span class="kw">if </span>checks.try_state() {
+			AllPalletsWithSystem::try_state(
 				frame_system::Pallet::&lt;System&gt;::block_number(),
-				frame_try_runtime::TryStateSelect::All,
+				TryStateSelect::All,
 			)<span class="question-mark">?</span>;
 		}
 
 		<span class="prelude-val">Ok</span>(weight)
+	}
+
+	<span class="doccomment">/// Logs the result of trying to decode the entire state.
+	</span><span class="kw">fn </span>log_decode_result(
+		res: <span class="prelude-ty">Result</span>&lt;usize, Vec&lt;TryDecodeEntireStorageError&gt;&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="kw">match </span>res {
+			<span class="prelude-val">Ok</span>(bytes) =&gt; {
+				<span class="macro">log::debug!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;decoded the entire state ({bytes} bytes)&quot;</span>,
+				);
+
+				<span class="prelude-val">Ok</span>(())
+			},
+			<span class="prelude-val">Err</span>(errors) =&gt; {
+				<span class="macro">log::error!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;`try_decode_entire_state` failed with {} errors&quot;</span>,
+					errors.len(),
+				);
+
+				<span class="kw">for </span>(i, err) <span class="kw">in </span>errors.iter().enumerate() {
+					<span class="comment">// We log the short version to `error` and then the full debug info to `debug`:
+					</span><span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;- {i}. error: {err}&quot;</span>);
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;- {i}. error: {err:?}&quot;</span>);
+				}
+
+				<span class="prelude-val">Err</span>(<span class="string">&quot;`try_decode_entire_state` failed&quot;</span>.into())
+			},
+		}
 	}
 }
 

@@ -855,6 +855,65 @@
 <a href="#855" id="855">855</a>
 <a href="#856" id="856">856</a>
 <a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1679,11 +1738,68 @@
 		)
 	});
 
-	<span class="kw">let </span><span class="kw-2">mut </span>where_clauses = <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>def.config.where_clause];
+	<span class="comment">// aggregated where clause of all storage types and the whole pallet.
+	</span><span class="kw">let </span><span class="kw-2">mut </span>where_clauses = <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>def.config.where_clause];
 	where_clauses.extend(def.storages.iter().map(|storage| <span class="kw-2">&amp;</span>storage.where_clause));
 	<span class="kw">let </span>completed_where_clause = <span class="kw">super</span>::merge_where_clauses(<span class="kw-2">&amp;</span>where_clauses);
 	<span class="kw">let </span>type_impl_gen = <span class="kw-2">&amp;</span>def.type_impl_generics(proc_macro2::Span::call_site());
 	<span class="kw">let </span>type_use_gen = <span class="kw-2">&amp;</span>def.type_use_generics(proc_macro2::Span::call_site());
+
+	<span class="kw">let </span>try_decode_entire_state = {
+		<span class="kw">let </span><span class="kw-2">mut </span>storage_names = def
+			.storages
+			.iter()
+			.filter_map(|storage| {
+				<span class="kw">if </span>storage.cfg_attrs.is_empty() {
+					<span class="kw">let </span>ident = <span class="kw-2">&amp;</span>storage.ident;
+					<span class="kw">let </span>gen = <span class="kw-2">&amp;</span>def.type_use_generics(storage.attr_span);
+					<span class="prelude-val">Some</span>(<span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt; #ident&lt;#gen&gt; ))
+				} <span class="kw">else </span>{
+					<span class="prelude-val">None
+				</span>}
+			})
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		storage_names.sort_by_cached_key(|ident| ident.to_string());
+
+		<span class="macro">quote::quote!</span>(
+			<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+			</span><span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::traits::TryDecodeEntireStorage
+			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #completed_where_clause
+			{
+				<span class="kw">fn </span>try_decode_entire_state() -&gt; <span class="prelude-ty">Result</span>&lt;usize, #frame_support::__private::sp_std::vec::Vec&lt;#frame_support::traits::TryDecodeEntireStorageError&gt;&gt; {
+					<span class="kw">let </span>pallet_name = &lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo	<span class="kw">as </span>frame_support::traits::PalletInfo&gt;
+						::name::&lt;#pallet_ident&lt;#type_use_gen&gt;&gt;()
+						.expect(<span class="string">&quot;Every active pallet has a name in the runtime; qed&quot;</span>);
+
+					#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">&quot;runtime::try-decode-state&quot;</span>, <span class="string">&quot;trying to decode pallet: {pallet_name}&quot;</span>);
+
+					<span class="comment">// NOTE: for now, we have to exclude storage items that are feature gated.
+					</span><span class="kw">let </span><span class="kw-2">mut </span>errors = #frame_support::__private::sp_std::vec::Vec::new();
+					<span class="kw">let </span><span class="kw-2">mut </span>decoded = <span class="number">0usize</span>;
+
+					#(
+						#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">&quot;runtime::try-decode-state&quot;</span>, <span class="string">&quot;trying to decode storage: \
+						{pallet_name}::{}&quot;</span>, <span class="macro">stringify!</span>(#storage_names));
+
+						<span class="kw">match </span>&lt;#storage_names <span class="kw">as </span>#frame_support::traits::TryDecodeEntireStorage&gt;::try_decode_entire_state() {
+							<span class="prelude-val">Ok</span>(count) =&gt; {
+								decoded += count;
+							},
+							<span class="prelude-val">Err</span>(err) =&gt; {
+								errors.extend(err);
+							},
+						}
+					)*
+
+					<span class="kw">if </span>errors.is_empty() {
+						<span class="prelude-val">Ok</span>(decoded)
+					} <span class="kw">else </span>{
+						<span class="prelude-val">Err</span>(errors)
+					}
+				}
+			}
+		)
+	};
 
 	<span class="macro">quote::quote!</span>(
 		<span class="kw">impl</span>&lt;#type_impl_gen&gt; #pallet_ident&lt;#type_use_gen&gt;
@@ -1710,6 +1826,8 @@
 		#( #getters )*
 		#( #prefix_structs )*
 		#( #on_empty_structs )*
+
+		#try_decode_entire_state
 	)
 }
 </code></pre></div></section></main></body></html>

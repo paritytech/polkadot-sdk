@@ -468,7 +468,7 @@
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
 		StorageAppend, StorageDecodeLength, StorageTryAppend,
 	},
-	traits::{GetDefault, StorageInfo, StorageInstance},
+	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>frame_support::storage::StorageDecodeNonDedupLength;
@@ -517,7 +517,7 @@
 	</span>Prefix: StorageInstance,
 	Value: FullCodec,
 	QueryKind: QueryKindTrait&lt;Value, OnEmpty&gt;,
-	OnEmpty: <span class="kw">crate</span>::traits::Get&lt;QueryKind::Query&gt; + <span class="lifetime">&#39;static</span>,
+	OnEmpty: Get&lt;QueryKind::Query&gt; + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">type </span>Query = QueryKind::Query;
 	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {

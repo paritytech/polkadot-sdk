@@ -1468,6 +1468,8 @@
 <a href="#1468" id="1468">1468</a>
 <a href="#1469" id="1469">1469</a>
 <a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1584,8 +1586,10 @@
 	<span class="kw">type </span>Map = StorageNMap&lt;P, K, V, Q, O, M&gt;;
 }
 
+<span class="kw">type </span>Counter = <span class="kw">super</span>::counted_map::Counter;
+
 <span class="kw">type </span>CounterFor&lt;P&gt; =
-	StorageValue&lt;&lt;P <span class="kw">as </span>CountedStorageNMapInstance&gt;::CounterPrefix, u32, ValueQuery&gt;;
+	StorageValue&lt;&lt;P <span class="kw">as </span>CountedStorageNMapInstance&gt;::CounterPrefix, Counter, ValueQuery&gt;;
 
 <span class="doccomment">/// On removal logic for updating counter while draining upon some prefix with
 /// [`crate::storage::PrefixIterator`].
@@ -1942,7 +1946,7 @@
 	}
 
 	<span class="doccomment">/// Return the count.
-	</span><span class="kw">pub fn </span>count() -&gt; u32 {
+	</span><span class="kw">pub fn </span>count() -&gt; Counter {
 		CounterFor::&lt;Prefix&gt;::get()
 	}
 }

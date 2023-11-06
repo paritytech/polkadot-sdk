@@ -1230,6 +1230,10 @@
 <a href="#1230" id="1230">1230</a>
 <a href="#1231" id="1231">1231</a>
 <a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1351,7 +1355,11 @@
 	<span class="kw">type </span>Map = StorageMap&lt;P, H, K, V, Q, O, M&gt;;
 }
 
-<span class="kw">type </span>CounterFor&lt;P&gt; = StorageValue&lt;&lt;P <span class="kw">as </span>CountedStorageMapInstance&gt;::CounterPrefix, u32, ValueQuery&gt;;
+<span class="doccomment">/// The numeric counter type.
+</span><span class="kw">pub type </span>Counter = u32;
+
+<span class="kw">type </span>CounterFor&lt;P&gt; =
+	StorageValue&lt;&lt;P <span class="kw">as </span>CountedStorageMapInstance&gt;::CounterPrefix, Counter, ValueQuery&gt;;
 
 <span class="doccomment">/// On removal logic for updating counter while draining upon some prefix with
 /// [`crate::storage::PrefixIterator`].
@@ -1655,14 +1663,14 @@
 	/// can be very heavy, so use with caution.
 	///
 	/// Returns the number of items in the map which is used to set the counter.
-	</span><span class="kw">pub fn </span>initialize_counter() -&gt; u32 {
-		<span class="kw">let </span>count = <span class="self">Self</span>::iter_values().count() <span class="kw">as </span>u32;
+	</span><span class="kw">pub fn </span>initialize_counter() -&gt; Counter {
+		<span class="kw">let </span>count = <span class="self">Self</span>::iter_values().count() <span class="kw">as </span>Counter;
 		CounterFor::&lt;Prefix&gt;::set(count);
 		count
 	}
 
 	<span class="doccomment">/// Return the count.
-	</span><span class="kw">pub fn </span>count() -&gt; u32 {
+	</span><span class="kw">pub fn </span>count() -&gt; Counter {
 		CounterFor::&lt;Prefix&gt;::get()
 	}
 }
@@ -2439,7 +2447,7 @@
 				StorageEntryMetadataIR {
 					name: <span class="string">&quot;counter_for_foo&quot;</span>,
 					modifier: StorageEntryModifierIR::Default,
-					ty: StorageEntryTypeIR::Plain(scale_info::meta_type::&lt;u32&gt;()),
+					ty: StorageEntryTypeIR::Plain(scale_info::meta_type::&lt;Counter&gt;()),
 					default: <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
 					docs: <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;no-metadata-docs&quot;</span>) {
 						<span class="macro">vec!</span>[]
