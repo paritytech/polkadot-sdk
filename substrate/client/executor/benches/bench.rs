@@ -47,7 +47,7 @@ fn initialize(
 	runtime: &[u8],
 	method: Method,
 ) -> Box<dyn WasmModule> {
-	let blob = RuntimeBlob::uncompress_if_needed(runtime).unwrap();
+	let blob = RuntimeBlob::decompress_if_needed(runtime).unwrap();
 
 	let allow_missing_func_imports = true;
 

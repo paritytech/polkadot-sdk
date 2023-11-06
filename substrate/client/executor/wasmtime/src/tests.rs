@@ -123,7 +123,7 @@ impl RuntimeBuilder {
 				},
 			};
 
-			RuntimeBlob::uncompress_if_needed(&wasm)
+			RuntimeBlob::decompress_if_needed(&wasm)
 				.expect("failed to create a runtime blob out of test runtime")
 		};
 
@@ -455,7 +455,7 @@ fn test_max_memory_pages(
 #[test]
 fn test_instances_without_reuse_are_not_leaked() {
 	let runtime = crate::create_runtime::<HostFunctions>(
-		RuntimeBlob::uncompress_if_needed(wasm_binary_unwrap()).unwrap(),
+		RuntimeBlob::decompress_if_needed(wasm_binary_unwrap()).unwrap(),
 		crate::Config {
 			allow_missing_func_imports: true,
 			cache_path: None,

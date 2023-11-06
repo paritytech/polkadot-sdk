@@ -169,7 +169,7 @@ pub fn create_benchmarking_transfer_extrinsics(
 
 /// Prepare cumulus test runtime for execution
 pub fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule> {
-	let blob = RuntimeBlob::uncompress_if_needed(
+	let blob = RuntimeBlob::decompress_if_needed(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!"),
 	)
 	.unwrap();

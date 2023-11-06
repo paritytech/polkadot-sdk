@@ -451,7 +451,7 @@ where
 		wasm_code: &[u8],
 		ext: &mut dyn Externalities,
 	) -> std::result::Result<Vec<u8>, String> {
-		let runtime_blob = RuntimeBlob::uncompress_if_needed(wasm_code)
+		let runtime_blob = RuntimeBlob::decompress_if_needed(wasm_code)
 			.map_err(|e| format!("Failed to create runtime blob: {:?}", e))?;
 
 		if let Some(version) = crate::wasm_runtime::read_embedded_version(&runtime_blob)

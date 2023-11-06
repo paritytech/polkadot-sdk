@@ -81,7 +81,7 @@ mod tests {
 		let executor = WasmExecutor::<sp_io::SubstrateHostFunctions>::builder().build();
 		let res = executor
 			.uncached_call(
-				RuntimeBlob::uncompress_if_needed(wasm_binary_unwrap()).unwrap(),
+				RuntimeBlob::decompress_if_needed(wasm_binary_unwrap()).unwrap(),
 				&mut ext,
 				true,
 				"test_empty_return",

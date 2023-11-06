@@ -898,7 +898,7 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::InvalidCandidate;
+	use crate::{InvalidCandidate, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats};

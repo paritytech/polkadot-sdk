@@ -93,7 +93,7 @@ fn call_in_wasm<E: Externalities>(
 		.build();
 
 	executor.uncached_call(
-		RuntimeBlob::uncompress_if_needed(wasm_binary_unwrap()).unwrap(),
+		RuntimeBlob::decompress_if_needed(wasm_binary_unwrap()).unwrap(),
 		ext,
 		true,
 		function,
@@ -430,7 +430,7 @@ fn should_trap_when_heap_exhausted(wasm_method: WasmExecutionMethod) {
 
 	let err = executor
 		.uncached_call(
-			RuntimeBlob::uncompress_if_needed(wasm_binary_unwrap()).unwrap(),
+			RuntimeBlob::decompress_if_needed(wasm_binary_unwrap()).unwrap(),
 			&mut ext.ext(),
 			true,
 			"test_allocate_vec",
@@ -455,7 +455,7 @@ fn mk_test_runtime(
 	wasm_method: WasmExecutionMethod,
 	pages: HeapAllocStrategy,
 ) -> Box<dyn WasmModule> {
-	let blob = RuntimeBlob::uncompress_if_needed(wasm_binary_unwrap())
+	let blob = RuntimeBlob::decompress_if_needed(wasm_binary_unwrap())
 		.expect("failed to create a runtime blob out of test runtime");
 
 	crate::wasm_runtime::create_wasm_runtime_with_code::<HostFunctions>(
@@ -545,7 +545,7 @@ fn parallel_execution(wasm_method: WasmExecutionMethod) {
 				assert_eq!(
 					executor
 						.uncached_call(
-							RuntimeBlob::uncompress_if_needed(wasm_binary_unwrap()).unwrap(),
+							RuntimeBlob::decompress_if_needed(wasm_binary_unwrap()).unwrap(),
 							&mut ext,
 							true,
 							"test_twox_128",
@@ -687,7 +687,7 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 	let runtime = crate::wasm_runtime::create_wasm_runtime_with_code::<HostFunctions>(
 		wasm_method,
 		HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) },
-		RuntimeBlob::uncompress_if_needed(&binary[..]).unwrap(),
+		RuntimeBlob::decompress_if_needed(&binary[..]).unwrap(),
 		true,
 		None,
 	)

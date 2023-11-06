@@ -220,7 +220,7 @@ pub fn validate_block(
 
 	executor
 		.uncached_call(
-			RuntimeBlob::uncompress_if_needed(wasm_blob).expect("RuntimeBlob uncompress & parse"),
+			RuntimeBlob::decompress_if_needed(wasm_blob).expect("RuntimeBlob uncompress & parse"),
 			&mut ext_ext,
 			false,
 			"validate_block",

@@ -46,7 +46,7 @@ fn call_wasm_method_with_result<HF: HostFunctionsT>(
 	.build();
 
 	let (result, allocation_stats) = executor.uncached_call_with_allocation_stats(
-		RuntimeBlob::uncompress_if_needed(binary).expect("Failed to parse binary"),
+		RuntimeBlob::decompress_if_needed(binary).expect("Failed to parse binary"),
 		&mut ext_ext,
 		false,
 		method,

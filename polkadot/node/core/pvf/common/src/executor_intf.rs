@@ -140,8 +140,7 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	executor_params: &ExecutorParams,
 ) -> Result<WasmtimeRuntime, WasmError> {
 	let mut config = DEFAULT_CONFIG.clone();
-	config.semantics =
-		params_to_wasmtime_semantics(executor_params).map_err(|err| WasmError::Other(err))?;
+	config.semantics = params_to_wasmtime_semantics(executor_params);
 
 	sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
 		compiled_artifact_blob,
@@ -149,12 +148,12 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	)
 }
 
-pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, String> {
+pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
 	let mut sem = DEFAULT_CONFIG.semantics.clone();
 	let mut stack_limit = if let Some(stack_limit) = sem.deterministic_stack_limit.clone() {
 		stack_limit
 	} else {
-		return Err("No default stack limit set".to_owned())
+		panic!("No default stack limit set");
 	};
 
 	for p in par.iter() {
@@ -172,7 +171,7 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, S
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit);
-	Ok(sem)
+	sem
 }
 
 /// Available host functions. We leave out:
@@ -346,7 +345,7 @@ impl sp_core::traits::ReadRuntimeVersion for ReadRuntimeVersion {
 		wasm_code: &[u8],
 		_ext: &mut dyn sp_externalities::Externalities,
 	) -> Result<Vec<u8>, String> {
-		let blob = RuntimeBlob::uncompress_if_needed(wasm_code)
+		let blob = RuntimeBlob::decompress_if_needed(wasm_code)
 			.map_err(|e| format!("Failed to read the PVF runtime blob: {:?}", e))?;
 
 		match sc_executor::read_embedded_version(&blob)

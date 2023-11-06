@@ -391,7 +391,7 @@ where
 {
 	// The incoming code may be actually compressed. We decompress it here and then work with
 	// the uncompressed code from now on.
-	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(code)?;
+	let blob = sc_executor_common::runtime_blob::RuntimeBlob::decompress_if_needed(code)?;
 
 	// Use the runtime blob to scan if there is any metadata embedded into the wasm binary
 	// pertaining to runtime version. We do it before consuming the runtime blob for creating the
