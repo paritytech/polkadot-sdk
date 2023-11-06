@@ -14,17 +14,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-scale-info = { version = "2.10.0", features = ["derive"] }
+scale-info = { version = "2.10.0", features = ["derive", "serde"] }
 frame-benchmarking = { path = "../../../frame/benchmarking" }
 node-primitives = { path = "../primitives" }
 kitchensink-runtime = { path = "../runtime" }
 sc-executor = { path = "../../../client/executor" }
-sp-core = { path = "../../../primitives/core" }
+sp-core = { path = "../../../primitives/core", features=["serde"] }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-tracing = { path = "../../../primitives/tracing" }
 sp-trie = { path = "../../../primitives/trie" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
+sp-statement-store = { path = "../../../primitives/statement-store", features=["serde"] }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -47,6 +47,7 @@ sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-externalities = { path = "../../../primitives/externalities" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-runtime = { path = "../../../primitives/runtime" }
+serde_json = "1.0.85"
 
 [features]
 stress-test = []
