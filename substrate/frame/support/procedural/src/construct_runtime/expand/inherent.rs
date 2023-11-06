@@ -30,12 +30,14 @@ pub fn expand_outer_inherent(
 ) -> TokenStream {
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
+	let mut pallet_indices = Vec::new();
 	let mut query_inherent_part_macros = Vec::new();
 
 	for pallet_decl in pallet_decls {
 		if pallet_decl.exists_part("Inherent") {
 			let name = &pallet_decl.name;
 			let path = &pallet_decl.path;
+			let index = &pallet_decl.index;
 			let attr = pallet_decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
 				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
 					.expect("was successfully parsed before; qed");
@@ -47,6 +49,7 @@ pub fn expand_outer_inherent(
 
 			pallet_names.push(name);
 			pallet_attrs.push(attr);
+			pallet_indices.push(index);
 			query_inherent_part_macros.push(quote! {
 				#path::__substrate_inherent_check::is_inherent_part_defined!(#name);
 			});
@@ -204,13 +207,59 @@ pub fn expand_outer_inherent(
 			}
 		}
 
+		impl #scrate::traits::EnsureInherentsAreOrdered<#block> for #runtime {
+			fn ensure_inherents_are_ordered(block: &#block, num_inherents: usize) -> Result<(), #scrate::__private::sp_inherents::InherentOrderError> {
+				use #scrate::inherent::ProvideInherent;
+				use #scrate::traits::{IsSubType, ExtrinsicCall};
+				use #scrate::sp_runtime::traits::Block as _;
+				use #scrate::__private::sp_inherents::{InherentOrder, InherentOrderError};
+
+				// The last order that we encountered. Must increase monotonic.
+				let mut last: Option<InherentOrder> = None;
+
+				for (i, xt) in block.extrinsics().iter().take(num_inherents).enumerate() {
+					let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
+
+					let mut current: Option<InherentOrder> = None;
+
+					#(
+						if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+							if #pallet_names::is_inherent(&call) {
+								let order = #pallet_names::inherent_order().unwrap_or(InherentOrder::Index(#pallet_indices as u32));
+
+								if current.is_some() {
+									return Err(InherentOrderError::InherentWithMultiplePallets);
+								}
+								current = Some(order);
+								// Note: we cannot break here since its a macro expand.
+							}
+						}
+					)*
+
+					let Some(current) = current else {
+						return Err(InherentOrderError::InherentWithoutPallet);
+					};
+
+					if let Some(last) = last {
+						if last >= current {
+							return Err(InherentOrderError::OutOfOrder(last, current));
+						}
+					}
+
+					last = Some(current);
+				}
+
+				Ok(())
+			}
+		}
+
 		impl #scrate::traits::EnsureInherentsAreFirst<#block> for #runtime {
-			fn ensure_inherents_are_first(block: &#block) -> Result<(), u32> {
+			fn ensure_inherents_are_first(block: &#block) -> Result<u32, u32> {
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 				use #scrate::sp_runtime::traits::Block as _;
 
-				let mut first_signed_observed = false;
+				let mut num_inherents = 0usize;
 
 				for (i, xt) in block.extrinsics().iter().enumerate() {
 					let is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
@@ -235,16 +284,16 @@ pub fn expand_outer_inherent(
 						is_inherent
 					};
 
-					if !is_inherent {
-						first_signed_observed = true;
-					}
+					if is_inherent {
+						if num_inherents != i {
+							return Err(i as u32);
+						}
 
-					if first_signed_observed && is_inherent {
-						return Err(i as u32)
+						num_inherents += 1; // Safe since we are in an `enumerate` loop.
 					}
 				}
 
-				Ok(())
+				Ok(num_inherents as u32)
 			}
 		}
 	}
