@@ -944,6 +944,7 @@ pub type Migrations = (
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	// unreleased
 	InitStorageVersions,
+	cumulus_pallet_xcmp_queue::migration::MigrationToV4<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
