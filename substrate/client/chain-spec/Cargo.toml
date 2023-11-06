@@ -13,15 +13,27 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 memmap2 = "0.5.0"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 sc-client-api = { path = "../api" }
 sc-chain-spec-derive = { path = "derive" }
 sc-executor = { path = "../executor" }
+sp-io = { default-features = false, path = "../../primitives/io" }
 sc-network = { path = "../network" }
 sc-telemetry = { path = "../telemetry" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
+sp-genesis-builder = { path = "../../primitives/genesis-builder" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
+log = { version = "0.4.17", default-features = false }
+array-bytes = { version = "6.1" }
+docify = "0.2.0"
+
+[dev-dependencies]
+substrate-test-runtime = { path = "../../test-utils/runtime" }
+sp-keyring = { path = "../../primitives/keyring" }
+sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto", features = ["serde"]  }
+sp-consensus-babe = { default-features = false, path = "../../primitives/consensus/babe", features = ["serde"] }

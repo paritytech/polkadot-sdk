@@ -63,25 +63,25 @@ where
 /// The given accounts are initialized with funds in addition
 /// to the default known accounts.
 pub fn get_chain_spec_with_extra_endowed(
-	id: ParaId,
+	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
 ) -> ChainSpec {
-	ChainSpec::from_genesis(
-		"Local Testnet",
-		"local_testnet",
-		ChainType::Local,
-		move || testnet_genesis_with_default_endowed(extra_endowed_accounts.clone(), Some(id)),
-		Vec::new(),
-		None,
-		None,
-		None,
-		None,
-		Extensions { para_id: id.into() },
+	ChainSpec::builder(
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
+	.with_name("Local Testnet")
+	.with_id("local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(testnet_genesis_with_default_endowed(
+		extra_endowed_accounts.clone(),
+		id,
+	))
+	.build()
 }
 
 /// Get the chain spec for a specific parachain ID.
-pub fn get_chain_spec(id: ParaId) -> ChainSpec {
+pub fn get_chain_spec(id: Option<ParaId>) -> ChainSpec {
 	get_chain_spec_with_extra_endowed(id, Default::default())
 }
 
@@ -89,7 +89,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 pub fn testnet_genesis_with_default_endowed(
 	mut extra_endowed_accounts: Vec<AccountId>,
 	self_para_id: Option<ParaId>,
-) -> cumulus_test_runtime::RuntimeGenesisConfig {
+) -> serde_json::Value {
 	let mut endowed = vec![
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -114,21 +114,12 @@ pub fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	self_para_id: Option<ParaId>,
-) -> cumulus_test_runtime::RuntimeGenesisConfig {
-	cumulus_test_runtime::RuntimeGenesisConfig {
-		system: cumulus_test_runtime::SystemConfig {
-			code: cumulus_test_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
-		glutton: Default::default(),
-		parachain_system: Default::default(),
-		balances: cumulus_test_runtime::BalancesConfig {
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		sudo: cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		transaction_payment: Default::default(),
-		test_pallet: cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() },
-	}
+		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
+		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() }
+	})
 }
