@@ -239,6 +239,30 @@
 <a href="#239" id="239">239</a>
 <a href="#240" id="240">240</a>
 <a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -478,6 +502,30 @@
 			</span>.saturating_add(Weight::from_parts(<span class="number">95_785</span>, <span class="number">0</span>).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
+	}
+
+	<span class="doccomment">/// Storage: `Vesting::Vesting` (r:1 w:1)
+	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(1057), added: 3532, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:1)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// The range of component `l` is `[0, 49]`.
+	/// The range of component `s` is `[2, 28]`.
+	</span><span class="kw">fn </span>force_remove_vesting_schedule(l: u32, s: u32) -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `555 + l * (25 ±0) + s * (36 ±0)`
+		//  Estimated: `4764`
+		// Minimum execution time: 41_497_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">38_763_834</span>, <span class="number">4764</span>)
+			<span class="comment">// Standard Error: 2_030
+			</span>.saturating_add(Weight::from_parts(<span class="number">99_580</span>, <span class="number">0</span>).saturating_mul(l.into()))
+			<span class="comment">// Standard Error: 3_750
+			</span>.saturating_add(Weight::from_parts(<span class="number">132_188</span>, <span class="number">0</span>).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(<span class="number">4_u64</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">3_u64</span>))
 	}
 }
 </code></pre></div></section></main></body></html>

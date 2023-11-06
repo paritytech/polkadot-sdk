@@ -741,6 +741,36 @@
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1169,6 +1199,36 @@
 			<span class="self">Self</span>::write_lock(<span class="kw-2">&amp;</span>who, locked_now);
 
 			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Force remove a vesting schedule
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// - `target`: An account that has a vesting schedule
+		/// - `schedule_index`: The vesting schedule index that should be removed
+		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
+		#[pallet::weight(
+			T::WeightInfo::force_remove_vesting_schedule(MaxLocksOf::&lt;T&gt;::get(), T::MAX_VESTING_SCHEDULES)
+		)]
+		</span><span class="kw">pub fn </span>force_remove_vesting_schedule(
+			origin: OriginFor&lt;T&gt;,
+			target: &lt;T::Lookup <span class="kw">as </span>StaticLookup&gt;::Source,
+			schedule_index: u32,
+		) -&gt; DispatchResultWithPostInfo {
+			ensure_root(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>who = T::Lookup::lookup(target)<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>schedules_count = Vesting::&lt;T&gt;::decode_len(<span class="kw-2">&amp;</span>who).unwrap_or_default();
+			<span class="macro">ensure!</span>(schedule_index &lt; schedules_count <span class="kw">as </span>u32, Error::&lt;T&gt;::InvalidScheduleParams);
+
+			<span class="self">Self</span>::remove_vesting_schedule(<span class="kw-2">&amp;</span>who, schedule_index)<span class="question-mark">?</span>;
+
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::force_remove_vesting_schedule(
+				MaxLocksOf::&lt;T&gt;::get(),
+				schedules_count <span class="kw">as </span>u32,
+			))
+			.into())
 		}
 	}
 }
