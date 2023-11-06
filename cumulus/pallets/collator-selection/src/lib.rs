@@ -188,6 +188,9 @@ pub mod pallet {
 
 	/// The (community, limited) collation candidates. `Candidates` and `Invulnerables` should be
 	/// mutually exclusive.
+	///
+	/// This list is sorted in ascending order by deposit and when the deposits are equal, the least
+	/// recently updated is considered greater.
 	#[pallet::storage]
 	#[pallet::getter(fn candidate_list)]
 	pub type CandidateList<T: Config> = StorageValue<
