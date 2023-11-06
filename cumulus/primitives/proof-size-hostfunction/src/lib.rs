@@ -30,7 +30,7 @@ use sp_trie::proof_size_extension::ProofSizeExt;
 pub trait StorageProofSize {
 	/// Returns the current storage proof size.
 	fn storage_proof_size(&mut self) -> u64 {
-		self.extension::<ProofSizeExt>().map_or_else(0, |e| e.storage_proof_size())
+		self.extension::<ProofSizeExt>().map_or(0, |e| e.storage_proof_size())
 	}
 }
 
