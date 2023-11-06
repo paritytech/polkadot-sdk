@@ -34,7 +34,6 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 	let type_use_gen = &def.type_use_generics(span);
 	let pallet_ident = &def.pallet_struct.pallet;
 	let frame_system = &def.frame_system;
-	let current_version = &def.pallet_struct.storage_version;
 	let pallet_name = quote::quote! {
 		<
 			<T as #frame_system::Config>::PalletInfo
@@ -187,13 +186,17 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				let pallet_hashed_prefix = <Self as PalletInfoAccess>::name_hash();
 				let exists = contains_prefixed_key(&pallet_hashed_prefix);
 				if !exists {
+					let current_version = match &def.pallet_struct.storage_version {
+						Some(v) => v,
+						None => #frame_support::traits::StorageVersion::new(0),
+					};
 					#frame_support::__private::log::info!(
 						target: #frame_support::LOG_TARGET,
 						"🐥 New pallet {:?} detected in the runtime. Initializing the on-chain storage version to match the storage version defined in the pallet: {:?}",
 						#pallet_name,
-						#current_version
+						current_version
 					);
-					#current_version.put::<Self>();
+					current_version.put::<Self>();
 					<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 1)
 				} else {
 					<T as #frame_system::Config>::DbWeight::get().reads(1)
