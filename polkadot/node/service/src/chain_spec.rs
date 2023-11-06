@@ -75,7 +75,7 @@ pub type GenericChainSpec = service::GenericChainSpec<(), Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 #[cfg(feature = "westend-native")]
-pub type WestendChainSpec = service::GenericChainSpec<westend::RuntimeGenesisConfig, Extensions>;
+pub type WestendChainSpec = service::GenericChainSpec<(), Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -84,12 +84,7 @@ pub type WestendChainSpec = GenericChainSpec;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 #[cfg(feature = "rococo-native")]
-pub type RococoChainSpec = service::GenericChainSpec<rococo::RuntimeGenesisConfig, Extensions>;
-
-/// The `ChainSpec` parameterized for the `versi` runtime.
-///
-/// As of now `Versi` will just be a clone of `Rococo`, until we need it to differ.
-pub type VersiChainSpec = RococoChainSpec;
+pub type RococoChainSpec = service::GenericChainSpec<(), Extensions>;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -206,7 +201,7 @@ fn rococo_session_keys(
 }
 
 #[cfg(feature = "westend-native")]
-fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisConfig {
+fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	use hex_literal::hex;
 	use sp_core::crypto::UncheckedInto;
 
@@ -344,19 +339,16 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	westend::RuntimeGenesisConfig {
-		system: westend::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		balances: westend::BalancesConfig {
-			balances: endowed_accounts
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		beefy: Default::default(),
-		indices: westend::IndicesConfig { indices: vec![] },
-		session: westend::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -375,51 +367,32 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 				})
 				.collect::<Vec<_>>(),
 		},
-		staking: westend::StakingConfig {
-			validator_count: 50,
-			minimum_validator_count: 4,
-			stakers: initial_authorities
+		"staking": {
+			"validatorCount": 50,
+			"minimumValidatorCount": 4,
+			"stakers": initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::Validator))
-				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-			force_era: Forcing::ForceNone,
-			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
+				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::<AccountId>::Validator))
+				.collect::<Vec<_>>(),
+			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			"forceEra": Forcing::ForceNone,
+			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		babe: westend::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(westend::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		authority_discovery: westend::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
+		"sudo": { "key": Some(endowed_accounts[0].clone()) },
+		"configuration": {
+			"config": default_parachains_host_configuration(),
 		},
-		vesting: westend::VestingConfig { vesting: vec![] },
-		sudo: westend::SudoConfig { key: Some(endowed_accounts[0].clone()) },
-		hrmp: Default::default(),
-		treasury: Default::default(),
-		configuration: westend::ConfigurationConfig {
-			config: default_parachains_host_configuration(),
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
-		paras: Default::default(),
-		registrar: westend_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nomination_pools: Default::default(),
-		assigned_slots: Default::default(),
-	}
+	})
 }
 
 #[cfg(feature = "rococo-native")]
-fn rococo_staging_testnet_config_genesis(
-	wasm_binary: &[u8],
-) -> rococo_runtime::RuntimeGenesisConfig {
+fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 	use hex_literal::hex;
 	use sp_core::crypto::UncheckedInto;
 
@@ -662,19 +635,16 @@ fn rococo_staging_testnet_config_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 	const STASH: u128 = 100 * ROC;
 
-	rococo_runtime::RuntimeGenesisConfig {
-		system: rococo_runtime::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		balances: rococo_runtime::BalancesConfig {
-			balances: endowed_accounts
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		beefy: Default::default(),
-		indices: rococo_runtime::IndicesConfig { indices: vec![] },
-		session: rococo_runtime::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -693,80 +663,55 @@ fn rococo_staging_testnet_config_genesis(
 				})
 				.collect::<Vec<_>>(),
 		},
-		babe: rococo_runtime::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		treasury: Default::default(),
-		authority_discovery: rococo_runtime::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
+		"sudo": { "key": Some(endowed_accounts[0].clone()) },
+		"configuration": {
+			"config": default_parachains_host_configuration(),
 		},
-		claims: rococo::ClaimsConfig { claims: vec![], vesting: vec![] },
-		vesting: rococo::VestingConfig { vesting: vec![] },
-		sudo: rococo_runtime::SudoConfig { key: Some(endowed_accounts[0].clone()) },
-		paras: rococo_runtime::ParasConfig { paras: vec![], ..Default::default() },
-		hrmp: Default::default(),
-		configuration: rococo_runtime::ConfigurationConfig {
-			config: default_parachains_host_configuration(),
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
-		registrar: rococo_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nis_counterpart_balances: Default::default(),
-		assigned_slots: Default::default(),
-	}
+	})
 }
 
 /// Westend staging testnet config.
 #[cfg(feature = "westend-native")]
 pub fn westend_staging_testnet_config() -> Result<WestendChainSpec, String> {
-	let wasm_binary = westend::WASM_BINARY.ok_or("Westend development wasm not available")?;
-	let boot_nodes = vec![];
-
-	Ok(WestendChainSpec::from_genesis(
-		"Westend Staging Testnet",
-		"westend_staging_testnet",
-		ChainType::Live,
-		move || westend_staging_testnet_config_genesis(wasm_binary),
-		boot_nodes,
-		Some(
-			TelemetryEndpoints::new(vec![(WESTEND_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Westend Staging telemetry url is valid; qed"),
-		),
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Westend Staging Testnet")
+	.with_id("westend_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(westend_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(WESTEND_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Westend Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Rococo staging testnet config.
 #[cfg(feature = "rococo-native")]
 pub fn rococo_staging_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?;
-	let boot_nodes = vec![];
-
-	Ok(RococoChainSpec::from_genesis(
-		"Rococo Staging Testnet",
-		"rococo_staging_testnet",
-		ChainType::Live,
-		move || rococo_staging_testnet_config_genesis(wasm_binary),
-		boot_nodes,
-		Some(
-			TelemetryEndpoints::new(vec![(ROCOCO_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Rococo Staging telemetry url is valid; qed"),
-		),
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Rococo Staging Testnet")
+	.with_id("rococo_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(ROCOCO_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Rococo Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 pub fn versi_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {
@@ -783,24 +728,21 @@ pub fn versi_chain_spec_properties() -> serde_json::map::Map<String, serde_json:
 /// Versi staging testnet config.
 #[cfg(feature = "rococo-native")]
 pub fn versi_staging_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Versi development wasm not available")?;
-	let boot_nodes = vec![];
-
-	Ok(RococoChainSpec::from_genesis(
-		"Versi Staging Testnet",
-		"versi_staging_testnet",
-		ChainType::Live,
-		move || rococo_staging_testnet_config_genesis(wasm_binary),
-		boot_nodes,
-		Some(
-			TelemetryEndpoints::new(vec![(VERSI_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Versi Staging telemetry url is valid; qed"),
-		),
-		Some("versi"),
-		None,
-		Some(versi_chain_spec_properties()),
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Versi Staging Testnet")
+	.with_id("versi_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(VERSI_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Versi Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id("versi")
+	.with_properties(versi_chain_spec_properties())
+	.build())
 }
 
 /// Helper function to generate a crypto pair from seed
@@ -879,10 +821,9 @@ fn testnet_accounts() -> Vec<AccountId> {
 	]
 }
 
-/// Helper function to create westend `RuntimeGenesisConfig` for testing
+/// Helper function to create westend runtime `GenesisConfig` patch for testing
 #[cfg(feature = "westend-native")]
 pub fn westend_testnet_genesis(
-	wasm_binary: &[u8],
 	initial_authorities: Vec<(
 		AccountId,
 		AccountId,
@@ -896,21 +837,18 @@ pub fn westend_testnet_genesis(
 	)>,
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
-) -> westend::RuntimeGenesisConfig {
+) -> serde_json::Value {
 	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
 
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	westend::RuntimeGenesisConfig {
-		system: westend::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		indices: westend::IndicesConfig { indices: vec![] },
-		balances: westend::BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
-		beefy: Default::default(),
-		session: westend::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -929,51 +867,33 @@ pub fn westend_testnet_genesis(
 				})
 				.collect::<Vec<_>>(),
 		},
-		staking: westend::StakingConfig {
-			minimum_validator_count: 1,
-			validator_count: initial_authorities.len() as u32,
-			stakers: initial_authorities
+		"staking": {
+			"minimumValidatorCount": 1,
+			"validatorCount": initial_authorities.len() as u32,
+			"stakers": initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::Validator))
-				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-			force_era: Forcing::NotForcing,
-			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
+				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::<AccountId>::Validator))
+				.collect::<Vec<_>>(),
+			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			"forceEra": Forcing::NotForcing,
+			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		babe: westend::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(westend::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		authority_discovery: westend::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
+		"sudo": { "key": Some(root_key) },
+		"configuration": {
+			"config": default_parachains_host_configuration(),
 		},
-		vesting: westend::VestingConfig { vesting: vec![] },
-		sudo: westend::SudoConfig { key: Some(root_key) },
-		hrmp: Default::default(),
-		treasury: Default::default(),
-		configuration: westend::ConfigurationConfig {
-			config: default_parachains_host_configuration(),
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
-		paras: Default::default(),
-		registrar: westend_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nomination_pools: Default::default(),
-		assigned_slots: Default::default(),
-	}
+	})
 }
 
-/// Helper function to create rococo `RuntimeGenesisConfig` for testing
+/// Helper function to create rococo runtime `GenesisConfig` patch for testing
 #[cfg(feature = "rococo-native")]
 pub fn rococo_testnet_genesis(
-	wasm_binary: &[u8],
 	initial_authorities: Vec<(
 		AccountId,
 		AccountId,
@@ -987,20 +907,17 @@ pub fn rococo_testnet_genesis(
 	)>,
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
-) -> rococo_runtime::RuntimeGenesisConfig {
+) -> serde_json::Value {
 	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
 
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 
-	rococo_runtime::RuntimeGenesisConfig {
-		system: rococo_runtime::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		beefy: Default::default(),
-		indices: rococo_runtime::IndicesConfig { indices: vec![] },
-		balances: rococo_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
-		session: rococo_runtime::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -1019,43 +936,25 @@ pub fn rococo_testnet_genesis(
 				})
 				.collect::<Vec<_>>(),
 		},
-		babe: rococo_runtime::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		treasury: Default::default(),
-		claims: rococo::ClaimsConfig { claims: vec![], vesting: vec![] },
-		vesting: rococo::VestingConfig { vesting: vec![] },
-		authority_discovery: rococo_runtime::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
-		},
-		sudo: rococo_runtime::SudoConfig { key: Some(root_key.clone()) },
-		hrmp: Default::default(),
-		configuration: rococo_runtime::ConfigurationConfig {
-			config: polkadot_runtime_parachains::configuration::HostConfiguration {
+		"sudo": { "key": Some(root_key.clone()) },
+		"configuration": {
+			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
 				max_validators_per_core: Some(1),
 				..default_parachains_host_configuration()
 			},
 		},
-		paras: rococo_runtime::ParasConfig { paras: vec![], ..Default::default() },
-		registrar: rococo_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nis_counterpart_balances: Default::default(),
-		assigned_slots: Default::default(),
-	}
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
+		}
+	})
 }
 
 #[cfg(feature = "westend-native")]
-fn westend_development_config_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisConfig {
+fn westend_development_config_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1063,9 +962,8 @@ fn westend_development_config_genesis(wasm_binary: &[u8]) -> westend::RuntimeGen
 }
 
 #[cfg(feature = "rococo-native")]
-fn rococo_development_config_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn rococo_development_config_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1075,84 +973,67 @@ fn rococo_development_config_genesis(wasm_binary: &[u8]) -> rococo_runtime::Runt
 /// Westend development config (single validator Alice)
 #[cfg(feature = "westend-native")]
 pub fn westend_development_config() -> Result<WestendChainSpec, String> {
-	let wasm_binary = westend::WASM_BINARY.ok_or("Westend development wasm not available")?;
-
-	Ok(WestendChainSpec::from_genesis(
-		"Development",
-		"westend_dev",
-		ChainType::Development,
-		move || westend_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("westend_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(westend_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Rococo development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn rococo_development_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Development",
-		"rococo_dev",
-		ChainType::Development,
-		move || rococo_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("rococo_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// `Versi` development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn versi_development_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Versi development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Development",
-		"versi_dev",
-		ChainType::Development,
-		move || rococo_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some("versi"),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("versi_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id("versi")
+	.build())
 }
 
 /// Wococo development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn wococo_development_config() -> Result<RococoChainSpec, String> {
 	const WOCOCO_DEV_PROTOCOL_ID: &str = "woco";
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Development",
-		"wococo_dev",
-		ChainType::Development,
-		move || rococo_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(WOCOCO_DEV_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("wococo_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id(WOCOCO_DEV_PROTOCOL_ID)
+	.build())
 }
 
 #[cfg(feature = "westend-native")]
-fn westend_local_testnet_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisConfig {
+fn westend_local_testnet_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1162,26 +1043,21 @@ fn westend_local_testnet_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisC
 /// Westend local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "westend-native")]
 pub fn westend_local_testnet_config() -> Result<WestendChainSpec, String> {
-	let wasm_binary = westend::WASM_BINARY.ok_or("Westend development wasm not available")?;
-
-	Ok(WestendChainSpec::from_genesis(
-		"Westend Local Testnet",
-		"westend_local_testnet",
-		ChainType::Local,
-		move || westend_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Westend Local Testnet")
+	.with_id("westend_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(westend_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 #[cfg(feature = "rococo-native")]
-fn rococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn rococo_local_testnet_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1191,27 +1067,22 @@ fn rococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGe
 /// Rococo local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "rococo-native")]
 pub fn rococo_local_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Rococo Local Testnet",
-		"rococo_local_testnet",
-		ChainType::Local,
-		move || rococo_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Rococo Local Testnet")
+	.with_id("rococo_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(rococo_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Wococo is a temporary testnet that uses almost the same runtime as rococo.
 #[cfg(feature = "rococo-native")]
-fn wococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn wococo_local_testnet_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![
 			get_authority_keys_from_seed("Alice"),
 			get_authority_keys_from_seed("Bob"),
@@ -1226,27 +1097,22 @@ fn wococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGe
 /// Wococo local testnet config (multivalidator Alice + Bob + Charlie + Dave)
 #[cfg(feature = "rococo-native")]
 pub fn wococo_local_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Wococo Local Testnet",
-		"wococo_local_testnet",
-		ChainType::Local,
-		move || wococo_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm (used for wococo) not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Wococo Local Testnet")
+	.with_id("wococo_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(wococo_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// `Versi` is a temporary testnet that uses the same runtime as rococo.
 #[cfg(feature = "rococo-native")]
-fn versi_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn versi_local_testnet_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![
 			get_authority_keys_from_seed("Alice"),
 			get_authority_keys_from_seed("Bob"),
@@ -1261,18 +1127,14 @@ fn versi_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGen
 /// `Versi` local testnet config (multivalidator Alice + Bob + Charlie + Dave)
 #[cfg(feature = "rococo-native")]
 pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Versi development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Versi Local Testnet",
-		"versi_local_testnet",
-		ChainType::Local,
-		move || versi_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some("versi"),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm (used for versi) not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Versi Local Testnet")
+	.with_id("versi_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(versi_local_testnet_genesis())
+	.with_protocol_id("versi")
+	.build())
 }

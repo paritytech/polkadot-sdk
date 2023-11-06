@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! PVF host integration tests checking the chain production pipeline.
+
 use super::TestHost;
 use adder::{hash_state, BlockData, HeadData};
 use parity_scale_codec::{Decode, Encode};

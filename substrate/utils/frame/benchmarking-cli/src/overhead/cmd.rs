@@ -18,11 +18,11 @@
 //! Contains the [`OverheadCmd`] as entry point for the CLI to execute
 //! the *overhead* benchmarks.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
-use sc_client_api::Backend as ClientBackend;
+use sc_client_api::UsageProvider;
 use sc_service::Configuration;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_runtime::{traits::Block as BlockT, DigestItem, OpaqueExtrinsic};
 
 use clap::{Args, Parser};
@@ -97,7 +97,7 @@ impl OverheadCmd {
 	///
 	/// Writes the results to console and into two instances of the
 	/// `weights.hbs` template, one for each benchmark.
-	pub fn run<Block, BA, C>(
+	pub fn run<Block, C>(
 		&self,
 		cfg: Configuration,
 		client: Arc<C>,
@@ -107,9 +107,9 @@ impl OverheadCmd {
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-		BA: ClientBackend<Block>,
-		C: BlockBuilderProvider<BA, Block, C>
-			+ ProvideRuntimeApi<Block>
+		C: ProvideRuntimeApi<Block>
+			+ CallApiAt<Block>
+			+ UsageProvider<Block>
 			+ sp_blockchain::HeaderBackend<Block>,
 		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	{

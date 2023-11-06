@@ -35,6 +35,7 @@ use crate::{
 };
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use parking_lot::Mutex;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{Backend as BackendT, BlockchainEvents, FinalityNotifications, HeaderBackend};
 use sc_consensus::{
 	BlockImport, BlockImportParams, BoxJustificationImport, ForkChoiceStrategy, ImportResult,
@@ -741,7 +742,6 @@ async fn correct_beefy_payload() {
 #[tokio::test]
 async fn beefy_importing_justifications() {
 	use futures::{future::poll_fn, task::Poll};
-	use sc_block_builder::BlockBuilderProvider;
 	use sc_client_api::BlockBackend;
 
 	sp_tracing::try_init_simple();
@@ -774,8 +774,10 @@ async fn beefy_importing_justifications() {
 			.and_then(|j| j.get(BEEFY_ENGINE_ID).cloned())
 	};
 
-	let builder = full_client
-		.new_block_at(full_client.chain_info().genesis_hash, Default::default(), false)
+	let builder = BlockBuilderBuilder::new(&*full_client)
+		.on_parent_block(full_client.genesis_hash())
+		.with_parent_block_number(0)
+		.build()
 		.unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof1 = block.header.hash();
@@ -792,7 +794,11 @@ async fn beefy_importing_justifications() {
 
 	// Import block 2 with "valid" justification (beefy pallet genesis block not yet reached).
 	let block_num = 2;
-	let builder = full_client.new_block_at(hashof1, Default::default(), false).unwrap();
+	let builder = BlockBuilderBuilder::new(&*full_client)
+		.on_parent_block(hashof1)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof2 = block.header.hash();
 
@@ -824,7 +830,11 @@ async fn beefy_importing_justifications() {
 
 	// Import block 3 with valid justification.
 	let block_num = 3;
-	let builder = full_client.new_block_at(hashof2, Default::default(), false).unwrap();
+	let builder = BlockBuilderBuilder::new(&*full_client)
+		.on_parent_block(hashof2)
+		.with_parent_block_number(2)
+		.build()
+		.unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof3 = block.header.hash();
 	let proof = crate::justification::tests::new_finality_proof(block_num, &good_set, keys);
@@ -858,7 +868,11 @@ async fn beefy_importing_justifications() {
 
 	// Import block 4 with invalid justification (incorrect validator set).
 	let block_num = 4;
-	let builder = full_client.new_block_at(hashof3, Default::default(), false).unwrap();
+	let builder = BlockBuilderBuilder::new(&*full_client)
+		.on_parent_block(hashof3)
+		.with_parent_block_number(3)
+		.build()
+		.unwrap();
 	let block = builder.build().unwrap().block;
 	let hashof4 = block.header.hash();
 	let keys = &[BeefyKeyring::Alice];
