@@ -5,6 +5,7 @@ authors.workspace = true
 build = "build.rs"
 edition.workspace = true
 description = "Runs a polkadot parachain node which could be a collator."
+license = "Apache-2.0"
 
 [[bin]]
 name = "polkadot-parachain"
@@ -18,7 +19,7 @@ futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.20"
 serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -34,6 +35,7 @@ contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
 bridge-hub-kusama-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
+bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
@@ -46,6 +48,7 @@ sp-io = { path = "../../substrate/primitives/io" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-session = { path = "../../substrate/primitives/session" }
 sc-consensus = { path = "../../substrate/client/consensus/common" }
+sp-tracing = { path = "../../substrate/primitives/tracing" }
 sc-cli = { path = "../../substrate/client/cli" }
 sc-client-api = { path = "../../substrate/client/api" }
 sc-executor = { path = "../../substrate/client/executor" }
@@ -114,8 +117,10 @@ runtime-benchmarks = [
 	"bridge-hub-kusama-runtime/runtime-benchmarks",
 	"bridge-hub-polkadot-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"glutton-runtime/runtime-benchmarks",
@@ -136,6 +141,7 @@ try-runtime = [
 	"bridge-hub-kusama-runtime/try-runtime",
 	"bridge-hub-polkadot-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",
+	"bridge-hub-westend-runtime/try-runtime",
 	"collectives-polkadot-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
 	"glutton-runtime/try-runtime",
