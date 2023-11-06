@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Westend Collectives Parachain Runtime"
-publish = false
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1" }
