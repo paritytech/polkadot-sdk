@@ -12534,6 +12534,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances",
+ "pallet-broker",
  "pallet-message-queue",
  "pallet-session",
  "pallet-staking",

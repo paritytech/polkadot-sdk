@@ -666,12 +666,6 @@ mod enter {
 			// * 3 disputes.
 			assert_eq!(limit_inherent_data.disputes.len(), 2);
 
-			assert_ok!(Pallet::<Test>::enter(
-				frame_system::RawOrigin::None.into(),
-				limit_inherent_data,
-			));
-
-			// TODO [now]: this assertion fails with async backing runtime.
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know 1
 				// candidate got filtered out

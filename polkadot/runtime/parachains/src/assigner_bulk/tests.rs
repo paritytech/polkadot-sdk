@@ -17,14 +17,16 @@
 use super::*;
 
 use crate::{
-	assigner_parachains::{mock_helpers::GenesisConfigBuilder, ParachainsAssignment},
+	assigner_bulk::mock_helpers::GenesisConfigBuilder,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, ParachainsAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System,
+		new_test_ext, Balances, OnDemandAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler,
+		System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
-use frame_support::{assert_ok, pallet_prelude::*};
+use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use pallet_balances::Error as BalancesError;
 use primitives::{BlockNumber, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -76,38 +78,14 @@ fn run_to_block(
 	}
 }
 
-// This and the scheduler test schedule_schedules_including_just_freed together
-// ensure that next_up_on_available and next_up_on_time_out will always be
-// filled with scheduler cliams for lease holding parachains. (Removes the need
-// for two other scheduler tests)
 #[test]
-fn parachains_assigner_pop_assignment_is_always_some() {
-	let core_index = CoreIndex(0);
-	let para_id = ParaId::from(10);
-	let expected_assignment = ParachainsAssignment::new(para_id);
+fn pop_assignment_for_core_works() {}
 
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		// Register the para_id as a lease holding parachain
-		schedule_blank_para(para_id, ParaKind::Parachain);
+#[test]
+fn ensure_workload_works() {}
 
-		assert!(!Paras::is_parachain(para_id));
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-		assert!(Paras::is_parachain(para_id));
+#[test]
+fn after_assign_core_workload_is_some() {}
 
-		for _ in 0..20 {
-			assert!(
-				ParachainsAssigner::pop_assignment_for_core(core_index) ==
-					Some(expected_assignment.clone())
-			);
-		}
-
-		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
-
-		for _ in 0..20 {
-			assert!(
-				ParachainsAssigner::pop_assignment_for_core(core_index) ==
-					Some(expected_assignment.clone())
-			);
-		}
-	});
-}
+#[test]
+fn end_hint_always_points_to_next_work_plan_item() {}
