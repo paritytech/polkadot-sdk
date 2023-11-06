@@ -32,7 +32,7 @@ use polkadot_primitives::CollatorPair;
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::{config::FullNetworkConfiguration, Event, NetworkEventStream, NetworkService};
-use sc_service::{config::PrometheusConfig, Configuration, TaskManager};
+use sc_service::{config::PrometheusConfig, Configuration, Role, TaskManager};
 use sp_runtime::{app_crypto::Pair, traits::Block as BlockT};
 
 use futures::{FutureExt, StreamExt};
@@ -87,12 +87,14 @@ async fn build_interface(
 	polkadot_config: Configuration,
 	task_manager: &mut TaskManager,
 	client: RelayChainRpcClient,
+	parachain_role: Role,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let collator_pair = CollatorPair::generate().0;
 	let collator_node = new_minimal_relay_chain(
 		polkadot_config,
 		collator_pair.clone(),
 		Arc::new(BlockChainRpcClient::new(client.clone())),
+		parachain_role,
 	)
 	.await?;
 	task_manager.add_child(collator_node.task_manager);
@@ -106,6 +108,7 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 	polkadot_config: Configuration,
 	task_manager: &mut TaskManager,
 	relay_chain_url: Vec<Url>,
+	parachain_role: Role,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
 		relay_chain_url,
@@ -113,12 +116,13 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 	)
 	.await?;
 
-	build_interface(polkadot_config, task_manager, client).await
+	build_interface(polkadot_config, task_manager, client, parachain_role).await
 }
 
 pub async fn build_minimal_relay_chain_node_light_client(
 	polkadot_config: Configuration,
 	task_manager: &mut TaskManager,
+	parachain_role: Role,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	tracing::info!(
 		target: LOG_TARGET,
@@ -138,7 +142,7 @@ pub async fn build_minimal_relay_chain_node_light_client(
 	)
 	.await?;
 
-	build_interface(polkadot_config, task_manager, client).await
+	build_interface(polkadot_config, task_manager, client, parachain_role).await
 }
 /// Builds a minimal relay chain node. Chain data is fetched
 /// via [`BlockChainRpcClient`] and fed into the overseer and its subsystems.
@@ -156,6 +160,7 @@ async fn new_minimal_relay_chain(
 	config: Configuration,
 	collator_pair: CollatorPair,
 	relay_chain_rpc_client: Arc<BlockChainRpcClient>,
+	parachain_role: Role,
 ) -> Result<NewMinimalNode, RelayChainError> {
 	let role = config.role.clone();
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
@@ -181,8 +186,11 @@ async fn new_minimal_relay_chain(
 		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
 
-	for config in peer_sets_info(is_authority, &peer_set_protocol_names) {
-		net_config.add_notification_protocol(config);
+	// If we are a parachain full node, we don't need validation and collator protocol
+	if !parachain_role.is_authority() {
+		for config in peer_sets_info(is_authority, &peer_set_protocol_names) {
+			net_config.add_notification_protocol(config);
+		}
 	}
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());

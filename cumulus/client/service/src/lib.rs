@@ -364,10 +364,16 @@ pub async fn build_relay_chain_interface(
 				relay_chain_config,
 				task_manager,
 				rpc_target_urls,
+				parachain_config.role.clone(),
 			)
 			.await,
 		cumulus_client_cli::RelayChainMode::LightClient =>
-			build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager).await,
+			build_minimal_relay_chain_node_light_client(
+				relay_chain_config,
+				task_manager,
+				parachain_config.role.clone(),
+			)
+			.await,
 	}
 }
 
