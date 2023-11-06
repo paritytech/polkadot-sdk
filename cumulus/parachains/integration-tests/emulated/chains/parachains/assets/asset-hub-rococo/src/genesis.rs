@@ -18,10 +18,7 @@ use sp_core::storage::Storage;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts,
-	collators,
-	build_genesis_storage_legacy,
-	SAFE_XCM_VERSION
+	accounts, build_genesis_storage_legacy, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
 
@@ -43,11 +40,7 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables()
-				.iter()
-				.cloned()
-				.map(|(acc, _)| acc)
-				.collect(),
+			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
@@ -72,7 +65,6 @@ pub fn genesis() -> Storage {
 
 	build_genesis_storage_legacy(
 		&genesis_config,
-		asset_hub_rococo_runtime::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }

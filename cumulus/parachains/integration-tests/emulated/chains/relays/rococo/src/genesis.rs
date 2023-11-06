@@ -26,12 +26,8 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts,
-	validators,
-	get_host_config,
-	get_from_seed,
-	get_account_id_from_seed,
-	build_genesis_storage_legacy,
+	accounts, build_genesis_storage_legacy, get_account_id_from_seed, get_from_seed,
+	get_host_config, validators,
 };
 use parachains_common::Balance;
 use rococo_runtime_constants::currency::UNITS as ROC;
@@ -63,10 +59,7 @@ pub fn genesis() -> Storage {
 	let genesis_config = rococo_runtime::RuntimeGenesisConfig {
 		system: rococo_runtime::SystemConfig::default(),
 		balances: rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.map(|k| (k.clone(), ENDOWMENT))
-				.collect(),
+			balances: accounts::init_balances().iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
 		},
 		session: rococo_runtime::SessionConfig {
 			keys: validators::initial_authorities()

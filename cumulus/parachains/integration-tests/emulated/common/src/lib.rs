@@ -27,8 +27,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
-	BuildStorage,
-	MultiSignature,
+	BuildStorage, MultiSignature,
 };
 
 // Polakdot

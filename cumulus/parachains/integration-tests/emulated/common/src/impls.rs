@@ -22,8 +22,8 @@ pub use crate::{
 
 // Substrate
 pub use frame_support::{
-	sp_runtime::AccountId32,
 	assert_ok,
+	sp_runtime::AccountId32,
 	traits::fungibles::Inspect,
 	weights::{Weight, WeightMeter},
 };

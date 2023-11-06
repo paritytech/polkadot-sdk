@@ -27,11 +27,7 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts,
-	validators,
-	get_host_config,
-	get_from_seed,
-	build_genesis_storage_legacy,
+	accounts, build_genesis_storage_legacy, get_from_seed, get_host_config, validators,
 };
 use parachains_common::Balance;
 use westend_runtime_constants::currency::UNITS as WND;
@@ -64,11 +60,7 @@ pub fn genesis() -> Storage {
 	let genesis_config = westend_runtime::RuntimeGenesisConfig {
 		system: westend_runtime::SystemConfig::default(),
 		balances: westend_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.cloned()
-				.map(|k| (k, ENDOWMENT))
-				.collect(),
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
 		},
 		session: westend_runtime::SessionConfig {
 			keys: validators::initial_authorities()
@@ -96,18 +88,10 @@ pub fn genesis() -> Storage {
 			stakers: validators::initial_authorities()
 				.iter()
 				.map(|x| {
-					(
-						x.0.clone(),
-						x.1.clone(),
-						STASH,
-						westend_runtime::StakerStatus::Validator,
-					)
+					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
 				})
 				.collect(),
-			invulnerables: validators::initial_authorities()
-				.iter()
-				.map(|x| x.0.clone())
-				.collect(),
+			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
 			force_era: pallet_staking::Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()

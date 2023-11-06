@@ -17,16 +17,16 @@ pub use paste;
 
 // Substrate
 pub use pallet_balances;
-pub use pallet_xcm;
 pub use pallet_message_queue;
+pub use pallet_xcm;
 
 // Polkadot
 pub use xcm::prelude::{AccountId32, WeightLimit};
 
 // Cumulus
+pub use asset_test_utils;
 pub use cumulus_pallet_xcmp_queue;
 pub use xcm_emulator::Chain;
-pub use asset_test_utils;
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {

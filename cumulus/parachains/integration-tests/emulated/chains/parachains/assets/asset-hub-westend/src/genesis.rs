@@ -18,10 +18,7 @@ use sp_core::storage::Storage;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts,
-	collators,
-	build_genesis_storage_legacy,
-	SAFE_XCM_VERSION
+	accounts, build_genesis_storage_legacy, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
 
@@ -32,22 +29,14 @@ pub fn genesis() -> Storage {
 	let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
 		system: asset_hub_westend_runtime::SystemConfig::default(),
 		balances: asset_hub_westend_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.cloned()
-				.map(|k| (k, ED * 4096))
-				.collect(),
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
 		},
 		parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
 			..Default::default()
 		},
 		collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables()
-				.iter()
-				.cloned()
-				.map(|(acc, _)| acc)
-				.collect(),
+			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
