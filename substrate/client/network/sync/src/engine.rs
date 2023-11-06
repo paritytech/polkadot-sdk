@@ -1276,15 +1276,12 @@ where
 					}
 				},
 				PeerRequest::WarpProof => {
-					match self.chain_sync.on_warp_sync_response(&peer_id, EncodedProof(resp)) {
-						Ok(()) => (),
-						Err(BadPeer(peer_id, rep)) => {
-							self.network_service.disconnect_peer(
-								peer_id,
-								self.block_announce_protocol_name.clone(),
-							);
-							self.network_service.report_peer(peer_id, rep);
-						},
+					if let Err(BadPeer(peer_id, rep)) =
+						self.chain_sync.on_warp_sync_response(&peer_id, EncodedProof(resp))
+					{
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+						self.network_service.report_peer(peer_id, rep);
 					}
 				},
 			},
