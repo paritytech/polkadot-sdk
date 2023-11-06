@@ -17,8 +17,13 @@
 /// A special pallet that exposes dispatchables that are only useful for testing.
 pub use pallet::*;
 
+/// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
+/// [`OnRuntimeUpgrade`] works as expected.
+pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
+	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -43,6 +48,24 @@ pub mod pallet {
 				custom_header,
 			);
 			Ok(())
+		}
+	}
+
+	#[derive(frame_support::DefaultNoBound)]
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub self_para_id: Option<cumulus_primitives_core::ParaId>,
+		#[serde(skip)]
+		pub _config: sp_std::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
+			self.self_para_id.map(|para_id| {
+				crate::ParachainId::set(&para_id);
+			});
 		}
 	}
 }

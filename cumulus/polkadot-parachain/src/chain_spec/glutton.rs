@@ -23,103 +23,72 @@ use sp_core::sr25519;
 use super::get_collator_keys_from_seed;
 
 /// Specialized `ChainSpec` for the Glutton parachain runtime.
-pub type GluttonChainSpec =
-	sc_service::GenericChainSpec<glutton_runtime::RuntimeGenesisConfig, Extensions>;
+pub type GluttonChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
-	GluttonChainSpec::from_genesis(
-		// Name
-		"Glutton Development",
-		// ID
-		"glutton_dev",
-		ChainType::Local,
-		move || glutton_genesis(para_id, vec![get_collator_keys_from_seed::<AuraId>("Alice")]),
-		Vec::new(),
-		None,
-		None,
-		None,
-		None,
+	GluttonChainSpec::builder(
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-dev".into(), para_id: para_id.into() },
 	)
+	.with_name("Glutton Development")
+	.with_id("glutton_dev")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(glutton_genesis(
+		para_id,
+		vec![get_collator_keys_from_seed::<AuraId>("Alice")],
+	))
+	.build()
 }
 
 pub fn glutton_local_config(para_id: ParaId) -> GluttonChainSpec {
-	GluttonChainSpec::from_genesis(
-		// Name
-		"Glutton Local",
-		// ID
-		"glutton_local",
-		ChainType::Local,
-		move || {
-			glutton_genesis(
-				para_id,
-				vec![
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Bob"),
-				],
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		None,
+	GluttonChainSpec::builder(
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-local".into(), para_id: para_id.into() },
 	)
+	.with_name("Glutton Local")
+	.with_id("glutton_local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(glutton_genesis(
+		para_id,
+		vec![
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Bob"),
+		],
+	))
+	.build()
 }
 
 pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 2.into());
 
-	GluttonChainSpec::from_genesis(
-		// Name
-		format!("Glutton {}", para_id).as_str(),
-		// ID
-		format!("glutton-kusama-{}", para_id).as_str(),
-		ChainType::Live,
-		move || {
-			glutton_genesis(
-				para_id,
-				vec![
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Bob"),
-				],
-			)
-		},
-		Vec::new(),
-		None,
-		// Protocol ID
-		Some(format!("glutton-kusama-{}", para_id).as_str()),
-		None,
-		Some(properties),
+	GluttonChainSpec::builder(
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama".into(), para_id: para_id.into() },
 	)
+	.with_name(format!("Glutton {}", para_id).as_str())
+	.with_id(format!("glutton-kusama-{}", para_id).as_str())
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(glutton_genesis(
+		para_id,
+		vec![
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Bob"),
+		],
+	))
+	.with_protocol_id(format!("glutton-kusama-{}", para_id).as_str())
+	.with_properties(properties)
+	.build()
 }
 
-fn glutton_genesis(
-	parachain_id: ParaId,
-	collators: Vec<AuraId>,
-) -> glutton_runtime::RuntimeGenesisConfig {
-	glutton_runtime::RuntimeGenesisConfig {
-		system: glutton_runtime::SystemConfig {
-			code: glutton_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
+fn glutton_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serde_json::Value {
+	serde_json::json!( {
+		"parachainInfo": {
+			"parachainId": parachain_id
 		},
-		parachain_info: glutton_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
-		parachain_system: Default::default(),
-		glutton: glutton_runtime::GluttonConfig {
-			compute: Default::default(),
-			storage: Default::default(),
-			trash_data_count: Default::default(),
-			..Default::default()
+		"sudo": {
+			"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 		},
-		aura: glutton_runtime::AuraConfig { authorities: collators },
-		aura_ext: Default::default(),
-		sudo: glutton_runtime::SudoConfig {
-			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-		},
-	}
+		"aura": { "authorities": collators },
+	})
 }
