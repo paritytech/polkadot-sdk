@@ -1369,7 +1369,7 @@ impl<T: Config> SnapshotWrapper<T> {
 		<DesiredTargets<T>>::kill();
 	}
 	/// Set all snapshot related storage items at the same time.
-	pub fn set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: Vec<u8>) {
+	pub fn set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: &[u8]) {
 		<SnapshotMetadata<T>>::put(metadata);
 		<DesiredTargets<T>>::put(desired_targets);
 		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
