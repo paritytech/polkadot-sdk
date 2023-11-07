@@ -31,7 +31,6 @@ mod keyword {
 	syn::custom_keyword!(T);
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(feeless_if);
-	syn::custom_keyword!(AccountIdFor);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -165,31 +164,6 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
 
 	syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream()).map_err(|e| {
 		let msg = "Invalid type: expected `OriginFor<T>`";
-		let mut err = syn::Error::new(ty.span(), msg);
-		err.combine(e);
-		err
-	})?;
-
-	Ok(())
-}
-
-/// Check the syntax is `AccountIdFor<T>`
-pub fn check_feeless_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
-	pub struct CheckFeelessFirstArg;
-	impl syn::parse::Parse for CheckFeelessFirstArg {
-		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-			input.parse::<syn::Token![&]>()?;
-			input.parse::<keyword::AccountIdFor>()?;
-			input.parse::<syn::Token![<]>()?;
-			input.parse::<keyword::T>()?;
-			input.parse::<syn::Token![>]>()?;
-
-			Ok(Self)
-		}
-	}
-
-	syn::parse2::<CheckFeelessFirstArg>(ty.to_token_stream()).map_err(|e| {
-		let msg = "Invalid type: expected `&AccountIdFor<T>`";
 		let mut err = syn::Error::new(ty.span(), msg);
 		err.combine(e);
 		err
@@ -380,17 +354,6 @@ impl CallDef {
 						let msg = "Invalid pallet::call, feeless_if closure must have same \
 							number of arguments as the dispatchable function";
 						return Err(syn::Error::new(feeless_check.span(), msg))
-					}
-
-					match feeless_check.inputs.first() {
-						Some(syn::Pat::Type(arg)) => {
-							check_feeless_first_arg_type(&arg.ty)?;
-						},
-						_ => {
-							let msg = "Invalid pallet::call, feeless_if closure's first argument must be a typed argument, \
-								e.g. `who: &AccountIdFor<T>`";
-							return Err(syn::Error::new(feeless_check.inputs.span(), msg))
-						},
 					}
 
 					let valid_return = match &feeless_check.output {

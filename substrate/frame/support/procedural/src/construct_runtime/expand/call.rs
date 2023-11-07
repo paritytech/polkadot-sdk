@@ -125,12 +125,12 @@ pub fn expand_outer_dispatch(
 		}
 
 		impl #scrate::dispatch::CheckIfFeeless for RuntimeCall {
-			type AccountId = #system_path::pallet_prelude::AccountIdFor<#runtime>;
-			fn is_feeless(&self, account_id: &Self::AccountId) -> bool {
+			type Origin = #system_path::pallet_prelude::OriginFor<#runtime>;
+			fn is_feeless(&self, origin: &Self::Origin) -> bool {
 				match self {
 					#(
 						#pallet_attrs
-						#variant_patterns => call.is_feeless(account_id),
+						#variant_patterns => call.is_feeless(origin),
 					)*
 				}
 			}

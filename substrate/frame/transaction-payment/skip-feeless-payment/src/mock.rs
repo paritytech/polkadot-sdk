@@ -72,7 +72,7 @@ pub mod pallet_dummy {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::feeless_if(|_who: &AccountIdFor<T>, data: &u32| -> bool {
+		#[pallet::feeless_if(|_origin: &OriginFor<T>, data: &u32| -> bool {
 			*data == 0
 		})]
 		pub fn aux(_origin: OriginFor<T>, #[pallet::compact] _data: u32) -> DispatchResult {

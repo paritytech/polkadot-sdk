@@ -59,12 +59,12 @@ pub type CallableCallFor<A, R> = <A as Callable<R>>::RuntimeCall;
 /// If a call is marked by [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
 /// attribute, the corresponding closure is checked.
 pub trait CheckIfFeeless {
-	/// The account id type of the runtime.
-	type AccountId;
+	/// The Origin type of the runtime.
+	type Origin;
 
 	/// Checks if the dispatchable satisfies the feeless condition as defined by
 	/// [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
-	fn is_feeless(&self, account_id: &Self::AccountId) -> bool;
+	fn is_feeless(&self, origin: &Self::Origin) -> bool;
 }
 
 /// Origin for the System pallet.
@@ -753,8 +753,6 @@ mod weight_tests {
 
 		pub mod pallet_prelude {
 			pub type OriginFor<T> = <T as super::Config>::RuntimeOrigin;
-
-			pub type AccountIdFor<T> = <T as super::Config>::AccountId;
 
 			pub type HeaderFor<T> =
 				<<T as super::Config>::Block as sp_runtime::traits::HeaderProvider>::HeaderT;

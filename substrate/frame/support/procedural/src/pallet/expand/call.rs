@@ -245,7 +245,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let feeless_check_result =
 		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
 			if let Some(feeless_check) = feeless_check {
-				quote::quote!(#feeless_check(account_id, #( #arg_name, )*))
+				quote::quote!(#feeless_check(origin, #( #arg_name, )*))
 			} else {
 				quote::quote!(false)
 			}
@@ -360,9 +360,9 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		impl<#type_impl_gen> #frame_support::dispatch::CheckIfFeeless for #call_ident<#type_use_gen>
 			#where_clause
 		{
-			type AccountId = #frame_system::pallet_prelude::AccountIdFor<T>;
+			type Origin = #frame_system::pallet_prelude::OriginFor<T>;
 			#[allow(unused_variables)]
-			fn is_feeless(&self, account_id: &Self::AccountId) -> bool {
+			fn is_feeless(&self, origin: &Self::Origin) -> bool {
 				match *self {
 					#(
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {

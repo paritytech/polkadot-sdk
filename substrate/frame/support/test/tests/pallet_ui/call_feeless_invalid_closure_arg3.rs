@@ -19,7 +19,6 @@
 mod pallet {
 	use frame_support::pallet_prelude::DispatchResult;
 	use frame_system::pallet_prelude::OriginFor;
-	use frame_system::pallet_prelude::AccountIdFor;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
@@ -29,7 +28,7 @@ mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::feeless_if(|_: &AccountIdFor<T>, _s: &u32| -> bool { true })]
+		#[pallet::feeless_if(|_: &OriginFor<T>, _s: &u32| -> bool { true })]
 		pub fn foo(_: OriginFor<T>, _something: u64) -> DispatchResult { Ok(()) }
 	}
 }

@@ -38,7 +38,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
-	traits::IsType,
+	traits::{IsType, OriginTrait},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -100,7 +100,7 @@ impl<T: Config + Send + Sync, S: SignedExtension> SkipCheckIfFeeless<T, S> {
 impl<T: Config + Send + Sync, S: SignedExtension<AccountId = T::AccountId>> SignedExtension
 	for SkipCheckIfFeeless<T, S>
 where
-	S::Call: CheckIfFeeless<AccountId = T::AccountId>,
+	S::Call: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
 {
 	type AccountId = T::AccountId;
 	type Call = S::Call;
@@ -119,7 +119,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		if call.is_feeless(who) {
+		if call.is_feeless(&<T as frame_system::Config>::RuntimeOrigin::signed(who.clone())) {
 			Ok((who.clone(), None))
 		} else {
 			Ok((who.clone(), Some(self.0.pre_dispatch(who, call, info, len)?)))
