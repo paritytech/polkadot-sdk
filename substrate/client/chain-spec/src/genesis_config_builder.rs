@@ -19,6 +19,7 @@
 //! A helper module for calling the GenesisBuilder API from arbitrary runtime wasm blobs.
 
 use codec::{Decode, Encode};
+pub use sc_executor::sp_wasm_interface::HostFunctions;
 use sc_executor::{error::Result, WasmExecutor};
 use serde_json::{from_slice, Value};
 use sp_core::{
@@ -30,19 +31,22 @@ use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
-pub struct GenesisConfigBuilderRuntimeCaller<'a> {
+pub struct GenesisConfigBuilderRuntimeCaller<'a, HF = sp_io::SubstrateHostFunctions> {
 	code: Cow<'a, [u8]>,
 	code_hash: Vec<u8>,
-	executor: WasmExecutor<sp_io::SubstrateHostFunctions>,
+	executor: WasmExecutor<HF>,
 }
 
-impl<'a> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a> {
+impl<'a, HF> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a, HF> {
 	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
 		Some(self.code.as_ref().into())
 	}
 }
 
-impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
+impl<'a, HF> GenesisConfigBuilderRuntimeCaller<'a, HF>
+where
+	HF: HostFunctions,
+{
 	/// Creates new instance using the provided code blob.
 	///
 	/// This code is later referred to as `runtime`.
@@ -50,9 +54,7 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_core::blake2_256(code).to_vec(),
-			executor: WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
-				.with_allow_missing_host_functions(true)
-				.build(),
+			executor: WasmExecutor::<HF>::builder().with_allow_missing_host_functions(true).build(),
 		}
 	}
 

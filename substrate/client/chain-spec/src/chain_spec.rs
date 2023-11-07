@@ -19,8 +19,8 @@
 //! Substrate chain configurations.
 #![warn(missing_docs)]
 use crate::{
-	extension::GetExtension, ChainType, GenesisConfigBuilderRuntimeCaller as RuntimeCaller,
-	Properties, RuntimeGenesis,
+	extension::GetExtension, genesis_config_builder::HostFunctions, ChainType,
+	GenesisConfigBuilderRuntimeCaller as RuntimeCaller, Properties, RuntimeGenesis,
 };
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
@@ -122,7 +122,10 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 	}
 }
 
-impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
+impl<G: RuntimeGenesis, E, HF> BuildStorage for ChainSpec<G, E, HF>
+where
+	HF: HostFunctions,
+{
 	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
 		match self.genesis.resolve()? {
 			#[allow(deprecated)]
@@ -158,7 +161,7 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 				json_blob: RuntimeGenesisConfigJson::Config(config),
 				code,
 			}) => {
-				RuntimeCaller::new(&code[..])
+				RuntimeCaller::<HF>::new(&code[..])
 					.get_storage_for_config(config)?
 					.assimilate_storage(storage)?;
 				storage
@@ -169,7 +172,7 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 				json_blob: RuntimeGenesisConfigJson::Patch(patch),
 				code,
 			}) => {
-				RuntimeCaller::new(&code[..])
+				RuntimeCaller::<HF>::new(&code[..])
 					.get_storage_for_patch(patch)?
 					.assimilate_storage(storage)?;
 				storage
@@ -448,23 +451,29 @@ impl<G, E> ChainSpecBuilder<G, E> {
 		ChainSpec {
 			client_spec,
 			genesis: GenesisSource::GenesisBuilderApi(self.genesis_build_action, self.code.into()),
+			_host_functions: Default::default(),
 		}
 	}
 }
 
 /// A configuration of a chain. Can be used to build a genesis block.
-pub struct ChainSpec<G, E = NoExtension> {
+pub struct ChainSpec<G, E = NoExtension, HF = sp_io::SubstrateHostFunctions> {
 	client_spec: ClientSpec<E>,
 	genesis: GenesisSource<G>,
+	_host_functions: PhantomData<HF>,
 }
 
-impl<G, E: Clone> Clone for ChainSpec<G, E> {
+impl<G, E: Clone, HF> Clone for ChainSpec<G, E, HF> {
 	fn clone(&self) -> Self {
-		ChainSpec { client_spec: self.client_spec.clone(), genesis: self.genesis.clone() }
+		ChainSpec {
+			client_spec: self.client_spec.clone(),
+			genesis: self.genesis.clone(),
+			_host_functions: self._host_functions.clone(),
+		}
 	}
 }
 
-impl<G, E> ChainSpec<G, E> {
+impl<G, E, HF> ChainSpec<G, E, HF> {
 	/// A list of bootnode addresses.
 	pub fn boot_nodes(&self) -> &[MultiaddrWithPeerId] {
 		&self.client_spec.boot_nodes
@@ -553,6 +562,7 @@ impl<G, E> ChainSpec<G, E> {
 		ChainSpec {
 			client_spec,
 			genesis: GenesisSource::Factory(Arc::new(constructor), code.into()),
+			_host_functions: Default::default(),
 		}
 	}
 
@@ -567,14 +577,18 @@ impl<G, E> ChainSpec<G, E> {
 	}
 }
 
-impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned> ChainSpec<G, E> {
+impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned, HF> ChainSpec<G, E, HF> {
 	/// Parse json content into a `ChainSpec`
 	pub fn from_json_bytes(json: impl Into<Cow<'static, [u8]>>) -> Result<Self, String> {
 		let json = json.into();
 		let client_spec = json::from_slice(json.as_ref())
 			.map_err(|e| format!("Error parsing spec file: {}", e))?;
 
-		Ok(ChainSpec { client_spec, genesis: GenesisSource::Binary(json) })
+		Ok(ChainSpec {
+			client_spec,
+			genesis: GenesisSource::Binary(json),
+			_host_functions: Default::default(),
+		})
 	}
 
 	/// Parse json file into a `ChainSpec`
@@ -593,7 +607,11 @@ impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned> ChainSpec<G
 		let client_spec =
 			json::from_slice(&bytes).map_err(|e| format!("Error parsing spec file: {}", e))?;
 
-		Ok(ChainSpec { client_spec, genesis: GenesisSource::File(path) })
+		Ok(ChainSpec {
+			client_spec,
+			genesis: GenesisSource::File(path),
+			_host_functions: Default::default(),
+		})
 	}
 }
 
@@ -608,7 +626,7 @@ struct ChainSpecJsonContainer<G, E> {
 	genesis: Genesis<G>,
 }
 
-impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
+impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static, HF> ChainSpec<G, E, HF> {
 	fn json_container(&self, raw: bool) -> Result<ChainSpecJsonContainer<G, E>, String> {
 		let raw_genesis = match (raw, self.genesis.resolve()?) {
 			(
@@ -618,7 +636,8 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 					code,
 				}),
 			) => {
-				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_config(config)?;
+				let mut storage = RuntimeCaller::<sp_io::SubstrateHostFunctions>::new(&code[..])
+					.get_storage_for_config(config)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -629,7 +648,8 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 					code,
 				}),
 			) => {
-				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_patch(patch)?;
+				let mut storage = RuntimeCaller::<sp_io::SubstrateHostFunctions>::new(&code[..])
+					.get_storage_for_patch(patch)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -664,10 +684,11 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 	}
 }
 
-impl<G, E> crate::ChainSpec for ChainSpec<G, E>
+impl<G, E, HF> crate::ChainSpec for ChainSpec<G, E, HF>
 where
 	G: RuntimeGenesis + 'static,
 	E: GetExtension + serde::Serialize + Clone + Send + Sync + 'static,
+	HF: HostFunctions + Send + Sync,
 {
 	fn boot_nodes(&self) -> &[MultiaddrWithPeerId] {
 		ChainSpec::boot_nodes(self)
