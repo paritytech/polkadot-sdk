@@ -21,7 +21,7 @@ use ansi_term::Colour;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
-use sc_network_common::sync::{
+use sc_network_sync::{
 	warp::{WarpSyncPhase, WarpSyncProgress},
 	SyncState, SyncStatus,
 };

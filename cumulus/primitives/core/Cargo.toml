@@ -3,6 +3,7 @@ name = "cumulus-primitives-core"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
@@ -33,4 +34,9 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 	"xcm/std",
+]
+runtime-benchmarks = [
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
