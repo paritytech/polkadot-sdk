@@ -415,15 +415,15 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is infallible, but doesn't guarantee that the entire `amount` is used to create the
 	/// pair, for example in the case where the amounts would cause overflow or underflow in
-	/// [`Self::issue`] or [`Self::redeem`].
+	/// [`Balanced::issue`] or [`Balanced::rescind`].
 	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
 		// Maximum amount which can be issued.
 		let issue_cap = Self::Balance::max_value().saturating_sub(Self::total_issuance());
-		// Maximum amount which can be redeemed.
-		let redeem_cap = Self::total_issuance();
+		// Maximum amount which can be rescinded.
+		let rescind_cap = Self::total_issuance();
 
-		// Amount which can be both issued and redeemed.
-		let capped_amount = amount.min(issue_cap).min(redeem_cap);
+		// Amount which can be both issued and rescinded.
+		let capped_amount = amount.min(issue_cap).min(rescind_cap);
 
 		(Self::rescind(capped_amount), Self::issue(capped_amount))
 	}

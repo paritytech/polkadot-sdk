@@ -475,7 +475,7 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is infallible, but doesn't guarantee that the entire `amount` is used to create the
 	/// pair, for example in the case where the amounts would cause overflow or underflow in
-	/// [`Self::issue`] or [`Self::redeem`].
+	/// [`Balanced::issue`] or [`Balanced::recind`].
 	fn pair(
 		asset: Self::AssetId,
 		amount: Self::Balance,
@@ -484,23 +484,13 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 
 		// Maximum amount which can be issued.
 		let issue_cap = Self::Balance::max_value().saturating_sub(total_issuance);
-		// Maximum amount which can be redeemed.
-		let redeem_cap = total_issuance;
+		// Maximum amount which can be rescinded.
+		let rescind_cap = total_issuance;
 
-		// Amount which can be both issued and redeemed.
-		let capped_amount = amount.min(issue_cap).min(redeem_cap);
+		// Amount which can be both issued and recinded.
+		let capped_amount = amount.min(issue_cap).min(rescind_cap);
 
-		let debt =
-			Imbalance::<Self::AssetId, Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(
-				asset.clone(),
-				capped_amount,
-			);
-		let credit =
-			Imbalance::<Self::AssetId, Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(
-				asset,
-				capped_amount,
-			);
-		(debt, credit)
+		(Self::rescind(asset.clone(), capped_amount), Self::issue(asset, capped_amount))
 	}
 
 	/// Mints `value` into the account of `who`, creating it as needed.
