@@ -498,7 +498,6 @@ pub struct Overseer<SupportsParachains> {
 
 	#[subsystem(AvailabilityDistributionMessage, sends: [
 		AvailabilityStoreMessage,
-		AvailabilityRecoveryMessage,
 		ChainApiMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
