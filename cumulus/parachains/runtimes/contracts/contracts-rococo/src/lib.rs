@@ -117,11 +117,9 @@ pub mod migrations {
 	pub type Unreleased = (
 		cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
 		cumulus_pallet_parachain_system::migration::Migration<Runtime>,
-
-		cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,		
-	  cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
-    
-	  pallet_contracts::Migration<Runtime>,
+		cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
+		cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
+		pallet_contracts::Migration<Runtime>,
 	);
 }
 
