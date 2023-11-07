@@ -1079,7 +1079,7 @@ impl identity_migrator::Config for Runtime {
 	// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
 	type Reaper = EnsureRoot<AccountId>;
 	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime, Self::AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::runtime_common_identity_migrator::WeightInfo<Runtime>;
 }
 
 type NisCounterpartInstance = pallet_balances::Instance2;
@@ -1343,7 +1343,7 @@ construct_runtime! {
 
 		// NIS pallet.
 		Nis: pallet_nis::{Pallet, Call, Storage, Event<T>, HoldReason} = 38,
-//		pub type NisCounterpartInstance = pallet_balances::Instance2;
+		// pub type NisCounterpartInstance = pallet_balances::Instance2;
 		NisCounterpartBalances: pallet_balances::<Instance2> = 45,
 
 		// Parachains pallets. Start indices at 50 to leave room.

@@ -29,6 +29,9 @@ pub use pallet::*;
 use pallet_identity;
 use sp_core::Get;
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
+
 pub trait WeightInfo {
 	fn reap_identity(r: u32, s: u32) -> Weight;
 	fn poke_deposit() -> Weight;
@@ -161,8 +164,6 @@ impl<AccountId> OnReapIdentity<AccountId> for () {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
-#[cfg(feature = "runtime-benchmarks")]
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -171,9 +172,10 @@ mod benchmarks {
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
 	use parity_scale_codec::Encode;
 	use sp_runtime::{
-		traits::{Hash, StaticLookup},
+		traits::{Bounded, Hash, StaticLookup},
 		Saturating,
 	};
+	use sp_std::{boxed::Box, vec::Vec, *};
 
 	const SEED: u32 = 0;
 
@@ -194,23 +196,7 @@ mod benchmarks {
 		let target_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(u32::MAX));
-
-		// add registrars
-		for ii in 0..r {
-			let registrar: T::AccountId = account("registrar", ii, SEED);
-			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
-			let _ = <T as pallet_identity::Config>::Currency::make_free_balance_be(
-				&registrar,
-				<BalanceOf<T>>::from(u32::MAX),
-			);
-			let registrar_origin = T::RegistrarOrigin::try_successful_origin()
-				.expect("RegistrarOrigin has no successful origin required for the benchmark");
-			Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
-			Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), ii, 10u32.into())?;
-			let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
-			Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), ii, fields)?;
-		}
+		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
 		// set identity
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
@@ -228,9 +214,22 @@ mod benchmarks {
 		}
 		Identity::<T>::set_subs(target_origin.clone(), subs.clone())?;
 
-		// provide judgements
+		// add registrars and provide judgements
+		let registrar_origin = T::RegistrarOrigin::try_successful_origin()
+			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		for ii in 0..r {
 			let registrar: T::AccountId = account("registrar", ii, SEED);
+			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
+			let _ = <T as pallet_identity::Config>::Currency::make_free_balance_be(
+				&registrar,
+				<T as pallet_identity::Config>::Currency::minimum_balance(),
+			);
+
+			Identity::<T>::add_registrar(registrar_origin.clone(), registrar_lookup)?;
+			Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), ii, 10u32.into())?;
+			let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
+			Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), ii, fields)?;
+
 			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into())?;
 			Identity::<T>::provide_judgement(
 				RawOrigin::Signed(registrar).into(),
@@ -258,7 +257,7 @@ mod benchmarks {
 	#[benchmark]
 	fn poke_deposit() -> Result<(), BenchmarkError> {
 		let target: T::AccountId = account("target", 0, SEED);
-		let _ = T::Currency::make_free_balance_be(&target, <BalanceOf<T>>::from(u32::MAX));
+		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
 
 		let _ = Identity::<T>::set_identity_no_deposit(&target, info.clone());
