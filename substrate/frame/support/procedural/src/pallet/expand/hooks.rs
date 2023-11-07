@@ -42,6 +42,31 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		>::name::<Self>().unwrap_or("<unknown pallet name>")
 	};
 
+	let initialize_on_chain_storage_version = if let Some(current_version) =
+		&def.pallet_struct.storage_version
+	{
+		quote::quote! {
+			#frame_support::__private::log::info!(
+				target: #frame_support::LOG_TARGET,
+				"🐥 New pallet {:?} detected in the runtime. Initializing the on-chain storage version to match the storage version defined in the pallet: {:?}",
+				#pallet_name,
+				#current_version
+			);
+			#current_version.put::<Self>();
+		}
+	} else {
+		quote::quote! {
+			let default_version = #frame_support::traits::StorageVersion::new(0);
+			#frame_support::__private::log::info!(
+				target: #frame_support::LOG_TARGET,
+				"🐥 New pallet {:?} detected in the runtime. The pallet has not defined storage version, so the on-chain version is being initialized to {:?}.",
+				#pallet_name,
+				default_version
+			);
+			default_version.put::<Self>();
+		}
+	};
+
 	let log_runtime_upgrade = if has_runtime_upgrade {
 		// a migration is defined here.
 		quote::quote! {
@@ -186,17 +211,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				let pallet_hashed_prefix = <Self as PalletInfoAccess>::name_hash();
 				let exists = contains_prefixed_key(&pallet_hashed_prefix);
 				if !exists {
-					let current_version = match &def.pallet_struct.storage_version {
-						Some(v) => v,
-						None => #frame_support::traits::StorageVersion::new(0),
-					};
-					#frame_support::__private::log::info!(
-						target: #frame_support::LOG_TARGET,
-						"🐥 New pallet {:?} detected in the runtime. Initializing the on-chain storage version to match the storage version defined in the pallet: {:?}",
-						#pallet_name,
-						current_version
-					);
-					current_version.put::<Self>();
+					#initialize_on_chain_storage_version
 					<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 1)
 				} else {
 					<T as #frame_system::Config>::DbWeight::get().reads(1)
