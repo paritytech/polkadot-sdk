@@ -45,7 +45,6 @@ struct BenchCli {
 fn new_runtime() -> tokio::runtime::Runtime {
 	tokio::runtime::Builder::new_multi_thread()
 		.thread_name("subsystem-bench")
-		.max_blocking_threads(32)
 		.enable_all()
 		.thread_stack_size(3 * 1024 * 1024)
 		.build()
@@ -67,6 +66,8 @@ impl BenchCli {
 		let state = TestState::new(TestInput::default());
 
 		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
+
+		println!("{:?}", env.input());
 
 		runtime.block_on(availability::bench_chunk_recovery(&mut env));
 

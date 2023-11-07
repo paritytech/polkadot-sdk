@@ -16,6 +16,7 @@
 
 use std::{
 	sync::Arc,
+	thread::sleep,
 	time::{Duration, Instant},
 };
 
@@ -66,6 +67,8 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
+
+mod network;
 
 type VirtualOverseer = TestSubsystemContextHandle<AvailabilityRecoveryMessage>;
 
@@ -121,12 +124,13 @@ impl TestEnvironment {
 		let to_subsystem = virtual_overseer.tx.clone();
 
 		let task_state = state.clone();
+		let spawn_task_handle = task_manager.spawn_handle();
 		// We need to start a receiver to process messages from the subsystem.
 		// This mocks an overseer and all dependent subsystems
 		task_manager.spawn_handle().spawn_blocking(
 			"test-environment",
 			"test-environment",
-			async move { Self::env_task(virtual_overseer, task_state).await },
+			async move { Self::env_task(virtual_overseer, task_state, spawn_task_handle).await },
 		);
 
 		TestEnvironment { runtime, task_manager, registry, to_subsystem, params, instance, state }
@@ -139,15 +143,20 @@ impl TestEnvironment {
 		self.state.input()
 	}
 
-	async fn respond_to_send_request(state: &mut TestState, request: Requests) {
+	pub fn respond_to_send_request(state: &mut TestState, request: Requests) -> NetworkAction {
 		match request {
 			Requests::ChunkFetchingV1(outgoing_request) => {
 				let validator_index = outgoing_request.payload.index.0 as usize;
 				let chunk: ChunkResponse = state.chunks[validator_index].clone().into();
+				let size = chunk.encoded_size();
+				let future = async move {
+					let _ = outgoing_request
+						.pending_response
+						.send(Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode()));
+				}
+				.boxed();
 
-				let _ = outgoing_request
-					.pending_response
-					.send(Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode()));
+				NetworkAction::new(validator_index, future, size)
 			},
 			_ => panic!("received an unexpected request"),
 		}
@@ -158,7 +167,15 @@ impl TestEnvironment {
 	async fn env_task(
 		mut ctx: TestSubsystemContextHandle<AvailabilityRecoveryMessage>,
 		mut state: TestState,
+		spawn_task_handle: SpawnTaskHandle,
 	) {
+		// Emulate `n_validators` each with 1MiB of bandwidth available.
+		let mut network = NetworkEmulator::new(
+			state.input().n_validators,
+			state.input().bandwidth,
+			spawn_task_handle,
+		);
+
 		loop {
 			futures::select! {
 				message = ctx.recv().fuse() => {
@@ -173,7 +190,9 @@ impl TestEnvironment {
 						) => {
 							for request in requests {
 								// TODO: add latency variance when answering requests. This should be an env parameter.
-								Self::respond_to_send_request(&mut state, request).await;
+								let action = Self::respond_to_send_request(&mut state, request);
+								// action.run().await;
+								network.submit_peer_action(action.index(), action);
 							}
 						},
 						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAvailableData(_candidate_hash, tx)) => {
@@ -241,7 +260,7 @@ impl AvailabilityRecoverySubsystemInstance {
 		runtime: tokio::runtime::Handle,
 	) -> (Self, TestSubsystemContextHandle<AvailabilityRecoveryMessage>) {
 		let (context, virtual_overseer) =
-			make_buffered_subsystem_context(spawn_task_handle.clone(), 4096);
+			make_buffered_subsystem_context(spawn_task_handle.clone(), 4096 * 4);
 		let (collation_req_receiver, req_cfg) =
 			IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
 		let subsystem = AvailabilityRecoverySubsystem::with_chunks_only(
@@ -278,6 +297,10 @@ macro_rules! delay {
 }
 
 use sp_keyring::Sr25519Keyring;
+
+use crate::availability::network::NetworkAction;
+
+use self::network::NetworkEmulator;
 
 #[derive(Debug)]
 enum Has {
@@ -479,7 +502,7 @@ fn derive_erasure_chunks_with_proofs_and_root(
 }
 
 /// The test input parameters
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TestInput {
 	pub n_validators: usize,
 	pub n_cores: usize,
@@ -487,11 +510,19 @@ pub struct TestInput {
 	// This parameter is used to determine how many recoveries we batch in parallel
 	// similarly to how in practice tranche0 assignments work.
 	pub vrf_modulo_samples: usize,
+	// The amount of bandiwdht remote validators have.
+	pub bandwidth: usize,
 }
 
 impl Default for TestInput {
 	fn default() -> Self {
-		Self { n_validators: 300, n_cores: 50, pov_size: 5 * 1024 * 1024, vrf_modulo_samples: 6 }
+		Self {
+			n_validators: 10,
+			n_cores: 10,
+			pov_size: 5 * 1024 * 1024,
+			vrf_modulo_samples: 6,
+			bandwidth: 15 * 1024 * 1024,
+		}
 	}
 }
 
@@ -535,6 +566,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	}
 
 	env.send_signal(OverseerSignal::Conclude).await;
+	delay!(5);
 	let duration = start_marker.elapsed().as_millis();
 	let tput = ((input.n_cores * input.pov_size) as u128) / duration * 1000;
 	println!("Benchmark completed in {:?}ms", duration);
