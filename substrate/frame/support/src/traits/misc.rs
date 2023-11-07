@@ -899,7 +899,13 @@ pub trait EnsureInherentsAreFirst<Block> {
 	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
 }
 
+/// Ensures the inherent order of a block.
 pub trait EnsureInherentsAreOrdered<Block> {
+	/// Checks that the order of the inhernets matches the order reported by
+	/// [`ProvideInherent::inherent_order`].
+	///
+	/// The second arg are the number of inherents and can be acquired by calling
+	/// [`EnsureInherentsAreFirst::ensure_inherents_are_first`].
 	fn ensure_inherents_are_ordered(
 		block: &Block,
 		num_inherents: usize,

@@ -214,6 +214,7 @@ pub fn expand_outer_inherent(
 				use #scrate::sp_runtime::traits::Block as _;
 				use #scrate::__private::sp_inherents::{InherentOrder, InherentOrderError};
 
+				// The last order that we encountered. Must increase monotonic.
 				let mut last: Option<InherentOrder> = None;
 
 				for (i, xt) in block.extrinsics().iter().take(num_inherents).enumerate() {
@@ -225,6 +226,7 @@ pub fn expand_outer_inherent(
 						if let Some(call) = IsSubType::<_>::is_sub_type(call) {
 							if #pallet_names::is_inherent(&call) {
 								let order = #pallet_names::inherent_order().unwrap_or(InherentOrder::Index(#pallet_indices as u32));
+
 								if current.is_some() {
 									return Err(InherentOrderError::InherentWithMultiplePallets);
 								}
