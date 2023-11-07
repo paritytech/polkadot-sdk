@@ -1864,6 +1864,13 @@ impl<T: Config> Pallet<T> {
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
 		let era = Self::active_era().unwrap().index;
+
+		// cache era exposures to avoid too many db reads.
+		let era_exposures = T::SessionInterface::validators()
+			.iter()
+			.map(|v| Self::eras_stakers(era, v))
+			.collect::<Vec<_>>();
+
 		<Nominators<T>>::iter()
 			.filter_map(
 				|(nominator, nomination)| {
@@ -1878,9 +1885,8 @@ impl<T: Config> Pallet<T> {
 				// must be bonded.
 				Self::ensure_is_stash(&nominator)?;
 				let mut sum = BalanceOf::<T>::zero();
-				T::SessionInterface::validators()
+				era_exposures
 					.iter()
-					.map(|v| Self::eras_stakers(era, v))
 					.map(|e| -> Result<(), TryRuntimeError> {
 						let individual =
 							e.others.iter().filter(|e| e.who == nominator).collect::<Vec<_>>();
@@ -1896,6 +1902,14 @@ impl<T: Config> Pallet<T> {
 						Ok(())
 					})
 					.collect::<Result<Vec<_>, _>>()?;
+
+				// We take total instead of active as the nominator might have requested to unbond
+				// some of their stake that is still exposed in the current era.
+				if sum <= Self::ledger(Stash(nominator.clone()))?.total {
+					// This can happen when there is a slash in the current era so we only warn.
+					log!(warn, "nominator stake exceeds what is bonded.");
+				}
+
 				Ok(())
 			})
 			.collect::<Result<Vec<_>, _>>()?;
