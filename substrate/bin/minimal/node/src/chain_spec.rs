@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use runtime::{BalancesConfig, RuntimeGenesisConfig, SudoConfig, SystemConfig, WASM_BINARY};
+use runtime::{BalancesConfig, SudoConfig, WASM_BINARY};
 use sc_service::{ChainType, Properties};
+use serde_json::{json, Value};
 use sp_keyring::AccountKeyring;
 
 /// This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<()>;
 
 fn props() -> Properties {
 	let mut properties = Properties::new();
@@ -30,37 +31,25 @@ fn props() -> Properties {
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-	Ok(ChainSpec::from_genesis(
-		"Development",
-		"dev",
-		ChainType::Development,
-		move || testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		None,
-		None,
-		Some(props()),
-		None,
-	))
+	Ok(ChainSpec::builder(WASM_BINARY.expect("Development wasm not available"), Default::default())
+		.with_name("Development")
+		.with_id("dev")
+		.with_chain_type(ChainType::Development)
+		.with_genesis_config_patch(testnet_genesis())
+		.with_properties(props())
+		.build())
 }
 
 /// Configure initial storage state for FRAME pallets.
-fn testnet_genesis(wasm_binary: &[u8]) -> RuntimeGenesisConfig {
+fn testnet_genesis() -> Value {
 	use frame::traits::Get;
 	use runtime::interface::{Balance, MinimumBalance};
 	let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
 	let balances = AccountKeyring::iter()
 		.map(|a| (a.to_account_id(), endowment))
 		.collect::<Vec<_>>();
-	RuntimeGenesisConfig {
-		system: SystemConfig {
-			// Add Wasm runtime to storage.
-			code: wasm_binary.to_vec(),
-			_config: Default::default(),
-		},
-		balances: BalancesConfig { balances },
-		sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
-		..Default::default()
-	}
+	json!({
+		"balances": BalancesConfig { balances },
+		"sudo": SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
+	})
 }

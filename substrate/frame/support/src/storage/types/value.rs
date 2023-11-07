@@ -23,7 +23,7 @@ use crate::{
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
 		StorageAppend, StorageDecodeLength, StorageTryAppend,
 	},
-	traits::{GetDefault, StorageInfo, StorageInstance},
+	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
@@ -72,7 +72,7 @@ where
 	Prefix: StorageInstance,
 	Value: FullCodec,
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
-	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+	OnEmpty: Get<QueryKind::Query> + 'static,
 {
 	type Query = QueryKind::Query;
 	fn pallet_prefix() -> &'static [u8] {
