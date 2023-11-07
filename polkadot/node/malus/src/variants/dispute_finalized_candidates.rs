@@ -31,6 +31,8 @@ use polkadot_cli::{
 };
 use polkadot_node_subsystem::{messages::ApprovalVotingMessage, SpawnGlue};
 use polkadot_node_subsystem_types::{DefaultSubsystemClient, OverseerSignal};
+use polkadot_node_subsystem_util::request_candidate_events;
+use polkadot_primitives::CandidateEvent;
 use sp_core::traits::SpawnNamed;
 use futures::channel::oneshot;
 
@@ -69,10 +71,10 @@ where
 
 				gum::info!(
 					target: MALUS,
-					"😈 Block Finalized Interception!"
+					"😈 Block Finalization Interception! Block: {:?}", h,
 				);
 
-				//Ensure that the block is actually deep enough to be disputed
+				//Ensure that the chain is long enough for the target ancestor to exist
 				if n <= self.dispute_offset {
 					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(h, n)));
 				}
@@ -83,34 +85,96 @@ where
 					"malus-dispute-finalized-block",
 					Some("malus"),
 					Box::pin(async move {
-						// Query chain for the block header at the disputed depth
+						// Query chain for the block hash at the target depth
 						let (tx, rx) = oneshot::channel();
 						sender.send_message(ChainApiMessage::FinalizedBlockHash(n - dispute_offset, tx)).await;
-
-						// Fetch hash of the block to be disputed
 						let disputable_hash = match rx.await {
-							Ok(Ok(Some(hash))) => hash,
+							Ok(Ok(Some(hash))) => {
+								gum::info!(
+									target: MALUS,
+									"😈 Time to search {:?}`th ancestor! Block: {:?}", dispute_offset, hash,
+								);
+								hash
+							},
 							_ => {
 								gum::info!(
 									target: MALUS,
-									"😈 Target ancestor already out of scope!"
+									"😈 Seems the target is not yet finalized! Nothing to dispute."
 								);
 								return; // Early return from the async block
 							},
 						};
 
+						// Fetch all candidate events for the target ancestor
+						let events = request_candidate_events(disputable_hash, &mut sender).await.await;
+						let events = match events {
+							Ok(Ok(events)) => events,
+							Ok(Err(e)) => {
+								gum::error!(
+									target: MALUS,
+									"😈 Failed to fetch candidate events: {:?}", e
+								);
+								return; // Early return from the async block
+							},
+							Err(e) => {
+								gum::error!(
+									target: MALUS,
+									"😈 Failed to fetch candidate events: {:?}", e
+								);
+								return; // Early return from the async block
+							},
+
+						};
+
+						// log all events for debugging
+						for event in events.iter() {
+							gum::info!(
+								target: MALUS,
+								"😈 Event: {:?}", event
+							);
+						}
+
+						// Extract a token candidate from the events to use for disputing
+						let event = events.iter().find(|event| matches!(event, CandidateEvent::CandidateIncluded(_,_,_,_)));
+						let candidate = match event {
+							Some(CandidateEvent::CandidateIncluded(candidate,_,_,_)) => candidate,
+							_ => {
+								gum::error!(
+									target: MALUS,
+									"😈 No candidate included event found! Nothing to dispute."
+								);
+								return; // Early return from the async block
+							},
+						};
+
+						// Extract the candidate hash from the candidate
+						let candidate_hash = candidate.hash();
+
+						// Fetch the session index for the candidate
+						let (tx, rx) = oneshot::channel();
+						sender.send_message(RuntimeApiMessage::Request(disputable_hash, RuntimeApiRequest::SessionIndexForChild(tx))).await;
+						let session_index = match rx.await {
+							Ok(Ok(session_index)) => session_index,
+							_ => {
+								gum::error!(
+									target: MALUS,
+									"😈 Failed to fetch session index for candidate."
+								);
+								return; // Early return from the async block
+							},
+						};
 						gum::info!(
 							target: MALUS,
-							"😈 Time to dispute: {:?}", disputable_hash
+							"😈 Disputing candidate with hash: {:?} in session {:?}", candidate_hash, session_index,
 						);
 
 						// Start dispute
-						// subsystem_sender.send_unbounded_message(DisputeCoordinatorMessage::IssueLocalStatement(
-						// 	session_index,
-						// 	candidate_hash,
-						// 	candidate.clone(),
-						// 	false, // indicates candidate is invalid -> dispute starts
-						// ));
+						sender.send_unbounded_message(DisputeCoordinatorMessage::IssueLocalStatement(
+							session_index,
+							candidate_hash,
+							candidate.clone(),
+							false, // indicates candidate is invalid -> dispute starts
+						));
 					}),
 				);
 
