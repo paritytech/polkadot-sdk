@@ -44,7 +44,7 @@ execution request:
 We use timeouts for both preparation and execution jobs to limit the amount of
 time they can take. As the time for a job can vary depending on the machine and
 load on the machine, this can potentially lead to disputes where some validators
-successfuly execute a PVF and others don't.
+successfully execute a PVF and others don't.
 
 One dispute mitigation we have in place is a more lenient timeout for
 preparation during execution than during pre-checking. The rationale is that the
