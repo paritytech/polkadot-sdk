@@ -1455,7 +1455,7 @@ impl<T: Config> Pallet<T> {
 		// buffer should have not re-allocated since.
 		debug_assert!(buffer.len() == size && size == buffer.capacity());
 
-		SnapshotWrapper::<T>::set(metadata, desired_targets, buffer);
+		SnapshotWrapper::<T>::set(metadata, desired_targets, &buffer);
 	}
 
 	/// Parts of [`create_snapshot`] that happen outside of this pallet.
