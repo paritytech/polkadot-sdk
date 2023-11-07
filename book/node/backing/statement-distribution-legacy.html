@@ -263,7 +263,7 @@ The receiver of such a message needs to request the actual payload via request/r
 <code>StatementFetchingV1</code> request.</p>
 <p>This is necessary as distribution of a large payload (mega bytes) via gossip would make the network collapse and timely
 distribution of statements would no longer be possible. By using request/response it is ensured that each peer only
-transferes large data once. We only take good care to detect an overloaded peer early and immediately move on to a
+transfers large data once. We only take good care to detect an overloaded peer early and immediately move on to a
 different peer for fetching the data. This mechanism should result in a good load distribution and therefore a rather
 optimal distribution path.</p>
 <p>With these optimizations, distribution of payloads in the size of up to 3 to 4 MB should work with Kusama validator
@@ -271,7 +271,7 @@ specifications. For scaling up even more, runtime upgrades and message passing s
 <p>Flood protection considerations: For making DoS attacks slightly harder on this subsystem, nodes will only respond to
 large statement requests, when they previously notified that peer via gossip about that statement. So, it is not
 possible to DoS nodes at scale, by requesting candidate data over and over again.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

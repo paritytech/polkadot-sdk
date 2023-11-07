@@ -328,7 +328,7 @@ UpgradeGoAheadSignal: map hasher(twox_64_concat) ParaId =&gt; Option&lt;UpgradeG
 /// an upgrade for this parachain.
 ///
 /// This may be a because the parachain waits for the upgrade cooldown to expire. Another
-/// potential use case is when we want to perform some maintanance (such as storage migration)
+/// potential use case is when we want to perform some maintenance (such as storage migration)
 /// we could restrict upgrades to make the process simpler.
 ///
 /// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
@@ -427,7 +427,7 @@ PVF pre-checking votes.</li>
 <h2 id="finalization"><a class="header" href="#finalization">Finalization</a></h2>
 <p>Collect all <code>(para_id, next_possible_upgrade_at)</code> from <code>UpgradeCooldowns</code> where <code>next_possible_upgrade_at &lt;= now</code> and
 prune them. For each para pruned remove its <code>UpgradeRestrictionSignal</code>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

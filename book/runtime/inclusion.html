@@ -291,7 +291,7 @@ have changed and the para may de-sync from the host's understanding of it.</p>
 <a href="../types/messages.html#upward-message"><code>UpwardMessage</code>s</a> from the
 <a href="../types/candidate.html#candidate-commitments"><code>CandidateCommitments</code></a>.</li>
 <li>call <code>Dmp::prune_dmq</code> with the para id of the candidate and the candidate's <code>processed_downward_messages</code>.</li>
-<li>call <code>Hrmp::prune_hrmp</code> with the para id of the candiate and the candidate's <code>hrmp_watermark</code>.</li>
+<li>call <code>Hrmp::prune_hrmp</code> with the para id of the candidate and the candidate's <code>hrmp_watermark</code>.</li>
 <li>call <code>Hrmp::queue_outbound_hrmp</code> with the para id of the candidate and the list of horizontal messages taken from
 the commitment,</li>
 <li>Call <code>Paras::note_new_head</code> using the <code>HeadData</code> from the receipt and <code>relay_parent_number</code>.</li>
@@ -355,7 +355,7 @@ in <code>well_known_keys</code> in order to facilitate oraclisation on to the pa
 </ol>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

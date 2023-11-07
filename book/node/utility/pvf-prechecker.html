@@ -162,7 +162,7 @@ the PVFs that are relevant for the subsystem.</p>
 relevant.</p>
 <p>When a PVF just becomes relevant, the subsystem will send a message to the <a href="candidate-validation.html">Candidate Validation</a> subsystem asking for
 the pre-check.</p>
-<p>Upon receving a message from the candidate-validation subsystem, the pre-checker will note down that the PVF has its
+<p>Upon receiving a message from the candidate-validation subsystem, the pre-checker will note down that the PVF has its
 judgement and will also sign and submit a <a href="../../types/pvf-prechecking.html#pvfcheckstatement"><code>PvfCheckStatement</code></a> via the <a href="../../runtime-api/pvf-prechecking.html"><code>submit_pvf_check_statement</code>
 runtime API</a>. In case, a judgement was received for a PVF that is no longer in view it is
 ignored.</p>
@@ -194,7 +194,7 @@ for execution can be assumed to be a local problem on the current node.</p>
 <p>For this reason, even deterministic preparation errors should not trigger disputes. And since we do not dispute as a
 result of the pre-checking phase, as stated above, it should be impossible for preparation in general to result in
 disputes.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

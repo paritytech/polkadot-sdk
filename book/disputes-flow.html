@@ -190,7 +190,7 @@
     IncomingRequestDisputeAvailabilityData --&gt; RespondUnavailable
     IncomingRequestDisputeAvailabilityData --&gt; DisputeDataAvail
     DisputeDataAvail --&gt; RespondWithDisputeAvailabilityData: Send
-    VoteGossipReceived --&gt; Track: implies source peer has&lt;br /&gt;dispute availablity data
+    VoteGossipReceived --&gt; Track: implies source peer has&lt;br /&gt;dispute availability data
 </pre>
 <hr />
 <p>Peer handling</p>
@@ -243,7 +243,7 @@ voting).</p>
 <p>If a dispute is not resolved within due time, governance mode shall be entered for manual resolution.</p>
 <p>If a validator unexpectedly restarts, the dispute shall be continued with the state based on votes being cast and being
 present in persistent storage.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

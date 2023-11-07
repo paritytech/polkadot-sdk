@@ -254,7 +254,7 @@ HrmpEgressChannelsIndex: map ParaId =&gt; Vec&lt;ParaId&gt;;
 /// Invariant: cannot be non-empty if the corresponding channel in `HrmpChannels` is `None`.
 HrmpChannelContents: map HrmpChannelId =&gt; Vec&lt;InboundHrmpMessage&gt;;
 /// Maintains a mapping that can be used to answer the question:
-/// What paras sent a message at the given block number for a given reciever.
+/// What paras sent a message at the given block number for a given receiver.
 /// Invariants:
 /// - The inner `Vec&lt;ParaId&gt;` is never empty.
 /// - The inner `Vec&lt;ParaId&gt;` cannot store two same `ParaId`.
@@ -501,7 +501,7 @@ found in the configuration <code>config.hrmp_recipient_deposit</code>.</li>
 <li>Remove <code>recipient</code> from the set <code>HrmpEgressChannelsIndex</code> for <code>sender</code>.</li>
 <li>Remove <code>sender</code> from the set <code>HrmpIngressChannelsIndex</code> for <code>recipient</code>.</li>
 </ol>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

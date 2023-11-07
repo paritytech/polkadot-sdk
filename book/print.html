@@ -594,7 +594,7 @@ finality.  We might explore limits on postponement too, but this sounds much har
 <code>RelayVRFDelay</code> because <code>RelayVRFModulo</code> avoids giving individual checkers too many assignments and tranche zero
 assignments benefit security the most.  We suggest assigning at least 16 checkers under <code>RelayVRFModulo</code> or
 <code>RelayVRFModuloCompact</code> although assignment levels have never been properly analyzed.</p>
-<p>Our delay criteria <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> both have two primary paramaters, expected checkers per
+<p>Our delay criteria <code>RelayVRFDelay</code> and <code>RelayEquivocation</code> both have two primary parameters, expected checkers per
 tranche and the zeroth delay tranche width.</p>
 <p>We require expected checkers per tranche to be less than three because otherwise an adversary with 1/3 stake could force
 all nodes into checking all blocks.  We strongly recommend expected checkers per tranche to be less than two, which
@@ -639,7 +639,7 @@ this, we should discover if reconstruction performs adequately with a complete g
 restrictions.  At this point, an assignment notices could implicitly request pieces from a random 1/3rd, perhaps
 topology restricted, which saves one gossip round.  If this preliminary fast reconstruction fails, then nodes' request
 alternative pieces directly.  There is an interesting design space in how this overlaps with &quot;slow availability&quot; claims.</p>
-<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
 <p>Fast forward to <a href="./disputes-flow.html">more detailed disputes requirements</a>.</p>
 <h2 id="motivation-and-background"><a class="header" href="#motivation-and-background">Motivation and Background</a></h2>
 <p>All parachain blocks that end up in the finalized relay chain should be valid. This does not apply to blocks that are
@@ -800,7 +800,7 @@ Furthermore, disputes on-chain will stay open for some fixed amount of time even
     IncomingRequestDisputeAvailabilityData --&gt; RespondUnavailable
     IncomingRequestDisputeAvailabilityData --&gt; DisputeDataAvail
     DisputeDataAvail --&gt; RespondWithDisputeAvailabilityData: Send
-    VoteGossipReceived --&gt; Track: implies source peer has&lt;br /&gt;dispute availablity data
+    VoteGossipReceived --&gt; Track: implies source peer has&lt;br /&gt;dispute availability data
 </pre>
 <hr />
 <p>Peer handling</p>
@@ -853,7 +853,7 @@ voting).</p>
 <p>If a dispute is not resolved within due time, governance mode shall be entered for manual resolution.</p>
 <p>If a validator unexpectedly restarts, the dispute shall be continued with the state based on votes being cast and being
 present in persistent storage.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection"><a class="header" href="#chain-selection">Chain Selection</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection"><a class="header" href="#chain-selection">Chain Selection</a></h1>
 <p>Chain selection processes in blockchains are used for the purpose of selecting blocks to build on and finalize. It is
 important for these processes to be consistent among nodes and resilient to a maximum proportion of malicious nodes
 which do not obey the chain selection process.</p>
@@ -1762,7 +1762,7 @@ UpgradeGoAheadSignal: map hasher(twox_64_concat) ParaId =&gt; Option&lt;UpgradeG
 /// an upgrade for this parachain.
 ///
 /// This may be a because the parachain waits for the upgrade cooldown to expire. Another
-/// potential use case is when we want to perform some maintanance (such as storage migration)
+/// potential use case is when we want to perform some maintenance (such as storage migration)
 /// we could restrict upgrades to make the process simpler.
 ///
 /// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
@@ -1861,7 +1861,7 @@ PVF pre-checking votes.</li>
 <h2 id="finalization-2"><a class="header" href="#finalization-2">Finalization</a></h2>
 <p>Collect all <code>(para_id, next_possible_upgrade_at)</code> from <code>UpgradeCooldowns</code> where <code>next_possible_upgrade_at &lt;= now</code> and
 prune them. For each para pruned remove its <code>UpgradeRestrictionSignal</code>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="scheduler-pallet"><a class="header" href="#scheduler-pallet">Scheduler Pallet</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="scheduler-pallet"><a class="header" href="#scheduler-pallet">Scheduler Pallet</a></h1>
 <blockquote>
 <p>TODO: this section is still heavily under construction. key questions about availability cores and validator
 assignment are still open and the flow of the the section may be contradictory or inconsistent</p>
@@ -2067,7 +2067,7 @@ on-demand cores.</li>
 <li>The claim is then added to the claim index.</li>
 </ul>
 </li>
-<li><code>free_cores(Vec&lt;(CoreIndex, FreedReason)&gt;)</code>: indicate previosuly-occupied cores which are to be considered returned
+<li><code>free_cores(Vec&lt;(CoreIndex, FreedReason)&gt;)</code>: indicate previously-occupied cores which are to be considered returned
 and why they are being returned.
 <ul>
 <li>All freed lease holding parachain cores should be assigned to their respective parachain</li>
@@ -2125,7 +2125,7 @@ which no longer exist under paras.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
 <p>The inclusion module is responsible for inclusion and availability of scheduled parachains. It also manages the UMP
 dispatch queue of each parachain.</p>
 <h2 id="storage-6"><a class="header" href="#storage-6">Storage</a></h2>
@@ -2270,7 +2270,7 @@ have changed and the para may de-sync from the host's understanding of it.</p>
 <a href="runtime/../types/messages.html#upward-message"><code>UpwardMessage</code>s</a> from the
 <a href="runtime/../types/candidate.html#candidate-commitments"><code>CandidateCommitments</code></a>.</li>
 <li>call <code>Dmp::prune_dmq</code> with the para id of the candidate and the candidate's <code>processed_downward_messages</code>.</li>
-<li>call <code>Hrmp::prune_hrmp</code> with the para id of the candiate and the candidate's <code>hrmp_watermark</code>.</li>
+<li>call <code>Hrmp::prune_hrmp</code> with the para id of the candidate and the candidate's <code>hrmp_watermark</code>.</li>
 <li>call <code>Hrmp::queue_outbound_hrmp</code> with the para id of the candidate and the list of horizontal messages taken from
 the commitment,</li>
 <li>Call <code>Paras::note_new_head</code> using the <code>HeadData</code> from the receipt and <code>relay_parent_number</code>.</li>
@@ -2334,7 +2334,7 @@ in <code>well_known_keys</code> in order to facilitate oraclisation on to the pa
 </ol>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
 <p>This module is responsible for providing all data given to the runtime by the block author to the various parachains
 modules. The entry-point is mandatory, in that it must be invoked exactly once within every block, and it is also
 &quot;inherent&quot;, in that it is provided with no origin by the block author. The data within it carries its own
@@ -2553,7 +2553,7 @@ HrmpEgressChannelsIndex: map ParaId =&gt; Vec&lt;ParaId&gt;;
 /// Invariant: cannot be non-empty if the corresponding channel in `HrmpChannels` is `None`.
 HrmpChannelContents: map HrmpChannelId =&gt; Vec&lt;InboundHrmpMessage&gt;;
 /// Maintains a mapping that can be used to answer the question:
-/// What paras sent a message at the given block number for a given reciever.
+/// What paras sent a message at the given block number for a given receiver.
 /// Invariants:
 /// - The inner `Vec&lt;ParaId&gt;` is never empty.
 /// - The inner `Vec&lt;ParaId&gt;` cannot store two same `ParaId`.
@@ -2800,7 +2800,7 @@ found in the configuration <code>config.hrmp_recipient_deposit</code>.</li>
 <li>Remove <code>recipient</code> from the set <code>HrmpEgressChannelsIndex</code> for <code>sender</code>.</li>
 <li>Remove <code>sender</code> from the set <code>HrmpIngressChannelsIndex</code> for <code>recipient</code>.</li>
 </ol>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-info"><a class="header" href="#session-info">Session Info</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-info"><a class="header" href="#session-info">Session Info</a></h1>
 <p>For disputes and approvals, we need access to information about validator sets from prior sessions. We also often want
 easy access to the same information about the current session's validator set. This module aggregates and stores this
 information in a rolling window while providing easy APIs for access.</p>
@@ -4351,7 +4351,7 @@ within the tree.</li>
 <p>This subsystem is responsible for distributing signed statements that we have generated and forwarding statements
 generated by our peers. Received candidate receipts and statements are passed to the <a href="node/backing/candidate-backing.html">Candidate Backing
 subsystem</a> to handle producing local statements. On receiving
-<code>StatementDistributionMessage::Share</code>, this subsystem distributes the message across the network with redundency to
+<code>StatementDistributionMessage::Share</code>, this subsystem distributes the message across the network with redundancy to
 ensure a fast backing process.</p>
 <h2 id="overview-1"><a class="header" href="#overview-1">Overview</a></h2>
 <p><strong>Goal:</strong> every well-connected node is aware of every next potential parachain block.</p>
@@ -4812,7 +4812,7 @@ various parachains at those leaves.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution-legacy"><a class="header" href="#statement-distribution-legacy">Statement Distribution (Legacy)</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution-legacy"><a class="header" href="#statement-distribution-legacy">Statement Distribution (Legacy)</a></h1>
 <p>This describes the legacy, backwards-compatible version of the Statement Distribution subsystem.</p>
 <p><strong>Note:</strong> All the V1 (legacy) code was extracted out to a <code>legacy_v1</code> module of the <code>statement-distribution</code> crate,
 which doesn't alter any logic. V2 (new protocol) peers also run <code>legacy_v1</code> and communicate with V1 peers using V1
@@ -4929,7 +4929,7 @@ The receiver of such a message needs to request the actual payload via request/r
 <code>StatementFetchingV1</code> request.</p>
 <p>This is necessary as distribution of a large payload (mega bytes) via gossip would make the network collapse and timely
 distribution of statements would no longer be possible. By using request/response it is ensured that each peer only
-transferes large data once. We only take good care to detect an overloaded peer early and immediately move on to a
+transfers large data once. We only take good care to detect an overloaded peer early and immediately move on to a
 different peer for fetching the data. This mechanism should result in a good load distribution and therefore a rather
 optimal distribution path.</p>
 <p>With these optimizations, distribution of payloads in the size of up to 3 to 4 MB should work with Kusama validator
@@ -4937,7 +4937,7 @@ specifications. For scaling up even more, runtime upgrades and message passing s
 <p>Flood protection considerations: For making DoS attacks slightly harder on this subsystem, nodes will only respond to
 large statement requests, when they previously notified that peer via gossip about that statement. So, it is not
 possible to DoS nodes at scale, by requesting candidate data over and over again.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-subsystems"><a class="header" href="#availability-subsystems">Availability Subsystems</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-subsystems"><a class="header" href="#availability-subsystems">Availability Subsystems</a></h1>
 <p>The availability subsystems are responsible for ensuring that Proofs of Validity of backed candidates are widely
 available within the validator set, without requiring every node to retain a full copy. They accomplish this by broadly
 distributing erasure-coded chunks of the PoV, keeping track of which validator has which chunk by means of signed
@@ -6932,7 +6932,7 @@ reached - hence we won't drop valid disputes:</p>
 is <code>500ms</code> and above <code>RATE_LIMIT</code> is <code>100ms</code>. 1/3 of validators are malicious,
 so for 1000 this means around 330 malicious actors worst case.</p>
 <p>All those actors can send a message every <code>100ms</code>, that is 10 per second. This
-means at the begining of an attack they can open up around 3300 batches. Each
+means at the beginning of an attack they can open up around 3300 batches. Each
 containing two votes. So memory usage is still negligible. In reality it is even
 less, as we also demand 10 new votes to trickle in per batch in order to keep it
 alive, every <code>500ms</code>. Hence for the first second, each batch requires 20 votes
@@ -7039,7 +7039,7 @@ and harder over time. Assuming an attacker can not DoS a node forever, the
 dispute will succeed eventually, which is all that matters. And again, even if
 an attacker managed to prevent such a dispute from happening somehow, there is
 no real harm done: There was no serious attack to begin with.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="utility-subsystems"><a class="header" href="#utility-subsystems">Utility Subsystems</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="utility-subsystems"><a class="header" href="#utility-subsystems">Utility Subsystems</a></h1>
 <p>The utility subsystems are an assortment which don't have a natural home in another subsystem collection.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="availability-store"><a class="header" href="#availability-store">Availability Store</a></h1>
 <p>This is a utility subsystem responsible for keeping available certain data and pruning that data.</p>
@@ -7310,7 +7310,7 @@ all the necessary parameters to the validation function. These are:</p>
 <li>The <a href="node/utility/../../types/candidate.html#validationdata"><code>ValidationData</code></a>.</li>
 <li>The <a href="node/utility/../../types/availability.html#proofofvalidity"><code>PoV</code></a>.</li>
 </ul>
-<p>The second category is for PVF pre-checking. This is primarly used by the <a href="node/utility/pvf-prechecker.html">PVF pre-checker</a>
+<p>The second category is for PVF pre-checking. This is primarily used by the <a href="node/utility/pvf-prechecker.html">PVF pre-checker</a>
 subsystem.</p>
 <h3 id="determining-parameters"><a class="header" href="#determining-parameters">Determining Parameters</a></h3>
 <p>For a <a href="node/utility/../../types/overseer-protocol.html#validationrequesttype"><code>CandidateValidationMessage</code></a><code>::ValidateFromExhaustive</code>, these parameters are exhaustively provided.</p>
@@ -7342,7 +7342,7 @@ the entire event loop. Before invoking the validation function itself, this shou
 <p>If we can assume the presence of the relay-chain state (that is, during processing
 <a href="node/utility/../../types/overseer-protocol.html#validationrequesttype"><code>CandidateValidationMessage</code></a><code>::ValidateFromChainState</code>) we can run all the checks that the relay-chain would run
 at the inclusion time thus confirming that the candidate will be accepted.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-host-and-workers"><a class="header" href="#pvf-host-and-workers">PVF Host and Workers</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-host-and-workers"><a class="header" href="#pvf-host-and-workers">PVF Host and Workers</a></h1>
 <p>The PVF host is responsible for handling requests to prepare and execute PVF
 code blobs, which it sends to PVF workers running in their own child processes.</p>
 <p>This system has two high-levels goals that we will touch on here: <em>determinism</em>
@@ -7379,7 +7379,7 @@ may or may not be independent of the candidate or PVF.</li>
 <p>We use timeouts for both preparation and execution jobs to limit the amount of
 time they can take. As the time for a job can vary depending on the machine and
 load on the machine, this can potentially lead to disputes where some validators
-successfuly execute a PVF and others don't.</p>
+successfully execute a PVF and others don't.</p>
 <p>One dispute mitigation we have in place is a more lenient timeout for
 preparation during execution than during pre-checking. The rationale is that the
 PVF has already passed pre-checking, so we know it should be valid, and we allow
@@ -7460,7 +7460,7 @@ data on the host machine.</p>
 attackers potentially sensitive data unnecessarily? And even if everything else
 is locked down, env vars can potentially provide a source of randomness (see
 point 1, &quot;Consensus faults&quot; above).</p>
-<footer id="last-change">Last change: 2023-10-31, commit: <a href="https://github.com/paritytech/polkadot/commit/9faea380dc">9faea380dc</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="provisioner"><a class="header" href="#provisioner">Provisioner</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="provisioner"><a class="header" href="#provisioner">Provisioner</a></h1>
 <p>Relay chain block authorship authority is governed by BABE and is beyond the scope of the Overseer and the rest of the
 subsystems. That said, ultimately the block author needs to select a set of backable parachain candidates and other
 consensus data, and assemble a block from them. This subsystem is responsible for providing the necessary data to all
@@ -7977,7 +7977,7 @@ the PVFs that are relevant for the subsystem.</p>
 relevant.</p>
 <p>When a PVF just becomes relevant, the subsystem will send a message to the <a href="node/utility/candidate-validation.html">Candidate Validation</a> subsystem asking for
 the pre-check.</p>
-<p>Upon receving a message from the candidate-validation subsystem, the pre-checker will note down that the PVF has its
+<p>Upon receiving a message from the candidate-validation subsystem, the pre-checker will note down that the PVF has its
 judgement and will also sign and submit a <a href="node/utility/../../types/pvf-prechecking.html#pvfcheckstatement"><code>PvfCheckStatement</code></a> via the <a href="node/utility/../../runtime-api/pvf-prechecking.html"><code>submit_pvf_check_statement</code>
 runtime API</a>. In case, a judgement was received for a PVF that is no longer in view it is
 ignored.</p>
@@ -8009,7 +8009,7 @@ for execution can be assumed to be a local problem on the current node.</p>
 <p>For this reason, even deterministic preparation errors should not trigger disputes. And since we do not dispute as a
 result of the pre-checking phase, as stated above, it should be impossible for preparation in general to result in
 disputes.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="type-definitions"><a class="header" href="#type-definitions">Type Definitions</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="type-definitions"><a class="header" href="#type-definitions">Type Definitions</a></h1>
 <p>This section of the guide provides type definitions of various categories.</p>
 <h2 id="v1-overview"><a class="header" href="#v1-overview">V1 Overview</a></h2>
 <p>Diagrams are rendered in high resolution; open them in a separate tab to see full scale.</p>
@@ -8238,7 +8238,7 @@ considered attestations of validity. This structure is only useful where the can
 work, we extract a signed wrapper.</p>
 <pre><code class="language-rust ignore">/// A signed type which encapsulates the common desire to sign some data and validate a signature.
 ///
-/// Note that the internal fields are not public; they are all accessable by immutable getters.
+/// Note that the internal fields are not public; they are all accessible by immutable getters.
 /// This reduces the chance that they are accidentally mutated, invalidating the signature.
 struct Signed&lt;Payload, RealPayload=Payload&gt; {
     /// The payload is part of the signed data. The rest is the signing context,
@@ -8325,7 +8325,7 @@ backing. This is submitted to the relay-chain to process and move along the cand
 struct BackedCandidates(Vec&lt;BackedCandidate&gt;); // sorted by para-id.
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability"><a class="header" href="#availability">Availability</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability"><a class="header" href="#availability">Availability</a></h1>
 <p>One of the key roles of validators is to ensure availability of all data necessary to validate candidates for the
 duration of a challenge period. This is done via an erasure-coding of the data to keep available.</p>
 <h2 id="signed-availability-bitfield"><a class="header" href="#signed-availability-bitfield">Signed Availability Bitfield</a></h2>
