@@ -1160,6 +1160,10 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
+/// Please note that this only works for signed dispatchables and requires a signed extension
+/// such as `SkipCheckIfFeeless` as defined in `pallet-skip-feeless-payment` to wrap the existing
+/// payment extension. Else, this is completely ignored and the dispatchable is still charged.
+///
 /// ### Macro expansion
 ///
 /// The macro implements the `CheckIfFeeless` trait on the dispatchable and calls the corresponding
