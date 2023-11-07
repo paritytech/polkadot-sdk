@@ -164,6 +164,23 @@
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -185,7 +202,8 @@
 
 <span class="kw">use </span>sc_network::{
 	config::{
-		NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake, ProtocolId, SetConfig,
+		NetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
+		ProtocolId, SetConfig,
 	},
 	peer_store::PeerStore,
 	NetworkService,
@@ -201,7 +219,7 @@
 <span class="doccomment">/// Build the network service, the network status sinks and an RPC sender.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_collator_network(
 	config: <span class="kw-2">&amp;</span>Configuration,
-	network_config: FullNetworkConfiguration,
+	<span class="kw-2">mut </span>full_network_config: FullNetworkConfiguration,
 	spawn_handle: SpawnTaskHandle,
 	genesis_hash: Hash,
 	best_header: Header,
@@ -219,8 +237,12 @@
 		genesis_hash,
 	);
 
+	<span class="comment">// Since this node has no syncing, we do not want light-clients to connect to it.
+	// Here we set any potential light-client slots to 0.
+	</span>adjust_network_config_light_in_peers(<span class="kw-2">&amp;mut </span>full_network_config.network_config);
+
 	<span class="kw">let </span>peer_store = PeerStore::new(
-		network_config
+		full_network_config
 			.network_config
 			.boot_nodes
 			.iter()
@@ -241,7 +263,7 @@
 			})
 		},
 		fork_id: <span class="prelude-val">None</span>,
-		network_config,
+		network_config: full_network_config,
 		peer_store: peer_store_handle,
 		genesis_hash,
 		protocol_id,
@@ -278,6 +300,18 @@
 	<span class="kw">let </span>network_starter = NetworkStarter::new(network_start_tx);
 
 	<span class="prelude-val">Ok</span>((network_service, network_starter, Box::new(SyncOracle {})))
+}
+
+<span class="kw">fn </span>adjust_network_config_light_in_peers(config: <span class="kw-2">&amp;mut </span>NetworkConfiguration) {
+	<span class="kw">let </span>light_client_in_peers = (config.default_peers_set.in_peers +
+		config.default_peers_set.out_peers)
+		.saturating_sub(config.default_peers_set_num_full);
+	<span class="kw">if </span>light_client_in_peers &gt; <span class="number">0 </span>{
+		<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">&quot;Detected {light_client_in_peers} peer slots for light clients. Since this minimal node does support\
+											 neither syncing nor light-client request/response, we are setting them to 0.&quot;</span>);
+	}
+	config.default_peers_set.in_peers =
+		config.default_peers_set.in_peers.saturating_sub(light_client_in_peers);
 }
 
 <span class="kw">struct </span>SyncOracle;
