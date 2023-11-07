@@ -313,10 +313,6 @@ fn upgrade_fails_when_migration_active() {
 		Migrations::on_runtime_upgrade();
 		run_to_block(3);
 
-		//assert_eq!( // TODO
-		//	historic(),
-		//	vec![mocked_id(SucceedAfter, 0)]
-		//);
 		// Events received.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },

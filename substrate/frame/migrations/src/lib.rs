@@ -52,7 +52,7 @@
 //! 2. Must prevent other (non-mandatory) transactions from executing in the meantime.
 //! 3. Must respect pessimistic weight bounds of migrations.
 //! 4. Must execute migrations in order. Skipping is not allowed; migrations are run on an
-//! all-or-nothing basis. 
+//! all-or-nothing basis.
 //! 5. Must prevent re-execution of migrations.
 //! 6. Must provide transactional storage semantics for migrations.
 //! 7. Must guarantee progress.
@@ -105,7 +105,7 @@
 //! The standard procedure for a successful runtime upgrade can look like this:
 //! 1. Migrations are configured in the `Migrations` config item. All migrations expose
 //! [`max_steps`][SteppedMigration::max_steps], are error tolerant, check their weight bounds and
-//! have a unique identifier. 
+//! have a unique identifier.
 //! 2. The runtime upgrade is enacted. `UpgradeStarted` events are
 //! followed by lots of `MigrationAdvanced` events. Finally `UpgradeCompleted` is emitted.  
 //! 3. Cleanup as described in the governance scenario be executed at any time after the migration
@@ -238,14 +238,14 @@ pub mod pallet {
 		/// The maximal length of an encoded cursor.
 		///
 		/// A good default needs to selected such that no migration will ever have a cursor with MEL
-		/// above this limit. This is statically checked (FAIL-CI: TODO).
+		/// above this limit. This is statically checked in `integrity_test`.
 		#[pallet::constant]
 		type CursorMaxLen: Get<u32>;
 
 		/// The maximal length of an encoded identifier.
 		///
 		/// A good default needs to selected such that no migration will ever have an identifier
-		/// with MEL above this limit. This is statically checked (FAIL-CI: TODO).
+		/// with MEL above this limit. This is statically checked in `integrity_test`.
 		#[pallet::constant]
 		type IdentifierMaxLen: Get<u32>;
 

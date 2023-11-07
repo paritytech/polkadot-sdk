@@ -98,7 +98,7 @@ pub fn mocked_id(kind: MockedMigrationKind, steps: u32) -> MockedIdentifier {
 	raw_mocked_id(kind.into(), steps)
 }
 
-/// FAIL-CI
+/// Creates a migration identifier with a specific `kind` and `steps`.
 pub fn raw_mocked_id(kind: u8, steps: u32) -> MockedIdentifier {
 	(b"MockedMigration", kind, steps).encode().try_into().unwrap()
 }

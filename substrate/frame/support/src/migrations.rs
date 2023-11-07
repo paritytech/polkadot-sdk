@@ -362,8 +362,9 @@ pub trait SteppedMigration {
 
 	/// The maximum number of steps that this migration can take.
 	///
-	/// This can be used to enforce progress and prevent migrations becoming stuck forever. A migration
-	/// that exceeds its max steps is treated as failed. `None` means that there is no limit.
+	/// This can be used to enforce progress and prevent migrations becoming stuck forever. A
+	/// migration that exceeds its max steps is treated as failed. `None` means that there is no
+	/// limit.
 	fn max_steps() -> Option<u32> {
 		None
 	}

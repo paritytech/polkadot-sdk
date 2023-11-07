@@ -75,9 +75,12 @@ impl PostTransactions for Tuple {
 	}
 }
 
-/// FAIL-CI doc
+/// Periodically executes logic. Is not guaranteed to run within a specific runtime and should only
+/// be used on logic that has on deadline.
 pub trait OnPoll<BlockNumber> {
-	/// FAIL-CI doc
+	/// Code to execute every now and then at the beginning of the block after inherent application.
+	///
+	/// The remaining weight limit must be respected.
 	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
 }
 
@@ -431,7 +434,10 @@ pub trait Hooks<BlockNumber> {
 		Weight::zero()
 	}
 
-	/// FAIL-CI doc
+	/// A hook to run logic after inherent application.
+	///
+	/// Is not guaranteed to execute in a block and should therefore only be used in no-deadline
+	/// scenarios.
 	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
 
 	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by FRAME.
