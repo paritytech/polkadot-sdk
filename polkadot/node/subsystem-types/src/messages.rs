@@ -707,7 +707,7 @@ pub enum RuntimeApiRequest {
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
 	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
 	/// Get the client features.
-	ClientFeatures(RuntimeApiSender<ClientFeatures>),
+	ClientFeatures(SessionIndex, RuntimeApiSender<ClientFeatures>),
 }
 
 impl RuntimeApiRequest {

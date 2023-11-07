@@ -510,13 +510,18 @@ pub async fn request_min_backing_votes(
 }
 
 /// Request the client features enabled in the runtime.
+/// Pass in the session index for caching purposes, as it should only change on session boundaries.
 /// Prior to runtime API version 9, just return `None`.
 pub async fn request_client_features(
 	parent: Hash,
+	session_index: SessionIndex,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
 ) -> Result<Option<ClientFeatures>> {
 	let res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| RuntimeApiRequest::ClientFeatures(tx)).await,
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::ClientFeatures(session_index, tx)
+		})
+		.await,
 	)
 	.await;
 
