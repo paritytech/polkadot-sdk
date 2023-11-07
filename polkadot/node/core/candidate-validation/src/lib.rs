@@ -23,6 +23,7 @@
 #![deny(unused_crate_dependencies, unused_results)]
 #![warn(missing_docs)]
 
+use async_semaphore::Semaphore;
 use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PrepareError,
 	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
@@ -154,6 +155,11 @@ async fn run<Context>(
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	let mut tasks = FuturesUnordered::new();
+	// The task queue size is chosen to be somewhat bigger than the PVF host incoming queue size
+	// to allow exhaustive validation messages to fall through in case the tasks are clogged with
+	// `ValidateFromChainState` messages awaiting data from the runtime
+	let semaphore = Arc::new(Semaphore::new(polkadot_node_core_pvf::HOST_MESSAGE_QUEUE_SIZE * 2));
+
 	loop {
 		futures::select! {
 			comm = ctx.recv().fuse() => {
@@ -173,7 +179,9 @@ async fn run<Context>(
 							let metrics = metrics.clone();
 							let validation_host = validation_host.clone();
 
+							let guard = semaphore.acquire_arc().await;
 							tasks.push(async move {
+								let _guard = guard;
 								let _timer = metrics.time_validate_from_chain_state();
 								let res = validate_from_chain_state(
 									&mut sender,
@@ -202,7 +210,9 @@ async fn run<Context>(
 							let metrics = metrics.clone();
 							let validation_host = validation_host.clone();
 
+							let guard = semaphore.acquire_arc().await;
 							tasks.push(async move {
+								let _guard = guard;
 								let _timer = metrics.time_validate_from_exhaustive();
 								let res = validate_candidate_exhaustive(
 									validation_host,
@@ -228,7 +238,9 @@ async fn run<Context>(
 							let mut sender = ctx.sender().clone();
 							let validation_host = validation_host.clone();
 
+							let guard = semaphore.acquire_arc().await;
 							tasks.push(async move {
+								let _guard = guard;
 								let precheck_result = precheck_pvf(
 									&mut sender,
 									validation_host,
