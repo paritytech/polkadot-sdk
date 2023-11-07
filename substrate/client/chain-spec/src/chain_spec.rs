@@ -977,7 +977,7 @@ mod tests {
 	#[docify::export]
 	#[test]
 	fn build_chain_spec_with_patch_works() {
-		let output: ChainSpec<()> = ChainSpec::builder(
+		let output = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
@@ -1010,7 +1010,7 @@ mod tests {
 	#[docify::export]
 	#[test]
 	fn generate_chain_spec_with_patch_works() {
-		let output: ChainSpec<()> = ChainSpec::builder(
+		let output = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
@@ -1057,7 +1057,7 @@ mod tests {
 	#[test]
 	fn generate_chain_spec_with_full_config_works() {
 		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
-		let output: ChainSpec<()> = ChainSpec::builder(
+		let output = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
@@ -1089,7 +1089,7 @@ mod tests {
 	fn chain_spec_as_json_fails_with_invalid_config() {
 		let j =
 			include_str!("../../../test-utils/runtime/res/default_genesis_config_invalid_2.json");
-		let output: ChainSpec<()> = ChainSpec::builder(
+		let output = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
@@ -1107,7 +1107,7 @@ mod tests {
 
 	#[test]
 	fn chain_spec_as_json_fails_with_invalid_patch() {
-		let output: ChainSpec<()> = ChainSpec::builder(
+		let output = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
@@ -1163,7 +1163,7 @@ mod tests {
 	#[test]
 	fn update_code_works_with_runtime_genesis_config() {
 		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
-		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+		let chain_spec = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
@@ -1186,7 +1186,7 @@ mod tests {
 	#[test]
 	fn update_code_works_for_raw() {
 		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
-		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+		let chain_spec = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
@@ -1208,7 +1208,7 @@ mod tests {
 
 	#[test]
 	fn update_code_works_with_runtime_genesis_patch() {
-		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+		let chain_spec = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
