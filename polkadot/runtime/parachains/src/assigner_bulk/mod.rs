@@ -396,6 +396,9 @@ impl<T: Config> Pallet<T> {
 					let mut insert_at = if queue.last <= begin { queue.last } else { queue.first };
 
 					// Search insertion point (usually last, thus skipped):
+                    // TODO: Although unexpected, it will most likely be better to just fail. ->
+                    // Get rid of this loop and document that new assignments are only accepted at
+                    // the end.
 					while insert_at < queue.last {
 						match CoreSchedules::<T>::get((insert_at, core_idx))
 							.and_then(|s| s.next_schedule)
