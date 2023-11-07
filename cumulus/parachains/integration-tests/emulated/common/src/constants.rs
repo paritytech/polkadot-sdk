@@ -63,7 +63,7 @@ where
 
 /// Helper function to build the genesis storage using given json patch and code
 fn build_genesis_storage(patch: serde_json::Value, code: &[u8]) -> Storage {
-	let mut storage = GenesisConfigBuilderRuntimeCaller::new(code)
+	let mut storage = GenesisConfigBuilderRuntimeCaller::<sp_io::SubstrateHostFunctions>::new(code)
 		.get_storage_for_patch(patch)
 		.unwrap();
 	storage

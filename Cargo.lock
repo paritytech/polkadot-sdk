@@ -6748,6 +6748,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "staging-xcm",
  "westend-runtime",
