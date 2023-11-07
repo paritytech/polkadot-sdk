@@ -1798,7 +1798,8 @@ pub enum PvfPrepKind {
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PvfExecKind {
 	/// The amount of time to spend on execution during backing.
-	/// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and honest backers getting slashed.
+	/// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and honest
+	/// backers getting slashed.
 	Backing,
 
 	/// The amount of time to spend on execution during approval or disputes.
