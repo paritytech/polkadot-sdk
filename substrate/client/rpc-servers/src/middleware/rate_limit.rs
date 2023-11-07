@@ -9,6 +9,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
+/// Rate.
 #[derive(Debug, Copy, Clone)]
 pub struct Rate {
 	num: u64,
@@ -16,6 +17,7 @@ pub struct Rate {
 }
 
 impl Rate {
+	/// ..
 	pub fn new(num: u64, period: Duration) -> Self {
 		Self { num, period }
 	}
@@ -42,6 +44,7 @@ pub struct RateLimit<S> {
 }
 
 impl<S> RateLimit<S> {
+	/// Create a new rate limit.
 	pub fn new(service: S, rate: Rate) -> Self {
 		let period = rate.period;
 		let num = rate.num;

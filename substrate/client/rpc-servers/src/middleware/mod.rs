@@ -18,7 +18,9 @@
 
 //! RPC middleware to collect prometheus metrics on RPC calls.
 
+/// Grafana metrics middleware.
 pub mod metrics;
+/// Rate limit middleware.
 pub mod rate_limit;
 
 pub use metrics::*;

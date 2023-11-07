@@ -125,6 +125,7 @@ impl RpcMetrics {
 	}
 }
 
+/// Metrics middleware.
 #[derive(Clone)]
 pub struct Metrics<S> {
 	service: S,
@@ -132,6 +133,7 @@ pub struct Metrics<S> {
 }
 
 impl<S> Metrics<S> {
+	/// Create a new metrics middleware.
 	pub fn new(service: S, metrics: Arc<RpcMetrics>) -> Metrics<S> {
 		Metrics { service, metrics }
 	}
