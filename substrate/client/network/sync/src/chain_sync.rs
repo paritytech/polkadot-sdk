@@ -186,7 +186,7 @@ struct GapSync<B: BlockT> {
 
 /// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImportBlocksAction<B: BlockT> {
+struct ImportBlocksAction<B: BlockT> {
 	pub origin: BlockOrigin,
 	pub blocks: Vec<IncomingBlock<B>>,
 }
