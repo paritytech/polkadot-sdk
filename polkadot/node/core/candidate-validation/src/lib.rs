@@ -626,7 +626,7 @@ async fn validate_candidate_exhaustive(
 
 			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).await
 		},
-		PvfExecKind::Approval =>
+		PvfExecKind::Approval => {
 			validation_backend
 			.validate_candidate_with_retry(
 				raw_validation_code.to_vec(),
