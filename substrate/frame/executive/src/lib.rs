@@ -124,11 +124,9 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker,
-		OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
-		PostTransactions, PreInherents,
-		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
-		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
+		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, EnsureInherentsAreOrdered,
+		ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade,
+		PostInherents, PostTransactions, PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -511,8 +509,12 @@ impl<
 	pub fn execute_on_runtime_upgrade() -> Weight {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
-		
-		let runtime_upgrade_weight <(COnRuntimeUpgrade, AllPalletsWithSystem, <System as frame_system::Config>::SingleBlockMigrations) as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		let runtime_upgrade_weight = <(
+			COnRuntimeUpgrade,
+			AllPalletsWithSystem,
+			<System as frame_system::Config>::SingleBlockMigrations,
+		) as OnRuntimeUpgrade>::on_runtime_upgrade();
 
 		before_all_weight.saturating_add(runtime_upgrade_weight)
 	}
