@@ -49,10 +49,11 @@
 //! ### Design Goals
 //!
 //! 1. Must automatically execute migrations over multiple blocks.
-//! 2. Must prevent other (non-mandatory) transactions to execute in the meantime.
+//! 2. Must prevent other (non-mandatory) transactions from executing in the meantime.
 //! 3. Must respect pessimistic weight bounds of migrations.
 //! 4. Must execute migrations in order. Skipping is not allowed; migrations are run on an
-//! all-or-nothing basis. 5. Must prevent re-execution of migrations.
+//! all-or-nothing basis. 
+//! 5. Must prevent re-execution of migrations.
 //! 6. Must provide transactional storage semantics for migrations.
 //! 7. Must guarantee progress.
 //!
@@ -63,12 +64,12 @@
 //! to iterating and inspecting the migrations. It also simplifies the trait bounds since all
 //! associated types of the trait must be provided by the pallet.  
 //! The actual progress of the pallet is stored in its [`Cursor`] storage item. This can either be
-//! [`MigrationCursor::Active`] or `Stuck`. In the active case it points to the currently active
-//! migration and stores its inner cursor. The inner cursor can then be used by the migration to
-//! store its inner state and advance. Each time when the migration returns `Some(cursor)`, it
-//! signals the pallet that it is not done yet.   
-//! The cursor is re-set on each runtime upgrade. This ensures that it starts to execute at the
-//! first migration in the vector. The pallets cursor is only ever incremented or put into `Stuck`
+//! [`MigrationCursor::Active`] or [`MigrationCursor::Stuck`]. In the active case it points to the
+//! currently active migration and stores its inner cursor. The inner cursor can then be used by the
+//! migration to store its inner state and advance. Each time when the migration returns
+//! `Some(cursor)`, it signals the pallet that it is not done yet.  
+//! The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
+//! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
 //! it is fixed through manual governance intervention.  
 //! As soon as the cursor of the pallet becomes `Some(_)`; chain transaction processing is paused
@@ -85,7 +86,7 @@
 //! the error case (Goal 6).  
 //! Weight limits must be checked by the migration itself. The pallet provides a [`WeightMeter`] for
 //! that purpose. The pallet may return [`SteppedMigrationError::InsufficientWeight`] at any point.
-//! In that scenario, the one of two things will happen: if that migration was exclusively executed
+//! In that scenario, one of two things will happen: if that migration was exclusively executed
 //! in this block, and therefore required more than the maximum amount of weight possible, the
 //! pallet becomes `Stuck`. Otherwise one re-attempt is attempted with the same logic in the next
 //! block (Goal 3). Progress through the migrations is guaranteed by providing a timeout for each
@@ -104,15 +105,16 @@
 //! The standard procedure for a successful runtime upgrade can look like this:
 //! 1. Migrations are configured in the `Migrations` config item. All migrations expose
 //! [`max_steps`][SteppedMigration::max_steps], are error tolerant, check their weight bounds and
-//! have a unique identifier. 2. The runtime upgrade is enacted. `UpgradeStarted` events are
+//! have a unique identifier. 
+//! 2. The runtime upgrade is enacted. `UpgradeStarted` events are
 //! followed by lots of `MigrationAdvanced` events. Finally `UpgradeCompleted` is emitted.  
 //! 3. Cleanup as described in the governance scenario be executed at any time after the migration
 //! completes.
 //!
 //! ### Advice: Failed upgrades
 //!
-//! Failed upgrades cannot recovered from automatically and require governance intervention. Set up
-//! monitoring for `UpgradeFailed` events to be made aware of any failures. The hook
+//! Failed upgrades cannot be recovered from automatically and require governance intervention. Set
+//! up monitoring for `UpgradeFailed` events to be made aware of any failures. The hook
 //! [`OnMigrationUpdate::failed`] should be setup in a way that it allows governance to act, but
 //! still prevent other transactions from interacting with the inconsistent storage state. Note that
 //! this is paramount, since the inconsistent state might contain a faulty balance amount or similar
@@ -130,7 +132,7 @@
 //!
 //! You can see the transactional semantics for migrational steps as mostly useless, since in the
 //! stuck case the state is already messed up. This just prevents it from becoming even more messed
-//! up , but doesn't prevent it in the first place.
+//! up, but doesn't prevent it in the first place.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
