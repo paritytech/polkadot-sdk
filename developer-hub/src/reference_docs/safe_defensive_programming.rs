@@ -9,8 +9,8 @@
 //! ```ignore
 //! let overflow = u8::MAX + 10;
 //! ```
+//! Would yield the following error:
 //! ```text
-//! // Results in:
 //! error: this arithmetic operation will overflow
 //!    --> src/main.rs:121:24
 //!     |
@@ -20,8 +20,8 @@
 //! ```
 //!
 //!
-//! However in runtime, we don't always have control over what is being supplied as a parameter. For
-//! example, this counter function could present one of two outcomes depending on whether it is in
+//! However in the runtime context, we don't always have control over what is being supplied as a parameter. For
+//! example, even this simple adding function could present one of two outcomes depending on whether it is in
 //! **release** or **debug** mode:
 //!
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", naive_add)]
@@ -36,7 +36,7 @@
 //! `4`).
 //!
 //! It is actually the _silent_ portion of this behavior that presents a real issue - as it may be an
-//! unintended, but also a very _silent killer_ in terms of producing bugs. In fact, it may have been
+//! unintended, but also a very _silent killer_ in terms of producing bugs. In fact, it would have been
 //! better for this type of behavior to produce some sort of error, or even `panic!`, as in that
 //! scenario, at least such behavior could become obvious. Especially in the context of blockchain
 //! development, where unsafe arithmetic could produce unexpected consequences.
@@ -47,38 +47,28 @@
 //! silently, would be difficult to trace and rectify.
 //!
 //! Luckily, there are ways to both represent and handle these scenarios depending on our specific use
-//! case natively built into Rust, as well as libraries like `sp_arithmetic`.
+//! case natively built into Rust, as well as libraries like [`sp_arithmetic`].
 //!
-//! ## Safe Math
+//! ## Infallible Arithmetic
 //!
-//! Our main objective is to reduce the likelihood of any unintended or undefined behavior within our
-//! blockchain runtime. Intentional and predictable design should be our first and foremost property for
+//! Our main objective in runtime development is to reduce the likelihood of any *unintended* or *undefined* behavior.
+//! Intentional and predictable design should be our first and foremost property for
 //! ensuring a well running, safely designed system. Both Rust and Substrate both provide safe ways to
 //! deal with numbers and alternatives to floating point arithmetic.
 //!
-//! Defensive, or safe math, isn't just useful for blockchain development.
-//!
-//! Traditional banking also needs to utilize such practices within its codebase. Rather than use purely
-//! primitive, native types, **fixed-point arithmetic** usually involves abstracting such operations
-//! into more controlled, fixed-point types.
-//!
-//! Banking applications also don't use floating point numbers. Rather they (should) use fixed-point
-//! arithmetic to mitigate the potential for inaccuracy, rounding errors, or other unexpected behavior.
-//! For more on the specifics of why this is,
-//! [watch this video by the Computerfile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//! Rather they (should) use fixed-point arithmetic to mitigate the potential for inaccuracy, rounding errors, or other unexpected behavior.
+//! For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerfile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
 //! Using **primitive** floating point number types in a blockchain context should also be avoided, as a
 //! single nondeterministic result could cause chaos for consensus along with the aforementioned issues.
-//!
 //!
 //! The following methods represent different ways one can handle numbers safely natively in Rust,
 //! without fear of panic or unexpected behavior from wrapping.
 //!
 //! ### Checked Operations
 //!
-//! **Checked operations** utilize a `Option<T>` as a return type. This means that if the resulting
-//! operation is invalid, i.e., an integer overflow, it will return `None`, and if successful, then
-//! `Some`. The only downside of using this type is the need to handle the `Option` type accordingly.
+//! **Checked operations** utilize a `Option<T>` as a return type.  This allows for simple pattern matching to catch any unexpected 
+//! behavior in the event of an overflow.
 //!
 //! This is an example of a valid operation:
 //!
@@ -96,12 +86,12 @@
 //! are a safe bet, as it presents two, predictable (and _erroring_) outcomes that can be handled
 //! accordingly (`Some` and `None`).
 //!
-//! In a practical context, the resulting `Option` should be handled accordingly. The following
-//! conventions can be seen from the within the Polkadot SDK, where an `Option` can be handled in one of
+//! In a practical context, the resulting [`Option`] should be handled accordingly. The following
+//! conventions can be seen from the within the Polkadot SDK, where it can be handled in one of
 //! two ways:
 //!
-//! - As an `Option`, using the `if let` / `if` or `match`
-//! - As a `Result`, via `ok_or` (or similar conversion to `Result` from `Option`)
+//! - As an [`Option`], using the `if let` / `if` or `match`
+//! - As a [`Result`], via `ok_or` (or similar conversion to [`Result`] from [`Option`])
 //!
 //! #### Handling via Option - More Verbose
 //!
@@ -122,7 +112,7 @@
 //!
 //! #### Handling via Result - Less Verbose
 //!
-//! In the Polkadot SDK codebase, you may see checked operations being handled as a `Result` via
+//! In the Polkadot SDK codebase, you may see checked operations being handled as a [`Result`] via
 //! `ok_or`. This is a less verbose way of expressing the above.  Which to use often boils down to
 //! the developer's preference:
 //!
@@ -130,23 +120,6 @@
     "./src/reference_docs/safe_defensive_programming.rs",
     increase_balance_result
 )]
-//!
-//! At a glance, this may seem confusing, as we just got done explaining how to handle a `Option`, not
-//! `Result`. `Result` may be used as an alternative to `Option` where it ergonomically makes sense to
-//! let the user know that something unexpected has happened. This is particularly useful in the context
-//! of dispatchables within a Substrate pallet, for example, where information about a failure to
-//! perform some action matters in the context of the application.
-//!
-//! #### Should you use `ok_or` or `ok_or_else`?
-//!
-//! You may see `ok_or` and `ok_or_else` being used interchangeably. In reality, they have the same
-//! functionality with one caveat - `ok_or` is _eagerly_ evaluated, versus `ok_or_else` is _lazily_
-//! evaluated. Using `ok_or_else` is more performant, as if the `Option` is `Some()`, there is no need
-//! to actually run the closure. `ok_or` is eager to make new allocations - regardless of whether it is
-//! relevant or not, thereby making it slightly more expensive.
-//!
-//! [See more here.](https://rust-lang.github.io/rust-clippy/master/index.html#/or_fun_call)
-//!
 //!
 //!
 //! ### Saturated Operations
@@ -166,7 +139,7 @@
 //!
 //! As a recap, we covered the following concepts:
 //!
-//! 1. **Checked** operations - using `Option` or `Result`,
+//! 1. **Checked** operations - using [`Option`] or [`Result`],
 //! 2. **Saturated** operations - limited to the lower and upper bounds of a number type,
 //! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type,
 //!
@@ -192,19 +165,19 @@
 //!
 //! <details>
 //!     <summary><b>Solution: Saturating or Checked</b></summary>
-//!     For Bob's balance problems, using a saturated_add or checked_add could've mitigated this issue.  They simply would've reached the upper, or lower bounds, of the particular type for an on-chain balance.  In other words: Bob's balance would've stayed at the maximum of the Balance type.
+//!     For Bob's balance problems, using a `saturated_add` or `checked_add` could've mitigated this issue.  They simply would've reached the upper, or lower bounds, of the particular type for an on-chain balance.  In other words: Bob's balance would've stayed at the maximum of the Balance type.
 //! </details>
 //!
 //! #### Alice's 'Underflowed' Balance
 //!
 //! Alice's balance has reached `0` after a transfer to Bob. Suddenly, she has been slashed on
-//! EduChain, causing her balance to reach near the limit of `u32::MAX` - a very large amount - as
+//! `EduChain`, causing her balance to reach near the limit of `u32::MAX` - a very large amount - as
 //! _wrapped operations_ can go both ways. Alice can now successfully vote using her new,
 //! overpowered token balance, destroying the integrity of the chain.
 //!
 //! <details>
 //!   <summary><b>Solution: Saturating</b></summary>
-//!   For Alice's balance problem, using saturated_sub could've mitigated this issue.  As debt or having a negative balance is not a concept within blockchains, a saturating calculation would've simply limited her balance to the lower bound of u32.
+//!   For Alice's balance problem, using `saturated_sub` could've mitigated this issue.  As debt or having a negative balance is not a concept within blockchains, a saturating calculation would've simply limited her balance to the lower bound of u32.
 //!
 //!   In other words: Alice's balance would've stayed at "0", even after being slashed.
 //!
@@ -240,12 +213,11 @@
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/integer_operation_decision.mmd")]
 //! ## Fixed Point Arithmetic
 //!
-//! The following code may use types from [`sp_arithmetic`]. Feel free to follow along by including
-//! these crates.
+//! The following code may use types from [`sp_arithmetic`].
 //!
 //! Fixed point arithmetic solves the aforementioned problems of dealing with the uncertain
 //! nature of floating point numbers. Rather than use a radix point (`0.80`), a type which _represents_
-//! a floating point number in base 10 can be used instead.
+//! a floating point number in base 10, i.e., a **fixed point number**, can be used instead.
 //!
 //! **Example - [`Perbill`](sp_arithmetic::Perbill), parts of a billion**
 //!
@@ -297,7 +269,6 @@
 //! point numbers in Substrate development. For this scenario, let's say we are demonstrating a _voting_
 //! system which depends on reaching a certain threshold, or percentage, before it can be deemed valid.
 //! 
-//!
 //! For most cases, `Perbill` gives us a reasonable amount of precision for most applications, which is
 //! why we're using it here.
 
@@ -336,6 +307,7 @@ mod tests {
         let add = u32::MAX.checked_add(10);
         assert_eq!(add, None)
     }
+
 
     #[docify::export]
     fn increase_balance(account: Address, amount: u64) -> Result<(), BlockchainError> {
@@ -377,7 +349,8 @@ mod tests {
 
     #[docify::export]
     fn saturated_add_example() {
-        // Saturating add simply 'saturates' to the numeric bound of that type if it overflows.
+        // Saturating add simply 'saturates
+        // to the numeric bound of that type if it overflows.
         let add = u32::MAX.saturating_add(10);
         assert_eq!(add, u32::MAX)
     }
@@ -390,7 +363,8 @@ mod tests {
     #[docify::export]
     fn perbill_example() {
         let p = Perbill::from_percent(80);
-        // 800000000 bil, or a representative of 0.800000000. Precision is in the billions place.
+        // 800000000 bil, or a representative of 0.800000000. 
+        // Precision is in the billions place.
         assert_eq!(p.deconstruct(), 800000000);
     }
 

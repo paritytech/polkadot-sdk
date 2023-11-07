@@ -10550,7 +10550,6 @@ name = "pallet-referenda"
 version = "4.0.0-dev"
 dependencies = [
  "assert_matches",
- "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
