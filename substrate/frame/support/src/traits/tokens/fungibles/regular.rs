@@ -485,7 +485,7 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is infallible, but doesn't guarantee that the entire `amount` is used to create the
 	/// pair, for example in the case where the amounts would cause overflow or underflow in
-	/// [`Balanced::issue`] or [`Balanced::recind`].
+	/// [`Balanced::issue`] or [`Balanced::rescind`].
 	fn pair(
 		asset: Self::AssetId,
 		amount: Self::Balance,
