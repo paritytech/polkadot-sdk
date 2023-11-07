@@ -6,9 +6,10 @@
 //!
 //! The Rust compiler prevents any sort of static overflow from happening at compile time, for example:
 //!
-//! ```rust
+//! ```ignore
 //! let overflow = u8::MAX + 10;
-//!
+//! ```
+//! ```text
 //! // Results in:
 //! error: this arithmetic operation will overflow
 //!    --> src/main.rs:121:24
@@ -18,13 +19,15 @@
 //!     |
 //! ```
 //!
+//!
 //! However in runtime, we don't always have control over what is being supplied as a parameter. For
 //! example, this counter function could present one of two outcomes depending on whether it is in
 //! **release** or **debug** mode:
 //!
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", naive_add)]
+//!
 //! If we passed in overflow-able value sat runtime, this could actually panic (or wrap, if in release).
-//! ```rust
+//! ```ignore
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
 //!
@@ -194,18 +197,18 @@
 //!
 //! #### Alice's 'Underflowed' Balance
 //!
-//! **Alice's** balance has reached `0` after a transfer to `Bob`. Suddenly, she has been slashed on
-//! `EduChain`, causing her balance to reach near the limit of `u32::MAX` - a very large amount - as
-//! _wrapped operations_ can go both ways. **Alice** can now successfully vote using her new,
+//! Alice's balance has reached `0` after a transfer to Bob. Suddenly, she has been slashed on
+//! EduChain, causing her balance to reach near the limit of `u32::MAX` - a very large amount - as
+//! _wrapped operations_ can go both ways. Alice can now successfully vote using her new,
 //! overpowered token balance, destroying the integrity of the chain.
 //!
 //! <details>
-//!     <summary><b>Solution: Saturating</b></summary>
-//!     For Alice's balance problem, using saturated_sub could've mitigated this issue.  As debt or having a negative balance is not a concept within blockchains, a saturating calculation would've simply limited her balance to the lower bound of u32.
+//!   <summary><b>Solution: Saturating</b></summary>
+//!   For Alice's balance problem, using saturated_sub could've mitigated this issue.  As debt or having a negative balance is not a concept within blockchains, a saturating calculation would've simply limited her balance to the lower bound of u32.
 //!
-//!     In other words: Alice's balance would've stayed at "0", even after being slashed.
+//!   In other words: Alice's balance would've stayed at "0", even after being slashed.
 //!
-//!     This is also an example that while one system may work in isolation, shared interfaces, such as the notion of balances, are often shared across multiple pallets - meaning these small changes can make a big difference in outcome.
+//!   This is also an example that while one system may work in isolation, shared interfaces, such as the notion of balances, are often shared across multiple pallets - meaning these small changes can make a big difference in outcome.
 //! </details>
 //!
 //! #### Proposals' ID Overwrite
@@ -220,13 +223,12 @@
 //!     <summary><b>Solution: Checked</b></summary>
 //! For the proposal IDs, proper handling via `checked` math would've been much more suitable,  Saturating could've been used - but it also would've 'failed' silently.  Using `checked_add` to ensure that the next proposal ID would've been valid would've been a viable way to let the user know the state of their proposal:
 //!
-//! ```rust
+//! ```ignore
 //! let next_proposal_id = current_count.checked_add(1).ok_or_else(|| Error::TooManyProposals)?;
 //! ```
 //!
 //! </details>
 //!
-//! ---
 //!
 //! From the above, we can clearly see the problematic nature of seemingly simple operations in runtime.
 //! Of course, it may be that using checked math is perfectly fine under some scenarios - such as
@@ -241,11 +243,11 @@
 //! The following code may use types from [`sp_arithmetic`]. Feel free to follow along by including
 //! these crates.
 //!
-//! Fixed point arithmetic solves the aforementioned problems of dealing with the (sometimes) uncertain
+//! Fixed point arithmetic solves the aforementioned problems of dealing with the uncertain
 //! nature of floating point numbers. Rather than use a radix point (`0.80`), a type which _represents_
 //! a floating point number in base 10 can be used instead.
 //!
-//! **Example - [`Perbill`], parts of a billion**
+//! **Example - [`Perbill`](sp_arithmetic::Perbill), parts of a billion**
 //!
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", perbill_example)]
 //!
@@ -259,13 +261,13 @@
 //! meaning that if one is to go over "100%", it wouldn't overflow, but simply stop at the upper or
 //! lower bound.
 //!
-//! ### Using 'PerThing'
+//! ### Using 'PerThing' In Practice
 //!
 //! [`sp_arithmetic`] contains a trait called [`PerThing`](sp_arithmetic::PerThing), allowing a custom type to be implemented specifically for fixed point arithmetic. While a number of fixed-point types are introduced, let's focus on a few specific examples that implement `PerThing`:
 //!
 //! - [`Percent`](sp_arithmetic::Percent) - parts of one hundred.
 //! - [`Permill`](sp_arithmetic::Permill) - parts of a million.
-//! - [`Perbill`](sp_arithmetic::Perbill)] - parts of a billion.
+//! - [`Perbill`](sp_arithmetic::Perbill) - parts of a billion.
 //!
 //! Because each of these implement the same trait, `PerThing`, we have access to a few widely used
 //! methods:
@@ -279,7 +281,7 @@
 //! #### Fixed Point Arithmetic with [`PerThing`](sp_arithmetic::PerThing)
 //!
 //! As stated, one can also perform mathematics using these types directly. For example, finding the
-//! percentage of a particular item via multiplication:
+//! percentage of a particular item:
 //!
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", percent_mult)]
 //!
@@ -288,20 +290,19 @@
 //!
 //! ### Fixed Point Math in Substrate Development - Further Context
 //!
+//! You will find types like [`Perbill`](sp_arithmetic::Perbill) being used often in pallet development.  [`pallet_referenda`] is a good example of a pallet 
+//! which makes good use of fixed point arithmetic to calculate 
 //!
 //! Let's examine the usage of `Perbill` and how exactly we can use it as an alternative to floating
 //! point numbers in Substrate development. For this scenario, let's say we are demonstrating a _voting_
 //! system which depends on reaching a certain threshold, or percentage, before it can be deemed valid.
+//! 
 //!
 //! For most cases, `Perbill` gives us a reasonable amount of precision for most applications, which is
 //! why we're using it here.
-//!
-//! Later, in the context of a FRAME pallet, the usage of these types and calculations will start to
-//! make more sense when dealing with mathematics in the runtime.
 
-#[docify::export]
-pub mod overflow_examples {
-
+#[cfg(test)]
+mod tests {
     enum BlockchainError {
         Overflow,
     }
@@ -380,11 +381,6 @@ pub mod overflow_examples {
         let add = u32::MAX.saturating_add(10);
         assert_eq!(add, u32::MAX)
     }
-}
-
-pub mod perthing_examples {
-    // TODO: Add real types, real examples
-
     #[docify::export]
     fn percent_mult() {
         let percent = Percent::from_rational(5u32, 100u32); // aka, 5%

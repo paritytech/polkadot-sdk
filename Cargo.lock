@@ -4634,6 +4634,7 @@ dependencies = [
  "pallet-aura",
  "pallet-default-config-example",
  "pallet-examples",
+ "pallet-referenda",
  "pallet-timestamp",
  "parity-scale-codec",
  "sc-cli",
@@ -4650,6 +4651,7 @@ dependencies = [
  "scale-info",
  "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
  "sp-api",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -10548,6 +10550,7 @@ name = "pallet-referenda"
 version = "4.0.0-dev"
 dependencies = [
  "assert_matches",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
