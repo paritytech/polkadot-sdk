@@ -1,10 +1,10 @@
 [package]
-name = "bridge-hub-rococo-integration-tests"
+name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-description = "Bridge Hub Rococo runtime integration tests with xcm-emulator"
+description = "Bridge Hub Westend runtime integration tests with xcm-emulator"
 publish = false
 
 [dependencies]
@@ -34,7 +34,7 @@ cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", defaul
 cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false}
 pallet-bridge-messages = { path = "../../../../../../bridges/modules/messages", default-features = false}
 bp-messages = { path = "../../../../../../bridges/primitives/messages", default-features = false}
-bridge-hub-rococo-runtime = { path = "../../../../../parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
+bridge-hub-westend-runtime = { path = "../../../../../parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}

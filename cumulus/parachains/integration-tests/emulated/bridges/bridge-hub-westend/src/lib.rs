@@ -17,20 +17,20 @@ pub use bp_messages::LaneId;
 pub use frame_support::assert_ok;
 pub use integration_tests_common::{
 	constants::{
-		bridge_hub_rococo::ED as BRIDGE_HUB_ROCOCO_ED, rococo::ED as ROCOCO_ED,
+		bridge_hub_westend::ED as BRIDGE_HUB_WESTEND_ED, westend::ED as WESTEND_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubRococo, AssetHubRococoReceiver, AssetHubWococo, BridgeHubRococo, BridgeHubRococoPallet,
-	BridgeHubRococoSender, BridgeHubWococo, PenpalRococoA, Rococo, RococoPallet,
+	AssetHubRococo, AssetHubWestend, AssetHubWestendReceiver, BridgeHubRococo, BridgeHubWestend,
+	BridgeHubWestendPallet, BridgeHubWestendSender, PenpalWestendA, Westend, WestendPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{
 		Error,
-		NetworkId::{Rococo as RococoId, Wococo as WococoId},
+		NetworkId::{Rococo as RococoId, Westend as WestendId},
 	},
 };
 pub use xcm_emulator::{
@@ -42,17 +42,17 @@ pub const ASSET_ID: u32 = 1;
 pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
-pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
-pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
-pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalRococoA>;
+pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
+pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
+pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalWestendA>;
 
 /// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
 pub fn relay_test_args(amount: Balance) -> TestArgs {
 	TestArgs {
-		dest: Rococo::child_location_of(AssetHubRococo::para_id()),
+		dest: Westend::child_location_of(AssetHubWestend::para_id()),
 		beneficiary: AccountId32Junction {
 			network: None,
-			id: AssetHubRococoReceiver::get().into(),
+			id: AssetHubWestendReceiver::get().into(),
 		}
 		.into(),
 		amount,
