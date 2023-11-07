@@ -39,3 +39,6 @@ sc-service = { path = "../../../../../substrate/client/service" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 tokio = { version = "1.24.2", features = ["macros"] }
+
+[features]
+network-protocol-staging = [ "polkadot-cli/network-protocol-staging" ]
