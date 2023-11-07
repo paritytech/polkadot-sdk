@@ -468,7 +468,7 @@ impl<G, E: Clone, HF> Clone for ChainSpec<G, E, HF> {
 		ChainSpec {
 			client_spec: self.client_spec.clone(),
 			genesis: self.genesis.clone(),
-			_host_functions: self._host_functions.clone(),
+			_host_functions: self._host_functions,
 		}
 	}
 }
@@ -691,7 +691,7 @@ impl<G, E, HF> crate::ChainSpec for ChainSpec<G, E, HF>
 where
 	G: RuntimeGenesis + 'static,
 	E: GetExtension + serde::Serialize + Clone + Send + Sync + 'static,
-	HF: HostFunctions + Send + Sync,
+	HF: HostFunctions,
 {
 	fn boot_nodes(&self) -> &[MultiaddrWithPeerId] {
 		ChainSpec::boot_nodes(self)
