@@ -16,7 +16,7 @@
 // limitations under the License.
 
 mod impls;
-#[test]
+#[cfg(test)]
 mod tests;
 
 use codec::{Decode, Encode, MaxEncodedLen};

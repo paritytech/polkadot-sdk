@@ -22,7 +22,11 @@ mod staking;
 
 pub use staking::*;
 
-use crate::{self as epm, Config, *};
+use crate::{
+	self as epm,
+	verifier::{self as verifier_pallet},
+	Config, *,
+};
 use frame_support::{derive_impl, pallet_prelude::*, parameter_types};
 use sp_runtime::{
 	generic::{Header, UncheckedExtrinsic},
@@ -35,12 +39,25 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		MultiPhase: epm,
+		//VerifierPallet: verifier_pallet,
 	}
+);
+
+frame_election_provider_support::generate_solution_type!(
+	#[compact]
+	pub struct TestNposSolution::<
+		VoterIndex = VoterIndex,
+		TargetIndex = TargetIndex,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = ConstU32::<2_000>
+	>(16)
 );
 
 pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u64;
+pub type VoterIndex = u32;
+pub type TargetIndex = u16;
 pub type T = Runtime;
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 
@@ -55,6 +72,8 @@ parameter_types! {
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedValidationPhase: BlockNumber = Pages::get().into();
 	pub static Lookhaead: BlockNumber = 0;
+	pub static VoterSnapshotPerBlock: VoterIndex = 4;
+	pub static TargetSnapshotPerBlock: TargetIndex = 8;
 	pub static Pages: PageIndex = 3;
 }
 
@@ -64,8 +83,12 @@ impl Config for Runtime {
 	type UnsignedPhase = UnsignedPhase;
 	type SignedValidationPhase = SignedValidationPhase;
 	type Lookhaead = Lookhaead;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type Pages = Pages;
 	type DataProvider = MockStaking;
+	type Solution = TestNposSolution;
+	type Verifier = VerifierPallet;
 }
 
 parameter_types! {
@@ -92,6 +115,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 #[derive(Default)]

@@ -18,7 +18,7 @@
 use sp_core::parameter_types;
 use sp_runtime::bounded_vec;
 
-use crate::{Encode, VoterOf};
+use crate::VoterOf;
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, DataProviderBounds, ElectionDataProvider, PageIndex, VoterOf as VoterOfProvider,

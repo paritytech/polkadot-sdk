@@ -306,6 +306,7 @@ pub mod weights;
 mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
@@ -345,9 +346,10 @@ macro_rules! log {
 	};
 }
 
-/// Maximum number of winners (aka. active validators), as defined in the election provider of this
-/// pallet.
-pub type MaxWinnersOf<T> = <<T as Config>::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners;
+/// Maximum number of exposures (validators) that each page of our [`Config::ElectionProvider`]
+/// might return.
+pub type MaxExposuresPerPageOf<T> =
+	<<T as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.
 pub type MaxNominationsOf<T> =

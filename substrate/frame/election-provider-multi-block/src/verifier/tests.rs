@@ -22,9 +22,8 @@ mod feasibility_check {
 
 	#[test]
 	fn missing_snapshot() {
-		// TODO(gpestana)
-		ExtBuilder::verifier().execute_with(|| {
-			assert!(true);
-		})
+		//ExtBuilder::verifier().execute_with(|| {
+		//	assert!(true);
+		//})
 	}
 }

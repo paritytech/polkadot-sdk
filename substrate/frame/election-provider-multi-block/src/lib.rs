@@ -92,7 +92,7 @@ pub mod pallet {
 		type Pages: Get<PageIndex>;
 
 		/// The solution type.
-		type Solution: codec::FullCodec
+		type Solution: codec::Codec
 			+ Default
 			+ PartialEq
 			+ Eq
@@ -401,7 +401,7 @@ mod phase_transition {
                 roll_to(next_election + 5);
                 assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
 
-                MultiPhase::elect();
+                MultiPhase::elect(0);
 		})
 	}
 

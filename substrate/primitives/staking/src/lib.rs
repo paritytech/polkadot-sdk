@@ -310,6 +310,8 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
