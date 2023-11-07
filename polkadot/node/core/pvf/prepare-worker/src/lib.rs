@@ -619,7 +619,11 @@ fn send_child_response(mut pipe_write: &PipeWriter, response: JobResponse) -> ! 
 		.write_all(response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
-	process::exit(libc::EXIT_SUCCESS)
+	if response.is_ok() {
+		process::exit(libc::EXIT_SUCCESS)
+	} else {
+		process::exit(libc::EXIT_FAILURE)
+	}
 }
 
 fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
@@ -634,8 +638,9 @@ const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 #[test]
 fn pre_encoded_payloads() {
 	// NOTE: This must match the type of `response` in `send_child_response`.
-	let oom_enc: JobResponse = Result::Err(PrepareError::OutOfMemory).encode();
-	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
-	oom_payload.extend(oom_enc);
+	let unencoded: JobResponse = Result::Err(PrepareError::OutOfMemory);
+	let oom_encoded = unencoded.encode();
+	let mut oom_payload = oom_encoded.len().to_le_bytes().to_vec();
+	oom_payload.extend(oom_encoded);
 	assert_eq!(oom_payload, OOM_PAYLOAD);
 }

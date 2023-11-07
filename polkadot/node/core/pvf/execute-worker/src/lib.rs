@@ -463,13 +463,17 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 ///
 /// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
 ///
-/// - `result`: Child process response, or error.
-fn send_child_response(mut pipe_write: &PipeWriter, result: JobResult) -> ! {
+/// - `response`: Child process response, or error.
+fn send_child_response(mut pipe_write: &PipeWriter, response: JobResult) -> ! {
 	pipe_write
-		.write_all(result.encode().as_slice())
+		.write_all(response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
-	process::exit(libc::EXIT_SUCCESS)
+	if response.is_ok() {
+		process::exit(libc::EXIT_SUCCESS)
+	} else {
+		process::exit(libc::EXIT_FAILURE)
+	}
 }
 
 fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerResponse {
