@@ -1367,8 +1367,9 @@ pub enum ValidDisputeStatementKind {
 	#[codec(index = 3)]
 	ApprovalChecking,
 	/// An approval vote from the new version.
-	/// TODO: Fixme this probably means we can't create this version
-	/// untill all nodes have been updated to support it.
+	/// We can't create this version untill all nodes
+	/// have been updated to support it and max_approval_coalesce_count
+	/// is set to more than 1.
 	#[codec(index = 4)]
 	ApprovalCheckingMultipleCandidates(Vec<CandidateHash>),
 }
