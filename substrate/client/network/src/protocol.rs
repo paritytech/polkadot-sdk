@@ -364,10 +364,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							}
 						},
 						(Err(err), _) => {
-							debug!(target: "sync", "Failed to parse remote handshake: {}", err);
-							self.bad_handshake_substreams.insert((peer_id, set_id));
-							self.behaviour.disconnect_peer(&peer_id, set_id);
-							self.peer_store_handle.report_peer(peer_id, rep::BAD_MESSAGE);
+							debug!(target: "sync", "Failed to parse remote handshake: {} {set_id:?}", err);
 							CustomMessageOutcome::None
 						},
 					}

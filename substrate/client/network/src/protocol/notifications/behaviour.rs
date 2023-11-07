@@ -908,8 +908,14 @@ impl Notifications {
 				.pending_inbound_validations
 				.push(Box::pin(async move { (rx.await, index) })),
 			Err(err) => {
-				error!(target: LOG_TARGET, "protocol has exited: {err:?}");
-				debug_assert!(false);
+				// parachain collators enable the syncing protocol but `NotificationService` for
+				// `SyncingEngine` is not created which causes `report_incoming_substream()` to
+				// fail. This is not a fatal error and should be ignored even though in typical
+				// cases the `NotificationService` not existing is a fatal error and indicates that
+				// the protocol has exited. Until the parachain collator issue is fixed, just report
+				// and error and reject the peer.
+				debug!(target: LOG_TARGET, "protocol has exited: {err:?} {:?}", incoming.set_id);
+				self.protocol_report_reject(index);
 			},
 		}
 	}
