@@ -64,7 +64,7 @@
 //!
 //! ### version_and_signed
 //!
-//! This is one byte, equal to `0x84` or `0b1000_0100` (ie an upper 1 bit to denote that it is
+//! This is one byte, equal to `0x84` or `0b1000_0100` (i.e. an upper 1 bit to denote that it is
 //! signed, and then the transaction version, 4, in the lower bits).
 //!
 //! ### from_address
@@ -118,11 +118,10 @@
 //!
 //! ## call_data
 //!
-//! This is the main payload of the extrinsic, and is the data that the chain will use to determine
-//! how the state of the chain is altered. This is determined by the second generic parameter of
-//! [`sp_runtime::generic::UncheckedExtrinsic`].
+//! This is the main payload of the extrinsic, which is used to determine how the chain's state is
+//! altered. This is defined by the second generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`].
 //!
-//! A call can be anything that implements [`Encode`][frame::deps::codec::Encode]. In FRAME based
+//! A call can be anything that implements [`Encode`][frame::deps::codec::Encode]. In FRAME-based
 //! runtimes, a call is represented as an enum of enums, where the outer enum represents the FRAME
 //! pallet being called, and the inner enum represents the call being made within that pallet, and
 //! any arguments to it. Read more about the call enum [here][crate::reference_docs::frame_composite_enums].
