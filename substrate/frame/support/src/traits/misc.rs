@@ -56,7 +56,7 @@ impl VariantCount for () {
 macro_rules! defensive {
 	() => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
 		);
@@ -64,7 +64,7 @@ macro_rules! defensive {
 	};
 	($error:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error
@@ -73,7 +73,7 @@ macro_rules! defensive {
 	};
 	($error:expr, $proof:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error,

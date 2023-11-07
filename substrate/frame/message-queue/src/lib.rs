@@ -195,7 +195,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint, ProcessMessage,
-		ProcessMessageError, QueuePausedQuery, ServiceQueues,
+		ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -423,14 +423,23 @@ impl<MessageOrigin> Default for BookState<MessageOrigin> {
 	}
 }
 
+impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
+	fn from(book: BookState<MessageOrigin>) -> Self {
+		QueueFootprint {
+			pages: book.count,
+			storage: Footprint { count: book.message_count, size: book.size },
+		}
+	}
+}
+
 /// Handler code for when the items in a queue change.
 pub trait OnQueueChanged<Id> {
 	/// Note that the queue `id` now has `item_count` items in it, taking up `items_size` bytes.
-	fn on_queue_changed(id: Id, items_count: u64, items_size: u64);
+	fn on_queue_changed(id: Id, fp: QueueFootprint);
 }
 
 impl<Id> OnQueueChanged<Id> for () {
-	fn on_queue_changed(_: Id, _: u64, _: u64) {}
+	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
 #[frame_support::pallet]
@@ -907,11 +916,7 @@ impl<T: Config> Pallet<T> {
 					T::WeightInfo::execute_overweight_page_updated()
 				};
 				BookStateFor::<T>::insert(&origin, &book_state);
-				T::QueueChangeHandler::on_queue_changed(
-					origin,
-					book_state.message_count,
-					book_state.size,
-				);
+				T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 				Ok(weight_counter.consumed().saturating_add(page_weight))
 			},
 		}
@@ -976,11 +981,7 @@ impl<T: Config> Pallet<T> {
 		book_state.message_count.saturating_reduce(page.remaining.into() as u64);
 		book_state.size.saturating_reduce(page.remaining_size.into() as u64);
 		BookStateFor::<T>::insert(origin, &book_state);
-		T::QueueChangeHandler::on_queue_changed(
-			origin.clone(),
-			book_state.message_count,
-			book_state.size,
-		);
+		T::QueueChangeHandler::on_queue_changed(origin.clone(), book_state.into());
 		Self::deposit_event(Event::PageReaped { origin: origin.clone(), index: page_index });
 
 		Ok(())
@@ -1035,11 +1036,7 @@ impl<T: Config> Pallet<T> {
 		}
 		BookStateFor::<T>::insert(&origin, &book_state);
 		if total_processed > 0 {
-			T::QueueChangeHandler::on_queue_changed(
-				origin,
-				book_state.message_count,
-				book_state.size,
-			);
+			T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 		}
 		(total_processed > 0, next_ready)
 	}
@@ -1482,7 +1479,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 	) {
 		Self::do_enqueue_message(&origin, message);
 		let book_state = BookStateFor::<T>::get(&origin);
-		T::QueueChangeHandler::on_queue_changed(origin, book_state.message_count, book_state.size);
+		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
 
 	fn enqueue_messages<'a>(
@@ -1493,7 +1490,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 			Self::do_enqueue_message(&origin, message);
 		}
 		let book_state = BookStateFor::<T>::get(&origin);
-		T::QueueChangeHandler::on_queue_changed(origin, book_state.message_count, book_state.size);
+		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
 
 	fn sweep_queue(origin: MessageOriginOf<T>) {
@@ -1508,8 +1505,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		BookStateFor::<T>::insert(&origin, &book_state);
 	}
 
-	fn footprint(origin: MessageOriginOf<T>) -> Footprint {
-		let book_state = BookStateFor::<T>::get(&origin);
-		Footprint { count: book_state.message_count, size: book_state.size }
+	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
+		BookStateFor::<T>::get(&origin).into()
 	}
 }

@@ -87,6 +87,8 @@ pub use hooks::GenesisBuild;
 pub use hooks::{
 	BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis, OnIdle, OnInitialize, OnPoll,
 	OnRuntimeUpgrade, OnTimestampSet, PostInherents, PostTransactions, PreInherents,
+	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
+	OnIdle, OnInitialize, OnRuntimeUpgrade, OnTimestampSet,
 };
 
 pub mod schedule;
@@ -114,7 +116,8 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePre
 mod messages;
 pub use messages::{
 	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
-	ProcessMessage, ProcessMessageError, QueuePausedQuery, ServiceQueues, TransformOrigin,
+	ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+	TransformOrigin,
 };
 
 mod safe_mode;
@@ -126,4 +129,7 @@ pub use tx_pause::{TransactionPause, TransactionPauseError};
 #[cfg(feature = "try-runtime")]
 mod try_runtime;
 #[cfg(feature = "try-runtime")]
-pub use try_runtime::{Select as TryStateSelect, TryState, UpgradeCheckSelect};
+pub use try_runtime::{
+	Select as TryStateSelect, TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState,
+	UpgradeCheckSelect,
+};

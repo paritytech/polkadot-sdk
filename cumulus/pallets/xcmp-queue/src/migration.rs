@@ -16,20 +16,23 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, Overweight, Pallet, QueueConfig, DEFAULT_POV_SIZE};
+use crate::{Config, OverweightIndex, Pallet, ParaId, QueueConfig, DEFAULT_POV_SIZE};
+use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	traits::{EnqueueMessage, OnRuntimeUpgrade, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
 /// The current storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
-/// Migrates the pallet storage to the most recent version.
-pub struct Migration<T: Config>(PhantomData<T>);
+pub const LOG: &str = "runtime::xcmp-queue-migration";
 
-impl<T: Config> OnRuntimeUpgrade for Migration<T> {
+/// Migrates the pallet storage to the most recent version.
+pub struct MigrationToV3<T: Config>(PhantomData<T>);
+
+impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 
@@ -77,11 +80,55 @@ mod v1 {
 	}
 }
 
+pub mod v3 {
+	use super::*;
+	use crate::*;
+
+	/// Status of the inbound XCMP channels.
+	#[frame_support::storage_alias]
+	pub(crate) type InboundXcmpStatus<T: Config> =
+		StorageValue<Pallet<T>, Vec<InboundChannelDetails>, OptionQuery>;
+
+	/// Inbound aggregate XCMP messages. It can only be one per ParaId/block.
+	#[frame_support::storage_alias]
+	pub(crate) type InboundXcmpMessages<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Blake2_128Concat,
+		ParaId,
+		Twox64Concat,
+		RelayBlockNumber,
+		Vec<u8>,
+		OptionQuery,
+	>;
+
+	#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+	pub struct InboundChannelDetails {
+		/// The `ParaId` of the parachain that this channel is connected with.
+		pub sender: ParaId,
+		/// The state of the channel.
+		pub state: InboundState,
+		/// The ordered metadata of each inbound message.
+		///
+		/// Contains info about the relay block number that the message was sent at, and the format
+		/// of the incoming message.
+		pub message_metadata: Vec<(RelayBlockNumber, XcmpMessageFormat)>,
+	}
+
+	#[derive(
+		Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo,
+	)]
+	pub enum InboundState {
+		Ok,
+		Suspended,
+	}
+}
+
 /// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
 /// 2D weights).
 ///
 /// NOTE: Only use this function if you know what you're doing. Default to using
 /// `migrate_to_latest`.
+#[allow(deprecated)]
 pub fn migrate_to_v2<T: Config>() -> Weight {
 	let translate = |pre: v1::QueueConfigData| -> super::QueueConfigData {
 		super::QueueConfigData {
@@ -108,9 +155,61 @@ pub fn migrate_to_v2<T: Config>() -> Weight {
 }
 
 pub fn migrate_to_v3<T: Config>() -> Weight {
+	#[frame_support::storage_alias]
+	type Overweight<T: Config> =
+		CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
 	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
 
 	T::DbWeight::get().reads_writes(overweight_messages, 1)
+}
+
+pub fn lazy_migrate_inbound_queue<T: Config>() {
+	let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
+		log::debug!(target: LOG, "Lazy migration finished: item gone");
+		return
+	};
+	let Some(ref mut next) = states.first_mut() else {
+		log::debug!(target: LOG, "Lazy migration finished: item empty");
+		v3::InboundXcmpStatus::<T>::kill();
+		return
+	};
+	log::debug!(
+		"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
+		next.sender,
+		next.message_metadata.len()
+	);
+	// We take the last element since the MQ is a FIFO and we want to keep the order.
+	let Some((block_number, format)) = next.message_metadata.pop() else {
+		states.remove(0);
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	};
+	if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+		log::warn!(target: LOG,
+			"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
+			format
+		);
+		v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	}
+
+	let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
+		defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	};
+
+	let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
+		log::error!(target: LOG, "Message dropped: too big");
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	};
+
+	// Finally! We have a proper message.
+	T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
+	log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+	v3::InboundXcmpStatus::<T>::put(states);
 }
 
 #[cfg(test)]
@@ -119,6 +218,7 @@ mod tests {
 	use crate::mock::{new_test_ext, Test};
 
 	#[test]
+	#[allow(deprecated)]
 	fn test_migration_to_v2() {
 		let v1 = v1::QueueConfigData {
 			suspend_threshold: 5,

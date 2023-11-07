@@ -325,6 +325,12 @@ pub mod pallet {
 						rewards_account_params,
 						new_reward,
 					);
+
+					Self::deposit_event(Event::<T>::RewardRegistered {
+						relayer: relayer.clone(),
+						rewards_account_params,
+						reward,
+					});
 				},
 			);
 		}
@@ -369,6 +375,15 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// Relayer reward has been registered and may be claimed later.
+		RewardRegistered {
+			/// Relayer account that can claim reward.
+			relayer: T::AccountId,
+			/// Relayer can claim reward from this account.
+			rewards_account_params: RewardsAccountParams,
+			/// Reward amount.
+			reward: T::Reward,
+		},
 		/// Reward has been paid to the relayer.
 		RewardPaid {
 			/// Relayer account that has been rewarded.
@@ -455,7 +470,7 @@ mod tests {
 	use super::*;
 	use mock::{RuntimeEvent as TestEvent, *};
 
-	use crate::Event::RewardPaid;
+	use crate::Event::{RewardPaid, RewardRegistered};
 	use bp_messages::LaneId;
 	use bp_relayers::RewardsAccountOwner;
 	use frame_support::{
@@ -468,6 +483,33 @@ mod tests {
 	fn get_ready_for_events() {
 		System::<TestRuntime>::set_block_number(1);
 		System::<TestRuntime>::reset_events();
+	}
+
+	#[test]
+	fn register_relayer_reward_emit_event() {
+		run_test(|| {
+			get_ready_for_events();
+
+			Pallet::<TestRuntime>::register_relayer_reward(
+				TEST_REWARDS_ACCOUNT_PARAMS,
+				&REGULAR_RELAYER,
+				100,
+			);
+
+			// Check if the `RewardRegistered` event was emitted.
+			assert_eq!(
+				System::<TestRuntime>::events().last(),
+				Some(&EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::Relayers(RewardRegistered {
+						relayer: REGULAR_RELAYER,
+						rewards_account_params: TEST_REWARDS_ACCOUNT_PARAMS,
+						reward: 100
+					}),
+					topics: vec![],
+				}),
+			);
+		});
 	}
 
 	#[test]
