@@ -92,7 +92,7 @@ fn construct_and_estimate_extrinsic_fee(batch: pallet_utility::Call<Runtime>) ->
 }
 
 fn executive_init_block(header: &HeaderFor<Runtime>) {
-	Executive::initialize_block(header)
+	Executive::initialize_block(header);
 }
 
 fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {
