@@ -360,7 +360,7 @@ pub trait SteppedMigration {
 	/// If two migrations have the same identifier, then they are assumed to be identical.
 	fn id() -> Self::Identifier;
 
-	/// The maximum number of steps that this migration can take at most.
+	/// The maximum number of steps that this migration can take.
 	///
 	/// This can be used to enforce progress and prevent migrations to be stuck forever. A migration
 	/// that exceeds its max steps is treated as failed. `None` means that there is no limit.
