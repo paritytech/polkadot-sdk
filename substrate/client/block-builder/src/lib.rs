@@ -43,24 +43,24 @@ use std::marker::PhantomData;
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
 
 /// A builder for creating an instance of [`BlockBuilder`].
-pub struct BlockBuilderBuilder<'a, B, C> {
-	call_api_at: &'a C,
+pub struct BlockBuilderBuilder<B, C> {
+	call_api_at: C,
 	_phantom: PhantomData<B>,
 }
 
-impl<'a, B, C> BlockBuilderBuilder<'a, B, C>
+impl<B, C> BlockBuilderBuilder<B, C>
 where
 	B: BlockT,
 {
 	/// Create a new instance of the builder.
 	///
 	/// `call_api_at`: Something that implements [`CallApiAt`].
-	pub fn new(call_api_at: &'a C) -> Self {
+	pub fn new(call_api_at: C) -> Self {
 		Self { call_api_at, _phantom: PhantomData }
 	}
 
 	/// Specify the parent block to build on top of.
-	pub fn on_parent_block(self, parent_block: B::Hash) -> BlockBuilderBuilderStage1<'a, B, C> {
+	pub fn on_parent_block(self, parent_block: B::Hash) -> BlockBuilderBuilderStage1<B, C> {
 		BlockBuilderBuilderStage1 { call_api_at: self.call_api_at, parent_block }
 	}
 }
@@ -69,12 +69,12 @@ where
 ///
 /// This type can not be instantiated directly. To get an instance of it
 /// [`BlockBuilderBuilder::new`] needs to be used.
-pub struct BlockBuilderBuilderStage1<'a, B: BlockT, C> {
-	call_api_at: &'a C,
+pub struct BlockBuilderBuilderStage1<B: BlockT, C> {
+	call_api_at: C,
 	parent_block: B::Hash,
 }
 
-impl<'a, B, C> BlockBuilderBuilderStage1<'a, B, C>
+impl<B, C> BlockBuilderBuilderStage1<B, C>
 where
 	B: BlockT,
 {
@@ -87,7 +87,7 @@ where
 	pub fn fetch_parent_block_number<H: HeaderBackend<B>>(
 		self,
 		header_backend: &H,
-	) -> Result<BlockBuilderBuilderStage2<'a, B, C>, Error> {
+	) -> Result<BlockBuilderBuilderStage2<B, C>, Error> {
 		let parent_number = header_backend.number(self.parent_block)?.ok_or_else(|| {
 			Error::Backend(format!(
 				"Could not fetch block number for block: {:?}",
@@ -97,7 +97,6 @@ where
 
 		Ok(BlockBuilderBuilderStage2 {
 			call_api_at: self.call_api_at,
-			enable_proof_recording: false,
 			inherent_digests: Default::default(),
 			parent_block: self.parent_block,
 			parent_number,
@@ -111,10 +110,9 @@ where
 	pub fn with_parent_block_number(
 		self,
 		parent_number: NumberFor<B>,
-	) -> BlockBuilderBuilderStage2<'a, B, C> {
+	) -> BlockBuilderBuilderStage2<B, C> {
 		BlockBuilderBuilderStage2 {
 			call_api_at: self.call_api_at,
-			enable_proof_recording: false,
 			inherent_digests: Default::default(),
 			parent_block: self.parent_block,
 			parent_number,
@@ -126,25 +124,24 @@ where
 ///
 /// This type can not be instantiated directly. To get an instance of it
 /// [`BlockBuilderBuilder::new`] needs to be used.
-pub struct BlockBuilderBuilderStage2<'a, B: BlockT, C> {
-	call_api_at: &'a C,
-	enable_proof_recording: bool,
+pub struct BlockBuilderBuilderStage2<B: BlockT, C, ProofRecorder = DisableProofRecorder> {
+	call_api_at: C,
 	inherent_digests: Digest,
 	parent_block: B::Hash,
 	parent_number: NumberFor<B>,
 }
 
-impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
+impl<B: BlockT, C, ProofRecorder> BlockBuilderBuilderStage2<B, C, ProofRecorder> {
 	/// Enable proof recording for the block builder.
-	pub fn enable_proof_recording(mut self) -> Self {
-		self.enable_proof_recording = true;
-		self
-	}
-
-	/// Enable/disable proof recording for the block builder.
-	pub fn with_proof_recording(mut self, enable: bool) -> Self {
-		self.enable_proof_recording = enable;
-		self
+	pub fn enable_proof_recording(
+		mut self,
+	) -> BlockBuilderBuilderStage2<B, C, EnableProofRecorder<B>> {
+		BlockBuilderBuilderStage2 {
+			call_api_at: self.call_api_at,
+			inherent_digests: self.inherent_digests,
+			parent_block: self.parent_block,
+			parent_number: self.parent_number,
+		}
 	}
 
 	/// Build the block with the given inherent digests.
@@ -154,7 +151,7 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 	}
 
 	/// Create the instance of the [`BlockBuilder`].
-	pub fn build(self) -> Result<BlockBuilder<'a, B, C>, Error>
+	pub fn build(self) -> Result<BlockBuilder<B, C, ProofRecorder>, Error>
 	where
 		C: CallApiAt<B>,
 	{
@@ -162,7 +159,6 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 			self.call_api_at,
 			self.parent_block,
 			self.parent_number,
-			self.enable_proof_recording,
 			self.inherent_digests,
 		)
 	}
@@ -191,10 +187,9 @@ impl<Block: BlockT> BuiltBlock<Block> {
 }
 
 /// Utility for building new (valid) blocks from a stream of extrinsics.
-pub struct BlockBuilder<'a, Block: BlockT, CallApiAt + 'a, ProofRecorder> {
+pub struct BlockBuilder<Block: BlockT, CallApiAt, ProofRecorder> {
 	extrinsics: Vec<Block::Extrinsic>,
 	runtime_instance: RuntimeInstance<CallApiAt, Block, ProofRecorder>,
-	call_api_at: &'a C,
 	version: u32,
 	parent_hash: Block::Hash,
 	/// The estimated size of the block header.
@@ -202,10 +197,11 @@ pub struct BlockBuilder<'a, Block: BlockT, CallApiAt + 'a, ProofRecorder> {
 	_phantom: PhantomData<ProofRecorder>,
 }
 
-impl<'a, Block, C> BlockBuilder<'a, Block, C>
+impl<Block, C, ProofRecorder> BlockBuilder<Block, C, ProofRecorder>
 where
 	Block: BlockT,
 	C: sp_api::CallApiAt<Block>,
+	ProofRecorder: sp_api::GetProofRecorder<Block>,
 {
 	/// Create a new instance of builder based on the given `parent_hash` and `parent_number`.
 	///
@@ -213,10 +209,9 @@ where
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
 	fn new(
-		call_api_at: &'a C,
+		call_api_at: C,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
-		record_proof: bool,
 		inherent_digests: Digest,
 	) -> Result<Self, Error> {
 		let header = <<Block as BlockT>::Header as HeaderT>::new(
@@ -243,7 +238,6 @@ where
 			extrinsics: Vec::new(),
 			runtime_instance,
 			version,
-			backend,
 			estimated_header_size,
 			_phantom: PhantomData,
 		})
@@ -254,7 +248,6 @@ where
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
 		inherent_digests: Digest,
-		backend: &'a Backend,
 	) -> Result<Self, Error> {
 		let header = <<Block as BlockT>::Header as HeaderT>::new(
 			parent_number + One::one(),
@@ -284,11 +277,10 @@ where
 	}
 }
 
-impl<'a, Block, Backend, CallApiAt, ProofRecorder>
-	BlockBuilder<'a, Block, Backend, CallApiAt, ProofRecorder>
+impl<Block, Backend, CallApiAt, ProofRecorder>
+	BlockBuilder<Block, Backend, CallApiAt, ProofRecorder>
 where
 	Block: BlockT,
-	Backend: backend::Backend<Block>,
 	CallApiAt: sp_api::CallApiAt<Block>,
 	ProofRecorder: sp_api::GetProofRecorder<Block>,
 {
