@@ -828,11 +828,7 @@ pub mod pallet {
 					let mut message = Xcm(vec![
 						WithdrawAsset(assets),
 						SetFeesMode { jit_withdraw: true },
-						InitiateTeleport {
-							assets: Wild(AllCounted(count)),
-							dest,
-							xcm: Xcm(vec![]),
-						},
+						InitiateTeleport { assets: Wild(AllCounted(count)), dest, xcm: Xcm(vec![]) },
 					]);
 					T::Weigher::weight(&mut message).map_or(Weight::MAX, |w| T::WeightInfo::teleport_assets().saturating_add(w))
 				}
@@ -875,6 +871,8 @@ pub mod pallet {
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
 					use sp_std::vec;
+					// heaviest version of locally executed XCM program: equivalent in weight to
+					// transfer assets to SA, reanchor them, extend XCM program, and send onward XCM
 					let mut message = Xcm(vec![
 						SetFeesMode { jit_withdraw: true },
 						TransferReserveAsset { assets, dest, xcm: Xcm(vec![]) }
@@ -1050,6 +1048,8 @@ pub mod pallet {
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
 					use sp_std::vec;
+					// heaviest version of locally executed XCM program: equivalent in weight to
+					// transfer assets to SA, reanchor them, extend XCM program, and send onward XCM
 					let mut message = Xcm(vec![
 						SetFeesMode { jit_withdraw: true },
 						TransferReserveAsset { assets, dest, xcm: Xcm(vec![]) }
