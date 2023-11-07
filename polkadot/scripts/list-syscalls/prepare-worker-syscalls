@@ -49,7 +49,6 @@
 144 (sched_setscheduler)
 157 (prctl)
 158 (arch_prctl)
-160 (setrlimit)
 165 (mount)
 166 (umount2)
 186 (gettid)
