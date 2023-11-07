@@ -420,13 +420,13 @@ impl<
 	>
 {
 	fn handle_fee(
-		fee: MultiAssets,
+		fee: Assets,
 		maybe_context: Option<&XcmContext>,
 		reason: FeeReason,
-	) -> MultiAssets {
+	) -> Assets {
 		if matches!(reason, FeeReason::Export { network: bridged_network, destination }
 				if bridged_network == DestNetwork::get() &&
-					destination == X1(Parachain(DestParaId::get().into())))
+					destination == [Parachain(DestParaId::get().into())])
 		{
 			// We have 2 relayer rewards accounts:
 			// - the SA of the source parachain on this BH: this pays the relayers for delivering
@@ -457,14 +457,14 @@ impl<
 					Fungible(total_fee) => {
 						let source_fee = total_fee / 2;
 						deposit_or_burn_fee::<AssetTransactor, _>(
-							MultiAsset { id: asset.id, fun: Fungible(source_fee) }.into(),
+							Asset { id: asset.id.clone(), fun: Fungible(source_fee) }.into(),
 							maybe_context,
 							source_para_account.clone(),
 						);
 
 						let dest_fee = total_fee - source_fee;
 						deposit_or_burn_fee::<AssetTransactor, _>(
-							MultiAsset { id: asset.id, fun: Fungible(dest_fee) }.into(),
+							Asset { id: asset.id, fun: Fungible(dest_fee) }.into(),
 							maybe_context,
 							dest_para_account.clone(),
 						);
@@ -479,7 +479,7 @@ impl<
 				}
 			}
 
-			return MultiAssets::new()
+			return Assets::new()
 		}
 
 		fee

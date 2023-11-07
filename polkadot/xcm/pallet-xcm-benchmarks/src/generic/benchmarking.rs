@@ -561,7 +561,7 @@ benchmarks! {
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin,
 			&destination.clone().into(),
-			FeeReason::Export { network, destination },
+			FeeReason::Export { network, destination: destination.clone() },
 		);
 		let sender_account = T::AccountIdConverter::convert_location(&origin).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
@@ -574,7 +574,7 @@ benchmarks! {
 			executor.set_holding(expected_assets_in_holding.into());
 		}
 		let xcm = Xcm(vec![ExportMessage {
-			network, destination, xcm: inner_xcm,
+			network, destination: destination.clone(), xcm: inner_xcm,
 		}]);
 	}: {
 		executor.bench_process(xcm)?;

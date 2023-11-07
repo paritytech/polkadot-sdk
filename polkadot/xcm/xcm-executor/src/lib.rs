@@ -849,7 +849,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					network,
 					channel,
 					universal_source,
-					destination,
+					destination.clone(),
 					xcm,
 				)?;
 				self.take_fee(fee, FeeReason::Export { network, destination })?;
@@ -947,7 +947,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 
 	fn take_fee(&mut self, fee: Assets, reason: FeeReason) -> XcmResult {
-		if Config::FeeManager::is_waived(self.origin_ref(), reason) {
+		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
 			return Ok(())
 		}
 		log::trace!(

@@ -649,4 +649,10 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn location_conversion_functions() {
+		let location: Location = (1, [Parachain(1000), PalletInstance(50), GeneralIndex(1984)]).into();
+		assert_eq!(location, Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1984)]));
+	}
 }

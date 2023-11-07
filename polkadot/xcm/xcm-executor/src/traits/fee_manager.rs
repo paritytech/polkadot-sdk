@@ -27,7 +27,7 @@ pub trait FeeManager {
 }
 
 /// Context under which a fee is paid.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FeeReason {
 	/// When a reporting instruction is called.
 	Report,
@@ -42,7 +42,7 @@ pub enum FeeReason {
 	/// When the `QueryPallet` instruction is called.
 	QueryPallet,
 	/// When the `ExportMessage` instruction is called (and includes the network ID).
-	Export { network: NetworkId, destination: InteriorMultiLocation },
+	Export { network: NetworkId, destination: InteriorLocation },
 	/// The `charge_fees` API.
 	ChargeFees,
 	/// When the `LockAsset` instruction is called.
