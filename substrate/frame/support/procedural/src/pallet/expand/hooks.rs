@@ -59,7 +59,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 			let default_version = #frame_support::traits::StorageVersion::new(0);
 			#frame_support::__private::log::info!(
 				target: #frame_support::LOG_TARGET,
-				"🐥 New pallet {:?} detected in the runtime. The pallet has not defined storage version, so the on-chain version is being initialized to {:?}.",
+				"🐥 New pallet {:?} detected in the runtime. The pallet has no defined storage version, so the on-chain version is being initialized to {:?}.",
 				#pallet_name,
 				default_version
 			);
