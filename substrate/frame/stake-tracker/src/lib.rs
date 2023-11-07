@@ -55,7 +55,10 @@
 pub use pallet::*;
 
 use frame_election_provider_support::SortedListProvider;
-use frame_support::traits::{fungible::Inspect as FnInspect, Defensive};
+use frame_support::{
+	defensive,
+	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
+};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, StakerStatus, StakingInterface,
 };
@@ -137,6 +140,7 @@ pub mod pallet {
 			// there may be nominators who nominate a non-existant validator. if that's the case,
 			// move on.
 			if !L::contains(who) {
+				defensive!("`update_score` on non-existant staker {}", who);
 				return
 			}
 
@@ -154,14 +158,8 @@ pub mod pallet {
 					// removed from the list when calling `L::on_decrease`, which is not expected.
 					// Instead, we call `L::on_update` to set the score as 0. The node will be
 					// removed when `on_*_removed` is called.
-					if current_score.saturating_sub(imbalance) == 0 {
-						let _ = L::on_update(who, 0).defensive_proof(
-							"staker exists in the list, otherwise returned earlier.",
-						);
-					} else {
-						let _ = L::on_decrease(who, imbalance)
-							.defensive_proof("staker exists in the list as per the check above.");
-					}
+					let _ = L::on_update(who, current_score.defensive_saturating_sub(imbalance))
+						.defensive_proof("staker exists in the list as per the check above.");
 				},
 			}
 		}
@@ -175,10 +173,12 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	// Note: it is assumed that who's staking state is updated *before* this method is called.
 	fn on_stake_update(who: &T::AccountId, prev_stake: Option<sp_staking::Stake<BalanceOf<T>>>) {
-		if let Ok(stake) = T::Staking::stake(who) {
+		if let Ok(stake) = T::Staking::status(who).and(T::Staking::stake(who)).defensive_proof(
+			"staker should exist when calling on_stake_update and have a valid status",
+		) {
 			let voter_weight = Self::to_vote(stake.active);
 
-			match T::Staking::status(who).defensive_unwrap_or(StakerStatus::Idle) {
+			match T::Staking::status(who).expect("status checked above; qed.") {
 				StakerStatus::Nominator(nominations) => {
 					let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
 						"staker should exist in VoterList, as per the contract \
@@ -238,7 +238,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 		// If who is a nominator, update the vote weight of the nominations if they exist. Note:
 		// this will update the score of up to `T::MaxNominations` validators.
-		match T::Staking::status(who) {
+		match T::Staking::status(who).defensive() {
 			Ok(StakerStatus::Nominator(nominations)) =>
 				for t in nominations {
 					Self::update_score::<T::TargetList>(
