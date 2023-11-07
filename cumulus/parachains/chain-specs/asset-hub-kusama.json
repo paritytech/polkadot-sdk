@@ -3,8 +3,6 @@
   "id": "asset-hub-kusama",
   "chainType": "Live",
   "bootNodes": [
-    "/ip4/34.77.217.152/tcp/30334/p2p/12D3KooWF63ZxKtZMYs5247WQA8fcTiGJb2osXykc31cmjwNLwem",
-    "/ip4/34.77.119.77/tcp/30334/p2p/12D3KooWGowDwrXAh9cxkbPHPHuwMouFHrMcJhCVXcFS2B8vc5Ry",
     "/dns/kusama-asset-hub-connect-0.polkadot.io/tcp/30334/p2p/12D3KooWMzvdGcUXxacLdMQzRVrsP1mJrZHcrz8LtGbhLzve84Qx",
     "/dns/kusama-asset-hub-connect-0.polkadot.io/tcp/443/wss/p2p/12D3KooWMzvdGcUXxacLdMQzRVrsP1mJrZHcrz8LtGbhLzve84Qx",
     "/dns/kusama-asset-hub-connect-1.polkadot.io/tcp/30334/p2p/12D3KooWQmGf5z3DU1kKcZoLzMNgdbP31ybjuwxS1VGLKMUjq5ez",
