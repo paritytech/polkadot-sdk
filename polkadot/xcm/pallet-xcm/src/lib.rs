@@ -1273,29 +1273,32 @@ impl<T: Config> Pallet<T> {
 			Self::validate_assets_and_find_reserve(&assets, &dest)?
 		};
 
-		let prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>;
+		// local and remote XCM programs to potentially prefund fees
+		let prefund_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>;
 		if fees_transfer_type == assets_transfer_type {
 			// Same reserve location (fees not teleportable), we can batch together fees and assets
 			// in same reserve-based-transfer.
 			assets.push(fees.clone());
-			// no need for custom prefund messages, fees are batched with assets
-			prefund_fees_messages = None;
+			// no need for custom prefund instructions, fees are batched with assets
+			prefund_fees_instructions = None;
 		} else {
 			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered by
 			// branch above). The reason for this is that we'd need to send XCMs to separate chains
 			// with no guarantee of delivery order on final destination; therefore we cannot
 			// guarantee to have fees in place on final destination chain to pay for assets
 			// transfer.
-			if let TransferType::RemoteReserve(_) = assets_transfer_type {
-				return Err(Error::<T>::InvalidAssetUnsupportedReserve.into())
-			}
+			ensure!(
+				!matches!(assets_transfer_type, TransferType::RemoteReserve(_)),
+				Error::<T>::InvalidAssetUnsupportedReserve
+			);
 			// build fees transfer instructions to be added to assets transfers XCM programs
-			prefund_fees_messages = Some(match fees_transfer_type {
+			prefund_fees_instructions = Some(match fees_transfer_type {
 				TransferType::LocalReserve =>
-					Self::prefund_local_reserve_fees_messages(dest, fees.clone())?,
+					Self::prefund_local_reserve_fees_instructions(dest, fees.clone())?,
 				TransferType::DestinationReserve =>
-					Self::prefund_destination_reserve_fees_messages(dest, fees.clone())?,
-				TransferType::Teleport => Self::prefund_teleport_fees_messages(dest, fees.clone())?,
+					Self::prefund_destination_reserve_fees_instructions(dest, fees.clone())?,
+				TransferType::Teleport =>
+					Self::prefund_teleport_fees_instructions(dest, fees.clone())?,
 				TransferType::RemoteReserve(_) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 			});
@@ -1310,7 +1313,7 @@ impl<T: Config> Pallet<T> {
 			assets,
 			assets_transfer_type,
 			fees,
-			prefund_fees_messages,
+			prefund_fees_instructions,
 			weight_limit,
 		)
 	}
@@ -1359,13 +1362,14 @@ impl<T: Config> Pallet<T> {
 		assets: Vec<MultiAsset>,
 		transfer_type: TransferType,
 		fees: MultiAsset,
-		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
+		prefund_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		log::trace!(
 			target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
-			"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, transfer_type {:?}, fees {:?}, prefund_xcm: {:?}",
-			origin, dest, beneficiary, assets, transfer_type, fees, prefund_fees_messages,
+			"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, transfer_type {:?}, \
+			fees {:?}, prefund_xcm: {:?}, weight_limit: {:?}",
+			origin, dest, beneficiary, assets, transfer_type, fees, prefund_fees_instructions, weight_limit,
 		);
 		let (mut local_xcm, remote_xcm) = match transfer_type {
 			TransferType::LocalReserve => {
@@ -1374,7 +1378,7 @@ impl<T: Config> Pallet<T> {
 					beneficiary,
 					assets,
 					fees,
-					prefund_fees_messages,
+					prefund_fees_instructions,
 					weight_limit,
 				)?;
 				(local, Some(remote))
@@ -1385,7 +1389,7 @@ impl<T: Config> Pallet<T> {
 					beneficiary,
 					assets,
 					fees,
-					prefund_fees_messages,
+					prefund_fees_instructions,
 					weight_limit,
 				)?;
 				(local, Some(remote))
@@ -1426,7 +1430,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn prefund_local_reserve_fees_messages(
+	fn prefund_local_reserve_fees_instructions(
 		dest: MultiLocation,
 		fees: MultiAsset,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
@@ -1452,12 +1456,12 @@ impl<T: Config> Pallet<T> {
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		fees: MultiAsset,
-		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
+		prefund_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		// max assets is `assets` ( + potentially separately handled fee)
 		let max_assets =
-			assets.len() as u32 + prefund_fees_messages.as_ref().map(|_| 1).unwrap_or(0);
+			assets.len() as u32 + prefund_fees_instructions.as_ref().map(|_| 1).unwrap_or(0);
 		let assets: MultiAssets = assets.into();
 		let context = T::UniversalLocation::get();
 		let reanchored_fees =
@@ -1467,7 +1471,7 @@ impl<T: Config> Pallet<T> {
 			.reanchor(&dest, context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 
-		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_messages
+		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_instructions
 			.map(|(local, remote)| (local.into_inner(), remote.into_inner()))
 			.unwrap_or_default();
 
@@ -1501,7 +1505,7 @@ impl<T: Config> Pallet<T> {
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
-	fn prefund_destination_reserve_fees_messages(
+	fn prefund_destination_reserve_fees_instructions(
 		dest: MultiLocation,
 		fees: MultiAsset,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
@@ -1530,12 +1534,12 @@ impl<T: Config> Pallet<T> {
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		fees: MultiAsset,
-		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
+		prefund_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		// max assets is `assets` ( + potentially separately handled fee)
 		let max_assets =
-			assets.len() as u32 + prefund_fees_messages.as_ref().map(|_| 1).unwrap_or(0);
+			assets.len() as u32 + prefund_fees_instructions.as_ref().map(|_| 1).unwrap_or(0);
 		let assets: MultiAssets = assets.into();
 		let context = T::UniversalLocation::get();
 		let reanchored_fees =
@@ -1545,7 +1549,7 @@ impl<T: Config> Pallet<T> {
 			.reanchor(&dest, context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 
-		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_messages
+		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_instructions
 			.map(|(local, remote)| (local.into_inner(), remote.into_inner()))
 			// default is empty vec, so no prefund instructions required
 			.unwrap_or_default();
@@ -1634,7 +1638,7 @@ impl<T: Config> Pallet<T> {
 		]))
 	}
 
-	fn prefund_teleport_fees_messages(
+	fn prefund_teleport_fees_instructions(
 		dest: MultiLocation,
 		fees: MultiAsset,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
