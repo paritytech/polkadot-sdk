@@ -20,9 +20,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_election_provider_support::{
-	BoundedSupportsOf, ElectionDataProvider, ElectionProvider, PageIndex, NposSolution,
+	BoundedSupportsOf, ElectionDataProvider, ElectionProvider, NposSolution, PageIndex,
 };
-use frame_support::traits::{Defensive, Get};
+use frame_support::{
+	traits::{Defensive, Get},
+	BoundedVec,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 
 #[macro_use]
@@ -45,6 +48,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		sp_runtime::{traits::Zero, Saturating},
+		Twox64Concat,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -73,12 +77,19 @@ pub mod pallet {
 		#[pallet::constant]
 		type Lookhaead: Get<BlockNumberFor<Self>>;
 
+		/// The number of snapshot voters to fetch per block.
+		#[pallet::constant]
+		type VoterSnapshotPerBlock: Get<u32>;
+
+		/// The number of snapshot targets to fetch per block.
+		#[pallet::constant]
+		type TargetSnapshotPerBlock: Get<u32>;
+
 		/// The number of pages.
 		///
 		/// A solution may contain at MOST this many pages.
 		#[pallet::constant]
 		type Pages: Get<PageIndex>;
-
 
 		/// The solution type.
 		type Solution: codec::FullCodec
@@ -104,11 +115,25 @@ pub mod pallet {
 
 	/// Current phase.
 	#[pallet::storage]
-	pub type CurrentPhase<T: Config> = StorageValue<_, Phase<BlockNumberFor<T>>, ValueQuery>;
+	pub(crate) type CurrentPhase<T: Config> = StorageValue<_, Phase<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Current round
 	#[pallet::storage]
-	pub type Round<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub(crate) type Round<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	/// Desired number of targets to elect per round.
+	#[pallet::storage]
+	pub(crate) type DesiredTargets<T> = StorageValue<_, u32>;
+
+	/// Paginated target snapshot.
+	#[pallet::storage]
+	pub(crate) type PagedTargetSnapshot<T: Config> =
+		StorageMap<_, Twox64Concat, PageIndex, BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>>;
+
+	/// Paginated voter snapshot.
+	#[pallet::storage]
+	pub(crate) type PagedVoterSnapshot<T: Config> =
+		StorageMap<_, Twox64Concat, PageIndex, VoterPageOf<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -232,6 +257,42 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 }
 
+/// Wrapper struct for working with snapshots.
+///
+/// It manages the following storage items:
+///
+/// - [`DesiredTargets`]: The number of targets that we wish to collect.
+/// - [`PagedVoterSnapshot`]: Paginated map of voters.
+/// - [`PagedTargetSnapshot`]: Paginated map of targets.
+///
+/// ### Invariants
+///
+/// TODO(gpestana): finish rust docs
+/// TODO(gpestana): consider moving Snapshot<T> under the `mod pallet` to keep the storage type as
+/// private.
+pub(crate) struct Snapshot<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> Snapshot<T> {
+	fn targets(
+		page_index: PageIndex,
+	) -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
+		PagedTargetSnapshot::<T>::get(page_index)
+	}
+
+	fn voters(page_index: PageIndex) -> Option<VoterPageOf<T>> {
+		PagedVoterSnapshot::<T>::get(page_index)
+	}
+
+	fn desired_targets() -> Option<u32> {
+		DesiredTargets::<T>::get()
+	}
+
+	#[cfg(any(test, debug_assertions))]
+	fn _ensure_snapshot(_must_exist: bool) -> Result<(), &'static str> {
+		// TODO(gpestana): implement debug assertions for the snapshot.
+		todo!()
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// Phase transition helper.
 	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
@@ -251,12 +312,12 @@ impl<T: Config> Pallet<T> {
 		T::Pages::get().checked_sub(1).defensive_unwrap_or_default()
 	}
 
-	fn create_targets_snapshot(remaining_pages: u32) -> Result<u32, ElectionError> {
-		Ok(0)
+	fn create_targets_snapshot(_remaining_pages: u32) -> Result<u32, ElectionError> {
+		todo!()
 	}
 
-	fn create_voters_snapshot(remaining_pages: u32) -> Result<u32, ElectionError> {
-		Ok(0)
+	fn create_voters_snapshot(_remaining_pages: u32) -> Result<u32, ElectionError> {
+		todo!()
 	}
 }
 
@@ -269,7 +330,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Pages = T::Pages;
 	type DataProvider = T::DataProvider;
 
-	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		todo!()
 	}
 }
@@ -340,7 +401,7 @@ mod phase_transition {
                 roll_to(next_election + 5);
                 assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
 
-                //MultiPhase::elect();
+                MultiPhase::elect();
 		})
 	}
 

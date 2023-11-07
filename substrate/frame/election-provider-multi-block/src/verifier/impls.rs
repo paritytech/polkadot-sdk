@@ -16,15 +16,17 @@
 // limitations under the License.
 
 // TODO(gpestana): clean up imports.
-use frame_election_provider_support::PageIndex;
-use frame_support::{ensure, pallet_prelude::Weight};
-use sp_npos_elections::ExtendedBalance;
-use sp_runtime::Perbill;
+use frame_election_provider_support::{
+	ElectionProvider, NposSolution, PageIndex, TryIntoBoundedSupports,
+};
+use frame_support::{ensure, pallet_prelude::Weight, traits::Defensive};
+use sp_runtime::{traits::Zero, Perbill};
+use sp_std::collections::btree_map::BTreeMap;
 
 use super::*;
 use pallet::*;
 
-use crate::SolutionOf;
+use crate::{helpers, SolutionOf};
 
 #[frame_support::pallet]
 pub(crate) mod pallet {
@@ -78,13 +80,15 @@ pub(crate) mod pallet {
 		Verified(PageIndex, u32),
 		/// A new solution with the given score has replaced the previous best solution, if any.
 		Queued(ElectionScore, Option<ElectionScore>),
+		/// The solution data was not available for a specific page.
+		SolutionDataUnavailable(PageIndex),
 	}
 
 	/// A wrapper type of the storage items related to the queued solution.
 	///
 	/// NOTE: All storage reads and mutations to the queued solution must be performed through this
 	/// type to ensure data integrity.
-	/// TODO(gpestana): finish type documentation
+	/// TODO(gpestana): finish type docs
 	pub struct QueuedSolution<T: Config>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> QueuedSolution<T> {
@@ -95,16 +99,16 @@ pub(crate) mod pallet {
 			r
 		}
 
-        /// Clear all relevant data of an invalid solution.
+		/// Clear all relevant data of an invalid solution.
 		pub(crate) fn clear_invalid_and_backings() {
 			let _ = match Self::invalid() {
-				ValidSolutionPointer::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
-				ValidSolutionPointer::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
+				SolutionPointer::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
+				SolutionPointer::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
 			};
 			let _ = QueuedSolutionBackings::<T>::clear(u32::MAX, None);
 		}
 
-        /// Clear all relevant storage items.
+		/// Clear all relevant storage items.
 		pub(crate) fn kill() {
 			Self::mutate_checked(|| {
 				// TODO(gpestana): should we set a reasonable clear limit here or can we assume
@@ -136,25 +140,84 @@ pub(crate) mod pallet {
 			})
 		}
 
-        /// Write a single page of a valid solution into the `invalid` variant of the storage.
-        ///
-        /// It should be called only once the page has been verified to be 100% correct.
-        pub(crate) fn set_page(page: PageIndex, supports: SupportsOf<Pallet<T>>) {
-            Self::mutate_checked(|| {
-                let backings: BoundedVec<_, _> = supports
+		/// Write a single page of a valid solution into the `invalid` variant of the storage.
+		///
+		/// It should be called only once the page has been verified to be 100% correct.
+		pub(crate) fn set_page(page: PageIndex, supports: SupportsOf<Pallet<T>>) {
+			use frame_support::traits::TryCollect;
+			Self::mutate_checked(|| {
+				let backings: BoundedVec<_, _> = supports
                     .iter()
                     .map(|(x, s)| (x.clone(), PartialBackings {total: s.total, backers: s.voters.len() as u32}))
                     .try_collect()
-                    .expect("`SupportsOf` is bounded by <Pallet<T> as Verifier>::MaxWinnersPerPage which is ensured by an integrity test");
-                QueuedSolutionBackings::<T>::insert(page, backings);
+                    .expect("`SupportsOf` is bounded by <Pallet<T> as Verifier>::MaxWinnersPerPage which is ensured by an integrity test; qed.");
 
-                // store the new page into the invalid variant storage type.
-                match Self::invalid() {
-                    ValidSolutionPointer::X => QueuedSolutionX::<>::insert(page, supports),
-                    ValidSolutionPointer::Y => QueuedSolutionY::<>::insert(page, supports),
-                }
-            })
-        }
+				QueuedSolutionBackings::<T>::insert(page, backings);
+
+				// store the new page into the invalid variant storage type.
+				match Self::invalid() {
+					SolutionPointer::X => QueuedSolutionX::<T>::insert(page, supports),
+					SolutionPointer::Y => QueuedSolutionY::<T>::insert(page, supports),
+				}
+			})
+		}
+
+		/// Write a single page directly into the valid variant.
+		///
+		/// This *SHOULD* only be used in a single-page flow, likely the result of a synchronous
+		/// backup mechanism.
+		pub(crate) fn force_set_single_page_valid(
+			page: PageIndex,
+			supports: SupportsOf<Pallet<T>>,
+			score: ElectionScore,
+		) {
+			Self::mutate_checked(|| {
+				// clear all the data of the current valid solution.
+				let _ = match Self::valid() {
+					SolutionPointer::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
+					SolutionPointer::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
+				};
+				QueuedSolutionScore::<T>::kill();
+
+				// write the new single page and new score.
+				let _ = match Self::valid() {
+					SolutionPointer::X => QueuedSolutionX::<T>::insert(page, supports),
+					SolutionPointer::Y => QueuedSolutionY::<T>::insert(page, supports),
+				};
+				QueuedSolutionScore::<T>::put(score);
+			})
+		}
+
+		/// Computes the score and the winner count of a stored variant solution.
+		/// TODO(gpestana): comments
+		pub(crate) fn compute_current_score() -> Result<(ElectionScore, u32), FeasibilityError> {
+			// ensures that all the pages are complete;
+			// TODO(gpestana): maybe keep track of the number of pages of the variant that has been
+			// stored to make this check cheaper.
+			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
+				return Err(FeasibilityError::Incomplete)
+			}
+
+			let mut supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
+			for (who, PartialBackings { backers, total }) in
+				QueuedSolutionBackings::<T>::iter().map(|(_, backings)| backings).flatten()
+			{
+				let entry = supports.entry(who).or_default();
+				entry.total = entry.total.saturating_add(total);
+				entry.backers = entry.backers.saturating_add(backers);
+
+				if entry.backers > T::MaxBackersPerWinner::get() {
+					return Err(FeasibilityError::TooManyBackings)
+				}
+			}
+
+			let winners_count = supports.len() as u32;
+			let score = sp_npos_elections::evaluate_support(
+				supports.into_iter().map(|(_, backings)| backings),
+			);
+
+			Ok((score, winners_count))
+		}
 
 		pub(crate) fn queued_score() -> Option<ElectionScore> {
 			QueuedSolutionScore::<T>::get()
@@ -162,16 +225,16 @@ pub(crate) mod pallet {
 
 		pub(crate) fn get_queued_solution(page: PageIndex) -> Option<SupportsOf<Pallet<T>>> {
 			match Self::valid() {
-				ValidSolutionPointer::X => QueuedSolutionX::<T>::get(page),
-				ValidSolutionPointer::Y => QueuedSolutionY::<T>::get(page),
+				SolutionPointer::X => QueuedSolutionX::<T>::get(page),
+				SolutionPointer::Y => QueuedSolutionY::<T>::get(page),
 			}
 		}
 
-		pub(crate) fn valid() -> ValidSolutionPointer {
+		pub(crate) fn valid() -> SolutionPointer {
 			QueuedValidVariant::<T>::get()
 		}
 
-		pub(crate) fn invalid() -> ValidSolutionPointer {
+		pub(crate) fn invalid() -> SolutionPointer {
 			Self::valid().other()
 		}
 
@@ -179,6 +242,10 @@ pub(crate) mod pallet {
 			// TODO(gpestana)
 			todo!()
 		}
+	}
+	#[cfg(any(test, debug_assertions))]
+	impl<T: Config> QueuedSolution<T> {
+		// TODO(gpestana): test helpers
 	}
 
 	// TODO
@@ -205,7 +272,7 @@ pub(crate) mod pallet {
 
 	// TODO
 	#[pallet::storage]
-	type QueuedValidVariant<T: Config> = StorageValue<_, ValidSolutionPointer, ValueQuery>;
+	type QueuedValidVariant<T: Config> = StorageValue<_, SolutionPointer, ValueQuery>;
 
 	/// The minimum score that each solution must have to be considered feasible.
 	/// TODO(gpestana): should probably be part of the params pallet
@@ -214,13 +281,10 @@ pub(crate) mod pallet {
 
 	/// Current status of the verification process.
 	#[pallet::storage]
-	pub(crate) type StatusStorage<T: Config> = StorageValue<_, Status, ValueQuery>;
+	pub(crate) type ElectionStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -263,7 +327,7 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 
 	fn kill() {
 		QueuedSolution::<T>::kill();
-		<StatusStorage<T>>::put(Status::Nothing);
+		<ElectionStatus<T>>::put(Status::Nothing);
 	}
 
 	fn verify_synchronous(
@@ -292,11 +356,30 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	type SolutionDataProvider = T::SolutionDataProvider;
 
 	fn status() -> Status {
-		StatusStorage::<T>::get()
+		ElectionStatus::<T>::get()
 	}
 
 	fn start() -> Result<(), &'static str> {
-		todo!()
+		if let Status::Nothing = Self::status() {
+			let claimed_score = Self::SolutionDataProvider::get_score().unwrap_or_default();
+
+			if Self::ensure_score_quality(claimed_score).is_err() {
+				Self::deposit_event(Event::<T>::VerificationFailed(
+					crate::Pallet::<T>::msp(),
+					FeasibilityError::ScoreTooLow,
+				));
+				// report to the solution data provider that the page verification failed.
+				T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+				// despite the verification failed, this was a successful `start` operation.
+				Ok(())
+			} else {
+				ElectionStatus::<T>::put(Status::Ongoing(crate::Pallet::<T>::msp()));
+				Ok(())
+			}
+		} else {
+			sublog!(warn, "verifier", "tries to start election while ongoing, ignored.");
+			Err("verification ongoing")
+		}
 	}
 
 	fn stop() {
@@ -307,7 +390,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 
 		// if a verification is ongoing, signal the solution rejection to the solution data
 		// provider and reset the current status.
-		StatusStorage::<T>::mutate(|status| {
+		ElectionStatus::<T>::mutate(|status| {
 			if matches!(status, Status::Ongoing(_)) {
 				T::SolutionDataProvider::report_result(VerificationResult::Rejected);
 			};
@@ -316,25 +399,76 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	}
 }
 
-/// A type that represents a partial backing of a winner. It does not contain the
-/// [`sp_npos_election::Supports`].
-#[derive(Default, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
-pub struct PartialBackings {
-	/// Total backing of a particular winner.
-	total: ExtendedBalance,
-	/// Number of backers.
-	backers: u32,
-}
-
-impl PartialBackings {
-	fn total(&self) -> ExtendedBalance {
-		self.total
-	}
-}
-
 impl<T: impls::pallet::Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
-		todo!()
+		if let Status::Ongoing(current_page) = <ElectionStatus<T>>::get() {
+			let maybe_page_solution =
+				<T::SolutionDataProvider as SolutionDataProvider>::get_paged_solution(current_page);
+
+			if maybe_page_solution.is_none() {
+				sublog!(
+                    error,
+                    "verifier",
+                    "T::SolutionDataProvider failed to deliver page {}. This is an unexpected error and should not happen. Restarting election state..",
+                    current_page
+                );
+				// reset election data and notify the `T::SolutionDataProvider`.
+				QueuedSolution::<T>::clear_invalid_and_backings();
+				ElectionStatus::<T>::put(Status::Nothing);
+				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
+
+				Self::deposit_event(Event::<T>::SolutionDataUnavailable(current_page));
+
+				// TODO(gpestana): benchmarks.
+				return Zero::zero()
+			}
+
+			let page_solution = maybe_page_solution.expect("page solution checked to exist; qed.");
+			let maybe_supports = Self::feasibility_check(page_solution, current_page);
+
+			match maybe_supports {
+				Ok(supports) => {
+					Self::deposit_event(Event::<T>::Verified(current_page, supports.len() as u32));
+					QueuedSolution::<T>::set_page(current_page, supports);
+
+					if current_page > crate::Pallet::<T>::lsp() {
+						// election didn't finish, tick forward.
+						ElectionStatus::<T>::put(Status::Ongoing(current_page.saturating_add(1)));
+					} else {
+						// last page, finalize everything. At this point, the solution data
+						// provider should have a score ready for us. Otherwise, a default score
+						// will reset the whole election which is the desired behaviour.
+						let claimed_score =
+							T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
+
+						// reset the election status.
+						ElectionStatus::<T>::put(Status::Nothing);
+
+						match Self::finalize_async_verification(claimed_score) {
+							Ok(_) =>
+								T::SolutionDataProvider::report_result(VerificationResult::Queued),
+							Err(_) => {
+								T::SolutionDataProvider::report_result(
+									VerificationResult::Rejected,
+								);
+								// kill the solution in case of error.
+								QueuedSolution::<T>::clear_invalid_and_backings();
+							},
+						}
+					}
+				},
+				Err(err) => {
+					// the paged solution is invalid.
+					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
+					ElectionStatus::<T>::put(Status::Nothing);
+					QueuedSolution::<T>::clear_invalid_and_backings();
+					T::SolutionDataProvider::report_result(VerificationResult::Rejected)
+				},
+			};
+		}
+
+		// TODO(gpestana): benchmarks.
+		Zero::zero()
 	}
 
 	fn do_verify_sync(
@@ -342,7 +476,51 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		claimed_score: ElectionScore,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
-		todo!()
+		let _ = Self::ensure_score_quality(claimed_score);
+		let supports = Self::feasibility_check(partial_solution, page)?;
+
+		let desired_targets =
+			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
+		ensure!(supports.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
+
+		// TODO(gpestana): this clone is unecessary, remove.
+		let score = sp_npos_elections::evaluate_support(
+			supports.clone().into_iter().map(|(_, backings)| backings),
+		);
+		ensure!(score == claimed_score, FeasibilityError::InvalidScore);
+
+		// queue valid solution of single page.
+		QueuedSolution::<T>::force_set_single_page_valid(Zero::zero(), supports.clone(), score);
+
+		Ok(supports)
+	}
+
+	fn finalize_async_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError> {
+		let outcome = QueuedSolution::<T>::compute_current_score()
+			.and_then(|(final_score, winner_count)| {
+				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
+				match (final_score == claimed_score, winner_count == desired_targets) {
+					(true, true) => {
+						Self::deposit_event(Event::<T>::Queued(
+							final_score,
+							QueuedSolution::<T>::queued_score(),
+						));
+						QueuedSolution::<T>::finalize_solution(final_score);
+						Ok(())
+					},
+					(false, true) => Err(FeasibilityError::InvalidScore),
+					(true, false) => Err(FeasibilityError::WrongWinnerCount),
+					(false, false) => Err(FeasibilityError::InvalidScore),
+				}
+			})
+			.map_err(|err| {
+				sublog!(warn, "verifier", "finalizing the solution was invalid due to {:?}", err);
+				Self::deposit_event(Event::<T>::VerificationFailed(Zero::zero(), err.clone()));
+				err
+			});
+
+		sublog!(debug, "verifier", "finalize verification outcome: {:?}", outcome);
+		outcome
 	}
 
 	fn ensure_score_quality(score: ElectionScore) -> Result<(), FeasibilityError> {
@@ -356,5 +534,94 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
 
 		Ok(())
+	}
+
+	/// Do the full feasibility check:
+	///
+	/// - check all edges.
+	/// - checks `MaxBackersPerWinner` to be respected IN THIS PAGE.
+	/// - checks the number of winners to be less than or equal to `DesiredTargets` IN THIS PAGE
+	///   ONLY.
+	pub(super) fn feasibility_check(
+		partial_solution: SolutionOf<T>,
+		page: PageIndex,
+	) -> Result<SupportsOf<Self>, FeasibilityError> {
+		// Read the corresponding snapshots.
+		let snapshot_targets =
+			crate::Snapshot::<T>::targets(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
+		let snapshot_voters =
+			crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
+
+		// ----- Start building. First, we need some closures.
+		let cache = helpers::generate_voter_cache::<T, _>(&snapshot_voters);
+		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
+		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
+		let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
+
+		// Then convert solution -> assignment. This will fail if any of the indices are
+		// gibberish.
+		let assignments = partial_solution
+			.into_assignment(voter_at, target_at)
+			.map_err::<FeasibilityError, _>(Into::into)?;
+
+		// Ensure that assignments are all correct.
+		let _ = assignments
+			.iter()
+			.map(|ref assignment| {
+				// Check that assignment.who is actually a voter (defensive-only). NOTE: while
+				// using the index map from `voter_index` is better than a blind linear search,
+				// this *still* has room for optimization. Note that we had the index when we
+				// did `solution -> assignment` and we lost it. Ideal is to keep the index
+				// around.
+
+				// Defensive-only: must exist in the snapshot.
+				let snapshot_index =
+					voter_index(&assignment.who).ok_or(FeasibilityError::InvalidVoter)?;
+				// Defensive-only: index comes from the snapshot, must exist.
+				let (_voter, _stake, targets) =
+					snapshot_voters.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)?;
+				debug_assert!(*_voter == assignment.who);
+
+				// Check that all of the targets are valid based on the snapshot.
+				if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
+					return Err(FeasibilityError::InvalidVote)
+				}
+				Ok(())
+			})
+			.collect::<Result<(), FeasibilityError>>()?;
+
+		// ----- Start building support. First, we need one more closure.
+		let stake_of = helpers::stake_of_fn::<T, _>(&snapshot_voters, &cache);
+
+		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
+		let staked_assignments =
+			sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, stake_of)
+				.map_err::<FeasibilityError, _>(Into::into)?;
+
+		let supports = sp_npos_elections::to_supports(&staked_assignments);
+
+		// Check the maximum number of backers per winner. If this is a single-page solution, this
+		// is enough to check `MaxBackersPerWinner`. Else, this is just a heuristic, and needs to be
+		// checked again at the end (via `QueuedSolutionBackings`).
+		ensure!(
+			supports
+				.iter()
+				.all(|(_, s)| (s.voters.len() as u32) <= T::MaxBackersPerWinner::get()),
+			FeasibilityError::TooManyBackings
+		);
+
+		// Ensure some heuristics. These conditions must hold in the **entire** support, this is
+		// just a single page. But, they must hold in a single page as well.
+		let desired_targets =
+			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
+		ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
+
+		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
+		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
+		// is ALSO checked, so this conversion can almost never fail.
+		let bounded_supports = supports
+			.try_into_bounded_supports()
+			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
+		Ok(bounded_supports)
 	}
 }

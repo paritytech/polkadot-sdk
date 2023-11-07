@@ -21,17 +21,39 @@ mod tests;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Get;
-use sp_npos_elections::ElectionScore;
+use sp_npos_elections::{ElectionScore, ExtendedBalance};
 use sp_runtime::RuntimeDebug;
 
-use crate::{Config, PageIndex, SupportsOf};
+use crate::{PageIndex, SupportsOf};
 
 /// Errors related to the solution feasibility checks.
 #[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]
 pub enum FeasibilityError {
-	// TODO(gpestana)
 	/// Election score is too low to be accepted.
 	ScoreTooLow,
+	/// Ongoing verification was not completed.
+	Incomplete,
+	/// Solution exceeds the number of backers per winner for at least one winner.
+	TooManyBackings,
+	/// Solution exceeds the number of winners.
+	WrongWinnerCount,
+	/// Snapshot is not available.
+	SnapshotUnavailable,
+	/// A voter is invalid.
+	InvalidVoter,
+	/// A vote is invalid.
+	InvalidVote,
+	/// Solution with an invalid score.
+	InvalidScore,
+	/// Internal election error.
+	#[codec(skip)]
+	NposElection(sp_npos_elections::Error),
+}
+
+impl From<sp_npos_elections::Error> for FeasibilityError {
+	fn from(err: sp_npos_elections::Error) -> Self {
+		FeasibilityError::NposElection(err)
+	}
 }
 
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug)]
@@ -50,23 +72,39 @@ impl Default for Status {
 }
 
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen)]
-pub enum ValidSolutionPointer {
+pub enum SolutionPointer {
 	X,
 	Y,
 }
 
-impl Default for ValidSolutionPointer {
+impl Default for SolutionPointer {
 	fn default() -> Self {
-		ValidSolutionPointer::X
+		SolutionPointer::X
 	}
 }
 
-impl ValidSolutionPointer {
-	pub fn other(&self) -> ValidSolutionPointer {
+impl SolutionPointer {
+	pub fn other(&self) -> SolutionPointer {
 		match *self {
-			ValidSolutionPointer::X => ValidSolutionPointer::Y,
-			ValidSolutionPointer::Y => ValidSolutionPointer::X,
+			SolutionPointer::X => SolutionPointer::Y,
+			SolutionPointer::Y => SolutionPointer::X,
 		}
+	}
+}
+
+/// A type that represents a partial backing of a winner. It does not contain the
+/// [`sp_npos_election::Supports`] normally associated with a list of backings.
+#[derive(Default, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
+pub struct PartialBackings {
+	/// Total backing of a particular winner.
+	total: ExtendedBalance,
+	/// Number of backers.
+	backers: u32,
+}
+
+impl sp_npos_elections::Backings for PartialBackings {
+	fn total(&self) -> ExtendedBalance {
+		self.total
 	}
 }
 

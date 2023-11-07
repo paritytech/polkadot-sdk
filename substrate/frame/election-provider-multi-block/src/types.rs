@@ -18,12 +18,12 @@
 //! # Types for the multi-block election provider pallet.
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::DebugNoBound;
+use frame_support::{BoundedVec, DebugNoBound};
 use scale_info::TypeInfo;
 
 use crate::Verifier;
 
-use frame_election_provider_support::PageIndex;
+use frame_election_provider_support::{NposSolution, PageIndex};
 
 /// Supports that are returned from a given [`Verifier`].
 pub type SupportsOf<V> = frame_election_provider_support::BoundedSupports<
@@ -31,6 +31,11 @@ pub type SupportsOf<V> = frame_election_provider_support::BoundedSupports<
 	<V as Verifier>::MaxWinnersPerPage,
 	<V as Verifier>::MaxBackersPerWinner,
 >;
+
+/// The voter index. Derived from [`SolutionOf`].
+pub type SolutionVoterIndexOf<T> = <SolutionOf<T> as NposSolution>::VoterIndex;
+/// The target index. Derived from [`SolutionOf`].
+pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex;
 
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as crate::Config>::Solution;
@@ -60,3 +65,6 @@ impl<Bn> Default for Phase<Bn> {
 pub(crate) type VoterOf<T> =
 	frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
 
+/// Alias for a page of voters, parameterized by this crate's config.
+pub(crate) type VoterPageOf<T> =
+	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;

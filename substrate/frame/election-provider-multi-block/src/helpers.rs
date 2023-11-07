@@ -17,6 +17,11 @@
 
 //! Some helper functions/macros for this crate.
 
+use crate::{types::VoterOf, Config, SolutionTargetIndexOf, SolutionVoterIndexOf};
+use frame_election_provider_support::VoteWeight;
+use frame_support::{traits::Get, BoundedVec};
+use std::collections::BTreeMap;
+
 #[macro_export]
 macro_rules! log {
 	($level:tt, $pattern:expr $(, $values:expr)* $(,)?) => {
@@ -37,4 +42,95 @@ macro_rules! sublog {
 			concat!("[#{:?}] 🗳🗳🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values )*
 		)
 	};
+}
+
+/// Generate a btree-map cache of the voters and their indices within the provided `snapshot`.
+///
+/// This does not care about pagination. `snapshot` might be a single page or the entire blob of
+/// voters.
+///
+/// This can be used to efficiently build index getter closures.
+pub fn generate_voter_cache<T: Config, AnyBound: Get<u32>>(
+	snapshot: &BoundedVec<VoterOf<T>, AnyBound>,
+) -> BTreeMap<T::AccountId, usize> {
+	let mut cache: BTreeMap<T::AccountId, usize> = BTreeMap::new();
+	snapshot.iter().enumerate().for_each(|(i, (x, _, _))| {
+		let _existed = cache.insert(x.clone(), i);
+		// if a duplicate exists, we only consider the last one. Defensive only, should never
+		// happen.
+		debug_assert!(_existed.is_none());
+	});
+
+	cache
+}
+
+/// Create a function that returns the index of a voter in the snapshot.
+///
+/// The returning index type is the same as the one defined in `T::Solution::Voter`.
+///
+/// ## Warning
+///
+/// Note that this will represent the snapshot data from which the `cache` is generated.
+pub fn voter_index_fn<T: Config>(
+	cache: &BTreeMap<T::AccountId, usize>,
+) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexOf<T>> + '_ {
+	move |who| {
+		cache
+			.get(who)
+			.and_then(|i| <usize as TryInto<SolutionVoterIndexOf<T>>>::try_into(*i).ok())
+	}
+}
+
+/// Create a function that can map a voter index ([`SolutionVoterIndexOf`]) to the actual voter
+/// account using a linearly indexible snapshot.
+pub fn voter_at_fn<T: Config>(
+	snapshot: &Vec<VoterOf<T>>,
+) -> impl Fn(SolutionVoterIndexOf<T>) -> Option<T::AccountId> + '_ {
+	move |i| {
+		<SolutionVoterIndexOf<T> as TryInto<usize>>::try_into(i)
+			.ok()
+			.and_then(|i| snapshot.get(i).map(|(x, _, _)| x).cloned())
+	}
+}
+
+/// Create a function that can map a target index ([`SolutionTargetIndexOf`]) to the actual target
+/// account using a linearly indexible snapshot.
+pub fn target_at_fn<T: Config>(
+	snapshot: &Vec<T::AccountId>,
+) -> impl Fn(SolutionTargetIndexOf<T>) -> Option<T::AccountId> + '_ {
+	move |i| {
+		<SolutionTargetIndexOf<T> as TryInto<usize>>::try_into(i)
+			.ok()
+			.and_then(|i| snapshot.get(i).cloned())
+	}
+}
+
+/// Same as [`voter_index_fn`], but the returning index is converted into usize, if possible.
+///
+/// ## Warning
+///
+/// Note that this will represent the snapshot data from which the `cache` is generated.
+pub fn voter_index_fn_usize<T: Config>(
+	cache: &BTreeMap<T::AccountId, usize>,
+) -> impl Fn(&T::AccountId) -> Option<usize> + '_ {
+	move |who| cache.get(who).cloned()
+}
+
+/// Create a function to get the stake of a voter.
+///
+/// ## Warning
+///
+/// The cache need must be derived from the same snapshot. Zero is returned if a voter is
+/// non-existent.
+pub fn stake_of_fn<'a, T: Config, AnyBound: Get<u32>>(
+	snapshot: &'a BoundedVec<VoterOf<T>, AnyBound>,
+	cache: &'a BTreeMap<T::AccountId, usize>,
+) -> impl Fn(&T::AccountId) -> VoteWeight + 'a {
+	move |who| {
+		if let Some(index) = cache.get(who) {
+			snapshot.get(*index).map(|(_, x, _)| x).cloned().unwrap_or_default()
+		} else {
+			0
+		}
+	}
 }
