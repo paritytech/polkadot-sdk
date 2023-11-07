@@ -45,8 +45,8 @@ pub mod signed_extensions_example {
 	}
 
 	// This is the opposite; nothing will be added to the extrinsic payload,
-	// but the AdditionalSigned type is `1234u32`, which will be added to the
-	// payload which will be signed.
+	// but the AdditionalSigned type (`1234u32`) will be added to the
+	// payload to be signed.
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 	pub struct AddToSignaturePayload;
 
