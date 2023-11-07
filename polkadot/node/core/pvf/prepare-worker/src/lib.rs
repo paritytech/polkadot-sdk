@@ -302,7 +302,7 @@ fn runtime_construction_check(
 }
 
 #[derive(Encode, Decode)]
-struct Response {
+struct JobResponse {
 	artifact: CompiledArtifact,
 	memory_stats: MemoryStats,
 }
@@ -327,7 +327,7 @@ struct Response {
 ///
 /// - If any error occur, pipe response back with `PrepareError`.
 ///
-/// - If success, pipe back `Response`.
+/// - If success, pipe back `JobResponse`.
 fn handle_child_process(
 	pvf: PvfPrepData,
 	mut pipe_write: PipeWriter,
@@ -460,7 +460,7 @@ fn handle_child_process(
 						peak_tracked_alloc: if peak_alloc > 0 { peak_alloc as u64 } else { 0u64 },
 					};
 
-					Ok(Response { artifact, memory_stats })
+					Ok(JobResponse { artifact, memory_stats })
 				},
 			}
 		},
@@ -622,9 +622,9 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 }
 
 /// Get a job response.
-fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResponse> {
+fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResult> {
 	let response_bytes = framed_recv_blocking(received_data)?;
-	JobResponse::decode(&mut response_bytes.as_slice()).map_err(|e| {
+	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			format!("prepare pvf recv_child_response: decode error: {:?}", e),
@@ -639,7 +639,7 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 /// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-fn send_child_response(pipe_write: &mut PipeWriter, response: JobResponse) -> ! {
+fn send_child_response(pipe_write: &mut PipeWriter, response: JobResult) -> ! {
 	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
@@ -654,7 +654,7 @@ fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
 	PrepareError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error()))
 }
 
-type JobResponse = Result<Response, PrepareError>;
+type JobResult = Result<JobResponse, PrepareError>;
 
 /// Pre-encoded length-prefixed `Result::Err(PrepareError::OutOfMemory)`
 const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
@@ -662,7 +662,7 @@ const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 #[test]
 fn pre_encoded_payloads() {
 	// NOTE: This must match the type of `response` in `send_child_response`.
-	let oom_unencoded: JobResponse = Result::Err(PrepareError::OutOfMemory);
+	let oom_unencoded: JobResult = Result::Err(PrepareError::OutOfMemory);
 	let oom_encoded = oom_unencoded.encode();
 	// The payload is prefixed with	its length in `framed_send`.
 	let mut oom_payload = oom_encoded.len().to_le_bytes().to_vec();
