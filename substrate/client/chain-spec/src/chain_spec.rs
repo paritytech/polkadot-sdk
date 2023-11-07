@@ -626,7 +626,10 @@ struct ChainSpecJsonContainer<G, E> {
 	genesis: Genesis<G>,
 }
 
-impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static, HF> ChainSpec<G, E, HF> {
+impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static, HF> ChainSpec<G, E, HF>
+where
+	HF: HostFunctions,
+{
 	fn json_container(&self, raw: bool) -> Result<ChainSpecJsonContainer<G, E>, String> {
 		let raw_genesis = match (raw, self.genesis.resolve()?) {
 			(
@@ -636,8 +639,8 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static, HF> ChainSpec<G, 
 					code,
 				}),
 			) => {
-				let mut storage = RuntimeCaller::<sp_io::SubstrateHostFunctions>::new(&code[..])
-					.get_storage_for_config(config)?;
+				let mut storage =
+					RuntimeCaller::<HF>::new(&code[..]).get_storage_for_config(config)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -648,8 +651,8 @@ impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static, HF> ChainSpec<G, 
 					code,
 				}),
 			) => {
-				let mut storage = RuntimeCaller::<sp_io::SubstrateHostFunctions>::new(&code[..])
-					.get_storage_for_patch(patch)?;
+				let mut storage =
+					RuntimeCaller::<HF>::new(&code[..]).get_storage_for_patch(patch)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
