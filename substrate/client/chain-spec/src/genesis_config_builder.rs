@@ -132,13 +132,13 @@ mod tests {
 	use super::*;
 	use serde_json::{from_str, json};
 	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
-	type RuntimeCaller<'a> = GenesisConfigBuilderRuntimeCaller<'a, sp_io::SubstrateHostFunctions>;
 
 	#[test]
 	fn get_default_config_works() {
-		let config = RuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
-			.get_default_config()
-			.unwrap();
+		let config =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_default_config()
+				.unwrap();
 		let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
@@ -157,9 +157,10 @@ mod tests {
 			},
 		});
 
-		let storage = RuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
-			.get_storage_for_patch(patch)
-			.unwrap();
+		let storage =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_storage_for_patch(patch)
+				.unwrap();
 
 		//Babe|Authorities
 		let value: Vec<u8> = storage
