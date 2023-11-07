@@ -24,6 +24,7 @@ use crate::{
 	mock::MockGenesisConfig,
 	paras::{ParaGenesisArgs, ParaKind},
 };
+use sp_runtime::Perbill;
 
 use primitives::{Balance, HeadData, ValidationCode};
 

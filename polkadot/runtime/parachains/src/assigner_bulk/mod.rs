@@ -29,23 +29,13 @@ use crate::{
 	},
 };
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{
-		Currency,
-		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		WithdrawReasons,
-	},
-};
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use primitives::{CoreIndex, Id as ParaId};
-use sp_runtime::{
-	traits::{One, SaturatedConversion},
-	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
-};
+use sp_runtime::Saturating;
 
-use sp_std::{collections::vec_deque::VecDeque, prelude::*};
+use sp_std::prelude::*;
 
 const LOG_TARGET: &str = "runtime::parachains::assigner-bulk";
 
@@ -65,6 +55,7 @@ impl WeightInfo for TestWeightInfo {}
 ///
 /// for a particular core.
 #[derive(Encode, Decode, TypeInfo)]
+#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
 struct Schedule<N> {
 	// Original assignments
 	assignments: Vec<(CoreAssignment, PartsOf57600)>,
@@ -94,6 +85,7 @@ impl<N> Default for Schedule<N> {
 /// This is the state of assignments currently being served via the `AssignmentProvider` interface,
 /// as opposed to `Schedule` which is upcoming not yet served assignments.
 #[derive(Encode, Decode, TypeInfo)]
+#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
 struct CoreState<N> {
 	/// Assignments with current state.
 	///
@@ -127,6 +119,7 @@ impl<N> Default for CoreState<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
+#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone, Copy))]
 struct AssignmentState {
 	/// Ratio of the core this assignment has.
 	///
@@ -191,8 +184,7 @@ pub mod pallet {
 		Twox256,
 		(BlockNumberFor<T>, CoreIndex),
 		Schedule<BlockNumberFor<T>>,
-		ValueQuery,
-		GetDefault,
+		OptionQuery,
 	>;
 
 	/// Latest schedule for the given core.
@@ -213,7 +205,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			unimplemented!("TODO: Implement")
+			//TODO: Implement
+			T::DbWeight::get().reads_writes(0, 0)
 		}
 	}
 
@@ -229,6 +222,7 @@ pub mod pallet {
 
 /// Assignments as provided by our `AssignmentProvider` implementation.
 #[derive(Encode, Decode, TypeInfo, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum BulkAssignment<OnDemand> {
 	/// Assignment was an instantaneous core time assignment.
 	Instantaneous(OnDemand),
@@ -258,7 +252,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn migrate_old_to_current(
 		old: Self::OldAssignmentType,
-		core: CoreIndex,
+		_core: CoreIndex,
 	) -> Self::AssignmentType {
 		old
 	}
@@ -345,9 +339,13 @@ impl<T: Config> Pallet<T> {
 			match workload.end_hint {
 				Some(end_hint) if end_hint < now => {
 					// Invariant: Always points to next item in `Workplan`, if such an item exists.
-					let n = end_hint.saturating_add(BlockNumberFor::<T>::from(1u32));
-					// Workload expired - update to whatever is scheduled or `None` if nothing is:
-					Workplan::<T>::take((n, core_idx))
+					let n = end_hint.saturating_plus_one();
+					// Workload expired - update to whatever is scheduled, or a default workload if
+					// nothing is:
+					match Workplan::<T>::take((n, core_idx)) {
+						Some(schedule) => schedule,
+						None => Schedule::default(),
+					}
 				},
 				// Still alive:
 				Some(_) => return,
@@ -360,36 +358,63 @@ impl<T: Config> Pallet<T> {
 		*workload = update.into();
 	}
 
-	// Add a schedule to the given core which starts at the given block number. 
-	// This schedule of work will be serviced indefinitely unless some new 
+	// Add a schedule to the given core which starts at the given block number.
+	// This schedule of work will be serviced indefinitely unless some new
 	// schedule is added.
 	fn assign_core(
-		schedule: Schedule<T>,
+		schedule: Schedule<BlockNumberFor<T>>,
 		core_idx: CoreIndex,
-		schedule_start: BlockNumberFor::<T>,
+		schedule_start: BlockNumberFor<T>,
 	) -> Result<(), DispatchError> {
 		// TODO: Make sure this check is appropriate based on when and how we assign
 		// schedule endings
 		ensure!(schedule.end_hint.is_none(), Error::<T>::InvalidScheduleAssigned);
 
+		// There should be at least one assignment
+		ensure!(schedule.assignments.len() > 0usize, Error::<T>::InvalidScheduleAssigned);
+
 		// Check that the total parts between all assignments do not exceed 57600
-		ensure!(schedule.assignments.iter().map(|assignment| assignment.1).fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) 
-				<= PartsOf57600::from(57600u16), Error::<T>::InvalidScheduleAssigned);
+		ensure!(
+			schedule
+				.assignments
+				.iter()
+				.map(|assignment| assignment.1)
+				.fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) <=
+				PartsOf57600::from(57600u16),
+			Error::<T>::InvalidScheduleAssigned
+		);
 
-		// Check that schedule_start is a higher block number than that for any other
-		// schedule for the same core
-		//ensure!(Workplan::<T>::get(core_idx).last(),
-				//Error::<T>::InvalidScheduleAssigned);
-
-		// TODO: Possibly check that schedule start isn't in the past
+		let mut prior_schedule_start: Option<BlockNumberFor<T>> = None;
+		LatestCoreSchedule::<T>::try_mutate(core_idx, |maybe_prior_schedule| {
+			prior_schedule_start = maybe_prior_schedule.clone();
+			// Check that schedule_start is a higher block number than that of any other
+			// schedule for the same core
+			if let Some(prior_schedule) = maybe_prior_schedule {
+				ensure!(*prior_schedule < schedule_start, Error::<T>::InvalidScheduleAssigned);
+			}
+			*maybe_prior_schedule = Some(schedule_start);
+			Ok::<(), Error<T>>(())
+		})?;
 
 		// Enter schedule into workplan
+		Workplan::<T>::insert((schedule_start, core_idx), schedule);
 
-		// Add end_hint to prior schedule, if any
-
-		// If the workplan for this core is empty but there is an active workload,
-		// set an end_hint for the active workload
-
+		// Add end_hint to prior schedule, if any. Else, set end hint for this core's
+		// CoreState. This call is why using OptionQuery for Workplan is helpful.
+		let mut has_prior_schedule = false;
+		if let Some(prior_schedule_start) = prior_schedule_start {
+			Workplan::<T>::mutate((prior_schedule_start, core_idx), |maybe_prior_schedule| {
+				if let Some(prior_schedule) = maybe_prior_schedule {
+					prior_schedule.end_hint = Some(schedule_start.saturating_less_one());
+					has_prior_schedule = true;
+				}
+			});
+		}
+		if has_prior_schedule == false {
+			Workload::<T>::mutate(core_idx, |core_state| {
+				core_state.end_hint = Some(schedule_start.saturating_less_one());
+			});
+		}
 		Ok(())
 	}
 }
