@@ -22,21 +22,31 @@
 
 pub mod middleware;
 
-use std::{error::Error as StdError, net::SocketAddr, time::Duration, sync::Arc};
+use std::{
+	convert::Infallible, error::Error as StdError, net::SocketAddr, sync::Arc, time::Duration,
+};
 
+use futures::FutureExt;
 use http::header::HeaderValue;
+use hyper::{
+	server::conn::AddrStream,
+	service::{make_service_fn, service_fn},
+};
 use jsonrpsee::{
 	server::{
-		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
-		middleware::rpc::RpcServiceBuilder,
-		PingConfig,
+		middleware::{
+			http::{HostFilterLayer, ProxyGetRequestLayer},
+			rpc::RpcServiceBuilder,
+		},
+		ws, PingConfig, ServerHandle, StopHandle,
 	},
 	RpcModule,
 };
 use tokio::net::TcpListener;
+use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use crate::middleware::{RpcMetrics, RateLimit, Metrics};
+pub use crate::middleware::{Metrics, Rate, RateLimit, RpcMetrics};
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
@@ -95,6 +105,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
+	// TODO: fix me niklas is lazy.
 	let metrics = Arc::new(metrics.take().unwrap());
 
 	let http_middleware = tower::ServiceBuilder::new()
@@ -103,12 +114,12 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.layer(ProxyGetRequestLayer::new("/health", "system_health")?)
 		.layer(try_into_cors(cors)?);
 
-	// not used...
-	let (tx, _rx) = tokio::sync::mpsc::channel(1);
-
+	let metrics2 = metrics.clone();
 	let rpc_middleware = RpcServiceBuilder::new()
-		.layer_fn(move |service| RateLimit::per_conn(service, tx.clone()))
-		.layer_fn(move |service| Metrics::new(service, metrics.clone()));
+		.layer_fn(move |service| {
+			RateLimit::new(service, Rate::new(100, std::time::Duration::from_secs(60)))
+		})
+		.layer_fn(move |service| Metrics::new(service, metrics2.clone()));
 
 	let mut builder = jsonrpsee::server::Server::builder()
 		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
@@ -128,9 +139,55 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
 	};
 
-	let rpc_api = build_rpc_api(rpc_api);
-	let server = builder.build_from_tcp(std_listener)?;
-	let handle = server.start(rpc_api);
+	let methods = build_rpc_api(rpc_api);
+	let svc_builder = builder.to_service_builder().max_connections(max_connections);
+
+	let (tx, rx) = tokio::sync::watch::channel(());
+	let stop_handle = StopHandle::new(rx);
+	let server_handle = ServerHandle::new(tx);
+	let stop_handle2 = stop_handle.clone();
+	let methods = methods.clone();
+	let metrics = metrics.clone();
+
+	let make_service = make_service_fn(move |_conn: &AddrStream| {
+		let stop_handle = stop_handle2.clone();
+		let svc_builder = svc_builder.clone();
+		let metrics = metrics.clone();
+		let methods = methods.clone();
+
+		async move {
+			let stop_handle = stop_handle.clone();
+			let svc_builder = svc_builder.clone();
+			let stop_handle = stop_handle.clone();
+			let metrics = metrics.clone();
+
+			Ok::<_, Infallible>(service_fn(move |req| {
+				let metrics = metrics.clone();
+				let is_websocket = ws::is_upgrade_request(&req);
+				let mut svc = svc_builder.build(methods.clone(), stop_handle.clone());
+
+				async move {
+					if is_websocket {
+						let now = std::time::Instant::now();
+						metrics.ws_connect();
+						let rp = svc.call(req).await;
+						metrics.ws_disconnect(now);
+						rp
+					} else {
+						svc.call(req).await
+					}
+				}
+				.boxed()
+			}))
+		}
+	});
+
+	let server = hyper::Server::from_tcp(std_listener)?.serve(make_service);
+
+	tokio::spawn(async move {
+		let graceful = server.with_graceful_shutdown(async move { stop_handle.shutdown().await });
+		graceful.await.unwrap()
+	});
 
 	log::info!(
 		"Running JSON-RPC server: addr={}, allowed origins={}",
@@ -138,7 +195,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		format_cors(cors)
 	);
 
-	Ok(handle)
+	Ok(server_handle)
 }
 
 fn hosts_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {

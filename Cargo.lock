@@ -6755,7 +6755,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "jsonrpsee-core 0.20.0",
  "jsonrpsee-http-client",
@@ -6770,7 +6770,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "futures-util",
  "http",
@@ -6789,7 +6789,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "anyhow",
  "async-lock 3.0.0",
@@ -6829,7 +6829,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "async-trait",
  "hyper",
@@ -6848,7 +6848,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "heck",
  "proc-macro-crate 2.0.0",
@@ -6860,7 +6860,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -6883,7 +6883,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "anyhow",
  "beef",
@@ -6910,7 +6910,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#0a9f393ab0da2d1fb632878b716d77d3a2587764"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#3c95d2e0bc91c8b2c62479a81362cd2761041f43"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",

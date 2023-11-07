@@ -121,9 +121,7 @@ impl RpcMetrics {
 		let micros = now.elapsed().as_secs();
 
 		self.ws_sessions_closed.as_ref().map(|counter| counter.inc());
-		self.ws_sessions_time
-			.with_label_values(&["ws"])
-			.observe(micros as _);
+		self.ws_sessions_time.with_label_values(&["ws"]).observe(micros as _);
 	}
 }
 
