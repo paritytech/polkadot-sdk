@@ -219,7 +219,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				message,
 				properties,
 			);
-			return Outcome::Error(XcmError::Barrier)
+			return Outcome::Error { error: XcmError::Barrier }
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
@@ -379,12 +379,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		};
 
 		match self.error {
-			None => Outcome::Complete(weight_used),
+			None => Outcome::Complete { used: weight_used },
 			// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
 			// the error which didn't end up being executed.
 			Some((_i, e)) => {
 				log::trace!(target: "xcm::post_process", "Execution errored at {:?}: {:?} (original_origin: {:?})", _i, e, self.original_origin);
-				Outcome::Incomplete(weight_used, e)
+				Outcome::Incomplete { used: weight_used, error: e }
 			},
 		}
 	}

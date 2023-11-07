@@ -239,11 +239,11 @@ pub mod mock_msg_queue {
 				Ok(xcm) => {
 					let location = Location::new(1, [Parachain(sender.into())]);
 					match T::XcmExecutor::prepare_and_execute(location, xcm, &mut message_hash, max_weight, Weight::zero()) {
-						Outcome::Error(e) => (Err(e), Event::Fail(Some(hash), e)),
-						Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
+						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete(w, e) => (Ok(w), Event::Fail(Some(hash), e)),
+						Outcome::Incomplete { used, error } => (Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),

@@ -208,7 +208,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::XcmPallet(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete { used: weight } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -230,7 +230,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::XcmPallet(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -415,7 +415,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete { used: weight } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -437,7 +437,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -457,7 +457,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Execution fails in the origin with `Barrier`
 							[<$chain RuntimeEvent>]::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error(error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error { error } }
 							) => {
 								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},

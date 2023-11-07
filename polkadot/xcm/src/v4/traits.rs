@@ -25,8 +25,6 @@ pub use sp_weights::Weight;
 
 use super::*;
 
-/*
-TODO: XCMv4
 /// Outcome of an XCM execution.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Outcome {
@@ -66,45 +64,7 @@ impl Outcome {
 
 impl From<Error> for Outcome {
 	fn from(error: Error) -> Self {
-		Self::Error { error, maybe_id: None }
-	}
-}
-*/
-
-/// Outcome of an XCM execution.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum Outcome {
-	/// Execution completed successfully; given weight was used.
-	Complete(Weight),
-	/// Execution started, but did not complete successfully due to the given error; given weight
-	/// was used.
-	Incomplete(Weight, Error),
-	/// Execution did not start due to the given error.
-	Error(Error),
-}
-
-impl Outcome {
-	pub fn ensure_complete(self) -> Result {
-		match self {
-			Outcome::Complete(_) => Ok(()),
-			Outcome::Incomplete(_, e) => Err(e),
-			Outcome::Error(e) => Err(e),
-		}
-	}
-	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
-		match self {
-			Outcome::Complete(w) => Ok(w),
-			Outcome::Incomplete(w, _) => Ok(w),
-			Outcome::Error(e) => Err(e),
-		}
-	}
-	/// How much weight was used by the XCM execution attempt.
-	pub fn weight_used(&self) -> Weight {
-		match self {
-			Outcome::Complete(w) => *w,
-			Outcome::Incomplete(w, _) => *w,
-			Outcome::Error(_) => Weight::zero(),
-		}
+		Self::Error { error }
 	}
 }
 
@@ -131,11 +91,11 @@ pub trait ExecuteXcm<Call> {
 	) -> Outcome {
 		let pre = match Self::prepare(message) {
 			Ok(x) => x,
-			Err(_) => return Outcome::Error(Error::WeightNotComputable),
+			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error(Error::WeightLimitReached(xcm_weight))
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}
@@ -178,11 +138,11 @@ pub trait ExecuteXcm<Call> {
 	) -> Outcome {
 		let pre = match Self::prepare(message) {
 			Ok(x) => x,
-			Err(_) => return Outcome::Error(Error::WeightNotComputable),
+			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error(Error::WeightLimitReached(xcm_weight))
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
 		}
 		Self::execute(origin, pre, &mut hash, weight_credit)
 	}
@@ -211,6 +171,31 @@ impl<C> ExecuteXcm<C> for () {
 		Err(Error::Unimplemented)
 	}
 }
+
+// pub trait Reanchorable: Sized {
+// 	/// Type to return in case of an error.
+// 	type Error;
+
+// 	/// Mutate `self` so that it represents the same location from the point of view of `target`.
+// 	/// The context of `self` is provided as `context`.
+// 	///
+// 	/// Does not modify `self` in case of overflow.
+// 	fn reanchor(
+// 		&mut self,
+// 		target: &MultiLocation,
+// 		context: InteriorMultiLocation,
+// 	) -> core::result::Result<(), ()>;
+
+// 	/// Consume `self` and return a new value representing the same location from the point of view
+// 	/// of `target`. The context of `self` is provided as `context`.
+// 	///
+// 	/// Returns the original `self` in case of overflow.
+// 	fn reanchored(
+// 		self,
+// 		target: &MultiLocation,
+// 		context: InteriorMultiLocation,
+// 	) -> core::result::Result<Self, Self::Error>;
+// }
 
 /// Result value when attempting to send an XCM message.
 pub type SendResult<T> = result::Result<(T, Assets), SendError>;
