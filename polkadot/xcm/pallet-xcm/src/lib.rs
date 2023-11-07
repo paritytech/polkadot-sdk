@@ -1375,7 +1375,7 @@ impl<T: Config> Pallet<T> {
 		);
 		let (mut local_xcm, remote_xcm) = match transfer_type {
 			TransferType::LocalReserve => {
-				let (local, remote) = Self::local_reserve_transfer_messages(
+				let (local, remote) = Self::local_reserve_transfer_programs(
 					dest,
 					beneficiary,
 					assets,
@@ -1386,7 +1386,7 @@ impl<T: Config> Pallet<T> {
 				(local, Some(remote))
 			},
 			TransferType::DestinationReserve => {
-				let (local, remote) = Self::destination_reserve_transfer_messages(
+				let (local, remote) = Self::destination_reserve_transfer_programs(
 					dest,
 					beneficiary,
 					assets,
@@ -1397,7 +1397,7 @@ impl<T: Config> Pallet<T> {
 				(local, Some(remote))
 			},
 			TransferType::RemoteReserve(reserve) => (
-				Self::remote_reserve_transfer_message(
+				Self::remote_reserve_transfer_program(
 					reserve,
 					dest,
 					beneficiary,
@@ -1407,8 +1407,10 @@ impl<T: Config> Pallet<T> {
 				)?,
 				None,
 			),
-			TransferType::Teleport =>
-				(Self::teleport_asset_message(dest, beneficiary, assets, fees, weight_limit)?, None),
+			TransferType::Teleport => (
+				Self::teleport_assets_program(dest, beneficiary, assets, fees, weight_limit)?,
+				None,
+			),
 		};
 		let weight =
 			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
@@ -1453,7 +1455,7 @@ impl<T: Config> Pallet<T> {
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
-	fn local_reserve_transfer_messages(
+	fn local_reserve_transfer_programs(
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
@@ -1531,7 +1533,7 @@ impl<T: Config> Pallet<T> {
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
-	fn destination_reserve_transfer_messages(
+	fn destination_reserve_transfer_programs(
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
@@ -1595,7 +1597,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// function assumes fees and assets have the same remote reserve
-	fn remote_reserve_transfer_message(
+	fn remote_reserve_transfer_program(
 		reserve: MultiLocation,
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
@@ -1683,7 +1685,7 @@ impl<T: Config> Pallet<T> {
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
-	fn teleport_asset_message(
+	fn teleport_assets_program(
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
