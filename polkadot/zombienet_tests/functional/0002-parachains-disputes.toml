@@ -1,7 +1,7 @@
 [settings]
 timeout = 1000
 
-[relaychain.genesis.runtime.configuration.config]
+[relaychain.genesis.runtimeGenesis.patch.configuration.config]
   max_validators_per_core = 5
   needed_approvals = 8
 

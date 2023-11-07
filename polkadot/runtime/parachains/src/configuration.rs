@@ -56,6 +56,7 @@ const LOG_TARGET: &str = "runtime::configuration";
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[serde(deny_unknown_fields)]
 pub struct HostConfiguration<BlockNumber> {
 	// NOTE: This structure is used by parachains via merkle proofs. Therefore, this struct
 	// requires special treatment.

@@ -1871,7 +1871,8 @@ impl State {
 					);
 
 					entry.mark_sent(&notknown_by_peer);
-					send_assignments_batched(ctx.sender(), notknown_by_peer, &[(peer.0, peer.1)]).await;
+					send_assignments_batched(ctx.sender(), notknown_by_peer, &[(peer.0, peer.1)])
+						.await;
 				}
 
 				entry.sent.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1);
@@ -2049,7 +2050,8 @@ impl State {
 				for (approval_key, approval) in approvals_to_send_this_block {
 					let assignments = entry.assignments_for_approval(&approval).unwrap_or_default();
 					let peer_knowledge = entry.known_by.entry(peer_id).or_default();
-					let (sent_to_peer, notknown_by_peer) = peer_knowledge.partition_sent_notknown(&assignments);
+					let (sent_to_peer, notknown_by_peer) =
+						peer_knowledge.partition_sent_notknown(&assignments);
 					if !sent_to_peer.is_empty() {
 						let notknown_by_peer = notknown_by_peer
 							.into_iter()
@@ -2388,11 +2390,14 @@ async fn adjust_required_routing_and_propagate<Context, BlockFilter, RoutingModi
 		// all of assignments are already sent or about to be sent.
 		for (peer_id, approvals) in approvals_to_send_for_this_block {
 			for approval in approvals {
-				let assignments = block_entry.assignments_for_approval(&approval).unwrap_or_default();
+				let assignments =
+					block_entry.assignments_for_approval(&approval).unwrap_or_default();
 				if let Some(peer_knowledge) = block_entry.known_by.get_mut(&peer_id) {
 					// A random assignment could have been sent to the peer, so we need to make sure
-					// we send all the other assignments, before we can send the corresponding approval.
-					let (sent_to_peer, notknown_by_peer) = peer_knowledge.partition_sent_notknown(&assignments);
+					// we send all the other assignments, before we can send the corresponding
+					// approval.
+					let (sent_to_peer, notknown_by_peer) =
+						peer_knowledge.partition_sent_notknown(&assignments);
 					if !sent_to_peer.is_empty() {
 						let notknown_by_peer = notknown_by_peer
 							.into_iter()
@@ -2405,7 +2410,10 @@ async fn adjust_required_routing_and_propagate<Context, BlockFilter, RoutingModi
 							"Sending missing assignment adjust_required",
 						);
 						peer_knowledge.mark_sent(&notknown_by_peer);
-						peer_assignments.entry(peer_id).or_insert_with(Vec::new).extend(notknown_by_peer);
+						peer_assignments
+							.entry(peer_id)
+							.or_insert_with(Vec::new)
+							.extend(notknown_by_peer);
 					}
 					if peer_knowledge.contains_assignments_for_approval(&approval) {
 						let approval_key = PeerKnowledge::generate_approval_key(&approval);

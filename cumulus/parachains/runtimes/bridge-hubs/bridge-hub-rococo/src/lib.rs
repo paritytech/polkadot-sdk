@@ -16,11 +16,15 @@
 
 //! # Bridge Hub Rococo Runtime
 //!
-//! This runtime is also used for Bridge Hub Wococo. But we dont want to create another exact copy
-//! of Bridge Hub Rococo, so we injected some tweaks backed by `RuntimeFlavor` and `pub storage
-//! Flavor: RuntimeFlavor`. (For example this is needed for successful asset transfer between Asset
-//! Hub Rococo and Asset Hub Wococo, where we need to have correct `xcm_config::UniversalLocation`
-//! with correct `GlobalConsensus`.
+//! This runtime is also used for Bridge Hub Wococo. We dont want to create
+//! another exact copy of Bridge Hub Rococo, so we injected some tweaks backed by `RuntimeFlavor`
+//! and `pub storage Flavor: RuntimeFlavor`. (For example this is needed for successful asset
+//! transfer between Asset Hub Rococo and Asset Hub Wococo, where we need to have correct
+//! `xcm_config::UniversalLocation` with correct `GlobalConsensus`.
+//!
+//! This runtime currently supports bridging between:
+//! - Rococo <> Wococo
+//! - Rococo <> Westend
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -31,8 +35,9 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_common_config;
-pub mod bridge_hub_rococo_config;
-pub mod bridge_hub_wococo_config;
+pub mod bridge_to_rococo_config;
+pub mod bridge_to_westend_config;
+pub mod bridge_to_wococo_config;
 mod weights;
 pub mod xcm_config;
 
@@ -52,12 +57,13 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -65,9 +71,10 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
+use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 use bp_runtime::HeaderId;
 
@@ -79,17 +86,12 @@ use xcm::latest::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
-use crate::{
-	bridge_hub_rococo_config::BridgeRefundBridgeHubWococoMessages,
-	bridge_hub_wococo_config::BridgeRefundBridgeHubRococoMessages, xcm_config::XcmRouter,
-};
 use parachains_common::{
 	impls::DealWithFees,
 	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-use xcm_executor::XcmExecutor;
 
 /// Enum for handling differences in the runtime configuration for BridgeHubRococo vs
 /// BridgeHubWococo.
@@ -123,7 +125,11 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
-	(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWococoMessages),
+	(
+		bridge_to_wococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages,
+		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
+		bridge_to_rococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages,
+	),
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -187,7 +193,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 10000,
+	spec_version: 1_003_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 3,
@@ -332,11 +338,12 @@ parameter_types! {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
+	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = XcmpQueue;
-	type DmpMessageHandler = DmpQueue;
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
@@ -350,6 +357,32 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 }
 
 impl parachain_info::Config for Runtime {}
+
+parameter_types! {
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_message_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
+		cumulus_primitives_core::AggregateMessageOrigin,
+	>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = xcm_builder::ProcessXcmMessage<
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		RuntimeCall,
+	>;
+	type Size = u32;
+	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
+	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type MaxStale = sp_core::ConstU32<8>;
+	type ServiceWeight = MessageQueueServiceWeight;
+}
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
@@ -369,20 +402,25 @@ pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender:
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = PolkadotXcm;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	// Enqueue XCMP messages from siblings for later processing.
+	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
+parameter_types! {
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+}
+
 impl cumulus_pallet_dmp_queue::Config for Runtime {
+	type WeightInfo = weights::cumulus_pallet_dmp_queue::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type DmpSink = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 }
 
 pub const PERIOD: u32 = 6 * HOURS;
@@ -486,24 +524,44 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config<T>} = 31,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
 
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
 
-		// Rococo and Wococo BridgeHubs are sharing the runtime, so this runtime has two sets of
-		// bridge pallets. Both are deployed at both runtimes, but only one set is actually used
-		// at particular runtime.
+		// Rococo, Wococo and Westend BridgeHubs are sharing the runtime, so this runtime has several sets of
+		// bridge pallets.
+		//
+		// BridgeHubRococo uses:
+		//  - BridgeWococoGrandpa
+		//  - BridgeWestendGrandpa
+		//  - BridgeWococoParachains
+		//  - BridgeWestendParachains
+		//  - BridgeWococoMessages
+		//  - BridgeWestendMessages
+		//  - BridgeRelayers
+		//
+		// BridgeHubWococo uses:
+		//  - BridgeRococoGrandpa
+		//  - BridgeRococoParachains
+		//  - BridgeRococoMessages
+		//  - BridgeRelayers
 
-		// With-Wococo bridge modules that are active (used) at Rococo BridgeHub runtime.
+		// GRANDPA bridge modules.
 		BridgeWococoGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 41,
-		BridgeWococoParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
-		BridgeRococoToWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
-
-		// With-Rococo bridge modules that are active (used) at Wococo BridgeHub runtime.
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 43,
-		BridgeRococoParachain: pallet_bridge_parachains::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
-		BridgeWococoToRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
+		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
+
+		// Parachain bridge modules.
+		BridgeWococoParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
+		BridgeRococoParachains: pallet_bridge_parachains::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
+		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
+
+		// Messaging bridge modules.
+		BridgeWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
+		BridgeRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
+		BridgeWestendMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 	}
@@ -512,42 +570,42 @@ construct_runtime!(
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
-	BridgeRococoGrandpa, BridgeWococoGrandpa,
+	BridgeRococoGrandpa, BridgeWococoGrandpa, BridgeWestendGrandpa,
 	// Parachains
-	BridgeRococoParachain, BridgeWococoParachain,
+	BridgeRococoParachains, BridgeWococoParachains, BridgeWestendParachains,
 	// Messages
-	BridgeWococoToRococoMessages, BridgeRococoToWococoMessages
+	BridgeRococoMessages, BridgeWococoMessages, BridgeWestendMessages
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!(
+	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[cumulus_pallet_dmp_queue, DmpQueue]
 		// XCM
 		[pallet_xcm, PolkadotXcm]
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
-		// Bridge pallets at Rococo
+		// Bridge pallets
 		[pallet_bridge_grandpa, WococoFinality]
-		[pallet_bridge_parachains, WithinWococo]
-		[pallet_bridge_messages, RococoToWococo]
-		// Bridge pallets at Wococo
+		[pallet_bridge_grandpa, WestendFinality]
 		[pallet_bridge_grandpa, RococoFinality]
+		[pallet_bridge_parachains, WithinWococo]
+		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_parachains, WithinRococo]
+		[pallet_bridge_messages, RococoToWococo]
+		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_messages, WococoToRococo]
-		// Bridge relayer pallets
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 	);
 }
@@ -716,10 +774,19 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_westend::WestendFinalityApi<Block> for Runtime {
+		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
+			BridgeWestendGrandpa::best_finalized()
+		}
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_westend::Header>> {
+			BridgeWestendGrandpa::synced_headers_grandpa_info()
+		}
+	}
 
 	impl bp_bridge_hub_rococo::BridgeHubRococoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
-			BridgeRococoParachain::best_parachain_head_id::<
+			BridgeRococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_rococo::BridgeHubRococo
 			>().unwrap_or(None)
 		}
@@ -727,8 +794,16 @@ impl_runtime_apis! {
 
 	impl bp_bridge_hub_wococo::BridgeHubWococoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
-			BridgeWococoParachain::best_parachain_head_id::<
+			BridgeWococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_wococo::BridgeHubWococo
+			>().unwrap_or(None)
+		}
+	}
+
+	impl bp_bridge_hub_westend::BridgeHubWestendFinalityApi<Block> for Runtime {
+		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
+			BridgeWestendParachains::best_parachain_head_id::<
+				bp_bridge_hub_westend::BridgeHubWestend
 			>().unwrap_or(None)
 		}
 	}
@@ -741,7 +816,7 @@ impl_runtime_apis! {
 		) -> Vec<bp_messages::InboundMessageDetails> {
 			bridge_runtime_common::messages_api::inbound_message_details::<
 				Runtime,
-				bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance,
+				bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance,
 			>(lane, messages)
 		}
 	}
@@ -755,7 +830,34 @@ impl_runtime_apis! {
 		) -> Vec<bp_messages::OutboundMessageDetails> {
 			bridge_runtime_common::messages_api::outbound_message_details::<
 				Runtime,
-				bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance,
+				bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance,
+			>(lane, begin, end)
+		}
+	}
+
+	// This is exposed by BridgeHubRococo
+	impl bp_bridge_hub_westend::FromBridgeHubWestendInboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
+			>(lane, messages)
+		}
+	}
+
+	// This is exposed by BridgeHubRococo
+	impl bp_bridge_hub_westend::ToBridgeHubWestendOutboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			begin: bp_messages::MessageNonce,
+			end: bp_messages::MessageNonce,
+		) -> Vec<bp_messages::OutboundMessageDetails> {
+			bridge_runtime_common::messages_api::outbound_message_details::<
+				Runtime,
+				bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 			>(lane, begin, end)
 		}
 	}
@@ -766,24 +868,36 @@ impl_runtime_apis! {
 			lane: bp_messages::LaneId,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
 		) -> Vec<bp_messages::InboundMessageDetails> {
-			bridge_runtime_common::messages_api::inbound_message_details::<
-				Runtime,
-				bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance,
-			>(lane, messages)
+			// use different instance according to flavor
+			match xcm_config::Flavor::get() {
+				RuntimeFlavor::Wococo => {
+					bridge_runtime_common::messages_api::inbound_message_details::<
+						Runtime,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
+					>(lane, messages)
+				},
+				flavor @ _ => unimplemented!("Unsupported `FromBridgeHubRococoInboundLaneApi` for flavor: {:?}", flavor)
+			}
 		}
 	}
 
-	// This is exposed by BridgeHubWococo
+	// This is exposed by BridgeHubWococo and BridgeHubWestend
 	impl bp_bridge_hub_rococo::ToBridgeHubRococoOutboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: bp_messages::LaneId,
 			begin: bp_messages::MessageNonce,
 			end: bp_messages::MessageNonce,
 		) -> Vec<bp_messages::OutboundMessageDetails> {
-			bridge_runtime_common::messages_api::outbound_message_details::<
-				Runtime,
-				bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance,
-			>(lane, begin, end)
+			// use different instance according to flavor
+			match xcm_config::Flavor::get() {
+				RuntimeFlavor::Wococo => {
+					bridge_runtime_common::messages_api::outbound_message_details::<
+						Runtime,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
+					>(lane, begin, end)
+				},
+				flavor @ _ => unimplemented!("Unsupported `ToBridgeHubRococoOutboundLaneApi` for flavor: {:?}", flavor)
+			}
 		}
 	}
 
@@ -826,11 +940,14 @@ impl_runtime_apis! {
 			use pallet_bridge_relayers::benchmarking::Pallet as BridgeRelayersBench;
 			// Change weight file names.
 			type WococoFinality = BridgeWococoGrandpa;
+			type WestendFinality = BridgeWestendGrandpa;
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinWococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWococoInstance>;
+			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainRococoInstance>;
-			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
-			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
+			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance>;
+			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -874,7 +991,7 @@ impl_runtime_apis! {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					XcmConfig,
+				xcm_config::XcmConfig,
 					ExistentialDepositMultiAsset,
 					xcm_config::PriceForParentDelivery,
 				>;
@@ -966,11 +1083,14 @@ impl_runtime_apis! {
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
 			type WococoFinality = BridgeWococoGrandpa;
+			type WestendFinality = BridgeWestendGrandpa;
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinWococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWococoInstance>;
+			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainRococoInstance>;
-			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
-			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
+			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance>;
+			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_parachain,
@@ -983,9 +1103,9 @@ impl_runtime_apis! {
 				MessageProofParams,
 			};
 
-			impl BridgeMessagesConfig<bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance> for Runtime {
+			impl BridgeMessagesConfig<bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
-					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>>::bench_lane_id();
+					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance>>::bench_lane_id();
 					let bridged_chain_id = bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID;
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
@@ -999,24 +1119,24 @@ impl_runtime_apis! {
 
 				fn prepare_message_proof(
 					params: MessageProofParams,
-				) -> (bridge_hub_rococo_config::FromWococoBridgeHubMessagesProof, Weight) {
+				) -> (bridge_to_wococo_config::FromWococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWococoInstance,
-						bridge_hub_rococo_config::WithBridgeHubWococoMessageBridge,
+						bridge_to_wococo_config::WithBridgeHubWococoMessageBridge,
 					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,
-				) -> bridge_hub_rococo_config::ToWococoBridgeHubMessagesDeliveryProof {
+				) -> bridge_to_wococo_config::ToWococoBridgeHubMessagesDeliveryProof {
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWococoInstance,
-						bridge_hub_rococo_config::WithBridgeHubWococoMessageBridge,
+						bridge_to_wococo_config::WithBridgeHubWococoMessageBridge,
 					>(params)
 				}
 
@@ -1026,9 +1146,52 @@ impl_runtime_apis! {
 				}
 			}
 
-			impl BridgeMessagesConfig<bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance> for Runtime {
+			impl BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
-					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
+					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::bench_lane_id();
+					let bridged_chain_id = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+						relayer,
+						bp_relayers::RewardsAccountParams::new(
+							bench_lane_id,
+							bridged_chain_id,
+							bp_relayers::RewardsAccountOwner::BridgedChain
+						)
+					).is_some()
+				}
+
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (bridge_to_westend_config::FromWestendBridgeHubMessagesProof, Weight) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					prepare_message_proof_from_parachain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaWestendInstance,
+						bridge_to_westend_config::WithBridgeHubWestendMessageBridge,
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId>,
+				) -> bridge_to_westend_config::ToWestendBridgeHubMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_parachain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaWestendInstance,
+						bridge_to_westend_config::WithBridgeHubWestendMessageBridge,
+					>(params)
+				}
+
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+				}
+			}
+
+			impl BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
 					let bridged_chain_id = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
@@ -1042,24 +1205,24 @@ impl_runtime_apis! {
 
 				fn prepare_message_proof(
 					params: MessageProofParams,
-				) -> (bridge_hub_wococo_config::FromRococoBridgeHubMessagesProof, Weight) {
+				) -> (bridge_to_rococo_config::FromRococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoInstance,
-						bridge_hub_wococo_config::WithBridgeHubRococoMessageBridge,
+						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
 					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Wococo), Parachain(42))))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,
-				) -> bridge_hub_wococo_config::ToRococoBridgeHubMessagesDeliveryProof {
+				) -> bridge_to_rococo_config::ToRococoBridgeHubMessagesDeliveryProof {
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoInstance,
-						bridge_hub_wococo_config::WithBridgeHubRococoMessageBridge,
+						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
 					>(params)
 				}
 
@@ -1093,6 +1256,30 @@ impl_runtime_apis! {
 					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
 				) {
 					prepare_parachain_heads_proof::<Runtime, bridge_common_config::BridgeParachainWococoInstance>(
+						parachains,
+						parachain_head_size,
+						proof_size,
+					)
+				}
+			}
+
+			impl BridgeParachainsConfig<bridge_common_config::BridgeParachainWestendInstance> for Runtime {
+				fn parachains() -> Vec<bp_polkadot_core::parachains::ParaId> {
+					use bp_runtime::Parachain;
+					vec![bp_polkadot_core::parachains::ParaId(bp_bridge_hub_westend::BridgeHubWestend::PARACHAIN_ID)]
+				}
+
+				fn prepare_parachain_heads_proof(
+					parachains: &[bp_polkadot_core::parachains::ParaId],
+					parachain_head_size: u32,
+					proof_size: bp_runtime::StorageProofSize,
+				) -> (
+					pallet_bridge_parachains::RelayBlockNumber,
+					pallet_bridge_parachains::RelayBlockHash,
+					bp_polkadot_core::parachains::ParaHeadsProof,
+					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
+				) {
+					prepare_parachain_heads_proof::<Runtime, bridge_common_config::BridgeParachainWestendInstance>(
 						parachains,
 						parachain_head_size,
 						proof_size,
@@ -1205,11 +1392,13 @@ mod tests {
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(
-					BridgeRefundBridgeHubRococoMessages::default(),
-					BridgeRefundBridgeHubWococoMessages::default(),
+					bridge_to_wococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages::default(),
+					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+					bridge_to_rococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages::default(),
 				),
 			);
 
+			// for BridgeHubRococo
 			{
 				let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
 					VERSION.spec_version,
@@ -1227,8 +1416,9 @@ mod tests {
 				)
 			}
 
+			// for BridgeHubWococo
 			{
-				let bhw_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+				let bhw_indirect_payload = bp_bridge_hub_wococo::SignedExtension::from_params(
 					VERSION.spec_version,
 					VERSION.transaction_version,
 					bp_runtime::TransactionEra::Immortal,

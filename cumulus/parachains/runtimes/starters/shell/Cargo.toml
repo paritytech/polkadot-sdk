@@ -29,6 +29,7 @@ sp-session = { path = "../../../../../substrate/primitives/session", default-fea
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false}
 sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false}
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false}
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
@@ -59,6 +60,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"pallet-aura/std",
+	"pallet-message-queue/std",
 	"pallet-timestamp/std",
 	"parachain-info/std",
 	"parachains-common/std",
@@ -89,6 +91,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-aura/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",
 	"sp-runtime/try-runtime",
