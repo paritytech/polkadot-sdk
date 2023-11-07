@@ -615,7 +615,7 @@ pub fn do_slash<T: Config>(
 		}
 
 		let _ = ledger
-			.update::<T::EventListeners>()
+			.update()
 			.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
 
 		// trigger the event

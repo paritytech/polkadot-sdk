@@ -165,10 +165,7 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Note: To ensure lock consistency, all the [`Ledger`] storage updates should be made through
 	/// this helper function.
-	pub(crate) fn update<OnUpdate>(self) -> Result<(), Error<T>>
-	where
-		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
-	{
+	pub(crate) fn update(self) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash)
 		}
@@ -187,7 +184,10 @@ impl<T: Config> StakingLedger<T> {
 		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
 		Ledger::<T>::insert(controller, &self);
 
-		OnUpdate::on_stake_update(&self.stash, prev_stake);
+		<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_stake_update(
+			&self.stash,
+			prev_stake,
+		);
 
 		Ok(())
 	}
@@ -195,19 +195,13 @@ impl<T: Config> StakingLedger<T> {
 	/// Bonds a ledger.
 	///
 	/// It sets the reward preferences for the bonded stash.
-	pub(crate) fn bond<OnUpdate>(
-		self,
-		payee: RewardDestination<T::AccountId>,
-	) -> Result<(), Error<T>>
-	where
-		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
-	{
+	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
 			Err(Error::<T>::AlreadyBonded)
 		} else {
 			<Payee<T>>::insert(&self.stash, payee);
 			<Bonded<T>>::insert(&self.stash, &self.stash);
-			self.update::<OnUpdate>()
+			self.update()
 		}
 	}
 
@@ -223,18 +217,18 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
-	pub(crate) fn kill<OnUpdate>(stash: &T::AccountId) -> Result<(), Error<T>>
-	where
-		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
-	{
+	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		// call on validator remove or on nominator remove.
 		match crate::Pallet::<T>::status(stash).defensive_unwrap_or(StakerStatus::Idle) {
-			StakerStatus::Validator => OnUpdate::on_validator_remove(stash),
+			StakerStatus::Validator => <T::EventListeners as OnStakingUpdate<
+				T::AccountId,
+				BalanceOf<T>,
+			>>::on_validator_remove(stash),
 			StakerStatus::Nominator(_) => {
 				let nominations = crate::Pallet::<T>::nominations(stash).unwrap_or_default();
-				OnUpdate::on_nominator_remove(stash, nominations)
+				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_remove(stash, nominations)
 			},
 			StakerStatus::Idle => (),
 		};

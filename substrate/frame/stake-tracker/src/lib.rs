@@ -33,7 +33,7 @@
 //!
 //! The [`OnStakingUpdate`] implementation aims at achieving the following goals:
 //!
-//! * The [`Config::TargetList`] keeps a *lazily* sorted list of validators, sorted by approvals
+//! * The [`Config::TargetList`] keeps a sorted list of validators, sorted by approvals
 //! (which include self-vote and nominations).
 //! * The [`Config::VoterList`] keeps a sorted list of voters, sorted by bonded stake.
 //! * The [`Config::TargetList`] sorting must be *always* kept up to date, even in the event of new
@@ -100,14 +100,14 @@ pub mod pallet {
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
 
-		/// Something that provides a best-effort sorted list of voters.
+		/// Something that provides a *best-effort* sorted list of voters.
 		///
 		/// To keep the load off the chain as much as possible, changes made to the staked amount
 		/// via rewards and slashes are dropped and thus need to be manually updated through
 		/// extrinsics. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
-		/// Something that provides a best-effort sorted list of targets.
+		/// Something that provides an *always* sorted list of targets.
 		///
 		/// Note that while at the time of nomination all targets are checked to be real
 		/// validators, they can chill at any point, and their approval stakes will still be

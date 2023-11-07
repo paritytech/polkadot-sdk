@@ -1817,7 +1817,7 @@ fn reap_stash_works() {
 			// no easy way to cause an account to go below ED, we tweak their staking ledger
 			// instead.
 			let ledger = StakingLedger::<Test>::new(11, 5);
-			assert_ok!(ledger.update::<<Test as Config>::EventListeners>());
+			assert_ok!(ledger.update());
 
 			// reap-able
 			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -6932,17 +6932,17 @@ mod ledger {
 			let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42);
 			let reward_dest = RewardDestination::Account(10);
 
-			assert_ok!(ledger.clone().bond::<()>(reward_dest));
+			assert_ok!(ledger.clone().bond(reward_dest));
 			assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
 			assert!(<Bonded<Test>>::get(&42).is_some());
 			assert_eq!(<Payee<Test>>::get(&42), reward_dest);
 
 			// cannot bond again.
-			assert!(ledger.clone().bond::<()>(reward_dest).is_err());
+			assert!(ledger.clone().bond(reward_dest).is_err());
 
 			// once bonded, update works as expected.
 			ledger.legacy_claimed_rewards = bounded_vec![1];
-			assert_ok!(ledger.update::<StakeTracker>());
+			assert_ok!(ledger.update());
 		})
 	}
 

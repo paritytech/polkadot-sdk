@@ -51,8 +51,7 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakerStatus, StakingLedger, UntrackedEvent,
-	ValidatorPrefs,
+	RewardDestination, SessionInterface, StakerStatus, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -140,7 +139,7 @@ impl<T: Config> Pallet<T> {
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move
 				// on.
-				ledger.update::<T::EventListeners>()?;
+				ledger.update()?;
 
 				// This is only an update, so we use less overall weight.
 				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
@@ -232,7 +231,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		// Input data seems good, no errors allowed after this point
-		ledger.update::<T::EventListeners>()?;
+		ledger.update()?;
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
@@ -348,14 +347,10 @@ impl<T: Config> Pallet<T> {
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
 
-					// if it's a nominator, the ledger update event should not be propagated due to
-					// the complexity of updating the stake of all (potentially) exposed validators
-					// to this nominator and the cascading effects that may occur.
 					let _ = match <Self as StakingInterface>::status(stash)
 						.expect("stash is a staker; qed.")
 					{
-						StakerStatus::Nominator(_) => ledger.update::<UntrackedEvent>(),
-						StakerStatus::Validator => ledger.update::<T::EventListeners>(),
+						StakerStatus::Nominator(_) | StakerStatus::Validator => ledger.update(),
 						StakerStatus::Idle => Ok(()),
 					};
 
@@ -714,10 +709,8 @@ impl<T: Config> Pallet<T> {
 		Self::do_remove_nominator(&stash);
 
 		// and finally, it removes controller from `Bonded` and staking ledger from `Ledger`, as
-		// well as reward setting of the stash in `Payee`. We use the untracked event type since
-		// both [`Self::do_remove_validator`] and [`Self::do_remove_nominator`] already propagate
-		// the relevant events.
-		StakingLedger::<T>::kill::<UntrackedEvent>(&stash)?;
+		// well as reward setting of the stash in `Payee`.
+		StakingLedger::<T>::kill(&stash)?;
 
 		frame_system::Pallet::<T>::dec_consumers(&stash);
 

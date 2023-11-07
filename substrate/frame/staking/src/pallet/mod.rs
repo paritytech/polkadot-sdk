@@ -939,7 +939,7 @@ pub mod pallet {
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
-			ledger.bond::<T::EventListeners>(payee)?;
+			ledger.bond(payee)?;
 
 			Ok(())
 		}
@@ -979,7 +979,7 @@ pub mod pallet {
 					Error::<T>::InsufficientBond
 				);
 
-				ledger.update::<T::EventListeners>()?;
+				ledger.update()?;
 
 				Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
 			}
@@ -1076,7 +1076,7 @@ pub mod pallet {
 				};
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 
-				ledger.update::<T::EventListeners>()?;
+				ledger.update()?;
 
 				// update this staker in the sorted list, if they exist in it.
 				if T::VoterList::contains(&stash) {
@@ -1579,7 +1579,7 @@ pub mod pallet {
 			let final_unlocking = ledger.unlocking.len();
 
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-			ledger.update::<T::EventListeners>()?;
+			ledger.update()?;
 			if T::VoterList::contains(&stash) {
 				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
 			}
