@@ -37,7 +37,10 @@ use crate::{
 	},
 };
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
-use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
+use sp_runtime::{
+	traits::{Bounded, Saturating},
+	ArithmeticError, DispatchError, TokenError,
+};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 
@@ -469,18 +472,33 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is just the same as burning and issuing the same amount and has no effect on the
 	/// total issuance.
+	///
+	/// This is infallible, but doesn't guarantee that the entire `amount` is used to create the
+	/// pair, for example in the case where the amounts would cause overflow or underflow in
+	/// [`Self::issue`] or [`Self::redeem`].
 	fn pair(
 		asset: Self::AssetId,
 		amount: Self::Balance,
 	) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
+		let total_issuance = Self::total_issuance(asset.clone());
+
+		// Maximum amount which can be issued.
+		let issue_cap = Self::Balance::max_value().saturating_sub(total_issuance);
+		// Maximum amount which can be redeemed.
+		let redeem_cap = total_issuance;
+
+		// Amount which can be both issued and redeemed.
+		let capped_amount = amount.min(issue_cap).min(redeem_cap);
+
 		let debt =
 			Imbalance::<Self::AssetId, Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(
 				asset.clone(),
-				amount,
+				capped_amount,
 			);
 		let credit =
 			Imbalance::<Self::AssetId, Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(
-				asset, amount,
+				asset,
+				capped_amount,
 			);
 		(debt, credit)
 	}

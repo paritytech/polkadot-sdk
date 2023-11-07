@@ -35,7 +35,10 @@ use crate::{
 	},
 };
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
-use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
+use sp_runtime::{
+	traits::{Bounded, Saturating},
+	ArithmeticError, DispatchError, TokenError,
+};
 use sp_std::marker::PhantomData;
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
@@ -409,23 +412,20 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is just the same as burning and issuing the same amount and has no effect on the
 	/// total issuance.
+	///
+	/// This is infallible, but doesn't guarantee that the entire `amount` is used to create the
+	/// pair, for example in the case where the amounts would cause overflow or underflow in
+	/// [`Self::issue`] or [`Self::redeem`].
 	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		// Don't create a pair which when used could result in overflow or underflow.
-		// This is to keep the api more in line with [`Self::issue`] and [`Self::rescind`].
+		// Maximum amount which can be issued.
+		let issue_cap = Self::Balance::max_value().saturating_sub(Self::total_issuance());
+		// Maximum amount which can be redeemed.
+		let redeem_cap = Self::total_issuance();
 
-		// Find the effective delta of decrementing total issuance by amount.
-		let dec_delta = Self::total_issuance().min(amount);
+		// Amount which can be both issued and redeemed.
+		let capped_amount = amount.min(issue_cap).min(redeem_cap);
 
-		// Find the effective delta of incrementing total issuance by amount.
-		let inc_delta = Self::total_issuance().saturating_add(amount).saturating_sub(Self::total_issuance());
-
-		// Use the smaller of the two deltas to create the pair.
-		// Usually, this will just the same as `amount`.
-		let adjusted_amount = dec_delta.min(inc_delta);
-
-		let credit = Imbalance::<Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(adjusted_amount);
-		let debt = Imbalance::<Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(adjusted_amount);
-		(debt, credit)
+		(Self::rescind(capped_amount), Self::issue(capped_amount))
 	}
 
 	/// Mints `value` into the account of `who`, creating it as needed.
