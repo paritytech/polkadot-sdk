@@ -690,6 +690,12 @@ pub struct BoundedSupport<AccountId, Bound: Get<u32>> {
 	pub voters: BoundedVec<(AccountId, ExtendedBalance), Bound>,
 }
 
+impl<AccountId, Bound: Get<u32>> sp_npos_elections::Backings for BoundedSupport<AccountId, Bound> {
+	fn total(&self) -> ExtendedBalance {
+		self.total
+	}
+}
+
 impl<AccountId: PartialEq, Bound: Get<u32>> PartialEq for BoundedSupport<AccountId, Bound> {
 	fn eq(&self, other: &Self) -> bool {
 		self.total == other.total && self.voters == other.voters
@@ -699,6 +705,12 @@ impl<AccountId: PartialEq, Bound: Get<u32>> PartialEq for BoundedSupport<Account
 impl<AccountId, Bound: Get<u32>> From<BoundedSupport<AccountId, Bound>> for Support<AccountId> {
 	fn from(b: BoundedSupport<AccountId, Bound>) -> Self {
 		Support { total: b.total, voters: b.voters.into_inner() }
+	}
+}
+
+impl<AccountId: Clone, Bound: Get<u32>> Clone for BoundedSupport<AccountId, Bound> {
+	fn clone(&self) -> Self {
+		Self { voters: self.voters.clone(), total: self.total }
 	}
 }
 
@@ -724,8 +736,8 @@ impl<AccountId: Debug, BOuter: Get<u32>, BInner: Get<u32>> Debug
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // TODO(gpestana): impl
-        write!(f, "TODO: finish Debug impl for BoundedSupports")
+		// TODO(gpestana): impl
+		write!(f, "TODO: finish Debug impl for BoundedSupports")
 	}
 }
 
@@ -746,6 +758,14 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
 	}
 }
 
+impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>> Clone
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	fn clone(&self) -> Self {
+		Self(self.0.clone())
+	}
+}
+
 impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> sp_std::ops::Deref
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
@@ -753,6 +773,17 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> sp_std::ops::Deref
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
+	}
+}
+
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> IntoIterator
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	type Item = (AccountId, BoundedSupport<AccountId, BInner>);
+	type IntoIter = sp_std::vec::IntoIter<Self::Item>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.into_iter()
 	}
 }
 
