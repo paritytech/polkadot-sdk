@@ -19,7 +19,7 @@ futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.20"
 serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -48,6 +48,7 @@ sp-io = { path = "../../substrate/primitives/io" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-session = { path = "../../substrate/primitives/session" }
 sc-consensus = { path = "../../substrate/client/consensus/common" }
+sp-tracing = { path = "../../substrate/primitives/tracing" }
 sc-cli = { path = "../../substrate/client/cli" }
 sc-client-api = { path = "../../substrate/client/api" }
 sc-executor = { path = "../../substrate/client/executor" }
