@@ -335,7 +335,7 @@ where
 		collator_key.clone(),
 		collator_options.clone(),
 		&mut task_manager,
-		parachain_config.role,
+		parachain_config.role.clone(),
 	)
 	.await
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
