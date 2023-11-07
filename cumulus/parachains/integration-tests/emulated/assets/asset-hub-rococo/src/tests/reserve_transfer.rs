@@ -38,10 +38,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 }
 
 fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
-	AssetHubRococo::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(57_185_000, 3504)),
-		Some(Error::UntrustedReserveLocation),
-	);
+	AssetHubRococo::assert_dmp_queue_incomplete(Some(Weight::from_parts(57_185_000, 3504)));
 }
 
 fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {
@@ -249,14 +246,14 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	test.set_dispatchable::<Rococo>(relay_reserve_transfer_assets);
 	test.assert();
 
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
 	let delivery_fees = Rococo::execute_with(|| {
 		xcm_helpers::transfer_assets_delivery_fees::<
 			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
 
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	assert_eq!(receiver_balance_before, receiver_balance_after);

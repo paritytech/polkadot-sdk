@@ -19,14 +19,13 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::{
-	bridge_common_config::{
-		BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance, DeliveryRewardInBalance,
-		RequiredStakeForStakeAndSlash,
-	},
-	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
-	bridge_hub_wococo_config::ToBridgeHubRococoHaulBlobExporter,
+use crate::bridge_common_config::{
+	BridgeGrandpaRococoInstance, BridgeGrandpaWestendInstance, BridgeGrandpaWococoInstance,
+	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 };
+use bp_messages::LaneId;
+use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
+use bp_runtime::ChainId;
 use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Nothing},
@@ -43,18 +42,20 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
+use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee,
+	IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 use xcm_executor::{
-	traits::{ExportXcm, WithOriginFilter},
+	traits::{FeeReason, TransactAsset, WithOriginFilter},
 	XcmExecutor,
 };
 
@@ -66,7 +67,7 @@ parameter_types! {
 		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
@@ -197,10 +198,14 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						pallet_collator_selection::Call::remove_invulnerable { .. },
 				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::DmpQueue(..) |
+				RuntimeCall::MessageQueue(..) |
 				RuntimeCall::BridgeRococoGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaRococoInstance,
+				>::initialize { .. }) |
+				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
+					Runtime,
+					BridgeGrandpaWestendInstance,
 				>::initialize { .. }) |
 				RuntimeCall::BridgeWococoGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
@@ -290,8 +295,38 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
-	type MessageExporter = BridgeHubRococoOrBridgeHubWococoSwitchExporter;
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		(
+			XcmExportFeeToRelayerRewardAccounts<
+				Self::AssetTransactor,
+				crate::bridge_to_wococo_config::WococoGlobalConsensusNetwork,
+				crate::bridge_to_wococo_config::AssetHubWococoParaId,
+				crate::bridge_to_wococo_config::BridgeHubWococoChainId,
+				crate::bridge_to_wococo_config::AssetHubRococoToAssetHubWococoMessagesLane,
+			>,
+			XcmExportFeeToRelayerRewardAccounts<
+				Self::AssetTransactor,
+				crate::bridge_to_westend_config::WestendGlobalConsensusNetwork,
+				crate::bridge_to_westend_config::AssetHubWestendParaId,
+				crate::bridge_to_westend_config::BridgeHubWestendChainId,
+				crate::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
+			>,
+			XcmExportFeeToRelayerRewardAccounts<
+				Self::AssetTransactor,
+				crate::bridge_to_rococo_config::RococoGlobalConsensusNetwork,
+				crate::bridge_to_rococo_config::AssetHubRococoParaId,
+				crate::bridge_to_rococo_config::BridgeHubRococoChainId,
+				crate::bridge_to_rococo_config::AssetHubWococoToAssetHubRococoMessagesLane,
+			>,
+			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+		),
+	>;
+	type MessageExporter = (
+		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
+		crate::bridge_to_wococo_config::ToBridgeHubWococoHaulBlobExporter,
+		crate::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
@@ -358,46 +393,95 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// Hacky switch implementation, because we have just one runtime for Rococo and Wococo BridgeHub,
-/// so it means we have just one XcmConfig
-pub struct BridgeHubRococoOrBridgeHubWococoSwitchExporter;
-impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
-	type Ticket = (NetworkId, (sp_std::prelude::Vec<u8>, XcmHash));
+/// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
+/// into the accounts that are used for paying the relayer rewards.
+/// Burns the fees in case of a failure.
+pub struct XcmExportFeeToRelayerRewardAccounts<
+	AssetTransactor,
+	DestNetwork,
+	DestParaId,
+	DestBridgedChainId,
+	BridgeLaneId,
+>(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
 
-	fn validate(
-		network: NetworkId,
-		channel: u32,
-		universal_source: &mut Option<InteriorMultiLocation>,
-		destination: &mut Option<InteriorMultiLocation>,
-		message: &mut Option<Xcm<()>>,
-	) -> SendResult<Self::Ticket> {
-		match network {
-			Rococo => ToBridgeHubRococoHaulBlobExporter::validate(
-				network,
-				channel,
-				universal_source,
-				destination,
-				message,
-			)
-			.map(|result| ((Rococo, result.0), result.1)),
-			Wococo => ToBridgeHubWococoHaulBlobExporter::validate(
-				network,
-				channel,
-				universal_source,
-				destination,
-				message,
-			)
-			.map(|result| ((Wococo, result.0), result.1)),
-			_ => unimplemented!("Unsupported network: {:?}", network),
-		}
-	}
+impl<
+		AssetTransactor: TransactAsset,
+		DestNetwork: Get<NetworkId>,
+		DestParaId: Get<cumulus_primitives_core::ParaId>,
+		DestBridgedChainId: Get<ChainId>,
+		BridgeLaneId: Get<LaneId>,
+	> HandleFee
+	for XcmExportFeeToRelayerRewardAccounts<
+		AssetTransactor,
+		DestNetwork,
+		DestParaId,
+		DestBridgedChainId,
+		BridgeLaneId,
+	>
+{
+	fn handle_fee(
+		fee: MultiAssets,
+		maybe_context: Option<&XcmContext>,
+		reason: FeeReason,
+	) -> MultiAssets {
+		if matches!(reason, FeeReason::Export { network: bridged_network, destination }
+				if bridged_network == DestNetwork::get() &&
+					destination == X1(Parachain(DestParaId::get().into())))
+		{
+			// We have 2 relayer rewards accounts:
+			// - the SA of the source parachain on this BH: this pays the relayers for delivering
+			//   Source para -> Target Para message delivery confirmations
+			// - the SA of the destination parachain on this BH: this pays the relayers for
+			//   delivering Target para -> Source Para messages
+			// We split the `ExportMessage` fee between these 2 accounts.
+			let source_para_account = PayRewardFromAccount::<
+				pallet_balances::Pallet<Runtime>,
+				AccountId,
+			>::rewards_account(RewardsAccountParams::new(
+				BridgeLaneId::get(),
+				DestBridgedChainId::get(),
+				RewardsAccountOwner::ThisChain,
+			));
 
-	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-		let (network, ticket) = ticket;
-		match network {
-			Rococo => ToBridgeHubRococoHaulBlobExporter::deliver(ticket),
-			Wococo => ToBridgeHubWococoHaulBlobExporter::deliver(ticket),
-			_ => unimplemented!("Unsupported network: {:?}", network),
+			let dest_para_account = PayRewardFromAccount::<
+				pallet_balances::Pallet<Runtime>,
+				AccountId,
+			>::rewards_account(RewardsAccountParams::new(
+				BridgeLaneId::get(),
+				DestBridgedChainId::get(),
+				RewardsAccountOwner::BridgedChain,
+			));
+
+			for asset in fee.into_inner() {
+				match asset.fun {
+					Fungible(total_fee) => {
+						let source_fee = total_fee / 2;
+						deposit_or_burn_fee::<AssetTransactor, _>(
+							MultiAsset { id: asset.id, fun: Fungible(source_fee) }.into(),
+							maybe_context,
+							source_para_account.clone(),
+						);
+
+						let dest_fee = total_fee - source_fee;
+						deposit_or_burn_fee::<AssetTransactor, _>(
+							MultiAsset { id: asset.id, fun: Fungible(dest_fee) }.into(),
+							maybe_context,
+							dest_para_account.clone(),
+						);
+					},
+					NonFungible(_) => {
+						deposit_or_burn_fee::<AssetTransactor, _>(
+							asset.into(),
+							maybe_context,
+							source_para_account.clone(),
+						);
+					},
+				}
+			}
+
+			return MultiAssets::new()
 		}
+
+		fee
 	}
 }
