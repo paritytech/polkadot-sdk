@@ -48,7 +48,7 @@ use polkadot_node_core_pvf_common::{
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 use std::{
-	io::{self, Read, Write},
+	io::{self, Read},
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	process,
@@ -364,8 +364,10 @@ fn handle_parent_process(
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<WorkerResponse> {
-	// Read from the child.
-	let result = recv_child_response(&mut pipe_read)
+	// Read from the child. Don't decode unless the process exited normally, which we check later.
+	let mut received_data = Vec::new();
+	pipe_read
+		.read_to_end(&mut received_data)
 		// Could not decode job response. There is either a bug or the job was hijacked.
 		// Should retry at any rate.
 		.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
@@ -401,23 +403,40 @@ fn handle_parent_process(
 	}
 
 	match status {
-		Ok(WaitStatus::Exited(_, _exit_status)) => match result {
-			Ok(JobResponse::Ok { result_descriptor }) =>
-				Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv }),
-			Ok(JobResponse::InvalidCandidate(err)) => Ok(WorkerResponse::InvalidCandidate(err)),
-			Err(job_error) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					%worker_pid,
-					"execute job error: {}",
-					job_error,
-				);
-				if matches!(job_error, JobError::TimedOut) {
-					Ok(WorkerResponse::JobTimedOut)
-				} else {
-					Ok(WorkerResponse::JobError(job_error.to_string()))
-				}
-			},
+		Ok(WaitStatus::Exited(_, exit_status)) => {
+			let mut reader = io::BufReader::new(received_data.as_slice());
+			let result = match recv_child_response(&mut reader) {
+				Ok(result) => result,
+				Err(err) => return Ok(WorkerResponse::JobError(err.to_string())),
+			};
+
+			match result {
+				Ok(JobResponse::Ok { result_descriptor }) => {
+					// The exit status should have been zero if no error occurred.
+					if exit_status != 0 {
+						return Ok(WorkerResponse::JobError(format!(
+							"unexpected exit status: {}",
+							exit_status
+						)))
+					}
+
+					Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv })
+				},
+				Ok(JobResponse::InvalidCandidate(err)) => Ok(WorkerResponse::InvalidCandidate(err)),
+				Err(job_error) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						%worker_pid,
+						"execute job error: {}",
+						job_error,
+					);
+					if matches!(job_error, JobError::TimedOut) {
+						Ok(WorkerResponse::JobTimedOut)
+					} else {
+						Ok(WorkerResponse::JobError(job_error.to_string()))
+					}
+				},
+			}
 		},
 		// The job was killed by the given signal.
 		//
@@ -454,8 +473,8 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 }
 
 /// Get a job response.
-fn recv_child_response(pipe_read: &mut PipeReader) -> io::Result<JobResult> {
-	let response_bytes = framed_recv_blocking(pipe_read)?;
+fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResult> {
+	let response_bytes = framed_recv_blocking(received_data)?;
 	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,

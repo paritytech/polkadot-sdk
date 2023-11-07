@@ -35,9 +35,9 @@ pub enum PrepareError {
 	/// Instantiation of the WASM module instance failed.
 	#[codec(index = 2)]
 	RuntimeConstruction(String),
-	/// An unexpected panic has occurred in the preparation job.
+	/// An unexpected error has occurred in the preparation job.
 	#[codec(index = 3)]
-	Panic(String),
+	JobError(String),
 	/// Failed to prepare the PVF due to the time limit.
 	#[codec(index = 4)]
 	TimedOut,
@@ -86,7 +86,7 @@ impl PrepareError {
 	pub fn is_deterministic(&self) -> bool {
 		use PrepareError::*;
 		match self {
-			Prevalidation(_) | Preparation(_) | Panic(_) | OutOfMemory => true,
+			Prevalidation(_) | Preparation(_) | JobError(_) | OutOfMemory => true,
 			IoErr(_) |
 			JobDied(_) |
 			CreateTmpFile(_) |
@@ -108,7 +108,7 @@ impl fmt::Display for PrepareError {
 			Prevalidation(err) => write!(f, "prevalidation: {}", err),
 			Preparation(err) => write!(f, "preparation: {}", err),
 			RuntimeConstruction(err) => write!(f, "runtime construction: {}", err),
-			Panic(err) => write!(f, "panic: {}", err),
+			JobError(err) => write!(f, "panic: {}", err),
 			TimedOut => write!(f, "prepare: timeout"),
 			IoErr(err) => write!(f, "prepare: io error while receiving response: {}", err),
 			JobDied(err) => write!(f, "prepare: prepare job died: {}", err),

@@ -55,7 +55,7 @@ use polkadot_node_core_pvf_common::{
 use polkadot_primitives::ExecutorParams;
 use std::{
 	fs,
-	io::{self, Read, Write},
+	io::{self, Read},
 	os::{
 		fd::{AsRawFd, RawFd},
 		unix::net::UnixStream,
@@ -126,7 +126,7 @@ fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
 					// Syscalls never allocate or deallocate, so this is safe.
 					libc::syscall(libc::SYS_write, fd, OOM_PAYLOAD.as_ptr(), OOM_PAYLOAD.len());
 					libc::syscall(libc::SYS_close, fd);
-					// Make sure we exit from all threads. Copied from libc.
+					// Make sure we exit from all threads. Copied from glibc.
 					libc::syscall(libc::SYS_exit_group, 1);
 					loop {
 						libc::syscall(libc::SYS_exit, 1);
@@ -379,7 +379,7 @@ fn handle_child_process(
 		WaitOutcome::TimedOut,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(PrepareError::Panic(err.to_string())))
+		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	let prepare_thread = spawn_worker_thread(
@@ -432,7 +432,7 @@ fn handle_child_process(
 			match prepare_thread.join().unwrap_or_else(|err| {
 				send_child_response(
 					&mut pipe_write,
-					Err(PrepareError::Panic(stringify_panic_payload(err))),
+					Err(PrepareError::JobError(stringify_panic_payload(err))),
 				)
 			}) {
 				Err(err) => Err(err),
@@ -511,9 +511,11 @@ fn handle_parent_process(
 	usage_before: Usage,
 	timeout: Duration,
 ) -> Result<PrepareStats, PrepareError> {
-	// Read from the child.
-	let result =
-		recv_child_response(&mut pipe_read).map_err(|err| PrepareError::IoErr(err.to_string()))?;
+	// Read from the child. Don't decode unless the process exited normally, which we check later.
+	let mut received_data = Vec::new();
+	pipe_read
+		.read_to_end(&mut received_data)
+		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(child, None);
 	gum::trace!(
@@ -527,7 +529,7 @@ fn handle_parent_process(
 		.map_err(|errno| error_from_errno("getrusage after", errno))?;
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
-	// child. to report its own time.
+	// child to report its own time.
 	// As `getrusage` returns resource usage from all terminated child processes,
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
@@ -544,10 +546,22 @@ fn handle_parent_process(
 	}
 
 	match status {
-		Ok(WaitStatus::Exited(_pid, _exit_status)) => {
+		Ok(WaitStatus::Exited(_pid, exit_status)) => {
+			let mut reader = io::BufReader::new(received_data.as_slice());
+			let result = recv_child_response(&mut reader)
+				.map_err(|err| PrepareError::JobError(err.to_string()))?;
+
 			match result {
 				Err(err) => Err(err),
 				Ok(response) => {
+					// The exit status should have been zero if no error occurred.
+					if exit_status != 0 {
+						return Err(PrepareError::JobError(format!(
+							"unexpected exit status: {}",
+							exit_status
+						)))
+					}
+
 					// Write the serialized artifact into a temp file.
 					//
 					// PVF host only keeps artifacts statuses in its memory,
@@ -608,8 +622,8 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 }
 
 /// Get a job response.
-fn recv_child_response(pipe_read: &mut PipeReader) -> io::Result<JobResponse> {
-	let response_bytes = framed_recv_blocking(pipe_read)?;
+fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResponse> {
+	let response_bytes = framed_recv_blocking(received_data)?;
 	JobResponse::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
