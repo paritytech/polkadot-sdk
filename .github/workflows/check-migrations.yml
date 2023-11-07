@@ -1,0 +1,27 @@
+name: Check Migrations
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, unlabeled]
+
+jobs:
+  check-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
+        with:
+          cache-on-failure: true
+
+      - name: Install submig
+        run: |
+          cargo install submig
+          submig --version
+
+      - name: Checkout repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+
+      - name: Check migrations
+        continue-on-error: false
+        run: |
+          submig list .
