@@ -78,7 +78,7 @@ pub trait SendControllerWeightInfo {
 /// as:
 /// - Validating and Converting the origin to an interior location.
 /// - Handling versioning.
-/// - Calling  the internal router, which implements [`SendXcm`].
+/// - Calling the internal router, which implements [`SendXcm`].
 pub trait SendController<Origin> {
 	/// Weight information for SendController functions.
 	type WeightInfo: SendControllerWeightInfo;
