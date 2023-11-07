@@ -35,7 +35,6 @@ parachains-common = { path = "../../../../common" }
 asset-hub-rococo-runtime = { path = "../../../../runtimes/assets/asset-hub-rococo" }
 penpal-runtime = { path = "../../../../runtimes/testing/penpal" }
 cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false}
-cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
@@ -45,7 +44,6 @@ integration-tests-common = { path = "../../common", default-features = false}
 runtime-benchmarks = [
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"cumulus-pallet-dmp-queue/runtime-benchmarks",
-	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"integration-tests-common/runtime-benchmarks",
