@@ -20,7 +20,7 @@
 use codec::DecodeAll;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_NANOS;
 use frame_system::ConsumedWeight;
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_cli::{Error, Result};
 use sc_client_api::{
 	Backend as ClientBackend, BlockBackend, HeaderBackend, StorageProvider, UsageProvider,
@@ -71,8 +71,7 @@ impl<Block, BA, C> Benchmark<Block, BA, C>
 where
 	Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 	BA: ClientBackend<Block>,
-	C: BlockBuilderProvider<BA, Block, C>
-		+ ProvideRuntimeApi<Block>
+	C: ProvideRuntimeApi<Block>
 		+ StorageProvider<Block, BA>
 		+ UsageProvider<Block>
 		+ BlockBackend<Block>
