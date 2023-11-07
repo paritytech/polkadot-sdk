@@ -23,7 +23,7 @@ use prometheus::proto::LabelPair;
 
 pub(crate) mod availability;
 
-use availability::{TestEnvironment, TestInput, TestState};
+use availability::{TestConfiguration, TestEnvironment, TestState};
 const LOG_TARGET: &str = "subsystem-bench";
 
 /// Define the supported benchmarks targets
@@ -60,11 +60,14 @@ impl BenchCli {
 		let runtime = new_runtime();
 		let registry = Registry::new();
 
-		let state = TestState::new(TestInput::default());
+		let test_config =
+			TestConfiguration::degraded_network_300_validators_60_cores(1024 * 1024);
+
+		let state = TestState::new(test_config);
 
 		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
 
-		println!("{:?}", env.input());
+		println!("{:?}", env.config());
 
 		runtime.block_on(availability::bench_chunk_recovery(&mut env));
 

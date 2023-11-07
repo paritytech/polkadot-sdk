@@ -122,6 +122,7 @@ mod tests {
 		assert!(total_sent as u128 <= upper_bound);
 	}
 }
+
 // A network peer emulator
 struct PeerEmulator {
 	// The queue of requests waiting to be served by the emulator
@@ -132,19 +133,32 @@ impl PeerEmulator {
 	pub fn new(bandwidth: usize, spawn_task_handle: SpawnTaskHandle) -> Self {
 		let (actions_tx, mut actions_rx) = tokio::sync::mpsc::unbounded_channel();
 
-		spawn_task_handle.spawn("peer-emulator", "test-environment", async move {
-			let mut rate_limiter = RateLimit::new(20, bandwidth);
-			loop {
-				let maybe_action: Option<NetworkAction> = actions_rx.recv().await;
-				if let Some(action) = maybe_action {
-					let size = action.size();
-					rate_limiter.reap(size).await;
-					action.run().await;
-				} else {
-					break
+		spawn_task_handle
+			.clone()
+			.spawn("peer-emulator", "test-environment", async move {
+				let mut rate_limiter = RateLimit::new(20, bandwidth);
+				loop {
+					let maybe_action: Option<NetworkAction> = actions_rx.recv().await;
+					if let Some(action) = maybe_action {
+						let size = action.size();
+						rate_limiter.reap(size).await;
+						if let Some(latency) = action.latency {
+							spawn_task_handle.spawn(
+								"peer-emulator-latency",
+								"test-environment",
+								async move {
+									tokio::time::sleep(latency).await;
+									action.run().await;
+								},
+							)
+						} else {
+							action.run().await;
+						}
+					} else {
+						break
+					}
 				}
-			}
-		});
+			});
 
 		Self { actions_tx }
 	}
@@ -164,11 +178,13 @@ pub struct NetworkAction {
 	size: usize,
 	// Peer index
 	index: usize,
+	// The amount of time to delay the polling `run`
+	latency: Option<Duration>,
 }
 
 impl NetworkAction {
-	pub fn new(index: usize, run: ActionFuture, size: usize) -> Self {
-		Self { run, size, index }
+	pub fn new(index: usize, run: ActionFuture, size: usize, latency: Option<Duration>) -> Self {
+		Self { run, size, index, latency }
 	}
 	pub fn size(&self) -> usize {
 		self.size
@@ -186,10 +202,6 @@ impl NetworkAction {
 // Mocks the network bridge and an arbitrary number of connected peer nodes.
 // Implements network latency, bandwidth and error.
 pub struct NetworkEmulator {
-	// Number of peers connected on validation protocol
-	n_peers: usize,
-	// The maximum Rx/Tx bandwidth in bytes per second.
-	bandwidth: usize,
 	// Per peer network emulation
 	peers: Vec<PeerEmulator>,
 }
@@ -197,8 +209,6 @@ pub struct NetworkEmulator {
 impl NetworkEmulator {
 	pub fn new(n_peers: usize, bandwidth: usize, spawn_task_handle: SpawnTaskHandle) -> Self {
 		Self {
-			n_peers,
-			bandwidth,
 			peers: (0..n_peers)
 				.map(|_index| PeerEmulator::new(bandwidth, spawn_task_handle.clone()))
 				.collect::<Vec<_>>(),

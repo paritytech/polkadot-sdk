@@ -32,6 +32,7 @@ use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
 	self as req_res, v1::ChunkResponse, IncomingRequest, ReqProtocolNames, Requests,
 };
+use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
 
 use prometheus::Registry;
 use sc_network::{config::RequestResponseConfig, OutboundFailure, RequestFailure};
@@ -62,7 +63,10 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
 
+mod configuration;
 mod network;
+
+pub use configuration::TestConfiguration;
 
 // Deterministic genesis hash for protocol names
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
@@ -112,8 +116,20 @@ impl TestEnvironment {
 		TestEnvironment { task_manager, registry, to_subsystem, instance, state }
 	}
 
-	pub fn input(&self) -> &TestInput {
-		self.state.input()
+	pub fn config(&self) -> &TestConfiguration {
+		self.state.config()
+	}
+
+	/// Produce a randomized duration between `min` and `max`.
+	fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> Option<Duration> {
+		if let Some(peer_latency) = maybe_peer_latency {
+			Some(
+				Uniform::from(peer_latency.min_latency..=peer_latency.max_latency)
+					.sample(&mut thread_rng()),
+			)
+		} else {
+			None
+		}
 	}
 
 	pub fn respond_to_send_request(state: &mut TestState, request: Requests) -> NetworkAction {
@@ -129,7 +145,13 @@ impl TestEnvironment {
 				}
 				.boxed();
 
-				NetworkAction::new(validator_index, future, size)
+				NetworkAction::new(
+					validator_index,
+					future,
+					size,
+					// Generate a random latency based on configuration.
+					Self::random_latency(state.config().latency.as_ref()),
+				)
 			},
 			_ => panic!("received an unexpected request"),
 		}
@@ -144,8 +166,8 @@ impl TestEnvironment {
 	) {
 		// Emulate `n_validators` each with 1MiB of bandwidth available.
 		let mut network = NetworkEmulator::new(
-			state.input().n_validators,
-			state.input().bandwidth,
+			state.config().n_validators,
+			state.config().bandwidth,
 			spawn_task_handle,
 		);
 
@@ -270,7 +292,7 @@ use sp_keyring::Sr25519Keyring;
 
 use crate::availability::network::NetworkAction;
 
-use self::network::NetworkEmulator;
+use self::{configuration::PeerLatency, network::NetworkEmulator};
 
 #[derive(Clone)]
 pub struct TestState {
@@ -287,24 +309,16 @@ pub struct TestState {
 	available_data: AvailableData,
 	chunks: Vec<ErasureChunk>,
 	invalid_chunks: Vec<ErasureChunk>,
-	input: TestInput,
+	config: TestConfiguration,
 }
 
 impl TestState {
-	fn input(&self) -> &TestInput {
-		&self.input
+	fn config(&self) -> &TestConfiguration {
+		&self.config
 	}
 
 	fn candidate(&self) -> CandidateReceipt {
 		self.candidate.clone()
-	}
-
-	fn threshold(&self) -> usize {
-		recovery_threshold(self.validators.len()).unwrap()
-	}
-
-	fn impossibility_threshold(&self) -> usize {
-		self.validators.len() - self.threshold() + 1
 	}
 
 	async fn respond_to_available_data_query(&self, tx: oneshot::Sender<Option<AvailableData>>) {
@@ -350,8 +364,8 @@ impl TestState {
 		let _ = tx.send(v);
 	}
 
-	pub fn new(input: TestInput) -> Self {
-		let validators = (0..input.n_validators as u64)
+	pub fn new(config: TestConfiguration) -> Self {
+		let validators = (0..config.n_validators as u64)
 			.into_iter()
 			.map(|_v| Sr25519Keyring::Alice)
 			.collect::<Vec<_>>();
@@ -371,7 +385,7 @@ impl TestState {
 		};
 
 		// A 5MB PoV.
-		let pov = PoV { block_data: BlockData(vec![42; input.pov_size]) };
+		let pov = PoV { block_data: BlockData(vec![42; config.pov_size]) };
 
 		let available_data = AvailableData {
 			validation_data: persisted_validation_data.clone(),
@@ -413,7 +427,7 @@ impl TestState {
 			available_data,
 			chunks,
 			invalid_chunks,
-			input,
+			config,
 		}
 	}
 }
@@ -453,33 +467,8 @@ fn derive_erasure_chunks_with_proofs_and_root(
 	(erasure_chunks, root)
 }
 
-/// The test input parameters
-#[derive(Clone, Debug)]
-pub struct TestInput {
-	pub n_validators: usize,
-	pub n_cores: usize,
-	pub pov_size: usize,
-	// This parameter is used to determine how many recoveries we batch in parallel
-	// similarly to how in practice tranche0 assignments work.
-	pub vrf_modulo_samples: usize,
-	// The amount of bandiwdht remote validators have.
-	pub bandwidth: usize,
-}
-
-impl Default for TestInput {
-	fn default() -> Self {
-		Self {
-			n_validators: 10,
-			n_cores: 10,
-			pov_size: 5 * 1024 * 1024,
-			vrf_modulo_samples: 6,
-			bandwidth: 15 * 1024 * 1024,
-		}
-	}
-}
-
 pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
-	let input = env.input().clone();
+	let config = env.config().clone();
 
 	env.send_signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 		Hash::repeat_byte(1),
@@ -490,7 +479,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	let start_marker = Instant::now();
 	let mut candidate = env.state.candidate();
 	let mut batch = Vec::new();
-	for candidate_num in 0..input.n_cores as u64 {
+	for candidate_num in 0..config.n_cores as u64 {
 		let (tx, rx) = oneshot::channel();
 		batch.push(rx);
 
@@ -504,7 +493,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 		))
 		.await;
 
-		if batch.len() >= input.vrf_modulo_samples {
+		if batch.len() >= config.vrf_modulo_samples {
 			for rx in std::mem::take(&mut batch) {
 				let _available_data = rx.await.unwrap().unwrap();
 			}
@@ -518,7 +507,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	env.send_signal(OverseerSignal::Conclude).await;
 	delay!(5);
 	let duration = start_marker.elapsed().as_millis();
-	let tput = ((input.n_cores * input.pov_size) as u128) / duration * 1000;
+	let tput = ((config.n_cores * config.pov_size) as u128) / duration * 1000;
 	println!("Benchmark completed in {:?}ms", duration);
 	println!("Throughput: {}KiB/s", tput / 1024);
 }
