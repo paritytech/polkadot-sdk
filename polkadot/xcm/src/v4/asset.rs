@@ -26,7 +26,7 @@
 //! - `AssetFilter`: A combination of `Wild` and `Assets` designed for efficiently filtering an XCM
 //!   holding account.
 
-use super::{InteriorLocation, Location};
+use super::{InteriorLocation, Location, Reanchorable};
 use crate::v3::{
 	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
 	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
@@ -355,13 +355,6 @@ impl AssetId {
 		Ok(())
 	}
 
-	/// Mutate the asset to represent the same value from the perspective of a new `target`
-	/// location. The local chain's location is provided in `context`.
-	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
-		self.0.reanchor(target, context)?;
-		Ok(())
-	}
-
 	/// Use the value of `self` along with a `fun` fungibility specifier to create the corresponding
 	/// `Asset` value.
 	pub fn into_asset(self, fun: Fungibility) -> Asset {
@@ -372,6 +365,28 @@ impl AssetId {
 	/// `WildAsset` wildcard (`AllOf`) value.
 	pub fn into_wild(self, fun: WildFungibility) -> WildAsset {
 		WildAsset::AllOf { fun, id: self }
+	}
+}
+
+impl Reanchorable for AssetId {
+	type Error = ();
+	
+	/// Mutate the asset to represent the same value from the perspective of a new `target`
+	/// location. The local chain's location is provided in `context`.
+	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
+		self.0.reanchor(target, context)?;
+		Ok(())
+	}
+
+	fn reanchored(
+		mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> Result<Self, ()> {
+		match self.reanchor(target, context) {
+			Ok(()) => Ok(self),
+			Err(()) => Err(()),
+		}
 	}
 }
 
@@ -424,19 +439,6 @@ impl Asset {
 		self.id.prepend_with(prepend)
 	}
 
-	/// Mutate the location of the asset identifier if concrete, giving it the same location
-	/// relative to a `target` context. The local context is provided as `context`.
-	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
-		self.id.reanchor(target, context)
-	}
-
-	/// Mutate the location of the asset identifier if concrete, giving it the same location
-	/// relative to a `target` context. The local context is provided as `context`.
-	pub fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> Result<Self, ()> {
-		self.id.reanchor(target, context)?;
-		Ok(self)
-	}
-
 	/// Returns true if `self` is a super-set of the given `inner` asset.
 	pub fn contains(&self, inner: &Asset) -> bool {
 		use Fungibility::*;
@@ -448,6 +450,23 @@ impl Asset {
 			}
 		}
 		false
+	}
+}
+
+impl Reanchorable for Asset {
+	type Error = ();
+	
+	/// Mutate the location of the asset identifier if concrete, giving it the same location
+	/// relative to a `target` context. The local context is provided as `context`.
+	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
+		self.id.reanchor(target, context)
+	}
+
+	/// Mutate the location of the asset identifier if concrete, giving it the same location
+	/// relative to a `target` context. The local context is provided as `context`.
+	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> Result<Self, ()> {
+		self.id.reanchor(target, context)?;
+		Ok(self)
 	}
 }
 

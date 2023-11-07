@@ -33,7 +33,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						<$receiver_para as $crate::Chain>::account_data_of(receiver.clone()).free;
 					let para_destination =
 						<$sender_para>::sibling_location_of(<$receiver_para>::para_id());
-					let beneficiary: MultiLocation =
+					let beneficiary: Location =
 						$crate::AccountId32 { network: None, id: receiver.clone().into() }.into();
 
 					// Send XCM message from Origin Parachain
@@ -42,8 +42,8 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					<$sender_para>::execute_with(|| {
 						assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::limited_teleport_assets(
 							origin.clone(),
-							bx!(para_destination.into()),
-							bx!(beneficiary.into()),
+							bx!(para_destination.clone().into()),
+							bx!(beneficiary.clone().into()),
 							bx!($assets.clone().into()),
 							fee_asset_item,
 							weight_limit.clone(),

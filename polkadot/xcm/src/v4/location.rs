@@ -16,7 +16,7 @@
 
 //! XCM `Location` datatype.
 
-use super::{Junction, Junctions};
+use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
 use core::{
 	convert::{TryFrom, TryInto},
@@ -412,11 +412,34 @@ impl Location {
 		}
 	}
 
+	/// Remove any unneeded parents/junctions in `self` based on the given context it will be
+	/// interpreted in.
+	pub fn simplify(&mut self, context: &Junctions) {
+		if context.len() < self.parents as usize {
+			// Not enough context
+			return
+		}
+		while self.parents > 0 {
+			let maybe = context.at(context.len() - (self.parents as usize));
+			match (self.interior.first(), maybe) {
+				(Some(i), Some(j)) if i == j => {
+					self.interior.take_first();
+					self.parents -= 1;
+				},
+				_ => break,
+			}
+		}
+	}
+}
+
+impl Reanchorable for Location {
+	type Error = Self;
+
 	/// Mutate `self` so that it represents the same location from the point of view of `target`.
 	/// The context of `self` is provided as `context`.
 	///
 	/// Does not modify `self` in case of overflow.
-	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
+	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		// TODO: https://github.com/paritytech/polkadot/issues/4489 Optimize this.
 
 		// 1. Use our `context` to figure out how the `target` would address us.
@@ -437,7 +460,7 @@ impl Location {
 	/// of `target`. The context of `self` is provided as `context`.
 	///
 	/// Returns the original `self` in case of overflow.
-	pub fn reanchored(
+	fn reanchored(
 		mut self,
 		target: &Location,
 		context: &InteriorLocation,
@@ -445,25 +468,6 @@ impl Location {
 		match self.reanchor(target, context) {
 			Ok(()) => Ok(self),
 			Err(()) => Err(self),
-		}
-	}
-
-	/// Remove any unneeded parents/junctions in `self` based on the given context it will be
-	/// interpreted in.
-	pub fn simplify(&mut self, context: &Junctions) {
-		if context.len() < self.parents as usize {
-			// Not enough context
-			return
-		}
-		while self.parents > 0 {
-			let maybe = context.at(context.len() - (self.parents as usize));
-			match (self.interior.first(), maybe) {
-				(Some(i), Some(j)) if i == j => {
-					self.interior.take_first();
-					self.parents -= 1;
-				},
-				_ => break,
-			}
 		}
 	}
 }

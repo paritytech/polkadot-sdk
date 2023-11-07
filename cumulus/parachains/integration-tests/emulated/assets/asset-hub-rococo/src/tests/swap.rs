@@ -123,7 +123,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		Parachain(PenpalRococoA::para_id().into()),
 		PalletInstance(ASSETS_PALLET_ID),
 		GeneralIndex(ASSET_ID.into()),
-	]);
+	]));
 
 	let assets_para_destination: VersionedLocation =
 		Location::new(1, [Parachain(AssetHubRococo::para_id().into())]).into();
@@ -165,7 +165,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			<AssetHubRococo as Chain>::Runtime,
 			Instance2,
 		>::create {
-			id: *foreign_asset1_at_asset_hub_rococo,
+			id: *foreign_asset1_at_asset_hub_rococo.clone(),
 			min_balance: 1000,
 			admin: sov_penpal_on_asset_hub_rococo.clone().into(),
 		})
@@ -176,7 +176,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		&Weight::from_parts(10_100_000_000_000, 300_000),
 	);
 	let buy_execution_fee = Asset {
-		id: AssetId(Location::new(1, HERE),
+		id: AssetId(Location::new(1, Here)),
 		fun: Fungible(buy_execution_fee_amount),
 	};
 
@@ -213,7 +213,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	// Receive XCM message in Assets Parachain
 	AssetHubRococo::execute_with(|| {
 		assert!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::asset_exists(
-			*foreign_asset1_at_asset_hub_rococo
+			*foreign_asset1_at_asset_hub_rococo.clone()
 		));
 
 		// 3: Mint foreign asset on asset_hub_rococo:
@@ -227,7 +227,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(
 				sov_penpal_on_asset_hub_rococo.clone().into()
 			),
-			*foreign_asset1_at_asset_hub_rococo,
+			*foreign_asset1_at_asset_hub_rococo.clone(),
 			sov_penpal_on_asset_hub_rococo.clone().into(),
 			3_000_000_000_000,
 		));

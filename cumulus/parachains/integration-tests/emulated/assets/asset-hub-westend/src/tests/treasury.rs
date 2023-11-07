@@ -36,7 +36,7 @@ fn create_and_claim_treasury_spend() {
 	// asset kind to be spend from the treasury.
 	let asset_kind = VersionedLocatableAsset::V3 {
 		location: asset_hub_location,
-		asset_id: AssetId(PalletInstance(50), GeneralIndex(ASSET_ID.into())).into(),
+		asset_id: AssetId([PalletInstance(50), GeneralIndex(ASSET_ID.into())].into()),
 	};
 	// treasury spend beneficiary.
 	let alice: AccountId = Westend::account_id_of(ALICE);

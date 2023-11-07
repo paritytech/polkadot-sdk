@@ -65,7 +65,7 @@ fn basic_buy_fees_message_executes() {
 		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
 			r.event,
 			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-				outcome: Outcome::Complete(_)
+				outcome: Outcome::Complete { .. }
 			}),
 		)));
 	});
@@ -116,7 +116,7 @@ fn transact_recursion_limit_works() {
 		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
 			r.event,
 			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-				outcome: Outcome::Incomplete(_, XcmError::ExceedsStackLimit)
+				outcome: Outcome::Incomplete { used: _, error: XcmError::ExceedsStackLimit }
 			}),
 		)));
 	});

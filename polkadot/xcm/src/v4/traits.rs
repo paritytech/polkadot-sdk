@@ -172,30 +172,30 @@ impl<C> ExecuteXcm<C> for () {
 	}
 }
 
-// pub trait Reanchorable: Sized {
-// 	/// Type to return in case of an error.
-// 	type Error;
+pub trait Reanchorable: Sized {
+	/// Type to return in case of an error.
+	type Error;
 
-// 	/// Mutate `self` so that it represents the same location from the point of view of `target`.
-// 	/// The context of `self` is provided as `context`.
-// 	///
-// 	/// Does not modify `self` in case of overflow.
-// 	fn reanchor(
-// 		&mut self,
-// 		target: &MultiLocation,
-// 		context: InteriorMultiLocation,
-// 	) -> core::result::Result<(), ()>;
+	/// Mutate `self` so that it represents the same location from the point of view of `target`.
+	/// The context of `self` is provided as `context`.
+	///
+	/// Does not modify `self` in case of overflow.
+	fn reanchor(
+		&mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> core::result::Result<(), ()>;
 
-// 	/// Consume `self` and return a new value representing the same location from the point of view
-// 	/// of `target`. The context of `self` is provided as `context`.
-// 	///
-// 	/// Returns the original `self` in case of overflow.
-// 	fn reanchored(
-// 		self,
-// 		target: &MultiLocation,
-// 		context: InteriorMultiLocation,
-// 	) -> core::result::Result<Self, Self::Error>;
-// }
+	/// Consume `self` and return a new value representing the same location from the point of view
+	/// of `target`. The context of `self` is provided as `context`.
+	///
+	/// Returns the original `self` in case of overflow.
+	fn reanchored(
+		self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> core::result::Result<Self, Self::Error>;
+}
 
 /// Result value when attempting to send an XCM message.
 pub type SendResult<T> = result::Result<(T, Assets), SendError>;

@@ -29,7 +29,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 			RuntimeEvent::Balances(pallet_balances::Event::Transfer { from, to, amount }) => {
 				from: *from == t.sender.account_id,
 				to: *to == Rococo::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount:  *amount == t.args.amount,
 			},
@@ -62,7 +62,7 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 			) => {
 				from: *from == t.sender.account_id,
 				to: *to == AssetHubRococo::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},
@@ -88,7 +88,7 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 				asset_id: *asset_id == ASSET_ID,
 				from: *from == t.sender.account_id,
 				to: *to == AssetHubRococo::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},

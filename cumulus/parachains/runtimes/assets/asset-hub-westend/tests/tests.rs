@@ -707,12 +707,12 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_works() {
 			AccountId::from([73; 32]),
 			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
 			// receiving ROCs
-			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }, 1000000000000, 1_000_000_000),
+			(Location::new(2, interior: [GlobalConsensus(Rococo)].into()), 1000000000000, 1_000_000_000),
 			bridging_to_asset_hub_rococo,
 			(
-				X1(PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)),
+				[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
 				GlobalConsensus(Rococo),
-				X1(Parachain(1000))
+				[Parachain(1000)].into()
 			)
 		)
 }
