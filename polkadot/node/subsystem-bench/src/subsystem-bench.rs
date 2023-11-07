@@ -20,11 +20,10 @@
 use clap::Parser;
 use color_eyre::eyre;
 use prometheus::proto::LabelPair;
-use sc_service::TaskManager;
 
 pub(crate) mod availability;
 
-use availability::{EnvParams, TestEnvironment, TestInput, TestState};
+use availability::{TestEnvironment, TestInput, TestState};
 const LOG_TARGET: &str = "subsystem-bench";
 
 /// Define the supported benchmarks targets
@@ -54,9 +53,7 @@ fn new_runtime() -> tokio::runtime::Runtime {
 impl BenchCli {
 	/// Launch a malus node.
 	fn launch(self) -> eyre::Result<()> {
-		use prometheus::{proto::MetricType, Counter, Encoder, Opts, Registry, TextEncoder};
-
-		let encoder = TextEncoder::new();
+		use prometheus::{proto::MetricType, Registry, TextEncoder};
 
 		println!("Preparing {:?} benchmarks", self.target);
 
@@ -72,7 +69,6 @@ impl BenchCli {
 		runtime.block_on(availability::bench_chunk_recovery(&mut env));
 
 		let metric_families = registry.gather();
-		let total_subsystem_cpu = 0;
 
 		for familiy in metric_families {
 			let metric_type = familiy.get_field_type();
@@ -81,8 +77,6 @@ impl BenchCli {
 				match metric_type {
 					MetricType::HISTOGRAM => {
 						let h = metric.get_histogram();
-
-						let mut inf_seen = false;
 
 						let labels = metric.get_label();
 						// Skip test env usage.

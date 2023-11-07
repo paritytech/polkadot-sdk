@@ -15,8 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use futures::stream::FuturesOrdered;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
@@ -201,7 +200,7 @@ impl NetworkEmulator {
 			n_peers,
 			bandwidth,
 			peers: (0..n_peers)
-				.map(|index| PeerEmulator::new(bandwidth, spawn_task_handle.clone()))
+				.map(|_index| PeerEmulator::new(bandwidth, spawn_task_handle.clone()))
 				.collect::<Vec<_>>(),
 		}
 	}

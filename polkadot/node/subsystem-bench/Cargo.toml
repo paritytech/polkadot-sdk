@@ -50,8 +50,5 @@ polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 # prometheus = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }
 
-[build-dependencies]
-substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
-
 [features]
 default = []

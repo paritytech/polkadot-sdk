@@ -13022,7 +13022,6 @@ dependencies = [
  "sp-core",
  "sp-keyring",
  "sp-keystore",
- "substrate-build-script-utils",
  "tokio",
  "tracing-gum",
 ]

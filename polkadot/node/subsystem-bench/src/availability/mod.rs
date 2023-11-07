@@ -16,40 +16,34 @@
 
 use std::{
 	sync::Arc,
-	thread::sleep,
 	time::{Duration, Instant},
 };
 
-use assert_matches::assert_matches;
-use color_eyre::owo_colors::colors::xterm;
 use futures::{
 	channel::{mpsc, oneshot},
-	executor, future, Future, FutureExt, SinkExt,
+	FutureExt, SinkExt,
 };
 use futures_timer::Delay;
 use polkadot_node_metrics::metrics::Metrics;
 
-use polkadot_availability_recovery::{AvailabilityRecoverySubsystem, Metrics as SubsystemMetrics};
+use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
-	self as req_res, v1::ChunkResponse, IncomingRequest, Recipient, ReqProtocolNames, Requests,
+	self as req_res, v1::ChunkResponse, IncomingRequest, ReqProtocolNames, Requests,
 };
 
 use prometheus::Registry;
-use sc_network::{config::RequestResponseConfig, IfDisconnected, OutboundFailure, RequestFailure};
+use sc_network::{config::RequestResponseConfig, OutboundFailure, RequestFailure};
 
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
-	errors::RecoveryError,
-	jaeger,
 	messages::{
 		AllMessages, AvailabilityRecoveryMessage, AvailabilityStoreMessage, NetworkBridgeTxMessage,
 		RuntimeApiMessage, RuntimeApiRequest,
 	},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, Subsystem,
-	SubsystemContext, SubsystemError, SubsystemResult,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, Subsystem,
 };
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
@@ -62,41 +56,30 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData,
-	IndexedVec, PersistedValidationData, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, CandidateReceipt, GroupIndex, Hash, HeadData, IndexedVec,
+	PersistedValidationData, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
 
 mod network;
 
-type VirtualOverseer = TestSubsystemContextHandle<AvailabilityRecoveryMessage>;
-
 // Deterministic genesis hash for protocol names
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 
 struct AvailabilityRecoverySubsystemInstance {
-	protocol_config: RequestResponseConfig,
-}
-
-pub struct EnvParams {
-	// The candidate we will recover in the benchmark.
-	candidate: CandidateReceipt,
+	_protocol_config: RequestResponseConfig,
 }
 
 // Implements a mockup of NetworkBridge and AvilabilityStore to support provide state for
 // `AvailabilityRecoverySubsystemInstance`
 pub struct TestEnvironment {
-	// A tokio runtime to use in the test
-	runtime: tokio::runtime::Handle,
 	// A task manager that tracks task poll durations.
 	task_manager: TaskManager,
 	// The Prometheus metrics registry
 	registry: Registry,
 	// A test overseer.
 	to_subsystem: mpsc::Sender<FromOrchestra<AvailabilityRecoveryMessage>>,
-	// Parameters
-	params: EnvParams,
 	// Subsystem instance, currently keeps req/response protocol channel senders
 	// for the whole duration of the test.
 	instance: AvailabilityRecoverySubsystemInstance,
@@ -110,15 +93,8 @@ impl TestEnvironment {
 	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
 	pub fn new(runtime: tokio::runtime::Handle, state: TestState, registry: Registry) -> Self {
 		let task_manager: TaskManager = TaskManager::new(runtime.clone(), Some(&registry)).unwrap();
-		let (instance, virtual_overseer) = AvailabilityRecoverySubsystemInstance::new(
-			&registry,
-			task_manager.spawn_handle(),
-			runtime.clone(),
-		);
-
-		// TODO: support parametrization of initial test state
-		// n_validator, n_cores.
-		let params = EnvParams { candidate: state.candidate() };
+		let (instance, virtual_overseer) =
+			AvailabilityRecoverySubsystemInstance::new(&registry, task_manager.spawn_handle());
 
 		// Copy sender for later when we need to inject messages in to the subsystem.
 		let to_subsystem = virtual_overseer.tx.clone();
@@ -133,12 +109,9 @@ impl TestEnvironment {
 			async move { Self::env_task(virtual_overseer, task_state, spawn_task_handle).await },
 		);
 
-		TestEnvironment { runtime, task_manager, registry, to_subsystem, params, instance, state }
+		TestEnvironment { task_manager, registry, to_subsystem, instance, state }
 	}
 
-	pub fn params(&self) -> &EnvParams {
-		&self.params
-	}
 	pub fn input(&self) -> &TestInput {
 		self.state.input()
 	}
@@ -189,9 +162,7 @@ impl TestEnvironment {
 							)
 						) => {
 							for request in requests {
-								// TODO: add latency variance when answering requests. This should be an env parameter.
 								let action = Self::respond_to_send_request(&mut state, request);
-								// action.run().await;
 								network.submit_peer_action(action.index(), action);
 							}
 						},
@@ -210,9 +181,9 @@ impl TestEnvironment {
 							let _ = tx.send(Some(chunk_size));
 						}
 						AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-							relay_parent,
+							_relay_parent,
 							RuntimeApiRequest::SessionInfo(
-								session_index,
+								_session_index,
 								tx,
 							)
 						)) => {
@@ -257,7 +228,6 @@ impl AvailabilityRecoverySubsystemInstance {
 	pub fn new(
 		registry: &Registry,
 		spawn_task_handle: SpawnTaskHandle,
-		runtime: tokio::runtime::Handle,
 	) -> (Self, TestSubsystemContextHandle<AvailabilityRecoveryMessage>) {
 		let (context, virtual_overseer) =
 			make_buffered_subsystem_context(spawn_task_handle.clone(), 4096 * 4);
@@ -279,7 +249,7 @@ impl AvailabilityRecoverySubsystemInstance {
 			subsystem_future,
 		);
 
-		(Self { protocol_config: req_cfg }, virtual_overseer)
+		(Self { _protocol_config: req_cfg }, virtual_overseer)
 	}
 }
 
@@ -301,24 +271,6 @@ use sp_keyring::Sr25519Keyring;
 use crate::availability::network::NetworkAction;
 
 use self::network::NetworkEmulator;
-
-#[derive(Debug)]
-enum Has {
-	No,
-	Yes,
-	NetworkError(RequestFailure),
-	/// Make request not return at all, instead the sender is returned from the function.
-	///
-	/// Note, if you use `DoesNotReturn` you have to keep the returned senders alive, otherwise the
-	/// subsystem will receive a cancel event and the request actually does return.
-	DoesNotReturn,
-}
-
-impl Has {
-	fn timeout() -> Self {
-		Has::NetworkError(RequestFailure::Network(OutboundFailure::Timeout))
-	}
-}
 
 #[derive(Clone)]
 pub struct TestState {
@@ -401,7 +353,7 @@ impl TestState {
 	pub fn new(input: TestInput) -> Self {
 		let validators = (0..input.n_validators as u64)
 			.into_iter()
-			.map(|v| Sr25519Keyring::Alice)
+			.map(|_v| Sr25519Keyring::Alice)
 			.collect::<Vec<_>>();
 
 		let mut candidate = dummy_candidate_receipt(dummy_hash());
@@ -418,8 +370,8 @@ impl TestState {
 			relay_parent_storage_root: Default::default(),
 		};
 
-		/// A 5MB PoV.
-		let pov = PoV { block_data: BlockData(vec![42; 1024 * 1024 * 5]) };
+		// A 5MB PoV.
+		let pov = PoV { block_data: BlockData(vec![42; input.pov_size]) };
 
 		let available_data = AvailableData {
 			validation_data: persisted_validation_data.clone(),
@@ -535,10 +487,8 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	))))
 	.await;
 
-	let mut candidate = env.params().candidate.clone();
-
 	let start_marker = Instant::now();
-
+	let mut candidate = env.state.candidate();
 	let mut batch = Vec::new();
 	for candidate_num in 0..input.n_cores as u64 {
 		let (tx, rx) = oneshot::channel();
@@ -556,13 +506,13 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 
 		if batch.len() >= input.vrf_modulo_samples {
 			for rx in std::mem::take(&mut batch) {
-				let available_data = rx.await.unwrap().unwrap();
+				let _available_data = rx.await.unwrap().unwrap();
 			}
 		}
 	}
 
 	for rx in std::mem::take(&mut batch) {
-		let available_data = rx.await.unwrap().unwrap();
+		let _available_data = rx.await.unwrap().unwrap();
 	}
 
 	env.send_signal(OverseerSignal::Conclude).await;
