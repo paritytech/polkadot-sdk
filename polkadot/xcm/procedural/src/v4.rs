@@ -25,7 +25,7 @@ pub mod location {
 
 	/// Generates conversion functions from other types to the `Location` type:
 	/// - [PalletInstance(50), GeneralIndex(1984)].into()
-	/// - (1, [Parachain(1000), AccountId32 { .. }]).into()
+	/// - (Parent, Parachain(1000), AccountId32 { .. }).into()
 	pub fn generate_conversion_functions(input: proc_macro::TokenStream) -> Result<TokenStream> {
 		if !input.is_empty() {
 			return Err(syn::Error::new(Span::call_site(), "No arguments expected"))
