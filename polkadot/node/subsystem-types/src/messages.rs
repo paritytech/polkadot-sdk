@@ -147,7 +147,7 @@ pub enum CandidateValidationMessage {
 		CandidateReceipt,
 		Arc<PoV>,
 		ExecutorParams,
-		/// Execution timeout and retry
+		/// Execution kind, used for timeouts and retries
 		PvfExecKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	),
@@ -166,7 +166,7 @@ pub enum CandidateValidationMessage {
 		CandidateReceipt,
 		Arc<PoV>,
 		ExecutorParams,
-		/// Execution timeout and retry
+		/// Execution kind, used for timeouts and retries
 		PvfExecKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	),

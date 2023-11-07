@@ -1783,7 +1783,7 @@ impl<T: Encode> WellKnownKey<T> {
 
 /// Type discriminator for PVF preparation timeouts
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PvfPrepTimeoutKind {
+pub enum PvfPrepKind {
 	/// For prechecking requests, the time period after which the preparation worker is considered
 	/// unresponsive and will be killed.
 	Precheck,

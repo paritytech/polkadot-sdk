@@ -49,7 +49,7 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT, self,
 	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
-	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepTimeoutKind,
+	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepKind,
 	ValidationCode, ValidationCodeHash,
 };
 
@@ -354,7 +354,7 @@ where
 			return PreCheckOutcome::Invalid
 		};
 
-	let timeout = pvf_prep_timeout(&executor_params, PvfPrepTimeoutKind::Precheck);
+	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
 
 	let pvf = match sp_maybe_compressed_blob::decompress(
 		&validation_code.0,
@@ -498,7 +498,7 @@ async fn validate_from_chain_state<Sender>(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_timeout_kind: PvfExecKind,
+	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed>
 where
@@ -518,7 +518,7 @@ where
 		candidate_receipt.clone(),
 		pov,
 		executor_params,
-		exec_timeout_kind,
+		exec_kind,
 		metrics,
 	)
 	.await;
@@ -554,7 +554,7 @@ async fn validate_candidate_exhaustive(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_timeout_kind: PvfExecKind,
+	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -613,10 +613,10 @@ async fn validate_candidate_exhaustive(
 		relay_parent_storage_root: persisted_validation_data.relay_parent_storage_root,
 	};
 
-	let result = match exec_timeout_kind {
+	let result = match exec_kind {
 		PvfExecKind::Backing => {
-			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepTimeoutKind::Lenient);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_timeout_kind);
+			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Lenient);
+			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
 			let pvf = PvfPrepData::from_code(
 				raw_validation_code.to_vec(),
 				executor_params,
@@ -636,8 +636,7 @@ async fn validate_candidate_exhaustive(
 			validation_backend
 			.validate_candidate_with_retry(
 				raw_validation_code.to_vec(),
-				pvf_exec_timeout(&executor_params, exec_timeout_kind),
-				exec_timeout_kind,
+				pvf_exec_timeout(&executor_params, exec_kind),
 				params,
 				executor_params,
 			)
@@ -723,7 +722,7 @@ trait ValidationBackend {
 		encoded_params: Vec<u8>,
 	) -> Result<WasmValidationResult, ValidationError>;
 
-	/// Tries executing a PVF. Will retry once if an error is encountered that may have been
+	/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered that may have been
 	/// transient.
 	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
@@ -732,11 +731,10 @@ trait ValidationBackend {
 		&mut self,
 		raw_validation_code: Vec<u8>,
 		exec_timeout: Duration,
-		exec_timeout_kind: PvfExecKind,
 		params: ValidationParams,
 		executor_params: ExecutorParams,
 	) -> Result<WasmValidationResult, ValidationError> {
-		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepTimeoutKind::Lenient);
+		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Lenient);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
 			raw_validation_code,
@@ -754,10 +752,7 @@ trait ValidationBackend {
 			return validation_result
 		}
 
-		let retry_delay = match exec_timeout_kind {
-			PvfExecKind::Backing => PVF_BACKING_EXECUTION_RETRY_DELAY,
-			PvfExecKind::Approval => PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-		};
+		let retry_delay = PVF_APPROVAL_EXECUTION_RETRY_DELAY;
 
 		// Allow limited retries for each kind of error.
 		let mut num_internal_retries_left = 1;
@@ -880,13 +875,13 @@ fn perform_basic_checks(
 	Ok(())
 }
 
-fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepTimeoutKind) -> Duration {
+fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_prep_timeout(kind) {
 		return timeout
 	}
 	match kind {
-		PvfPrepTimeoutKind::Precheck => DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
-		PvfPrepTimeoutKind::Lenient => DEFAULT_LENIENT_PREPARATION_TIMEOUT,
+		PvfPrepKind::Precheck => DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
+		PvfPrepKind::Lenient => DEFAULT_LENIENT_PREPARATION_TIMEOUT,
 	}
 }
 

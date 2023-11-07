@@ -496,79 +496,6 @@ fn candidate_validation_bad_return_is_invalid() {
 	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::Timeout));
 }
 
-// Test that we vote valid if we get `AmbiguousWorkerDeath`, retry, and then succeed.
-#[test]
-fn candidate_validation_one_ambiguous_error_is_valid() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let head_data = HeadData(vec![1, 1, 1]);
-	let validation_code = ValidationCode(vec![2; 16]);
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
-		&pov,
-		&validation_code.hash(),
-	);
-	assert!(check.is_ok());
-
-	let validation_result = WasmValidationResult {
-		head_data,
-		new_validation_code: Some(vec![2, 2, 2].into()),
-		upward_messages: Default::default(),
-		horizontal_messages: Default::default(),
-		processed_downward_messages: 0,
-		hrmp_watermark: 0,
-	};
-
-	let commitments = CandidateCommitments {
-		head_data: validation_result.head_data.clone(),
-		upward_messages: validation_result.upward_messages.clone(),
-		horizontal_messages: validation_result.horizontal_messages.clone(),
-		new_validation_code: validation_result.new_validation_code.clone(),
-		processed_downward_messages: validation_result.processed_downward_messages,
-		hrmp_watermark: validation_result.hrmp_watermark,
-	};
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			Ok(validation_result),
-		]),
-        validation_data.clone(),
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
-	))
-	.unwrap();
-
-	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-		assert_eq!(outputs.upward_messages, Vec::<UpwardMessage>::new());
-		assert_eq!(outputs.horizontal_messages, Vec::new());
-		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-		assert_eq!(outputs.hrmp_watermark, 0);
-		assert_eq!(used_validation_data, validation_data);
-	});
-}
-
 #[test]
 fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
@@ -600,7 +527,6 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let v = executor::block_on(validate_candidate_exhaustive(
         MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 		]),
         validation_data,
         validation_code,
@@ -617,7 +543,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 
 // Test that we retry on internal errors.
 #[test]
-fn candidate_validation_retry_internal_errors() {
+fn candidate_validation_dont_retry_internal_errors() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
@@ -661,12 +587,12 @@ fn candidate_validation_retry_internal_errors() {
         &Default::default(),
 	));
 
-	assert_matches!(v, Err(ValidationFailed(s)) if s.contains("bar"));
+	assert_matches!(v, Err(ValidationFailed(s)) if s.contains("foo"));
 }
 
 // Test that we retry on panic errors.
 #[test]
-fn candidate_validation_retry_panic_errors() {
+fn candidate_validation_dont_retry_panic_errors() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
@@ -710,7 +636,7 @@ fn candidate_validation_retry_panic_errors() {
         &Default::default(),
 	));
 
-	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "bar".to_string());
+	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "foo".to_string());
 }
 
 #[test]

@@ -48,7 +48,7 @@ pub use v6::{
     HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage, IndexedVec,
     InherentData, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, Nonce,
     OccupiedCore, OccupiedCoreAssumption, OutboundHrmpMessage, ParathreadClaim, ParathreadEntry,
-    PersistedValidationData, PvfCheckStatement, PvfExecKind, PvfPrepTimeoutKind,
+    PersistedValidationData, PvfCheckStatement, PvfExecKind, PvfPrepKind,
     RuntimeMetricLabel, RuntimeMetricLabelValue, RuntimeMetricLabelValues, RuntimeMetricLabels,
     RuntimeMetricOp, RuntimeMetricUpdate, ScheduledCore, ScrapedOnChainVotes, SessionIndex,
     SessionInfo, Signature, Signed, SignedAvailabilityBitfield, SignedAvailabilityBitfields,

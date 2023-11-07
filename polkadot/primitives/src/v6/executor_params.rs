@@ -21,7 +21,7 @@
 //! by the first element of the vector). Decoding to a usable semantics structure is
 //! done in `polkadot-node-core-pvf`.
 
-use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepTimeoutKind};
+use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepKind};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -45,7 +45,7 @@ pub const PRECHECK_MEM_MAX_LO: u64 = 256 * 1024 * 1024;
 pub const PRECHECK_MEM_MAX_HI: u64 = 16 * 1024 * 1024 * 1024;
 
 // Default PVF timeouts. Must never be changed! Use executor environment parameters to adjust them.
-// See also `PvfPrepTimeoutKind` and `PvfExecKind` docs.
+// See also `PvfPrepKind` and `PvfExecKind` docs.
 
 /// Default PVF preparation timeout for prechecking requests.
 pub const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
@@ -99,7 +99,7 @@ pub enum ExecutorParam {
 	/// Always ensure that `precheck_timeout` < `lenient_timeout`.
 	/// When absent, the default values will be used.
 	#[codec(index = 5)]
-	PvfPrepTimeout(PvfPrepTimeoutKind, u64),
+	PvfPrepTimeout(PvfPrepKind, u64),
 	/// PVF execution timeouts, in millisecond.
 	/// Always ensure that `backing_timeout` < `approval_timeout`.
 	/// When absent, the default values will be used.
@@ -174,7 +174,7 @@ impl ExecutorParams {
 	}
 
 	/// Returns a PVF preparation timeout, if any
-	pub fn pvf_prep_timeout(&self, kind: PvfPrepTimeoutKind) -> Option<Duration> {
+	pub fn pvf_prep_timeout(&self, kind: PvfPrepKind) -> Option<Duration> {
 		for param in &self.0 {
 			if let ExecutorParam::PvfPrepTimeout(k, timeout) = param {
 				if kind == *k {
@@ -242,8 +242,8 @@ impl ExecutorParams {
 				StackNativeMax(_) => "StackNativeMax",
 				PrecheckingMaxMemory(_) => "PrecheckingMaxMemory",
 				PvfPrepTimeout(kind, _) => match kind {
-					PvfPrepTimeoutKind::Precheck => "PvfPrepTimeoutKind::Precheck",
-					PvfPrepTimeoutKind::Lenient => "PvfPrepTimeoutKind::Lenient",
+					PvfPrepKind::Precheck => "PvfPrepKind::Precheck",
+					PvfPrepKind::Lenient => "PvfPrepKind::Lenient",
 				},
 				PvfExecTimeout(kind, _) => match kind {
 					PvfExecKind::Backing => "PvfExecKind::Backing",
@@ -297,15 +297,15 @@ impl ExecutorParams {
 		}
 
 		if let (Some(precheck), Some(lenient)) = (
-			seen.get("PvfPrepTimeoutKind::Precheck")
+			seen.get("PvfPrepKind::Precheck")
 				.or(Some(&DEFAULT_PRECHECK_PREPARATION_TIMEOUT_MS)),
-			seen.get("PvfPrepTimeoutKind::Lenient")
+			seen.get("PvfPrepKind::Lenient")
 				.or(Some(&DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			if *precheck >= *lenient {
 				return Err(IncompatibleValues(
-					"PvfPrepTimeoutKind::Precheck",
-					"PvfPrepTimeoutKind::Lenient",
+					"PvfPrepKind::Precheck",
+					"PvfPrepKind::Lenient",
 				))
 			}
 		}
