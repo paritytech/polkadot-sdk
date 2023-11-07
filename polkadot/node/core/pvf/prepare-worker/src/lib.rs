@@ -37,7 +37,7 @@ use nix::{
 	},
 	unistd::{ForkResult, Pid},
 };
-use os_pipe::{self, PipeWriter};
+use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
@@ -93,6 +93,7 @@ impl AsRef<[u8]> for CompiledArtifact {
 	}
 }
 
+/// Get a worker request.
 fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	let pvf = framed_recv_blocking(stream)?;
 	let pvf = PvfPrepData::decode(&mut &pvf[..]).map_err(|e| {
@@ -104,6 +105,7 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	Ok(pvf)
 }
 
+/// Send a worker response.
 fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
 	framed_send_blocking(stream, &result.encode())
 }
@@ -124,7 +126,11 @@ fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
 					// Syscalls never allocate or deallocate, so this is safe.
 					libc::syscall(libc::SYS_write, fd, OOM_PAYLOAD.as_ptr(), OOM_PAYLOAD.len());
 					libc::syscall(libc::SYS_close, fd);
-					libc::syscall(libc::SYS_exit, 1);
+					// Make sure we exit from all threads. Copied from libc.
+					libc::syscall(libc::SYS_exit_group, 1);
+					loop {
+						libc::syscall(libc::SYS_exit, 1);
+					}
 				}
 				#[cfg(not(target_os = "linux"))]
 				{
@@ -135,7 +141,7 @@ fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
 					// code is only run by a validator, it's a lesser evil.
 					libc::write(fd, OOM_PAYLOAD.as_ptr().cast(), OOM_PAYLOAD.len());
 					libc::close(fd);
-					std::process::exit(1);
+					libc::_exit(1);
 				}
 			})),
 		);
@@ -309,7 +315,7 @@ struct Response {
 ///
 /// - `pvf`: `PvfPrepData` structure, containing data to prepare the artifact
 ///
-/// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `preparation_timeout`: The timeout in `Duration`.
 ///
@@ -324,7 +330,7 @@ struct Response {
 /// - If success, pipe back `Response`.
 fn handle_child_process(
 	pvf: PvfPrepData,
-	pipe_write: os_pipe::PipeWriter,
+	mut pipe_write: PipeWriter,
 	preparation_timeout: Duration,
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
@@ -373,7 +379,7 @@ fn handle_child_process(
 		WaitOutcome::TimedOut,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
+		send_child_response(&mut pipe_write, Err(PrepareError::Panic(err.to_string())))
 	});
 
 	let prepare_thread = spawn_worker_thread(
@@ -403,7 +409,7 @@ fn handle_child_process(
 		WaitOutcome::Finished,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	let outcome = thread::wait_for_threads(condvar);
@@ -425,7 +431,7 @@ fn handle_child_process(
 
 			match prepare_thread.join().unwrap_or_else(|err| {
 				send_child_response(
-					&pipe_write,
+					&mut pipe_write,
 					Err(PrepareError::Panic(stringify_panic_payload(err))),
 				)
 			}) {
@@ -470,7 +476,7 @@ fn handle_child_process(
 			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
 	};
 
-	send_child_response(&pipe_write, result);
+	send_child_response(&mut pipe_write, result);
 }
 
 /// Waits for child process to finish and handle child response from pipe.
@@ -498,7 +504,7 @@ fn handle_child_process(
 ///
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 fn handle_parent_process(
-	mut pipe_read: os_pipe::PipeReader,
+	mut pipe_read: PipeReader,
 	child: Pid,
 	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
@@ -506,10 +512,8 @@ fn handle_parent_process(
 	timeout: Duration,
 ) -> Result<PrepareStats, PrepareError> {
 	// Read from the child.
-	let mut received_data = Vec::new();
-	pipe_read
-		.read_to_end(&mut received_data)
-		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
+	let result =
+		recv_child_response(&mut pipe_read).map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(child, None);
 	gum::trace!(
@@ -540,11 +544,7 @@ fn handle_parent_process(
 	}
 
 	match status {
-		Ok(WaitStatus::Exited(_pid, libc::EXIT_SUCCESS)) => {
-			let result: Result<Response, PrepareError> =
-				Result::decode(&mut received_data.as_slice())
-					// There is either a bug or the job was hijacked.
-					.map_err(|err| PrepareError::IoErr(err.to_string()))?;
+		Ok(WaitStatus::Exited(_pid, _exit_status)) => {
 			match result {
 				Err(err) => Err(err),
 				Ok(response) => {
@@ -607,16 +607,26 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 	return Duration::from_micros(micros)
 }
 
-/// Write response to the pipe and exit process after.
+/// Get a job response.
+fn recv_child_response(pipe_read: &mut PipeReader) -> io::Result<JobResponse> {
+	let response_bytes = framed_recv_blocking(pipe_read)?;
+	JobResponse::decode(&mut response_bytes.as_slice()).map_err(|e| {
+		io::Error::new(
+			io::ErrorKind::Other,
+			format!("prepare pvf recv_child_response: decode error: {:?}", e),
+		)
+	})
+}
+
+/// Write a job response to the pipe and exit process after.
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-fn send_child_response(mut pipe_write: &PipeWriter, response: JobResponse) -> ! {
-	pipe_write
-		.write_all(response.encode().as_slice())
+fn send_child_response(pipe_write: &mut PipeWriter, response: JobResponse) -> ! {
+	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 	if response.is_ok() {
@@ -638,8 +648,9 @@ const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 #[test]
 fn pre_encoded_payloads() {
 	// NOTE: This must match the type of `response` in `send_child_response`.
-	let unencoded: JobResponse = Result::Err(PrepareError::OutOfMemory);
-	let oom_encoded = unencoded.encode();
+	let oom_unencoded: JobResponse = Result::Err(PrepareError::OutOfMemory);
+	let oom_encoded = oom_unencoded.encode();
+	// The payload is prefixed with	its length in `framed_send`.
 	let mut oom_payload = oom_encoded.len().to_le_bytes().to_vec();
 	oom_payload.extend(oom_encoded);
 	assert_eq!(oom_payload, OOM_PAYLOAD);

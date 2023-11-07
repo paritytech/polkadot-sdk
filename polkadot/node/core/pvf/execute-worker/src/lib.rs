@@ -33,7 +33,7 @@ use nix::{
 	},
 	unistd::{ForkResult, Pid},
 };
-use os_pipe::PipeWriter;
+use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
@@ -265,7 +265,7 @@ fn validate_using_artifact(
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `compiled_artifact_blob`: The artifact bytes from compiled by the prepare worker`.
 ///
@@ -279,7 +279,7 @@ fn validate_using_artifact(
 ///
 /// - pipe back `JobResponse` to the parent process.
 fn handle_child_process(
-	pipe_write: os_pipe::PipeWriter,
+	mut pipe_write: PipeWriter,
 	compiled_artifact_blob: Vec<u8>,
 	executor_params: ExecutorParams,
 	params: Vec<u8>,
@@ -304,7 +304,7 @@ fn handle_child_process(
 		WaitOutcome::TimedOut,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
+		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
 	});
 
 	let executor_params_2 = executor_params.clone();
@@ -316,7 +316,7 @@ fn handle_child_process(
 		EXECUTE_THREAD_STACK_SIZE,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
+		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
 	});
 
 	let outcome = thread::wait_for_threads(condvar);
@@ -339,7 +339,7 @@ fn handle_child_process(
 			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
 	};
 
-	send_child_response(&pipe_write, response);
+	send_child_response(&mut pipe_write, response);
 }
 
 /// Waits for child process to finish and handle child response from pipe.
@@ -358,15 +358,17 @@ fn handle_child_process(
 ///
 /// - The response, either `Ok` or some error state.
 fn handle_parent_process(
-	mut pipe_read: os_pipe::PipeReader,
+	mut pipe_read: PipeReader,
 	child: Pid,
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<WorkerResponse> {
 	// Read from the child.
-	let mut received_data = Vec::new();
-	pipe_read.read_to_end(&mut received_data)?;
+	let result = recv_child_response(&mut pipe_read)
+		// Could not decode job response. There is either a bug or the job was hijacked.
+		// Should retry at any rate.
+		.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(child, None);
 	gum::trace!(
@@ -382,7 +384,7 @@ fn handle_parent_process(
 	};
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
-	// child. to report its own time.
+	// child to report its own time.
 	// As `getrusage` returns resource usage from all terminated child processes,
 	// it is necessary to subtract the usage before the current child process to isolate its cpu
 	// time
@@ -399,29 +401,23 @@ fn handle_parent_process(
 	}
 
 	match status {
-		Ok(WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
-			match JobResult::decode(&mut received_data.as_slice()) {
-				Ok(Ok(JobResponse::Ok { result_descriptor })) =>
-					Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv }),
-				Ok(Ok(JobResponse::InvalidCandidate(err))) =>
-					Ok(WorkerResponse::InvalidCandidate(err)),
-				Ok(Err(job_error)) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						%worker_pid,
-						"execute job error: {}",
-						job_error,
-					);
-					if matches!(job_error, JobError::TimedOut) {
-						Ok(WorkerResponse::JobTimedOut)
-					} else {
-						Ok(WorkerResponse::JobError(job_error.to_string()))
-					}
-				},
-				// Could not decode job response. There is either a bug or the job was hijacked.
-				// Should retry at any rate.
-				Err(err) => Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
-			}
+		Ok(WaitStatus::Exited(_, _exit_status)) => match result {
+			Ok(JobResponse::Ok { result_descriptor }) =>
+				Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv }),
+			Ok(JobResponse::InvalidCandidate(err)) => Ok(WorkerResponse::InvalidCandidate(err)),
+			Err(job_error) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"execute job error: {}",
+					job_error,
+				);
+				if matches!(job_error, JobError::TimedOut) {
+					Ok(WorkerResponse::JobTimedOut)
+				} else {
+					Ok(WorkerResponse::JobError(job_error.to_string()))
+				}
+			},
 		},
 		// The job was killed by the given signal.
 		//
@@ -457,16 +453,26 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 	return Duration::from_micros(micros)
 }
 
+/// Get a job response.
+fn recv_child_response(pipe_read: &mut PipeReader) -> io::Result<JobResult> {
+	let response_bytes = framed_recv_blocking(pipe_read)?;
+	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
+		io::Error::new(
+			io::ErrorKind::Other,
+			format!("execute pvf recv_child_response: decode error: {:?}", e),
+		)
+	})
+}
+
 /// Write response to the pipe and exit process after.
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response, or error.
-fn send_child_response(mut pipe_write: &PipeWriter, response: JobResult) -> ! {
-	pipe_write
-		.write_all(response.encode().as_slice())
+fn send_child_response(pipe_write: &mut PipeWriter, response: JobResult) -> ! {
+	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 	if response.is_ok() {
