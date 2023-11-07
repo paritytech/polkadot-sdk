@@ -55,7 +55,7 @@
 pub use pallet::*;
 
 use frame_election_provider_support::SortedListProvider;
-use frame_support::traits::{Currency, Defensive};
+use frame_support::traits::{fungible::Inspect as FnInspect, Defensive};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, StakerStatus, StakingInterface,
 };
@@ -95,7 +95,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type Currency: Currency<Self::AccountId, Balance = BalanceOf<Self>>;
+		type Currency: FnInspect<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
@@ -108,11 +108,6 @@ pub mod pallet {
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
 		/// Something that provides an *always* sorted list of targets.
-		///
-		/// Note that while at the time of nomination all targets are checked to be real
-		/// validators, they can chill at any point, and their approval stakes will still be
-		/// recorded. This implies that what comes out of iterating this list MIGHT NOT BE AN ACTIVE
-		/// VALIDATOR.
 		type TargetList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 	}
 
@@ -341,7 +336,5 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		_slashed_unlocking: &BTreeMap<sp_staking::EraIndex, BalanceOf<T>>,
 		_slashed_total: BalanceOf<T>,
 	) {
-		#[cfg(any(std, no_std))]
-		frame_support::defensive!("unexpected call to OnStakingUpdate::on_slash");
 	}
 }

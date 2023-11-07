@@ -985,7 +985,6 @@ impl<T: Config> Pallet<T> {
 			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_add(
 				who,
 			);
-			Nominators::<T>::insert(who, nominations);
 		} else {
 			// update nominations.
 			let prev_nominations = Self::nominations(who).unwrap_or_default();
@@ -994,8 +993,9 @@ impl<T: Config> Pallet<T> {
 				who,
 				prev_nominations,
 			);
-			Nominators::<T>::insert(who, nominations.clone());
 		}
+
+		Nominators::<T>::insert(who, nominations);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),

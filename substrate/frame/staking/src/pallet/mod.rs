@@ -272,8 +272,6 @@ pub mod pallet {
 
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
-		///
-		/// WARNING: this only reports slashing events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		/// Some parameters of the benchmarking.
