@@ -446,6 +446,8 @@ pub mod pallet {
 		InvalidAssetUnsupportedReserve,
 		/// Too many assets with different reserve locations have been attempted for transfer.
 		TooManyReserves,
+		/// Local XCM execution of asset transfer incomplete.
+		LocalExecutionIncomplete,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -1415,7 +1417,7 @@ impl<T: Config> Pallet<T> {
 			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		if let Some(remote_xcm) = remote_xcm {
-			outcome.ensure_complete().map_err(|_| Error::<T>::FeesNotMet)?;
+			outcome.ensure_complete().map_err(|_| Error::<T>::LocalExecutionIncomplete)?;
 
 			let (ticket, price) = validate_send::<T::XcmRouter>(dest, remote_xcm.clone())
 				.map_err(Error::<T>::from)?;
