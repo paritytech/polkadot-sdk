@@ -187,7 +187,7 @@ async fn new_minimal_relay_chain(
 	let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
 
 	// If we are a parachain full node, we don't need validation and collator protocol
-	if !parachain_role.is_authority() {
+	if parachain_role.is_authority() {
 		for config in peer_sets_info(is_authority, &peer_set_protocol_names) {
 			net_config.add_notification_protocol(config);
 		}
