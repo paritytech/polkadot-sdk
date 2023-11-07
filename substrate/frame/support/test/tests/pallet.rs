@@ -21,7 +21,7 @@ use frame_support::{
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
 	parameter_types,
-	storage::unhashed,
+	storage::{unhashed, unhashed::contains_prefixed_key},
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
 		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
@@ -2330,6 +2330,58 @@ fn test_storage_alias() {
 	})
 }
 
+#[test]
+fn pallet_on_chain_storage_version_initializes_correctly() {
+	type Executive = frame_executive::Executive<
+		Runtime,
+		Block,
+		frame_system::ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	// Simple example of a pallet with current version 10 being added to the runtime for the first
+	// time.
+	TestExternalities::default().execute_with(|| {
+		let current_version = Example::current_storage_version();
+
+		// Check the pallet has no storage items set.
+		let pallet_hashed_prefix = twox_128(Example::name().as_bytes());
+		let exists = contains_prefixed_key(&pallet_hashed_prefix);
+		assert_eq!(exists, false);
+
+		// [`frame_support::traits::BeforeAllRuntimeMigrations`] hook should initialize the storage
+		// version.
+		Executive::execute_on_runtime_upgrade();
+
+		// Check that the storage version was initialized to the current version
+		let on_chain_version_after = StorageVersion::get::<Example>();
+		assert_eq!(on_chain_version_after, current_version);
+	});
+
+	// Pallet with no current storage version should have the on-chain version initialized to 0.
+	TestExternalities::default().execute_with(|| {
+		// Example4 current_storage_version is NoStorageVersionSet.
+
+		// Check the pallet has no storage items set.
+		let pallet_hashed_prefix = twox_128(Example4::name().as_bytes());
+		let exists = contains_prefixed_key(&pallet_hashed_prefix);
+		assert_eq!(exists, false);
+
+		// Confirm the storage version is implicitly 0.
+		let on_chain_version_before = StorageVersion::get::<Example4>();
+		assert_eq!(on_chain_version_before, StorageVersion::new(0));
+
+		// [`frame_support::traits::BeforeAllRuntimeMigrations`] initializes the storage version.
+		Executive::execute_on_runtime_upgrade();
+
+		// Check that the storage version now exists and was initialized to 0.
+		let on_chain_version_after = StorageVersion::get::<Example4>();
+		assert_eq!(StorageVersion::exists::<Example4>(), true);
+		assert_eq!(on_chain_version_after, StorageVersion::new(0));
+	});
+}
+
 #[cfg(feature = "try-runtime")]
 #[test]
 fn post_runtime_upgrade_detects_storage_version_issues() {
@@ -2382,8 +2434,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 	>;
 
 	TestExternalities::default().execute_with(|| {
-		// Call `on_genesis` to put the storage version of `Example` into the storage.
-		Example::on_genesis();
+		// Set the on-chain version to one less than the current version for `Example`, simulating a
+		// forgotten migration
+		StorageVersion::new(9).put::<Example2>();
+
 		// The version isn't changed, we should detect it.
 		assert!(
 			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
