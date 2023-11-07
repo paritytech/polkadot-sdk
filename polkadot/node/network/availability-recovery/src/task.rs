@@ -852,7 +852,7 @@ impl FetchSystematicChunks {
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,
 					?err,
-					"Systematic data recovery error ",
+					"Systematic data recovery error",
 				);
 
 				Err(RecoveryError::Invalid)
@@ -1148,7 +1148,7 @@ impl FetchChunks {
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,
 					?err,
-					"Data recovery error ",
+					"Data recovery error",
 				);
 
 				Err(RecoveryError::Invalid)

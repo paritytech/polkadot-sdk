@@ -69,6 +69,9 @@ pub enum Error {
 	/// Bad payload in reconstructed bytes.
 	#[error("Reconstructed payload invalid")]
 	BadPayload,
+	/// Unable to decode reconstructed bytes.
+	#[error("Unable to decode reconstructed payload: {0}")]
+	Decode(#[source] parity_scale_codec::Error),
 	/// Invalid branch proof.
 	#[error("Invalid branch proof")]
 	InvalidBranchProof,
@@ -172,7 +175,7 @@ pub fn reconstruct_from_systematic<T: Decode>(
 		}
 	}
 
-	Decode::decode(&mut &systematic_bytes[..]).map_err(|_| Error::BadPayload)
+	Decode::decode(&mut &systematic_bytes[..]).map_err(|err| Error::Decode(err))
 }
 
 /// Obtain erasure-coded chunks for v1 `AvailableData`, one for each validator.
@@ -263,7 +266,7 @@ where
 		Ok(payload_bytes) => payload_bytes,
 	};
 
-	Decode::decode(&mut &payload_bytes[..]).map_err(|_| Error::BadPayload)
+	Decode::decode(&mut &payload_bytes[..]).map_err(|err| Error::Decode(err))
 }
 
 /// An iterator that yields merkle branches and chunk data for all chunks to
