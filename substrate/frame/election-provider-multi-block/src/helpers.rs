@@ -26,3 +26,15 @@ macro_rules! log {
 		)
 	};
 }
+
+macro_rules! sublog {
+	($level:tt, $sub_pallet:tt, $pattern:expr $(, $values:expr)* $(,)?) => {
+		#[cfg(not(feature = "std"))]
+		log!($level, $pattern $(, $values )*);
+		#[cfg(feature = "std")]
+		log::$level!(
+			target: format!("{}::{}", $crate::LOG_PREFIX, $sub_pallet).as_ref(),
+			concat!("[#{:?}] 🗳🗳🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values )*
+		)
+	};
+}

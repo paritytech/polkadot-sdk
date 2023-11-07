@@ -19,14 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
 use frame_election_provider_support::{
-	BoundedSupportsOf, ElectionDataProvider, ElectionProvider, PageIndex,
+	BoundedSupportsOf, ElectionDataProvider, ElectionProvider, PageIndex, NposSolution,
 };
-use frame_support::{
-	traits::{Defensive, Get},
-	DebugNoBound,
-};
+use frame_support::traits::{Defensive, Get};
 use frame_system::pallet_prelude::BlockNumberFor;
 
 #[macro_use]
@@ -37,8 +33,11 @@ mod mock;
 const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
 pub mod types;
+pub mod verifier;
 pub use pallet::*;
 pub use types::*;
+
+pub use crate::verifier::Verifier;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -47,7 +46,7 @@ pub mod pallet {
 		pallet_prelude::{ValueQuery, *},
 		sp_runtime::{traits::Zero, Saturating},
 	};
-	use frame_system::pallet_prelude::{BlockNumberFor, *};
+	use frame_system::pallet_prelude::BlockNumberFor;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -80,11 +79,27 @@ pub mod pallet {
 		#[pallet::constant]
 		type Pages: Get<PageIndex>;
 
+
+		/// The solution type.
+		type Solution: codec::FullCodec
+			+ Default
+			+ PartialEq
+			+ Eq
+			+ Clone
+			+ sp_std::fmt::Debug
+			+ Ord
+			+ NposSolution
+			+ TypeInfo
+			+ MaxEncodedLen;
+
 		/// Something that will provide the election data.
 		type DataProvider: ElectionDataProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 		>;
+
+		/// Something that implements an election solution verifier.
+		type Verifier: verifier::Verifier<AccountId = Self::AccountId, Solution = SolutionOf<Self>>; // + verifier::AsynchronousVerifier;
 	}
 
 	/// Current phase.

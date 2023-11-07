@@ -9791,9 +9791,10 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-io",
+ "sp-npos-elections",
  "sp-runtime",
- "sp-std",
- "sp-tracing",
+ "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
 ]
 
 [[package]]

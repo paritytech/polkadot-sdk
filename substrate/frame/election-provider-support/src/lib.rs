@@ -746,6 +746,16 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
 	}
 }
 
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> sp_std::ops::Deref
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	type Target = BoundedVec<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
 /// An extension trait to convert from [`sp_npos_elections::Supports<AccountId>`] into
 /// [`BoundedSupports`].
 pub trait TryIntoBoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {

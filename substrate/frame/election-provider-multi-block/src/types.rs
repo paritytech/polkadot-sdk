@@ -21,7 +21,19 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::DebugNoBound;
 use scale_info::TypeInfo;
 
+use crate::Verifier;
+
 use frame_election_provider_support::PageIndex;
+
+/// Supports that are returned from a given [`Verifier`].
+pub type SupportsOf<V> = frame_election_provider_support::BoundedSupports<
+	<V as Verifier>::AccountId,
+	<V as Verifier>::MaxWinnersPerPage,
+	<V as Verifier>::MaxBackersPerWinner,
+>;
+
+/// The solution type used by this crate.
+pub type SolutionOf<T> = <T as crate::Config>::Solution;
 
 #[derive(DebugNoBound)]
 pub enum ElectionError {}
@@ -47,3 +59,4 @@ impl<Bn> Default for Phase<Bn> {
 /// Alias for a voter, parameterized by this crate's config.
 pub(crate) type VoterOf<T> =
 	frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
+

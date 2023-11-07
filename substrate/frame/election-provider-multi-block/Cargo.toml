@@ -30,6 +30,7 @@ sp-core = { path = "../../primitives/core", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
 
 frame-election-provider-support = { version = "4.0.0-dev", default-features = false, path = "../election-provider-support" }
+sp-npos-elections = { default-features = false, path = "../../primitives/npos-elections" }
 
 [dev-dependencies]
 sp-tracing = { path = "../../primitives/tracing" }
@@ -52,6 +53,7 @@ std = [
 	"sp-runtime/std",
 
 	"frame-election-provider-support/std",
+	"sp-npos-elections/std",
 
 	"pallet-balances/std",
 	"pallet-staking/std",
