@@ -60,11 +60,11 @@ fn example() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
-					outcome: Outcome::Complete(_),
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+					success: true,
 					..
 				}) => {},
-				RuntimeEvent::BridgeRococoToWococoMessages(pallet_bridge_messages::Event::MessageAccepted {
+				RuntimeEvent::BridgeWococoMessages(pallet_bridge_messages::Event::MessageAccepted {
 					lane_id: LaneId([0, 0, 0, 1]),
 					nonce: 1,
 				}) => {},
@@ -91,7 +91,9 @@ fn example() {
 		assert_expected_events!(
 			AssetHubWococo,
 			vec![
-				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Fail { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed {
+					..
+				}) => {},
 			]
 		);
 	});

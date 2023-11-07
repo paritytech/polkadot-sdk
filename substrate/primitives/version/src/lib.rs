@@ -175,17 +175,24 @@ pub struct RuntimeVersion {
 	/// will not attempt to author blocks unless this is equal to its native runtime.
 	pub authoring_version: u32,
 
-	/// Version of the runtime specification. A full-node will not attempt to use its native
-	/// runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
-	/// `spec_version` and `authoring_version` are the same between Wasm and native.
+	/// Version of the runtime specification.
+	///
+	/// A full-node will not attempt to use its native runtime in substitute for the on-chain
+	/// Wasm runtime unless all of `spec_name`, `spec_version` and `authoring_version` are the same
+	/// between Wasm and native.
+	///
+	/// This number should never decrease.
 	pub spec_version: u32,
 
-	/// Version of the implementation of the specification. Nodes are free to ignore this; it
-	/// serves only as an indication that the code is different; as long as the other two versions
-	/// are the same then while the actual code may be different, it is nonetheless required to
-	/// do the same thing.
-	/// Non-consensus-breaking optimizations are about the only changes that could be made which
-	/// would result in only the `impl_version` changing.
+	/// Version of the implementation of the specification.
+	///
+	/// Nodes are free to ignore this; it serves only as an indication that the code is different;
+	/// as long as the other two versions are the same then while the actual code may be different,
+	/// it is nonetheless required to do the same thing. Non-consensus-breaking optimizations are
+	/// about the only changes that could be made which would result in only the `impl_version`
+	/// changing.
+	///
+	/// This number can be reverted to `0` after a [`spec_version`](Self::spec_version) bump.
 	pub impl_version: u32,
 
 	/// List of supported API "features" along with their versions.
@@ -198,15 +205,25 @@ pub struct RuntimeVersion {
 	)]
 	pub apis: ApisVec,
 
-	/// All existing dispatches are fully compatible when this number doesn't change. If this
-	/// number changes, then `spec_version` must change, also.
+	/// All existing calls (dispatchables) are fully compatible when this number doesn't change. If
+	/// this number changes, then [`spec_version`](Self::spec_version) must change, also.
 	///
-	/// This number must change when an existing dispatchable (module ID, dispatch ID) is changed,
+	/// This number must change when an existing call (pallet index, call index) is changed,
 	/// either through an alteration in its user-level semantics, a parameter
-	/// added/removed/changed, a dispatchable being removed, a module being removed, or a
-	/// dispatchable/module changing its index.
+	/// added/removed, a parameter type changed, or a call/pallet changing its index. An alteration
+	/// of the user level semantics is for example when the call was before `transfer` and now is
+	/// `transfer_all`, the semantics of the call changed completely.
 	///
-	/// It need *not* change when a new module is added or when a dispatchable is added.
+	/// Removing a pallet or a call doesn't require a *bump* as long as no pallet or call is put at
+	/// the same index. Removing doesn't require a bump as the chain will reject a transaction
+	/// referencing this removed call/pallet while decoding and thus, the user isn't at risk to
+	/// execute any unknown call. FRAME runtime devs have control over the index of a call/pallet
+	/// to prevent that an index gets reused.
+	///
+	/// Adding a new pallet or call also doesn't require a *bump* as long as they also don't reuse
+	/// any previously used index.
+	///
+	/// This number should never decrease.
 	pub transaction_version: u32,
 
 	/// Version of the state implementation used by this runtime.

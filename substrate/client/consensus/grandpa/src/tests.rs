@@ -54,7 +54,7 @@ use tokio::runtime::Handle;
 
 use authorities::AuthoritySet;
 use communication::grandpa_protocol_name;
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sc_consensus::LongestChain;
 use sp_application_crypto::key_types::GRANDPA;
 
@@ -897,8 +897,11 @@ async fn allows_reimporting_change_blocks() {
 	let (mut block_import, ..) = net.make_block_import(client.clone());
 
 	let full_client = client.as_client();
-	let mut builder = full_client
-		.new_block_at(full_client.chain_info().genesis_hash, Default::default(), false)
+	let mut builder = BlockBuilderBuilder::new(&*full_client)
+		.on_parent_block(full_client.chain_info().best_hash)
+		.fetch_parent_block_number(&*full_client)
+		.unwrap()
+		.build()
 		.unwrap();
 
 	add_scheduled_change(
@@ -942,8 +945,11 @@ async fn test_bad_justification() {
 	let (mut block_import, ..) = net.make_block_import(client.clone());
 
 	let full_client = client.as_client();
-	let mut builder = full_client
-		.new_block_at(full_client.chain_info().genesis_hash, Default::default(), false)
+	let mut builder = BlockBuilderBuilder::new(&*full_client)
+		.on_parent_block(full_client.chain_info().best_hash)
+		.fetch_parent_block_number(&*full_client)
+		.unwrap()
+		.build()
 		.unwrap();
 
 	add_scheduled_change(
@@ -1913,7 +1919,12 @@ async fn imports_justification_for_regular_blocks_on_import() {
 
 	// create a new block (without importing it)
 	let generate_block = |parent| {
-		let builder = full_client.new_block_at(parent, Default::default(), false).unwrap();
+		let builder = BlockBuilderBuilder::new(&*full_client)
+			.on_parent_block(parent)
+			.fetch_parent_block_number(&*full_client)
+			.unwrap()
+			.build()
+			.unwrap();
 		builder.build().unwrap().block
 	};
 
@@ -2042,8 +2053,7 @@ async fn revert_prunes_authority_changes() {
 
 	let peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 
-	type TestBlockBuilder<'a> =
-		BlockBuilder<'a, Block, PeersFullClient, substrate_test_runtime_client::Backend>;
+	type TestBlockBuilder<'a> = BlockBuilder<'a, Block, PeersFullClient>;
 	let edit_block = |mut builder: TestBlockBuilder| {
 		add_scheduled_change(
 			&mut builder,
