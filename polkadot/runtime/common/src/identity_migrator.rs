@@ -166,7 +166,7 @@ impl<AccountId> OnReapIdentity<AccountId> for () {
 #[cfg(feature = "runtime-benchmarks")]
 #[benchmarks]
 mod benchmarks {
-	use super::*;
+	use super::{Pallet as IdentityMigrator, *};
 	use frame_support::traits::EnsureOrigin;
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
