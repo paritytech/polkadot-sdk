@@ -84,7 +84,7 @@ mod custom {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		pub fn some_function(origin: OriginFor<T>) -> DispatchResult {
-			// NOTE: does not make any different.
+			// NOTE: does not make any difference.
 			frame_system::ensure_signed(origin)?;
 			Ok(())
 		}
