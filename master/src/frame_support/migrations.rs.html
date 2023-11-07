@@ -466,7 +466,7 @@
 		<span class="kw">let </span>on_chain_version = Pallet::on_chain_storage_version();
 		<span class="kw">if </span>on_chain_version == FROM {
 			<span class="macro">log::info!</span>(
-				<span class="string">&quot;🚚 Pallet {:?} migrating storage version from {:?} to {:?}.&quot;</span>,
+				<span class="string">&quot;🚚 Pallet {:?} VersionedMigration migrating storage version from {:?} to {:?}.&quot;</span>,
 				Pallet::name(),
 				FROM,
 				TO
@@ -481,7 +481,7 @@
 			weight.saturating_add(DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>))
 		} <span class="kw">else </span>{
 			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;🚚 Pallet {:?} migration {}-&gt;{} can be removed; on-chain is already at {:?}.&quot;</span>,
+				<span class="string">&quot;🚚 Pallet {:?} VersionedMigration migration {}-&gt;{} can be removed; on-chain is already at {:?}.&quot;</span>,
 				Pallet::name(),
 				FROM,
 				TO,

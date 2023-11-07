@@ -287,6 +287,41 @@
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -323,6 +358,38 @@
 	<span class="kw">let </span>type_use_gen = <span class="kw-2">&amp;</span>def.type_use_generics(span);
 	<span class="kw">let </span>pallet_ident = <span class="kw-2">&amp;</span>def.pallet_struct.pallet;
 	<span class="kw">let </span>frame_system = <span class="kw-2">&amp;</span>def.frame_system;
+	<span class="kw">let </span>pallet_name = <span class="macro">quote::quote! </span>{
+		&lt;
+			&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
+			<span class="kw">as
+			</span>#frame_support::traits::PalletInfo
+		&gt;::name::&lt;<span class="self">Self</span>&gt;().unwrap_or(<span class="string">&quot;&lt;unknown pallet name&gt;&quot;</span>)
+	};
+
+	<span class="kw">let </span>initialize_on_chain_storage_version = <span class="kw">if let </span><span class="prelude-val">Some</span>(current_version) =
+		<span class="kw-2">&amp;</span>def.pallet_struct.storage_version
+	{
+		<span class="macro">quote::quote! </span>{
+			#<span class="macro">frame_support::__private::log::info!</span>(
+				target: #frame_support::LOG_TARGET,
+				<span class="string">&quot;🐥 New pallet {:?} detected in the runtime. Initializing the on-chain storage version to match the storage version defined in the pallet: {:?}&quot;</span>,
+				#pallet_name,
+				#current_version
+			);
+			#current_version.put::&lt;<span class="self">Self</span>&gt;();
+		}
+	} <span class="kw">else </span>{
+		<span class="macro">quote::quote! </span>{
+			<span class="kw">let </span>default_version = #frame_support::traits::StorageVersion::new(<span class="number">0</span>);
+			#<span class="macro">frame_support::__private::log::info!</span>(
+				target: #frame_support::LOG_TARGET,
+				<span class="string">&quot;🐥 New pallet {:?} detected in the runtime. The pallet has no defined storage version, so the on-chain version is being initialized to {:?}.&quot;</span>,
+				#pallet_name,
+				default_version
+			);
+			default_version.put::&lt;<span class="self">Self</span>&gt;();
+		}
+	};
 
 	<span class="kw">let </span>log_runtime_upgrade = <span class="kw">if </span>has_runtime_upgrade {
 		<span class="comment">// a migration is defined here.
@@ -331,7 +398,7 @@
 				target: #frame_support::LOG_TARGET,
 				<span class="string">&quot;⚠️ {} declares internal migrations (which *might* execute). \
 				 On-chain `{:?}` vs current storage version `{:?}`&quot;</span>,
-				pallet_name,
+				#pallet_name,
 				&lt;<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::GetStorageVersion&gt;::on_chain_storage_version(),
 				&lt;<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::GetStorageVersion&gt;::current_storage_version(),
 			);
@@ -342,7 +409,7 @@
 			#<span class="macro">frame_support::__private::log::debug!</span>(
 				target: #frame_support::LOG_TARGET,
 				<span class="string">&quot;✅ no migration for {}&quot;</span>,
-				pallet_name,
+				#pallet_name,
 			);
 		}
 	};
@@ -367,16 +434,10 @@
 			<span class="kw">let </span>current_version = &lt;<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::GetStorageVersion&gt;::current_storage_version();
 
 			<span class="kw">if </span>on_chain_version != current_version {
-				<span class="kw">let </span>pallet_name = &lt;
-					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
-					<span class="kw">as
-					</span>#frame_support::traits::PalletInfo
-				&gt;::name::&lt;<span class="self">Self</span>&gt;().unwrap_or(<span class="string">&quot;&lt;unknown pallet name&gt;&quot;</span>);
-
 				#<span class="macro">frame_support::__private::log::error!</span>(
 					target: #frame_support::LOG_TARGET,
 					<span class="string">&quot;{}: On chain storage version {:?} doesn&#39;t match current storage version {:?}.&quot;</span>,
-					pallet_name,
+					#pallet_name,
 					on_chain_version,
 					current_version,
 				);
@@ -389,17 +450,11 @@
 			<span class="kw">let </span>on_chain_version = &lt;<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::GetStorageVersion&gt;::on_chain_storage_version();
 
 			<span class="kw">if </span>on_chain_version != #frame_support::traits::StorageVersion::new(<span class="number">0</span>) {
-				<span class="kw">let </span>pallet_name = &lt;
-					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
-					<span class="kw">as
-					</span>#frame_support::traits::PalletInfo
-				&gt;::name::&lt;<span class="self">Self</span>&gt;().unwrap_or(<span class="string">&quot;&lt;unknown pallet name&gt;&quot;</span>);
-
 				#<span class="macro">frame_support::__private::log::error!</span>(
 					target: #frame_support::LOG_TARGET,
 					<span class="string">&quot;{}: On chain storage version {:?} is set to non zero, \
 					 while the pallet is missing the `#[pallet::storage_version(VERSION)]` attribute.&quot;</span>,
-					pallet_name,
+					#pallet_name,
 					on_chain_version,
 				);
 
@@ -463,6 +518,32 @@
 		}
 
 		<span class="kw">impl</span>&lt;#type_impl_gen&gt;
+			#frame_support::traits::BeforeAllRuntimeMigrations
+			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #where_clause
+		{
+			<span class="kw">fn </span>before_all_runtime_migrations() -&gt; #frame_support::weights::Weight {
+				<span class="kw">use </span>#frame_support::traits::{Get, PalletInfoAccess};
+				<span class="kw">use </span>#frame_support::__private::hashing::twox_128;
+				<span class="kw">use </span>#frame_support::storage::unhashed::contains_prefixed_key;
+				#<span class="macro">frame_support::__private::sp_tracing::enter_span!</span>(
+					#<span class="macro">frame_support::__private::sp_tracing::trace_span!</span>(<span class="string">&quot;before_all&quot;</span>)
+				);
+
+				<span class="comment">// Check if the pallet has any keys set, including the storage version. If there are
+				// no keys set, the pallet was just added to the runtime and needs to have its
+				// version initialized.
+				</span><span class="kw">let </span>pallet_hashed_prefix = &lt;<span class="self">Self </span><span class="kw">as </span>PalletInfoAccess&gt;::name_hash();
+				<span class="kw">let </span>exists = contains_prefixed_key(<span class="kw-2">&amp;</span>pallet_hashed_prefix);
+				<span class="kw">if </span>!exists {
+					#initialize_on_chain_storage_version
+					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
+				} <span class="kw">else </span>{
+					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::DbWeight::get().reads(<span class="number">1</span>)
+				}
+			}
+		}
+
+		<span class="kw">impl</span>&lt;#type_impl_gen&gt;
 			#frame_support::traits::OnRuntimeUpgrade
 			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #where_clause
 		{
@@ -472,12 +553,7 @@
 				);
 
 				<span class="comment">// log info about the upgrade.
-				</span><span class="kw">let </span>pallet_name = &lt;
-					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
-					<span class="kw">as
-					</span>#frame_support::traits::PalletInfo
-				&gt;::name::&lt;<span class="self">Self</span>&gt;().unwrap_or(<span class="string">&quot;&lt;unknown pallet name&gt;&quot;</span>);
-				#log_runtime_upgrade
+				</span>#log_runtime_upgrade
 
 				&lt;
 					<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::Hooks&lt;
@@ -547,16 +623,10 @@
 				n: #frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;,
 				_s: #frame_support::traits::TryStateSelect
 			) -&gt; <span class="prelude-ty">Result</span>&lt;(), #frame_support::sp_runtime::TryRuntimeError&gt; {
-				<span class="kw">let </span>pallet_name = &lt;
-					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
-					<span class="kw">as
-					</span>#frame_support::traits::PalletInfo
-				&gt;::name::&lt;<span class="self">Self</span>&gt;().expect(<span class="string">&quot;No name found for the pallet! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>);
-
 				#<span class="macro">frame_support::__private::log::info!</span>(
 					target: #frame_support::LOG_TARGET,
 					<span class="string">&quot;🩺 Running {:?} try-state checks&quot;</span>,
-					pallet_name,
+					#pallet_name,
 				);
 				&lt;
 					<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::Hooks&lt;
@@ -566,7 +636,7 @@
 					#<span class="macro">frame_support::__private::log::error!</span>(
 						target: #frame_support::LOG_TARGET,
 						<span class="string">&quot;❌ {:?} try_state checks failed: {:?}&quot;</span>,
-						pallet_name,
+						#pallet_name,
 						err
 					);
 
