@@ -23,7 +23,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { path = "../../../substrate/frame/balances" }
@@ -46,6 +46,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm-executor/std",
+	"xcm-builder/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
