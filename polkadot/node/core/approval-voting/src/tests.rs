@@ -2704,8 +2704,12 @@ async fn handle_double_assignment_import(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)) if timeout == PvfExecTimeoutKind::Approval => {
-			tx.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
+		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive {
+			exec_timeout_kind,
+			response_sender,
+			..
+		}) if exec_timeout_kind == PvfExecTimeoutKind::Approval => {
+			response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 				.unwrap();
 		}
 	);
