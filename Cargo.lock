@@ -1509,8 +1509,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.7.3",
- "rand_core 0.5.1",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -2341,6 +2341,41 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "bridge-hub-westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "bridge-hub-westend-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "bridge-hub-westend-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "asset-test-utils",
+ "bp-messages",
+ "bridge-hub-westend-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-bridge-messages",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -11819,9 +11854,11 @@ name = "polkadot-approval-distribution"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+ "bitvec",
  "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "log",
  "polkadot-node-jaeger",
  "polkadot-node-metrics",
@@ -12129,10 +12166,13 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
+ "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "kvdb",
  "kvdb-memorydb",
+ "log",
  "merlin 2.0.1",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -12144,6 +12184,8 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rand_core 0.5.1",
  "sc-keystore",
  "schnellru",
@@ -12599,6 +12641,7 @@ dependencies = [
 name = "polkadot-node-primitives"
 version = "1.0.0"
 dependencies = [
+ "bitvec",
  "bounded-vec",
  "futures",
  "parity-scale-codec",
@@ -12650,6 +12693,7 @@ name = "polkadot-node-subsystem-types"
 version = "1.0.0"
 dependencies = [
  "async-trait",
+ "bitvec",
  "derive_more",
  "futures",
  "orchestra",
@@ -13091,6 +13135,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "polkadot-rpc",
  "polkadot-runtime-parachains",
  "polkadot-statement-distribution",
@@ -16560,9 +16605,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.107"
+version = "1.0.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b420ce6e3d8bd882e9b243c6eed35dbc9a6110c9769e74b584e0d68d1f20c65"
+checksum = "3d1c7e3eac408d115102c4c24ad393e0821bb3a5df4d506a80f85f7a742a526b"
 dependencies = [
  "itoa",
  "ryu",
@@ -20892,6 +20937,7 @@ name = "westend-system-emulated-network"
 version = "0.0.0"
 dependencies = [
  "asset-hub-westend-emulated-chain",
+ "bridge-hub-westend-emulated-chain",
  "emulated-integration-tests-common",
  "penpal-emulated-chain",
  "westend-emulated-chain",
@@ -21328,6 +21374,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
+ "trybuild",
 ]
 
 [[package]]
