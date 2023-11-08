@@ -29,6 +29,7 @@ pallet-aura = { path = "../../../../../substrate/frame/aura", default-features =
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false}
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false}
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false}
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false}
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false}
@@ -62,7 +63,6 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false}
