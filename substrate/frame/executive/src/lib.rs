@@ -121,8 +121,8 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize,
-		OnRuntimeUpgrade,
+		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
 	},
 	weights::Weight,
 };
@@ -194,6 +194,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -231,6 +232,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -364,7 +366,9 @@ where
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
 	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
-		let weight =
+		let before_all_weight =
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
+		let try_on_runtime_upgrade_weight =
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)?;
@@ -385,7 +389,7 @@ where
 			)?;
 		}
 
-		Ok(weight)
+		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
 	}
 
 	/// Logs the result of trying to decode the entire state.
@@ -429,6 +433,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -445,7 +450,10 @@ where
 {
 	/// Execute all `OnRuntimeUpgrade` of this runtime, and return the aggregate weight.
 	pub fn execute_on_runtime_upgrade() -> Weight {
+		let before_all_weight =
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 		<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::on_runtime_upgrade()
+			.saturating_add(before_all_weight)
 	}
 
 	/// Start the execution of a particular block.
