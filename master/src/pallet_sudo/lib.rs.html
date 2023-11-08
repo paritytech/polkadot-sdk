@@ -351,6 +351,14 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -499,7 +507,7 @@
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::{DispatchResult, <span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_system::{pallet_prelude::<span class="kw-2">*</span>, RawOrigin};
 
 	<span class="doccomment">/// Default preludes for [`Config`].
 	</span><span class="kw">pub mod </span>config_preludes {
@@ -543,11 +551,6 @@
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// Authenticates the sudo key and dispatches a function call with `Root` origin.
-		///
-		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// ## Complexity
-		/// - O(1).
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight({
 			<span class="kw">let </span>dispatch_info = call.get_dispatch_info();
@@ -560,12 +563,11 @@
 			origin: OriginFor&lt;T&gt;,
 			call: Box&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="comment">// This is a public call, so we ensure that the origin is some signed account.
-			</span><span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::key().map_or(<span class="bool-val">false</span>, |k| sender == k), Error::&lt;T&gt;::RequireSudo);
+			<span class="self">Self</span>::ensure_sudo(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			<span class="kw">let </span>res = call.dispatch_bypass_filter(RawOrigin::Root.into());
 			<span class="self">Self</span>::deposit_event(Event::Sudid { sudo_result: res.map(|<span class="kw">_</span>| ()).map_err(|e| e.error) });
+
 			<span class="comment">// Sudo user does not pay a fee.
 			</span><span class="prelude-val">Ok</span>(Pays::No.into())
 		}
@@ -575,9 +577,6 @@
 		/// Sudo user to specify the weight of the call.
 		///
 		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// ## Complexity
-		/// - O(1).
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
 		#[pallet::weight((<span class="kw-2">*</span>weight, call.get_dispatch_info().class))]
 		</span><span class="kw">pub fn </span>sudo_unchecked_weight(
@@ -585,37 +584,30 @@
 			call: Box&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
 			weight: Weight,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="comment">// This is a public call, so we ensure that the origin is some signed account.
-			</span><span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::ensure_sudo(origin)<span class="question-mark">?</span>;
 			<span class="kw">let _ </span>= weight; <span class="comment">// We don&#39;t check the weight witness since it is a root call.
-			</span><span class="macro">ensure!</span>(<span class="self">Self</span>::key().map_or(<span class="bool-val">false</span>, |k| sender == k), Error::&lt;T&gt;::RequireSudo);
 
-			<span class="kw">let </span>res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			</span><span class="kw">let </span>res = call.dispatch_bypass_filter(RawOrigin::Root.into());
 			<span class="self">Self</span>::deposit_event(Event::Sudid { sudo_result: res.map(|<span class="kw">_</span>| ()).map_err(|e| e.error) });
+
 			<span class="comment">// Sudo user does not pay a fee.
 			</span><span class="prelude-val">Ok</span>(Pays::No.into())
 		}
 
 		<span class="doccomment">/// Authenticates the current sudo key and sets the given AccountId (`new`) as the new sudo
 		/// key.
-		///
-		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// ## Complexity
-		/// - O(1).
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
 		#[pallet::weight(T::WeightInfo::set_key())]
 		</span><span class="kw">pub fn </span>set_key(
 			origin: OriginFor&lt;T&gt;,
 			new: AccountIdLookupOf&lt;T&gt;,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="comment">// This is a public call, so we ensure that the origin is some signed account.
-			</span><span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::key().map_or(<span class="bool-val">false</span>, |k| sender == k), Error::&lt;T&gt;::RequireSudo);
-			<span class="kw">let </span>new = T::Lookup::lookup(new)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::ensure_sudo(origin)<span class="question-mark">?</span>;
 
-			<span class="self">Self</span>::deposit_event(Event::KeyChanged { old_sudoer: Key::&lt;T&gt;::get() });
-			Key::&lt;T&gt;::put(<span class="kw-2">&amp;</span>new);
+			<span class="kw">let </span>new = T::Lookup::lookup(new)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::deposit_event(Event::KeyChanged { old: Key::&lt;T&gt;::get(), new: new.clone() });
+			Key::&lt;T&gt;::put(new);
+
 			<span class="comment">// Sudo user does not pay a fee.
 			</span><span class="prelude-val">Ok</span>(Pays::No.into())
 		}
@@ -624,9 +616,6 @@
 		/// a given account.
 		///
 		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// ## Complexity
-		/// - O(1).
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
 		#[pallet::weight({
 			<span class="kw">let </span>dispatch_info = call.get_dispatch_info();
@@ -640,17 +629,29 @@
 			who: AccountIdLookupOf&lt;T&gt;,
 			call: Box&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="comment">// This is a public call, so we ensure that the origin is some signed account.
-			</span><span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::key().map_or(<span class="bool-val">false</span>, |k| sender == k), Error::&lt;T&gt;::RequireSudo);
+			<span class="self">Self</span>::ensure_sudo(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>res = call.dispatch_bypass_filter(frame_system::RawOrigin::Signed(who).into());
-
+			<span class="kw">let </span>res = call.dispatch_bypass_filter(RawOrigin::Signed(who).into());
 			<span class="self">Self</span>::deposit_event(Event::SudoAsDone {
 				sudo_result: res.map(|<span class="kw">_</span>| ()).map_err(|e| e.error),
 			});
+
+			<span class="comment">// Sudo user does not pay a fee.
+			</span><span class="prelude-val">Ok</span>(Pays::No.into())
+		}
+
+		<span class="doccomment">/// Permanently removes the sudo key.
+		///
+		/// **This cannot be un-done.**
+		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
+		#[pallet::weight(T::WeightInfo::remove_key())]
+		</span><span class="kw">pub fn </span>remove_key(origin: OriginFor&lt;T&gt;) -&gt; DispatchResultWithPostInfo {
+			<span class="self">Self</span>::ensure_sudo(origin)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::deposit_event(Event::KeyRemoved {});
+			Key::&lt;T&gt;::kill();
+
 			<span class="comment">// Sudo user does not pay a fee.
 			</span><span class="prelude-val">Ok</span>(Pays::No.into())
 		}
@@ -666,9 +667,13 @@
 		},
 		<span class="doccomment">/// The sudo key has been updated.
 		</span>KeyChanged {
-			<span class="doccomment">/// The old sudo key if one was previously set.
-			</span>old_sudoer: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
+			<span class="doccomment">/// The old sudo key (if one was previously set).
+			</span>old: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
+			<span class="doccomment">/// The new sudo key (if one was set).
+			</span>new: T::AccountId,
 		},
+		<span class="doccomment">/// The key was permanently removed.
+		</span>KeyRemoved,
 		<span class="doccomment">/// A [sudo_as](Pallet::sudo_as) call just took place.
 		</span>SudoAsDone {
 			<span class="doccomment">/// The result of the call made by the sudo user.
@@ -677,9 +682,9 @@
 	}
 
 	<span class="attr">#[pallet::error]
-	</span><span class="doccomment">/// Error for the Sudo pallet
+	</span><span class="doccomment">/// Error for the Sudo pallet.
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
-		<span class="doccomment">/// Sender must be the Sudo account
+		<span class="doccomment">/// Sender must be the Sudo account.
 		</span>RequireSudo,
 	}
 
@@ -698,8 +703,19 @@
 	<span class="attr">#[pallet::genesis_build]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>key) = <span class="self">self</span>.key {
-				Key::&lt;T&gt;::put(key);
+			Key::&lt;T&gt;::set(<span class="self">self</span>.key.clone());
+		}
+	}
+
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="doccomment">/// Ensure that the caller is the sudo key.
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_sudo(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
+			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
+
+			<span class="kw">if </span><span class="self">Self</span>::key().map_or(<span class="bool-val">false</span>, |k| k == sender) {
+				<span class="prelude-val">Ok</span>(())
+			} <span class="kw">else </span>{
+				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::RequireSudo.into())
 			}
 		}
 	}
