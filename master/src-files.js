@@ -463,7 +463,7 @@ var srcIndex = JSON.parse('{\
 "xcm_emulator":["",[],["lib.rs"]],\
 "xcm_executor_integration_tests":["",[],["lib.rs"]],\
 "xcm_fuzzer":["",[],["fuzz.rs","parachain.rs","relay_chain.rs"]],\
-"xcm_procedural":["",[],["lib.rs","v2.rs","v3.rs","weight_info.rs"]],\
+"xcm_procedural":["",[],["builder_pattern.rs","lib.rs","v2.rs","v3.rs","weight_info.rs"]],\
 "xcm_simulator":["",[],["lib.rs"]],\
 "xcm_simulator_example":["",[],["lib.rs","parachain.rs","relay_chain.rs"]],\
 "zombienet_backchannel":["",[],["errors.rs","lib.rs"]]\
