@@ -349,7 +349,7 @@ mod tests {
 
     #[docify::export]
     fn saturated_add_example() {
-        // Saturating add simply 'saturates
+        // Saturating add simply saturates
         // to the numeric bound of that type if it overflows.
         let add = u32::MAX.saturating_add(10);
         assert_eq!(add, u32::MAX)
