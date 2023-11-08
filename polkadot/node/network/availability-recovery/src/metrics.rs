@@ -45,10 +45,24 @@ struct MetricsInner {
 	/// Also split by result:
 	/// - `no_such_chunk` ... peer did not have the requested chunk
 	/// - `timeout` ... request timed out.
-	/// - `network_error` ... Some networking issue except timeout
+	/// - `error` ... Some networking issue except timeout
 	/// - `invalid` ... Chunk was received, but not valid.
 	/// - `success`
 	chunk_requests_finished: CounterVec<U64>,
+
+	/// Number of sent available data requests.
+	full_data_requests_issued: Counter<U64>,
+
+	/// Counter for finished available data requests.
+	///
+	/// Split by the result type:
+	///
+	/// - `no_such_data` ... peer did not have the requested data
+	/// - `timeout` ... request timed out.
+	/// - `error` ... Some networking issue except timeout
+	/// - `invalid` ... data was received, but not valid.
+	/// - `success`
+	full_data_requests_finished: CounterVec<U64>,
 
 	/// The duration of request to response.
 	///
@@ -101,6 +115,13 @@ impl Metrics {
 		}
 	}
 
+	/// Increment counter for full data requests.
+	pub fn on_full_request_issued(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.full_data_requests_issued.inc()
+		}
+	}
+
 	/// A chunk request timed out.
 	pub fn on_chunk_request_timeout(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
@@ -108,6 +129,13 @@ impl Metrics {
 				.chunk_requests_finished
 				.with_label_values(&[chunk_type, "timeout"])
 				.inc()
+		}
+	}
+
+	/// A full data request timed out.
+	pub fn on_full_request_timeout(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.full_data_requests_finished.with_label_values(&["timeout"]).inc()
 		}
 	}
 
@@ -121,10 +149,24 @@ impl Metrics {
 		}
 	}
 
+	/// A full data request failed because the validator did not have it.
+	pub fn on_full_request_no_such_data(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.full_data_requests_finished.with_label_values(&["no_such_data"]).inc()
+		}
+	}
+
 	/// A chunk request failed for some non timeout related network error.
 	pub fn on_chunk_request_error(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
 			metrics.chunk_requests_finished.with_label_values(&[chunk_type, "error"]).inc()
+		}
+	}
+
+	/// A full data request failed for some non timeout related network error.
+	pub fn on_full_request_error(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.full_data_requests_finished.with_label_values(&["error"]).inc()
 		}
 	}
 
@@ -138,6 +180,13 @@ impl Metrics {
 		}
 	}
 
+	/// A full data request succeeded, but was not valid.
+	pub fn on_full_request_invalid(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.full_data_requests_finished.with_label_values(&["invalid"]).inc()
+		}
+	}
+
 	/// A chunk request succeeded.
 	pub fn on_chunk_request_succeeded(&self, chunk_type: &str) {
 		if let Some(metrics) = &self.0 {
@@ -145,6 +194,13 @@ impl Metrics {
 				.chunk_requests_finished
 				.with_label_values(&[chunk_type, "success"])
 				.inc()
+		}
+	}
+
+	/// A full data request succeeded.
+	pub fn on_full_request_succeeded(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.full_data_requests_finished.with_label_values(&["success"]).inc()
 		}
 	}
 
@@ -228,6 +284,13 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
+			full_data_requests_issued: prometheus::register(
+				Counter::new(
+					"polkadot_parachain_availability_recovery_full_data_requests_issued",
+					"Total number of issued full data requests.",
+				)?,
+				registry,
+			)?,
 			chunk_requests_finished: prometheus::register(
 				CounterVec::new(
 					Opts::new(
@@ -235,6 +298,16 @@ impl metrics::Metrics for Metrics {
 						"Total number of chunk requests finished.",
 					),
 					&["result", "type"],
+				)?,
+				registry,
+			)?,
+			full_data_requests_finished: prometheus::register(
+				CounterVec::new(
+					Opts::new(
+						"polkadot_parachain_availability_recovery_full_data_requests_finished",
+						"Total number of full data requests finished.",
+					),
+					&["result"],
 				)?,
 				registry,
 			)?,
@@ -285,7 +358,7 @@ impl metrics::Metrics for Metrics {
 			)?,
 			full_recoveries_started: prometheus::register(
 				Counter::new(
-					"polkadot_parachain_availability_recovery_recovieries_started",
+					"polkadot_parachain_availability_recovery_recoveries_started",
 					"Total number of started recoveries.",
 				)?,
 				registry,

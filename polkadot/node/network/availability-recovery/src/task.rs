@@ -663,6 +663,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				))
 				.await;
 
+			common_params.metrics.on_full_request_issued();
+
 			match response.await {
 				Ok(req_res::v1::AvailableDataFetchingResponse::AvailableData(data)) => {
 					let recovery_duration =
@@ -689,8 +691,10 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 							"Received full data",
 						);
 
+						common_params.metrics.on_full_request_succeeded();
 						return Ok(data)
 					} else {
+						common_params.metrics.on_full_request_invalid();
 						recovery_duration.map(|rd| rd.stop_and_discard());
 
 						gum::debug!(
@@ -703,14 +707,30 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						// it doesn't help to report the peer with req/res.
 					}
 				},
-				Ok(req_res::v1::AvailableDataFetchingResponse::NoSuchData) => {},
-				Err(e) => gum::debug!(
-					target: LOG_TARGET,
-					candidate_hash = ?common_params.candidate_hash,
-					?validator_index,
-					err = ?e,
-					"Error fetching full available data."
-				),
+				Ok(req_res::v1::AvailableDataFetchingResponse::NoSuchData) => {
+					common_params.metrics.on_full_request_no_such_data();
+				},
+				Err(e) => {
+					match &e {
+						RequestError::Canceled(_) => common_params.metrics.on_full_request_error(),
+						RequestError::InvalidResponse(_) =>
+							common_params.metrics.on_full_request_invalid(),
+						RequestError::NetworkError(req_failure) => {
+							if let RequestFailure::Network(OutboundFailure::Timeout) = req_failure {
+								common_params.metrics.on_full_request_timeout();
+							} else {
+								common_params.metrics.on_full_request_error();
+							}
+						},
+					};
+					gum::debug!(
+						target: LOG_TARGET,
+						candidate_hash = ?common_params.candidate_hash,
+						?validator_index,
+						err = ?e,
+						"Error fetching full available data."
+					);
+				},
 			}
 		}
 	}
