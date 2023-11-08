@@ -440,47 +440,45 @@ where
 		Ok(keys)
 	}
 
-	/// Get keys with `prefix` at `block` in a parallel manner, with `parallel` is saturated at 256.
-	/// If `parallel` is set to 1, it is the same as calling [`rpc_get_keys_paged()`].
+	/// Get keys with `prefix` at `block` in a parallel manner, with `parallel` saturated at 256.
 	async fn rpc_get_keys_parallel(
 		&self,
 		prefix: StorageKey,
 		block: B::Hash,
 		parallel: u16,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		// guarantee to return a non-empty list
-		fn calculate_start_keys(prefix: &StorageKey, parallel: u16) -> Vec<StorageKey> {
+		// should guarantee to return a non-empty list
+		fn gen_start_keys(prefix: &StorageKey, parallel: u16) -> Vec<StorageKey> {
 			// FIXME eagr: no need to go above 256 right? coz it feels 256 is more than enough.
 			// I'm kinda cutting corners here. If parallel is restricted to [1, 256], then we don't
 			// need to involve bigint.
 			let parallel = parallel.max(1).min(256);
 			let prefix = prefix.as_ref().to_vec();
 
+			// assume 256-bit hash
 			if prefix.len() >= 32 {
 				return vec![StorageKey(prefix.clone())]
 			}
 
-			// assuming 256-bit hash
 			let step = 256 / parallel;
-			let ext_len = 31 - prefix.len();
+			let ext = 31 - prefix.len();
 
 			(0..parallel)
 				.map(|i| {
 					let mut key = prefix.clone();
 					key.push((i * step) as u8);
-					key.extend(vec![0; ext_len]);
+					key.extend(vec![0; ext]);
 					StorageKey(key)
 				})
 				.collect()
 		}
 
-		let start_keys = calculate_start_keys(&prefix, parallel);
-		let mut end_keys: Vec<Option<&StorageKey>> =
-			start_keys[1..].iter().map(Some).collect();
+		let start_keys = gen_start_keys(&prefix, parallel);
+		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].iter().map(Some).collect();
 		end_keys.push(None);
 
 		let batch = start_keys.iter().zip(end_keys).map(|(start_key, end_key)| {
-			self.rpc_get_keys_in_range(&prefix, block, start_key.clone(), end_key.cloned())
+			self.rpc_get_keys_in_range(&prefix, block, start_key, end_key)
 		});
 
 		let keys = futures::future::join_all(batch)
@@ -510,10 +508,10 @@ where
 		&self,
 		prefix: &StorageKey,
 		block: B::Hash,
-		start_key: StorageKey,
-		end_key: Option<StorageKey>,
+		start_key: &StorageKey,
+		end_key: Option<&StorageKey>,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		let mut last_key: Option<StorageKey> = Some(start_key);
+		let mut last_key: Option<&StorageKey> = Some(start_key);
 		let mut keys: Vec<StorageKey> = vec![];
 
 		loop {
@@ -522,13 +520,11 @@ where
 			let retry_strategy =
 				FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
 			let get_page_closure =
-				|| self.get_keys_single_page(Some(prefix.clone()), last_key.clone(), block);
+				|| self.get_keys_single_page(Some(prefix.clone()), last_key.cloned(), block);
 			let mut page = Retry::spawn(retry_strategy, get_page_closure).await?;
 
-			last_key = page.last().cloned();
-
 			// avoid duplicated keys across workloads
-			if let (Some(last), Some(end)) = (&last_key, &end_key) {
+			if let (Some(last), Some(end)) = (page.last(), end_key) {
 				if last >= end {
 					page.retain(|key| key < end);
 				}
@@ -536,12 +532,21 @@ where
 
 			let page_len = page.len();
 			keys.extend(page);
+			last_key = keys.last();
 
 			// scraping out of range or no more matches,
 			// we are done either way
 			if page_len < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
+				log::debug!(target: LOG_TARGET, "last page received: {}", page_len);
 				break
 			}
+
+			log::debug!(
+				target: LOG_TARGET,
+				"new total = {}, full page received: {}",
+				keys.len(),
+				HexDisplay::from(last_key.expect("full page received, cannot be None"))
+			);
 		}
 
 		Ok(keys)
@@ -955,7 +960,7 @@ where
 		for prefix in &config.hashed_prefixes {
 			let now = std::time::Instant::now();
 			let additional_key_values =
-				self.rpc_get_pairs(StorageKey(prefix.to_vec()), at, pending_ext, 16).await?;
+				self.rpc_get_pairs(StorageKey(prefix.to_vec()), at, pending_ext, 4).await?;
 			let elapsed = now.elapsed();
 			log::info!(
 				target: LOG_TARGET,
@@ -1562,26 +1567,30 @@ mod remote_tests {
 		let at = builder.as_online().at.unwrap();
 
 		let prefix = StorageKey(vec![13]);
+		let para_0 = builder.rpc_get_keys_parallel(prefix.clone(), at, 0).await.unwrap();
 		let para_1 = builder.rpc_get_keys_parallel(prefix.clone(), at, 1).await.unwrap();
 		let para_2 = builder.rpc_get_keys_parallel(prefix.clone(), at, 2).await.unwrap();
 		let para_3 = builder.rpc_get_keys_parallel(prefix.clone(), at, 3).await.unwrap();
-		let para_16 = builder.rpc_get_keys_parallel(prefix.clone(), at, 16).await.unwrap();
+		let para_32 = builder.rpc_get_keys_parallel(prefix.clone(), at, 32).await.unwrap();
 		let paged = builder.rpc_get_keys_paged(prefix, at).await.unwrap();
+		assert_eq!(para_0, paged);
 		assert_eq!(para_1, paged);
 		assert_eq!(para_2, paged);
 		assert_eq!(para_3, paged);
-		assert_eq!(para_16, paged);
+		assert_eq!(para_32, paged);
 
 		// scrape all
 		let prefix = StorageKey(vec![]);
+		let para_0 = builder.rpc_get_keys_parallel(prefix.clone(), at, 0).await.unwrap();
 		let para_1 = builder.rpc_get_keys_parallel(prefix.clone(), at, 1).await.unwrap();
 		let para_2 = builder.rpc_get_keys_parallel(prefix.clone(), at, 2).await.unwrap();
 		let para_3 = builder.rpc_get_keys_parallel(prefix.clone(), at, 3).await.unwrap();
-		let para_16 = builder.rpc_get_keys_parallel(prefix.clone(), at, 16).await.unwrap();
+		let para_32 = builder.rpc_get_keys_parallel(prefix.clone(), at, 32).await.unwrap();
 		let paged = builder.rpc_get_keys_paged(prefix, at).await.unwrap();
+		assert_eq!(para_0, paged);
 		assert_eq!(para_1, paged);
 		assert_eq!(para_2, paged);
 		assert_eq!(para_3, paged);
-		assert_eq!(para_16, paged);
+		assert_eq!(para_32, paged);
 	}
 }
