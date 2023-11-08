@@ -17,6 +17,7 @@
 //! Procedural macros used in XCM.
 
 use proc_macro::TokenStream;
+use syn::{parse_macro_input, DeriveInput};
 
 mod builder_pattern;
 mod v2;
@@ -58,5 +59,8 @@ pub fn impl_conversion_functions_for_junctions_v3(input: TokenStream) -> TokenSt
 /// 	.build();
 #[proc_macro_derive(Builder)]
 pub fn derive_builder(input: TokenStream) -> TokenStream {
+	let input = parse_macro_input!(input as DeriveInput);
 	builder_pattern::derive(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
 }
