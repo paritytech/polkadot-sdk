@@ -259,7 +259,7 @@
 <span class="doccomment">/// Helper function used in tests to build the genesis storage using given RuntimeGenesisConfig and
 /// code Used in `legacy_vs_json_check` submods to verify storage building with JSON patch against
 /// building with RuntimeGenesisConfig struct.
-</span><span class="kw">pub fn </span>build_genesis_storage_legacy(builder: <span class="kw-2">&amp;</span><span class="kw">dyn </span>BuildStorage, code: <span class="kw-2">&amp;</span>[u8]) -&gt; Storage {
+</span><span class="kw">pub fn </span>build_genesis_storage(builder: <span class="kw-2">&amp;</span><span class="kw">dyn </span>BuildStorage, code: <span class="kw-2">&amp;</span>[u8]) -&gt; Storage {
 	<span class="kw">let </span><span class="kw-2">mut </span>storage = builder.build_storage().unwrap();
 	storage
 		.top

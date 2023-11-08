@@ -89,7 +89,7 @@
 
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
-	accounts, build_genesis_storage_legacy, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
 <span class="kw">use </span>parachains_common::Balance;
 
@@ -135,7 +135,7 @@
 		..Default::default()
 	};
 
-	build_genesis_storage_legacy(
+	build_genesis_storage(
 		<span class="kw-2">&amp;</span>genesis_config,
 		penpal_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 	)
