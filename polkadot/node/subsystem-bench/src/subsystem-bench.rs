@@ -20,6 +20,7 @@
 use clap::Parser;
 use color_eyre::eyre;
 use prometheus::proto::LabelPair;
+use std::net::{Ipv4Addr, SocketAddr};
 
 pub(crate) mod availability;
 
@@ -59,15 +60,24 @@ impl BenchCli {
 
 		let runtime = new_runtime();
 		let registry = Registry::new();
+		let registry_clone = registry.clone();
 
 		let mut pov_sizes = Vec::new();
-		pov_sizes.append(&mut vec![1024 * 1024 * 5; 60]);
+		pov_sizes.append(&mut vec![1024 * 1024; 100]);
 
-		let test_config = TestConfiguration::unconstrained_300_validators_60_cores(pov_sizes);
+		let test_config = TestConfiguration::unconstrained_1000_validators_60_cores(pov_sizes);
 
 		let state = TestState::new(test_config);
 
 		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
+
+		let handle = runtime.spawn(async move {
+			prometheus_endpoint::init_prometheus(
+				SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
+				registry_clone,
+			)
+			.await
+		});
 
 		println!("{:?}", env.config());
 

@@ -187,6 +187,7 @@ pub struct TestSubsystemContext<M, S> {
 	tx: TestSubsystemSender,
 	rx: mpsc::Receiver<FromOrchestra<M>>,
 	spawn: S,
+	name: &'static str,
 }
 
 #[async_trait::async_trait]
@@ -223,7 +224,7 @@ where
 		name: &'static str,
 		s: Pin<Box<dyn Future<Output = ()> + Send>>,
 	) -> SubsystemResult<()> {
-		self.spawn.spawn(name, None, s);
+		self.spawn.spawn(name, Some(self.name), s);
 		Ok(())
 	}
 
@@ -232,7 +233,7 @@ where
 		name: &'static str,
 		s: Pin<Box<dyn Future<Output = ()> + Send>>,
 	) -> SubsystemResult<()> {
-		self.spawn.spawn_blocking(name, None, s);
+		self.spawn.spawn_blocking(name, Some(self.name), s);
 		Ok(())
 	}
 
@@ -292,8 +293,9 @@ impl<M> TestSubsystemContextHandle<M> {
 /// of the tests.
 pub fn make_subsystem_context<M, S>(
 	spawner: S,
+	name: &'static str,
 ) -> (TestSubsystemContext<M, SpawnGlue<S>>, TestSubsystemContextHandle<M>) {
-	make_buffered_subsystem_context(spawner, 0)
+	make_buffered_subsystem_context(spawner, 0, name)
 }
 
 /// Make a test subsystem context with buffered overseer channel. Some tests (e.g.
@@ -302,6 +304,7 @@ pub fn make_subsystem_context<M, S>(
 pub fn make_buffered_subsystem_context<M, S>(
 	spawner: S,
 	buffer_size: usize,
+	name: &'static str,
 ) -> (TestSubsystemContext<M, SpawnGlue<S>>, TestSubsystemContextHandle<M>) {
 	let (overseer_tx, overseer_rx) = mpsc::channel(buffer_size);
 	let (all_messages_tx, all_messages_rx) = mpsc::unbounded();
@@ -311,6 +314,7 @@ pub fn make_buffered_subsystem_context<M, S>(
 			tx: TestSubsystemSender { tx: all_messages_tx },
 			rx: overseer_rx,
 			spawn: SpawnGlue(spawner),
+			name,
 		},
 		TestSubsystemContextHandle { tx: overseer_tx, rx: all_messages_rx },
 	)
@@ -332,7 +336,7 @@ pub fn subsystem_test_harness<M, OverseerFactory, Overseer, TestFactory, Test>(
 	Test: Future<Output = ()>,
 {
 	let pool = TaskExecutor::new();
-	let (context, handle) = make_subsystem_context(pool);
+	let (context, handle) = make_subsystem_context(pool, "default");
 	let overseer = overseer_factory(handle);
 	let test = test_factory(context);
 

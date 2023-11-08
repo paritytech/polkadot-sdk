@@ -68,9 +68,23 @@ impl TestConfiguration {
 		Self {
 			use_fast_path: false,
 			n_validators: 300,
+			n_cores: 100,
+			pov_sizes,
+			max_parallel_recoveries: 100,
+			// HW specs node bandwidth
+			bandwidth: 60 * 1024 * 1024,
+			// No latency
+			latency: None,
+			error: 0,
+		}
+	}
+	pub fn unconstrained_1000_validators_60_cores(pov_sizes: Vec<usize>) -> TestConfiguration {
+		Self {
+			use_fast_path: false,
+			n_validators: 300,
 			n_cores: 60,
 			pov_sizes,
-			max_parallel_recoveries: 20,
+			max_parallel_recoveries: 30,
 			// HW specs node bandwidth
 			bandwidth: 60 * 1024 * 1024,
 			// No latency
@@ -101,11 +115,11 @@ impl TestConfiguration {
 	/// TODO: implement errors.
 	pub fn degraded_network_300_validators_60_cores(pov_sizes: Vec<usize>) -> TestConfiguration {
 		Self {
-			use_fast_path: true,
+			use_fast_path: false,
 			n_validators: 300,
-			n_cores: 60,
+			n_cores: 100,
 			pov_sizes,
-			max_parallel_recoveries: 6,
+			max_parallel_recoveries: 20,
 			// HW specs node bandwidth
 			bandwidth: 60 * 1024 * 1024,
 			// A range of latencies to expect in a degraded network

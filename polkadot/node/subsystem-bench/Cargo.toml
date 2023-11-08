@@ -47,7 +47,7 @@ sc-service = { path = "../../../substrate/client/service" }
 polkadot-node-metrics = { path = "../metrics" }
 
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-# prometheus = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
+prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }
 
 [features]

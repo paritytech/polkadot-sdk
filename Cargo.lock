@@ -13022,6 +13022,7 @@ dependencies = [
  "sp-core",
  "sp-keyring",
  "sp-keystore",
+ "substrate-prometheus-endpoint",
  "tokio",
  "tracing-gum",
 ]

@@ -298,8 +298,11 @@ impl AvailabilityRecoverySubsystemInstance {
 		spawn_task_handle: SpawnTaskHandle,
 		use_fast_path: bool,
 	) -> (Self, TestSubsystemContextHandle<AvailabilityRecoveryMessage>) {
-		let (context, virtual_overseer) =
-			make_buffered_subsystem_context(spawn_task_handle.clone(), 4096 * 4);
+		let (context, virtual_overseer) = make_buffered_subsystem_context(
+			spawn_task_handle.clone(),
+			4096 * 4,
+			"availability-recovery",
+		);
 		let (collation_req_receiver, req_cfg) =
 			IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
 
@@ -558,6 +561,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 		))
 		.await;
 
+		// TODO: select between futures unordered of rx await and timer to send next request.
 		if batch.len() >= config.max_parallel_recoveries {
 			for rx in std::mem::take(&mut batch) {
 				let available_data = rx.await.unwrap().unwrap();
@@ -576,4 +580,6 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	let tput = (availability_bytes as u128) / duration * 1000;
 	println!("Benchmark completed in {:?}ms", duration);
 	println!("Throughput: {}KiB/s", tput / 1024);
+
+	tokio::time::sleep(Duration::from_secs(1)).await;
 }
