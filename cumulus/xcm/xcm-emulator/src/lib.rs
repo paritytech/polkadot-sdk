@@ -64,7 +64,6 @@ pub use xcm::v3::prelude::{
 	XcmHash, X1,
 };
 pub use xcm_executor::traits::ConvertLocation;
-
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 thread_local! {
@@ -214,12 +213,25 @@ pub trait NetworkComponent {
 	}
 }
 
+pub trait OnHooks {
+	fn on_initialize(n: BlockNumber) -> Weight;
+	fn on_finalize(n: BlockNumber);
+}
+
+impl OnHooks for () {
+	fn on_initialize(_n: BlockNumber) -> Weight {
+		Weight::default()
+	}
+	fn on_finalize(_n: BlockNumber) {}
+}
+
 pub trait Chain: TestExt + NetworkComponent {
 	type Runtime: SystemConfig;
 	type RuntimeCall;
 	type RuntimeOrigin;
 	type RuntimeEvent;
 	type System;
+	type Hooks: OnHooks;
 
 	fn account_id_of(seed: &str) -> AccountId {
 		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
@@ -353,7 +365,8 @@ macro_rules! decl_test_relay_chains {
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
-				}
+				},
+				hooks = $on_hooks:ty,
 			}
 		),
 		+
@@ -369,6 +382,7 @@ macro_rules! decl_test_relay_chains {
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type Hooks = $on_hooks;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
@@ -578,7 +592,8 @@ macro_rules! decl_test_parachains {
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
-				}
+				},
+				hooks = $on_hooks:ty,
 			}
 		),
 		+
@@ -594,6 +609,7 @@ macro_rules! decl_test_parachains {
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type Hooks = $on_hooks;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
@@ -649,6 +665,7 @@ macro_rules! decl_test_parachains {
 						);
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
+						<<$name as Chain>::Hooks as OnHooks>::on_initialize(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
@@ -663,11 +680,11 @@ macro_rules! decl_test_parachains {
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
 						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+						<<$name as Chain>::Hooks as OnHooks>::on_finalize(block_number);
 					});
 
 					Self::set_last_head();
 				}
-
 
 				fn set_last_head() {
 					use $crate::{Chain, Encode, HeadData, Network, NetworkComponent, Parachain, TestExt};
