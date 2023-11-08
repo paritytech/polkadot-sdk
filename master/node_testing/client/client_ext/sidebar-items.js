@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["ClientBlockImportExt","ClientExt"]};
+window.SIDEBAR_ITEMS = {"enum":["BlockOrigin"],"trait":["ClientBlockImportExt","ClientExt"]};
