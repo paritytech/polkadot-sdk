@@ -46,11 +46,11 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::{
 	executor_params::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT, self,
+		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
-	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepKind,
-	ValidationCode, ValidationCodeHash,
+	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepKind, ValidationCode,
+	ValidationCodeHash,
 };
 
 use parity_scale_codec::Encode;
@@ -73,12 +73,6 @@ mod tests;
 
 const LOG_TARGET: &'static str = "parachain::candidate-validation";
 
-/// The amount of time to wait before retrying after a retry-able backing validation error. We use a
-/// lower value for the backing case, to fit within the lower backing timeout.
-#[cfg(not(test))]
-const PVF_BACKING_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(500);
-#[cfg(test)]
-const PVF_BACKING_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 /// The amount of time to wait before retrying after a retry-able approval validation error. We use
 /// a higher value for the approval case since we have more time, and if we wait longer it is more
 /// likely that transient conditions will resolve.
@@ -626,16 +620,16 @@ async fn validate_candidate_exhaustive(
 
 			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).await
 		},
-		PvfExecKind::Approval => {
+		PvfExecKind::Approval =>
 			validation_backend
-			.validate_candidate_with_retry(
-				raw_validation_code.to_vec(),
-				pvf_exec_timeout(&executor_params, exec_kind),
-				params,
-				executor_params,
-			)
-			.await
-		}
+				.validate_candidate_with_retry(
+					raw_validation_code.to_vec(),
+					pvf_exec_timeout(&executor_params, exec_kind),
+					params,
+					executor_params,
+					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
+				)
+				.await,
 	};
 
 	if let Err(ref error) = result {
@@ -716,8 +710,8 @@ trait ValidationBackend {
 		encoded_params: Vec<u8>,
 	) -> Result<WasmValidationResult, ValidationError>;
 
-	/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered that may have been
-	/// transient.
+	/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered
+	/// that may have been transient.
 	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
@@ -727,6 +721,7 @@ trait ValidationBackend {
 		exec_timeout: Duration,
 		params: ValidationParams,
 		executor_params: ExecutorParams,
+		retry_delay: Duration,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Lenient);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -745,8 +740,6 @@ trait ValidationBackend {
 		if validation_result.is_ok() {
 			return validation_result
 		}
-
-		let retry_delay = PVF_APPROVAL_EXECUTION_RETRY_DELAY;
 
 		// Allow limited retries for each kind of error.
 		let mut num_internal_retries_left = 1;

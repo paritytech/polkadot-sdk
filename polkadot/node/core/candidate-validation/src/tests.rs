@@ -430,14 +430,14 @@ fn candidate_validation_ok_is_ok() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-        validation_data.clone(),
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		validation_data.clone(),
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	))
 	.unwrap();
 
@@ -480,20 +480,93 @@ fn candidate_validation_bad_return_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Err(
+		MockValidateCandidateBackend::with_hardcoded_result(Err(
 			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
 		)),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	))
 	.unwrap();
 
 	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::Timeout));
+}
+
+// Test that we vote valid if we get `AmbiguousWorkerDeath`, retry, and then succeed.
+#[test]
+fn candidate_validation_one_ambiguous_error_is_valid() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	let descriptor = make_valid_candidate_descriptor(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		validation_data.hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+		Sr25519Keyring::Alice,
+	);
+
+	let check = perform_basic_checks(
+		&descriptor,
+		validation_data.max_pov_size,
+		&pov,
+		&validation_code.hash(),
+	);
+	assert!(check.is_ok());
+
+	let validation_result = WasmValidationResult {
+		head_data,
+		new_validation_code: Some(vec![2, 2, 2].into()),
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+	let v = executor::block_on(validate_candidate_exhaustive(
+		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Ok(validation_result),
+		]),
+		validation_data.clone(),
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Approval,
+		&Default::default(),
+	))
+	.unwrap();
+
+	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+		assert_eq!(outputs.upward_messages, Vec::<UpwardMessage>::new());
+		assert_eq!(outputs.horizontal_messages, Vec::new());
+		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+		assert_eq!(outputs.hrmp_watermark, 0);
+		assert_eq!(used_validation_data, validation_data);
+	});
 }
 
 #[test]
@@ -525,74 +598,95 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-		]),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		MockValidateCandidateBackend::with_hardcoded_result_list(vec![Err(
+			ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath),
+		)]),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	))
 	.unwrap();
 
 	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::ExecutionError(_)));
 }
 
-// Test that we retry on internal errors.
+// Test that we retry for approval on internal errors.
 #[test]
-fn candidate_validation_dont_retry_internal_errors() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let validation_code = ValidationCode(vec![2; 16]);
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		dummy_hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
-		&pov,
-		&validation_code.hash(),
-	);
-	assert!(check.is_ok());
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result_list(vec![
+fn candidate_validation_retry_internal_errors() {
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Approval,
+		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
-		]),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
-	));
+		],
+	);
+	assert_matches!(v, Err(ValidationFailed(s)) if s.contains("bar"));
+}
+
+// Test that we don't retry for backing on internal errors.
+#[test]
+fn candidate_validation_dont_retry_internal_errors() {
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Backing,
+		vec![
+			Err(InternalValidationError::HostCommunication("foo".into()).into()),
+			// Throw an AWD error, we should still retry again.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			// Throw another internal error.
+			Err(InternalValidationError::HostCommunication("bar".into()).into()),
+		],
+	);
+
 
 	assert_matches!(v, Err(ValidationFailed(s)) if s.contains("foo"));
 }
 
-// Test that we retry on panic errors.
+// Test that we retry for approval on panic errors.
+#[test]
+fn candidate_validation_retry_panic_errors() {
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Approval,
+		vec![
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
+			// Throw an AWD error, we should still retry again.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			// Throw another panic error.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+		],
+	);
+
+
+	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "bar".to_string());
+}
+
+// Test that we don't retry for backing on panic errors.
 #[test]
 fn candidate_validation_dont_retry_panic_errors() {
+	let v = candidate_validation_retry_on_error_helper(
+		PvfExecKind::Backing,
+		vec![
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
+			// Throw an AWD error, we should still retry again.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			// Throw another panic error.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+		],
+	);
+
+	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "foo".to_string());
+}
+
+fn candidate_validation_retry_on_error_helper(
+	exec_kind: PvfExecKind,
+	mock_errors: Vec<Result<WasmValidationResult, ValidationError>>,
+) -> Result<ValidationResult, ValidationFailed> {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
@@ -619,24 +713,16 @@ fn candidate_validation_dont_retry_panic_errors() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
-			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
-		]),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+	return executor::block_on(validate_candidate_exhaustive(
+		MockValidateCandidateBackend::with_hardcoded_result_list(mock_errors),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		exec_kind,
+		&Default::default(),
 	));
-
-	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "foo".to_string());
 }
 
 #[test]
@@ -668,16 +754,16 @@ fn candidate_validation_timeout_is_internal_error() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Err(
+		MockValidateCandidateBackend::with_hardcoded_result(Err(
 			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
 		)),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)));
@@ -715,14 +801,14 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 	};
 
 	let result = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	))
 	.unwrap();
 
@@ -762,16 +848,16 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Err(
+		MockValidateCandidateBackend::with_hardcoded_result(Err(
 			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
 		)),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	))
 	.unwrap();
 
@@ -821,14 +907,14 @@ fn compressed_code_works() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
@@ -872,14 +958,14 @@ fn code_decompression_failure_is_error() {
 	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	));
 
 	assert_matches!(v, Err(_));
@@ -924,14 +1010,14 @@ fn pov_decompression_failure_is_invalid() {
 	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-        MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-        validation_data,
-        validation_code,
-        candidate_receipt,
-        Arc::new(pov),
-        ExecutorParams::default(),
-        PvfExecKind::Backing,
-        &Default::default(),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		validation_data,
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing,
+		&Default::default(),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure)));
