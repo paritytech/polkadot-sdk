@@ -26,7 +26,7 @@
 //!
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", naive_add)]
 //!
-//! If we passed in overflow-able value sat runtime, this could actually panic (or wrap, if in release).
+//! If we passed in overflow-able values at runtime, this could actually panic (or wrap, if in release).
 //! ```ignore
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
