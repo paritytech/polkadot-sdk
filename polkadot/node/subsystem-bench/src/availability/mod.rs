@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
+	collections::HashMap,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -23,7 +24,6 @@ use futures::{
 	channel::{mpsc, oneshot},
 	FutureExt, SinkExt,
 };
-use futures_timer::Delay;
 use polkadot_node_metrics::metrics::Metrics;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -49,7 +49,6 @@ use polkadot_node_subsystem::{
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
-use polkadot_erasure_coding::recovery_threshold;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use polkadot_node_subsystem_test_helpers::{
@@ -57,7 +56,7 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateReceipt, GroupIndex, Hash, HeadData, IndexedVec,
+	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, IndexedVec,
 	PersistedValidationData, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
@@ -97,8 +96,11 @@ impl TestEnvironment {
 	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
 	pub fn new(runtime: tokio::runtime::Handle, state: TestState, registry: Registry) -> Self {
 		let task_manager: TaskManager = TaskManager::new(runtime.clone(), Some(&registry)).unwrap();
-		let (instance, virtual_overseer) =
-			AvailabilityRecoverySubsystemInstance::new(&registry, task_manager.spawn_handle());
+		let (instance, virtual_overseer) = AvailabilityRecoverySubsystemInstance::new(
+			&registry,
+			task_manager.spawn_handle(),
+			state.config().use_fast_path,
+		);
 
 		// Copy sender for later when we need to inject messages in to the subsystem.
 		let to_subsystem = virtual_overseer.tx.clone();
@@ -132,16 +134,60 @@ impl TestEnvironment {
 		}
 	}
 
+	/// Generate a random error based on `probability`.
+	/// `probability` should be a number between 0 and 100.
+	fn random_error(probability: usize) -> bool {
+		Uniform::from(0..=99).sample(&mut thread_rng()) < probability
+	}
+
 	pub fn respond_to_send_request(state: &mut TestState, request: Requests) -> NetworkAction {
 		match request {
 			Requests::ChunkFetchingV1(outgoing_request) => {
 				let validator_index = outgoing_request.payload.index.0 as usize;
-				let chunk: ChunkResponse = state.chunks[validator_index].clone().into();
+				let chunk: ChunkResponse =
+					state.chunks.get(&outgoing_request.payload.candidate_hash).unwrap()
+						[validator_index]
+						.clone()
+						.into();
 				let size = chunk.encoded_size();
+
+				let response = if Self::random_error(state.config().error) {
+					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
+				} else {
+					Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode())
+				};
+
 				let future = async move {
-					let _ = outgoing_request
-						.pending_response
-						.send(Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode()));
+					let _ = outgoing_request.pending_response.send(response);
+				}
+				.boxed();
+
+				NetworkAction::new(
+					validator_index,
+					future,
+					size,
+					// Generate a random latency based on configuration.
+					Self::random_latency(state.config().latency.as_ref()),
+				)
+			},
+			Requests::AvailableDataFetchingV1(outgoing_request) => {
+				// TODO: do better, by implementing diff authority ids and mapping network actions
+				// to authority id,
+				let validator_index =
+					Uniform::from(0..state.config().n_validators).sample(&mut thread_rng());
+				let available_data =
+					state.candidates.get(&outgoing_request.payload.candidate_hash).unwrap().clone();
+				let size = available_data.encoded_size();
+
+				let response = if Self::random_error(state.config().error) {
+					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
+				} else {
+					Ok(req_res::v1::AvailableDataFetchingResponse::from(Some(available_data))
+						.encode())
+				};
+
+				let future = async move {
+					let _ = outgoing_request.pending_response.send(response);
 				}
 				.boxed();
 
@@ -192,14 +238,14 @@ impl TestEnvironment {
 							// TODO: Simulate av store load by delaying the response.
 							state.respond_none_to_available_data_query(tx).await;
 						},
-						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAllChunks(_candidate_hash, tx)) => {
+						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx)) => {
 							// Test env: We always have our own chunk.
-							state.respond_to_query_all_request(|index| index == state.validator_index.0 as usize, tx).await;
+							state.respond_to_query_all_request(candidate_hash, |index| index == state.validator_index.0 as usize, tx).await;
 						},
 						AllMessages::AvailabilityStore(
-							AvailabilityStoreMessage::QueryChunkSize(_, tx)
+							AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx)
 						) => {
-							let chunk_size = state.chunks[0].encoded_size();
+							let chunk_size = state.chunks.get(&candidate_hash).unwrap()[0].encoded_size();
 							let _ = tx.send(Some(chunk_size));
 						}
 						AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -250,15 +296,24 @@ impl AvailabilityRecoverySubsystemInstance {
 	pub fn new(
 		registry: &Registry,
 		spawn_task_handle: SpawnTaskHandle,
+		use_fast_path: bool,
 	) -> (Self, TestSubsystemContextHandle<AvailabilityRecoveryMessage>) {
 		let (context, virtual_overseer) =
 			make_buffered_subsystem_context(spawn_task_handle.clone(), 4096 * 4);
 		let (collation_req_receiver, req_cfg) =
 			IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
-		let subsystem = AvailabilityRecoverySubsystem::with_chunks_only(
-			collation_req_receiver,
-			Metrics::try_register(&registry).unwrap(),
-		);
+
+		let subsystem = if use_fast_path {
+			AvailabilityRecoverySubsystem::with_fast_path(
+				collation_req_receiver,
+				Metrics::try_register(&registry).unwrap(),
+			)
+		} else {
+			AvailabilityRecoverySubsystem::with_chunks_only(
+				collation_req_receiver,
+				Metrics::try_register(&registry).unwrap(),
+			)
+		};
 
 		let spawned_subsystem = subsystem.start(context);
 		let subsystem_future = async move {
@@ -282,12 +337,6 @@ const TIMEOUT: Duration = Duration::from_millis(300);
 // This should eventually be a test parameter.
 const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
-macro_rules! delay {
-	($delay:expr) => {
-		Delay::new(Duration::from_millis($delay)).await;
-	};
-}
-
 use sp_keyring::Sr25519Keyring;
 
 use crate::availability::network::NetworkAction;
@@ -301,14 +350,15 @@ pub struct TestState {
 	validator_authority_id: Vec<AuthorityDiscoveryId>,
 	// The test node validator index.
 	validator_index: ValidatorIndex,
-	candidate: CandidateReceipt,
+	// Per core candidates receipts.
+	candidate_receipts: Vec<CandidateReceipt>,
 	session_index: SessionIndex,
 
 	persisted_validation_data: PersistedValidationData,
+	/// A per size pov mapping to available data.
+	candidates: HashMap<CandidateHash, AvailableData>,
 
-	available_data: AvailableData,
-	chunks: Vec<ErasureChunk>,
-	invalid_chunks: Vec<ErasureChunk>,
+	chunks: HashMap<CandidateHash, Vec<ErasureChunk>>,
 	config: TestConfiguration,
 }
 
@@ -317,12 +367,8 @@ impl TestState {
 		&self.config
 	}
 
-	fn candidate(&self) -> CandidateReceipt {
-		self.candidate.clone()
-	}
-
-	async fn respond_to_available_data_query(&self, tx: oneshot::Sender<Option<AvailableData>>) {
-		let _ = tx.send(Some(self.available_data.clone()));
+	fn candidate(&self, candidate_index: usize) -> CandidateReceipt {
+		self.candidate_receipts.get(candidate_index).unwrap().clone()
 	}
 
 	async fn respond_none_to_available_data_query(
@@ -337,9 +383,7 @@ impl TestState {
 			validators: self.validator_public.clone(),
 			discovery_keys: self.validator_authority_id.clone(),
 			// all validators in the same group.
-			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(vec![(0..self
-				.validators
-				.len())
+			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(vec![(0..5)
 				.map(|i| ValidatorIndex(i as _))
 				.collect()]),
 			assignment_keys: vec![],
@@ -356,10 +400,18 @@ impl TestState {
 	}
 	async fn respond_to_query_all_request(
 		&self,
+		candidate_hash: CandidateHash,
 		send_chunk: impl Fn(usize) -> bool,
 		tx: oneshot::Sender<Vec<ErasureChunk>>,
 	) {
-		let v = self.chunks.iter().filter(|c| send_chunk(c.index.0 as usize)).cloned().collect();
+		let v = self
+			.chunks
+			.get(&candidate_hash)
+			.unwrap()
+			.iter()
+			.filter(|c| send_chunk(c.index.0 as usize))
+			.cloned()
+			.collect();
 
 		let _ = tx.send(v);
 	}
@@ -370,13 +422,15 @@ impl TestState {
 			.map(|_v| Sr25519Keyring::Alice)
 			.collect::<Vec<_>>();
 
-		let mut candidate = dummy_candidate_receipt(dummy_hash());
 		let validator_public = validator_pubkeys(&validators);
 		let validator_authority_id = validator_authority_id(&validators);
 		let validator_index = ValidatorIndex(0);
-
+		let mut pov_size_to_candidate = HashMap::new();
+		let mut chunks = HashMap::new();
+		let mut candidates = HashMap::new();
 		let session_index = 10;
 
+		// we use it for all candidates.
 		let persisted_validation_data = PersistedValidationData {
 			parent_head: HeadData(vec![7, 8, 9]),
 			relay_parent_number: Default::default(),
@@ -384,49 +438,57 @@ impl TestState {
 			relay_parent_storage_root: Default::default(),
 		};
 
-		// A 5MB PoV.
-		let pov = PoV { block_data: BlockData(vec![42; config.pov_size]) };
-
-		let available_data = AvailableData {
-			validation_data: persisted_validation_data.clone(),
-			pov: Arc::new(pov),
-		};
-
-		let (chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
-			validators.len(),
-			&available_data,
-			|_, _| {},
-		);
-		// Mess around:
-		let invalid_chunks = chunks
+		// Create initial candidate receipts
+		let mut candidate_receipts = config
+			.pov_sizes
 			.iter()
-			.cloned()
-			.map(|mut chunk| {
-				if chunk.chunk.len() >= 2 && chunk.chunk[0] != chunk.chunk[1] {
-					chunk.chunk[0] = chunk.chunk[1];
-				} else if chunk.chunk.len() >= 1 {
-					chunk.chunk[0] = !chunk.chunk[0];
-				} else {
-					chunk.proof = Proof::dummy_proof();
-				}
-				chunk
-			})
-			.collect();
-		debug_assert_ne!(chunks, invalid_chunks);
+			.map(|_index| dummy_candidate_receipt(dummy_hash()))
+			.collect::<Vec<_>>();
 
-		candidate.descriptor.erasure_root = erasure_root;
+		for (index, pov_size) in config.pov_sizes.iter().enumerate() {
+			let mut candidate = &mut candidate_receipts[index];
+			// a hack to make candidate unique.
+			candidate.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+
+			// We reuse candidates of same size, to speed up the test startup.
+			let (erasure_root, available_data, new_chunks) =
+				pov_size_to_candidate.entry(pov_size).or_insert_with(|| {
+					let pov = PoV { block_data: BlockData(vec![index as u8; *pov_size]) };
+
+					let available_data = AvailableData {
+						validation_data: persisted_validation_data.clone(),
+						pov: Arc::new(pov),
+					};
+
+					let (new_chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
+						validators.len(),
+						&available_data,
+						|_, _| {},
+					);
+
+					candidate.descriptor.erasure_root = erasure_root;
+
+					chunks.insert(candidate.hash(), new_chunks.clone());
+					candidates.insert(candidate.hash(), available_data.clone());
+
+					(erasure_root, available_data, new_chunks)
+				});
+
+			candidate.descriptor.erasure_root = *erasure_root;
+			candidates.insert(candidate.hash(), available_data.clone());
+			chunks.insert(candidate.hash(), new_chunks.clone());
+		}
 
 		Self {
 			validators,
 			validator_public,
 			validator_authority_id,
 			validator_index,
-			candidate,
+			candidate_receipts,
 			session_index,
 			persisted_validation_data,
-			available_data,
+			candidates,
 			chunks,
-			invalid_chunks,
 			config,
 		}
 	}
@@ -467,6 +529,9 @@ fn derive_erasure_chunks_with_proofs_and_root(
 	(erasure_chunks, root)
 }
 
+pub async fn bench_with_chunks_if_pov_large(env: &mut TestEnvironment) {}
+
+pub async fn bench_inner(env: &mut TestEnvironment) {}
 pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	let config = env.config().clone();
 
@@ -477,13 +542,13 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	.await;
 
 	let start_marker = Instant::now();
-	let mut candidate = env.state.candidate();
 	let mut batch = Vec::new();
+	let mut availability_bytes = 0;
 	for candidate_num in 0..config.n_cores as u64 {
+		let candidate = env.state.candidate_receipts[candidate_num as usize].clone();
+
 		let (tx, rx) = oneshot::channel();
 		batch.push(rx);
-
-		candidate.descriptor.relay_parent = Hash::from_low_u64_be(candidate_num);
 
 		env.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
 			candidate.clone(),
@@ -493,21 +558,22 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 		))
 		.await;
 
-		if batch.len() >= config.vrf_modulo_samples {
+		if batch.len() >= config.max_parallel_recoveries {
 			for rx in std::mem::take(&mut batch) {
-				let _available_data = rx.await.unwrap().unwrap();
+				let available_data = rx.await.unwrap().unwrap();
+				availability_bytes += available_data.encoded_size();
 			}
 		}
 	}
 
 	for rx in std::mem::take(&mut batch) {
-		let _available_data = rx.await.unwrap().unwrap();
+		let available_data = rx.await.unwrap().unwrap();
+		availability_bytes += available_data.encoded_size();
 	}
 
 	env.send_signal(OverseerSignal::Conclude).await;
-	delay!(5);
 	let duration = start_marker.elapsed().as_millis();
-	let tput = ((config.n_cores * config.pov_size) as u128) / duration * 1000;
+	let tput = (availability_bytes as u128) / duration * 1000;
 	println!("Benchmark completed in {:?}ms", duration);
 	println!("Throughput: {}KiB/s", tput / 1024);
 }

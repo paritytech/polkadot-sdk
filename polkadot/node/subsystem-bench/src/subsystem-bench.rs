@@ -60,8 +60,10 @@ impl BenchCli {
 		let runtime = new_runtime();
 		let registry = Registry::new();
 
-		let test_config =
-			TestConfiguration::degraded_network_300_validators_60_cores(1024 * 1024);
+		let mut pov_sizes = Vec::new();
+		pov_sizes.append(&mut vec![1024 * 1024 * 5; 60]);
+
+		let test_config = TestConfiguration::unconstrained_300_validators_60_cores(pov_sizes);
 
 		let state = TestState::new(test_config);
 
