@@ -86,7 +86,7 @@ pub fn get_host_config() -> HostConfiguration<BlockNumber> {
 /// Helper function used in tests to build the genesis storage using given RuntimeGenesisConfig and
 /// code Used in `legacy_vs_json_check` submods to verify storage building with JSON patch against
 /// building with RuntimeGenesisConfig struct.
-pub fn build_genesis_storage_legacy(builder: &dyn BuildStorage, code: &[u8]) -> Storage {
+pub fn build_genesis_storage(builder: &dyn BuildStorage, code: &[u8]) -> Storage {
 	let mut storage = builder.build_storage().unwrap();
 	storage
 		.top
