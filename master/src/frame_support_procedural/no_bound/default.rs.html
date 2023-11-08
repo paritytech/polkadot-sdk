@@ -158,6 +158,7 @@
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -309,7 +310,8 @@
 
 	<span class="macro">quote!</span>(
 		<span class="kw">const _</span>: () = {
-			<span class="kw">impl </span>#impl_generics ::core::default::Default <span class="kw">for </span>#name #ty_generics #where_clause {
+			<span class="attr">#[automatically_derived]
+			</span><span class="kw">impl </span>#impl_generics ::core::default::Default <span class="kw">for </span>#name #ty_generics #where_clause {
 				<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 					#impl_
 				}

@@ -121,6 +121,7 @@
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -235,7 +236,8 @@
 
 	<span class="macro">quote::quote!</span>(
 		<span class="kw">const _</span>: () = {
-			<span class="kw">impl </span>#impl_generics ::core::fmt::Debug <span class="kw">for </span>#input_ident #ty_generics #where_clause {
+			<span class="attr">#[automatically_derived]
+			</span><span class="kw">impl </span>#impl_generics ::core::fmt::Debug <span class="kw">for </span>#input_ident #ty_generics #where_clause {
 				<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; ::core::fmt::Result {
 					#impl_
 				}
