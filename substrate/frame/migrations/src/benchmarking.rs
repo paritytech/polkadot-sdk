@@ -82,13 +82,20 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn clear_historic(n: Linear<0, 1000>) {
-		//for i in 0..n { // TODO
-		//	Historic::<T>::insert(i.into(), ());
-		//}
+	fn clear_historic(n: Linear<0, MAX_HISTORIC_BATCH_CLEAR_SIZE>) {
+		let id_max_len = <T as Config>::IdentifierMaxLen::get();
+		assert!(id_max_len >= 4, "Precondition violated");
+
+		for i in 0..MAX_HISTORIC_BATCH_CLEAR_SIZE {
+			let id = IdentifierOf::<T>::truncate_from(
+				i.encode().into_iter().cycle().take(id_max_len as usize).collect::<Vec<_>>(),
+			);
+
+			Historic::<T>::insert(&id, ());
+		}
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, None, None);
+		_(RawOrigin::Root, Some(0), None);
 	}
 
 	fn cursor<T: Config>() -> CursorOf<T> {

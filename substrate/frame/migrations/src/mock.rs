@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Mocked runtime for testing the migrations pallet.
+
 #![cfg(test)]
 
-use crate::{Event, Historic, WeightMeter};
+use crate::{Event, Historic, mock_helpers::*};
 
-use codec::{Decode, Encode};
-use core::cell::RefCell;
 use frame_support::{
 	derive_impl,
 	migrations::*,
@@ -29,7 +29,6 @@ use frame_support::{
 };
 use frame_system::EventRecord;
 use sp_core::{ConstU32, H256};
-use sp_runtime::BoundedVec;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -52,143 +51,8 @@ impl frame_system::Config for Test {
 	type OnSetCode = ();
 }
 
-/// An opaque identifier of a migration.
-pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;
-
-/// How a [`MockedMigration`] should behave.
-#[derive(Debug, Clone, Copy, Encode)]
-#[allow(dead_code)]
-pub enum MockedMigrationKind {
-	/// Succeed after its number of steps elapsed.
-	SucceedAfter,
-	/// Fail after its number of steps elapsed.
-	FailAfter,
-	/// Never terminate.
-	TimeoutAfter,
-	/// Cause an [`InsufficientWeight`] error after its number of steps elapsed.
-	HighWeightAfter(Weight),
-}
-use MockedMigrationKind::*; // C style
-
-impl From<u8> for MockedMigrationKind {
-	fn from(v: u8) -> Self {
-		match v {
-			0 => SucceedAfter,
-			1 => FailAfter,
-			2 => TimeoutAfter,
-			3 => HighWeightAfter(Weight::MAX),
-			_ => unreachable!(),
-		}
-	}
-}
-
-impl Into<u8> for MockedMigrationKind {
-	fn into(self) -> u8 {
-		match self {
-			SucceedAfter => 0,
-			FailAfter => 1,
-			TimeoutAfter => 2,
-			HighWeightAfter(_) => 3,
-		}
-	}
-}
-
-/// Calculate the identifier of a mocked migration.
-pub fn mocked_id(kind: MockedMigrationKind, steps: u32) -> MockedIdentifier {
-	raw_mocked_id(kind.into(), steps)
-}
-
-/// Creates a migration identifier with a specific `kind` and `steps`.
-pub fn raw_mocked_id(kind: u8, steps: u32) -> MockedIdentifier {
-	(b"MockedMigration", kind, steps).encode().try_into().unwrap()
-}
-
 frame_support::parameter_types! {
 	pub const ServiceWeight: Weight = Weight::MAX.div(10);
-}
-
-thread_local! {
-	/// The configs for the migrations to run.
-	pub static MIGRATIONS: RefCell<Vec<(MockedMigrationKind, u32)>> = RefCell::new(vec![]);
-}
-
-/// Allows to set the migrations to run at runtime instead of compile-time.
-///
-/// It achieves this by using a thread-local storage to store the migrations to run.
-pub struct MigrationsStorage;
-impl SteppedMigrations for MigrationsStorage {
-	fn len() -> u32 {
-		MIGRATIONS.with(|m| m.borrow().len()) as u32
-	}
-
-	fn nth_id(n: u32) -> Option<Vec<u8>> {
-		let k = MIGRATIONS.with(|m| m.borrow().get(n as usize).map(|k| *k));
-		k.map(|(kind, steps)| mocked_id(kind, steps).into_inner())
-	}
-
-	fn nth_step(
-		n: u32,
-		cursor: Option<Vec<u8>>,
-		_meter: &mut WeightMeter,
-	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
-		Some(MIGRATIONS.with(|m| {
-			let (kind, steps) = m.borrow()[n as usize];
-
-			let mut count: u32 =
-				cursor.as_ref().and_then(|c| Decode::decode(&mut &c[..]).ok()).unwrap_or(0);
-			log::debug!("MockedMigration: Step {}", count);
-			if count != steps || matches!(kind, TimeoutAfter) {
-				count += 1;
-				return Ok(Some(count.encode().try_into().unwrap()))
-			}
-
-			match kind {
-				SucceedAfter => {
-					log::debug!("MockedMigration: Succeeded after {} steps", count);
-					Ok(None)
-				},
-				HighWeightAfter(required) => {
-					log::debug!("MockedMigration: Not enough weight after {} steps", count);
-					Err(SteppedMigrationError::InsufficientWeight { required })
-				},
-				FailAfter => {
-					log::debug!("MockedMigration: Failed after {} steps", count);
-					Err(SteppedMigrationError::Failed)
-				},
-				TimeoutAfter => unreachable!(),
-			}
-		}))
-	}
-
-	fn nth_transactional_step(
-		n: u32,
-		cursor: Option<Vec<u8>>,
-		meter: &mut WeightMeter,
-	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
-		// FAIL-CI
-		Self::nth_step(n, cursor, meter)
-	}
-
-	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
-		MIGRATIONS
-			.with(|m| m.borrow().get(n as usize).map(|s| *s))
-			.map(|(_, s)| Some(s))
-	}
-
-	fn cursor_max_encoded_len() -> usize {
-		65_536
-	}
-
-	fn identifier_max_encoded_len() -> usize {
-		256
-	}
-}
-
-impl MigrationsStorage {
-	/// Set the migrations to run.
-	pub fn set(migrations: Vec<(MockedMigrationKind, u32)>) {
-		MIGRATIONS.with(|m| *m.borrow_mut() = migrations);
-	}
 }
 
 impl crate::Config for Test {
@@ -196,7 +60,8 @@ impl crate::Config for Test {
 	type Migrations = MigrationsStorage;
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
-	type OnMigrationUpdate = MockedOnMigrationUpdate;
+	type OnMigrationStatus = MockedOnMigrationStatus;
+	type FailedMigrationHandler = MockedFailedMigrationHandler;
 	type ServiceWeight = ServiceWeight;
 	type WeightInfo = ();
 }
@@ -227,6 +92,13 @@ pub fn run_to_block(n: u32) {
 	}
 }
 
+/// Returns the historic migrations, sorted by their identifier.
+pub fn historic() -> Vec<MockedIdentifier> {
+	let mut historic = Historic::<Test>::iter_keys().collect::<Vec<_>>();
+	historic.sort();
+	historic
+}
+
 // Traits to make using events less insufferable:
 pub trait IntoRecord {
 	fn into_record(self) -> EventRecord<<Test as frame_system::Config>::RuntimeEvent, H256>;
@@ -252,46 +124,4 @@ impl<E: IntoRecord> IntoRecords for Vec<E> {
 pub fn assert_events<E: IntoRecord>(events: Vec<E>) {
 	pretty_assertions::assert_eq!(events.into_records(), System::events());
 	System::reset_events();
-}
-
-frame_support::parameter_types! {
-	/// The number of started upgrades.
-	pub static UpgradesStarted: u32 = 0;
-	/// The number of completed upgrades.
-	pub static UpgradesCompleted: u32 = 0;
-	/// The migrations that failed.
-	pub static UpgradesFailed: Vec<Option<u32>> = vec![];
-	/// Return value of `MockedOnMigrationUpdate::failed`.
-	pub static FailedUpgradeResponse: FailedUpgradeHandling = FailedUpgradeHandling::KeepStuck;
-}
-
-pub struct MockedOnMigrationUpdate;
-impl OnMigrationUpdate for MockedOnMigrationUpdate {
-	fn started() {
-		log::info!("OnMigrationUpdate started");
-		UpgradesStarted::mutate(|v| *v += 1);
-	}
-
-	fn completed() {
-		log::info!("OnMigrationUpdate completed");
-		UpgradesCompleted::mutate(|v| *v += 1);
-	}
-
-	fn failed(migration: Option<u32>) -> FailedUpgradeHandling {
-		UpgradesFailed::mutate(|v| v.push(migration));
-		let res = FailedUpgradeResponse::get();
-		log::error!("OnMigrationUpdate failed at: {migration:?}, handling as {res:?}");
-		res
-	}
-}
-
-/// Returns the number of `(started, completed, failed)` upgrades and resets their numbers.
-pub fn upgrades_started_completed_failed() -> (u32, u32, u32) {
-	(UpgradesStarted::take(), UpgradesCompleted::take(), UpgradesFailed::take().len() as u32)
-}
-
-pub fn historic() -> Vec<MockedIdentifier> {
-	let mut historic = Historic::<Test>::iter_keys().collect::<Vec<_>>();
-	historic.sort();
-	historic
 }

@@ -115,7 +115,7 @@
 //!
 //! Failed upgrades cannot be recovered from automatically and require governance intervention. Set
 //! up monitoring for `UpgradeFailed` events to be made aware of any failures. The hook
-//! [`OnMigrationUpdate::failed`] should be setup in a way that it allows governance to act, but
+//! [`OnMigrationStatus::failed`] should be setup in a way that it allows governance to act, but
 //! still prevent other transactions from interacting with the inconsistent storage state. Note that
 //! this is paramount, since the inconsistent state might contain a faulty balance amount or similar
 //! that could cause great harm if user transactions don't remain suspended. One way to implement
@@ -140,6 +140,7 @@ mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
+pub mod mock_helpers;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -157,7 +158,11 @@ use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::Saturating;
 use sp_std::vec::Vec;
 
-const LOG: &'static str = "runtime::migrations";
+/// The maximal number of entries that can be cleared by a single `clear_historic` call.
+///
+/// Each entry corresponds to one historic migration and the call can be repeated. A hard-limit is
+/// still needed for benchmarking.
+const MAX_HISTORIC_BATCH_CLEAR_SIZE: u32 = 128;
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
@@ -252,7 +257,10 @@ pub mod pallet {
 		/// Notifications for status updates of a runtime upgrade.
 		///
 		/// Can be used to pause XCM etc.
-		type OnMigrationUpdate: OnMigrationUpdate;
+		type OnMigrationStatus: OnMigrationStatus;
+
+		/// Handler for failed migrations.
+		type FailedMigrationHandler: FailedMigrationHandler;
 
 		/// The weight to spend each block to execute migrations.
 		type ServiceWeight: Get<Weight>;
@@ -337,6 +345,9 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
+			// Check that the migrations tuple is legit.
+			frame_support::assert_ok!(T::Migrations::integrity_test());
+
 			// Cursor MEL
 			{
 				let mel = T::Migrations::cursor_max_encoded_len();
@@ -381,7 +392,7 @@ pub mod pallet {
 		/// `HistoricCleared` event. The first time `None` can be used. `limit` must be chosen in a
 		/// way that will result in a sensible weight.
 		#[pallet::call_index(1)]
-		#[pallet::weight({0})] // FAIL-CI
+		#[pallet::weight(T::WeightInfo::clear_historic(MAX_HISTORIC_BATCH_CLEAR_SIZE))]
 		pub fn clear_historic(
 			origin: OriginFor<T>,
 			limit: Option<u32>,
@@ -389,7 +400,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			let next = Historic::<T>::clear(limit.unwrap_or_default(), map_cursor.as_deref());
+			let limit = limit
+				.unwrap_or(MAX_HISTORIC_BATCH_CLEAR_SIZE)
+				.min(MAX_HISTORIC_BATCH_CLEAR_SIZE);
+			let next = Historic::<T>::clear(limit, map_cursor.as_deref());
 			Self::deposit_event(Event::HistoricCleared { next_cursor: next.maybe_cursor });
 
 			Ok(())
@@ -403,7 +417,7 @@ impl<T: Config> Pallet<T> {
 	/// Should only be called once all previous migrations completed.
 	fn onboard_new_mbms() -> Weight {
 		if let Some(cursor) = Cursor::<T>::get() {
-			log::error!(target: LOG, "Ongoing migrations interrupted - chain stuck");
+			log::error!("Ongoing migrations interrupted - chain stuck");
 
 			let maybe_index = cursor.as_active().map(|c| c.index);
 			Self::upgrade_failed(maybe_index);
@@ -411,8 +425,10 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let migrations = T::Migrations::len();
-		log::info!(target: LOG, "Onboarding {migrations} MBM migrations");
+		log::info!("Onboarding {migrations} new MBM migrations");
+
 		if migrations > 0 {
+			// Set the cursor to the first migration:
 			Cursor::<T>::set(Some(
 				ActiveCursor {
 					index: 0,
@@ -422,7 +438,7 @@ impl<T: Config> Pallet<T> {
 				.into(),
 			));
 			Self::deposit_event(Event::UpgradeStarted { migrations });
-			T::OnMigrationUpdate::started();
+			T::OnMigrationStatus::started();
 		}
 
 		T::WeightInfo::on_runtime_upgrade()
@@ -435,29 +451,32 @@ impl<T: Config> Pallet<T> {
 
 		let mut cursor = match Cursor::<T>::get() {
 			None => {
-				log::trace!(target: LOG, "[Block {n:?}] Waiting for cursor to become `Some`.");
+				log::trace!("[Block {n:?}] Waiting for cursor to become `Some`.");
 				return meter.consumed()
 			},
 			Some(MigrationCursor::Active(cursor)) => {
-				log::info!(target: LOG, "Progressing MBM migration #{}", cursor.index);
+				log::info!("Progressing MBM migration #{}", cursor.index);
 				cursor
 			},
 			Some(MigrationCursor::Stuck) => {
-				log::error!(target: LOG, "Migration stuck. Governance intervention required.");
+				log::error!("Migration stuck. Governance intervention required.");
 				return meter.consumed()
 			},
 		};
 		debug_assert!(<Self as MultiStepMigrator>::ongoing());
 
-		for i in 0.. {
+		// The 8 here is a defensive measure to prevent an infinite loop. It expresses that we
+		// allow no more than 8 MBMs to finish in a single block. This should be harmless, since we
+		// generally expect *Multi*-Block-Migrations to take *multiple* blocks.
+		for i in 0..8 {
 			match Self::exec_migration(&mut meter, cursor, i == 0) {
 				None => return meter.consumed(),
+				Some(ControlFlow::Continue(next_cursor)) => {
+					cursor = next_cursor;
+				},
 				Some(ControlFlow::Break(last_cursor)) => {
 					cursor = last_cursor;
 					break
-				},
-				Some(ControlFlow::Continue(next_cursor)) => {
-					cursor = next_cursor;
 				},
 			}
 		}
@@ -479,7 +498,7 @@ impl<T: Config> Pallet<T> {
 		let Some(id) = T::Migrations::nth_id(cursor.index) else {
 			Self::deposit_event(Event::UpgradeCompleted);
 			Cursor::<T>::kill();
-			T::OnMigrationUpdate::completed();
+			T::OnMigrationStatus::completed();
 			return None;
 		};
 		let bounded_id: Result<IdentifierOf<T>, _> = id.try_into();
@@ -558,7 +577,7 @@ impl<T: Config> Pallet<T> {
 		use FailedUpgradeHandling::*;
 		Self::deposit_event(Event::UpgradeFailed);
 
-		match T::OnMigrationUpdate::failed(migration) {
+		match T::FailedMigrationHandler::failed(migration) {
 			KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
 			ForceUnstuck => Cursor::<T>::kill(),
 		}

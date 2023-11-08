@@ -39,11 +39,15 @@ pub trait WeightInfo {
 	fn on_init_fast_path() -> Weight;
 	fn on_init_loop_base() -> Weight;
 	fn force_set_cursor() -> Weight;
+	fn clear_historic(n: u32,) -> Weight;
 }
 
 /// Weights for pallet_migrations using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn clear_historic(_n: u32,) -> Weight {
+		Weight::zero() // FAIL-CI
+	}
 	fn on_init_fast_path() -> Weight {
 		Weight::zero()
 	}
@@ -135,5 +139,8 @@ impl WeightInfo for () {
 	}
 	fn on_init_fast_path() -> Weight {
 		Weight::zero()
+	}
+	fn clear_historic(_n: u32,) -> Weight {
+		Weight::zero() // FAIL-CI
 	}
 }
