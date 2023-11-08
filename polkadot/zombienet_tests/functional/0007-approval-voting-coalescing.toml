@@ -6,7 +6,7 @@ default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "rococo-local"
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config]
-  needed_approvals = 5
+  needed_approvals = 4
   relay_vrf_modulo_samples = 6
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
@@ -19,7 +19,7 @@ requests = { memory = "2G", cpu = "1" }
   [[relaychain.node_groups]]
   name = "alice"
   args = [ "-lparachain=trace,runtime=debug" ]
-  count = 21
+  count = 13
 
 [[parachains]]
 id = 2000

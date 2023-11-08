@@ -597,13 +597,12 @@ impl BlockEntry {
 	}
 
 	/// Candidate indices for candidates pending signature
-	fn candidate_indices_pending_signature(&self) -> CandidateBitfield {
+	fn candidate_indices_pending_signature(&self) -> Option<CandidateBitfield> {
 		self.candidates_pending_signature
 			.keys()
 			.map(|val| *val)
 			.collect_vec()
-			.try_into()
-			.expect("Fails only of array empty, it can't be, qed")
+			.try_into().ok()
 	}
 
 	/// Returns a list of candidates hashes that need need signature created at the current tick:
@@ -629,10 +628,11 @@ impl BlockEntry {
 				self.num_candidates_pending_signature() >= max_approval_coalesce_count as usize
 			{
 				(
+					self.candidate_indices_pending_signature().and_then(|candidate_indices|
 					Some((
 						self.candidate_hashes_pending_signature(),
-						self.candidate_indices_pending_signature(),
-					)),
+						candidate_indices,
+					))),
 					Some(sign_no_later_than_tick),
 				)
 			} else {

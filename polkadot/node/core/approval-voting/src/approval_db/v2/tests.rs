@@ -18,7 +18,7 @@
 
 use crate::{
 	approval_db::{
-		common::{DbBackend, StoredBlockRange, *},
+		common::{DbBackend, StoredBlockRange, *, migration_helpers::make_bitvec},
 		v2::*,
 		v3::{load_block_entry_v2, load_candidate_entry_v2},
 	},
@@ -29,7 +29,6 @@ use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash,
 };
 
-use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use polkadot_node_subsystem_util::database::Database;
 use polkadot_primitives::Id as ParaId;
 use sp_consensus_slots::Slot;
@@ -68,10 +67,6 @@ fn make_block_entry(
 		children: Vec::new(),
 		distributed_assignments: Default::default(),
 	}
-}
-
-fn make_bitvec(len: usize) -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; len]
 }
 
 fn make_candidate(para_id: ParaId, relay_parent: Hash) -> CandidateReceipt {

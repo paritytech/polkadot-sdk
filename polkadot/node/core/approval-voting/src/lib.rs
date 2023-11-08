@@ -1018,6 +1018,8 @@ where
 			(block_hash, validator_index) = delayed_approvals_timers.select_next_some() => {
 				gum::debug!(
 					target: LOG_TARGET,
+					?block_hash,
+					?validator_index,
 					"Sign approval for multiple candidates",
 				);
 
@@ -1740,7 +1742,7 @@ async fn get_approval_signatures_for_candidate<Context>(
 			Some(Ok(votes)) => {
 				let votes = votes
 					.into_iter()
-					.map(|(validator_index, (hash, signed_candidates_indices, signature))| {
+					.filter_map(|(validator_index, (hash, signed_candidates_indices, signature))| {
 						let candidates_hashes = candidate_indices_to_candidate_hashes.get(&hash);
 
 						if candidates_hashes.is_none() {
@@ -1750,6 +1752,8 @@ async fn get_approval_signatures_for_candidate<Context>(
 								"Possible bug! Could not find map of candidate_hashes for block hash received from approval-distribution"
 							);
 						}
+
+						let num_signed_candidates = signed_candidates_indices.len();
 
 						let signed_candidates_hashes: Vec<CandidateHash> =
 							signed_candidates_indices
@@ -1771,7 +1775,15 @@ async fn get_approval_signatures_for_candidate<Context>(
 									})
 								})
 								.collect();
-						(validator_index, (signed_candidates_hashes, signature))
+						if num_signed_candidates == signed_candidates_hashes.len() {
+							Some((validator_index, (signed_candidates_hashes, signature)))
+						} else {
+							gum::warn!(
+								target: LOG_TARGET,
+								"Possible bug! Could not find all hashes for candidates coming from approval-distribution"
+							);
+							None
+						}
 					})
 					.collect();
 				send_votes(votes)
@@ -3476,8 +3488,6 @@ async fn maybe_create_signature<Context>(
 		.collect::<SubsystemResult<Vec<Option<CandidateEntry>>>>()?;
 
 	for mut candidate_entry in candidate_entries {
-		// let mut candidate_entry = candidate_entry
-		// 	.expect("Candidate was scheduled to be signed entry in db should exist; qed");
 		let approval_entry = candidate_entry.as_mut().and_then(|candidate_entry| {
 			candidate_entry.approval_entry_mut(&block_entry.block_hash())
 		});

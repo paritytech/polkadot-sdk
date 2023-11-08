@@ -483,6 +483,7 @@ impl PeerKnowledge {
 		(sent, notknown_by_peer)
 	}
 
+	/// Marks a list of assignments as sent to the peer
 	fn mark_sent(&mut self, assignments: &Vec<(IndirectAssignmentCertV2, CandidateBitfield)>) {
 		for assignment in assignments {
 			self.sent.insert(

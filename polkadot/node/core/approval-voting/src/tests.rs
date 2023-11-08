@@ -2028,7 +2028,7 @@ fn test_signing_a_single_candidate_is_backwards_compatible() {
 		.map(|candidate_descriptor| candidate_descriptor.hash())
 		.collect_vec();
 
-	let first_descriptor = candidate_descriptors.first().expect("TODO");
+	let first_descriptor = candidate_descriptors.first().unwrap();
 
 	let candidate_hash = first_descriptor.hash();
 

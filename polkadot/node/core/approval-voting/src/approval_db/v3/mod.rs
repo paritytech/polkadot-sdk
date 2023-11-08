@@ -16,8 +16,7 @@
 
 //! Version 3 of the DB schema.
 //!
-//! Version 3 modifies the our_approval format of `ApprovalEntry`
-//! and adds a new field `pending_signatures` for `BlockEntry`
+//! Version 3 modifies the `our_approval` format of `ApprovalEntry`
 //! and adds a new field `pending_signatures` for `BlockEntry`
 
 use parity_scale_codec::{Decode, Encode};
@@ -107,8 +106,7 @@ pub struct BlockEntry {
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq)]
-
-/// Context needed for creating an approval signature  for a given candidate.
+/// Context needed for creating an approval signature for a given candidate.
 pub struct CandidateSigningContext {
 	/// The candidate hash, to be included in the signature.
 	pub candidate_hash: CandidateHash,

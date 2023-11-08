@@ -116,7 +116,7 @@ pub fn v1_to_latest_sanity_check(
 	Ok(())
 }
 
-// Fills the db with dummy data in v1 scheme.
+// Fills the db with dummy data in v2 scheme.
 pub fn v2_fill_test_data<F>(
 	db: Arc<dyn Database>,
 	config: Config,
