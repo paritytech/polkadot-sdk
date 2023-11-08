@@ -159,13 +159,14 @@ async fn run<Context>(
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 			FromOrchestra::Communication { msg } => match msg {
-				CandidateValidationMessage::ValidateFromChainState(
+				CandidateValidationMessage::ValidateFromChainState {
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let metrics = metrics.clone();
@@ -179,7 +180,7 @@ async fn run<Context>(
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -191,15 +192,16 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-chain-state", bg.boxed())?;
 				},
-				CandidateValidationMessage::ValidateFromExhaustive(
-					persisted_validation_data,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data,
 					validation_code,
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let metrics = metrics.clone();
 						let validation_host = validation_host.clone();
@@ -208,12 +210,12 @@ async fn run<Context>(
 							let _timer = metrics.time_validate_from_exhaustive();
 							let res = validate_candidate_exhaustive(
 								validation_host,
-								persisted_validation_data,
+								validation_data,
 								validation_code,
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -225,11 +227,12 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-exhaustive", bg.boxed())?;
 				},
-				CandidateValidationMessage::PreCheck(
+				CandidateValidationMessage::PreCheck {
 					relay_parent,
 					validation_code_hash,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let validation_host = validation_host.clone();
