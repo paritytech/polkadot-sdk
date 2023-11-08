@@ -67,7 +67,7 @@
 //!
 //! ### Checked Operations
 //!
-//! **Checked operations** utilize a `Option<T>` as a return type.  This allows for simple pattern matching to catch any unexpected 
+//! **Checked operations** utilize a `Option<T>` as a return type. This allows for simple pattern matching to catch any unexpected 
 //! behavior in the event of an overflow.
 //!
 //! This is an example of a valid operation:
