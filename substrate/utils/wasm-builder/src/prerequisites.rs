@@ -136,5 +136,22 @@ fn check_wasm_toolchain_installed(
 		.and_then(|o| String::from_utf8(o.stdout).ok())
 		.unwrap_or_else(|| "unknown rustc version".into());
 
+	if crate::build_std_required() {
+		let mut sysroot_cmd = prepare_command("rustc");
+		sysroot_cmd.args(&["-q", "--", "--print", "sysroot"]);
+		if let Some(sysroot) =
+			sysroot_cmd.output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
+		{
+			let src_path =
+				Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust");
+			if !src_path.exists() {
+				return Err(print_error_message(
+					"Cannot compile the WASM runtime: no standard library sources found!\n\
+					 You can install them with `rustup component add rust-src` if you're using `rustup`.",
+				))
+			}
+		}
+	}
+
 	Ok(CargoCommandVersioned::new(cargo_command, version))
 }

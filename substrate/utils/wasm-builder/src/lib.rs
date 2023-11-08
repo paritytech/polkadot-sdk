@@ -362,3 +362,8 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
 		std::process::exit(1);
 	}
 }
+
+/// Returns whether we need to also compile the standard library when compiling the runtime.
+fn build_std_required() -> bool {
+	crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(true)
+}

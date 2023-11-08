@@ -761,7 +761,7 @@ fn build_bloaty_blob(
 	//
 	// So here we force the compiler to also compile the standard library crates for us
 	// to make sure that they also only use the MVP features.
-	if crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(true) {
+	if crate::build_std_required() {
 		// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
 		// so it's unlikely to break without a replacement.
 		build_cmd.arg("-Z").arg("build-std");
