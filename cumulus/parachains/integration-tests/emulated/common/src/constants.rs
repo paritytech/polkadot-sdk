@@ -1160,3 +1160,60 @@ pub mod bridge_hub_rococo {
 		}
 	}
 }
+
+// Bridge Hub Westend
+pub mod bridge_hub_westend {
+	use super::*;
+	pub const PARA_ID: u32 = 1013;
+	pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+
+	pub fn genesis() -> Storage {
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
+					.iter()
+					.cloned()
+					.map(|k| (k, ED * 4096))
+					.collect::<Vec<_>>(),
+			},
+			"parachainInfo": {
+				"parachainId": cumulus_primitives_core::ParaId::from(PARA_ID),
+			},
+			"collatorSelection": {
+				"invulnerables": collators::invulnerables()
+					.iter()
+					.cloned()
+					.map(|(acc, _)| acc)
+					.collect::<Vec<_>>(),
+				"candidacyBond": ED * 16,
+			},
+			"session": {
+				"keys": collators::invulnerables()
+					.into_iter()
+					.map(|(acc, aura)| {
+						(
+							acc.clone(),                                     // account id
+							acc,                                             // validator id
+							bridge_hub_westend_runtime::SessionKeys { aura }, // session keys
+						)
+					})
+					.collect::<Vec<_>>(),
+			},
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
+			},
+			"bridgeRococoGrandpa": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			},
+			"bridgeRococoMessages": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			}
+		});
+
+		build_genesis_storage(
+			genesis_config,
+			bridge_hub_westend_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
+		)
+	}
+}
