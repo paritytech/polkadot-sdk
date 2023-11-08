@@ -74,10 +74,10 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
-	fn expected_header_and_payload(
+	fn expected_hash_header_payload_tuple(
 		&self,
 		number: NumberFor<B>,
-	) -> Result<(B::Header, Payload), Error> {
+	) -> Result<(B::Hash, B::Header, Payload), Error> {
 		// This should be un-ambiguous since `number` is finalized.
 		let hash = self
 			.backend
@@ -91,7 +91,7 @@ where
 			.map_err(|e| Error::Backend(e.to_string()))?;
 		self.payload_provider
 			.payload(&header)
-			.map(|payload| (header, payload))
+			.map(|payload| (hash, header, payload))
 			.ok_or_else(|| Error::Backend("BEEFY Payload not found".into()))
 	}
 
@@ -110,40 +110,38 @@ where
 		&self,
 		proof: ForkEquivocationProof<NumberFor<B>, AuthorityId, Signature, B::Header, MmrRootHash>,
 	) -> Result<(), Error> {
-		let prev_hash = self
-			.backend
-			.blockchain()
-			.hash(proof.commitment.block_number)
-			.map_err(|e| Error::Backend(e.to_string()))?;
-		let validator_set = self.active_validator_set_at(prev_hash.unwrap())?;
-		let set_id = validator_set.id();
-
-		let expected_header_hash = self
+		let expected_prev_hash = self
 			.backend
 			.blockchain()
 			.expect_block_hash_from_id(&BlockId::Number(proof.commitment.block_number))
 			.map_err(|e| Error::Backend(e.to_string()))?;
 
+		let validator_set = self.active_validator_set_at(expected_prev_hash)?;
+		let set_id = validator_set.id();
+
 		let best_hash = self.backend.blockchain().info().best_hash;
+		let best_mmr_root = self
+			.runtime
+			.runtime_api()
+			.mmr_root(best_hash)
+			.map_err(|e| Error::RuntimeApi(e))?
+			.map_err(|e| Error::Backend(e.to_string()))?;
 
-		let expected_mmr_root =
-			self.runtime.runtime_api().mmr_root(best_hash).map_err(Error::RuntimeApi)?;
-
+		// if this errors, mmr has not been instantiated yet, hence the pallet is not active yet and
+		// we should not report equivocations
 		let leaf_count = self
 			.runtime
 			.runtime_api()
 			.mmr_leaf_count(best_hash)
-			.map_err(Error::RuntimeApi)?;
+			.map_err(|e| Error::RuntimeApi(e))?
+			.map_err(|e| Error::Backend(e.to_string()))?;
 
 		// TODO: if ancestry proof can't be constructed, report equivocation nonetheless if valid
 		// header proof can be provided
 		let first_mmr_block_num = {
 			let best_block_num = self.backend.blockchain().info().best_number;
-			sp_mmr_primitives::utils::first_mmr_block_num::<B::Header>(
-				best_block_num,
-				*leaf_count.as_ref().unwrap(),
-			)
-			.map_err(|e| Error::Backend(e.to_string()))?
+			sp_mmr_primitives::utils::first_mmr_block_num::<B::Header>(best_block_num, leaf_count)
+				.map_err(|e| Error::Backend(e.to_string()))?
 		};
 
 		if proof.commitment.validator_set_id != set_id ||
@@ -153,13 +151,8 @@ where
 				B::Header,
 				MmrRootHash,
 				sp_mmr_primitives::utils::AncestryHasher<MmrHashing>,
-			>(
-				&proof,
-				expected_mmr_root.unwrap(),
-				leaf_count.unwrap(),
-				&expected_header_hash,
-				first_mmr_block_num,
-			) {
+			>(&proof, best_mmr_root, leaf_count, &expected_prev_hash, first_mmr_block_num)
+		{
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad invalid fork proof {:?}", proof);
 			return Ok(())
 		}
@@ -181,7 +174,7 @@ where
 			.cloned()
 			.filter_map(|id| {
 				match runtime_api.generate_key_ownership_proof(
-					prev_hash.unwrap(),
+					expected_prev_hash,
 					set_id,
 					id.clone(),
 				) {
@@ -226,19 +219,29 @@ where
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let number = vote.commitment.block_number;
-		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
+		let (correct_hash, correct_header, expected_payload) =
+			self.expected_hash_header_payload_tuple(number)?;
 		if vote.commitment.payload != expected_payload {
-			let ancestry_proof = self
+			let ancestry_proof: Option<_> = match self
 				.runtime
 				.runtime_api()
-				.generate_ancestry_proof(correct_header.hash(), number, None)
-				.unwrap()
-				.unwrap();
+				.generate_ancestry_proof(correct_hash, number, None)
+			{
+				Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+					None
+				},
+				Err(e) => {
+					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+					None
+				},
+			};
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
-				correct_header: Some(correct_header.clone()),
-				ancestry_proof: Some(ancestry_proof),
+				correct_header: Some(correct_header),
+				ancestry_proof,
 			};
 			self.report_fork_equivocation(proof)?;
 		}
@@ -252,20 +255,25 @@ where
 	) -> Result<(), Error> {
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
-		let prev_hash = self
-			.backend
-			.blockchain()
-			.hash(number)
-			.map_err(|e| Error::Backend(e.to_string()))?;
-		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
+		let (correct_hash, correct_header, expected_payload) =
+			self.expected_hash_header_payload_tuple(number)?;
 		if commitment.payload != expected_payload {
-			let ancestry_proof = self
-				.runtime
-				.runtime_api()
-				.generate_ancestry_proof(correct_header.hash(), number, None)
-				.unwrap()
-				.unwrap();
-			let validator_set = self.active_validator_set_at(prev_hash.unwrap())?;
+			let ancestry_proof = match self.runtime.runtime_api().generate_ancestry_proof(
+				correct_hash,
+				number,
+				None,
+			) {
+				Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+					None
+				},
+				Err(e) => {
+					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+					None
+				},
+			};
+			let validator_set = self.active_validator_set_at(correct_hash)?;
 			if signatures.len() != validator_set.validators().len() {
 				// invalid proof
 				return Ok(())
@@ -282,8 +290,8 @@ where
 			let proof = ForkEquivocationProof {
 				commitment,
 				signatories,
-				correct_header: Some(correct_header.clone()),
-				ancestry_proof: Some(ancestry_proof),
+				correct_header: Some(correct_header),
+				ancestry_proof,
 			};
 			self.report_fork_equivocation(proof)?;
 		}
