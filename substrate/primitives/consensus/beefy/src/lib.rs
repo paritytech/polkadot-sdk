@@ -382,76 +382,80 @@ where
 			return false
 		}
 
-		// verify that the prev_root is at the correct block number
-		// this can be inferred from the leaf_count / mmr_size of the prev_root:
-		// convert the commitment.block_number to an mmr size and compare with the value in the
-		// ancestry proof
-		let ancestry_prev_root = {
-			let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
-				commitment.block_number,
-				first_mmr_block_num,
-			)
-			.and_then(|leaf_index| {
-				leaf_index.checked_add(1).ok_or_else(|| {
-					sp_mmr_primitives::Error::InvalidNumericOp
-						.log_debug("leaf_index + 1 overflowed")
-				})
-			});
+		let header_proof_is_correct = if let Some(correct_header) = correct_header {
+			correct_header.hash() == *expected_header_hash && {
+				let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
+				let expected_payload = expected_mmr_root_digest.map(|mmr_root| {
+					Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
+				});
 
-			// if the block number either under- or overflowed, the commitment.block_number was not
-			// valid and the commitment should not have been signed, hence we can skip the ancestry
-			// proof and slash the signatories
-			if let (Ok(expected_leaf_count), Some(ancestry_proof)) =
-				(expected_leaf_count, ancestry_proof)
-			{
-				let expected_mmr_size =
-					sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
-				if expected_mmr_size != ancestry_proof.prev_size {
-					return false
-				}
-				if Ok(true) !=
-					sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
-						expected_root,
-						mmr_size,
-						ancestry_proof.clone(),
-					) {
-					return false
-				}
-				mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(ancestry_proof.prev_peaks.clone())
-			} else {
-				Err(mmr_lib::Error::CorruptedProof)
+				// check that `payload` of the `commitment` is different that the `expected_payload`
+				// note that if the signatories signed a payload when there should be none (for
+				// instance for a block prior to BEEFY activation), then expected_payload = None,
+				// and they will likewise be slashed.
+				// note that we can only check this if a valid header has been provided - we cannot
+				// slash for this with an ancestry proof - by necessity)
+				Some(&commitment.payload) != expected_payload.as_ref()
 			}
+		} else {
+			// if no header provided, the header proof is also not correct
+			false
 		};
 
-		let mut expected_payload: Option<_> = None;
-		if let Some(correct_header) = correct_header {
-			if correct_header.hash() != *expected_header_hash {
-				return false
-			}
+		let ancestry_proof_is_correct = if let Some(ancestry_proof) = ancestry_proof {
+			(|| {
+				let ancestry_prev_root = {
+					let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<
+						Header,
+					>(commitment.block_number, first_mmr_block_num)
+					.and_then(|leaf_index| {
+						leaf_index.checked_add(1).ok_or_else(|| {
+							sp_mmr_primitives::Error::InvalidNumericOp
+								.log_debug("leaf_index + 1 overflowed")
+						})
+					});
 
-			let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
-			expected_payload = expected_mmr_root_digest.map(|mmr_root| {
-				Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
-			});
-		}
+					if let Ok(expected_leaf_count) = expected_leaf_count {
+						let expected_mmr_size =
+							sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
+						// verify that the prev_root is at the correct block number
+						// this can be inferred from the leaf_count / mmr_size of the prev_root:
+						// convert the commitment.block_number to an mmr size and compare with the
+						// value in the ancestry proof
+						if expected_mmr_size == ancestry_proof.prev_size {
+							return false
+						}
+						if Ok(true) !=
+							sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
+								expected_root,
+								mmr_size,
+								ancestry_proof.clone(),
+							) {
+							return false
+						}
+						mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(
+							ancestry_proof.prev_peaks.clone(),
+						)
+					} else {
+						// if the block number either under- or overflowed, the
+						// commitment.block_number was not valid and the commitment should not have
+						// been signed, hence we can skip the ancestry proof and slash the
+						// signatories
+						return true
+					}
+				};
+				// if the commitment payload does not commit to an MMR root, then this commitment
+				// may have another purpose and should not be slashed
+				let commitment_prev_root =
+					commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
+				commitment_prev_root != ancestry_prev_root.ok()
+			})()
+		} else {
+			// if no ancestry proof provided, the proof is also not correct
+			false
+		};
 
-		// if the commitment payload does not commit to an MMR root, then this commitment may have
-		// another purpose and should not be slashed
-		// TODO: what if we can nonetheless show that there's another payload at the same block
-		// number? if we're keeping both header & mmr root proofs, then we may proceed in this case
-		// nonetheless
-		let commitment_prev_root =
-			commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
-		// cheap failfasts:
-		// 1. check that `payload` on the `vote` is different that the `expected_payload`
-		// 2. if the signatories signed a payload when there should be none (for
-		// instance for a block prior to BEEFY activation), then expected_payload =
-		// None, and they will likewise be slashed (note we can only check this if a valid header
-		// has been provided - we cannot slash for this with an ancestry proof - by necessity)
-		if Some(&commitment.payload) == expected_payload.as_ref() ||
-			(correct_header.is_none() && !ancestry_prev_root.is_ok()) ||
-			commitment_prev_root == ancestry_prev_root.ok()
-		{
+		if !header_proof_is_correct && !ancestry_proof_is_correct {
 			return false
 		}
 	}
