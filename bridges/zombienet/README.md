@@ -2,7 +2,7 @@
 
 This folder contains [zombienet](https://github.com/paritytech/zombienet/) based integration tests for both
 onchain and offchain bridges code. Due to some
-[technical diffuculties](https://github.com/paritytech/parity-bridges-common/pull/2649#issue-1965339051), we
+[technical difficulties](https://github.com/paritytech/parity-bridges-common/pull/2649#issue-1965339051), we
 are using native zombienet provider, which means that you need to build some binaries locally.
 
 To start those tests, you need to:

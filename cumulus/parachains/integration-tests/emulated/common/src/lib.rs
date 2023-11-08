@@ -20,8 +20,8 @@ pub mod xcm_helpers;
 
 use constants::{
 	accounts::{ALICE, BOB},
-	asset_hub_rococo, asset_hub_westend, asset_hub_wococo, bridge_hub_rococo, penpal, rococo,
-	westend,
+	asset_hub_rococo, asset_hub_westend, asset_hub_wococo, bridge_hub_rococo, bridge_hub_westend,
+	penpal, rococo, westend,
 };
 use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
 pub use paste;
@@ -116,6 +116,23 @@ decl_test_parachains! {
 			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
+		}
+	},
+	pub struct BridgeHubWestend {
+		genesis = bridge_hub_westend::genesis(),
+		on_init = {
+			bridge_hub_westend_runtime::AuraExt::on_initialize(1);
+		},
+		runtime = bridge_hub_westend_runtime,
+		core = {
+			XcmpMessageHandler: bridge_hub_westend_runtime::XcmpQueue,
+			LocationToAccountId: bridge_hub_westend_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: bridge_hub_westend_runtime::ParachainInfo,
+			MessageProcessor: DefaultParaMessageProcessor<BridgeHubWestend>,
+		},
+		pallets = {
+			PolkadotXcm: bridge_hub_westend_runtime::PolkadotXcm,
+			Balances: bridge_hub_westend_runtime::Balances,
 		}
 	},
 	pub struct PenpalWestendA {
@@ -257,6 +274,7 @@ decl_test_networks! {
 		relay_chain = Westend,
 		parachains = vec![
 			AssetHubWestend,
+			BridgeHubWestend,
 			PenpalWestendA,
 		],
 		bridge = ()
@@ -323,6 +341,10 @@ impl_assert_events_helpers_for_parachain!(AssetHubRococo);
 // PenpalWestendA implementation
 impl_assert_events_helpers_for_parachain!(PenpalWestendA);
 
+// BridgeHubWestend implementation
+impl_accounts_helpers_for_parachain!(BridgeHubWestend);
+impl_assert_events_helpers_for_parachain!(BridgeHubWestend);
+
 // BridgeHubRococo implementation
 impl_accounts_helpers_for_parachain!(BridgeHubRococo);
 impl_assert_events_helpers_for_parachain!(BridgeHubRococo);
@@ -343,6 +365,7 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	// Bridged Hubs
 	BridgeHubRococo { sender: ALICE, receiver: BOB },
 	BridgeHubWococo { sender: ALICE, receiver: BOB },
+	BridgeHubWestend { sender: ALICE, receiver: BOB },
 	// Penpals
 	PenpalWestendA { sender: ALICE, receiver: BOB },
 	PenpalRococoA { sender: ALICE, receiver: BOB },
