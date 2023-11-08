@@ -29,7 +29,7 @@ use trie_db::{node::NodeOwned, Hasher};
 /// have already been loaded and decoded from the storage proof.
 pub(crate) struct TrieCache<'a, H: Hasher> {
 	node_cache: RefMut<'a, BTreeMap<H::Out, NodeOwned<H::Out>>>,
-	value_cache: Option<RefMut<'a, &'a mut BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
+	value_cache: Option<RefMut<'a, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
 }
 
 impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
