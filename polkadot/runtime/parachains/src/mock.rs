@@ -17,7 +17,8 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
+	assigner, assigner_bulk, assigner_on_demand, assigner_parachains, configuration, disputes, dmp,
+	hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
@@ -73,6 +74,7 @@ frame_support::construct_runtime!(
 		Assigner: assigner,
 		ParachainsAssigner: assigner_parachains,
 		OnDemandAssigner: assigner_on_demand,
+		BulkAssigner: assigner_bulk,
 		Initializer: initializer,
 		Dmp: dmp,
 		Hrmp: hrmp,
@@ -361,6 +363,10 @@ impl assigner_on_demand::Config for Test {
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
+}
+
+impl assigner_bulk::Config for Test {
+	type WeightInfo = crate::assigner_bulk::TestWeightInfo;
 }
 
 impl crate::inclusion::Config for Test {
