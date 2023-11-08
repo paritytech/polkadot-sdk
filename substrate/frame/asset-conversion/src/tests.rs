@@ -908,6 +908,59 @@ fn can_swap_with_native() {
 }
 
 #[test]
+fn can_swap_token_token_pair() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Asset(1);
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+
+		create_tokens(user, vec![token_1, token_2]);
+		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 1, user, 10000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		let input_amount = 100;
+		let expect_receive =
+			AssetConversion::get_amount_out(&input_amount, &liquidity2, &liquidity1)
+				.ok()
+				.unwrap();
+
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_2, token_1],
+			input_amount,
+			1,
+			user,
+			false,
+		));
+
+		let pallet_account = AssetConversion::get_pool_account(&pool_id);
+		assert_eq!(balance(user, token_1), expect_receive);
+		assert_eq!(balance(user, token_2), 1000 - liquidity2 - input_amount);
+		assert_eq!(balance(pallet_account, token_1), liquidity1 - expect_receive);
+		assert_eq!(balance(pallet_account, token_2), liquidity2 + input_amount);
+	});
+}
+
+#[test]
 fn can_swap_with_realistic_values() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
@@ -1612,6 +1665,393 @@ fn can_not_swap_same_asset() {
 			),
 			Error::<Test>::PoolNotFound
 		);
+	});
+}
+
+#[test]
+fn can_destroy_pool_after_asset_has_been_destroyed() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+		let user_sig = RuntimeOrigin::signed(user);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			user_sig.clone(),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		assert_noop!(
+			AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolNotDestroyable
+		);
+
+		assert_ok!(Assets::start_destroy(user_sig.clone(), 2));
+		assert_ok!(Assets::destroy_accounts(user_sig.clone(), 2));
+		assert_ok!(Assets::finish_destroy(user_sig.clone(), 2));
+
+		assert_noop!(
+			AssetConversion::create_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolExists
+		);
+
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
+		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
+
+		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
+
+		assert_ok!(Assets::create(RuntimeOrigin::signed(user), 2, 1, 1));
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+	});
+}
+
+#[test]
+fn can_destroy_pool_after_asset_has_been_recreated() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+		let user_sig = RuntimeOrigin::signed(user);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			user_sig.clone(),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		assert_noop!(
+			AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolNotDestroyable
+		);
+
+		assert_ok!(Assets::start_destroy(user_sig.clone(), 2));
+		assert_ok!(Assets::destroy_accounts(user_sig.clone(), 2));
+		assert_ok!(Assets::finish_destroy(user_sig.clone(), 2));
+
+		// Now instantly recreate an asset with the same id:
+		assert_ok!(Assets::create(RuntimeOrigin::signed(user), 2, 1, 1));
+
+		assert_noop!(
+			AssetConversion::create_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolExists
+		);
+
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
+		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
+
+		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
+
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+	});
+}
+
+#[test]
+fn can_remove_liquidity_after_one_asset_has_been_destroyed() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+		let user_sig = RuntimeOrigin::signed(user);
+
+		create_tokens(user, vec![token_2]);
+		let lp_token = AssetConversion::get_next_pool_asset_id();
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			user_sig.clone(),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		assert_ok!(Assets::start_destroy(user_sig.clone(), 2));
+		assert_ok!(Assets::destroy_accounts(user_sig.clone(), 2));
+		assert_ok!(Assets::finish_destroy(user_sig.clone(), 2));
+
+		let total_lp_received = pool_balance(user, lp_token);
+
+		assert_ok!(AssetConversion::remove_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_2,
+			total_lp_received,
+			0,
+			0,
+			user,
+		));
+
+		assert!(events().contains(&Event::<Test>::LiquidityRemoved {
+			who: user,
+			withdraw_to: user,
+			pool_id,
+			amount1: 9292,
+			amount2: 0,
+			lp_token,
+			lp_token_burned: total_lp_received,
+			withdrawal_fee: <Test as Config>::LiquidityWithdrawalFee::get()
+		}));
+	});
+}
+
+/// Can we destroy a pool that has been created but no liquidity has been added to it?
+#[test]
+fn can_destroy_empty_pool() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+		let user_sig = RuntimeOrigin::signed(user);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		assert_ok!(Assets::start_destroy(user_sig.clone(), 2));
+		assert_ok!(Assets::destroy_accounts(user_sig.clone(), 2));
+		assert_ok!(Assets::finish_destroy(user_sig.clone(), 2));
+
+		assert_noop!(
+			AssetConversion::create_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolExists
+		);
+
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
+		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
+		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
+
+		assert_ok!(Assets::create(RuntimeOrigin::signed(user), 2, 1, 1));
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+	});
+}
+
+#[test]
+fn instantly_recreate_destroyed_pool() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+		let user_sig = RuntimeOrigin::signed(user);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_noop!(
+			AssetConversion::create_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolExists
+		);
+
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
+		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
+
+		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
+
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			user_sig.clone(),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		let exchange_out = 50;
+
+		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_1, token_2],
+			exchange_out, // amount_out
+			3500,         // amount_in_max
+			user,
+			true,
+		));
+	});
+}
+
+// Test to destroy both assets from a non-native pool.
+// Re-create both assets and check that the pool can be used with the recreated assets.
+#[test]
+fn can_use_pool_with_two_recreated_assets() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user_sig = RuntimeOrigin::signed(user);
+		let token_1 = NativeOrAssetId::Asset(1);
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+
+		create_tokens(user, vec![token_1, token_2]);
+		let lp_token = AssetConversion::get_next_pool_asset_id();
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		let ed = get_ed();
+		let asset_deposit = 10;
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user,
+			ed + ed + 2 * asset_deposit
+		));
+		assert_ok!(Assets::mint(user_sig.clone(), 1, user, 10000));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			user_sig.clone(),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		let input_amount = 100;
+		let expect_receive =
+			AssetConversion::get_amount_out(&input_amount, &liquidity2, &liquidity1)
+				.ok()
+				.unwrap();
+
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			user_sig.clone(),
+			bvec![token_2, token_1],
+			input_amount,
+			1,
+			user,
+			false,
+		));
+
+		let pallet_account = AssetConversion::get_pool_account(&pool_id);
+		assert_eq!(balance(user, token_1), expect_receive);
+		assert_eq!(balance(user, token_2), 1000 - liquidity2 - input_amount);
+		assert_eq!(balance(pallet_account, token_1), liquidity1 - expect_receive);
+		assert_eq!(balance(pallet_account, token_2), liquidity2 + input_amount);
+
+		// Destroy both assets
+		assert_ok!(Assets::start_destroy(user_sig.clone(), 1));
+		assert_ok!(Assets::destroy_accounts(user_sig.clone(), 1));
+		assert_ok!(Assets::finish_destroy(user_sig.clone(), 1));
+
+		assert_ok!(Assets::start_destroy(user_sig.clone(), 2));
+		assert_ok!(Assets::destroy_accounts(user_sig.clone(), 2));
+		assert_ok!(Assets::finish_destroy(user_sig.clone(), 2));
+
+		// Can we still redeem lp tokens? yes though it's a bit pathalogical.
+		let total_lp_received = pool_balance(user, lp_token);
+		assert_ok!(AssetConversion::remove_liquidity(
+			RuntimeOrigin::signed(user),
+			token_1,
+			token_2,
+			total_lp_received,
+			0,
+			0,
+			user,
+		));
+
+		assert!(events().contains(&Event::<Test>::LiquidityRemoved {
+			who: user,
+			withdraw_to: user,
+			pool_id,
+			amount1: 0,
+			amount2: 0,
+			lp_token,
+			lp_token_burned: total_lp_received,
+			withdrawal_fee: <Test as Config>::LiquidityWithdrawalFee::get()
+		}));
+
+		// Can we still destroy the pool?
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
+		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
+		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
+
+		// Can we now create a new pool with identical asset ids?
+		assert_ok!(Assets::create(RuntimeOrigin::signed(user), 1, 1, 1));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(user), 2, 1, 1));
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		assert_ok!(Assets::mint(user_sig.clone(), 1, user, 10000));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			user_sig.clone(),
+			token_1,
+			token_2,
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			user_sig.clone(),
+			bvec![token_2, token_1],
+			100,
+			1,
+			user,
+			false,
+		));
 	});
 }
 
