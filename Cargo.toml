@@ -540,4 +540,5 @@ zeroize = { opt-level = 3 }
 
 [patch.crates-io]
 jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-service" }
+jsonrpsee-core = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-service" }
 
