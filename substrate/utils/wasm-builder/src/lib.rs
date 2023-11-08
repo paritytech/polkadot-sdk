@@ -87,6 +87,9 @@
 //!   required as we walk up from the target directory until we find a `Cargo.toml`. If the target
 //!   directory is changed for the build, this environment variable can be used to point to the
 //!   actual workspace.
+//! - `WASM_BUILD_STD` - Sets whether the Rust's standard library crates will also be built. This is
+//!   necessary to make sure the standard library crates only use the exact WASM feature set that
+//!   our executor supports. Enabled by default.
 //! - `CARGO_NET_OFFLINE` - If `true`, `--offline` will be passed to all processes launched to
 //!   prevent network access. Useful in offline environments.
 //!
@@ -157,6 +160,9 @@ const FORCE_WASM_BUILD_ENV: &str = "FORCE_WASM_BUILD";
 
 /// Environment variable that hints the workspace we are building.
 const WASM_BUILD_WORKSPACE_HINT: &str = "WASM_BUILD_WORKSPACE_HINT";
+
+/// Environment variable to set whether we'll build `core`/`std`.
+const WASM_BUILD_STD: &str = "WASM_BUILD_STD";
 
 /// Write to the given `file` if the `content` is different.
 fn write_file_if_changed(file: impl AsRef<Path>, content: impl AsRef<str>) {
@@ -282,6 +288,12 @@ impl CargoCommand {
 		self.version
 	}
 
+	/// Returns whether this version of the toolchain supports nightly features.
+	fn supports_nightly_features(&self) -> bool {
+		self.version.map(|version| version.is_nightly).unwrap_or(false) ||
+			env::var("RUSTC_BOOTSTRAP").is_ok()
+	}
+
 	/// Check if the supplied cargo command supports our Substrate wasm environment.
 	///
 	/// This means that either the cargo version is at minimum 1.68.0 or this is a nightly cargo.
@@ -331,4 +343,22 @@ impl std::ops::Deref for CargoCommandVersioned {
 /// Returns `true` when color output is enabled.
 fn color_output_enabled() -> bool {
 	env::var(crate::WASM_BUILD_NO_COLOR).is_err()
+}
+
+/// Fetches a boolean environment variable. Will exit the process if the value is invalid.
+fn get_bool_environment_variable(name: &str) -> Option<bool> {
+	let value = env::var_os(name)?;
+
+	// We're comparing `OsString`s here so we can't use a `match`.
+	if value == "1" {
+		Some(true)
+	} else if value == "0" {
+		Some(false)
+	} else {
+		build_helper::warning!(
+			"the '{}' environment variable has an invalid value; it must be either '1' or '0'",
+			name
+		);
+		std::process::exit(1);
+	}
 }
