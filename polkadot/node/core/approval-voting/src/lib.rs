@@ -2861,15 +2861,15 @@ async fn launch_approval<Context>(
 
 		let (val_tx, val_rx) = oneshot::channel();
 		sender
-			.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-				available_data.validation_data,
+			.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: available_data.validation_data,
 				validation_code,
-				candidate.clone(),
-				available_data.pov,
+				candidate_receipt: candidate.clone(),
+				pov: available_data.pov,
 				executor_params,
-				PvfExecTimeoutKind::Approval,
-				val_tx,
-			))
+				exec_timeout_kind: PvfExecTimeoutKind::Approval,
+				response_sender: val_tx,
+			})
 			.await;
 
 		match val_rx.await {
