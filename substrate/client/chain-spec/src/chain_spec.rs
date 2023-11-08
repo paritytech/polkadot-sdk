@@ -18,8 +18,10 @@
 
 //! Substrate chain configurations.
 #![warn(missing_docs)]
-
-use crate::{extension::GetExtension, ChainType, Properties, RuntimeGenesis};
+use crate::{
+	extension::GetExtension, ChainType, GenesisConfigBuilderRuntimeCaller as RuntimeCaller,
+	Properties, RuntimeGenesis,
+};
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
@@ -29,13 +31,32 @@ use sp_core::{
 	Bytes,
 };
 use sp_runtime::BuildStorage;
-use std::{borrow::Cow, collections::BTreeMap, fs::File, path::PathBuf, sync::Arc};
+use std::{
+	borrow::Cow,
+	collections::{BTreeMap, VecDeque},
+	fs::File,
+	marker::PhantomData,
+	path::PathBuf,
+	sync::Arc,
+};
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+enum GenesisBuildAction {
+	Patch(json::Value),
+	Full(json::Value),
+}
+
+#[allow(deprecated)]
 enum GenesisSource<G> {
 	File(PathBuf),
 	Binary(Cow<'static, [u8]>),
-	Factory(Arc<dyn Fn() -> G + Send + Sync>),
+	/// factory function + code
+	//Factory and G type parameter shall be removed togheter with `ChainSpec::from_genesis`
+	Factory(Arc<dyn Fn() -> G + Send + Sync>, Vec<u8>),
 	Storage(Storage),
+	/// build action + code
+	GenesisBuilderApi(GenesisBuildAction, Vec<u8>),
 }
 
 impl<G> Clone for GenesisSource<G> {
@@ -43,14 +64,17 @@ impl<G> Clone for GenesisSource<G> {
 		match *self {
 			Self::File(ref path) => Self::File(path.clone()),
 			Self::Binary(ref d) => Self::Binary(d.clone()),
-			Self::Factory(ref f) => Self::Factory(f.clone()),
+			Self::Factory(ref f, ref c) => Self::Factory(f.clone(), c.clone()),
 			Self::Storage(ref s) => Self::Storage(s.clone()),
+			Self::GenesisBuilderApi(ref s, ref c) => Self::GenesisBuilderApi(s.clone(), c.clone()),
 		}
 	}
 }
 
 impl<G: RuntimeGenesis> GenesisSource<G> {
 	fn resolve(&self) -> Result<Genesis<G>, String> {
+		/// helper container for deserializing genesis from the JSON file (ChainSpec JSON file is
+		/// also supported here)
 		#[derive(Serialize, Deserialize)]
 		struct GenesisContainer<G> {
 			genesis: Genesis<G>,
@@ -79,31 +103,21 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 					.map_err(|e| format!("Error parsing embedded file: {}", e))?;
 				Ok(genesis.genesis)
 			},
-			Self::Factory(f) => Ok(Genesis::Runtime(f())),
-			Self::Storage(storage) => {
-				let top = storage
-					.top
-					.iter()
-					.map(|(k, v)| (StorageKey(k.clone()), StorageData(v.clone())))
-					.collect();
-
-				let children_default = storage
-					.children_default
-					.iter()
-					.map(|(k, child)| {
-						(
-							StorageKey(k.clone()),
-							child
-								.data
-								.iter()
-								.map(|(k, v)| (StorageKey(k.clone()), StorageData(v.clone())))
-								.collect(),
-						)
-					})
-					.collect();
-
-				Ok(Genesis::Raw(RawGenesis { top, children_default }))
-			},
+			Self::Factory(f, code) => Ok(Genesis::RuntimeAndCode(RuntimeInnerWrapper {
+				runtime: f(),
+				code: code.clone(),
+			})),
+			Self::Storage(storage) => Ok(Genesis::Raw(RawGenesis::from(storage.clone()))),
+			Self::GenesisBuilderApi(GenesisBuildAction::Full(config), code) =>
+				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Config(config.clone()),
+					code: code.clone(),
+				})),
+			Self::GenesisBuilderApi(GenesisBuildAction::Patch(patch), code) =>
+				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
+					code: code.clone(),
+				})),
 		}
 	}
 }
@@ -111,7 +125,18 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
 		match self.genesis.resolve()? {
-			Genesis::Runtime(gc) => gc.assimilate_storage(storage),
+			#[allow(deprecated)]
+			Genesis::Runtime(runtime_genesis_config) => {
+				runtime_genesis_config.assimilate_storage(storage)?;
+			},
+			#[allow(deprecated)]
+			Genesis::RuntimeAndCode(RuntimeInnerWrapper {
+				runtime: runtime_genesis_config,
+				code,
+			}) => {
+				runtime_genesis_config.assimilate_storage(storage)?;
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
+			},
 			Genesis::Raw(RawGenesis { top: map, children_default: children_map }) => {
 				storage.top.extend(map.into_iter().map(|(k, v)| (k.0, v.0)));
 				children_map.into_iter().for_each(|(k, v)| {
@@ -123,13 +148,37 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 						.data
 						.extend(v.into_iter().map(|(k, v)| (k.0, v.0)));
 				});
-				Ok(())
 			},
 			// The `StateRootHash` variant exists as a way to keep note that other clients support
 			// it, but Substrate itself isn't capable of loading chain specs with just a hash at the
 			// moment.
-			Genesis::StateRootHash(_) => Err("Genesis storage in hash format not supported".into()),
-		}
+			Genesis::StateRootHash(_) =>
+				return Err("Genesis storage in hash format not supported".into()),
+			Genesis::RuntimeGenesis(RuntimeGenesisInner {
+				json_blob: RuntimeGenesisConfigJson::Config(config),
+				code,
+			}) => {
+				RuntimeCaller::new(&code[..])
+					.get_storage_for_config(config)?
+					.assimilate_storage(storage)?;
+				storage
+					.top
+					.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.clone());
+			},
+			Genesis::RuntimeGenesis(RuntimeGenesisInner {
+				json_blob: RuntimeGenesisConfigJson::Patch(patch),
+				code,
+			}) => {
+				RuntimeCaller::new(&code[..])
+					.get_storage_for_patch(patch)?
+					.assimilate_storage(storage)?;
+				storage
+					.top
+					.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.clone());
+			},
+		};
+
+		Ok(())
 	}
 }
 
@@ -144,20 +193,98 @@ pub struct RawGenesis {
 	pub children_default: BTreeMap<StorageKey, GenesisStorage>,
 }
 
+impl From<sp_core::storage::Storage> for RawGenesis {
+	fn from(value: sp_core::storage::Storage) -> Self {
+		Self {
+			top: value.top.into_iter().map(|(k, v)| (StorageKey(k), StorageData(v))).collect(),
+			children_default: value
+				.children_default
+				.into_iter()
+				.map(|(sk, child)| {
+					(
+						StorageKey(sk),
+						child
+							.data
+							.into_iter()
+							.map(|(k, v)| (StorageKey(k), StorageData(v)))
+							.collect(),
+					)
+				})
+				.collect(),
+		}
+	}
+}
+
+/// Inner representation of [`Genesis<G>::RuntimeGenesis`] format
+#[derive(Serialize, Deserialize, Debug)]
+struct RuntimeGenesisInner {
+	/// Runtime wasm code, expected to be hex-encoded in JSON.
+	/// The code shall be capable of parsing `json_blob`.
+	#[serde(default, with = "sp_core::bytes")]
+	code: Vec<u8>,
+	/// The patch or full representation of runtime's `RuntimeGenesisConfig` struct.
+	#[serde(flatten)]
+	json_blob: RuntimeGenesisConfigJson,
+}
+
+/// Represents two possible variants of the contained JSON blob for the
+/// [`Genesis<G>::RuntimeGenesis`] format.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+enum RuntimeGenesisConfigJson {
+	/// Represents the explicit and comprehensive runtime genesis config in JSON format.
+	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
+	///
+	/// Using a full config is useful for when someone wants to ensure that a change in the runtime
+	/// makes the deserialization fail and not silently add some default values.
+	Config(json::Value),
+	/// Represents a patch for the default runtime genesis config in JSON format which is
+	/// essentially a list of keys that are to be customized in runtime genesis config.
+	/// The contained value is a JSON blob that can be parsed by a compatible runtime.
+	Patch(json::Value),
+}
+
+/// Inner variant wrapper for deprecated runtime.
+#[derive(Serialize, Deserialize, Debug)]
+struct RuntimeInnerWrapper<G> {
+	/// The native `RuntimeGenesisConfig` struct.
+	runtime: G,
+	/// Runtime code.
+	#[serde(with = "sp_core::bytes")]
+	code: Vec<u8>,
+}
+
+/// Represents the different formats of the genesis state within chain spec JSON blob.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 enum Genesis<G> {
+	/// (Deprecated) Contains the JSON representation of G (the native type representing the
+	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
+	/// without the runtime code. It is required to deserialize the legacy chainspecs genereted
+	/// with `ChainsSpec::from_genesis` method.
 	Runtime(G),
+	/// (Deprecated) Contains the JSON representation of G (the native type representing the
+	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
+	/// and the runtime code. It is required to create and deserialize JSON chainspecs created with
+	/// deprecated `ChainSpec::from_genesis` method.
+	RuntimeAndCode(RuntimeInnerWrapper<G>),
+	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
 	/// State root hash of the genesis storage.
 	StateRootHash(StorageData),
+	/// Represents the runtime genesis config in JSON format toghether with runtime code.
+	RuntimeGenesis(RuntimeGenesisInner),
 }
 
 /// A configuration of a client. Does not include runtime storage initialization.
+/// Note: `genesis` field is ignored due to way how the chain specification is serialized into
+/// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies uknown
+/// fields.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
+// we cannot #[serde(deny_unknown_fields)]. Otherwise chain-spec-builder will fail on any
+// non-standard spec
 struct ClientSpec<E> {
 	name: String,
 	id: String,
@@ -193,6 +320,137 @@ struct ClientSpec<E> {
 ///
 /// We use `Option` here since `()` is not flattenable by serde.
 pub type NoExtension = Option<()>;
+
+/// Builder for creating [`ChainSpec`] instances.
+pub struct ChainSpecBuilder<G, E = NoExtension> {
+	code: Vec<u8>,
+	extensions: E,
+	name: String,
+	id: String,
+	chain_type: ChainType,
+	genesis_build_action: GenesisBuildAction,
+	boot_nodes: Option<Vec<MultiaddrWithPeerId>>,
+	telemetry_endpoints: Option<TelemetryEndpoints>,
+	protocol_id: Option<String>,
+	fork_id: Option<String>,
+	properties: Option<Properties>,
+	_genesis: PhantomData<G>,
+}
+
+impl<G, E> ChainSpecBuilder<G, E> {
+	/// Creates a new builder instance with no defaults.
+	pub fn new(code: &[u8], extensions: E) -> Self {
+		Self {
+			code: code.into(),
+			extensions,
+			name: "Development".to_string(),
+			id: "dev".to_string(),
+			chain_type: ChainType::Local,
+			genesis_build_action: GenesisBuildAction::Patch(Default::default()),
+			boot_nodes: None,
+			telemetry_endpoints: None,
+			protocol_id: None,
+			fork_id: None,
+			properties: None,
+			_genesis: Default::default(),
+		}
+	}
+
+	/// Sets the spec name.
+	pub fn with_name(mut self, name: &str) -> Self {
+		self.name = name.into();
+		self
+	}
+
+	/// Sets the spec ID.
+	pub fn with_id(mut self, id: &str) -> Self {
+		self.id = id.into();
+		self
+	}
+
+	/// Sets the type of the chain.
+	pub fn with_chain_type(mut self, chain_type: ChainType) -> Self {
+		self.chain_type = chain_type;
+		self
+	}
+
+	/// Sets a list of bootnode addresses.
+	pub fn with_boot_nodes(mut self, boot_nodes: Vec<MultiaddrWithPeerId>) -> Self {
+		self.boot_nodes = Some(boot_nodes);
+		self
+	}
+
+	/// Sets telemetry endpoints.
+	pub fn with_telemetry_endpoints(mut self, telemetry_endpoints: TelemetryEndpoints) -> Self {
+		self.telemetry_endpoints = Some(telemetry_endpoints);
+		self
+	}
+
+	/// Sets the network protocol ID.
+	pub fn with_protocol_id(mut self, protocol_id: &str) -> Self {
+		self.protocol_id = Some(protocol_id.into());
+		self
+	}
+
+	/// Sets an optional network fork identifier.
+	pub fn with_fork_id(mut self, fork_id: &str) -> Self {
+		self.fork_id = Some(fork_id.into());
+		self
+	}
+
+	/// Sets additional loosely-typed properties of the chain.
+	pub fn with_properties(mut self, properties: Properties) -> Self {
+		self.properties = Some(properties);
+		self
+	}
+
+	/// Sets chain spec extensions.
+	pub fn with_extensions(mut self, extensions: E) -> Self {
+		self.extensions = extensions;
+		self
+	}
+
+	/// Sets the code.
+	pub fn with_code(mut self, code: &[u8]) -> Self {
+		self.code = code.into();
+		self
+	}
+
+	/// Sets the JSON patch for runtime's GenesisConfig.
+	pub fn with_genesis_config_patch(mut self, patch: json::Value) -> Self {
+		self.genesis_build_action = GenesisBuildAction::Patch(patch);
+		self
+	}
+
+	/// Sets the full runtime's GenesisConfig JSON.
+	pub fn with_genesis_config(mut self, config: json::Value) -> Self {
+		self.genesis_build_action = GenesisBuildAction::Full(config);
+		self
+	}
+
+	/// Builds a [`ChainSpec`] instance using the provided settings.
+	pub fn build(self) -> ChainSpec<G, E> {
+		let client_spec = ClientSpec {
+			name: self.name,
+			id: self.id,
+			chain_type: self.chain_type,
+			boot_nodes: self.boot_nodes.unwrap_or_default(),
+			telemetry_endpoints: self.telemetry_endpoints,
+			protocol_id: self.protocol_id,
+			fork_id: self.fork_id,
+			properties: self.properties,
+			extensions: self.extensions,
+			consensus_engine: (),
+			genesis: Default::default(),
+			code_substitutes: BTreeMap::new(),
+		};
+
+		ChainSpec {
+			client_spec,
+			genesis: GenesisSource::GenesisBuilderApi(self.genesis_build_action, self.code.into()),
+		}
+	}
+}
 
 /// A configuration of a chain. Can be used to build a genesis block.
 pub struct ChainSpec<G, E = NoExtension> {
@@ -260,6 +518,10 @@ impl<G, E> ChainSpec<G, E> {
 	}
 
 	/// Create hardcoded spec.
+	#[deprecated(
+		note = "`from_genesis` is planned to be removed in May 2024. Use `builder()` instead."
+	)]
+	// deprecated note: Genesis<G>::Runtime + GenesisSource::Factory shall also be removed
 	pub fn from_genesis<F: Fn() -> G + 'static + Send + Sync>(
 		name: &str,
 		id: &str,
@@ -271,6 +533,7 @@ impl<G, E> ChainSpec<G, E> {
 		fork_id: Option<&str>,
 		properties: Option<Properties>,
 		extensions: E,
+		code: &[u8],
 	) -> Self {
 		let client_spec = ClientSpec {
 			name: name.to_owned(),
@@ -287,21 +550,30 @@ impl<G, E> ChainSpec<G, E> {
 			code_substitutes: BTreeMap::new(),
 		};
 
-		ChainSpec { client_spec, genesis: GenesisSource::Factory(Arc::new(constructor)) }
+		ChainSpec {
+			client_spec,
+			genesis: GenesisSource::Factory(Arc::new(constructor), code.into()),
+		}
 	}
 
 	/// Type of the chain.
 	fn chain_type(&self) -> ChainType {
 		self.client_spec.chain_type.clone()
 	}
+
+	/// Provides a `ChainSpec` builder.
+	pub fn builder(code: &[u8], extensions: E) -> ChainSpecBuilder<G, E> {
+		ChainSpecBuilder::new(code, extensions)
+	}
 }
 
-impl<G, E: serde::de::DeserializeOwned> ChainSpec<G, E> {
+impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned> ChainSpec<G, E> {
 	/// Parse json content into a `ChainSpec`
 	pub fn from_json_bytes(json: impl Into<Cow<'static, [u8]>>) -> Result<Self, String> {
 		let json = json.into();
 		let client_spec = json::from_slice(json.as_ref())
 			.map_err(|e| format!("Error parsing spec file: {}", e))?;
+
 		Ok(ChainSpec { client_spec, genesis: GenesisSource::Binary(json) })
 	}
 
@@ -318,50 +590,74 @@ impl<G, E: serde::de::DeserializeOwned> ChainSpec<G, E> {
 			memmap2::Mmap::map(&file)
 				.map_err(|e| format!("Error mmaping spec file `{}`: {}", path.display(), e))?
 		};
-
 		let client_spec =
 			json::from_slice(&bytes).map_err(|e| format!("Error parsing spec file: {}", e))?;
+
 		Ok(ChainSpec { client_spec, genesis: GenesisSource::File(path) })
 	}
 }
 
+/// Helper structure for serializing (and only serializing) the ChainSpec into JSON file. It
+/// represents the layout of `ChainSpec` JSON file.
 #[derive(Serialize, Deserialize)]
-struct JsonContainer<G, E> {
+// we cannot #[serde(deny_unknown_fields)]. Otherwise chain-spec-builder will fail on any
+// non-standard spec.
+struct ChainSpecJsonContainer<G, E> {
 	#[serde(flatten)]
 	client_spec: ClientSpec<E>,
 	genesis: Genesis<G>,
 }
 
 impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
-	fn json_container(&self, raw: bool) -> Result<JsonContainer<G, E>, String> {
-		let genesis = match (raw, self.genesis.resolve()?) {
+	fn json_container(&self, raw: bool) -> Result<ChainSpecJsonContainer<G, E>, String> {
+		let raw_genesis = match (raw, self.genesis.resolve()?) {
+			(
+				true,
+				Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Config(config),
+					code,
+				}),
+			) => {
+				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_config(config)?;
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
+				RawGenesis::from(storage)
+			},
+			(
+				true,
+				Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Patch(patch),
+					code,
+				}),
+			) => {
+				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_patch(patch)?;
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
+				RawGenesis::from(storage)
+			},
+
+			#[allow(deprecated)]
+			(true, Genesis::RuntimeAndCode(RuntimeInnerWrapper { runtime: g, code })) => {
+				let mut storage = g.build_storage()?;
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
+				RawGenesis::from(storage)
+			},
+			#[allow(deprecated)]
 			(true, Genesis::Runtime(g)) => {
 				let storage = g.build_storage()?;
-				let top =
-					storage.top.into_iter().map(|(k, v)| (StorageKey(k), StorageData(v))).collect();
-				let children_default = storage
-					.children_default
-					.into_iter()
-					.map(|(sk, child)| {
-						(
-							StorageKey(sk),
-							child
-								.data
-								.into_iter()
-								.map(|(k, v)| (StorageKey(k), StorageData(v)))
-								.collect(),
-						)
-					})
-					.collect();
-
-				Genesis::Raw(RawGenesis { top, children_default })
+				RawGenesis::from(storage)
 			},
-			(_, genesis) => genesis,
+			(true, Genesis::Raw(raw)) => raw,
+
+			(_, genesis) =>
+				return Ok(ChainSpecJsonContainer { client_spec: self.client_spec.clone(), genesis }),
 		};
-		Ok(JsonContainer { client_spec: self.client_spec.clone(), genesis })
+
+		Ok(ChainSpecJsonContainer {
+			client_spec: self.client_spec.clone(),
+			genesis: Genesis::Raw(raw_genesis),
+		})
 	}
 
-	/// Dump to json string.
+	/// Dump the chain specification to JSON string.
 	pub fn as_json(&self, raw: bool) -> Result<String, String> {
 		let container = self.json_container(raw)?;
 		json::to_string_pretty(&container).map_err(|e| format!("Error generating spec json: {}", e))
@@ -442,9 +738,87 @@ where
 	}
 }
 
+/// The `fun` will be called with the value at `path`.
+///
+/// If exists, the value at given `path` will be passed to the `fun` and the result of `fun`
+/// call will be returned. Otherwise false is returned.
+/// `path` will be modified.
+///
+/// # Examples
+/// ```ignore
+/// use serde_json::{from_str, json, Value};
+/// let doc = json!({"a":{"b":{"c":"5"}}});
+/// let mut path = ["a", "b", "c"].into();
+/// assert!(json_eval_value_at_key(&doc, &mut path, &|v| { assert_eq!(v,"5"); true }));
+/// ```
+fn json_eval_value_at_key(
+	doc: &json::Value,
+	path: &mut VecDeque<&str>,
+	fun: &dyn Fn(&json::Value) -> bool,
+) -> bool {
+	let Some(key) = path.pop_front() else {
+		return false;
+	};
+
+	if path.is_empty() {
+		doc.as_object().map_or(false, |o| o.get(key).map_or(false, |v| fun(v)))
+	} else {
+		doc.as_object()
+			.map_or(false, |o| o.get(key).map_or(false, |v| json_eval_value_at_key(v, path, fun)))
+	}
+}
+
+macro_rules! json_path {
+	[ $($x:expr),+ ] => {
+		VecDeque::<&str>::from([$($x),+])
+	};
+}
+
+fn json_contains_path(doc: &json::Value, path: &mut VecDeque<&str>) -> bool {
+	json_eval_value_at_key(doc, path, &|_| true)
+}
+
+/// This function updates the code in given chain spec.
+///
+/// Function support updating the runtime code in provided JSON chain spec blob. `Genesis<G>::Raw`
+/// and `Genesis<G>::RuntimeGenesis` formats are supported.
+///
+/// If update was successful `true` is returned, otherwise `false`. Chain spec JSON is modified in
+/// place.
+pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8]) -> bool {
+	let mut path = json_path!["genesis", "runtimeGenesis", "code"];
+	let mut raw_path = json_path!["genesis", "raw", "top"];
+
+	if json_contains_path(&chain_spec, &mut path) {
+		#[derive(Serialize)]
+		struct Container<'a> {
+			#[serde(with = "sp_core::bytes")]
+			code: &'a [u8],
+		}
+		let code_patch = json::json!({"genesis":{"runtimeGenesis": Container { code }}});
+		crate::json_patch::merge(chain_spec, code_patch);
+		true
+	} else if json_contains_path(&chain_spec, &mut raw_path) {
+		#[derive(Serialize)]
+		struct Container<'a> {
+			#[serde(with = "sp_core::bytes", rename = "0x3a636f6465")]
+			code: &'a [u8],
+		}
+		let code_patch = json::json!({"genesis":{"raw":{"top": Container { code }}}});
+		crate::json_patch::merge(chain_spec, code_patch);
+		true
+	} else {
+		false
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use serde_json::{from_str, json, Value};
+	use sp_application_crypto::Ss58Codec;
+	use sp_core::storage::well_known_keys;
+	use sp_keyring::AccountKeyring;
 
 	#[derive(Debug, Serialize, Deserialize)]
 	struct Genesis(BTreeMap<String, String>);
@@ -535,5 +909,337 @@ mod tests {
 					.unwrap()
 			);
 		}
+	}
+
+	#[test]
+	// some tests for json path utils
+	fn test_json_eval_value_at_key() {
+		let doc = json!({"a":{"b1":"20","b":{"c":{"d":"10"}}}});
+
+		assert!(json_eval_value_at_key(&doc, &mut json_path!["a", "b1"], &|v| { *v == "20" }));
+		assert!(json_eval_value_at_key(&doc, &mut json_path!["a", "b", "c", "d"], &|v| {
+			*v == "10"
+		}));
+		assert!(!json_eval_value_at_key(&doc, &mut json_path!["a", "c", "d"], &|_| { true }));
+		assert!(!json_eval_value_at_key(&doc, &mut json_path!["d"], &|_| { true }));
+
+		assert!(json_contains_path(&doc, &mut json_path!["a", "b1"]));
+		assert!(json_contains_path(&doc, &mut json_path!["a", "b"]));
+		assert!(json_contains_path(&doc, &mut json_path!["a", "b", "c"]));
+		assert!(json_contains_path(&doc, &mut json_path!["a", "b", "c", "d"]));
+		assert!(!json_contains_path(&doc, &mut json_path!["a", "b", "c", "d", "e"]));
+		assert!(!json_contains_path(&doc, &mut json_path!["a", "b", "b1"]));
+		assert!(!json_contains_path(&doc, &mut json_path!["d"]));
+	}
+
+	fn zeroize_code_key_in_json(encoded: bool, json: &str) -> Value {
+		let mut json = from_str::<Value>(json).unwrap();
+		let (zeroing_patch, mut path) = if encoded {
+			(
+				json!({"genesis":{"raw":{"top":{"0x3a636f6465":"0x0"}}}}),
+				json_path!["genesis", "raw", "top", "0x3a636f6465"],
+			)
+		} else {
+			(
+				json!({"genesis":{"runtimeGenesis":{"code":"0x0"}}}),
+				json_path!["genesis", "runtimeGenesis", "code"],
+			)
+		};
+		assert!(json_contains_path(&json, &mut path));
+		crate::json_patch::merge(&mut json, zeroing_patch);
+		json
+	}
+
+	#[docify::export]
+	#[test]
+	fn build_chain_spec_with_patch_works() {
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({
+			"babe": {
+				"epochConfig": {
+					"c": [
+						7,
+						10
+					],
+					"allowed_slots": "PrimaryAndSecondaryPlainSlots"
+				}
+			},
+			"substrateTest": {
+				"authorities": [
+					AccountKeyring::Ferdie.public().to_ss58check(),
+					AccountKeyring::Alice.public().to_ss58check()
+				],
+			}
+		}))
+		.build();
+
+		let raw_chain_spec = output.as_json(true);
+		assert!(raw_chain_spec.is_ok());
+	}
+
+	#[docify::export]
+	#[test]
+	fn generate_chain_spec_with_patch_works() {
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({
+			"babe": {
+				"epochConfig": {
+					"c": [
+						7,
+						10
+					],
+					"allowed_slots": "PrimaryAndSecondaryPlainSlots"
+				}
+			},
+			"substrateTest": {
+				"authorities": [
+					AccountKeyring::Ferdie.public().to_ss58check(),
+					AccountKeyring::Alice.public().to_ss58check()
+				],
+			}
+		}))
+		.build();
+
+		let actual = output.as_json(false).unwrap();
+		let actual_raw = output.as_json(true).unwrap();
+
+		let expected =
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_patch.json"))
+				.unwrap();
+		let expected_raw =
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_patch_raw.json"))
+				.unwrap();
+
+		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		let actual = zeroize_code_key_in_json(false, actual.as_str());
+		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
+
+		assert_eq!(actual, expected);
+		assert_eq!(actual_raw, expected_raw);
+	}
+
+	#[test]
+	fn generate_chain_spec_with_full_config_works() {
+		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
+
+		let actual = output.as_json(false).unwrap();
+		let actual_raw = output.as_json(true).unwrap();
+
+		let expected =
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_config.json"))
+				.unwrap();
+		let expected_raw =
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_config_raw.json"))
+				.unwrap();
+
+		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		let actual = zeroize_code_key_in_json(false, actual.as_str());
+		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
+
+		assert_eq!(actual, expected);
+		assert_eq!(actual_raw, expected_raw);
+	}
+
+	#[test]
+	fn chain_spec_as_json_fails_with_invalid_config() {
+		let j =
+			include_str!("../../../test-utils/runtime/res/default_genesis_config_invalid_2.json");
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
+
+		assert_eq!(
+			output.as_json(true),
+			Err("Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 1 column 8".to_string())
+		);
+	}
+
+	#[test]
+	fn chain_spec_as_json_fails_with_invalid_patch() {
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({
+			"invalid_pallet": {},
+			"substrateTest": {
+				"authorities": [
+					AccountKeyring::Ferdie.public().to_ss58check(),
+					AccountKeyring::Alice.public().to_ss58check()
+				],
+			}
+		}))
+		.build();
+
+		assert!(output.as_json(true).unwrap_err().contains("Invalid JSON blob: unknown field `invalid_pallet`, expected one of `system`, `babe`, `substrateTest`, `balances`"));
+	}
+
+	#[test]
+	fn check_if_code_is_valid_for_raw_without_code() {
+		let spec = ChainSpec::<()>::from_json_bytes(Cow::Owned(
+			include_bytes!("../res/raw_no_code.json").to_vec(),
+		))
+		.unwrap();
+
+		let j = from_str::<Value>(&spec.as_json(true).unwrap()).unwrap();
+
+		assert!(json_eval_value_at_key(
+			&j,
+			&mut json_path!["genesis", "raw", "top", "0x3a636f6465"],
+			&|v| { *v == "0x010101" }
+		));
+		assert!(!json_contains_path(&j, &mut json_path!["code"]));
+	}
+
+	#[test]
+	fn check_code_in_assimilated_storage_for_raw_without_code() {
+		let spec = ChainSpec::<()>::from_json_bytes(Cow::Owned(
+			include_bytes!("../res/raw_no_code.json").to_vec(),
+		))
+		.unwrap();
+
+		let storage = spec.build_storage().unwrap();
+		assert!(storage
+			.top
+			.get(&well_known_keys::CODE.to_vec())
+			.map(|v| *v == vec![1, 1, 1])
+			.unwrap())
+	}
+
+	#[test]
+	fn update_code_works_with_runtime_genesis_config() {
+		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
+		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
+
+		let mut chain_spec_json = from_str::<Value>(&chain_spec.as_json(false).unwrap()).unwrap();
+		assert!(update_code_in_json_chain_spec(&mut chain_spec_json, &[0, 1, 2, 4, 5, 6]));
+
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "runtimeGenesis", "code"],
+			&|v| { *v == "0x000102040506" }
+		));
+	}
+
+	#[test]
+	fn update_code_works_for_raw() {
+		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
+		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
+
+		let mut chain_spec_json = from_str::<Value>(&chain_spec.as_json(true).unwrap()).unwrap();
+		assert!(update_code_in_json_chain_spec(&mut chain_spec_json, &[0, 1, 2, 4, 5, 6]));
+
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "raw", "top", "0x3a636f6465"],
+			&|v| { *v == "0x000102040506" }
+		));
+	}
+
+	#[test]
+	fn update_code_works_with_runtime_genesis_patch() {
+		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({}))
+		.build();
+
+		let mut chain_spec_json = from_str::<Value>(&chain_spec.as_json(false).unwrap()).unwrap();
+		assert!(update_code_in_json_chain_spec(&mut chain_spec_json, &[0, 1, 2, 4, 5, 6]));
+
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "runtimeGenesis", "code"],
+			&|v| { *v == "0x000102040506" }
+		));
+	}
+
+	#[test]
+	fn generate_from_genesis_is_still_supported() {
+		#[allow(deprecated)]
+		let chain_spec: ChainSpec<substrate_test_runtime::RuntimeGenesisConfig> = ChainSpec::from_genesis(
+			"TestName",
+			"test",
+			ChainType::Local,
+			move || substrate_test_runtime::RuntimeGenesisConfig {
+				babe: substrate_test_runtime::BabeConfig {
+					epoch_config: Some(
+						substrate_test_runtime::TEST_RUNTIME_BABE_EPOCH_CONFIGURATION,
+					),
+					..Default::default()
+				},
+				..Default::default()
+			},
+			Vec::new(),
+			None,
+			None,
+			None,
+			None,
+			Default::default(),
+			&vec![0, 1, 2, 4, 5, 6],
+		);
+
+		let chain_spec_json = from_str::<Value>(&chain_spec.as_json(false).unwrap()).unwrap();
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "runtimeAndCode", "code"],
+			&|v| { *v == "0x000102040506" }
+		));
+		let chain_spec_json = from_str::<Value>(&chain_spec.as_json(true).unwrap()).unwrap();
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "raw", "top", "0x3a636f6465"],
+			&|v| { *v == "0x000102040506" }
+		));
 	}
 }

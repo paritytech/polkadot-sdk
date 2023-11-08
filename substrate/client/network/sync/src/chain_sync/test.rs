@@ -19,9 +19,8 @@
 //! Tests of [`ChainSync`].
 
 use super::*;
-use crate::service::network::NetworkServiceProvider;
 use futures::executor::block_on;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 use sp_blockchain::HeaderBackend;
 use substrate_test_runtime_client::{
@@ -39,20 +38,17 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let peer_id = PeerId::random();
 
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		1,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let (a1_hash, a1_number) = {
-		let a1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+		let a1 = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
 		(a1.hash(), *a1.header.number())
 	};
 
@@ -96,18 +92,8 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 #[test]
 fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		1,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let peer_id2 = PeerId::random();
@@ -115,7 +101,14 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 
 	let mut new_blocks = |n| {
 		for _ in 0..n {
-			let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+			let block = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
 			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 		}
 
@@ -233,7 +226,12 @@ fn get_block_request(
 fn build_block(client: &mut Arc<TestClient>, at: Option<Hash>, fork: bool) -> Block {
 	let at = at.unwrap_or_else(|| client.info().best_hash);
 
-	let mut block_builder = client.new_block_at(at, Default::default(), false).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&**client)
+		.on_parent_block(at)
+		.fetch_parent_block_number(&**client)
+		.unwrap()
+		.build()
+		.unwrap();
 
 	if fork {
 		block_builder.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6])).unwrap();
@@ -243,113 +241,6 @@ fn build_block(client: &mut Arc<TestClient>, at: Option<Hash>, fork: bool) -> Bl
 
 	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 	block
-}
-
-/// This test is a regression test as observed on a real network.
-///
-/// The node is connected to multiple peers. Both of these peers are having a best block (1)
-/// that is below our best block (3). Now peer 2 announces a fork of block 3 that we will
-/// request from peer 2. After importing the fork, peer 2 and then peer 1 will announce block 4.
-/// But as peer 1 in our view is still at block 1, we will request block 2 (which we already
-/// have) from it. In the meanwhile peer 2 sends us block 4 and 3 and we send another request
-/// for block 2 to peer 2. Peer 1 answers with block 2 and then peer 2. This will need to
-/// succeed, as we have requested block 2 from both peers.
-#[test]
-fn do_not_report_peer_on_block_response_for_block_request() {
-	sp_tracing::try_init_simple();
-
-	let mut client = Arc::new(TestClientBuilder::new().build());
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
-
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		5,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
-
-	let peer_id1 = PeerId::random();
-	let peer_id2 = PeerId::random();
-
-	let mut client2 = client.clone();
-	let mut build_block_at = |at, import| {
-		let mut block_builder = client2.new_block_at(at, Default::default(), false).unwrap();
-		// Make sure we generate a different block as fork
-		block_builder.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6])).unwrap();
-
-		let block = block_builder.build().unwrap().block;
-
-		if import {
-			block_on(client2.import(BlockOrigin::Own, block.clone())).unwrap();
-		}
-
-		block
-	};
-
-	let block1 = build_block(&mut client, None, false);
-	let block2 = build_block(&mut client, None, false);
-	let block3 = build_block(&mut client, None, false);
-	let block3_fork = build_block_at(block2.hash(), false);
-
-	// Add two peers which are on block 1.
-	sync.new_peer(peer_id1, block1.hash(), 1).unwrap();
-	sync.new_peer(peer_id2, block1.hash(), 1).unwrap();
-
-	// Tell sync that our best block is 3.
-	sync.update_chain_info(&block3.hash(), 3);
-
-	// There should be no requests.
-	assert!(sync.block_requests().is_empty());
-
-	// Let peer2 announce a fork of block 3
-	send_block_announce(block3_fork.header().clone(), peer_id2, &mut sync);
-
-	// Import and tell sync that we now have the fork.
-	block_on(client.import(BlockOrigin::Own, block3_fork.clone())).unwrap();
-	sync.update_chain_info(&block3_fork.hash(), 3);
-
-	let block4 = build_block_at(block3_fork.hash(), false);
-
-	// Let peer2 announce block 4 and check that sync wants to get the block.
-	send_block_announce(block4.header().clone(), peer_id2, &mut sync);
-
-	let request = get_block_request(&mut sync, FromBlock::Hash(block4.hash()), 2, &peer_id2);
-
-	// Peer1 announces the same block, but as the common block is still `1`, sync will request
-	// block 2 again.
-	send_block_announce(block4.header().clone(), peer_id1, &mut sync);
-
-	let request2 = get_block_request(&mut sync, FromBlock::Number(2), 1, &peer_id1);
-
-	let response = create_block_response(vec![block4.clone(), block3_fork.clone()]);
-	let res = sync.on_block_data(&peer_id2, Some(request), response).unwrap();
-
-	// We should not yet import the blocks, because there is still an open request for fetching
-	// block `2` which blocks the import.
-	assert!(
-		matches!(res, OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty())
-	);
-
-	let request3 = get_block_request(&mut sync, FromBlock::Number(2), 1, &peer_id2);
-
-	let response = create_block_response(vec![block2.clone()]);
-	let res = sync.on_block_data(&peer_id1, Some(request2), response).unwrap();
-	assert!(matches!(
-		res,
-		OnBlockData::Import(ImportBlocksAction{ origin: _, blocks })
-			if blocks.iter().all(|b| [2, 3, 4].contains(b.header.as_ref().unwrap().number()))
-	));
-
-	let response = create_block_response(vec![block2.clone()]);
-	let res = sync.on_block_data(&peer_id2, Some(request3), response).unwrap();
-	// Nothing to import
-	assert!(
-		matches!(res, OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty())
-	);
 }
 
 fn unwrap_from_block_number(from: FromBlock<Hash, u64>) -> u64 {
@@ -379,19 +270,9 @@ fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
 	};
 
 	let mut client = Arc::new(TestClientBuilder::new().build());
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	let info = client.info();
 
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		5,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let peer_id2 = PeerId::random();
@@ -505,7 +386,6 @@ fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
 fn can_sync_huge_fork() {
 	sp_tracing::try_init_simple();
 
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 4)
 		.map(|_| build_block(&mut client, None, false))
@@ -530,16 +410,7 @@ fn can_sync_huge_fork() {
 
 	let info = client.info();
 
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		5,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	let finalized_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2 - 1].clone();
 	let just = (*b"TEST", Vec::new());
@@ -633,7 +504,6 @@ fn can_sync_huge_fork() {
 fn syncs_fork_without_duplicate_requests() {
 	sp_tracing::try_init_simple();
 
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 4)
 		.map(|_| build_block(&mut client, None, false))
@@ -658,16 +528,7 @@ fn syncs_fork_without_duplicate_requests() {
 
 	let info = client.info();
 
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		5,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	let finalized_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2 - 1].clone();
 	let just = (*b"TEST", Vec::new());
@@ -784,20 +645,10 @@ fn syncs_fork_without_duplicate_requests() {
 #[test]
 fn removes_target_fork_on_disconnect() {
 	sp_tracing::try_init_simple();
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..3).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
 
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		1,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let common_block = blocks[1].clone();
@@ -818,22 +669,12 @@ fn removes_target_fork_on_disconnect() {
 #[test]
 fn can_import_response_with_missing_blocks() {
 	sp_tracing::try_init_simple();
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	let mut client2 = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..4).map(|_| build_block(&mut client2, None, false)).collect::<Vec<_>>();
 
 	let empty_client = Arc::new(TestClientBuilder::new().build());
 
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		empty_client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		1,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, empty_client.clone(), 1, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let best_block = blocks[3].clone();
@@ -865,23 +706,20 @@ fn ancestor_search_repeat() {
 #[test]
 fn sync_restart_removes_block_but_not_justification_requests() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		1,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let peers = vec![PeerId::random(), PeerId::random()];
 
 	let mut new_blocks = |n| {
 		for _ in 0..n {
-			let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+			let block = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
 			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 		}
 
@@ -970,7 +808,6 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 fn request_across_forks() {
 	sp_tracing::try_init_simple();
 
-	let (_chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..100).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
 
@@ -1006,16 +843,7 @@ fn request_across_forks() {
 		fork_blocks
 	};
 
-	let mut sync = ChainSync::new(
-		SyncMode::Full,
-		client.clone(),
-		ProtocolName::from("test-block-announce-protocol"),
-		5,
-		64,
-		None,
-		chain_sync_network_handle,
-	)
-	.unwrap();
+	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	// Add the peers, all at the common ancestor 100.
 	let common_block = blocks.last().unwrap();
