@@ -20,7 +20,11 @@
 use crate::{mock::*, StakeImbalance};
 
 use frame_election_provider_support::SortedListProvider;
-use sp_staking::Stake;
+use sp_staking::{OnStakingUpdate, Stake};
+
+// keeping tests clean.
+type A = AccountId;
+type B = Balance;
 
 #[test]
 fn setup_works() {
@@ -65,19 +69,82 @@ fn update_score_works() {
 }
 
 #[test]
-#[should_panic]
-fn update_score_defensive_cases_work() {
+#[should_panic = "Defensive failure has been triggered!: \"`update_score` on non-existant staker\": 1"]
+fn update_score_non_existing_defensive_work() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
+		// not expected to update score of a non-existing staker.
 		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Positive(100));
 	});
+}
 
+#[test]
+#[should_panic]
+fn update_score_below_zero_defensive_work() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		assert!(VoterBagsList::contains(&1));
-		// if updating makes the score falling below 0, final node's score is saturated to 0.
-		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(100));
+		assert_eq!(VoterBagsList::get_score(&1), Ok(100));
+		// updating the score below 0 is unexpected and saturates to 0.
+		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(500));
+		// TODO(gpestana): how to assert invariant after defensive fail.
 		assert_eq!(VoterBagsList::get_score(&1), Ok(0));
 	})
+}
+
+#[test]
+fn on_nominator_add_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let n = TestNominators::get();
+		assert!(!VoterBagsList::contains(&5));
+		assert_eq!(n.get(&5), None);
+
+		// add 5 as staker.
+		TestNominators::mutate(|n| {
+			n.insert(5, Default::default());
+		});
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&5);
+		assert!(VoterBagsList::contains(&5));
+	})
+}
+
+#[test]
+fn on_validator_add_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let n = TestNominators::get();
+		let v = TestValidators::get();
+		assert!(!VoterBagsList::contains(&5));
+		assert!(!TargetBagsList::contains(&5));
+		assert!(n.get(&5).is_none() && v.get(&5).is_none());
+
+		// add 5 as staker (target and voter).
+		TestNominators::mutate(|n| {
+			n.insert(5, Default::default());
+		});
+		TestValidators::mutate(|n| {
+			n.insert(5, Default::default());
+		});
+	})
+}
+
+#[test]
+#[should_panic = "Defensive failure has been triggered!: Duplicate: \"staker should not exist in VoterList, as per the contract with staking.\""]
+fn on_nominator_add_already_exists_defensive_works() {
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		// voter already exists in the list, trying to emit `on_add_nominator` again will fail.
+		assert!(VoterBagsList::contains(&1));
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&1);
+	});
+}
+
+#[test]
+#[should_panic = "Defensive failure has been triggered!: Duplicate: \"staker should not exist in TargetList, as per the contract with staking.\""]
+fn on_validator_add_already_exists_defensive_works() {
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		// validator already exists in the list, trying to emit `on_add_validator` again will fail.
+		assert!(TargetBagsList::contains(&10));
+		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(&10);
+	});
 }
 
 mod staking_integration {

@@ -151,15 +151,20 @@ pub mod pallet {
 					);
 				},
 				StakeImbalance::Negative(imbalance) => {
-					let current_score = L::get_score(who)
-						.expect("staker exists in the list as per the check above; qed.");
-
-					// if decreasing the imbalance makes the score lower than 0, the node will be
-					// removed from the list when calling `L::on_decrease`, which is not expected.
-					// Instead, we call `L::on_update` to set the score as 0. The node will be
-					// removed when `on_*_remove` is called.
-					let _ = L::on_update(who, current_score.defensive_saturating_sub(imbalance))
-						.expect("staker exists in the list as per the check above; qed.");
+					if let Ok(current_score) = L::get_score(who) {
+						// if decreasing the imbalance makes the score lower than 0, the node will
+						// be removed from the list when calling `L::on_decrease`, which is not
+						// expected. Instead, we call `L::on_update` to set the new score that
+						// defensively saturates to 0. The node will be removed when `on_*_remove`
+						// is called.
+						let _ =
+							L::on_update(who, current_score.defensive_saturating_sub(imbalance))
+								.defensive_proof(
+									"staker exists in the list as per the check above; qed.",
+								);
+					} else {
+						defensive!("unexpected: unable to fetch score from staking interface of an existent staker");
+					}
 				},
 			}
 		}
