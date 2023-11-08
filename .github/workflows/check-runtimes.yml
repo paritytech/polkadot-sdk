@@ -1,6 +1,8 @@
 name: Check Runtimes on Release edits
 
 on:
+  workflow_dispatch:
+
   release:
     types: [edited]
 
