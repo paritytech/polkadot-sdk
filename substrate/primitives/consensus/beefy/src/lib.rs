@@ -339,10 +339,10 @@ where
 
 /// Validates [ForkEquivocationProof] with the following checks:
 /// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
-///   provided
-/// - if `correct_header` is provided and matches `commitment.block_number`, commitment.payload` !=
-///   `expected_payload(correct_header)`
-/// - if `ancestry proof` is provided, it proves mmr_root(commitment.block_number) !=
+///   provided:
+///   - a `correct_header` is correct if it's at height `commitment.block_number` and
+///   commitment.payload` != `expected_payload(correct_header)`
+///   - an `ancestry_proof` is correct if it proves mmr_root(commitment.block_number) !=
 ///   mmr_root(commitment.payload)`
 /// - `commitment` is signed by all claimed signatories
 ///
@@ -448,8 +448,9 @@ where
 		// instance for a block prior to BEEFY activation), then expected_payload =
 		// None, and they will likewise be slashed (note we can only check this if a valid header
 		// has been provided - we cannot slash for this with an ancestry proof - by necessity)
-		if Some(&commitment.payload) == expected_payload.as_ref() &&
-			(!ancestry_prev_root.is_ok() || commitment_prev_root == ancestry_prev_root.ok())
+		if Some(&commitment.payload) == expected_payload.as_ref() ||
+			(correct_header.is_none() && !ancestry_prev_root.is_ok()) ||
+			commitment_prev_root == ancestry_prev_root.ok()
 		{
 			return false
 		}
