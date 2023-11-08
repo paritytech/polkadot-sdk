@@ -19,10 +19,7 @@ pub use frame_support::assert_ok;
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{
-		Error,
-		NetworkId::{Rococo as RococoId},
-	},
+	v3::{Error, NetworkId::Rococo as RococoId},
 };
 
 // Bridges
@@ -45,11 +42,10 @@ pub use westend_system_emulated_network::{
 	},
 	westend_emulated_chain::{genesis::ED as ROCOCO_ED, WestendRelayPallet as WestendPallet},
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-	AssetHubWestendParaSender as AssetHubWestendSender,
-	BridgeHubWestendPara as BridgeHubWestend, BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	BridgeHubWestendParaSender as BridgeHubWestendSender,
-	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
-	WestendRelaySender as WestendSender,
+	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
+	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
+	BridgeHubWestendParaSender as BridgeHubWestendSender, WestendRelay as Westend,
+	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 };
 
 pub const ASSET_ID: u32 = 1;

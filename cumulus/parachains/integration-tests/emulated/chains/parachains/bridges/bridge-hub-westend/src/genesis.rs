@@ -45,8 +45,8 @@ pub fn genesis() -> Storage {
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),                                     // account id
-						acc,                                             // validator id
+						acc.clone(),                                      // account id
+						acc,                                              // validator id
 						bridge_hub_westend_runtime::SessionKeys { aura }, // session keys
 					)
 				})

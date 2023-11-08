@@ -23,7 +23,7 @@ fn teleport_to_other_system_parachains_works() {
 
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubWestend,      // Origin
-		XcmConfig,            // XCM configuration
+		XcmConfig,             // XCM configuration
 		vec![AssetHubWestend], // Destinations
 		(native_asset, amount)
 	);
