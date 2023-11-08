@@ -881,7 +881,7 @@
 
 		<span class="kw">let </span>value = rx.<span class="kw">await</span>.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(<span class="macro">format!</span>(
-				<span class="string">&quot;Unexpected channel close on RPC worker side: {}&quot;</span>,
+				<span class="string">&quot;RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}&quot;</span>,
 				err
 			))
 		})<span class="question-mark">??</span>;

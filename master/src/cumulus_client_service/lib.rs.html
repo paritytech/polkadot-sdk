@@ -571,6 +571,10 @@
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -622,7 +626,7 @@
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_blockchain::{HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_core::{traits::SpawnNamed, Decode};
-<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, BlockIdTo};
+<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, BlockIdTo, Header};
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="comment">// Given the sporadic nature of the explicit recovery operation and the
@@ -1078,11 +1082,11 @@
 		<span class="prelude-val">None</span>,
 		<span class="kw">async move </span>{
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;cumulus-network&quot;</span>,
+				target: LOG_TARGET_SYNC,
 				<span class="string">&quot;waiting for announce block in a background task...&quot;</span>,
 			);
 
-			<span class="kw">let _ </span>= wait_for_target_block::&lt;B, <span class="kw">_</span>&gt;(sender, para_id, relay_chain_interface)
+			<span class="kw">let _ </span>= wait_for_finalized_para_head::&lt;B, <span class="kw">_</span>&gt;(sender, para_id, relay_chain_interface)
 				.<span class="kw">await
 				</span>.map_err(|e| {
 					<span class="macro">log::error!</span>(
@@ -1100,7 +1104,7 @@
 
 <span class="doccomment">/// Waits for the relay chain to have finished syncing and then gets the parachain header that
 /// corresponds to the last finalized relay chain block.
-</span><span class="kw">async fn </span>wait_for_target_block&lt;B, RCInterface&gt;(
+</span><span class="kw">async fn </span>wait_for_finalized_para_head&lt;B, RCInterface&gt;(
 	sender: oneshot::Sender&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Header&gt;,
 	para_id: ParaId,
 	relay_chain_interface: RCInterface,
@@ -1133,11 +1137,15 @@
 				</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;{e:?}&quot;</span>))<span class="question-mark">?
 				</span>.ok_or(<span class="string">&quot;Could not find parachain head in relay chain&quot;</span>)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>target_block = B::Header::decode(<span class="kw-2">&amp;mut &amp;</span>validation_data.parent_head.<span class="number">0</span>[..])
+			<span class="kw">let </span>finalized_header = B::Header::decode(<span class="kw-2">&amp;mut &amp;</span>validation_data.parent_head.<span class="number">0</span>[..])
 				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to decode parachain head: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-			<span class="macro">log::debug!</span>(target: LOG_TARGET_SYNC, <span class="string">&quot;Target block reached {:?}&quot;</span>, target_block);
-			<span class="kw">let _ </span>= sender.send(target_block);
+			<span class="macro">log::info!</span>(
+				<span class="string">&quot;🎉 Received target parachain header #{} ({}) from the relay chain.&quot;</span>,
+				finalized_header.number(),
+				finalized_header.hash()
+			);
+			<span class="kw">let _ </span>= sender.send(finalized_header);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 	}
