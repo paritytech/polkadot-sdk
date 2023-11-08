@@ -564,7 +564,7 @@ where
 				.map_err(|e| format!("Failed to decode parachain head: {e}"))?;
 
 			log::info!(
-				"🎉 Received finalized parachain header #{} ({}) from the relay chain.",
+				"🎉 Received target parachain header #{} ({}) from the relay chain.",
 				finalized_header.number(),
 				finalized_header.hash()
 			);
