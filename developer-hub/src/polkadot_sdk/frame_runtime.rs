@@ -15,7 +15,8 @@
 //!
 //! ## Introduction
 //!
-//! As described in [`crate::reference_docs::wasm_meta_protocol`], at a high-level substrate-based blockchains are composed of two parts:
+//! As described in [`crate::reference_docs::wasm_meta_protocol`], at a high-level substrate-based
+//! blockchains are composed of two parts:
 //!
 //! 1. A *runtime* which represents the state transition function (i.e. "Business Logic") of a
 //! blockchain, and is encoded as a Wasm blob.
@@ -79,10 +80,8 @@
 //! a valid Runtime form the point of view of a Substrate cliemt (see
 //! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
 //!
-//! * writing a runtime in pure Rust, as done in [this
-//!   template](https://github.com/JoshOrndorff/frameless-node-template).
-//! * writing a runtime in AssemblyScript,as explored in [this
-//!   project](https://github.com/LimeChain/subsembly).
+//! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
+//! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
 
 #[cfg(test)]
 mod tests {
