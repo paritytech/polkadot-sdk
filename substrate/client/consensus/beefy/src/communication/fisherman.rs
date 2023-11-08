@@ -110,20 +110,28 @@ where
 		&self,
 		proof: ForkEquivocationProof<NumberFor<B>, AuthorityId, Signature, B::Header, MmrRootHash>,
 	) -> Result<(), Error> {
-		let expected_prev_hash = self
-			.backend
-			.blockchain()
-			.expect_block_hash_from_id(&BlockId::Number(proof.commitment.block_number))
-			.map_err(|e| Error::Backend(e.to_string()))?;
+		let best_block_number = self.backend.blockchain().info().best_number;
+		let best_block_hash = self.backend.blockchain().info().best_hash;
 
-		let validator_set = self.active_validator_set_at(expected_prev_hash)?;
+		// if the commitment is for a block number exceeding our best block number, we assume the
+		// equivocators are part of the current validator set, hence we use the validator set at the
+		// best block
+		let expected_commitment_block_hash = if best_block_number < proof.commitment.block_number {
+			best_block_hash
+		} else {
+			self.backend
+				.blockchain()
+				.expect_block_hash_from_id(&BlockId::Number(proof.commitment.block_number))
+				.map_err(|e| Error::Backend(e.to_string()))?
+		};
+
+		let validator_set = self.active_validator_set_at(expected_commitment_block_hash)?;
 		let set_id = validator_set.id();
 
-		let best_hash = self.backend.blockchain().info().best_hash;
 		let best_mmr_root = self
 			.runtime
 			.runtime_api()
-			.mmr_root(best_hash)
+			.mmr_root(best_block_hash)
 			.map_err(|e| Error::RuntimeApi(e))?
 			.map_err(|e| Error::Backend(e.to_string()))?;
 
@@ -132,17 +140,14 @@ where
 		let leaf_count = self
 			.runtime
 			.runtime_api()
-			.mmr_leaf_count(best_hash)
+			.mmr_leaf_count(best_block_hash)
 			.map_err(|e| Error::RuntimeApi(e))?
 			.map_err(|e| Error::Backend(e.to_string()))?;
-
-		// TODO: if ancestry proof can't be constructed, report equivocation nonetheless if valid
-		// header proof can be provided
-		let first_mmr_block_num = {
-			let best_block_num = self.backend.blockchain().info().best_number;
-			sp_mmr_primitives::utils::first_mmr_block_num::<B::Header>(best_block_num, leaf_count)
-				.map_err(|e| Error::Backend(e.to_string()))?
-		};
+		let first_mmr_block_num = sp_mmr_primitives::utils::first_mmr_block_num::<B::Header>(
+			best_block_number,
+			leaf_count,
+		)
+		.map_err(|e| Error::Backend(e.to_string()))?;
 
 		if proof.commitment.validator_set_id != set_id ||
 			!check_fork_equivocation_proof::<
@@ -151,8 +156,14 @@ where
 				B::Header,
 				MmrRootHash,
 				sp_mmr_primitives::utils::AncestryHasher<MmrHashing>,
-			>(&proof, best_mmr_root, leaf_count, &expected_prev_hash, first_mmr_block_num)
-		{
+			>(
+				&proof,
+				best_mmr_root,
+				leaf_count,
+				&expected_commitment_block_hash,
+				first_mmr_block_num,
+				best_block_number,
+			) {
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad invalid fork proof {:?}", proof);
 			return Ok(())
 		}
@@ -174,7 +185,7 @@ where
 			.cloned()
 			.filter_map(|id| {
 				match runtime_api.generate_key_ownership_proof(
-					expected_prev_hash,
+					expected_commitment_block_hash,
 					set_id,
 					id.clone(),
 				) {
@@ -192,7 +203,6 @@ where
 			.collect::<Result<_, _>>()?;
 
 		// submit invalid fork vote report at **best** block
-		let best_block_hash = self.backend.blockchain().info().best_hash;
 		runtime_api
 			.submit_report_fork_equivocation_unsigned_extrinsic(
 				best_block_hash,
@@ -219,31 +229,43 @@ where
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let number = vote.commitment.block_number;
-		let (correct_hash, correct_header, expected_payload) =
-			self.expected_hash_header_payload_tuple(number)?;
-		if vote.commitment.payload != expected_payload {
-			let ancestry_proof: Option<_> = match self
-				.runtime
-				.runtime_api()
-				.generate_ancestry_proof(correct_hash, number, None)
-			{
-				Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
-				Ok(Err(e)) => {
-					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-					None
-				},
-				Err(e) => {
-					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-					None
-				},
-			};
+		// if the vote is for a block number exceeding our best block number, there shouldn't even
+		// be a payload to sign yet, hence we assume it is an equivocation and report it
+		if number > self.backend.blockchain().info().best_number {
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
-				correct_header: Some(correct_header),
-				ancestry_proof,
+				correct_header: None,
+				ancestry_proof: None,
 			};
 			self.report_fork_equivocation(proof)?;
+		} else {
+			let (correct_hash, correct_header, expected_payload) =
+				self.expected_hash_header_payload_tuple(number)?;
+			if vote.commitment.payload != expected_payload {
+				let ancestry_proof: Option<_> = match self
+					.runtime
+					.runtime_api()
+					.generate_ancestry_proof(correct_hash, number, None)
+				{
+					Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
+					Ok(Err(e)) => {
+						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+						None
+					},
+					Err(e) => {
+						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+						None
+					},
+				};
+				let proof = ForkEquivocationProof {
+					commitment: vote.commitment,
+					signatories: vec![(vote.id, vote.signature)],
+					correct_header: Some(correct_header),
+					ancestry_proof,
+				};
+				self.report_fork_equivocation(proof)?;
+			}
 		}
 		Ok(())
 	}
@@ -255,30 +277,14 @@ where
 	) -> Result<(), Error> {
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
-		let (correct_hash, correct_header, expected_payload) =
-			self.expected_hash_header_payload_tuple(number)?;
-		if commitment.payload != expected_payload {
-			let ancestry_proof = match self.runtime.runtime_api().generate_ancestry_proof(
-				correct_hash,
-				number,
-				None,
-			) {
-				Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
-				Ok(Err(e)) => {
-					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-					None
-				},
-				Err(e) => {
-					debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-					None
-				},
-			};
-			let validator_set = self.active_validator_set_at(correct_hash)?;
-			if signatures.len() != validator_set.validators().len() {
-				// invalid proof
-				return Ok(())
-			}
-			// report every signer of the bad justification
+		// if the vote is for a block number exceeding our best block number, there shouldn't even
+		// be a payload to sign yet, hence we assume it is an equivocation and report it
+		if number > self.backend.blockchain().info().best_number {
+			// if block number is in the future, we use the latest validator set
+			// as the assumed signatories (note: this assumption is fragile and can possibly be
+			// improved upon)
+			let best_hash = self.backend.blockchain().info().best_hash;
+			let validator_set = self.active_validator_set_at(best_hash)?;
 			let signatories = validator_set
 				.validators()
 				.iter()
@@ -286,14 +292,54 @@ where
 				.zip(signatures.into_iter())
 				.filter_map(|(id, signature)| signature.map(|sig| (id, sig)))
 				.collect();
-
 			let proof = ForkEquivocationProof {
 				commitment,
 				signatories,
-				correct_header: Some(correct_header),
-				ancestry_proof,
+				correct_header: None,
+				ancestry_proof: None,
 			};
 			self.report_fork_equivocation(proof)?;
+		} else {
+			let (correct_hash, correct_header, expected_payload) =
+				self.expected_hash_header_payload_tuple(number)?;
+			if commitment.payload != expected_payload {
+				let ancestry_proof = match self.runtime.runtime_api().generate_ancestry_proof(
+					correct_hash,
+					number,
+					None,
+				) {
+					Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
+					Ok(Err(e)) => {
+						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+						None
+					},
+					Err(e) => {
+						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+						None
+					},
+				};
+				let validator_set = self.active_validator_set_at(correct_hash)?;
+				if signatures.len() != validator_set.validators().len() {
+					// invalid proof
+					return Ok(())
+				}
+				// report every signer of the bad justification
+				let signatories = validator_set
+					.validators()
+					.iter()
+					.cloned()
+					.zip(signatures.into_iter())
+					.filter_map(|(id, signature)| signature.map(|sig| (id, sig)))
+					.collect();
+
+				let proof = ForkEquivocationProof {
+					commitment,
+					signatories,
+					correct_header: Some(correct_header),
+					ancestry_proof,
+				};
+				self.report_fork_equivocation(proof)?;
+			}
 		}
 		Ok(())
 	}

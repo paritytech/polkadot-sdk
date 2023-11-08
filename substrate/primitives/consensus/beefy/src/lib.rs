@@ -361,6 +361,7 @@ pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
 	mmr_size: u64,
 	expected_header_hash: &Header::Hash,
 	first_mmr_block_num: Header::Number,
+	best_block_num: Header::Number,
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
@@ -387,7 +388,13 @@ where
 		});
 
 		if (correct_header, ancestry_proof) == (&None, &None) {
-			// at least a header or ancestry proof must be provided
+			if commitment.block_number > best_block_num {
+				return signatories.iter().all(|(authority_id, signature)| {
+					check_commitment_signature(&commitment, authority_id, signature)
+				})
+			}
+			// if commitment isn't to a block number in the future, at least a header or ancestry
+			// proof must be provided
 			return false
 		}
 

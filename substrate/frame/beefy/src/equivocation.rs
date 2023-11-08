@@ -293,10 +293,10 @@ where
 					sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_size())
 						.size();
 				let expected_mmr_root = <pallet_mmr::Pallet<T>>::mmr_root();
+				let best_block_num = <frame_system::Pallet<T>>::block_number();
 				// if first_mmr_block_num is invalid, then presumably beefy is not active.
 				// TODO: should we slash in this case?
 				let first_mmr_block_num = {
-					let best_block_num = <frame_system::Pallet<T>>::block_number();
 					let mmr_leaf_count = <pallet_mmr::Pallet<T>>::mmr_size();
 					sp_mmr_primitives::utils::first_mmr_block_num::<HeaderFor<T>>(
 						best_block_num,
@@ -325,6 +325,7 @@ where
 					mmr_size,
 					&expected_block_hash,
 					first_mmr_block_num,
+					best_block_num,
 				) {
 					return Err(Error::<T>::InvalidForkEquivocationProof.into())
 				}
