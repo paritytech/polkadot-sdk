@@ -33,8 +33,8 @@ use polkadot_node_subsystem::{
 	SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	self as util, availability_chunk_index, get_block_number, request_validators,
-	runtime::request_client_features, Validator,
+	self as util, availability_chunks::availability_chunk_index, get_block_number,
+	request_validators, runtime::request_client_features, Validator,
 };
 use polkadot_primitives::{
 	vstaging::ClientFeatures, AvailabilityBitfield, CoreState, Hash, ValidatorIndex,

@@ -35,9 +35,9 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::{
+	availability_chunks::ChunkIndexCacheRegistry,
 	get_block_number,
 	runtime::{get_occupied_cores, request_client_features, RuntimeInfo},
-	ChunkIndexCacheRegistry,
 };
 use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
 

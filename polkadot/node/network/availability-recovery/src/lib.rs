@@ -60,8 +60,8 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	get_block_number, request_session_info, runtime::request_client_features,
-	ChunkIndexCacheRegistry,
+	availability_chunks::ChunkIndexCacheRegistry, get_block_number, request_session_info,
+	runtime::request_client_features,
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, SessionIndex,
