@@ -124,9 +124,9 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, EnsureInherentsAreOrdered,
-		ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade,
-		PostInherents, PostTransactions, PreInherents,
+		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
+		PostTransactions, PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -192,7 +192,7 @@ pub struct Executive<
 );
 
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block> + EnsureInherentsAreOrdered<Block>,
+		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -240,7 +240,7 @@ impl<
 
 #[cfg(feature = "try-runtime")]
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block> + EnsureInherentsAreOrdered<Block>,
+		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -472,7 +472,7 @@ impl<
 }
 
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block> + EnsureInherentsAreOrdered<Block>,
+		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -607,15 +607,10 @@ impl<
 			"Parent hash should be valid.",
 		);
 
-		let num_inherents = match System::ensure_inherents_are_first(block) {
+		match System::ensure_inherents_are_first(block) {
 			Ok(num) => num,
 			Err(i) => panic!("Invalid inherent position for extrinsic at index {}", i),
-		};
-
-		System::ensure_inherents_are_ordered(block, num_inherents as usize)
-			.expect("Inherents are ordered in a valid block");
-
-		num_inherents
+		}
 	}
 
 	/// Actually execute all transitions for `block`.

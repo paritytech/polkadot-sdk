@@ -20,7 +20,6 @@
 use super::*;
 
 use sp_core::H256;
-use sp_inherents::{InherentOrder, InherentOrderError};
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
@@ -173,9 +172,6 @@ mod custom2 {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 
-	#[pallet::storage]
-	pub type RequireInherent<T> = StorageValue<_, InherentOrder, OptionQuery>;
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		// module hooks.
@@ -252,10 +248,6 @@ mod custom2 {
 
 		fn create_inherent(_data: &InherentData) -> Option<Self::Call> {
 			None
-		}
-
-		fn inherent_order() -> Option<InherentOrder> {
-			RequireInherent::<T>::get()
 		}
 
 		fn is_inherent(call: &Self::Call) -> bool {
@@ -1300,53 +1292,6 @@ fn ensure_inherents_are_first_works() {
 				vec![xt2.clone(), xt2.clone(), xt2.clone(), in1.clone()]
 			),),
 			Err(3)
-		);
-	});
-}
-
-#[test]
-fn ensure_inherents_are_ordered_works() {
-	use InherentOrder::*;
-	use InherentOrderError::*;
-
-	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
-	let in2 = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
-
-	// Mocked empty header:
-	let header = new_test_ext(1).execute_with(|| Executive::finalize_block());
-
-	new_test_ext(1).execute_with(|| {
-		/*assert_ok!(Runtime::ensure_inherents_are_ordered(&Block::new(header.clone(), vec![]), 9));
-
-		assert_ok!(
-			Runtime::ensure_inherents_are_ordered(&Block::new(header.clone(), vec![in1.clone()]), 9),
-		);
-		assert_ok!(
-			Runtime::ensure_inherents_are_ordered(&Block::new(header.clone(), vec![in2.clone()]), 9),
-		);*/
-
-		custom2::RequireInherent::<Runtime>::set(Some(InherentOrder::Last));
-		assert_ok!(Runtime::ensure_inherents_are_ordered(
-			&Block::new(header.clone(), vec![in1.clone(), in2.clone()]),
-			9
-		),);
-
-		custom2::RequireInherent::<Runtime>::set(Some(InherentOrder::First));
-		assert_err!(
-			Runtime::ensure_inherents_are_ordered(
-				&Block::new(header.clone(), vec![in1.clone(), in2.clone()]),
-				9
-			),
-			OutOfOrder(Index(3), First),
-		);
-
-		custom2::RequireInherent::<Runtime>::set(Some(InherentOrder::Last));
-		assert_err!(
-			Runtime::ensure_inherents_are_ordered(
-				&Block::new(header.clone(), vec![in2.clone(), in2.clone()]),
-				9
-			),
-			OutOfOrder(Last, Last),
 		);
 	});
 }

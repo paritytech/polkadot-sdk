@@ -367,53 +367,6 @@ impl PartialEq for CheckInherentsResult {
 	}
 }
 
-/// The order of an inherent.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo)]
-pub enum InherentOrder {
-	/// The first inherent.
-	First,
-	/// An inherent at a specific index.
-	Index(u32),
-	/// The last inherent.
-	Last,
-}
-
-/// The reason why the order of inherents was invalid.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum InherentOrderError {
-	/// An inherent does not belong to any pallet.
-	InherentWithoutPallet,
-	/// An inherent belongs to multiple pallets.
-	InherentWithMultiplePallets,
-	/// An inherent was encountered out of order.
-	///
-	/// The first and second parameters are supposed to be ordered ascending, but were not.
-	OutOfOrder(InherentOrder, InherentOrder),
-}
-
-impl Ord for InherentOrder {
-	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-		use core::cmp::Ordering::*;
-		use InherentOrder::*;
-
-		match (self, other) {
-			(First, First) => Equal,
-			(First, _) => Less,
-			(Index(a), Index(b)) => a.cmp(b),
-			(Index(_), First) => Greater,
-			(Index(_), Last) => Less,
-			(Last, Last) => Equal,
-			(Last, _) => Greater,
-		}
-	}
-}
-
-impl PartialOrd for InherentOrder {
-	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
 /// Did we encounter a fatal error while checking an inherent?
 ///
 /// A fatal error is everything that fails while checking an inherent error, e.g. the inherent
