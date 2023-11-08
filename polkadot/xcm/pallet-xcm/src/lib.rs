@@ -1600,24 +1600,21 @@ impl<T: Config> Pallet<T> {
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
-		mut fees: MultiAsset,
+		fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let max_assets = assets.len() as u32;
 		let context = T::UniversalLocation::get();
 		// we spend up to half of fees for execution on reserve and other half for execution on
 		// destination
-		match &mut fees.fun {
-			Fungible(amount) => *amount = amount.saturating_div(2),
-			NonFungible(_) => return Err(Error::<T>::FeesNotMet),
-		};
+		let (fees_half_1, fees_half_2) = Self::halve_fees(fees)?;
 		// identifies fee item as seen by `reserve` - to be used at reserve chain
-		let reserve_fees = fees
-			.clone()
+		let reserve_fees = fees_half_1
 			.reanchored(&reserve, context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		// identifies fee item as seen by `dest` - to be used at destination chain
-		let dest_fees = fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let dest_fees =
+			fees_half_2.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
 		// identifies `dest` as seen by `reserve`
 		let dest = dest.reanchored(&reserve, context).map_err(|_| Error::<T>::CannotReanchor)?;
 		// xcm to be executed at dest
@@ -1705,6 +1702,20 @@ impl<T: Config> Pallet<T> {
 			SetFeesMode { jit_withdraw: true },
 			InitiateTeleport { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
 		]))
+	}
+
+	/// Halve `fees` fungible amount.
+	pub(crate) fn halve_fees(fees: MultiAsset) -> Result<(MultiAsset, MultiAsset), Error<T>> {
+		match fees.fun {
+			Fungible(amount) => {
+				let fee1 = amount.saturating_div(2);
+				let fee2 = amount.saturating_sub(fee1);
+				ensure!(fee1 > 0, Error::<T>::FeesNotMet);
+				ensure!(fee2 > 0, Error::<T>::FeesNotMet);
+				Ok((MultiAsset::from((fees.id, fee1)), MultiAsset::from((fees.id, fee2))))
+			},
+			NonFungible(_) => Err(Error::<T>::FeesNotMet),
+		}
 	}
 
 	/// Will always make progress, and will do its best not to use much more than `weight_cutoff`
