@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// pub mod genesis;
-
 // Substrate
 use frame_support::traits::OnInitialize;
 
