@@ -181,6 +181,19 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -202,6 +215,7 @@
 </span><span class="doccomment">//! A helper module for calling the GenesisBuilder API from arbitrary runtime wasm blobs.
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">pub use </span>sc_executor::sp_wasm_interface::HostFunctions;
 <span class="kw">use </span>sc_executor::{error::Result, WasmExecutor};
 <span class="kw">use </span>serde_json::{from_slice, Value};
 <span class="kw">use </span>sp_core::{
@@ -213,19 +227,31 @@
 <span class="kw">use </span>std::borrow::Cow;
 
 <span class="doccomment">/// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
-</span><span class="kw">pub struct </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>&gt; {
+///
+/// `EHF` type allows to specify the extended host function required for building runtime&#39;s genesis
+/// config. The type will be compbined with default `sp_io::SubstrateHostFunctions`.
+</span><span class="kw">pub struct </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>, EHF = ()&gt;
+<span class="kw">where
+	</span>EHF: HostFunctions,
+{
 	code: Cow&lt;<span class="lifetime">&#39;a</span>, [u8]&gt;,
 	code_hash: Vec&lt;u8&gt;,
-	executor: WasmExecutor&lt;sp_io::SubstrateHostFunctions&gt;,
+	executor: WasmExecutor&lt;(sp_io::SubstrateHostFunctions, EHF)&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; FetchRuntimeCode <span class="kw">for </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, EHF&gt; FetchRuntimeCode <span class="kw">for </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>, EHF&gt;
+<span class="kw">where
+	</span>EHF: HostFunctions,
+{
 	<span class="kw">fn </span>fetch_runtime_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Cow&lt;[u8]&gt;&gt; {
 		<span class="prelude-val">Some</span>(<span class="self">self</span>.code.as_ref().into())
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, EHF&gt; GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>, EHF&gt;
+<span class="kw">where
+	</span>EHF: HostFunctions,
+{
 	<span class="doccomment">/// Creates new instance using the provided code blob.
 	///
 	/// This code is later referred to as `runtime`.
@@ -233,7 +259,7 @@
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_core::blake2_256(code).to_vec(),
-			executor: WasmExecutor::&lt;sp_io::SubstrateHostFunctions&gt;::builder()
+			executor: WasmExecutor::&lt;(sp_io::SubstrateHostFunctions, EHF)&gt;::builder()
 				.with_allow_missing_host_functions(<span class="bool-val">true</span>)
 				.build(),
 		}
@@ -317,7 +343,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>get_default_config_works() {
 		<span class="kw">let </span>config =
-			GenesisConfigBuilderRuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
+			&lt;GenesisConfigBuilderRuntimeCaller&gt;::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_default_config()
 				.unwrap();
 		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:null},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
@@ -339,7 +365,7 @@
 		});
 
 		<span class="kw">let </span>storage =
-			GenesisConfigBuilderRuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
+			&lt;GenesisConfigBuilderRuntimeCaller&gt;::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_storage_for_patch(patch)
 				.unwrap();
 

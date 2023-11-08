@@ -181,7 +181,7 @@ specification, use <a href="trait.ChainSpec.html#tymethod.as_json" title="method
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>build_chain_spec_with_patch_works() {
-	<span class="kw">let </span>output: ChainSpec&lt;()&gt; = ChainSpec::builder(
+	<span class="kw">let </span>output = ChainSpec::&lt;()&gt;::builder(
 		substrate_test_runtime::wasm_binary_unwrap().into(),
 		Default::default(),
 	)
