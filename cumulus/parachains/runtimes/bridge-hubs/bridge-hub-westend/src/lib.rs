@@ -511,9 +511,9 @@ construct_runtime!(
 		BridgeRococoParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 43,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 44,
 
-		// Message Queue. Importantly, is registered last so that messages are processed
-		// after the `on_initialize` hooks of bridging pallets (snowbridge in particular).
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 99,
+		// Message Queue. Importantly, is registered last so that messages are processed after
+		// the `on_initialize` hooks of bridging pallets.
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 250,
 	}
 );
 

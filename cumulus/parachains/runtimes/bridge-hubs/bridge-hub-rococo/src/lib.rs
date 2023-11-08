@@ -564,9 +564,9 @@ construct_runtime!(
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
-		// Message Queue. Importantly, is registered last so that messages are processed
-		// after the `on_initialize` hooks of bridging pallets (snowbridge in particular).
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 99,
+		// Message Queue. Importantly, is registered last so that messages are processed after
+		// the `on_initialize` hooks of bridging pallets.
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 250,
 	}
 );
 
