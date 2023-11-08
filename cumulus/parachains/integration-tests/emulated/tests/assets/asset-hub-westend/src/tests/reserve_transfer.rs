@@ -42,9 +42,9 @@ fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 }
 
 fn para_receiver_assertions<Test>(_: Test) {
-	type RuntimeEvent = <PenpalWestendA as Chain>::RuntimeEvent;
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	assert_expected_events!(
-		PenpalWestendA,
+		PenpalA,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::MessageQueue(
@@ -180,7 +180,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
-	test.set_assertion::<PenpalWestendA>(para_receiver_assertions);
+	test.set_assertion::<PenpalA>(para_receiver_assertions);
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 

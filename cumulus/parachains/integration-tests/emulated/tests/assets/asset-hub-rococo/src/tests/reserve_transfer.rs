@@ -41,9 +41,9 @@ fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 }
 
 fn relay_to_para_receiver_assertions<Test>(_: Test) {
-	type RuntimeEvent = <PenpalRococoA as Chain>::RuntimeEvent;
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	assert_expected_events!(
-		PenpalRococoA,
+		PenpalA,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::MessageQueue(
@@ -79,9 +79,9 @@ fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 }
 
 fn system_para_to_para_receiver_assertions<Test>(_: Test) {
-	type RuntimeEvent = <PenpalRococoA as Chain>::RuntimeEvent;
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	assert_expected_events!(
-		PenpalRococoA,
+		PenpalA,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::MessageQueue(
@@ -92,15 +92,12 @@ fn system_para_to_para_receiver_assertions<Test>(_: Test) {
 }
 
 fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
-	type RuntimeEvent = <PenpalRococoA as Chain>::RuntimeEvent;
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 
-	PenpalRococoA::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		864_610_000,
-		8_799,
-	)));
+	PenpalA::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8_799)));
 
 	assert_expected_events!(
-		PenpalRococoA,
+		PenpalA,
 		vec![
 			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::Balances(
@@ -117,7 +114,7 @@ fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(
-		AssetHubRococo::sibling_location_of(PenpalRococoA::para_id()),
+		AssetHubRococo::sibling_location_of(PenpalA::para_id()),
 	);
 
 	assert_expected_events!(
@@ -165,9 +162,9 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 }
 
 fn system_para_to_para_assets_receiver_assertions<Test>(_: Test) {
-	type RuntimeEvent = <PenpalRococoA as Chain>::RuntimeEvent;
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	assert_expected_events!(
-		PenpalRococoA,
+		PenpalA,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::Assets(pallet_assets::Event::Issued { .. }) => {},
@@ -201,7 +198,7 @@ fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) 
 }
 
 fn para_to_system_para_limited_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	<PenpalRococoA as PenpalRococoAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
@@ -284,13 +281,13 @@ fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 #[test]
 fn reserve_transfer_native_asset_from_relay_to_para() {
 	// Init values for Relay
-	let destination = Rococo::child_location_of(PenpalRococoA::para_id());
-	let beneficiary_id = PenpalRococoAReceiver::get();
+	let destination = Rococo::child_location_of(PenpalA::para_id());
+	let beneficiary_id = PenpalAReceiver::get();
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
 
 	let test_args = TestContext {
 		sender: RococoSender::get(),
-		receiver: PenpalRococoAReceiver::get(),
+		receiver: PenpalAReceiver::get(),
 		args: relay_test_args(destination, beneficiary_id, amount_to_send),
 	};
 
@@ -300,7 +297,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<Rococo>(relay_to_para_sender_assertions);
-	test.set_assertion::<PenpalRococoA>(relay_to_para_receiver_assertions);
+	test.set_assertion::<PenpalA>(relay_to_para_receiver_assertions);
 	test.set_dispatchable::<Rococo>(relay_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
@@ -340,7 +337,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_sender_assertions);
-	test.set_assertion::<PenpalRococoA>(system_para_to_para_receiver_assertions);
+	test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
 	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
@@ -363,13 +360,13 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 #[test]
 fn reserve_transfer_native_asset_from_para_to_system_para() {
 	// Init values for Penpal Parachain
-	let destination = PenpalRococoA::sibling_location_of(AssetHubRococo::para_id());
+	let destination = PenpalA::sibling_location_of(AssetHubRococo::para_id());
 	let beneficiary_id = AssetHubRococoReceiver::get();
 	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
 	let assets = (Parent, amount_to_send).into();
 
 	let test_args = TestContext {
-		sender: PenpalRococoASender::get(),
+		sender: PenpalASender::get(),
 		receiver: AssetHubRococoReceiver::get(),
 		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
@@ -379,22 +376,21 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	let sender_balance_before = test.sender.balance;
 	let receiver_balance_before = test.receiver.balance;
 
-	let penpal_location_as_seen_by_ahr =
-		AssetHubRococo::sibling_location_of(PenpalRococoA::para_id());
+	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
 
 	// fund the Penpal's SA on AHR with the native tokens held in reserve
 	AssetHubRococo::fund_accounts(vec![(sov_penpal_on_ahr.into(), amount_to_send * 2)]);
 
-	test.set_assertion::<PenpalRococoA>(para_to_system_para_sender_assertions);
+	test.set_assertion::<PenpalA>(para_to_system_para_sender_assertions);
 	test.set_assertion::<AssetHubRococo>(para_to_system_para_receiver_assertions);
-	test.set_dispatchable::<PenpalRococoA>(para_to_system_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<PenpalA>(para_to_system_para_limited_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
-	let delivery_fees = PenpalRococoA::execute_with(|| {
+	let delivery_fees = PenpalA::execute_with(|| {
 		xcm_helpers::transfer_assets_delivery_fees::<
 			<PenpalRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
@@ -410,7 +406,7 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 /// work
 #[test]
 fn reserve_transfer_assets_from_system_para_to_para() {
-	// Force create asset on AssetHubRococo and PenpalRococoA from Relay Chain
+	// Force create asset on AssetHubRococo and PenpalA from Relay Chain
 	AssetHubRococo::force_create_and_mint_asset(
 		ASSET_ID,
 		ASSET_MIN_BALANCE,
@@ -419,18 +415,18 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1_000_000,
 	);
-	PenpalRococoA::force_create_and_mint_asset(
+	PenpalA::force_create_and_mint_asset(
 		ASSET_ID,
 		ASSET_MIN_BALANCE,
 		false,
-		PenpalRococoASender::get(),
+		PenpalASender::get(),
 		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		0,
 	);
 
 	// Init values for System Parachain
-	let destination = AssetHubRococo::sibling_location_of(PenpalRococoA::para_id());
-	let beneficiary_id = PenpalRococoAReceiver::get();
+	let destination = AssetHubRococo::sibling_location_of(PenpalA::para_id());
+	let beneficiary_id = PenpalAReceiver::get();
 	let fee_amount_to_send = ASSET_HUB_ROCOCO_ED * 1000;
 	let asset_amount_to_send = ASSET_MIN_BALANCE * 1000;
 	let assets: MultiAssets = vec![
@@ -447,7 +443,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 
 	let para_test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
-		receiver: PenpalRococoAReceiver::get(),
+		receiver: PenpalAReceiver::get(),
 		args: para_test_args(
 			destination,
 			beneficiary_id,
@@ -461,7 +457,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	let mut test = SystemParaToParaTest::new(para_test_args);
 
 	// Create SA-of-Penpal-on-AHR with ED.
-	let penpal_location = AssetHubRococo::sibling_location_of(PenpalRococoA::para_id());
+	let penpal_location = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location);
 	AssetHubRococo::fund_accounts(vec![(sov_penpal_on_ahr.into(), ROCOCO_ED)]);
 
@@ -472,13 +468,13 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::Assets;
 		<Assets as Inspect<_>>::balance(ASSET_ID, &AssetHubRococoSender::get())
 	});
-	let receiver_assets_before = PenpalRococoA::execute_with(|| {
-		type Assets = <PenpalRococoA as PenpalRococoAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(ASSET_ID, &PenpalRococoAReceiver::get())
+	let receiver_assets_before = PenpalA::execute_with(|| {
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(ASSET_ID, &PenpalAReceiver::get())
 	});
 
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_assets_sender_assertions);
-	test.set_assertion::<PenpalRococoA>(system_para_to_para_assets_receiver_assertions);
+	test.set_assertion::<PenpalA>(system_para_to_para_assets_receiver_assertions);
 	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
@@ -494,9 +490,9 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::Assets;
 		<Assets as Inspect<_>>::balance(ASSET_ID, &AssetHubRococoSender::get())
 	});
-	let receiver_assets_after = PenpalRococoA::execute_with(|| {
-		type Assets = <PenpalRococoA as PenpalRococoAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(ASSET_ID, &PenpalRococoAReceiver::get())
+	let receiver_assets_after = PenpalA::execute_with(|| {
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(ASSET_ID, &PenpalAReceiver::get())
 	});
 
 	// Sender's balance is reduced
