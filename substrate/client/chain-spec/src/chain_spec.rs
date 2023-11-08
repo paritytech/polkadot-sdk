@@ -432,7 +432,7 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 	}
 
 	/// Builds a [`ChainSpec`] instance using the provided settings.
-	pub fn build(self) -> ChainSpec<G, E> {
+	pub fn build(self) -> ChainSpec<G, E, EHF> {
 		let client_spec = ClientSpec {
 			name: self.name,
 			id: self.id,
