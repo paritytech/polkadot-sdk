@@ -448,8 +448,8 @@ where
 		// instance for a block prior to BEEFY activation), then expected_payload =
 		// None, and they will likewise be slashed (note we can only check this if a valid header
 		// has been provided - we cannot slash for this with an ancestry proof - by necessity)
-		if !(Some(&commitment.payload) != expected_payload.as_ref() ||
-			(ancestry_prev_root.is_ok() && commitment_prev_root != ancestry_prev_root.ok()))
+		if Some(&commitment.payload) == expected_payload.as_ref() &&
+			(!ancestry_prev_root.is_ok() || commitment_prev_root == ancestry_prev_root.ok())
 		{
 			return false
 		}
