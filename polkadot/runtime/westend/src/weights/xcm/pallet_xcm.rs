@@ -20,7 +20,7 @@
 //! DATE: 2023-10-12, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `runner-nbnwcyh-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
-//! WASM-EXECUTION: `Compiled`, CHAIN: `Some("rococo-dev")`, DB CACHE: 1024
+//! WASM-EXECUTION: Compiled, CHAIN: Some("westend-dev"), DB CACHE: 1024
 
 // Executed Command:
 // target/production/polkadot
@@ -33,9 +33,10 @@
 // --heap-pages=4096
 // --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
 // --pallet=pallet_xcm
-// --chain=rococo-dev
+// --chain=westend-dev
 // --header=./polkadot/file_header.txt
-// --output=./polkadot/runtime/rococo/src/weights/
+// --template=./polkadot/xcm/pallet-xcm-benchmarks/template.hbs
+// --output=./polkadot/runtime/westend/src/weights/xcm/
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -47,7 +48,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> WeightInfo<T> {
 	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::SupportedVersion` (r:1 w:0)
@@ -56,13 +57,12 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn send() -> Weight {
+	pub(crate) fn send() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `3607`
-		// Minimum execution time: 29_164_000 picoseconds.
-		Weight::from_parts(29_696_000, 0)
-			.saturating_add(Weight::from_parts(0, 3607))
+		//  Measured:  `109`
+		//  Estimated: `3574`
+		// Minimum execution time: 27_833_000 picoseconds.
+		Weight::from_parts(28_582_000, 3574)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -74,66 +74,63 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn send_blob() -> Weight {
+	pub(crate) fn send_blob() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `3607`
-		// Minimum execution time: 29_285_000 picoseconds.
-		Weight::from_parts(30_040_000, 0)
-			.saturating_add(Weight::from_parts(0, 3607))
+		//  Measured:  `109`
+		//  Estimated: `3574`
+		// Minimum execution time: 28_116_000 picoseconds.
+		Weight::from_parts(28_814_000, 3574)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	fn teleport_assets() -> Weight {
+	pub(crate) fn teleport_assets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 17_986_000 picoseconds.
-		Weight::from_parts(18_378_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		// Minimum execution time: 16_406_000 picoseconds.
+		Weight::from_parts(16_884_000, 0)
 	}
-	fn reserve_transfer_assets() -> Weight {
+	pub(crate) fn reserve_transfer_assets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 18_061_000 picoseconds.
-		Weight::from_parts(18_508_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		// Minimum execution time: 16_260_000 picoseconds.
+		Weight::from_parts(17_169_000, 0)
 	}
-	fn execute() -> Weight {
+	/// Storage: `Benchmark::Override` (r:0 w:0)
+	/// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	pub(crate) fn execute() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 8_080_000 picoseconds.
-		Weight::from_parts(8_383_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
+		Weight::from_parts(18_446_744_073_709_551_000, 0)
 	}
-	fn execute_blob() -> Weight {
+	/// Storage: `Benchmark::Override` (r:0 w:0)
+	/// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	pub(crate) fn execute_blob() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_973_000 picoseconds.
-		Weight::from_parts(8_354_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
+		Weight::from_parts(18_446_744_073_709_551_000, 0)
 	}
 	/// Storage: `XcmPallet::SupportedVersion` (r:0 w:1)
 	/// Proof: `XcmPallet::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn force_xcm_version() -> Weight {
+	pub(crate) fn force_xcm_version() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_663_000 picoseconds.
-		Weight::from_parts(8_090_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		// Minimum execution time: 7_317_000 picoseconds.
+		Weight::from_parts(7_621_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	fn force_default_xcm_version() -> Weight {
+	pub(crate) fn force_default_xcm_version() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 2_185_000 picoseconds.
-		Weight::from_parts(2_401_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		// Minimum execution time: 2_041_000 picoseconds.
+		Weight::from_parts(2_262_000, 0)
 	}
 	/// Storage: `XcmPallet::VersionNotifiers` (r:1 w:1)
 	/// Proof: `XcmPallet::VersionNotifiers` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -149,13 +146,12 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::Queries` (r:0 w:1)
 	/// Proof: `XcmPallet::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn force_subscribe_version_notify() -> Weight {
+	pub(crate) fn force_subscribe_version_notify() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `3607`
-		// Minimum execution time: 32_638_000 picoseconds.
-		Weight::from_parts(33_594_000, 0)
-			.saturating_add(Weight::from_parts(0, 3607))
+		//  Measured:  `109`
+		//  Estimated: `3574`
+		// Minimum execution time: 30_856_000 picoseconds.
+		Weight::from_parts(31_927_000, 3574)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
@@ -171,60 +167,55 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::Queries` (r:0 w:1)
 	/// Proof: `XcmPallet::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn force_unsubscribe_version_notify() -> Weight {
+	pub(crate) fn force_unsubscribe_version_notify() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `322`
-		//  Estimated: `3787`
-		// Minimum execution time: 39_277_000 picoseconds.
-		Weight::from_parts(40_237_000, 0)
-			.saturating_add(Weight::from_parts(0, 3787))
+		//  Measured:  `289`
+		//  Estimated: `3754`
+		// Minimum execution time: 34_867_000 picoseconds.
+		Weight::from_parts(35_867_000, 3754)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	/// Storage: `XcmPallet::XcmExecutionSuspended` (r:0 w:1)
 	/// Proof: `XcmPallet::XcmExecutionSuspended` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn force_suspension() -> Weight {
+	pub(crate) fn force_suspension() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 2_296_000 picoseconds.
-		Weight::from_parts(2_433_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		// Minimum execution time: 2_141_000 picoseconds.
+		Weight::from_parts(2_263_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `XcmPallet::SupportedVersion` (r:4 w:2)
 	/// Proof: `XcmPallet::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn migrate_supported_version() -> Weight {
+	pub(crate) fn migrate_supported_version() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `26`
 		//  Estimated: `10916`
-		// Minimum execution time: 14_783_000 picoseconds.
-		Weight::from_parts(15_093_000, 0)
-			.saturating_add(Weight::from_parts(0, 10916))
+		// Minimum execution time: 14_299_000 picoseconds.
+		Weight::from_parts(14_651_000, 10916)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	/// Storage: `XcmPallet::VersionNotifiers` (r:4 w:2)
 	/// Proof: `XcmPallet::VersionNotifiers` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn migrate_version_notifiers() -> Weight {
+	pub(crate) fn migrate_version_notifiers() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `30`
 		//  Estimated: `10920`
-		// Minimum execution time: 14_933_000 picoseconds.
-		Weight::from_parts(15_440_000, 0)
-			.saturating_add(Weight::from_parts(0, 10920))
+		// Minimum execution time: 14_486_000 picoseconds.
+		Weight::from_parts(15_281_000, 10920)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:5 w:0)
 	/// Proof: `XcmPallet::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn already_notified_target() -> Weight {
+	pub(crate) fn already_notified_target() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `40`
 		//  Estimated: `13405`
-		// Minimum execution time: 16_500_000 picoseconds.
-		Weight::from_parts(17_150_000, 0)
-			.saturating_add(Weight::from_parts(0, 13405))
+		// Minimum execution time: 16_337_000 picoseconds.
+		Weight::from_parts(16_851_000, 13405)
 			.saturating_add(T::DbWeight::get().reads(5))
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:2 w:1)
@@ -237,36 +228,33 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn notify_current_targets() -> Weight {
+	pub(crate) fn notify_current_targets() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `178`
-		//  Estimated: `6118`
-		// Minimum execution time: 30_962_000 picoseconds.
-		Weight::from_parts(31_791_000, 0)
-			.saturating_add(Weight::from_parts(0, 6118))
+		//  Measured:  `145`
+		//  Estimated: `6085`
+		// Minimum execution time: 29_993_000 picoseconds.
+		Weight::from_parts(30_705_000, 6085)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:3 w:0)
 	/// Proof: `XcmPallet::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn notify_target_migration_fail() -> Weight {
+	pub(crate) fn notify_target_migration_fail() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `69`
 		//  Estimated: `8484`
-		// Minimum execution time: 9_480_000 picoseconds.
-		Weight::from_parts(9_972_000, 0)
-			.saturating_add(Weight::from_parts(0, 8484))
+		// Minimum execution time: 9_102_000 picoseconds.
+		Weight::from_parts(9_507_000, 8484)
 			.saturating_add(T::DbWeight::get().reads(3))
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:4 w:2)
 	/// Proof: `XcmPallet::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn migrate_version_notify_targets() -> Weight {
+	pub(crate) fn migrate_version_notify_targets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `37`
 		//  Estimated: `10927`
-		// Minimum execution time: 14_926_000 picoseconds.
-		Weight::from_parts(15_618_000, 0)
-			.saturating_add(Weight::from_parts(0, 10927))
+		// Minimum execution time: 14_759_000 picoseconds.
+		Weight::from_parts(15_529_000, 10927)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -280,13 +268,12 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn migrate_and_notify_old_targets() -> Weight {
+	pub(crate) fn migrate_and_notify_old_targets() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `182`
-		//  Estimated: `11072`
-		// Minimum execution time: 37_788_000 picoseconds.
-		Weight::from_parts(38_867_000, 0)
-			.saturating_add(Weight::from_parts(0, 11072))
+		//  Measured:  `149`
+		//  Estimated: `11039`
+		// Minimum execution time: 36_583_000 picoseconds.
+		Weight::from_parts(37_580_000, 11039)
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
