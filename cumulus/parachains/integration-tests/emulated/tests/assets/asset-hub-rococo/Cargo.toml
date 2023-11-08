@@ -25,7 +25,7 @@ xcm-executor = { package = "staging-xcm-executor",  path = "../../../../../../..
 rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
 
 # Cumulus
-asset-test-utils = { path = "../../../../../runtimes/assets/test-utils", default-features = false }
+asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { path = "../../../../../../parachains/common" }
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}

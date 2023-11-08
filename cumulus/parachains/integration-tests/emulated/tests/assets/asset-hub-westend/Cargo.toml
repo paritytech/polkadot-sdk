@@ -34,7 +34,7 @@ westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/west
 # Cumulus
 parachains-common = { path = "../../../../../../parachains/common" }
 asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend" }
-asset-test-utils = { path = "../../../../../runtimes/assets/test-utils", default-features = false }
+asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
 cumulus-pallet-dmp-queue = { default-features = false, path = "../../../../../../pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}

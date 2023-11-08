@@ -37,7 +37,7 @@ cumulus-primitives-core = { path = "../../../../primitives/core" }
 xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false}
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
-asset-test-utils = { path = "../../../runtimes/assets/test-utils", default-features = false }
+asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
 
 # Bridges
 bp-messages = { path = "../../../../../bridges/primitives/messages" }

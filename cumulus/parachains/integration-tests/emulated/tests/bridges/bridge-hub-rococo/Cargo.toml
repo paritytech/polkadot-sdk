@@ -24,7 +24,7 @@ pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages
 bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false}
 
 # Cumulus
-asset-test-utils = { path = "../../../../../../parachains/runtimes/assets/test-utils", default-features = false }
+asset-test-utils = { path = "../../../../../../parachains/runtimes/assets/test-utils" }
 parachains-common = { path = "../../../../../../parachains/common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", default-features = false}
