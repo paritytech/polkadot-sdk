@@ -526,7 +526,7 @@ pub mod pallet {
 		/// As a side effect, this function upgrades the current validation function
 		/// if the appropriate time has come.
 		#[pallet::call_index(0)]
-		#[pallet::weight((0, DispatchClass::Mandatory))]
+		#[pallet::weight((<T as frame_system::Config>::BlockWeights::get().max_block, DispatchClass::Mandatory))]
 		// TODO: This weight should be corrected.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
