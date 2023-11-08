@@ -140,7 +140,7 @@ pub mod pallet {
 			// there may be nominators who nominate a non-existant validator. if that's the case,
 			// move on.
 			if !L::contains(who) {
-				defensive!("`update_score` on non-existant staker {}", who);
+				defensive!("`update_score` on non-existant staker", who);
 				return
 			}
 
@@ -157,9 +157,9 @@ pub mod pallet {
 					// if decreasing the imbalance makes the score lower than 0, the node will be
 					// removed from the list when calling `L::on_decrease`, which is not expected.
 					// Instead, we call `L::on_update` to set the score as 0. The node will be
-					// removed when `on_*_removed` is called.
+					// removed when `on_*_remove` is called.
 					let _ = L::on_update(who, current_score.defensive_saturating_sub(imbalance))
-						.defensive_proof("staker exists in the list as per the check above.");
+						.expect("staker exists in the list as per the check above; qed.");
 				},
 			}
 		}

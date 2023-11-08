@@ -17,7 +17,7 @@
 
 #![cfg(test)]
 
-use crate::mock::*;
+use crate::{mock::*, StakeImbalance};
 
 use frame_election_provider_support::SortedListProvider;
 use sp_staking::Stake;
@@ -42,103 +42,150 @@ fn setup_works() {
 }
 
 #[test]
-fn staking_interface_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		assert_eq!(TestNominators::get().iter().count(), 0);
-		assert_eq!(TestValidators::get().iter().count(), 0);
-
-		add_nominator(1, 100);
-		let n = TestNominators::get();
-		assert_eq!(n.get(&1).unwrap().0, Stake { active: 100u64, total: 100u64 });
-
-		add_validator(2, 200);
-		let v = TestValidators::get();
-		assert_eq!(v.get(&2).copied().unwrap(), Stake { active: 200u64, total: 200u64 });
-	})
-}
-
-#[test]
-fn on_add_stakers_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		add_nominator(1, 100);
-		assert_eq!(TargetBagsList::count(), 0);
-		assert_eq!(VoterBagsList::count(), 1);
-		assert_eq!(VoterBagsList::get_score(&1).unwrap(), 100);
-
-		add_validator(10, 200);
-		assert_eq!(VoterBagsList::count(), 2); // 1x nominator + 1x validator
-		assert_eq!(TargetBagsList::count(), 1);
-		assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
-	})
-}
-
-#[test]
-fn on_update_stake_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		add_nominator(1, 100);
-		assert_eq!(VoterBagsList::get_score(&1).unwrap(), 100);
-		update_stake(1, 200, stake_of(1));
-		assert_eq!(VoterBagsList::get_score(&1).unwrap(), 200);
-
-		add_validator(10, 100);
-		assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
-		update_stake(10, 200, stake_of(10));
-		assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
-	})
-}
-
-#[test]
-fn on_remove_stakers_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		add_nominator(1, 100);
-		assert!(VoterBagsList::contains(&1));
-		remove_staker(1);
-		assert!(!VoterBagsList::contains(&1));
-
-		add_validator(10, 100);
-		assert!(TargetBagsList::contains(&10));
-		remove_staker(10);
-		assert!(!TargetBagsList::contains(&10));
-	})
-}
-
-#[test]
-fn on_remove_stakers_with_nominations_works() {
+fn update_score_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
-		assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
-
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::get_score(&1), Ok(100));
-		assert_eq!(TargetBagsList::get_score(&10), Ok(300));
 
-		// remove nominator deletes node from voter list and updates the stake of its nominations.
-		remove_staker(1);
-		assert!(!VoterBagsList::contains(&1));
-		assert_eq!(TargetBagsList::get_score(&10), Ok(200));
+		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(10));
+		assert_eq!(VoterBagsList::get_score(&1), Ok(90));
+
+		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Positive(100));
+		assert_eq!(VoterBagsList::get_score(&1), Ok(190));
+
+		// when score decreases to 0, the node is not removed automatically and its balance is 0.
+		let current_score = VoterBagsList::get_score(&1).unwrap();
+		crate::Pallet::<Test>::update_score::<VoterBagsList>(
+			&1,
+			StakeImbalance::Negative(current_score),
+		);
+		assert!(VoterBagsList::contains(&1));
+		assert_eq!(VoterBagsList::get_score(&1), Ok(0));
 	})
 }
 
 #[test]
-fn on_nominator_update_works() {
+#[should_panic]
+fn update_score_defensive_cases_work() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert!(!VoterBagsList::contains(&1));
+		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Positive(100));
+	});
+
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
-		assert_eq!(get_scores::<VoterBagsList>(), vec![(10, 100), (11, 100), (1, 100), (2, 100)]);
-		assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
-
-		add_validator(20, 50);
-		// removes nomination from 10 and adds nomination to new validator, 20.
-		update_nominations_of(2, vec![11, 20]);
-
-		// new voter (validator) 2 with 100 stake. note that the voter score is not updated
-		// automatically.
-		assert_eq!(
-			get_scores::<VoterBagsList>(),
-			vec![(10, 100), (11, 100), (1, 100), (2, 100), (20, 50)]
-		);
-
-		// target list has been updated:
-		// -100 score for 10
-		// +100 score for 11
-		// +100 score for 20
-		assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 200), (11, 200), (20, 150)]);
+		assert!(VoterBagsList::contains(&1));
+		// if updating makes the score falling below 0, final node's score is saturated to 0.
+		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(100));
+		assert_eq!(VoterBagsList::get_score(&1), Ok(0));
 	})
+}
+
+mod staking_integration {
+	use super::*;
+
+	#[test]
+	fn staking_interface_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(TestNominators::get().iter().count(), 0);
+			assert_eq!(TestValidators::get().iter().count(), 0);
+
+			add_nominator(1, 100);
+			let n = TestNominators::get();
+			assert_eq!(n.get(&1).unwrap().0, Stake { active: 100u64, total: 100u64 });
+
+			add_validator(2, 200);
+			let v = TestValidators::get();
+			assert_eq!(v.get(&2).copied().unwrap(), Stake { active: 200u64, total: 200u64 });
+		})
+	}
+
+	#[test]
+	fn on_add_stakers_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			add_nominator(1, 100);
+			assert_eq!(TargetBagsList::count(), 0);
+			assert_eq!(VoterBagsList::count(), 1);
+			assert_eq!(VoterBagsList::get_score(&1).unwrap(), 100);
+
+			add_validator(10, 200);
+			assert_eq!(VoterBagsList::count(), 2); // 1x nominator + 1x validator
+			assert_eq!(TargetBagsList::count(), 1);
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
+		})
+	}
+
+	#[test]
+	fn on_update_stake_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			add_nominator(1, 100);
+			assert_eq!(VoterBagsList::get_score(&1).unwrap(), 100);
+			update_stake(1, 200, stake_of(1));
+			assert_eq!(VoterBagsList::get_score(&1).unwrap(), 200);
+
+			add_validator(10, 100);
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
+			update_stake(10, 200, stake_of(10));
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
+		})
+	}
+
+	#[test]
+	fn on_remove_stakers_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			add_nominator(1, 100);
+			assert!(VoterBagsList::contains(&1));
+			remove_staker(1);
+			assert!(!VoterBagsList::contains(&1));
+
+			add_validator(10, 100);
+			assert!(TargetBagsList::contains(&10));
+			remove_staker(10);
+			assert!(!TargetBagsList::contains(&10));
+		})
+	}
+
+	#[test]
+	fn on_remove_stakers_with_nominations_works() {
+		ExtBuilder::default().populate_lists().build_and_execute(|| {
+			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
+
+			assert!(VoterBagsList::contains(&1));
+			assert_eq!(VoterBagsList::get_score(&1), Ok(100));
+			assert_eq!(TargetBagsList::get_score(&10), Ok(300));
+
+			// remove nominator deletes node from voter list and updates the stake of its
+			// nominations.
+			remove_staker(1);
+			assert!(!VoterBagsList::contains(&1));
+			assert_eq!(TargetBagsList::get_score(&10), Ok(200));
+		})
+	}
+
+	#[test]
+	fn on_nominator_update_works() {
+		ExtBuilder::default().populate_lists().build_and_execute(|| {
+			assert_eq!(
+				get_scores::<VoterBagsList>(),
+				vec![(10, 100), (11, 100), (1, 100), (2, 100)]
+			);
+			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
+
+			add_validator(20, 50);
+			// removes nomination from 10 and adds nomination to new validator, 20.
+			update_nominations_of(2, vec![11, 20]);
+
+			// new voter (validator) 2 with 100 stake. note that the voter score is not updated
+			// automatically.
+			assert_eq!(
+				get_scores::<VoterBagsList>(),
+				vec![(10, 100), (11, 100), (1, 100), (2, 100), (20, 50)]
+			);
+
+			// target list has been updated:
+			// -100 score for 10
+			// +100 score for 11
+			// +100 score for 20
+			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 200), (11, 200), (20, 150)]);
+		})
+	}
 }

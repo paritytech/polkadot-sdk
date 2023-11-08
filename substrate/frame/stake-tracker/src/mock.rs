@@ -275,10 +275,7 @@ pub(crate) fn add_nominator(who: AccountId, stake: Balance) {
 }
 
 pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
-	match StakingMock::stake(&who) {
-		Ok(stake) => Some(stake),
-		Err(_) => None,
-	}
+	StakingMock::stake(&who).ok()
 }
 
 pub(crate) fn add_nominator_with_nominations(
