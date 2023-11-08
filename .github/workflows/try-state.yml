@@ -43,6 +43,7 @@ jobs:
       run: ls -R
 
     - name: Check state
+      id: check_state
       continue-on-error: true
       run: | 
         ./try-runtime \
