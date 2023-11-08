@@ -33,12 +33,12 @@ mod storage_alias;
 mod transactional;
 mod tt_macro;
 
-use frame_support_procedural_tools::generate_crate_access_2018;
-use macro_magic::import_tokens_attr;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
+use macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use std::{cell::RefCell, str::FromStr};
-use syn::{parse_macro_input, Error, ItemImpl, ItemMod};
+use syn::{parse_macro_input, Error, ItemImpl, ItemMod, TraitItemType};
 
 pub(crate) const INHERENT_INSTANCE_NAME: &str = "__InherentHiddenInstance";
 
@@ -442,8 +442,8 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 
 		quote::quote!(
 			const _: () = {
-				impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
 						fmt.write_str("<wasm:stripped>")
 					}
 				}
@@ -473,7 +473,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 
 	quote::quote_spanned!(name.span() =>
 		const _: () = {
-			impl #impl_generics core::cmp::Eq for #name #ty_generics #where_clause {}
+			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
 	)
 	.into()
@@ -492,7 +492,7 @@ pub fn derive_ord_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::ord::derive_ord_no_bound(input)
 }
 
-/// Derive [`Default`] but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
+/// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
 #[proc_macro_derive(DefaultNoBound, attributes(default))]
 pub fn derive_default_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::default::derive_default_no_bound(input)
@@ -608,6 +608,19 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// where all of the relevant types are already in scope via `use` statements.
 ///
 /// Conversely, the `default_impl_path` argument is required and cannot be omitted.
+///
+/// Optionally, `no_aggregated_types` can be specified as follows:
+///
+/// ```ignore
+/// #[derive_impl(default_impl_path as disambiguation_path, no_aggregated_types)]
+/// impl SomeTrait for SomeStruct {
+///     ...
+/// }
+/// ```
+///
+/// If specified, this indicates that the aggregated types (as denoted by impl items
+/// attached with [`#[inject_runtime_type]`]) should not be injected with the respective concrete
+/// types. By default, all such types are injected.
 ///
 /// You can also make use of `#[pallet::no_default]` on specific items in your default impl that you
 /// want to ensure will not be copied over but that you nonetheless want to use locally in the
@@ -751,12 +764,12 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// Items that lack a `syn::Ident` for whatever reason are first checked to see if they exist,
 /// verbatim, in the local/destination trait before they are copied over, so you should not need to
 /// worry about collisions between identical unnamed items.
-#[import_tokens_attr {
+#[import_tokens_attr_verbatim {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_access_from_frame_or_crate("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
@@ -772,6 +785,7 @@ pub fn derive_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
 		attrs.into(),
 		input.into(),
 		custom_attrs.disambiguation_path,
+		custom_attrs.no_aggregated_types,
 	)
 	.unwrap_or_else(|r| r.into_compile_error())
 	.into()
@@ -784,6 +798,19 @@ pub fn derive_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
 /// default with the [`#[derive_impl(..)]`](`macro@derive_impl`) attribute macro.
 #[proc_macro_attribute]
 pub fn no_default(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+/// The optional attribute `#[pallet::no_default_bounds]` can be attached to trait items within a
+/// `Config` trait impl that has [`#[pallet::config(with_default)]`](`macro@config`) attached.
+///
+/// Attaching this attribute to a trait item ensures that the generated trait `DefaultConfig`
+/// will not have any bounds for this trait item.
+///
+/// As an example, if you have a trait item `type AccountId: SomeTrait;` in your `Config` trait,
+/// the generated `DefaultConfig` will only have `type AccountId;` with no trait bound.
+#[proc_macro_attribute]
+pub fn no_default_bounds(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -850,10 +877,36 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	let item_impl = syn::parse_macro_input!(tokens as ItemImpl);
 
 	// internally wrap macro_magic's `#[export_tokens]` macro
-	match macro_magic::mm_core::export_tokens_internal(attrs, item_impl.to_token_stream(), true) {
+	match macro_magic::mm_core::export_tokens_internal(
+		attrs,
+		item_impl.to_token_stream(),
+		true,
+		false,
+	) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
+}
+
+#[proc_macro_attribute]
+pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
+	let item = tokens.clone();
+	let item = syn::parse_macro_input!(item as TraitItemType);
+	if item.ident != "RuntimeCall" &&
+		item.ident != "RuntimeEvent" &&
+		item.ident != "RuntimeOrigin" &&
+		item.ident != "RuntimeHoldReason" &&
+		item.ident != "RuntimeFreezeReason" &&
+		item.ident != "PalletInfo"
+	{
+		return syn::Error::new_spanned(
+			item,
+			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, `RuntimeOrigin` or `PalletInfo`",
+		)
+		.to_compile_error()
+		.into();
+	}
+	tokens
 }
 
 /// Used internally to decorate pallet attribute macro stubs when they are erroneously used
@@ -939,18 +992,23 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded by `Get`
-/// from [`pallet::config`](`macro@config`) into metadata, e.g.:
 ///
-/// ```ignore
-/// #[pallet::config]
-/// pub trait Config: frame_system::Config {
-/// 	#[pallet::constant]
-/// 	type Foo: Get<u32>;
-/// }
-/// ```
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant`.
 #[proc_macro_attribute]
 pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant_name`.
+#[proc_macro_attribute]
+pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1056,6 +1114,16 @@ pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 /// return a `DispatchResultWithPostInfo` or `DispatchResult`.
 #[proc_macro_attribute]
 pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::call`.
+#[proc_macro_attribute]
+pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1228,60 +1296,11 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::storage]` attribute lets you define some abstract storage inside of runtime
-/// storage and also set its metadata. This attribute can be used multiple times.
 ///
-/// Item should be defined as:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName<$some_generic> $optional_where_clause
-/// 	= $StorageType<$generic_name = $some_generics, $other_name = $some_other, ...>;
-/// ```
-///
-/// or with unnamed generic:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName<$some_generic> $optional_where_clause
-/// 	= $StorageType<_, $some_generics, ...>;
-/// ```
-///
-/// I.e. it must be a type alias, with generics: `T` or `T: Config`. The aliased type must be
-/// one of `StorageValue`, `StorageMap` or `StorageDoubleMap`. The generic arguments of the
-/// storage type can be given in two manners: named and unnamed. For named generic arguments,
-/// the name for each argument should match the name defined for it on the storage struct:
-/// * `StorageValue` expects `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `CountedStorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageDoubleMap` expects `Hasher1`, `Key1`, `Hasher2`, `Key2`, `Value` and optionally
-///   `QueryKind` and `OnEmpty`.
-///
-/// For unnamed generic arguments: Their first generic must be `_` as it is replaced by the
-/// macro and other generic must declared as a normal generic type declaration.
-///
-/// The `Prefix` generic written by the macro is generated using
-/// `PalletInfo::name::<Pallet<..>>()` and the name of the storage type. E.g. if runtime names
-/// the pallet "MyExample" then the storage `type Foo<T> = ...` should use the prefix:
-/// `Twox128(b"MyExample") ++ Twox128(b"Foo")`.
-///
-/// For the `CountedStorageMap` variant, the `Prefix` also implements
-/// `CountedStorageMapInstance`. It also associates a `CounterPrefix`, which is implemented the
-/// same as above, but the storage prefix is prepend with `"CounterFor"`. E.g. if runtime names
-/// the pallet "MyExample" then the storage `type Foo<T> = CountedStorageaMap<...>` will store
-/// its counter at the prefix: `Twox128(b"MyExample") ++ Twox128(b"CounterForFoo")`.
-///
-/// E.g:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// pub(super) type MyStorage<T> = StorageMap<Hasher = Blake2_128Concat, Key = u32, Value = u32>;
-/// ```
-///
-/// In this case the final prefix used by the map is `Twox128(b"MyExample") ++
-/// Twox128(b"OtherName")`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::storage`.
 #[proc_macro_attribute]
 pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1384,57 +1403,21 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::genesis_config]` attribute allows you to define the genesis configuration
-/// for the pallet.
 ///
-/// Item is defined as either an enum or a struct. It needs to be public and implement the
-/// trait `GenesisBuild` with [`#[pallet::genesis_build]`](`macro@genesis_build`). The type
-/// generics are constrained to be either none, or `T` or `T: Config`.
+/// ---
 ///
-/// E.g:
-///
-/// ```ignore
-/// #[pallet::genesis_config]
-/// pub struct GenesisConfig<T: Config> {
-/// 	_myfield: BalanceOf<T>,
-/// }
-/// ```
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::genesis_config`.
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::genesis_build]` attribute allows you to define how `genesis_configuration`
-/// is built. This takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's
-/// initial state.
 ///
-/// The impl must be defined as:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::genesis_build]
-/// impl<T: Config> GenesisBuild<T> for GenesisConfig<$maybe_generics> {
-/// 	fn build(&self) { $expr }
-/// }
-/// ```
-///
-/// I.e. a trait implementation with generic `T: Config`, of trait `GenesisBuild<T>` on
-/// type `GenesisConfig` with generics none or `T`.
-///
-/// E.g.:
-///
-/// ```ignore
-/// #[pallet::genesis_build]
-/// impl<T: Config> GenesisBuild<T> for GenesisConfig {
-/// 	fn build(&self) {}
-/// }
-/// ```
-///
-/// ## Macro expansion
-///
-/// The macro will add the following attribute:
-/// * `#[cfg(feature = "std")]`
-///
-/// The macro will implement `sp_runtime::BuildStorage`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::genesis_build`.
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1572,7 +1555,7 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	let _mod = parse_macro_input!(tokens_clone as ItemMod);
 
 	// use macro_magic's export_tokens as the internal implementation otherwise
-	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false) {
+	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false, true) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -1614,9 +1597,9 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 #[import_tokens_attr {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_access_from_frame_or_crate("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
