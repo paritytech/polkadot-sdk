@@ -49,6 +49,30 @@ pub mod pallet {
 			);
 			Ok(())
 		}
+
+		/// A dispatchable that first reads two values from two different child tries, asserts they
+		/// are the expected values (if the values exist in the state) and then writes two different
+		/// values to these child tries.
+		#[pallet::weight(0)]
+		pub fn read_and_write_child_tries(_: OriginFor<T>) -> DispatchResult {
+			let key = &b"hello"[..];
+			let first_trie = &b"first"[..];
+			let second_trie = &b"second"[..];
+			let first_value = "world1".encode();
+			let second_value = "world2".encode();
+
+			if let Some(res) = sp_io::default_child_storage::get(first_trie, key) {
+				assert_eq!(first_value, res);
+			}
+			if let Some(res) = sp_io::default_child_storage::get(second_trie, key) {
+				assert_eq!(second_value, res);
+			}
+
+			sp_io::default_child_storage::set(first_trie, key, &first_value);
+			sp_io::default_child_storage::set(second_trie, key, &second_value);
+
+			Ok(())
+		}
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
