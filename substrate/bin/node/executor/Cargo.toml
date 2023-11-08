@@ -47,7 +47,7 @@ sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-externalities = { path = "../../../primitives/externalities" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-runtime = { path = "../../../primitives/runtime" }
-serde_json = "1.0.85"
+serde_json = "1.0.108"
 
 [features]
 stress-test = []

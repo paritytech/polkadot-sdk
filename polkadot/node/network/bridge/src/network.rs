@@ -31,23 +31,129 @@ use sc_network::{
 };
 
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, ProtocolVersion},
+	peer_set::{
+		CollationVersion, PeerSet, PeerSetProtocolNames, ProtocolVersion, ValidationVersion,
+	},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, PeerId,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
 
-use crate::validator_discovery::AuthorityDiscovery;
+use crate::{metrics::Metrics, validator_discovery::AuthorityDiscovery, WireMessage};
 
 // network bridge network abstraction log target
 const LOG_TARGET: &'static str = "parachain::network-bridge-net";
 
-/// Send a message to the network.
+// Helper function to send a validation v1 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_validation_message_v1(
+	net: &mut impl Network,
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v1::ValidationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v1 message to peers",);
+
+	send_message(
+		net,
+		peers,
+		PeerSet::Validation,
+		ValidationVersion::V1.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a validation vstaging message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_validation_message_vstaging(
+	net: &mut impl Network,
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_vstaging::ValidationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation vstaging message to peers",);
+
+	send_message(
+		net,
+		peers,
+		PeerSet::Validation,
+		ValidationVersion::VStaging.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a validation v2 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_validation_message_v2(
+	net: &mut impl Network,
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v2::ValidationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	send_message(
+		net,
+		peers,
+		PeerSet::Validation,
+		ValidationVersion::V2.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a collation v1 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_collation_message_v1(
+	net: &mut impl Network,
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v1::CollationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	send_message(
+		net,
+		peers,
+		PeerSet::Collation,
+		CollationVersion::V1.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a collation v2 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_collation_message_v2(
+	net: &mut impl Network,
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v2::CollationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	send_message(
+		net,
+		peers,
+		PeerSet::Collation,
+		CollationVersion::V2.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+/// Lower level function that sends a message to the network using the main protocol version.
 ///
 /// This function is only used internally by the network-bridge, which is responsible to only send
 /// messages that are compatible with the passed peer set, as that is currently not enforced by
 /// this function. These are messages of type `WireMessage` parameterized on the matching type.
-pub(crate) fn send_message<M>(
+fn send_message<M>(
 	mut peers: Vec<PeerId>,
 	peer_set: PeerSet,
 	version: ProtocolVersion,
@@ -69,6 +175,15 @@ pub(crate) fn send_message<M>(
 	};
 
 	let notification_sinks = network_notification_sinks.lock();
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?peers,
+		?peerset,
+		?version,
+		?message,
+		"Sending message to peers",
+	);
 
 	// optimization: avoid cloning the message for the last peer in the
 	// list. The message payload can be quite large. If the underlying

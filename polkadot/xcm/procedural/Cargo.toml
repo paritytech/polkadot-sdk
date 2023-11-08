@@ -1,9 +1,11 @@
 [package]
 name = "xcm-procedural"
+description = "Procedural macros for XCM"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 version = "1.0.0"
+publish = true
 
 [lib]
 proc-macro = true
@@ -13,3 +15,6 @@ proc-macro2 = "1.0.56"
 quote = "1.0.28"
 syn = "2.0.38"
 Inflector = "0.11.4"
+
+[dev-dependencies]
+trybuild = { version = "1.0.74", features = ["diff"] }

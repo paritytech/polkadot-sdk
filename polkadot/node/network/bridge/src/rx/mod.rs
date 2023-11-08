@@ -20,6 +20,7 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
+use net_protocol::filter_by_peer_version;
 use parity_scale_codec::{Decode, DecodeAll};
 use parking_lot::Mutex;
 
@@ -36,8 +37,8 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, ObservedRole, OurView, PeerId,
-	UnifiedReputationChange as Rep, View,
+	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, ObservedRole, OurView,
+	PeerId, UnifiedReputationChange as Rep, View,
 };
 
 use polkadot_node_subsystem::{
@@ -67,9 +68,11 @@ use super::validator_discovery;
 /// Actual interfacing to the network based on the `Network` trait.
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
-use crate::network::{send_message, Network};
-
-use crate::network::get_peer_id_by_authority_id;
+use crate::network::{
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
+};
+use crate::{network::get_peer_id_by_authority_id, WireMessage};
 
 use super::metrics::Metrics;
 
@@ -194,7 +197,7 @@ async fn handle_validation_message<AD>(
 								target: LOG_TARGET,
 								fallback = &*fallback,
 								?peer,
-								?peer_set,
+								peerset = ?peer_set,
 								"Unknown fallback",
 							);
 
@@ -229,10 +232,10 @@ async fn handle_validation_message<AD>(
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
-						peer_set = ?peer_set,
+						peerset = ?peer_set,
 						version = %version,
-						peer = ?peer,
-						role = ?role,
+						?peer,
+						?role,
 						"Message sink not available for peer",
 					);
 					return
@@ -273,7 +276,7 @@ async fn handle_validation_message<AD>(
 					NetworkBridgeEvent::PeerConnected(peer, role, version, maybe_authority),
 					NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 				],
-				sender,
+				&mut sender,
 				&metrics,
 			)
 			.await;
@@ -281,18 +284,20 @@ async fn handle_validation_message<AD>(
 			match ValidationVersion::try_from(version)
 				.expect("try_get_protocol has already checked version is known; qed")
 			{
-				ValidationVersion::V1 => send_message(
+				ValidationVersion::V1 => send_validation_message_v1(
 					vec![peer],
-					PeerSet::Validation,
-					version,
 					WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
 				),
-				ValidationVersion::V2 => send_message(
+				ValidationVersion::VStaging => send_validation_message_vstaging(
 					vec![peer],
-					PeerSet::Validation,
-					version,
+					WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(local_view),
+					metrics,
+					notification_sinks,
+				),
+				ValidationVersion::V2 => send_validation_message_v2(
+					vec![peer],
 					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
@@ -326,7 +331,7 @@ async fn handle_validation_message<AD>(
 			if was_connected && version == peer_set.get_main_version() {
 				dispatch_validation_event_to_all(
 					NetworkBridgeEvent::PeerDisconnected(peer),
-					sender,
+					&mut sender,
 					&metrics,
 				)
 				.await;
@@ -370,6 +375,16 @@ async fn handle_validation_message<AD>(
 						vec![notification.into()],
 						metrics,
 					)
+				} else if expected_version[PeerSet::Validation] ==
+					Some(ValidationVersion::VStaging::into())
+				{
+					handle_peer_messages::<protocol_vstaging::ValidationProtocol, _>(
+						peer,
+						PeerSet::Validation,
+						&mut shared.0.lock().validation_peers,
+						vec![notification.into()],
+						metrics,
+					)
 				} else {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -388,7 +403,7 @@ async fn handle_validation_message<AD>(
 				network_service.report_peer(peer, report.into());
 			}
 
-			dispatch_validation_events_to_all(events, sender, &metrics).await;
+			dispatch_validation_events_to_all(events, &mut sender, &metrics).await;
 		},
 	}
 }
@@ -520,25 +535,21 @@ async fn handle_collation_message<AD>(
 					NetworkBridgeEvent::PeerConnected(peer, role, version, maybe_authority),
 					NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 				],
-				sender,
+				&mut sender,
 			)
 			.await;
 
 			match CollationVersion::try_from(version)
 				.expect("try_get_protocol has already checked version is known; qed")
 			{
-				CollationVersion::V1 => send_message(
+				CollationVersion::V1 => send_collation_message_v1(
 					vec![peer],
-					PeerSet::Collation,
-					version,
 					WireMessage::<protocol_v1::CollationProtocol>::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
 				),
-				CollationVersion::V2 => send_message(
+				CollationVersion::V2 => send_collation_message_v2(
 					vec![peer],
-					PeerSet::Collation,
-					version,
 					WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
@@ -692,6 +703,15 @@ where
 	let mut peers = Vec::with_capacity(neighbors.len());
 	for (discovery_id, validator_index) in neighbors {
 		let addr = get_peer_id_by_authority_id(ads, discovery_id.clone()).await;
+		if addr.is_none() {
+			// See on why is not good in https://github.com/paritytech/polkadot-sdk/issues/2138
+			gum::debug!(
+				target: LOG_TARGET,
+				?validator_index,
+				"Could not determine peer_id for validator, let the team know in \n
+				https://github.com/paritytech/polkadot-sdk/issues/2138"
+			)
+		}
 		peers.push(TopologyPeerInfo {
 			peer_ids: addr.into_iter().collect(),
 			validator_index,
@@ -944,15 +964,16 @@ fn update_our_view<Context>(
 		)
 	};
 
-	let filter_by_version = |peers: &[(PeerId, ProtocolVersion)], version| {
-		peers.iter().filter(|(_, v)| v == &version).map(|(p, _)| *p).collect::<Vec<_>>()
-	};
+	let v1_validation_peers =
+		filter_by_peer_version(&validation_peers, ValidationVersion::V1.into());
+	let v1_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V1.into());
 
-	let v1_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V1.into());
-	let v1_collation_peers = filter_by_version(&collation_peers, CollationVersion::V1.into());
+	let v2_validation_peers =
+		filter_by_peer_version(&validation_peers, ValidationVersion::V2.into());
+	let v2_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V2.into());
 
-	let v2_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V2.into());
-	let v2_collation_peers = filter_by_version(&collation_peers, ValidationVersion::V2.into());
+	let vstaging_validation_peers =
+		filter_by_peer_version(&validation_peers, ValidationVersion::VStaging.into());
 
 	send_validation_message_v1(
 		v1_validation_peers,
@@ -977,7 +998,14 @@ fn update_our_view<Context>(
 
 	send_collation_message_v2(
 		v2_collation_peers,
-		WireMessage::ViewUpdate(new_view),
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+		notification_sinks,
+	);
+
+	send_validation_message_vstaging(
+		vstaging_validation_peers,
+		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,
 	);
@@ -1049,70 +1077,6 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 	}
 
 	(outgoing_events, reports)
-}
-
-fn send_validation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-fn send_collation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::CollationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-fn send_validation_message_v2(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v2::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-fn send_collation_message_v2(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v2::CollationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V2.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
 }
 
 async fn dispatch_validation_event_to_all(

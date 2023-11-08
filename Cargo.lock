@@ -159,7 +159,7 @@ version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a824f2aa7e75a0c98c5a504fceb80649e9c35265d44525b5f94de4771a395cd"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "once_cell",
  "version_check",
 ]
@@ -171,7 +171,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91429305e9f0a25f6205c5b8e0d2db09e0708a7a6df0f42212bb56c32c8ac97a"
 dependencies = [
  "cfg-if",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -612,9 +612,9 @@ checksum = "f52f63c5c1316a16a4b35eaac8b76a98248961a533f061684cb2a7cb0eafb6c6"
 
 [[package]]
 name = "array-bytes"
-version = "6.1.0"
+version = "6.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b1c5a481ec30a5abd8dfbd94ab5cf1bb4e9a66be7f1b3b322f2f1170c200fd"
+checksum = "de17a919934ad8c5cc99a1a74de4e2dab95d6121a8f27f94755ff525b630382c"
 
 [[package]]
 name = "arrayref"
@@ -1165,29 +1165,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-channel"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d37875bd9915b7d67c2f117ea2c30a0989874d0b2cb694fe25403c85763c0c9e"
-dependencies = [
- "concurrent-queue",
- "event-listener 3.0.1",
- "event-listener-strategy",
- "futures-core",
- "pin-project-lite 0.2.13",
-]
-
-[[package]]
 name = "async-executor"
-version = "1.7.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f9936333f3d84275cb4010514544ae7fe0847760f4a242e8ce603b358615cad"
+checksum = "4b0c4a4f319e45986f347ee47fef8bf5e81c9abc3f6f58dc2391439f30df65f0"
 dependencies = [
- "async-lock 3.0.0",
+ "async-lock 2.8.0",
  "async-task",
  "concurrent-queue",
  "fastrand 2.0.1",
- "futures-lite 2.0.1",
+ "futures-lite 1.13.0",
  "slab",
 ]
 
@@ -1486,7 +1473,7 @@ dependencies = [
 name = "binary-merkle-tree"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "env_logger 0.9.3",
  "hash-db",
  "log",
@@ -1690,16 +1677,16 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blocking"
-version = "1.5.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "864b30e660d766b7e9b47347d9b6558a17f1cfa22274034fa6f55b274b3e4620"
+checksum = "8c36a4d0d48574b3dd360b4b7d95cc651d2b6557b6402848a27d4b228a473e2a"
 dependencies = [
- "async-channel 2.1.0",
- "async-lock 3.0.0",
+ "async-channel",
+ "async-lock 2.8.0",
  "async-task",
  "fastrand 2.0.1",
  "futures-io",
- "futures-lite 2.0.1",
+ "futures-lite 1.13.0",
  "piper",
  "tracing",
 ]
@@ -3105,7 +3092,7 @@ version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9d839f2a20b0aee515dc581a6172f2321f96cab76c1a38a4c584a194955390e"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "once_cell",
  "tiny-keccak",
 ]
@@ -4133,7 +4120,7 @@ dependencies = [
 name = "cumulus-relay-chain-minimal-node"
 version = "0.1.0"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -5121,9 +5108,9 @@ dependencies = [
 
 [[package]]
 name = "errno"
-version = "0.3.5"
+version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac3e13f66a2f95e32a39eaa81f6b95d42878ca0e1db0c7543723dfe12557e860"
+checksum = "7c18ee0ed65a5f1f81cac6b1d213b69c35fa47d4252ad41f1486dbd8226fe36e"
 dependencies = [
  "libc",
  "windows-sys 0.48.0",
@@ -5504,7 +5491,7 @@ dependencies = [
 name = "frame-benchmarking"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "frame-support",
  "frame-support-procedural",
  "frame-system",
@@ -5532,7 +5519,7 @@ name = "frame-benchmarking-cli"
 version = "4.0.0-dev"
 dependencies = [
  "Inflector",
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "chrono",
  "clap 4.4.7",
  "comfy-table",
@@ -5643,7 +5630,7 @@ dependencies = [
 name = "frame-executive"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "frame-support",
  "frame-system",
  "frame-try-runtime",
@@ -5699,7 +5686,7 @@ name = "frame-support"
 version = "4.0.0-dev"
 dependencies = [
  "aquamarine",
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
  "bitflags 1.3.2",
  "docify",
@@ -6129,9 +6116,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.10"
+version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
+checksum = "fe9006bed769170c11f845cf00c7c1e9092aeb3f268e007c3e760ac68008070f"
 dependencies = [
  "cfg-if",
  "libc",
@@ -7394,7 +7381,7 @@ dependencies = [
  "bytes",
  "futures",
  "futures-timer",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "instant",
  "libp2p-allow-block-list",
  "libp2p-connection-limits",
@@ -7942,9 +7929,9 @@ checksum = "ef53942eb7bf7ff43a617b3e2c1c4a5ecf5944a7c1bc12d7ee39bbb15e5c1519"
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da2479e8c062e40bf0066ffa0bc823de0a9368974af99c9f6df941d2c231e03f"
+checksum = "969488b55f8ac402214f3f5fd243ebb7206cf82de60d3172994707a4bcc2b829"
 
 [[package]]
 name = "lioness"
@@ -8675,7 +8662,7 @@ checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
 name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "clap 4.4.7",
  "derive_more",
  "fs_extra",
@@ -9178,7 +9165,7 @@ dependencies = [
 name = "pallet-alliance"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -9481,7 +9468,7 @@ dependencies = [
 name = "pallet-beefy-mmr"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "binary-merkle-tree",
  "frame-support",
  "frame-system",
@@ -9704,7 +9691,7 @@ dependencies = [
 name = "pallet-contracts"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
  "bitflags 1.3.2",
  "env_logger 0.9.3",
@@ -10239,7 +10226,7 @@ dependencies = [
 name = "pallet-mmr"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "env_logger 0.9.3",
  "frame-benchmarking",
  "frame-support",
@@ -11038,7 +11025,7 @@ dependencies = [
 name = "pallet-transaction-storage"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11868,9 +11855,11 @@ name = "polkadot-approval-distribution"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+ "bitvec",
  "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "log",
  "polkadot-node-jaeger",
  "polkadot-node-metrics",
@@ -12050,7 +12039,7 @@ name = "polkadot-dispute-distribution"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel",
  "async-trait",
  "derive_more",
  "fatality",
@@ -12178,10 +12167,13 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
+ "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "kvdb",
  "kvdb-memorydb",
+ "log",
  "merlin 2.0.1",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -12193,6 +12185,8 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rand_core 0.5.1",
  "sc-keystore",
  "schnellru",
@@ -12624,7 +12618,7 @@ dependencies = [
 name = "polkadot-node-network-protocol"
 version = "1.0.0"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel",
  "async-trait",
  "bitvec",
  "derive_more",
@@ -12648,6 +12642,7 @@ dependencies = [
 name = "polkadot-node-primitives"
 version = "1.0.0"
 dependencies = [
+ "bitvec",
  "bounded-vec",
  "futures",
  "parity-scale-codec",
@@ -12699,6 +12694,7 @@ name = "polkadot-node-subsystem-types"
 version = "1.0.0"
 dependencies = [
  "async-trait",
+ "bitvec",
  "derive_more",
  "futures",
  "orchestra",
@@ -13141,6 +13137,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "polkadot-rpc",
  "polkadot-runtime-parachains",
  "polkadot-statement-distribution",
@@ -13211,7 +13208,7 @@ version = "1.0.0"
 dependencies = [
  "arrayvec 0.7.4",
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel",
  "bitvec",
  "fatality",
  "futures",
@@ -14025,7 +14022,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
 ]
 
 [[package]]
@@ -14140,7 +14137,7 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a18479200779601e498ada4e8c1e1f50e3ee19deb0259c25825a98b5603b2cb4"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "libredox",
  "thiserror",
 ]
@@ -14358,7 +14355,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb0205304757e5d899b9c2e448b867ffd03ae7f988002e47cd24954391394d0b"
 dependencies = [
  "cc",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "libc",
  "spin 0.9.8",
  "untrusted 0.9.0",
@@ -14701,7 +14698,7 @@ dependencies = [
  "bitflags 2.4.1",
  "errno",
  "libc",
- "linux-raw-sys 0.4.10",
+ "linux-raw-sys 0.4.11",
  "windows-sys 0.48.0",
 ]
 
@@ -14930,7 +14927,7 @@ dependencies = [
 name = "sc-chain-spec"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "docify",
  "log",
  "memmap2 0.5.10",
@@ -14968,7 +14965,7 @@ dependencies = [
 name = "sc-cli"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "bip39",
  "chrono",
  "clap 4.4.7",
@@ -15040,7 +15037,7 @@ dependencies = [
 name = "sc-client-db"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "criterion 0.4.0",
  "hash-db",
  "kitchensink-runtime",
@@ -15205,8 +15202,8 @@ dependencies = [
 name = "sc-consensus-beefy"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
- "async-channel 1.9.0",
+ "array-bytes 6.2.0",
+ "async-channel",
  "async-trait",
  "fnv",
  "futures",
@@ -15281,7 +15278,7 @@ name = "sc-consensus-grandpa"
 version = "0.10.0-dev"
 dependencies = [
  "ahash 0.8.6",
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
  "async-trait",
  "dyn-clone",
@@ -15437,7 +15434,7 @@ dependencies = [
 name = "sc-executor"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
  "criterion 0.4.0",
  "env_logger 0.9.3",
@@ -15526,7 +15523,7 @@ dependencies = [
 name = "sc-keystore"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "parking_lot 0.12.1",
  "serde_json",
  "sp-application-crypto",
@@ -15568,9 +15565,9 @@ dependencies = [
 name = "sc-network"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel",
  "async-trait",
  "asynchronous-codec",
  "bytes",
@@ -15621,7 +15618,7 @@ dependencies = [
 name = "sc-network-bitswap"
 version = "0.10.0-dev"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel",
  "cid",
  "futures",
  "libp2p-identity",
@@ -15687,8 +15684,8 @@ dependencies = [
 name = "sc-network-light"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
- "async-channel 1.9.0",
+ "array-bytes 6.2.0",
+ "async-channel",
  "futures",
  "libp2p-identity",
  "log",
@@ -15707,8 +15704,8 @@ dependencies = [
 name = "sc-network-statement"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
- "async-channel 1.9.0",
+ "array-bytes 6.2.0",
+ "async-channel",
  "futures",
  "libp2p",
  "log",
@@ -15725,8 +15722,8 @@ dependencies = [
 name = "sc-network-sync"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
- "async-channel 1.9.0",
+ "array-bytes 6.2.0",
+ "async-channel",
  "async-trait",
  "fork-tree",
  "futures",
@@ -15795,7 +15792,7 @@ dependencies = [
 name = "sc-network-transactions"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "futures",
  "libp2p",
  "log",
@@ -15813,7 +15810,7 @@ dependencies = [
 name = "sc-offchain"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "bytes",
  "fnv",
  "futures",
@@ -15935,7 +15932,7 @@ dependencies = [
 name = "sc-rpc-spec-v2"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
  "futures",
  "futures-util",
@@ -16047,8 +16044,8 @@ dependencies = [
 name = "sc-service-test"
 version = "2.0.0"
 dependencies = [
- "array-bytes 6.1.0",
- "async-channel 1.9.0",
+ "array-bytes 6.2.0",
+ "async-channel",
  "fdlimit",
  "futures",
  "log",
@@ -16221,7 +16218,7 @@ dependencies = [
 name = "sc-transaction-pool"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
  "async-trait",
  "criterion 0.4.0",
@@ -16270,7 +16267,7 @@ dependencies = [
 name = "sc-utils"
 version = "4.0.0-dev"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel",
  "futures",
  "futures-timer",
  "lazy_static",
@@ -16568,18 +16565,18 @@ checksum = "f97841a747eef040fcd2e7b3b9a220a7205926e60488e673d9e4926d27772ce5"
 
 [[package]]
 name = "serde"
-version = "1.0.190"
+version = "1.0.192"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91d3c334ca1ee894a2c6f6ad698fe8c435b76d504b13d436f0685d648d6d96f7"
+checksum = "bca2a08484b285dcb282d0f67b26cadc0df8b19f8c12502c13d966bf9482f001"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.190"
+version = "1.0.192"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67c5609f394e5c2bd7fc51efda478004ea80ef42fee983d5c67a65e34f32c0e3"
+checksum = "d6c7207fbec9faa48073f3e3074cbe553af6ea512d7c21ba46e434e70ea9fbc1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -16885,7 +16882,7 @@ version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13f2b548cd8447f8de0fdf1c592929f70f4fc7039a05e47404b0d096ec6987a1"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel",
  "async-executor",
  "async-fs",
  "async-io 1.13.0",
@@ -16956,7 +16953,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "256b5bad1d6b49045e95fe87492ce73d5af81545d8b4d8318a872d2007024c33"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel",
  "async-lock 2.8.0",
  "base64 0.21.5",
  "blake2-rfc",
@@ -17265,7 +17262,7 @@ dependencies = [
 name = "sp-consensus-beefy"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "lazy_static",
  "parity-scale-codec",
  "scale-info",
@@ -17339,7 +17336,7 @@ dependencies = [
 name = "sp-core"
 version = "21.0.0"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "bandersnatch_vrfs",
  "bip39",
  "bitflags 1.3.2",
@@ -17429,7 +17426,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -17467,7 +17464,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -17487,7 +17484,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.19.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -17598,7 +17595,7 @@ dependencies = [
 name = "sp-mmr-primitives"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "ckb-merkle-mountain-range",
  "log",
  "parity-scale-codec",
@@ -17719,7 +17716,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -17748,7 +17745,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "11.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "Inflector",
  "proc-macro-crate",
@@ -17826,7 +17823,7 @@ dependencies = [
 name = "sp-state-machine"
 version = "0.28.0"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_matches",
  "hash-db",
  "log",
@@ -17876,7 +17873,7 @@ version = "8.0.0"
 [[package]]
 name = "sp-std"
 version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 
 [[package]]
 name = "sp-storage"
@@ -17893,7 +17890,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "13.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -17942,7 +17939,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "10.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "parity-scale-codec",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
@@ -17978,7 +17975,7 @@ name = "sp-trie"
 version = "22.0.0"
 dependencies = [
  "ahash 0.8.6",
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "criterion 0.4.0",
  "hash-db",
  "hashbrown 0.13.2",
@@ -18043,7 +18040,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#f6ee4781f633f0f89598f7b230595afe401da8dc"
+source = "git+https://github.com/paritytech/polkadot-sdk#37bb02ef62cee28dd67a0075cd424aa6aa1c6b18"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -18153,7 +18150,7 @@ dependencies = [
 name = "staging-node-cli"
 version = "3.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "assert_cmd",
  "clap 4.4.7",
  "clap_complete",
@@ -18636,7 +18633,7 @@ dependencies = [
 name = "substrate-test-client"
 version = "2.0.1"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "async-trait",
  "futures",
  "parity-scale-codec",
@@ -18661,7 +18658,7 @@ dependencies = [
 name = "substrate-test-runtime"
 version = "2.0.0"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.0",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -19932,7 +19929,7 @@ version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
 ]
 
 [[package]]
@@ -20144,9 +20141,9 @@ checksum = "0d046c5d029ba91a1ed14da14dca44b68bf2f124cfbaf741c54151fdb3e0750b"
 
 [[package]]
 name = "wasm-encoder"
-version = "0.36.1"
+version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53ae0be20bf87918df4fa831bfbbd0b491d24aee407ed86360eae4c2c5608d38"
+checksum = "822b645bf4f2446b949776ffca47e2af60b167209ffb70814ef8779d299cd421"
 dependencies = [
  "leb128",
 ]
@@ -20471,9 +20468,9 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "67.0.0"
+version = "67.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36c2933efd77ff2398b83817a98984ffe4b67aefd9aa1d2c8e68e19b553f1c38"
+checksum = "a974d82fac092b5227c1663e16514e7a85f32014e22e6fdcb08b71aec9d3fb1e"
 dependencies = [
  "leb128",
  "memchr",
@@ -20483,9 +20480,9 @@ dependencies = [
 
 [[package]]
 name = "wat"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c02905d13751dcb18f4e19f489d37a1bf139f519feaeef28d072a41a78e69a74"
+checksum = "adb220934f92f8551144c0003d1bc57a060674c99139f45ed623fbbf6d9262e7"
 dependencies = [
  "wast",
 ]
@@ -21236,6 +21233,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.39",
+ "trybuild",
 ]
 
 [[package]]

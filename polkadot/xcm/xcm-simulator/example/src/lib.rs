@@ -649,4 +649,23 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn builder_pattern_works() {
+		let asset: MultiAsset = (Here, 100u128).into();
+		let beneficiary: MultiLocation = AccountId32 { id: [0u8; 32], network: None }.into();
+		let message: Xcm<()> = Xcm::builder()
+			.withdraw_asset(asset.clone().into())
+			.buy_execution(asset.clone(), Unlimited)
+			.deposit_asset(asset.clone().into(), beneficiary)
+			.build();
+		assert_eq!(
+			message,
+			Xcm(vec![
+				WithdrawAsset(asset.clone().into()),
+				BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
+				DepositAsset { assets: asset.into(), beneficiary },
+			])
+		);
+	}
 }

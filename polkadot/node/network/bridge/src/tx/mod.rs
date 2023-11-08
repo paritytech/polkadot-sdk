@@ -18,9 +18,7 @@
 use super::*;
 
 use polkadot_node_network_protocol::{
-	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames, ValidationVersion},
-	request_response::ReqProtocolNames,
-	v1 as protocol_v1, v2 as protocol_v2, PeerId, Versioned,
+	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, Versioned,
 };
 
 use polkadot_node_subsystem::{
@@ -41,7 +39,10 @@ use crate::validator_discovery;
 /// Actual interfacing to the network based on the `Network` trait.
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
-use crate::network::{send_message, Network};
+use crate::network::{
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
+};
 
 use crate::metrics::Metrics;
 
@@ -193,6 +194,7 @@ where
 			gum::trace!(
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
+				?msg,
 				num_messages = 1usize,
 			);
 
@@ -202,6 +204,12 @@ where
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 					notification_sinks,
+				),
+				Versioned::VStaging(msg) => send_validation_message_vstaging(
+					peers,
+					peerset_protocol_names,
+					WireMessage::ProtocolMessage(msg),
+					&metrics,
 				),
 				Versioned::V2(msg) => send_validation_message_v2(
 					peers,
@@ -216,6 +224,7 @@ where
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
 				num_messages = %msgs.len(),
+				?msgs,
 			);
 
 			for (peers, msg) in msgs {
@@ -225,6 +234,12 @@ where
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 						notification_sinks,
+					),
+					Versioned::VStaging(msg) => send_validation_message_vstaging(
+						peers,
+						peerset_protocol_names,
+						WireMessage::ProtocolMessage(msg),
+						&metrics,
 					),
 					Versioned::V2(msg) => send_validation_message_v2(
 						peers,
@@ -249,7 +264,7 @@ where
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::V2(msg) => send_collation_message_v2(
+				Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -272,7 +287,7 @@ where
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::V2(msg) => send_collation_message_v2(
+					Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -385,68 +400,4 @@ where
 	.await?;
 
 	Ok(())
-}
-
-fn send_validation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-fn send_collation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::CollationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-fn send_validation_message_v2(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v2::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-fn send_collation_message_v2(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v2::CollationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V2.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
 }
