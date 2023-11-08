@@ -40,7 +40,7 @@ use sp_runtime::{
 	BuildStorage,
 };
 use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
 };
 
@@ -723,12 +723,11 @@ pub(crate) fn on_offence_in_era(
 	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
-	disable_strategy: DisableStrategy,
 ) {
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
 			return
 		} else if bonded_era > era {
 			break
@@ -740,7 +739,6 @@ pub(crate) fn on_offence_in_era(
 			offenders,
 			slash_fraction,
 			Staking::eras_start_session_index(era).unwrap(),
-			disable_strategy,
 		);
 	} else {
 		panic!("cannot slash in era {}", era);
@@ -755,7 +753,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = Staking::active_era().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now, DisableStrategy::WhenSlashed)
+	on_offence_in_era(offenders, slash_fraction, now)
 }
 
 pub(crate) fn add_slash(who: &AccountId) {

@@ -177,15 +177,15 @@ pub trait OnOffenceHandler<Reporter, Offender, Res> {
 	///
 	/// The `session` parameter is the session index of the offence.
 	///
-	/// The `disable_strategy` parameter decides if the offenders need to be disabled immediately.
+	/// NOTE: All offenders are disabled immediately.
 	///
 	/// The receiver might decide to not accept this offence. In this case, the call site is
 	/// responsible for queuing the report and re-submitting again.
+	// TODO: check if the comment above is correct
 	fn on_offence(
 		offenders: &[OffenceDetails<Reporter, Offender>],
 		slash_fraction: &[Perbill],
 		session: SessionIndex,
-		disable_strategy: DisableStrategy,
 	) -> Res;
 }
 
@@ -194,7 +194,6 @@ impl<Reporter, Offender, Res: Default> OnOffenceHandler<Reporter, Offender, Res>
 		_offenders: &[OffenceDetails<Reporter, Offender>],
 		_slash_fraction: &[Perbill],
 		_session: SessionIndex,
-		_disable_strategy: DisableStrategy,
 	) -> Res {
 		Default::default()
 	}

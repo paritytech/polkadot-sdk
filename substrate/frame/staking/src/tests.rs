@@ -38,7 +38,7 @@ use sp_runtime::{
 	Perbill, Percent, Perquintill, Rounding, TokenError,
 };
 use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
 use sp_std::prelude::*;
@@ -2429,7 +2429,6 @@ fn slash_in_old_span_does_not_deselect() {
 			}],
 			&[Perbill::from_percent(0)],
 			1,
-			DisableStrategy::WhenSlashed,
 		);
 
 		// the validator doesn't get chilled again
@@ -2446,7 +2445,6 @@ fn slash_in_old_span_does_not_deselect() {
 			// NOTE: A 100% slash here would clean up the account, causing de-registration.
 			&[Perbill::from_percent(95)],
 			1,
-			DisableStrategy::WhenSlashed,
 		);
 
 		// the validator doesn't get chilled again
@@ -2746,7 +2744,6 @@ fn slashing_nominators_by_span_max() {
 			}],
 			&[Perbill::from_percent(10)],
 			2,
-			DisableStrategy::WhenSlashed,
 		);
 
 		assert_eq!(Balances::free_balance(11), 900);
@@ -2773,7 +2770,6 @@ fn slashing_nominators_by_span_max() {
 			}],
 			&[Perbill::from_percent(30)],
 			3,
-			DisableStrategy::WhenSlashed,
 		);
 
 		// 11 was not further slashed, but 21 and 101 were.
@@ -2795,7 +2791,6 @@ fn slashing_nominators_by_span_max() {
 			}],
 			&[Perbill::from_percent(20)],
 			2,
-			DisableStrategy::WhenSlashed,
 		);
 
 		// 11 was further slashed, but 21 and 101 were not.
@@ -2942,7 +2937,6 @@ fn retroactive_deferred_slashes_two_eras_before() {
 			&[OffenceDetails { offender: (11, exposure_11_at_era1), reporters: vec![] }],
 			&[Perbill::from_percent(10)],
 			1, // should be deferred for two full eras, and applied at the beginning of era 4.
-			DisableStrategy::Never,
 		);
 
 		mock::start_active_era(4);
@@ -2980,7 +2974,6 @@ fn retroactive_deferred_slashes_one_before() {
 			&[OffenceDetails { offender: (11, exposure_11_at_era1), reporters: vec![] }],
 			&[Perbill::from_percent(10)],
 			2, // should be deferred for two full eras, and applied at the beginning of era 5.
-			DisableStrategy::Never,
 		);
 
 		mock::start_active_era(4);
@@ -3110,7 +3103,6 @@ fn remove_deferred() {
 			&[OffenceDetails { offender: (11, exposure.clone()), reporters: vec![] }],
 			&[Perbill::from_percent(15)],
 			1,
-			DisableStrategy::WhenSlashed,
 		);
 
 		// fails if empty
@@ -3290,7 +3282,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 }
 
 #[test]
-fn non_slashable_offence_doesnt_disable_validator() {
+fn non_slashable_offence_disables_validator() {
 	ExtBuilder::default().build_and_execute(|| {
 		mock::start_active_era(1);
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
@@ -3339,8 +3331,8 @@ fn non_slashable_offence_doesnt_disable_validator() {
 			]
 		);
 
-		// the offence for validator 10 wasn't slashable so it wasn't disabled
-		assert!(!is_disabled(11));
+		// the offence for validator 10 wasn't slashable but it should have been disabled
+		assert!(is_disabled(11));
 		// whereas validator 20 gets disabled
 		assert!(is_disabled(21));
 	});
@@ -3357,23 +3349,21 @@ fn slashing_independent_of_disabling_validator() {
 
 		let now = Staking::active_era().unwrap().index;
 
-		// offence with no slash associated, BUT disabling
+		// offence with no slash associated
 		on_offence_in_era(
 			&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
 			&[Perbill::zero()],
 			now,
-			DisableStrategy::Always,
 		);
 
 		// nomination remains untouched.
 		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
 
-		// offence that slashes 25% of the bond, BUT not disabling
+		// offence that slashes 25% of the bond
 		on_offence_in_era(
 			&[OffenceDetails { offender: (21, exposure_21.clone()), reporters: vec![] }],
 			&[Perbill::from_percent(25)],
 			now,
-			DisableStrategy::Never,
 		);
 
 		// nomination remains untouched.
@@ -3402,10 +3392,9 @@ fn slashing_independent_of_disabling_validator() {
 			]
 		);
 
-		// the offence for validator 10 was explicitly disabled
+		// both validators should be disabled
 		assert!(is_disabled(11));
-		// whereas validator 21 is explicitly not disabled
-		assert!(!is_disabled(21));
+		assert!(is_disabled(21));
 	});
 }
 
@@ -3467,11 +3456,6 @@ fn disabled_validators_are_kept_disabled_for_whole_era() {
 			let exposure_21 = Staking::eras_stakers(Staking::active_era().unwrap().index, &21);
 
 			on_offence_now(
-				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
-				&[Perbill::zero()],
-			);
-
-			on_offence_now(
 				&[OffenceDetails { offender: (21, exposure_21.clone()), reporters: vec![] }],
 				&[Perbill::from_percent(25)],
 			);
@@ -3479,18 +3463,15 @@ fn disabled_validators_are_kept_disabled_for_whole_era() {
 			// nominations are not updated.
 			assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
 
-			// validator 11 should not be disabled since the offence wasn't slashable
-			assert!(!is_disabled(11));
 			// validator 21 gets disabled since it got slashed
 			assert!(is_disabled(21));
 
 			advance_session();
 
 			// disabled validators should carry-on through all sessions in the era
-			assert!(!is_disabled(11));
 			assert!(is_disabled(21));
 
-			// validator 11 should now get disabled
+			// validator 11 commits an offence
 			on_offence_now(
 				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
 				&[Perbill::from_percent(25)],
@@ -4623,7 +4604,7 @@ fn offences_weight_calculated_correctly() {
 		let zero_offence_weight =
 			<Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
 		assert_eq!(
-			Staking::on_offence(&[], &[Perbill::from_percent(50)], 0, DisableStrategy::WhenSlashed),
+			Staking::on_offence(&[], &[Perbill::from_percent(50)], 0),
 			zero_offence_weight
 		);
 
@@ -4648,7 +4629,6 @@ fn offences_weight_calculated_correctly() {
 				&offenders,
 				&[Perbill::from_percent(50)],
 				0,
-				DisableStrategy::WhenSlashed
 			),
 			n_offence_unapplied_weight
 		);
@@ -4678,7 +4658,6 @@ fn offences_weight_calculated_correctly() {
 				&one_offender,
 				&[Perbill::from_percent(50)],
 				0,
-				DisableStrategy::WhenSlashed{}
 			),
 			one_offence_unapplied_weight
 		);

@@ -40,7 +40,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -427,10 +427,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// disable all offending validators that have been disabled for the whole era
-		for (index, disabled) in <OffendingValidators<T>>::get() {
-			if disabled {
-				T::SessionInterface::disable_validator(index);
-			}
+		for index in <OffendingValidators<T>>::get() {
+			T::SessionInterface::disable_validator(index);
 		}
 	}
 
@@ -1354,7 +1352,6 @@ where
 		>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-		disable_strategy: DisableStrategy,
 	) -> Weight {
 		let reward_proportion = SlashRewardFraction::<T>::get();
 		let mut consumed_weight = Weight::from_parts(0, 0);
@@ -1419,7 +1416,6 @@ where
 				window_start,
 				now: active_era,
 				reward_proportion,
-				disable_strategy,
 			});
 
 			Self::deposit_event(Event::<T>::SlashReported {

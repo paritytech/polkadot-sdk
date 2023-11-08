@@ -645,10 +645,11 @@ pub mod pallet {
 	/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
 	/// whether a given validator has previously offended using binary search. It gets cleared when
 	/// the era ends.
+	// TODO: Fix the comment above
 	#[pallet::storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn offending_validators)]
-	pub type OffendingValidators<T: Config> = StorageValue<_, Vec<(u32, bool)>, ValueQuery>;
+	pub type OffendingValidators<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators

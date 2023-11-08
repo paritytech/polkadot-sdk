@@ -51,7 +51,6 @@ impl<Reporter, Offender> offence::OnOffenceHandler<Reporter, Offender, Weight>
 		_offenders: &[OffenceDetails<Reporter, Offender>],
 		slash_fraction: &[Perbill],
 		_offence_session: SessionIndex,
-		_disable_strategy: DisableStrategy,
 	) -> Weight {
 		OnOffencePerbill::mutate(|f| {
 			*f = slash_fraction.to_vec();
