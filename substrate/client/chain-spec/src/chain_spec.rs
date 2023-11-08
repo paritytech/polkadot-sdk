@@ -161,7 +161,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Config(config),
 				code,
 			}) => {
-				RuntimeCaller::<HF>::new(&code[..])
+				RuntimeCaller::<(sp_io::SubstrateHostFunctions, HF)>::new(&code[..])
 					.get_storage_for_config(config)?
 					.assimilate_storage(storage)?;
 				storage
@@ -172,7 +172,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Patch(patch),
 				code,
 			}) => {
-				RuntimeCaller::<HF>::new(&code[..])
+				RuntimeCaller::<(sp_io::SubstrateHostFunctions, HF)>::new(&code[..])
 					.get_storage_for_patch(patch)?
 					.assimilate_storage(storage)?;
 				storage
@@ -457,7 +457,7 @@ impl<G, E> ChainSpecBuilder<G, E> {
 }
 
 /// A configuration of a chain. Can be used to build a genesis block.
-pub struct ChainSpec<G, E = NoExtension, HF = sp_io::SubstrateHostFunctions> {
+pub struct ChainSpec<G, E = NoExtension, ExtHF = ()> {
 	client_spec: ClientSpec<E>,
 	genesis: GenesisSource<G>,
 	_host_functions: PhantomData<HF>,
