@@ -240,7 +240,7 @@ pub trait QueuePausedQuery<Origin> {
 	fn is_paused(origin: &Origin) -> bool;
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(30)]
+#[impl_trait_for_tuples::impl_for_tuples(8)]
 impl<Origin> QueuePausedQuery<Origin> for Tuple {
 	fn is_paused(origin: &Origin) -> bool {
 		for_tuples!( #(
