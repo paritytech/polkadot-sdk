@@ -41,6 +41,7 @@ cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inh
 assert_matches = "1.5"
 hex-literal = "0.4.1"
 lazy_static = "1.4"
+futures = "0.3.28"
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
