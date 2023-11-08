@@ -1539,6 +1539,22 @@
 <a href="#1539" id="1539">1539</a>
 <a href="#1540" id="1540">1540</a>
 <a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
+<a href="#1556" id="1556">1556</a>
+<a href="#1557" id="1557">1557</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1711,30 +1727,21 @@
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
 	) -&gt; ParachainInherentData;
-}
-
-<span class="kw">pub trait </span>NetworkComponent {
-	<span class="kw">type </span>Network: Network;
-
 	<span class="kw">fn </span>send_horizontal_messages&lt;I: Iterator&lt;Item = (ParaId, RelayBlockNumber, Vec&lt;u8&gt;)&gt;&gt;(
 		to_para_id: u32,
 		iter: I,
 	) {
 		HORIZONTAL_MESSAGES.with(|b| {
 			b.borrow_mut()
-				.get_mut(<span class="self">Self</span>::Network::name())
+				.get_mut(<span class="self">Self</span>::name())
 				.unwrap()
 				.push_back((to_para_id, iter.collect()))
 		});
 	}
 
 	<span class="kw">fn </span>send_upward_message(from_para_id: u32, msg: Vec&lt;u8&gt;) {
-		UPWARD_MESSAGES.with(|b| {
-			b.borrow_mut()
-				.get_mut(<span class="self">Self</span>::Network::name())
-				.unwrap()
-				.push_back((from_para_id, msg))
-		});
+		UPWARD_MESSAGES
+			.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().push_back((from_para_id, msg)));
 	}
 
 	<span class="kw">fn </span>send_downward_messages(
@@ -1743,19 +1750,19 @@
 	) {
 		DOWNWARD_MESSAGES.with(|b| {
 			b.borrow_mut()
-				.get_mut(<span class="self">Self</span>::Network::name())
+				.get_mut(<span class="self">Self</span>::name())
 				.unwrap()
 				.push_back((to_para_id, iter.collect()))
 		});
 	}
 
 	<span class="kw">fn </span>send_bridged_messages(msg: BridgeMessage) {
-		BRIDGED_MESSAGES
-			.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::Network::name()).unwrap().push_back(msg));
+		BRIDGED_MESSAGES.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().push_back(msg));
 	}
 }
 
-<span class="kw">pub trait </span>Chain: TestExt + NetworkComponent {
+<span class="kw">pub trait </span>Chain: TestExt {
+	<span class="kw">type </span>Network: Network;
 	<span class="kw">type </span>Runtime: SystemConfig;
 	<span class="kw">type </span>RuntimeCall;
 	<span class="kw">type </span>RuntimeOrigin;
@@ -1774,6 +1781,8 @@
 <span class="kw">pub trait </span>RelayChain: Chain {
 	<span class="kw">type </span>SovereignAccountOf: ConvertLocation&lt;AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt;&gt;;
 	<span class="kw">type </span>MessageProcessor: ProcessMessage&lt;Origin = ParaId&gt; + ServiceQueues;
+
+	<span class="kw">fn </span>init();
 
 	<span class="kw">fn </span>child_location_of(id: ParaId) -&gt; MultiLocation {
 		(Ancestor(<span class="number">0</span>), ParachainJunction(id.into())).into()
@@ -1889,7 +1898,6 @@
 				on_init = <span class="macro-nonterminal">$on_init</span>:expr,
 				runtime = <span class="macro-nonterminal">$runtime</span>:ident,
 				core = {
-					MessageProcessor: <span class="macro-nonterminal">$mp</span>:path,
 					SovereignAccountOf: <span class="macro-nonterminal">$sovereign_acc_of</span>:path,
 				},
 				pallets = {
@@ -1902,9 +1910,10 @@
 	</span>) =&gt; {
 		$(
 			<span class="attr">#[derive(Clone)]
-			</span><span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>;
+			</span><span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>&lt;N&gt;(<span class="macro-nonterminal">$crate::PhantomData</span>&lt;N&gt;);
 
-			<span class="kw">impl </span><span class="macro-nonterminal">$crate::Chain </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+			<span class="kw">impl</span>&lt;N: <span class="macro-nonterminal">$crate::Network</span>&gt; <span class="macro-nonterminal">$crate::Chain </span><span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;N&gt; {
+				<span class="kw">type </span>Network = N;
 				<span class="kw">type </span>Runtime = <span class="macro-nonterminal">$runtime::Runtime</span>;
 				<span class="kw">type </span>RuntimeCall = <span class="macro-nonterminal">$runtime::RuntimeCall</span>;
 				<span class="kw">type </span>RuntimeOrigin = <span class="macro-nonterminal">$runtime::RuntimeOrigin</span>;
@@ -1923,27 +1932,35 @@
 				}
 			}
 
-			<span class="kw">impl </span><span class="macro-nonterminal">$crate::RelayChain </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+			<span class="kw">impl</span>&lt;N: <span class="macro-nonterminal">$crate::Network</span>&gt; <span class="macro-nonterminal">$crate::RelayChain </span><span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;N&gt; {
 				<span class="kw">type </span>SovereignAccountOf = <span class="macro-nonterminal">$sovereign_acc_of</span>;
-				<span class="kw">type </span>MessageProcessor = <span class="macro-nonterminal">$mp</span>;
+				<span class="kw">type </span>MessageProcessor = <span class="macro-nonterminal">$crate::DefaultRelayMessageProcessor</span>&lt;<span class="macro-nonterminal">$name</span>&lt;N&gt;&gt;;
+
+				<span class="kw">fn </span>init() {
+					<span class="kw">use </span><span class="macro-nonterminal">$crate::TestExt</span>;
+					<span class="comment">// Initialize the thread local variable
+					</span><span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
+						[&lt;<span class="macro-nonterminal">LOCAL_EXT_ $name</span>:upper&gt;].with(|v| <span class="kw-2">*</span>v.borrow_mut() = <span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
+					}
+				}
 			}
 
 			<span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
-				<span class="kw">pub trait </span>[&lt;<span class="macro-nonterminal">$name </span>Pallet&gt;] {
+				<span class="kw">pub trait </span>[&lt;<span class="macro-nonterminal">$name </span>RelayPallet&gt;] {
 					$(
 						<span class="kw">type </span><span class="macro-nonterminal">$pallet_name</span>;
 					)<span class="question-mark">?
 				</span>}
 
-				<span class="kw">impl </span>[&lt;<span class="macro-nonterminal">$name </span>Pallet&gt;] <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+				<span class="kw">impl</span>&lt;N: <span class="macro-nonterminal">$crate::Network</span>&gt; [&lt;<span class="macro-nonterminal">$name </span>RelayPallet&gt;] <span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;N&gt; {
 					$(
 						<span class="kw">type </span><span class="macro-nonterminal">$pallet_name </span>= <span class="macro-nonterminal">$pallet_path</span>;
 					)<span class="question-mark">?
 				</span>}
 			}
 
-			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_test_ext_for_relay_chain!</span>(<span class="macro-nonterminal">$name</span>, <span class="macro-nonterminal">$genesis</span>, <span class="macro-nonterminal">$on_init</span>, <span class="macro-nonterminal">$api_version</span>);
-			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_check_assertion!</span>(<span class="macro-nonterminal">$name</span>);
+			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_test_ext_for_relay_chain!</span>(<span class="macro-nonterminal">$name</span>, N, <span class="macro-nonterminal">$genesis</span>, <span class="macro-nonterminal">$on_init</span>, <span class="macro-nonterminal">$api_version</span>);
+			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_check_assertion!</span>(<span class="macro-nonterminal">$name</span>, N);
 		)+
 	};
 }
@@ -1951,10 +1968,11 @@
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>__impl_test_ext_for_relay_chain {
 	<span class="comment">// entry point: generate ext name
-	</span>(<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr, <span class="macro-nonterminal">$api_version</span>:tt) =&gt; {
+	</span>(<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$network</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr, <span class="macro-nonterminal">$api_version</span>:tt) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
 			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_test_ext_for_relay_chain!</span>(
 				@<span class="kw">impl </span><span class="macro-nonterminal">$name</span>,
+				<span class="macro-nonterminal">$network</span>,
 				<span class="macro-nonterminal">$genesis</span>,
 				<span class="macro-nonterminal">$on_init</span>,
 				[&lt;ParachainHostV <span class="macro-nonterminal">$api_version</span>&gt;],
@@ -1964,10 +1982,10 @@
 		}
 	};
 	<span class="comment">// impl
-	</span>(@<span class="kw">impl </span><span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr, <span class="macro-nonterminal">$api_version</span>:ident, <span class="macro-nonterminal">$local_ext</span>:ident, <span class="macro-nonterminal">$global_ext</span>:ident) =&gt; {
+	</span>(@<span class="kw">impl </span><span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$network</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr, <span class="macro-nonterminal">$api_version</span>:ident, <span class="macro-nonterminal">$local_ext</span>:ident, <span class="macro-nonterminal">$global_ext</span>:ident) =&gt; {
 		<span class="macro">thread_local! </span>{
 			<span class="kw">pub static </span><span class="macro-nonterminal">$local_ext</span>: <span class="macro-nonterminal">$crate::RefCell</span>&lt;<span class="macro-nonterminal">$crate::TestExternalities</span>&gt;
-				= <span class="macro-nonterminal">$crate::RefCell::new</span>(&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span><span class="macro-nonterminal">$crate::TestExt</span>&gt;::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
+				= <span class="macro-nonterminal">$crate::RefCell::new</span>(<span class="macro-nonterminal">$crate::TestExternalities::new</span>(<span class="macro-nonterminal">$genesis</span>));
 		}
 
 		<span class="macro-nonterminal">$</span><span class="macro">crate::lazy_static! </span>{
@@ -1975,9 +1993,9 @@
 				= <span class="macro-nonterminal">$crate::Mutex::new</span>(<span class="macro-nonterminal">$crate::RefCell::new</span>(<span class="macro-nonterminal">$crate::HashMap::new</span>()));
 		}
 
-		<span class="kw">impl </span><span class="macro-nonterminal">$crate::TestExt </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+		<span class="kw">impl</span>&lt;<span class="macro-nonterminal">$network</span>: <span class="macro-nonterminal">$crate::Network</span>&gt; <span class="macro-nonterminal">$crate::TestExt </span><span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;<span class="macro-nonterminal">$network</span>&gt; {
 			<span class="kw">fn </span>build_new_ext(storage: <span class="macro-nonterminal">$crate::Storage</span>) -&gt; <span class="macro-nonterminal">$crate::TestExternalities </span>{
-				<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">sp_tracing</span>, NetworkComponent, Network, Chain, TestExternalities};
+				<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">sp_tracing</span>, Network, Chain, TestExternalities};
 
 				<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::new(storage);
 
@@ -1994,7 +2012,7 @@
 			}
 
 			<span class="kw">fn </span>new_ext() -&gt; <span class="macro-nonterminal">$crate::TestExternalities </span>{
-				&lt;<span class="macro-nonterminal">$name</span>&gt;::build_new_ext(<span class="macro-nonterminal">$genesis</span>)
+				<span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>)
 			}
 
 			<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
@@ -2045,13 +2063,13 @@
 			}
 
 			<span class="kw">fn </span>reset_ext() {
-				<span class="macro-nonterminal">$local_ext</span>.with(|v| <span class="kw-2">*</span>v.borrow_mut() = &lt;<span class="macro-nonterminal">$name</span>&gt;::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
+				<span class="macro-nonterminal">$local_ext</span>.with(|v| <span class="kw-2">*</span>v.borrow_mut() = <span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
 			}
 
 			<span class="kw">fn </span>execute_with&lt;R&gt;(execute: <span class="kw">impl </span>FnOnce() -&gt; R) -&gt; R {
-				<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, NetworkComponent, Network};
+				<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, Network};
 				<span class="comment">// Make sure the Network is initialized
-				</span>&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::init();
+				</span>&lt;<span class="macro-nonterminal">$network</span>&gt;::init();
 
 				<span class="comment">// Execute
 				</span><span class="kw">let </span>r = <span class="macro-nonterminal">$local_ext</span>.with(|v| v.borrow_mut().execute_with(execute));
@@ -2062,7 +2080,7 @@
 						<span class="kw">use </span><span class="macro-nonterminal">$crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host</span>::<span class="macro-nonterminal">$api_version</span>;
 
 						<span class="comment">//TODO: mark sent count &amp; filter out sent msg
-						</span><span class="kw">for </span>para_id <span class="kw">in</span>&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::para_ids() {
+						</span><span class="kw">for </span>para_id <span class="kw">in </span>&lt;<span class="macro-nonterminal">$network</span>&gt;::para_ids() {
 							<span class="comment">// downward messages
 							</span><span class="kw">let </span>downward_messages = &lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::Runtime::dmq_contents(para_id.into())
 								.into_iter()
@@ -2070,7 +2088,7 @@
 							<span class="kw">if </span>downward_messages.len() == <span class="number">0 </span>{
 								<span class="kw">continue</span>;
 							}
-							&lt;<span class="macro-nonterminal">$name</span>&gt;::send_downward_messages(para_id, downward_messages.into_iter());
+							&lt;<span class="macro-nonterminal">$network</span>&gt;::send_downward_messages(para_id, downward_messages.into_iter());
 
 							<span class="comment">// Note: no need to handle horizontal messages, as the
 							// simulator directly sends them to dest (not relayed).
@@ -2086,7 +2104,7 @@
 					})
 				});
 
-				&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::process_messages();
+				&lt;<span class="macro-nonterminal">$network</span>&gt;::process_messages();
 
 				r
 			}
@@ -2115,8 +2133,8 @@
 					XcmpMessageHandler: <span class="macro-nonterminal">$xcmp_message_handler</span>:path,
 					LocationToAccountId: <span class="macro-nonterminal">$location_to_account</span>:path,
 					ParachainInfo: <span class="macro-nonterminal">$parachain_info</span>:path,
-					MessageProcessor: <span class="macro-nonterminal">$message_processor</span>:path,
-				},
+					<span class="comment">// MessageProcessor: $message_processor:path,
+				</span>},
 				pallets = {
 					$(<span class="macro-nonterminal">$pallet_name</span>:ident: <span class="macro-nonterminal">$pallet_path</span>:path,)*
 				}
@@ -2127,14 +2145,15 @@
 	</span>) =&gt; {
 		$(
 			<span class="attr">#[derive(Clone)]
-			</span><span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>;
+			</span><span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>&lt;N&gt;(<span class="macro-nonterminal">$crate::PhantomData</span>&lt;N&gt;);
 
-			<span class="kw">impl </span><span class="macro-nonterminal">$crate::Chain </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+			<span class="kw">impl</span>&lt;N: <span class="macro-nonterminal">$crate::Network</span>&gt; <span class="macro-nonterminal">$crate::Chain </span><span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;N&gt; {
 				<span class="kw">type </span>Runtime = <span class="macro-nonterminal">$runtime::Runtime</span>;
 				<span class="kw">type </span>RuntimeCall = <span class="macro-nonterminal">$runtime::RuntimeCall</span>;
 				<span class="kw">type </span>RuntimeOrigin = <span class="macro-nonterminal">$runtime::RuntimeOrigin</span>;
 				<span class="kw">type </span>RuntimeEvent = <span class="macro-nonterminal">$runtime::RuntimeEvent</span>;
 				<span class="kw">type </span>System = <span class="macro-nonterminal">$crate::SystemPallet</span>::&lt;<span class="self">Self</span>::Runtime&gt;;
+				<span class="kw">type </span>Network = N;
 
 				<span class="kw">fn </span>account_data_of(account: <span class="macro-nonterminal">$crate::AccountIdOf</span>&lt;<span class="self">Self</span>::Runtime&gt;) -&gt; <span class="macro-nonterminal">$crate::AccountData</span>&lt;<span class="macro-nonterminal">$crate::Balance</span>&gt; {
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::TestExt</span>&gt;::ext_wrapper(|| <span class="macro-nonterminal">$crate::SystemPallet</span>::&lt;<span class="self">Self</span>::Runtime&gt;::account(account).data.into())
@@ -2148,17 +2167,21 @@
 				}
 			}
 
-			<span class="kw">impl </span><span class="macro-nonterminal">$crate::Parachain </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+			<span class="kw">impl</span>&lt;N: <span class="macro-nonterminal">$crate::Network</span>&gt; <span class="macro-nonterminal">$crate::Parachain </span><span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;N&gt; {
 				<span class="kw">type </span>XcmpMessageHandler = <span class="macro-nonterminal">$xcmp_message_handler</span>;
 				<span class="kw">type </span>LocationToAccountId = <span class="macro-nonterminal">$location_to_account</span>;
 				<span class="kw">type </span>ParachainSystem = <span class="macro-nonterminal">$crate::ParachainSystemPallet</span>&lt;&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::Runtime&gt;;
 				<span class="kw">type </span>ParachainInfo = <span class="macro-nonterminal">$parachain_info</span>;
-				<span class="kw">type </span>MessageProcessor = <span class="macro-nonterminal">$message_processor</span>;
+				<span class="kw">type </span>MessageProcessor = <span class="macro-nonterminal">$crate::DefaultParaMessageProcessor</span>&lt;<span class="macro-nonterminal">$name</span>&lt;N&gt;&gt;;
 
 				<span class="comment">// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
 				</span><span class="kw">fn </span>init() {
-					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					<span class="comment">// Initialize the thread local variable
+					</span><span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
+						[&lt;<span class="macro-nonterminal">LOCAL_EXT_ $name</span>:upper&gt;].with(|v| <span class="kw-2">*</span>v.borrow_mut() = <span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
+					}
 					<span class="comment">// Set the last block head for later use in the next block
 					</span><span class="self">Self</span>::set_last_head();
 					<span class="comment">// Initialize a new block
@@ -2168,21 +2191,21 @@
 				}
 
 				<span class="kw">fn </span>new_block() {
-					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, HeadData, Network, Hooks, Encode, Parachain, TestExt};
 
 					<span class="kw">let </span>para_id = <span class="self">Self</span>::para_id().into();
 
 					<span class="self">Self</span>::ext_wrapper(|| {
 						<span class="comment">// Increase Relay Chain block number
-						</span><span class="kw">let </span><span class="kw-2">mut </span>relay_block_number = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::relay_block_number();
+						</span><span class="kw">let </span><span class="kw-2">mut </span>relay_block_number = N::relay_block_number();
 						relay_block_number += <span class="number">1</span>;
-						&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::set_relay_block_number(relay_block_number);
+						N::set_relay_block_number(relay_block_number);
 
 						<span class="comment">// Initialize a new Parachain block
 						</span><span class="kw">let </span><span class="kw-2">mut </span>block_number = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::System::block_number();
 						block_number += <span class="number">1</span>;
 						<span class="kw">let </span>parent_head_data = <span class="macro-nonterminal">$crate::LAST_HEAD</span>.with(|b| b.borrow_mut()
-							.get_mut(&lt;<span class="self">Self </span><span class="kw">as </span>NetworkComponent&gt;::Network::name())
+							.get_mut(N::name())
 							.expect(<span class="string">&quot;network not initialized?&quot;</span>)
 							.get(<span class="kw-2">&amp;</span>para_id)
 							.expect(<span class="string">&quot;network not initialized?&quot;</span>)
@@ -2193,13 +2216,13 @@
 
 						<span class="kw">let _ </span>= &lt;<span class="self">Self </span><span class="kw">as </span>Parachain&gt;::ParachainSystem::set_validation_data(
 							&lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::none(),
-							&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
 						);
 					});
 				}
 
 				<span class="kw">fn </span>finalize_block() {
-					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, Encode, Hooks, Network, NetworkComponent, Parachain, TestExt};
+					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, Encode, Hooks, Network, Parachain, TestExt};
 
 					<span class="self">Self</span>::ext_wrapper(|| {
 						<span class="kw">let </span>block_number = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::System::block_number();
@@ -2211,7 +2234,7 @@
 
 
 				<span class="kw">fn </span>set_last_head() {
-					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, Encode, HeadData, Network, NetworkComponent, Parachain, TestExt};
+					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, Encode, HeadData, Network, Parachain, TestExt};
 
 					<span class="kw">let </span>para_id = <span class="self">Self</span>::para_id().into();
 
@@ -2219,7 +2242,7 @@
 						<span class="comment">// Store parent head data for use later.
 						</span><span class="kw">let </span>created_header = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::System::finalize();
 						<span class="macro-nonterminal">$crate::LAST_HEAD</span>.with(|b| b.borrow_mut()
-							.get_mut(&lt;<span class="self">Self </span><span class="kw">as </span>NetworkComponent&gt;::Network::name())
+							.get_mut(N::name())
 							.expect(<span class="string">&quot;network not initialized?&quot;</span>)
 							.insert(para_id, HeadData(created_header.encode()))
 						);
@@ -2228,21 +2251,21 @@
 			}
 
 			<span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
-				<span class="kw">pub trait </span>[&lt;<span class="macro-nonterminal">$name </span>Pallet&gt;] {
+				<span class="kw">pub trait </span>[&lt;<span class="macro-nonterminal">$name </span>ParaPallet&gt;] {
 					$(
 						<span class="kw">type </span><span class="macro-nonterminal">$pallet_name</span>;
 					)*
 				}
 
-				<span class="kw">impl </span>[&lt;<span class="macro-nonterminal">$name </span>Pallet&gt;] <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+				<span class="kw">impl</span>&lt;N: <span class="macro-nonterminal">$crate::Network</span>&gt; [&lt;<span class="macro-nonterminal">$name </span>ParaPallet&gt;] <span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;N&gt; {
 					$(
 						<span class="kw">type </span><span class="macro-nonterminal">$pallet_name </span>= <span class="macro-nonterminal">$pallet_path</span>;
 					)*
 				}
 			}
 
-			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_test_ext_for_parachain!</span>(<span class="macro-nonterminal">$name</span>, <span class="macro-nonterminal">$genesis</span>, <span class="macro-nonterminal">$on_init</span>);
-			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_check_assertion!</span>(<span class="macro-nonterminal">$name</span>);
+			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_test_ext_for_parachain!</span>(<span class="macro-nonterminal">$name</span>, N, <span class="macro-nonterminal">$genesis</span>, <span class="macro-nonterminal">$on_init</span>);
+			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_check_assertion!</span>(<span class="macro-nonterminal">$name</span>, N);
 		)+
 	};
 }
@@ -2250,16 +2273,16 @@
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>__impl_test_ext_for_parachain {
 	<span class="comment">// entry point: generate ext name
-	</span>(<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr) =&gt; {
+	</span>(<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$network</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
-			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_test_ext_for_parachain!</span>(@<span class="kw">impl </span><span class="macro-nonterminal">$name</span>, <span class="macro-nonterminal">$genesis</span>, <span class="macro-nonterminal">$on_init</span>, [&lt;LOCAL_EXT_ <span class="macro-nonterminal">$name</span>:upper&gt;], [&lt;GLOBAL_EXT_ <span class="macro-nonterminal">$name</span>:upper&gt;]);
+			<span class="macro-nonterminal">$</span><span class="macro">crate::__impl_test_ext_for_parachain!</span>(@<span class="kw">impl </span><span class="macro-nonterminal">$name</span>, <span class="macro-nonterminal">$network</span>, <span class="macro-nonterminal">$genesis</span>, <span class="macro-nonterminal">$on_init</span>, [&lt;LOCAL_EXT_ <span class="macro-nonterminal">$name</span>:upper&gt;], [&lt;GLOBAL_EXT_ <span class="macro-nonterminal">$name</span>:upper&gt;]);
 		}
 	};
 	<span class="comment">// impl
-	</span>(@<span class="kw">impl </span><span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr, <span class="macro-nonterminal">$local_ext</span>:ident, <span class="macro-nonterminal">$global_ext</span>:ident) =&gt; {
+	</span>(@<span class="kw">impl </span><span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$network</span>:ident, <span class="macro-nonterminal">$genesis</span>:expr, <span class="macro-nonterminal">$on_init</span>:expr, <span class="macro-nonterminal">$local_ext</span>:ident, <span class="macro-nonterminal">$global_ext</span>:ident) =&gt; {
 		<span class="macro">thread_local! </span>{
 			<span class="kw">pub static </span><span class="macro-nonterminal">$local_ext</span>: <span class="macro-nonterminal">$crate::RefCell</span>&lt;<span class="macro-nonterminal">$crate::TestExternalities</span>&gt;
-				= <span class="macro-nonterminal">$crate::RefCell::new</span>(&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span><span class="macro-nonterminal">$crate::TestExt</span>&gt;::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
+				= <span class="macro-nonterminal">$crate::RefCell::new</span>(<span class="macro-nonterminal">$crate::TestExternalities::new</span>(<span class="macro-nonterminal">$genesis</span>));
 		}
 
 		<span class="macro-nonterminal">$</span><span class="macro">crate::lazy_static! </span>{
@@ -2267,7 +2290,7 @@
 				= <span class="macro-nonterminal">$crate::Mutex::new</span>(<span class="macro-nonterminal">$crate::RefCell::new</span>(<span class="macro-nonterminal">$crate::HashMap::new</span>()));
 		}
 
-		<span class="kw">impl </span><span class="macro-nonterminal">$crate::TestExt </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+		<span class="kw">impl</span>&lt;<span class="macro-nonterminal">$network</span>: <span class="macro-nonterminal">$crate::Network</span>&gt; <span class="macro-nonterminal">$crate::TestExt </span><span class="kw">for </span><span class="macro-nonterminal">$name</span>&lt;<span class="macro-nonterminal">$network</span>&gt; {
 			<span class="kw">fn </span>build_new_ext(storage: <span class="macro-nonterminal">$crate::Storage</span>) -&gt; <span class="macro-nonterminal">$crate::TestExternalities </span>{
 				<span class="kw">let </span><span class="kw-2">mut </span>ext = <span class="macro-nonterminal">$crate::TestExternalities::new</span>(storage);
 
@@ -2284,7 +2307,7 @@
 			}
 
 			<span class="kw">fn </span>new_ext() -&gt; <span class="macro-nonterminal">$crate::TestExternalities </span>{
-				&lt;<span class="macro-nonterminal">$name</span>&gt;::build_new_ext(<span class="macro-nonterminal">$genesis</span>)
+				<span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>)
 			}
 
 			<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
@@ -2335,14 +2358,14 @@
 			}
 
 			<span class="kw">fn </span>reset_ext() {
-				<span class="macro-nonterminal">$local_ext</span>.with(|v| <span class="kw-2">*</span>v.borrow_mut() = &lt;<span class="macro-nonterminal">$name</span>&gt;::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
+				<span class="macro-nonterminal">$local_ext</span>.with(|v| <span class="kw-2">*</span>v.borrow_mut() = <span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>));
 			}
 
 			<span class="kw">fn </span>execute_with&lt;R&gt;(execute: <span class="kw">impl </span>FnOnce() -&gt; R) -&gt; R {
-				<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, Get, Hooks, NetworkComponent, Network, Parachain, Encode};
+				<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Chain</span>, Get, Hooks, Network, Parachain, Encode};
 
 				<span class="comment">// Make sure the Network is initialized
-				</span>&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::init();
+				</span>&lt;<span class="macro-nonterminal">$network</span>&gt;::init();
 
 				<span class="comment">// Initialize a new block
 				</span><span class="self">Self</span>::new_block();
@@ -2353,7 +2376,7 @@
 				<span class="comment">// Finalize the block
 				</span><span class="self">Self</span>::finalize_block();
 
-				<span class="kw">let </span>para_id = &lt;<span class="macro-nonterminal">$name</span>&gt;::para_id().into();
+				<span class="kw">let </span>para_id = <span class="self">Self</span>::para_id().into();
 
 				<span class="comment">// Send messages if needed
 				</span><span class="macro-nonterminal">$local_ext</span>.with(|v| {
@@ -2369,27 +2392,27 @@
 						<span class="kw">let </span>collation_info = &lt;<span class="self">Self </span><span class="kw">as </span>Parachain&gt;::ParachainSystem::collect_collation_info(<span class="kw-2">&amp;</span>mock_header);
 
 						<span class="comment">// send upward messages
-						</span><span class="kw">let </span>relay_block_number = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::relay_block_number();
+						</span><span class="kw">let </span>relay_block_number = &lt;<span class="macro-nonterminal">$network</span>&gt;::relay_block_number();
 						<span class="kw">for </span>msg <span class="kw">in </span>collation_info.upward_messages.clone() {
-							&lt;<span class="macro-nonterminal">$name</span>&gt;::send_upward_message(para_id, msg);
+							&lt;<span class="macro-nonterminal">$network</span>&gt;::send_upward_message(para_id, msg);
 						}
 
 						<span class="comment">// send horizontal messages
 						</span><span class="kw">for </span>msg <span class="kw">in </span>collation_info.horizontal_messages {
-							&lt;<span class="macro-nonterminal">$name</span>&gt;::send_horizontal_messages(
+							&lt;<span class="macro-nonterminal">$network</span>&gt;::send_horizontal_messages(
 								msg.recipient.into(),
 								<span class="macro">vec!</span>[(para_id.into(), relay_block_number, msg.data)].into_iter(),
 							);
 						}
 
 						<span class="comment">// get bridge messages
-						</span><span class="kw">type </span>NetworkBridge = &lt;&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network <span class="kw">as </span><span class="macro-nonterminal">$crate::Network</span>&gt;::Bridge;
+						</span><span class="kw">type </span>NetworkBridge&lt;<span class="macro-nonterminal">$network</span>&gt; = &lt;<span class="macro-nonterminal">$network </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Network</span>&gt;::Bridge;
 
-						<span class="kw">let </span>bridge_messages = &lt;&lt;NetworkBridge <span class="kw">as </span><span class="macro-nonterminal">$crate::Bridge</span>&gt;::Handler <span class="kw">as </span><span class="macro-nonterminal">$crate::BridgeMessageHandler</span>&gt;::get_source_outbound_messages();
+						<span class="kw">let </span>bridge_messages = &lt;&lt;NetworkBridge&lt;<span class="macro-nonterminal">$network</span>&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::Bridge</span>&gt;::Handler <span class="kw">as </span><span class="macro-nonterminal">$crate::BridgeMessageHandler</span>&gt;::get_source_outbound_messages();
 
 						<span class="comment">// send bridged messages
 						</span><span class="kw">for </span>msg <span class="kw">in </span>bridge_messages {
-							&lt;<span class="macro-nonterminal">$name</span>&gt;::send_bridged_messages(msg);
+							&lt;<span class="macro-nonterminal">$network</span>&gt;::send_bridged_messages(msg);
 						}
 
 						<span class="comment">// log events
@@ -2405,7 +2428,7 @@
 				<span class="comment">// provide inbound DMP/HRMP messages through a side-channel.
 				// normally this would come through the `set_validation_data`,
 				// but we go around that.
-				</span>&lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>NetworkComponent&gt;::Network::process_messages();
+				</span>&lt;<span class="macro-nonterminal">$network</span>&gt;::process_messages();
 
 				r
 			}
@@ -2427,8 +2450,8 @@
 	(
 		$(
 			<span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>:ident {
-				relay_chain = <span class="macro-nonterminal">$relay_chain</span>:ty,
-				parachains = <span class="macro">vec!</span>[ $( <span class="macro-nonterminal">$parachain</span>:ty, )* ],
+				relay_chain = <span class="macro-nonterminal">$relay_chain</span>:ident,
+				parachains = <span class="macro">vec!</span>[ $( <span class="macro-nonterminal">$parachain</span>:ident, )* ],
 				bridge = <span class="macro-nonterminal">$bridge</span>:ty
 			}
 		),
@@ -2436,10 +2459,11 @@
 		$(,)<span class="question-mark">?
 	</span>) =&gt; {
 		$(
-			<span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>;
+			<span class="attr">#[derive(Clone)]
+			</span><span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>;
 
 			<span class="kw">impl </span><span class="macro-nonterminal">$crate::Network </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
-				<span class="kw">type </span>Relay = <span class="macro-nonterminal">$relay_chain</span>;
+				<span class="kw">type </span>Relay = <span class="macro-nonterminal">$relay_chain</span>&lt;<span class="self">Self</span>&gt;;
 				<span class="kw">type </span>Bridge = <span class="macro-nonterminal">$bridge</span>;
 
 				<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
@@ -2457,8 +2481,8 @@
 					<span class="macro-nonterminal">$crate::BRIDGED_MESSAGES</span>.with(|b| b.borrow_mut().remove(<span class="self">Self</span>::name()));
 					<span class="macro-nonterminal">$crate::LAST_HEAD</span>.with(|b| b.borrow_mut().remove(<span class="self">Self</span>::name()));
 
-					&lt;<span class="macro-nonterminal">$relay_chain</span>&gt;::reset_ext();
-					$( &lt;<span class="macro-nonterminal">$parachain</span>&gt;::reset_ext(); )*
+					&lt;<span class="macro-nonterminal">$relay_chain</span>&lt;<span class="self">Self</span>&gt;&gt;::reset_ext();
+					$( &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt;&gt;::reset_ext(); )*
 				}
 
 				<span class="kw">fn </span>init() {
@@ -2473,13 +2497,14 @@
 						<span class="macro-nonterminal">$crate::PARA_IDS</span>.with(|b| b.borrow_mut().insert(<span class="self">Self</span>::name().to_string(), <span class="self">Self</span>::para_ids()));
 						<span class="macro-nonterminal">$crate::LAST_HEAD</span>.with(|b| b.borrow_mut().insert(<span class="self">Self</span>::name().to_string(), <span class="macro-nonterminal">$crate::HashMap::new</span>()));
 
-						$( &lt;<span class="macro-nonterminal">$parachain </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Parachain</span>&gt;::init(); )*
+						&lt;<span class="macro-nonterminal">$relay_chain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::RelayChain</span>&gt;::init();
+						$( &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::Parachain</span>&gt;::init(); )*
 					}
 				}
 
 				<span class="kw">fn </span>para_ids() -&gt; Vec&lt;u32&gt; {
 					<span class="macro">vec!</span>[$(
-						&lt;<span class="macro-nonterminal">$parachain </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Parachain</span>&gt;::para_id().into(),
+						&lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::Parachain</span>&gt;::para_id().into(),
 					)<span class="kw-2">*</span>]
 				}
 
@@ -2517,7 +2542,7 @@
 					<span class="kw">while let </span><span class="prelude-val">Some</span>((to_para_id, messages))
 						= <span class="macro-nonterminal">$crate::DOWNWARD_MESSAGES</span>.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().pop_front()) {
 						$(
-							<span class="kw">let </span>para_id: u32 = &lt;<span class="macro-nonterminal">$parachain</span>&gt;::para_id().into();
+							<span class="kw">let </span>para_id: u32 = &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt;&gt;::para_id().into();
 
 							<span class="kw">if </span><span class="macro-nonterminal">$crate::PARA_IDS</span>.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().contains(<span class="kw-2">&amp;</span>to_para_id)) &amp;&amp; para_id == to_para_id {
 								<span class="kw">let </span><span class="kw-2">mut </span>msg_dedup: Vec&lt;(RelayChainBlockNumber, Vec&lt;u8&gt;)&gt; = Vec::new();
@@ -2527,21 +2552,21 @@
 								msg_dedup.dedup();
 
 								<span class="kw">let </span>msgs = msg_dedup.clone().into_iter().filter(|m| {
-									!<span class="macro-nonterminal">$crate::DMP_DONE</span>.with(|b| b.borrow().get(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>))
+									!<span class="macro-nonterminal">$crate::DMP_DONE</span>.with(|b| b.borrow().get(<span class="self">Self</span>::name())
 										.unwrap_or(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$crate::VecDeque::new</span>())
 										.contains(<span class="kw-2">&amp;</span>(to_para_id, m.<span class="number">0</span>, m.<span class="number">1</span>.clone()))
 									)
 								}).collect::&lt;Vec&lt;(RelayChainBlockNumber, Vec&lt;u8&gt;)&gt;&gt;();
 
-								<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">ProcessMessage</span>, CumulusAggregateMessageOrigin, BoundedSlice, WeightMeter, TestExt};
+								<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">ProcessMessage</span>, CumulusAggregateMessageOrigin, BoundedSlice, WeightMeter};
 								<span class="kw">for </span>(block, msg) <span class="kw">in </span>msgs.clone().into_iter() {
 									<span class="kw">let </span><span class="kw-2">mut </span>weight_meter = WeightMeter::new();
-									&lt;<span class="macro-nonterminal">$parachain</span>&gt;::ext_wrapper(|| {
-										<span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$parachain </span><span class="kw">as </span>Parachain&gt;::MessageProcessor::process_message(
+									&lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt;&gt;::ext_wrapper(|| {
+										<span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>Parachain&gt;::MessageProcessor::process_message(
 											<span class="kw-2">&amp;</span>msg[..],
 											<span class="macro-nonterminal">$crate::CumulusAggregateMessageOrigin::Parent</span>,
 											<span class="kw-2">&amp;mut </span>weight_meter,
-											<span class="kw-2">&amp;mut </span>msg.using_encoded(sp_core::blake2_256),
+											<span class="kw-2">&amp;mut </span>msg.using_encoded(<span class="macro-nonterminal">$crate::blake2_256</span>),
 										);
 									});
 									<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;dmp::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">&quot;DMP messages processed {:?} to para_id {:?}&quot;</span>, msgs.clone(), <span class="kw-2">&amp;</span>to_para_id);
@@ -2553,19 +2578,19 @@
 				}
 
 				<span class="kw">fn </span>process_horizontal_messages() {
-					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">XcmpMessageHandler</span>, ServiceQueues, Bounded};
+					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">XcmpMessageHandler</span>, ServiceQueues, Bounded, Parachain, TestExt};
 
 					<span class="kw">while let </span><span class="prelude-val">Some</span>((to_para_id, messages))
 						= <span class="macro-nonterminal">$crate::HORIZONTAL_MESSAGES</span>.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().pop_front()) {
 						<span class="kw">let </span>iter = messages.iter().map(|(p, b, m)| (<span class="kw-2">*</span>p, <span class="kw-2">*</span>b, <span class="kw-2">&amp;</span>m[..])).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into_iter();
 						$(
-							<span class="kw">let </span>para_id: u32 = &lt;<span class="macro-nonterminal">$parachain</span>&gt;::para_id().into();
+							<span class="kw">let </span>para_id: u32 = &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt;&gt;::para_id().into();
 
 							<span class="kw">if </span><span class="macro-nonterminal">$crate::PARA_IDS</span>.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().contains(<span class="kw-2">&amp;</span>to_para_id)) &amp;&amp; para_id == to_para_id {
-								&lt;<span class="macro-nonterminal">$parachain</span>&gt;::ext_wrapper(|| {
-									&lt;<span class="macro-nonterminal">$parachain </span><span class="kw">as </span>Parachain&gt;::XcmpMessageHandler::handle_xcmp_messages(iter.clone(), <span class="macro-nonterminal">$crate::Weight::MAX</span>);
+								&lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt;&gt;::ext_wrapper(|| {
+									&lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>Parachain&gt;::XcmpMessageHandler::handle_xcmp_messages(iter.clone(), <span class="macro-nonterminal">$crate::Weight::MAX</span>);
 									<span class="comment">// Nudge the MQ pallet to process immediately instead of in the next block.
-									</span><span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$parachain </span><span class="kw">as </span>Parachain&gt;::MessageProcessor::service_queues(<span class="macro-nonterminal">$crate::Weight::MAX</span>);
+									</span><span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>Parachain&gt;::MessageProcessor::service_queues(<span class="macro-nonterminal">$crate::Weight::MAX</span>);
 								});
 								<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;hrmp::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">&quot;HRMP messages processed {:?} to para_id {:?}&quot;</span>, <span class="kw-2">&amp;</span>messages, <span class="kw-2">&amp;</span>to_para_id);
 							}
@@ -2578,8 +2603,8 @@
 
 					<span class="kw">while let </span><span class="prelude-val">Some</span>((from_para_id, msg)) = <span class="macro-nonterminal">$crate::UPWARD_MESSAGES</span>.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().pop_front()) {
 						<span class="kw">let </span><span class="kw-2">mut </span>weight_meter = WeightMeter::new();
-						&lt;<span class="macro-nonterminal">$relay_chain</span>&gt;::ext_wrapper(|| {
-							<span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$relay_chain </span><span class="kw">as </span><span class="macro-nonterminal">$crate::RelayChain</span>&gt;::MessageProcessor::process_message(
+						&lt;<span class="macro-nonterminal">$relay_chain</span>&lt;<span class="self">Self</span>&gt;&gt;::ext_wrapper(|| {
+							<span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$relay_chain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::RelayChain</span>&gt;::MessageProcessor::process_message(
 								<span class="kw-2">&amp;</span>msg[..],
 								from_para_id.into(),
 								<span class="kw-2">&amp;mut </span>weight_meter,
@@ -2662,13 +2687,13 @@
 				}
 			}
 
-			<span class="kw">impl </span><span class="macro-nonterminal">$crate::NetworkComponent </span><span class="kw">for </span><span class="macro-nonterminal">$relay_chain </span>{
-				<span class="kw">type </span>Network = <span class="macro-nonterminal">$name</span>;
+			<span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
+				<span class="kw">pub type </span>[&lt;<span class="macro-nonterminal">$relay_chain </span>Relay&gt;] = <span class="macro-nonterminal">$relay_chain</span>&lt;<span class="macro-nonterminal">$name</span>&gt;;
 			}
 
 			$(
-				<span class="kw">impl </span><span class="macro-nonterminal">$crate::NetworkComponent </span><span class="kw">for </span><span class="macro-nonterminal">$parachain </span>{
-					<span class="kw">type </span>Network = <span class="macro-nonterminal">$name</span>;
+				<span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
+					<span class="kw">pub type </span>[&lt;<span class="macro-nonterminal">$parachain </span>Para&gt;] = <span class="macro-nonterminal">$parachain</span>&lt;<span class="macro-nonterminal">$name</span>&gt;;
 				}
 			)*
 		)+
@@ -2680,9 +2705,9 @@
 	(
 		$(
 			<span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>:ident {
-				source = <span class="macro-nonterminal">$source</span>:ty,
-				target = <span class="macro-nonterminal">$target</span>:ty,
-				handler = <span class="macro-nonterminal">$handler</span>:ty
+				source = <span class="macro-nonterminal">$source</span>:ident,
+				target = <span class="macro-nonterminal">$target</span>:ident,
+				handler = <span class="macro-nonterminal">$handler</span>:ident
 			}
 		),
 		+
@@ -2698,10 +2723,10 @@
 				<span class="kw">type </span>Handler = <span class="macro-nonterminal">$handler</span>;
 
 				<span class="kw">fn </span>init() {
-					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">NetworkComponent</span>, Network};
+					<span class="kw">use </span><span class="macro-nonterminal">$</span><span class="kw">crate</span>::{<span class="macro-nonterminal">Network</span>, Parachain};
 					<span class="comment">// Make sure source and target `Network` have been initialized
-					</span>&lt;<span class="macro-nonterminal">$source </span><span class="kw">as </span>NetworkComponent&gt;::Network::init();
-					&lt;<span class="macro-nonterminal">$target </span><span class="kw">as </span>NetworkComponent&gt;::Network::init();
+					</span>&lt;<span class="macro-nonterminal">$source </span><span class="kw">as </span>Chain&gt;::Network::init();
+					&lt;<span class="macro-nonterminal">$target </span><span class="kw">as </span>Chain&gt;::Network::init();
 				}
 			}
 		)+
@@ -2710,11 +2735,12 @@
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>__impl_check_assertion {
-	(<span class="macro-nonterminal">$chain</span>:ident) =&gt; {
-		<span class="kw">impl</span>&lt;Origin, Destination, Hops, Args&gt;
-			<span class="macro-nonterminal">$crate::CheckAssertion</span>&lt;Origin, Destination, Hops, Args&gt; <span class="kw">for </span><span class="macro-nonterminal">$chain
-		</span><span class="kw">where
-			</span>Origin: <span class="macro-nonterminal">$crate::Chain </span>+ Clone,
+	(<span class="macro-nonterminal">$chain</span>:ident, <span class="macro-nonterminal">$network</span>:ident) =&gt; {
+		<span class="kw">impl</span>&lt;<span class="macro-nonterminal">$network</span>, Origin, Destination, Hops, Args&gt;
+			<span class="macro-nonterminal">$crate::CheckAssertion</span>&lt;Origin, Destination, Hops, Args&gt; <span class="kw">for </span><span class="macro-nonterminal">$chain</span>&lt;<span class="macro-nonterminal">$network</span>&gt;
+		<span class="kw">where
+			</span><span class="macro-nonterminal">$network</span>: <span class="macro-nonterminal">$crate::Network</span>,
+			Origin: <span class="macro-nonterminal">$crate::Chain </span>+ Clone,
 			Destination: <span class="macro-nonterminal">$crate::Chain </span>+ Clone,
 			Origin::RuntimeOrigin:
 				<span class="macro-nonterminal">$crate::OriginTrait</span>&lt;AccountId = <span class="macro-nonterminal">$crate::AccountIdOf</span>&lt;Origin::Runtime&gt;&gt; + Clone,
@@ -2726,9 +2752,9 @@
 			<span class="kw">fn </span>check_assertion(test: <span class="macro-nonterminal">$crate::Test</span>&lt;Origin, Destination, Hops, Args&gt;) {
 				<span class="kw">use </span><span class="macro-nonterminal">$crate::TestExt</span>;
 
-				<span class="kw">let </span>chain_name = std::any::type_name::&lt;<span class="macro-nonterminal">$chain</span>&gt;();
+				<span class="kw">let </span>chain_name = std::any::type_name::&lt;<span class="macro-nonterminal">$chain</span>&lt;<span class="macro-nonterminal">$network</span>&gt;&gt;();
 
-				&lt;<span class="macro-nonterminal">$chain</span>&gt;::execute_with(|| {
+				&lt;<span class="macro-nonterminal">$chain</span>&lt;<span class="macro-nonterminal">$network</span>&gt;&gt;::execute_with(|| {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(dispatchable) = test.hops_dispatchable.get(chain_name) {
 						<span class="macro-nonterminal">$</span><span class="macro">crate::assert_ok!</span>(<span class="macro-nonterminal">dispatchable</span>(test.clone()));
 					}
@@ -2754,7 +2780,6 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>event_message: Vec&lt;String&gt; = Vec::new();
 
 			<span class="kw">for </span>(index, event) <span class="kw">in </span>events.iter().enumerate() {
-				<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;events::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain</span>)), <span class="string">&quot;{:?}&quot;</span>, event);
 				<span class="comment">// Have to reset the variable to override a previous partial match
 				</span>meet_conditions = <span class="bool-val">true</span>;
 				<span class="kw">match </span>event {
@@ -2800,7 +2825,14 @@
 					)
 				);
 			} <span class="kw">else if </span>!event_received {
-				message.push(<span class="macro">format!</span>(<span class="string">&quot;\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain</span>), <span class="macro">stringify!</span>(<span class="macro-nonterminal">$event_pat</span>), &lt;<span class="macro-nonterminal">$chain</span>&gt;::events()));
+				message.push(
+					<span class="macro">format!</span>(
+						<span class="string">&quot;\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}&quot;</span>,
+						<span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain</span>),
+						<span class="macro">stringify!</span>(<span class="macro-nonterminal">$event_pat</span>),
+						&lt;<span class="macro-nonterminal">$chain </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::events(),
+					)
+				);
 			} <span class="kw">else </span>{
 				<span class="comment">// If we find a perfect match we remove the event to avoid being potentially assessed multiple times
 				</span>events.remove(index_match);

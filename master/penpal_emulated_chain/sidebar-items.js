@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ED","LOCAL_EXT_PENPALA","LOCAL_EXT_PENPALB","PARA_ID_A","PARA_ID_B"],"fn":["genesis"],"struct":["GLOBAL_EXT_PENPALA","GLOBAL_EXT_PENPALB","PenpalA","PenpalB"],"trait":["PenpalAParaPallet","PenpalBParaPallet"]};

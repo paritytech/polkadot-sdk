@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOCAL_EXT_BRIDGEHUBWOCOCO"],"struct":["BridgeHubWococo","GLOBAL_EXT_BRIDGEHUBWOCOCO"],"trait":["BridgeHubWococoParaPallet"]};
