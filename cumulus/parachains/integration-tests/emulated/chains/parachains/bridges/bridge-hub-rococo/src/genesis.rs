@@ -18,7 +18,7 @@ use sp_core::{sr25519, storage::Storage};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage_legacy, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
 
@@ -75,7 +75,7 @@ pub fn genesis() -> Storage {
 		..Default::default()
 	};
 
-	build_genesis_storage_legacy(
+	build_genesis_storage(
 		&genesis_config,
 		bridge_hub_rococo_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
