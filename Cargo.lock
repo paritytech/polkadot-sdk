@@ -3545,6 +3545,7 @@ dependencies = [
  "environmental",
  "frame-support",
  "frame-system",
+ "futures",
  "hex-literal 0.4.1",
  "impl-trait-for-tuples",
  "lazy_static",
