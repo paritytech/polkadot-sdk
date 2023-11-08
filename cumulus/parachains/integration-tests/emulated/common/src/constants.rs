@@ -17,12 +17,15 @@
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sc_chain_spec::GenesisConfigBuilderRuntimeCaller;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
+#[cfg(test)]
+use sp_runtime::BuildStorage;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
-	BuildStorage, MultiSignature, Perbill,
+	MultiSignature, Perbill,
 };
 
 // Cumulus
@@ -56,6 +59,29 @@ where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+}
+
+/// Helper function to build the genesis storage using given json patch and code
+fn build_genesis_storage(patch: serde_json::Value, code: &[u8]) -> Storage {
+	let mut storage = GenesisConfigBuilderRuntimeCaller::new(code)
+		.get_storage_for_patch(patch)
+		.unwrap();
+	storage
+		.top
+		.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.into());
+	storage
+}
+
+#[cfg(test)]
+/// Helper function used in tests to build the genesis storage using given RuntimeGenesisConfig and
+/// code Used in `legacy_vs_json_check` submods to verify storage building with JSON patch against
+/// building with RuntimeGenesisConfig struct.
+fn build_genesis_storage_legacy(builder: &dyn BuildStorage, code: &[u8]) -> Storage {
+	let mut storage = builder.build_storage().unwrap();
+	storage
+		.top
+		.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.into());
+	storage
 }
 
 pub mod accounts {
@@ -186,20 +212,16 @@ pub mod westend {
 	}
 
 	pub fn genesis() -> Storage {
-		let genesis_config = westend_runtime::RuntimeGenesisConfig {
-			system: westend_runtime::SystemConfig {
-				code: westend_runtime::WASM_BINARY.unwrap().to_vec(),
-				..Default::default()
-			},
-			balances: westend_runtime::BalancesConfig {
-				balances: accounts::init_balances()
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
 					.iter()
 					.cloned()
 					.map(|k| (k, ENDOWMENT))
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			session: westend_runtime::SessionConfig {
-				keys: validators::initial_authorities()
+			"session": {
+				"keys": validators::initial_authorities()
 					.iter()
 					.map(|x| {
 						(
@@ -218,33 +240,106 @@ pub mod westend {
 					})
 					.collect::<Vec<_>>(),
 			},
-			staking: westend_runtime::StakingConfig {
-				validator_count: validators::initial_authorities().len() as u32,
-				minimum_validator_count: 1,
-				stakers: validators::initial_authorities()
+			"staking": {
+				"validatorCount": validators::initial_authorities().len() as u32,
+				"minimumValidatorCount": 1,
+				"stakers": validators::initial_authorities()
 					.iter()
 					.map(|x| {
-						(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
+						(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::<AccountId>::Validator)
 					})
-					.collect(),
-				invulnerables: validators::initial_authorities()
+					.collect::<Vec<_>>(),
+				"invulnerables": validators::initial_authorities()
 					.iter()
 					.map(|x| x.0.clone())
-					.collect(),
-				force_era: pallet_staking::Forcing::ForceNone,
-				slash_reward_fraction: Perbill::from_percent(10),
-				..Default::default()
+					.collect::<Vec<_>>(),
+				"forceEra": pallet_staking::Forcing::ForceNone,
+				"slashRewardFraction": Perbill::from_percent(10),
 			},
-			babe: westend_runtime::BabeConfig {
-				authorities: Default::default(),
-				epoch_config: Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
-				..Default::default()
+			"babe": {
+				"epochConfig": Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
 			},
-			configuration: westend_runtime::ConfigurationConfig { config: get_host_config() },
-			..Default::default()
-		};
+			"configuration": { "config": get_host_config() },
+		});
 
-		genesis_config.build_storage().unwrap()
+		build_genesis_storage(genesis_config, westend_runtime::WASM_BINARY.unwrap())
+	}
+
+	#[cfg(test)]
+	mod legacy_vs_json_check {
+		use super::*;
+		fn genesis() -> Storage {
+			let genesis_config = westend_runtime::RuntimeGenesisConfig {
+				system: westend_runtime::SystemConfig::default(),
+				balances: westend_runtime::BalancesConfig {
+					balances: accounts::init_balances()
+						.iter()
+						.cloned()
+						.map(|k| (k, ENDOWMENT))
+						.collect(),
+				},
+				session: westend_runtime::SessionConfig {
+					keys: validators::initial_authorities()
+						.iter()
+						.map(|x| {
+							(
+								x.0.clone(),
+								x.0.clone(),
+								westend::session_keys(
+									x.2.clone(),
+									x.3.clone(),
+									x.4.clone(),
+									x.5.clone(),
+									x.6.clone(),
+									x.7.clone(),
+									get_from_seed::<BeefyId>("Alice"),
+								),
+							)
+						})
+						.collect::<Vec<_>>(),
+				},
+				staking: westend_runtime::StakingConfig {
+					validator_count: validators::initial_authorities().len() as u32,
+					minimum_validator_count: 1,
+					stakers: validators::initial_authorities()
+						.iter()
+						.map(|x| {
+							(
+								x.0.clone(),
+								x.1.clone(),
+								STASH,
+								westend_runtime::StakerStatus::Validator,
+							)
+						})
+						.collect(),
+					invulnerables: validators::initial_authorities()
+						.iter()
+						.map(|x| x.0.clone())
+						.collect(),
+					force_era: pallet_staking::Forcing::ForceNone,
+					slash_reward_fraction: Perbill::from_percent(10),
+					..Default::default()
+				},
+				babe: westend_runtime::BabeConfig {
+					authorities: Default::default(),
+					epoch_config: Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
+					..Default::default()
+				},
+				configuration: westend_runtime::ConfigurationConfig { config: get_host_config() },
+				..Default::default()
+			};
+
+			build_genesis_storage_legacy(&genesis_config, westend_runtime::WASM_BINARY.unwrap())
+		}
+
+		#[test]
+		fn test_genesis() {
+			let j1 = super::genesis();
+			let j2 = genesis();
+
+			assert_eq!(j1.top, j2.top);
+			assert_eq!(j1.children_default, j2.children_default);
+		}
 	}
 }
 
@@ -294,20 +389,16 @@ pub mod rococo {
 	}
 
 	pub fn genesis() -> Storage {
-		let genesis_config = rococo_runtime::RuntimeGenesisConfig {
-			system: rococo_runtime::SystemConfig {
-				code: rococo_runtime::WASM_BINARY.unwrap().to_vec(),
-				..Default::default()
-			},
-			balances: rococo_runtime::BalancesConfig {
-				balances: accounts::init_balances()
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
 					.iter()
 					.map(|k| (k.clone(), ENDOWMENT))
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
 			// indices: rococo_runtime::IndicesConfig { indices: vec![] },
-			session: rococo_runtime::SessionConfig {
-				keys: validators::initial_authorities()
+			"session": {
+				"keys": validators::initial_authorities()
 					.iter()
 					.map(|x| {
 						(
@@ -326,16 +417,14 @@ pub mod rococo {
 					})
 					.collect::<Vec<_>>(),
 			},
-			babe: rococo_runtime::BabeConfig {
-				authorities: Default::default(),
-				epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
-				..Default::default()
+			"babe": {
+				"epochConfig": Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
 			},
-			sudo: rococo_runtime::SudoConfig {
-				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			"sudo": {
+				"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 			},
-			configuration: rococo_runtime::ConfigurationConfig { config: get_host_config() },
-			paras: rococo_runtime::ParasConfig {
+			"configuration": { "config": get_host_config() },
+			"paras": rococo_runtime::ParasConfig {
 				paras: vec![
 					(
 						asset_hub_rococo::PARA_ID.into(),
@@ -370,14 +459,109 @@ pub mod rococo {
 				],
 				..Default::default()
 			},
-			registrar: rococo_runtime::RegistrarConfig {
-				next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-				..Default::default()
+			"registrar": {
+				"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 			},
-			..Default::default()
-		};
+		});
 
-		genesis_config.build_storage().unwrap()
+		build_genesis_storage(genesis_config, rococo_runtime::WASM_BINARY.unwrap())
+	}
+
+	#[cfg(test)]
+	mod legacy_vs_json_check {
+		use super::*;
+		fn genesis() -> Storage {
+			let genesis_config = rococo_runtime::RuntimeGenesisConfig {
+				system: rococo_runtime::SystemConfig::default(),
+				balances: rococo_runtime::BalancesConfig {
+					balances: accounts::init_balances()
+						.iter()
+						.map(|k| (k.clone(), ENDOWMENT))
+						.collect(),
+				},
+				// indices: rococo_runtime::IndicesConfig { indices: vec![] },
+				session: rococo_runtime::SessionConfig {
+					keys: validators::initial_authorities()
+						.iter()
+						.map(|x| {
+							(
+								x.0.clone(),
+								x.0.clone(),
+								session_keys(
+									x.2.clone(),
+									x.3.clone(),
+									x.4.clone(),
+									x.5.clone(),
+									x.6.clone(),
+									x.7.clone(),
+									get_from_seed::<BeefyId>("Alice"),
+								),
+							)
+						})
+						.collect::<Vec<_>>(),
+				},
+				babe: rococo_runtime::BabeConfig {
+					authorities: Default::default(),
+					epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
+					..Default::default()
+				},
+				sudo: rococo_runtime::SudoConfig {
+					key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+				},
+				configuration: rococo_runtime::ConfigurationConfig { config: get_host_config() },
+				paras: rococo_runtime::ParasConfig {
+					paras: vec![
+						(
+							asset_hub_rococo::PARA_ID.into(),
+							ParaGenesisArgs {
+								genesis_head: HeadData::default(),
+								validation_code: ValidationCode(
+									asset_hub_rococo_runtime::WASM_BINARY.unwrap().to_vec(),
+								),
+								para_kind: ParaKind::Parachain,
+							},
+						),
+						(
+							penpal::PARA_ID_A.into(),
+							ParaGenesisArgs {
+								genesis_head: HeadData::default(),
+								validation_code: ValidationCode(
+									penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+								),
+								para_kind: ParaKind::Parachain,
+							},
+						),
+						(
+							penpal::PARA_ID_B.into(),
+							ParaGenesisArgs {
+								genesis_head: HeadData::default(),
+								validation_code: ValidationCode(
+									penpal_runtime::WASM_BINARY.unwrap().to_vec(),
+								),
+								para_kind: ParaKind::Parachain,
+							},
+						),
+					],
+					..Default::default()
+				},
+				registrar: rococo_runtime::RegistrarConfig {
+					next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
+					..Default::default()
+				},
+				..Default::default()
+			};
+
+			build_genesis_storage_legacy(&genesis_config, rococo_runtime::WASM_BINARY.unwrap())
+		}
+
+		#[test]
+		fn test_genesis() {
+			let j1 = super::genesis();
+			let j2 = genesis();
+
+			assert_eq!(j1.top, j2.top);
+			assert_eq!(j1.children_default, j2.children_default);
+		}
 	}
 }
 
@@ -388,35 +572,27 @@ pub mod asset_hub_westend {
 	pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
-		let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
-			system: asset_hub_westend_runtime::SystemConfig {
-				code: asset_hub_westend_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!")
-					.to_vec(),
-				..Default::default()
-			},
-			balances: asset_hub_westend_runtime::BalancesConfig {
-				balances: accounts::init_balances()
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
 					.iter()
 					.cloned()
 					.map(|k| (k, ED * 4096))
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
-				parachain_id: PARA_ID.into(),
-				..Default::default()
+			"parachainInfo": {
+				"parachainId": cumulus_primitives_core::ParaId::from(PARA_ID),
 			},
-			collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
-				invulnerables: collators::invulnerables()
+			"collatorSelection": {
+				"invulnerables": collators::invulnerables()
 					.iter()
 					.cloned()
 					.map(|(acc, _)| acc)
-					.collect(),
-				candidacy_bond: ED * 16,
-				..Default::default()
+					.collect::<Vec<_>>(),
+				"candidacyBond": ED * 16,
 			},
-			session: asset_hub_westend_runtime::SessionConfig {
-				keys: collators::invulnerables()
+			"session": {
+				"keys": collators::invulnerables()
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -425,16 +601,80 @@ pub mod asset_hub_westend {
 							asset_hub_westend_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
-				safe_xcm_version: Some(SAFE_XCM_VERSION),
-				..Default::default()
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
-			..Default::default()
-		};
+		});
 
-		genesis_config.build_storage().unwrap()
+		build_genesis_storage(
+			genesis_config,
+			asset_hub_westend_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
+		)
+	}
+
+	#[cfg(test)]
+	mod legacy_vs_json_check {
+		use super::*;
+		fn genesis() -> Storage {
+			let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
+				system: asset_hub_westend_runtime::SystemConfig::default(),
+				balances: asset_hub_westend_runtime::BalancesConfig {
+					balances: accounts::init_balances()
+						.iter()
+						.cloned()
+						.map(|k| (k, ED * 4096))
+						.collect(),
+				},
+				parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
+					parachain_id: PARA_ID.into(),
+					..Default::default()
+				},
+				collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
+					invulnerables: collators::invulnerables()
+						.iter()
+						.cloned()
+						.map(|(acc, _)| acc)
+						.collect(),
+					candidacy_bond: ED * 16,
+					..Default::default()
+				},
+				session: asset_hub_westend_runtime::SessionConfig {
+					keys: collators::invulnerables()
+						.into_iter()
+						.map(|(acc, aura)| {
+							(
+								acc.clone(),                                     // account id
+								acc,                                             // validator id
+								asset_hub_westend_runtime::SessionKeys { aura }, // session keys
+							)
+						})
+						.collect(),
+				},
+				polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
+					safe_xcm_version: Some(SAFE_XCM_VERSION),
+					..Default::default()
+				},
+				..Default::default()
+			};
+
+			build_genesis_storage_legacy(
+				&genesis_config,
+				asset_hub_westend_runtime::WASM_BINARY
+					.expect("WASM binary was not built, please build it!"),
+			)
+		}
+
+		#[test]
+		fn test_genesis() {
+			let j1 = super::genesis();
+			let j2 = genesis();
+
+			assert_eq!(j1.top, j2.top);
+			assert_eq!(j1.children_default, j2.children_default);
+		}
 	}
 }
 
@@ -444,109 +684,221 @@ pub mod asset_hub_rococo {
 	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
-		let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
-			system: asset_hub_rococo_runtime::SystemConfig {
-				code: asset_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!")
-					.to_vec(),
-				..Default::default()
-			},
-			balances: asset_hub_rococo_runtime::BalancesConfig {
-				balances: accounts::init_balances()
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
 					.iter()
 					.cloned()
 					.map(|k| (k, ED * 4096 * 4096))
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
-				parachain_id: PARA_ID.into(),
-				..Default::default()
+			"parachainInfo": {
+				"parachainId": cumulus_primitives_core::ParaId::from(PARA_ID),
 			},
-			collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
-				invulnerables: collators::invulnerables()
+			"collatorSelection": {
+				"invulnerables": collators::invulnerables()
 					.iter()
 					.cloned()
 					.map(|(acc, _)| acc)
-					.collect(),
-				candidacy_bond: ED * 16,
-				..Default::default()
+					.collect::<Vec<_>>(),
+				"candidacyBond": ED * 16,
 			},
-			session: asset_hub_rococo_runtime::SessionConfig {
-				keys: collators::invulnerables()
+			"session": {
+				"keys": collators::invulnerables()
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
-							acc.clone(),                                    // account id
-							acc,                                            // validator id
+							acc.clone(),                                     // account id
+							acc,                                             // validator id
 							asset_hub_rococo_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
-				safe_xcm_version: Some(SAFE_XCM_VERSION),
-				..Default::default()
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
-			..Default::default()
-		};
+		});
 
-		genesis_config.build_storage().unwrap()
+		build_genesis_storage(
+			genesis_config,
+			asset_hub_rococo_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
+		)
+	}
+
+	#[cfg(test)]
+	mod legacy_vs_json_check {
+		use super::*;
+		pub fn genesis() -> Storage {
+			let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
+				system: asset_hub_rococo_runtime::SystemConfig::default(),
+				balances: asset_hub_rococo_runtime::BalancesConfig {
+					balances: accounts::init_balances()
+						.iter()
+						.cloned()
+						.map(|k| (k, ED * 4096 * 4096))
+						.collect(),
+				},
+				parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
+					parachain_id: PARA_ID.into(),
+					..Default::default()
+				},
+				collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
+					invulnerables: collators::invulnerables()
+						.iter()
+						.cloned()
+						.map(|(acc, _)| acc)
+						.collect(),
+					candidacy_bond: ED * 16,
+					..Default::default()
+				},
+				session: asset_hub_rococo_runtime::SessionConfig {
+					keys: collators::invulnerables()
+						.into_iter()
+						.map(|(acc, aura)| {
+							(
+								acc.clone(),                                    // account id
+								acc,                                            // validator id
+								asset_hub_rococo_runtime::SessionKeys { aura }, // session keys
+							)
+						})
+						.collect(),
+				},
+				polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
+					safe_xcm_version: Some(SAFE_XCM_VERSION),
+					..Default::default()
+				},
+				..Default::default()
+			};
+
+			build_genesis_storage_legacy(
+				&genesis_config,
+				asset_hub_rococo_runtime::WASM_BINARY
+					.expect("WASM binary was not built, please build it!"),
+			)
+		}
+
+		#[test]
+		fn test_genesis() {
+			let j1 = super::genesis();
+			let j2 = genesis();
+
+			assert_eq!(j1.top, j2.top);
+			assert_eq!(j1.children_default, j2.children_default);
+		}
 	}
 }
 
 pub mod asset_hub_wococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
-	pub const ED: Balance = parachains_common::wococo::currency::EXISTENTIAL_DEPOSIT;
+	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
-		let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
-			system: asset_hub_rococo_runtime::SystemConfig {
-				code: asset_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!")
-					.to_vec(),
-				..Default::default()
-			},
-			balances: asset_hub_rococo_runtime::BalancesConfig {
-				balances: accounts::init_balances()
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
 					.iter()
 					.cloned()
 					.map(|k| (k, ED * 4096))
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
-				parachain_id: PARA_ID.into(),
-				..Default::default()
+			"parachainInfo": {
+				"parachainId": cumulus_primitives_core::ParaId::from(PARA_ID),
 			},
-			collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
-				invulnerables: collators::invulnerables()
+			"collatorSelection": {
+				"invulnerables": collators::invulnerables()
 					.iter()
 					.cloned()
 					.map(|(acc, _)| acc)
-					.collect(),
-				candidacy_bond: ED * 16,
-				..Default::default()
+					.collect::<Vec<_>>(),
+				"candidacyBond": ED * 16,
 			},
-			session: asset_hub_rococo_runtime::SessionConfig {
-				keys: collators::invulnerables()
+			"session": {
+				"keys": collators::invulnerables()
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
-							acc.clone(),                                    // account id
-							acc,                                            // validator id
-							asset_hub_rococo_runtime::SessionKeys { aura }, // session keys
+							acc.clone(),                                     // account id
+							acc,                                             // validator id
+							asset_hub_westend_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
-				safe_xcm_version: Some(SAFE_XCM_VERSION),
-				..Default::default()
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
-			..Default::default()
-		};
+		});
 
-		genesis_config.build_storage().unwrap()
+		build_genesis_storage(
+			genesis_config,
+			asset_hub_rococo_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
+		)
+	}
+
+	#[cfg(test)]
+	mod legacy_vs_json_check {
+		use super::*;
+		pub fn genesis() -> Storage {
+			let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
+				system: asset_hub_rococo_runtime::SystemConfig::default(),
+				balances: asset_hub_rococo_runtime::BalancesConfig {
+					balances: accounts::init_balances()
+						.iter()
+						.cloned()
+						.map(|k| (k, ED * 4096))
+						.collect(),
+				},
+				parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
+					parachain_id: PARA_ID.into(),
+					..Default::default()
+				},
+				collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
+					invulnerables: collators::invulnerables()
+						.iter()
+						.cloned()
+						.map(|(acc, _)| acc)
+						.collect(),
+					candidacy_bond: ED * 16,
+					..Default::default()
+				},
+				session: asset_hub_rococo_runtime::SessionConfig {
+					keys: collators::invulnerables()
+						.into_iter()
+						.map(|(acc, aura)| {
+							(
+								acc.clone(),                                    // account id
+								acc,                                            // validator id
+								asset_hub_rococo_runtime::SessionKeys { aura }, // session keys
+							)
+						})
+						.collect(),
+				},
+				polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
+					safe_xcm_version: Some(SAFE_XCM_VERSION),
+					..Default::default()
+				},
+				..Default::default()
+			};
+
+			build_genesis_storage_legacy(
+				&genesis_config,
+				asset_hub_rococo_runtime::WASM_BINARY
+					.expect("WASM binary was not built, please build it!"),
+			)
+		}
+
+		#[test]
+		fn test_genesis() {
+			let j1 = super::genesis();
+			let j2 = genesis();
+
+			assert_eq!(j1.top, j2.top);
+			assert_eq!(j1.children_default, j2.children_default);
+		}
 	}
 }
 
@@ -558,35 +910,27 @@ pub mod penpal {
 	pub const ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis(para_id: u32) -> Storage {
-		let genesis_config = penpal_runtime::RuntimeGenesisConfig {
-			system: penpal_runtime::SystemConfig {
-				code: penpal_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!")
-					.to_vec(),
-				..Default::default()
-			},
-			balances: penpal_runtime::BalancesConfig {
-				balances: accounts::init_balances()
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
 					.iter()
 					.cloned()
 					.map(|k| (k, ED * 4096))
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			parachain_info: penpal_runtime::ParachainInfoConfig {
-				parachain_id: para_id.into(),
-				..Default::default()
+			"parachainInfo": {
+				"parachainId": cumulus_primitives_core::ParaId::from(para_id),
 			},
-			collator_selection: penpal_runtime::CollatorSelectionConfig {
-				invulnerables: collators::invulnerables()
+			"collatorSelection": {
+				"invulnerables": collators::invulnerables()
 					.iter()
 					.cloned()
 					.map(|(acc, _)| acc)
-					.collect(),
-				candidacy_bond: ED * 16,
-				..Default::default()
+					.collect::<Vec<_>>(),
+				"candidacyBond": ED * 16,
 			},
-			session: penpal_runtime::SessionConfig {
-				keys: collators::invulnerables()
+			"session": {
+				"keys": collators::invulnerables()
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -595,19 +939,84 @@ pub mod penpal {
 							penpal_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
-				safe_xcm_version: Some(SAFE_XCM_VERSION),
-				..Default::default()
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
-			sudo: penpal_runtime::SudoConfig {
-				key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			"sudo": {
+				"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 			},
-			..Default::default()
-		};
+		});
 
-		genesis_config.build_storage().unwrap()
+		build_genesis_storage(
+			genesis_config,
+			penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		)
+	}
+
+	#[cfg(test)]
+	mod legacy_vs_json_check {
+		use super::*;
+		fn genesis(para_id: u32) -> Storage {
+			let genesis_config = penpal_runtime::RuntimeGenesisConfig {
+				system: penpal_runtime::SystemConfig::default(),
+				balances: penpal_runtime::BalancesConfig {
+					balances: accounts::init_balances()
+						.iter()
+						.cloned()
+						.map(|k| (k, ED * 4096))
+						.collect(),
+				},
+				parachain_info: penpal_runtime::ParachainInfoConfig {
+					parachain_id: para_id.into(),
+					..Default::default()
+				},
+				collator_selection: penpal_runtime::CollatorSelectionConfig {
+					invulnerables: collators::invulnerables()
+						.iter()
+						.cloned()
+						.map(|(acc, _)| acc)
+						.collect(),
+					candidacy_bond: ED * 16,
+					..Default::default()
+				},
+				session: penpal_runtime::SessionConfig {
+					keys: collators::invulnerables()
+						.into_iter()
+						.map(|(acc, aura)| {
+							(
+								acc.clone(),                          // account id
+								acc,                                  // validator id
+								penpal_runtime::SessionKeys { aura }, // session keys
+							)
+						})
+						.collect(),
+				},
+				polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
+					safe_xcm_version: Some(SAFE_XCM_VERSION),
+					..Default::default()
+				},
+				sudo: penpal_runtime::SudoConfig {
+					key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+				},
+				..Default::default()
+			};
+
+			build_genesis_storage_legacy(
+				&genesis_config,
+				penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+			)
+		}
+
+		#[test]
+		fn test_genesis() {
+			let j1 = super::genesis(101);
+			let j2 = genesis(101);
+
+			assert_eq!(j1.top, j2.top);
+			assert_eq!(j1.children_default, j2.children_default);
+		}
 	}
 }
 
@@ -618,35 +1027,27 @@ pub mod bridge_hub_rococo {
 	pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	pub fn genesis() -> Storage {
-		let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
-			system: bridge_hub_rococo_runtime::SystemConfig {
-				code: bridge_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!")
-					.to_vec(),
-				..Default::default()
-			},
-			balances: bridge_hub_rococo_runtime::BalancesConfig {
-				balances: accounts::init_balances()
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
 					.iter()
 					.cloned()
 					.map(|k| (k, ED * 4096))
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
-				parachain_id: PARA_ID.into(),
-				..Default::default()
+			"parachainInfo": {
+				"parachainId": cumulus_primitives_core::ParaId::from(PARA_ID),
 			},
-			collator_selection: bridge_hub_rococo_runtime::CollatorSelectionConfig {
-				invulnerables: collators::invulnerables()
+			"collatorSelection": {
+				"invulnerables": collators::invulnerables()
 					.iter()
 					.cloned()
 					.map(|(acc, _)| acc)
-					.collect(),
-				candidacy_bond: ED * 16,
-				..Default::default()
+					.collect::<Vec<_>>(),
+				"candidacyBond": ED * 16,
 			},
-			session: bridge_hub_rococo_runtime::SessionConfig {
-				keys: collators::invulnerables()
+			"session": {
+				"keys": collators::invulnerables()
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -655,33 +1056,164 @@ pub mod bridge_hub_rococo {
 							bridge_hub_rococo_runtime::SessionKeys { aura }, // session keys
 						)
 					})
-					.collect(),
+					.collect::<Vec<_>>(),
 			},
-			polkadot_xcm: bridge_hub_rococo_runtime::PolkadotXcmConfig {
-				safe_xcm_version: Some(SAFE_XCM_VERSION),
-				..Default::default()
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
-			bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
-				owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-				..Default::default()
+			"bridgeWococoGrandpa": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			},
-			bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
-				owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-				..Default::default()
+			"bridgeRococoGrandpa": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			},
-			bridge_wococo_to_rococo_messages:
-				bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
-					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-					..Default::default()
-				},
-			bridge_rococo_to_wococo_messages:
-				bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
-					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-					..Default::default()
-				},
-			..Default::default()
-		};
+			"bridgeRococoMessages": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			},
+			"bridgeWococoMessages": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			}
+		});
 
-		genesis_config.build_storage().unwrap()
+		build_genesis_storage(
+			genesis_config,
+			bridge_hub_rococo_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
+		)
+	}
+
+	#[cfg(test)]
+	mod legacy_vs_json_check {
+		use super::*;
+		fn genesis() -> Storage {
+			let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
+				system: bridge_hub_rococo_runtime::SystemConfig::default(),
+				balances: bridge_hub_rococo_runtime::BalancesConfig {
+					balances: accounts::init_balances()
+						.iter()
+						.cloned()
+						.map(|k| (k, ED * 4096))
+						.collect(),
+				},
+				parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
+					parachain_id: PARA_ID.into(),
+					..Default::default()
+				},
+				collator_selection: bridge_hub_rococo_runtime::CollatorSelectionConfig {
+					invulnerables: collators::invulnerables()
+						.iter()
+						.cloned()
+						.map(|(acc, _)| acc)
+						.collect(),
+					candidacy_bond: ED * 16,
+					..Default::default()
+				},
+				session: bridge_hub_rococo_runtime::SessionConfig {
+					keys: collators::invulnerables()
+						.into_iter()
+						.map(|(acc, aura)| {
+							(
+								acc.clone(),                                     // account id
+								acc,                                             // validator id
+								bridge_hub_rococo_runtime::SessionKeys { aura }, // session keys
+							)
+						})
+						.collect(),
+				},
+				polkadot_xcm: bridge_hub_rococo_runtime::PolkadotXcmConfig {
+					safe_xcm_version: Some(SAFE_XCM_VERSION),
+					..Default::default()
+				},
+				bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
+					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+					..Default::default()
+				},
+				bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
+					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+					..Default::default()
+				},
+				bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
+					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+					..Default::default()
+				},
+				bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+					..Default::default()
+				},
+				..Default::default()
+			};
+
+			build_genesis_storage_legacy(
+				&genesis_config,
+				bridge_hub_rococo_runtime::WASM_BINARY
+					.expect("WASM binary was not built, please build it!"),
+			)
+		}
+
+		#[test]
+		fn test_genesis() {
+			let j1 = super::genesis();
+			let j2 = genesis();
+
+			assert_eq!(j1.top, j2.top);
+			assert_eq!(j1.children_default, j2.children_default);
+		}
+	}
+}
+
+// Bridge Hub Westend
+pub mod bridge_hub_westend {
+	use super::*;
+	pub const PARA_ID: u32 = 1013;
+	pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+
+	pub fn genesis() -> Storage {
+		let genesis_config = serde_json::json!({
+			"balances": {
+				"balances": accounts::init_balances()
+					.iter()
+					.cloned()
+					.map(|k| (k, ED * 4096))
+					.collect::<Vec<_>>(),
+			},
+			"parachainInfo": {
+				"parachainId": cumulus_primitives_core::ParaId::from(PARA_ID),
+			},
+			"collatorSelection": {
+				"invulnerables": collators::invulnerables()
+					.iter()
+					.cloned()
+					.map(|(acc, _)| acc)
+					.collect::<Vec<_>>(),
+				"candidacyBond": ED * 16,
+			},
+			"session": {
+				"keys": collators::invulnerables()
+					.into_iter()
+					.map(|(acc, aura)| {
+						(
+							acc.clone(),                                     // account id
+							acc,                                             // validator id
+							bridge_hub_westend_runtime::SessionKeys { aura }, // session keys
+						)
+					})
+					.collect::<Vec<_>>(),
+			},
+			"polkadotXcm": {
+				"safeXcmVersion": Some(SAFE_XCM_VERSION),
+			},
+			"bridgeRococoGrandpa": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			},
+			"bridgeRococoMessages": {
+				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			}
+		});
+
+		build_genesis_storage(
+			genesis_config,
+			bridge_hub_westend_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
+		)
 	}
 }

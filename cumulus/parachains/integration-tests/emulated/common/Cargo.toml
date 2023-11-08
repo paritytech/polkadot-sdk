@@ -10,6 +10,7 @@ publish = false
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 paste = "1.0.14"
+serde_json = "1.0.108"
 
 # Substrate
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
@@ -24,6 +25,7 @@ pallet-staking = { path = "../../../../../substrate/frame/staking", default-feat
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
 pallet-im-online = { path = "../../../../../substrate/frame/im-online", default-features = false}
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../substrate/primitives/consensus/beefy" }
+sc-chain-spec = { path = "../../../../../substrate/client/chain-spec", default-features = false }
 
 # Polkadot
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
@@ -50,9 +52,9 @@ collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectiv
 bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-polkadot" }
 bridge-hub-rococo-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-rococo" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false}
-cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue" }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false}
+bridge-hub-westend-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-westend" }
+xcm-emulator = { default-features = false, path = "../../../../xcm/xcm-emulator" }
+cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
 bp-messages = { path = "../../../../../bridges/primitives/messages" }
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
@@ -67,10 +69,12 @@ runtime-benchmarks = [
 	"bridge-hub-kusama-runtime/runtime-benchmarks",
 	"bridge-hub-polkadot-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",

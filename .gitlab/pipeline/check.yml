@@ -87,7 +87,7 @@ check-rust-feature-propagation:
     - .kubernetes-env
     - .common-refs
   script:
-    - cargo install --locked --version 0.13.2 -q -f zepter && zepter --version
+    - cargo install --locked --version 0.13.3 -q -f zepter && zepter --version
     - zepter run check
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
@@ -107,7 +107,7 @@ check-rust-feature-propagation:
       echo "---------- Building ${PACKAGE} runtime ----------"
       time cargo build --release --locked -p "$PACKAGE" --features try-runtime
 
-      echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
+      echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
       time ./try-runtime \
           --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
           on-runtime-upgrade --checks=pre-and-post ${EXTRA_ARGS} live --uri ${URI}
