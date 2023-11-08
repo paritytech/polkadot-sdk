@@ -2208,7 +2208,7 @@
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
 </span><span class="kw">pub fn </span>rococo_local_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Rococo development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::fast_runtime_binary::WASM_BINARY.ok_or(<span class="string">&quot;Rococo development wasm not available&quot;</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
 	.with_name(<span class="string">&quot;Rococo Local Testnet&quot;</span>)
