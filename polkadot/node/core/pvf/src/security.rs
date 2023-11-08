@@ -221,7 +221,7 @@ pub async fn check_seccomp_violations_for_worker(
 
 	let audit_log_file = match audit_log_file {
 		Some(file) => {
-			gum::debug!(
+			gum::trace!(
 				target: LOG_TARGET,
 				%worker_pid,
 				audit_log_path = ?file.path,

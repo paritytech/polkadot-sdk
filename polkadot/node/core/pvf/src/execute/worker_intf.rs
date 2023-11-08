@@ -176,19 +176,6 @@ pub async fn start_work(
 						return Outcome::IoErr
 					},
 					Ok(response) => {
-						// Check if any syscall violations occurred during the job. For now this is
-						// only informative, as we are not enforcing the seccomp policy yet.
-						for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-							gum::error!(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								%syscall,
-								validation_code_hash = ?artifact.id.code_hash,
-								?artifact_path,
-								"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-							);
-						}
-
 						if let Response::Ok{duration, ..} = response {
 							if duration > execution_timeout {
 								// The job didn't complete within the timeout.

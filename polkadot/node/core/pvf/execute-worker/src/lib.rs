@@ -243,12 +243,6 @@ pub fn worker_entrypoint(
 					),
 				};
 
-				gum::trace!(
-					target: LOG_TARGET,
-					%worker_pid,
-					"worker: sending response to host: {:?}",
-					response
-				);
 				send_response(&mut stream, response)?;
 			}
 		},

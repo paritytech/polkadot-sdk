@@ -156,18 +156,6 @@ pub async fn start_work(
 			match result {
 				// Received bytes from worker within the time limit.
 				Ok(Ok(prepare_result)) => {
-					// Check if any syscall violations occurred during the job. For now this is only
-					// informative, as we are not enforcing the seccomp policy yet.
-					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-						gum::error!(
-							target: LOG_TARGET,
-							worker_pid = %pid,
-							%syscall,
-							?pvf,
-							"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-						);
-					}
-
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
