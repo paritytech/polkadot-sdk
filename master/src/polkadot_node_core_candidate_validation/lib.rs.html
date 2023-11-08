@@ -877,6 +877,9 @@
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
 <a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1038,13 +1041,14 @@
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) =&gt; {},
 			FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
 			FromOrchestra::Communication { msg } =&gt; <span class="kw">match </span>msg {
-				CandidateValidationMessage::ValidateFromChainState(
+				CandidateValidationMessage::ValidateFromChainState {
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) =&gt; {
+					..
+				} =&gt; {
 					<span class="kw">let </span>bg = {
 						<span class="kw">let </span><span class="kw-2">mut </span>sender = ctx.sender().clone();
 						<span class="kw">let </span>metrics = metrics.clone();
@@ -1058,7 +1062,7 @@
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								<span class="kw-2">&amp;</span>metrics,
 							)
 							.<span class="kw">await</span>;
@@ -1070,15 +1074,16 @@
 
 					ctx.spawn(<span class="string">&quot;validate-from-chain-state&quot;</span>, bg.boxed())<span class="question-mark">?</span>;
 				},
-				CandidateValidationMessage::ValidateFromExhaustive(
-					persisted_validation_data,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data,
 					validation_code,
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) =&gt; {
+					..
+				} =&gt; {
 					<span class="kw">let </span>bg = {
 						<span class="kw">let </span>metrics = metrics.clone();
 						<span class="kw">let </span>validation_host = validation_host.clone();
@@ -1087,12 +1092,12 @@
 							<span class="kw">let </span>_timer = metrics.time_validate_from_exhaustive();
 							<span class="kw">let </span>res = validate_candidate_exhaustive(
 								validation_host,
-								persisted_validation_data,
+								validation_data,
 								validation_code,
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								<span class="kw-2">&amp;</span>metrics,
 							)
 							.<span class="kw">await</span>;
@@ -1104,11 +1109,12 @@
 
 					ctx.spawn(<span class="string">&quot;validate-from-exhaustive&quot;</span>, bg.boxed())<span class="question-mark">?</span>;
 				},
-				CandidateValidationMessage::PreCheck(
+				CandidateValidationMessage::PreCheck {
 					relay_parent,
 					validation_code_hash,
 					response_sender,
-				) =&gt; {
+					..
+				} =&gt; {
 					<span class="kw">let </span>bg = {
 						<span class="kw">let </span><span class="kw-2">mut </span>sender = ctx.sender().clone();
 						<span class="kw">let </span>validation_host = validation_host.clone();

@@ -1144,6 +1144,18 @@
 <a href="#1144" id="1144">1144</a>
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1289,14 +1301,18 @@
 	///
 	/// If there is no state available which can provide this data or the core for
 	/// the para is not free at the relay-parent, an error is returned.
-	</span>ValidateFromChainState(
-		CandidateReceipt,
-		Arc&lt;PoV&gt;,
-		ExecutorParams,
-		<span class="doccomment">/// Execution timeout
-		</span>PvfExecTimeoutKind,
-		oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt;&gt;,
-	),
+	</span>ValidateFromChainState {
+		<span class="doccomment">/// The candidate receipt
+		</span>candidate_receipt: CandidateReceipt,
+		<span class="doccomment">/// The proof-of-validity
+		</span>pov: Arc&lt;PoV&gt;,
+		<span class="doccomment">/// Session&#39;s executor parameters
+		</span>executor_params: ExecutorParams,
+		<span class="doccomment">/// Execution timeout kind (backing/approvals)
+		</span>exec_timeout_kind: PvfExecTimeoutKind,
+		<span class="doccomment">/// The sending side of the response channel
+		</span>response_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt;&gt;,
+	},
 	<span class="doccomment">/// Validate a candidate with provided, exhaustive parameters for validation.
 	///
 	/// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full
@@ -1306,27 +1322,35 @@
 	/// cases where the validity of the candidate is established. This is the case for the typical
 	/// use-case: secondary checkers would use this request relying on the full prior checks
 	/// performed by the relay-chain.
-	</span>ValidateFromExhaustive(
-		PersistedValidationData,
-		ValidationCode,
-		CandidateReceipt,
-		Arc&lt;PoV&gt;,
-		ExecutorParams,
-		<span class="doccomment">/// Execution timeout
-		</span>PvfExecTimeoutKind,
-		oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt;&gt;,
-	),
+	</span>ValidateFromExhaustive {
+		<span class="doccomment">/// Persisted validation data
+		</span>validation_data: PersistedValidationData,
+		<span class="doccomment">/// Validation code
+		</span>validation_code: ValidationCode,
+		<span class="doccomment">/// The candidate receipt
+		</span>candidate_receipt: CandidateReceipt,
+		<span class="doccomment">/// The proof-of-validity
+		</span>pov: Arc&lt;PoV&gt;,
+		<span class="doccomment">/// Session&#39;s executor parameters
+		</span>executor_params: ExecutorParams,
+		<span class="doccomment">/// Execution timeout kind (backing/approvals)
+		</span>exec_timeout_kind: PvfExecTimeoutKind,
+		<span class="doccomment">/// The sending side of the response channel
+		</span>response_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt;&gt;,
+	},
 	<span class="doccomment">/// Try to compile the given validation code and send back
 	/// the outcome.
 	///
 	/// The validation code is specified by the hash and will be queried from the runtime API at
 	/// the given relay-parent.
-	</span>PreCheck(
-		<span class="comment">// Relay-parent
-		</span>Hash,
-		ValidationCodeHash,
-		oneshot::Sender&lt;PreCheckOutcome&gt;,
-	),
+	</span>PreCheck {
+		<span class="doccomment">/// Relay-parent
+		</span>relay_parent: Hash,
+		<span class="doccomment">/// Validation code hash
+		</span>validation_code_hash: ValidationCodeHash,
+		<span class="doccomment">/// The sending side of the response channel
+		</span>response_sender: oneshot::Sender&lt;PreCheckOutcome&gt;,
+	},
 }
 
 <span class="doccomment">/// Messages received by the Collator Protocol subsystem.

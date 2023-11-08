@@ -558,6 +558,10 @@
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1095,7 +1099,11 @@
 
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	sender
-		.send_message(CandidateValidationMessage::PreCheck(relay_parent, validation_code_hash, tx))
+		.send_message(CandidateValidationMessage::PreCheck {
+			relay_parent,
+			validation_code_hash,
+			response_sender: tx,
+		})
 		.<span class="kw">await</span>;
 
 	<span class="kw">let </span>timer = metrics.time_pre_check_judgement();

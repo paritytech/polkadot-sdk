@@ -499,6 +499,8 @@
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -774,30 +776,31 @@
 			<span class="comment">// Message sent by the approval voting subsystem
 			</span>FromOrchestra::Communication {
 				msg:
-					CandidateValidationMessage::ValidateFromExhaustive(
+					CandidateValidationMessage::ValidateFromExhaustive {
 						validation_data,
 						validation_code,
 						candidate_receipt,
 						pov,
 						executor_params,
-						timeout,
-						sender,
-					),
+						exec_timeout_kind,
+						response_sender,
+						..
+					},
 			} =&gt; {
 				<span class="kw">match </span><span class="self">self</span>.fake_validation {
-					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(timeout) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
 						<span class="comment">// Behave normally if the `PoV` is not known to be malicious.
 						</span><span class="kw">if </span>pov.block_data.<span class="number">0</span>.as_slice() != MALICIOUS_POV {
 							<span class="kw">return </span><span class="prelude-val">Some</span>(FromOrchestra::Communication {
-								msg: CandidateValidationMessage::ValidateFromExhaustive(
+								msg: CandidateValidationMessage::ValidateFromExhaustive {
 									validation_data,
 									validation_code,
 									candidate_receipt,
 									pov,
 									executor_params,
-									timeout,
-									sender,
-								),
+									exec_timeout_kind,
+									response_sender,
+								},
 							})
 						}
 						<span class="comment">// Create the fake response with probability `p` if the `PoV` is malicious,
@@ -814,7 +817,7 @@
 								create_validation_response(
 									validation_data,
 									candidate_receipt.descriptor,
-									sender,
+									response_sender,
 								);
 								<span class="prelude-val">None
 							</span>},
@@ -827,20 +830,20 @@
 								);
 
 								<span class="prelude-val">Some</span>(FromOrchestra::Communication {
-									msg: CandidateValidationMessage::ValidateFromExhaustive(
+									msg: CandidateValidationMessage::ValidateFromExhaustive {
 										validation_data,
 										validation_code,
 										candidate_receipt,
 										pov,
 										executor_params,
-										timeout,
-										sender,
-									),
+										exec_timeout_kind,
+										response_sender,
+									},
 								})
 							},
 						}
 					},
-					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(timeout) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
 						<span class="comment">// Set the validation result to invalid with probability `p` and trigger a
 						// dispute
 						</span><span class="kw">let </span>behave_maliciously = <span class="self">self</span>.distribution.sample(<span class="kw-2">&amp;mut </span>rand::thread_rng());
@@ -859,7 +862,7 @@
 
 								<span class="comment">// We&#39;re not even checking the candidate, this makes us appear
 								// faster than honest validators.
-								</span>sender.send(<span class="prelude-val">Ok</span>(validation_result)).unwrap();
+								</span>response_sender.send(<span class="prelude-val">Ok</span>(validation_result)).unwrap();
 								<span class="prelude-val">None
 							</span>},
 							<span class="bool-val">false </span>=&gt; {
@@ -867,56 +870,57 @@
 								</span><span class="macro">gum::info!</span>(target: MALUS, <span class="string">&quot;😈 &#39;Decided&#39; to not act maliciously.&quot;</span>,);
 
 								<span class="prelude-val">Some</span>(FromOrchestra::Communication {
-									msg: CandidateValidationMessage::ValidateFromExhaustive(
+									msg: CandidateValidationMessage::ValidateFromExhaustive {
 										validation_data,
 										validation_code,
 										candidate_receipt,
 										pov,
 										executor_params,
-										timeout,
-										sender,
-									),
+										exec_timeout_kind,
+										response_sender,
+									},
 								})
 							},
 						}
 					},
 					<span class="comment">// Handle FakeCandidateValidation::Disabled
 					</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(FromOrchestra::Communication {
-						msg: CandidateValidationMessage::ValidateFromExhaustive(
+						msg: CandidateValidationMessage::ValidateFromExhaustive {
 							validation_data,
 							validation_code,
 							candidate_receipt,
 							pov,
 							executor_params,
-							timeout,
-							sender,
-						),
+							exec_timeout_kind,
+							response_sender,
+						},
 					}),
 				}
 			},
 			<span class="comment">// Behaviour related to the backing subsystem
 			</span>FromOrchestra::Communication {
 				msg:
-					CandidateValidationMessage::ValidateFromChainState(
+					CandidateValidationMessage::ValidateFromChainState {
 						candidate_receipt,
 						pov,
 						executor_params,
-						timeout,
+						exec_timeout_kind,
 						response_sender,
-					),
+						..
+					},
 			} =&gt; {
 				<span class="kw">match </span><span class="self">self</span>.fake_validation {
-					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(timeout) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
 						<span class="comment">// Behave normally if the `PoV` is not known to be malicious.
 						</span><span class="kw">if </span>pov.block_data.<span class="number">0</span>.as_slice() != MALICIOUS_POV {
 							<span class="kw">return </span><span class="prelude-val">Some</span>(FromOrchestra::Communication {
-								msg: CandidateValidationMessage::ValidateFromChainState(
+								msg: CandidateValidationMessage::ValidateFromChainState {
 									candidate_receipt,
 									pov,
 									executor_params,
-									timeout,
+									exec_timeout_kind,
 									response_sender,
-								),
+								},
 							})
 						}
 						<span class="comment">// If the `PoV` is malicious, back the candidate with some probability `p`,
@@ -940,17 +944,17 @@
 							<span class="comment">// If the `PoV` is malicious, we behave normally with some probability
 							// `(1-p)`
 							</span><span class="bool-val">false </span>=&gt; <span class="prelude-val">Some</span>(FromOrchestra::Communication {
-								msg: CandidateValidationMessage::ValidateFromChainState(
+								msg: CandidateValidationMessage::ValidateFromChainState {
 									candidate_receipt,
 									pov,
 									executor_params,
-									timeout,
+									exec_timeout_kind,
 									response_sender,
-								),
+								},
 							}),
 						}
 					},
-					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(timeout) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
 						<span class="comment">// Maliciously set the validation result to invalid for a valid candidate
 						// with probability `p`
 						</span><span class="kw">let </span>behave_maliciously = <span class="self">self</span>.distribution.sample(<span class="kw-2">&amp;mut </span>rand::thread_rng());
@@ -974,25 +978,25 @@
 								<span class="macro">gum::info!</span>(target: MALUS, <span class="string">&quot;😈 &#39;Decided&#39; to not act maliciously.&quot;</span>,);
 
 								<span class="prelude-val">Some</span>(FromOrchestra::Communication {
-									msg: CandidateValidationMessage::ValidateFromChainState(
+									msg: CandidateValidationMessage::ValidateFromChainState {
 										candidate_receipt,
 										pov,
 										executor_params,
-										timeout,
+										exec_timeout_kind,
 										response_sender,
-									),
+									},
 								})
 							},
 						}
 					},
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(FromOrchestra::Communication {
-						msg: CandidateValidationMessage::ValidateFromChainState(
+						msg: CandidateValidationMessage::ValidateFromChainState {
 							candidate_receipt,
 							pov,
 							executor_params,
-							timeout,
+							exec_timeout_kind,
 							response_sender,
-						),
+						},
 					}),
 				}
 			},

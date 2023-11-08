@@ -2587,8 +2587,8 @@
 
 <span class="kw">async fn </span>request_candidate_validation(
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::CandidateBackingSenderTrait,
-	pvd: PersistedValidationData,
-	code: ValidationCode,
+	validation_data: PersistedValidationData,
+	validation_code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc&lt;PoV&gt;,
 	executor_params: ExecutorParams,
@@ -2596,15 +2596,15 @@
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
 	sender
-		.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-			pvd,
-			code,
+		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
 			candidate_receipt,
 			pov,
 			executor_params,
-			PvfExecTimeoutKind::Backing,
-			tx,
-		))
+			exec_timeout_kind: PvfExecTimeoutKind::Backing,
+			response_sender: tx,
+		})
 		.<span class="kw">await</span>;
 
 	<span class="kw">match </span>rx.<span class="kw">await </span>{
