@@ -47,7 +47,7 @@ pub mod __private {
 	pub use sp_core::{OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
 	pub use sp_inherents;
-	pub use sp_io::{self, storage::root as storage_root};
+	pub use sp_io::{self, hashing, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
