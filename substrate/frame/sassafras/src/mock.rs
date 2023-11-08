@@ -130,7 +130,7 @@ pub fn new_test_ext_with_pairs(
 
 	if with_ring_context {
 		ext.execute_with(|| {
-			log::debug!(target: LOG_TARGET, "Building new testing ring context");
+			log::debug!(target: LOG_TARGET, "Building testing ring context");
 			let ring_ctx = vrf::RingContext::new_testing();
 			RingContext::<Test>::set(Some(ring_ctx.clone()));
 			Sassafras::update_ring_verifier(&authorities);
