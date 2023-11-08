@@ -57,7 +57,7 @@
 //! deal with numbers and alternatives to floating point arithmetic.
 //!
 //! Rather they (should) use fixed-point arithmetic to mitigate the potential for inaccuracy, rounding errors, or other unexpected behavior.
-//! For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerfile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//! For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
 //! Using **primitive** floating point number types in a blockchain context should also be avoided, as a
 //! single nondeterministic result could cause chaos for consensus along with the aforementioned issues.
