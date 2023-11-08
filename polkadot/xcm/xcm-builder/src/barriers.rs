@@ -74,50 +74,37 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFro
 		);
 
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
-		let mut assets_in_holding = 0;
 		// We will read up to 5 instructions. This allows up to 3 `ClearOrigin` instructions. We
 		// allow for more than one since anything beyond the first is a no-op and it's conceivable
 		// that composition of operations might result in more than one being appended.
-		let end = instructions.len().min(6);
+		let end = instructions.len().min(5);
 		instructions[..end]
 			.matcher()
-			// ensure there is at least one instruction loading funds in holding register
-			.match_next_inst_while(
-				|_| true,
-				|inst| match inst {
-					ReceiveTeleportedAsset(ref assets) |
-					ReserveAssetDeposited(ref assets) |
-					WithdrawAsset(ref assets) |
-					ClaimAsset { ref assets, .. } => {
-						assets_in_holding += assets.len();
-						Ok(ControlFlow::Continue(()))
+			.match_next_inst(|inst| match inst {
+				ReceiveTeleportedAsset(ref assets) |
+				ReserveAssetDeposited(ref assets) |
+				WithdrawAsset(ref assets) |
+				ClaimAsset { ref assets, .. } =>
+					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
+						Ok(())
+					} else {
+						Err(ProcessMessageError::BadFormat)
 					},
-					_ => Ok(ControlFlow::Break(())),
-				},
-			)?
-			// skip `ClearOrigin` instructions
+				_ => Err(ProcessMessageError::BadFormat),
+			})?
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
-			// ensure required weight is bought using funds prepared above
-			.match_next_inst(|inst| {
-				// ensure there were `0 < assets <= MAX_ASSETS_FOR_BUY_EXECUTION` added to holding
-				// for BuyExecution
-				ensure!(
-					assets_in_holding > 0 && assets_in_holding <= MAX_ASSETS_FOR_BUY_EXECUTION,
-					ProcessMessageError::BadFormat
-				);
-				match inst {
-					BuyExecution { weight_limit: Limited(ref mut weight), .. }
-						if weight.all_gte(max_weight) =>
-					{
-						*weight = max_weight;
-						Ok(())
-					},
-					BuyExecution { ref mut weight_limit, .. } if weight_limit == &Unlimited => {
-						*weight_limit = Limited(max_weight);
-						Ok(())
-					},
-					_ => Err(ProcessMessageError::Overweight(max_weight)),
-				}
+			.match_next_inst(|inst| match inst {
+				BuyExecution { weight_limit: Limited(ref mut weight), .. }
+					if weight.all_gte(max_weight) =>
+				{
+					*weight = max_weight;
+					Ok(())
+				},
+				BuyExecution { ref mut weight_limit, .. } if weight_limit == &Unlimited => {
+					*weight_limit = Limited(max_weight);
+					Ok(())
+				},
+				_ => Err(ProcessMessageError::Overweight(max_weight)),
 			})?;
 		Ok(())
 	}

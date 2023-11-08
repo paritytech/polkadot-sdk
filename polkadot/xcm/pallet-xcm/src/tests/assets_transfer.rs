@@ -420,9 +420,9 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 				// local chain; `assets` are burned on source and withdrawn from SA here
 				Xcm(vec![
 					ReserveAssetDeposited((Parent, FEE_AMOUNT).into()),
+					buy_limited_execution(expected_fee, Unlimited),
 					WithdrawAsset(expected_asset.into()),
 					ClearOrigin,
-					buy_limited_execution(expected_fee, Unlimited),
 					DepositAsset { assets: AllCounted(2).into(), beneficiary },
 				])
 			)]
@@ -606,11 +606,11 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 					// fees are being sent through destination-reserve transfer because fee reserve
 					// is destination chain
 					WithdrawAsset(expected_fee.clone().into()),
+					buy_limited_execution(expected_fee, Unlimited),
 					// transfer is through local-reserve transfer because `assets` (native asset)
 					// have local reserve
 					ReserveAssetDeposited(expected_asset.into()),
 					ClearOrigin,
-					buy_limited_execution(expected_fee, Unlimited),
 					DepositAsset { assets: AllCounted(2).into(), beneficiary },
 				])
 			)]
@@ -1140,11 +1140,11 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 				Xcm(vec![
 					// fees are teleported to destination chain
 					ReceiveTeleportedAsset(expected_fee.clone().into()),
+					buy_limited_execution(expected_fee, Unlimited),
 					// transfer is through local-reserve transfer because `assets` (native
 					// asset) have local reserve
 					ReserveAssetDeposited(expected_asset.into()),
 					ClearOrigin,
-					buy_limited_execution(expected_fee, Unlimited),
 					DepositAsset { assets: AllCounted(2).into(), beneficiary },
 				])
 			)]
@@ -1271,10 +1271,10 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 				Xcm(vec![
 					// fees are teleported to destination chain
 					ReceiveTeleportedAsset(expected_fee.clone().into()),
+					buy_limited_execution(expected_fee, Unlimited),
 					// assets are withdrawn from origin's local SA
 					WithdrawAsset(expected_asset.into()),
 					ClearOrigin,
-					buy_limited_execution(expected_fee, Unlimited),
 					DepositAsset { assets: AllCounted(2).into(), beneficiary },
 				])
 			)]
