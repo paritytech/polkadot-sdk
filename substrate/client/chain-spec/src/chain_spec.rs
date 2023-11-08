@@ -161,7 +161,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Config(config),
 				code,
 			}) => {
-				RuntimeCaller::<(sp_io::SubstrateHostFunctions, EHF)>::new(&code[..])
+				RuntimeCaller::<EHF>::new(&code[..])
 					.get_storage_for_config(config)?
 					.assimilate_storage(storage)?;
 				storage
@@ -172,7 +172,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Patch(patch),
 				code,
 			}) => {
-				RuntimeCaller::<(sp_io::SubstrateHostFunctions, EHF)>::new(&code[..])
+				RuntimeCaller::<EHF>::new(&code[..])
 					.get_storage_for_patch(patch)?
 					.assimilate_storage(storage)?;
 				storage

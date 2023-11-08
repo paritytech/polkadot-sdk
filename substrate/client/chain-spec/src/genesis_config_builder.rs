@@ -31,21 +31,29 @@ use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
-pub struct GenesisConfigBuilderRuntimeCaller<'a, HF = sp_io::SubstrateHostFunctions> {
+/// `EHF` type allows to specify the extended host function required for building runtime's genesis
+/// config. The type will be compbined with default `sp_io::SubstrateHostFunctions`.
+pub struct GenesisConfigBuilderRuntimeCaller<'a, EHF = ()>
+where
+	EHF: HostFunctions,
+{
 	code: Cow<'a, [u8]>,
 	code_hash: Vec<u8>,
-	executor: WasmExecutor<HF>,
+	executor: WasmExecutor<(sp_io::SubstrateHostFunctions, EHF)>,
 }
 
-impl<'a, HF> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a, HF> {
+impl<'a, EHF> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a, EHF>
+where
+	EHF: HostFunctions,
+{
 	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
 		Some(self.code.as_ref().into())
 	}
 }
 
-impl<'a, HF> GenesisConfigBuilderRuntimeCaller<'a, HF>
+impl<'a, EHF> GenesisConfigBuilderRuntimeCaller<'a, EHF>
 where
-	HF: HostFunctions,
+	EHF: HostFunctions,
 {
 	/// Creates new instance using the provided code blob.
 	///
@@ -54,7 +62,9 @@ where
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_core::blake2_256(code).to_vec(),
-			executor: WasmExecutor::<HF>::builder().with_allow_missing_host_functions(true).build(),
+			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
+				.with_allow_missing_host_functions(true)
+				.build(),
 		}
 	}
 
