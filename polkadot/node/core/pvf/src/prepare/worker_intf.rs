@@ -98,6 +98,8 @@ pub enum Outcome {
 	///
 	/// This doesn't return an idle worker instance, thus this worker is no longer usable.
 	IoErr(String),
+	/// The worker ran out of memory and is aborting. The worker should be ripped.
+	OutOfMemory,
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -234,6 +236,7 @@ async fn handle_response(
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(_) => return Outcome::Concluded { worker, result },
 	};
 

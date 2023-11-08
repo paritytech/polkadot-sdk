@@ -62,7 +62,7 @@ test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../pri
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 thousands = "0.2.0"
 assert_matches = "1"
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 
 [features]
 default = [ "std" ]
