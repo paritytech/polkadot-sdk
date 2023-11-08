@@ -137,14 +137,13 @@ impl StakingInterface for StakingMock {
 	fn status(
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, sp_runtime::DispatchError> {
-		let n = TestNominators::get();
+		let nominators = TestNominators::get();
 
-		if n.contains_key(who) {
-			Ok(StakerStatus::Nominator(n.get(&who).expect("exists").1.clone()))
-		} else if TestValidators::get().contains_key(who) {
-			Ok(StakerStatus::Validator)
-		} else {
-			Err("not a staker".into())
+		match (TestValidators::get().contains_key(who), nominators.contains_key(who)) {
+			(true, true) => Ok(StakerStatus::Validator),
+			(false, true) =>
+				Ok(StakerStatus::Nominator(nominators.get(&who).expect("exists").1.clone())),
+			_ => Err("mock: not a staker or inconsistent data".into()),
 		}
 	}
 
@@ -313,6 +312,10 @@ pub(crate) fn add_validator(who: AccountId, stake: Balance) {
 	TestValidators::mutate(|v| {
 		v.insert(who, Stake::<Balance> { active: stake, total: stake });
 	});
+	// validator is a nominator too.
+	TestNominators::mutate(|v| {
+		v.insert(who, (Stake::<Balance> { active: stake, total: stake }, vec![]));
+	});
 
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who);
 }
@@ -336,7 +339,7 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 }
 
 pub(crate) fn remove_staker(who: AccountId) {
-	if TestNominators::get().contains_key(&who) {
+	if TestNominators::get().contains_key(&who) && !TestValidators::get().contains_key(&who) {
 		let nominations = <StakingMock as StakingInterface>::nominations(&who).unwrap();
 
 		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_remove(

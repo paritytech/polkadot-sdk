@@ -109,7 +109,88 @@ fn update_score_below_zero_defensive_no_panic_works() {
 
 #[test]
 fn on_stake_update_works() {
-	//TODO(gpestana)
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		assert!(VoterBagsList::contains(&1));
+		let stake_before = stake_of(1);
+
+		let nominations = <StakingMock as StakingInterface>::nominations(&1).unwrap();
+		assert!(nominations.len() == 1);
+		let nomination_score_before = TargetBagsList::get_score(&nominations[0]).unwrap();
+
+		// manually change the stake of the voter.
+		let new_stake = Stake { total: 10, active: 10 };
+		// assert imbalance of the operation is negative.
+		assert!(stake_before.unwrap().active > new_stake.active);
+
+		TestNominators::mutate(|n| {
+			n.insert(1, (new_stake, nominations.clone()));
+		});
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before);
+
+		assert_eq!(VoterBagsList::get_score(&1).unwrap(), new_stake.active);
+
+		// now, the score of the nominated by 1 has `stake_score` less stake than before the
+		// nominator's stake was updated.
+		let nomination_score_after = TargetBagsList::get_score(&nominations[0]).unwrap();
+		assert_eq!(
+			nomination_score_after,
+			nomination_score_before - (stake_before.unwrap().active - new_stake.active)
+		);
+	});
+
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		assert!(TargetBagsList::contains(&10));
+		assert!(VoterBagsList::contains(&10));
+		let stake_before = stake_of(10);
+		let target_score_before = TargetBagsList::get_score(&10).unwrap();
+
+		// validator has no nominations, as expected.
+		assert!(<StakingMock as StakingInterface>::nominations(&10).unwrap().len() == 0);
+
+		// manually change the self stake.
+		let new_stake = Stake { total: 10, active: 10 };
+		// assert imbalance of the operation is negative.
+		assert!(stake_before.unwrap().active > new_stake.active);
+		TestNominators::mutate(|n| {
+			n.insert(10, (new_stake, vec![]));
+		});
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before);
+
+		assert_eq!(VoterBagsList::get_score(&10).unwrap(), new_stake.active);
+
+		// target bags list was updated as expected.
+		let target_score_after = TargetBagsList::get_score(&10).unwrap();
+
+		println!("t_score 1: {:?}, t_score 2: {:?}", target_score_before, target_score_after);
+		println!("self_stake_1: {:?}", stake_before);
+		println!("self_stake_2: {:?}", stake_of(10));
+
+		assert_eq!(target_score_after, new_stake.active);
+	})
+}
+
+#[test]
+#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"staker should exist in VoterList, as per the contract with staking.\""]
+fn on_stake_update_defensive_not_in_list_works() {
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		assert!(VoterBagsList::contains(&1));
+		// removes 1 from nominator's list manually, while keeping it as staker.
+		assert_ok!(VoterBagsList::on_remove(&1));
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None);
+	})
+}
+
+#[test]
+#[should_panic = "Defensive failure has been triggered!: Other(\"mock: not a staker or inconsistent data\"): \"staker should exist when calling on_stake_update and have a valid status\""]
+fn on_stake_update_defensive_not_staker_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert!(!VoterBagsList::contains(&1));
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None);
+	})
 }
 
 #[test]
