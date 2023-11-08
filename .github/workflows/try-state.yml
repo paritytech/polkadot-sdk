@@ -35,10 +35,10 @@ jobs:
       uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
       with:
         room_id: ${{ env.MATRIX_ROOM_ID }}
-        access_token: ${{ secrets.MATRIX_V2_ACCESS_TOKEN }}
+        access_token: ${{ secrets.MATRIX_TRY_RUNTIME_BOT_TOKEN }}
         server: m.parity.io
         message: |
-          @room This is a test
+          @room Hello GHA
 
     - name:  Download and set up try-runtime binary
       run: |
