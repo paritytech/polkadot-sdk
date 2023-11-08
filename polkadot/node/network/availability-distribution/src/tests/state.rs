@@ -20,7 +20,7 @@ use std::{
 };
 
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
-use polkadot_node_subsystem_util::{availability_chunk_index, TimeoutExt};
+use polkadot_node_subsystem_util::{availability_chunks::availability_chunk_index, TimeoutExt};
 
 use futures::{
 	channel::{mpsc, oneshot},
