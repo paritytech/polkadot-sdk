@@ -5,7 +5,6 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 version = "1.0.0"
-description = "Macros for Polkadot XCM"
 publish = true
 
 [lib]
