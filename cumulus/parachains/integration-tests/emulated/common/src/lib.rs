@@ -344,7 +344,7 @@ impl_assert_events_helpers_for_parachain!(PenpalWestendA, true);
 
 // BridgeHubWestend implementation
 impl_accounts_helpers_for_parachain!(BridgeHubWestend);
-impl_assert_events_helpers_for_parachain!(BridgeHubWestend);
+impl_assert_events_helpers_for_parachain!(BridgeHubWestend, false);
 
 // BridgeHubRococo implementation
 impl_accounts_helpers_for_parachain!(BridgeHubRococo);
