@@ -337,18 +337,22 @@ where
 	return valid_first && valid_second
 }
 
-/// Validates [ForkEquivocationProof] by checking:
-/// 1. `commitment` is signed,
-/// 2. `correct_header` is valid and matches `commitment.block_number`.
-/// 2. `commitment.payload` != `expected_payload(correct_header)`.
-/// NOTE: GRANDPA finalization proof is not checked, which leads to slashing on forks.
-/// This is fine since honest validators will not be slashed on the chain finalized
-/// by GRANDPA, which is the only chain that ultimately matters.
-/// The only material difference not checking GRANDPA proofs makes is that validators
-/// are not slashed for signing BEEFY commitments prior to the blocks committed to being
-/// finalized by GRANDPA. This is fine too, since the slashing risk of committing to
-/// an incorrect block implies validators will only sign blocks they *know* will be
-/// finalized by GRANDPA.
+/// Validates [ForkEquivocationProof] with the following checks:
+/// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
+///   provided
+/// - if `correct_header` is provided and matches `commitment.block_number`, commitment.payload` !=
+///   `expected_payload(correct_header)`
+/// - if `ancestry proof` is provided, it proves mmr_root(commitment.block_number) !=
+///   mmr_root(commitment.payload)`
+/// - `commitment` is signed by all claimed signatories
+///
+/// NOTE: GRANDPA finalization proof is not checked, which leads to slashing on forks. This is fine
+/// since honest validators will not be slashed on the chain finalized by GRANDPA, which is the only
+/// chain that ultimately matters. The only material difference not checking GRANDPA proofs makes is
+/// that validators are not slashed for signing BEEFY commitments prior to the blocks committed to
+/// being finalized by GRANDPA. This is fine too, since the slashing risk of committing to an
+/// incorrect block implies validators will only sign blocks they *know* will be finalized by
+/// GRANDPA.
 pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
 	proof: &ForkEquivocationProof<
 		Header::Number,
