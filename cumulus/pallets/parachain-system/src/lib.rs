@@ -527,7 +527,10 @@ pub mod pallet {
 		/// if the appropriate time has come.
 		#[pallet::call_index(0)]
 		#[pallet::weight((<T as frame_system::Config>::BlockWeights::get().max_block, DispatchClass::Mandatory))]
-		// TODO: This weight should be corrected.
+		// It makes no sense to have a weight hint for mandatory inherents, because like hooks they must be
+		// executed regardless of the weight they consume. We just need to be sure that:
+		// - The returned `actual_weight` field is always Some.
+		// - The weight hint is always greather tha,n the returned `actual_weight`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
 			data: ParachainInherentData,
