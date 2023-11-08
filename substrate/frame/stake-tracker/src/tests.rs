@@ -20,7 +20,8 @@
 use crate::{mock::*, StakeImbalance};
 
 use frame_election_provider_support::SortedListProvider;
-use sp_staking::{OnStakingUpdate, Stake};
+use frame_support::assert_ok;
+use sp_staking::{OnStakingUpdate, Stake, StakingInterface};
 
 // keeping tests clean.
 type A = AccountId;
@@ -70,7 +71,7 @@ fn update_score_works() {
 
 #[test]
 #[should_panic = "Defensive failure has been triggered!: \"`update_score` on non-existant staker\": 1"]
-fn update_score_non_existing_defensive_work() {
+fn update_score_non_existing_defensive_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
 		// not expected to update score of a non-existing staker.
@@ -80,15 +81,35 @@ fn update_score_non_existing_defensive_work() {
 
 #[test]
 #[should_panic]
-fn update_score_below_zero_defensive_work() {
+fn update_score_below_zero_defensive_works() {
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		assert!(VoterBagsList::contains(&1));
+		assert_eq!(VoterBagsList::get_score(&1), Ok(100));
+		// updating the score below 0 is unexpected.
+		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(500));
+	})
+}
+
+// same as test above but does not panic after defensive so we can test invariants.
+#[test]
+#[cfg(not(debug_assertions))]
+fn update_score_below_zero_defensive_no_panic_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::get_score(&1), Ok(100));
 		// updating the score below 0 is unexpected and saturates to 0.
 		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(500));
-		// TODO(gpestana): how to assert invariant after defensive fail.
+		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::get_score(&1), Ok(0));
+
+		let n = TestNominators::get();
+		assert!(n.get(&1).is_some());
 	})
+}
+
+#[test]
+fn on_stake_update_works() {
+	//TODO(gpestana)
 }
 
 #[test]
@@ -145,6 +166,57 @@ fn on_validator_add_already_exists_defensive_works() {
 		assert!(TargetBagsList::contains(&10));
 		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(&10);
 	});
+}
+
+#[test]
+fn on_nominator_remove_works() {
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		assert!(VoterBagsList::contains(&1));
+		let nominator_score = VoterBagsList::get_score(&1).unwrap();
+
+		let nominations = <StakingMock as StakingInterface>::nominations(&1).unwrap();
+		assert!(nominations.len() == 1);
+		let nomination_score_before = TargetBagsList::get_score(&nominations[0]).unwrap();
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(&1, nominations.clone());
+
+		// the nominator was removed from the voter list.
+		assert!(!VoterBagsList::contains(&1));
+
+		// now, the score of the nominated by 1 has less `nominator_score` stake than before the
+		// nominator was removed.
+		let nomination_score_after = TargetBagsList::get_score(&nominations[0]).unwrap();
+		assert!(nomination_score_after == nomination_score_before - nominator_score);
+	})
+}
+
+#[test]
+#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"the nominator exists in the list as per the contract with staking; qed.\""]
+fn on_nominator_remove_defensive_works() {
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		assert!(VoterBagsList::contains(&1));
+
+		// remove 1 from the voter list to check if the defensive is triggered in the next call,
+		// while maintaining it as a staker so it does not early exist at the staking mock
+		// implementation.
+		assert_ok!(VoterBagsList::on_remove(&1));
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(&1, vec![]);
+	})
+}
+
+#[test]
+#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"the validator exists in the list as per the contract with staking; qed.\""]
+fn on_validator_remove_defensive_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert!(!TargetBagsList::contains(&1));
+		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_remove(&1);
+	})
+}
+
+#[test]
+fn on_nominator_update_works() {
+	// TODO(gpestana)
 }
 
 mod staking_integration {
