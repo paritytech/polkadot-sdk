@@ -66,7 +66,7 @@ impl pallet_ambassador_origins::Config for Runtime {}
 pub type AmbassadorCollectiveInstance = pallet_ranked_collective::Instance2;
 
 /// Demotion is by any of:
-/// - Root can promote arbitrarily.
+/// - Root can demote arbitrarily.
 /// - the FellowshipAdmin origin (i.e. token holder referendum);
 /// - a senior members vote by the rank two above the current rank.
 pub type DemoteOrigin = EitherOf<
