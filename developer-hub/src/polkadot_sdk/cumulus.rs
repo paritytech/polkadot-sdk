@@ -1,6 +1,6 @@
 //! # Cumulus
 //!
-//! Substrate provides a framework through which a blockchain node and runtime can easily be
+//! Substrate provides a framework ([FRAME]) through which a blockchain node and runtime can easily be
 //! created. Cumulus aims to extend the same approach to creation of Polkadot parachains.
 //!
 //! > Cumulus clouds are shaped sort of like dots; together they form a system that is intricate,
