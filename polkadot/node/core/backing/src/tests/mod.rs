@@ -2216,15 +2216,15 @@ fn validator_ignores_statements_from_disabled_validators() {
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(
-					_pvd,
-					_validation_code,
+				CandidateValidationMessage::ValidateFromExhaustive{
+					validation_data: _pvd,
+					validation_code: _validation_code,
 					candidate_receipt,
-					_pov,
-					_,
-					timeout,
-					tx,
-				),
+					pov: _pov,
+					executor_params: _,
+					exec_timeout_kind: timeout,
+					response_sender: tx,
+				},
 			) if _pvd == pvd &&
 				_validation_code == validation_code &&
 				*_pov == pov && &candidate_receipt.descriptor == candidate.descriptor() &&
