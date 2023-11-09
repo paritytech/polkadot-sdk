@@ -81,15 +81,24 @@ def check_metadata(metadata, specs):
 
 
 def help():
+    """ Show some simple help """
+
     print(f"You must pass 2 args, you passed {len(sys.argv) - 1}")
     print("Sample call:")
     print("check-runtime.py <metadata.json> <specs.json>")
+
+
+def load_json(file):
+    """ Load json from a file """
+
+    f = open(file)
+    return json.load(f)
+
 
 def main():
     LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
     logging.basicConfig(level=LOGLEVEL)
 
-    print(list(sys.argv)[1:])
     if len(sys.argv) != 3:
         help()
         exit(1)
@@ -98,13 +107,8 @@ def main():
     specs_file = sys.argv[2]
     print(f"Checking metadata from: {metadata_file} with specs from: {specs_file}")
 
-    # Load metadata json
-    f = open(metadata_file)
-    metadata = json.load(f)
-
-    # Load specs
-    f_specs = open(specs_file)
-    specs = json.load(f_specs)
+    metadata = load_json(metadata_file)
+    specs = load_json(specs_file)
 
     res = check_metadata(metadata, specs)
 

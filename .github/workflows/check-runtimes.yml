@@ -1,4 +1,7 @@
 name: Check Runtimes Specs
+# This GH Workflow fetches the runtimes available in a release.
+# It then compares their metadata with reference specs located under
+#  .github/runtime_specs.
 
 on:
   workflow_dispatch:
@@ -13,8 +16,10 @@ on:
         required: true
         type: string
 
-  release:
-    types: [edited]
+  # This trigger unfortunately does not work as expected.
+  # https://github.com/orgs/community/discussions/47794
+  # release:
+  #   types: [edited]
 
 env:
   RUNTIME_SPECS_DIR: .github/runtime_specs
@@ -83,6 +88,7 @@ jobs:
         id: build
         env:
           RUNTIME: ${{ matrix.specs }}
+          LOGLEVEL: info
         run: |
           python --version
           .github/scripts/check-runtime.py "${DATA_DIR}/${RUNTIME}.json" "${RUNTIME_SPECS_DIR}/${RUNTIME}.json"
