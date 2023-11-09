@@ -75,10 +75,6 @@
 //! runtimes are located under the
 //! [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) repository.
 //!
-//! > [`polkadot`] module contains useful links to further learn about Polkadot, **but is in general
-//! > not part of the SDK**, as it is rarely used by developers who wish to build on top of
-//! > Polkadot.
-//!
 //! ### Summary
 //!
 //! The following diagram summarizes how some of the components of Polkadot SDK work together:

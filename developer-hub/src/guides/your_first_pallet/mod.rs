@@ -1,6 +1,6 @@
 //! # Currency Pallet
 //!
-//! By the end of this tutorial, you will write a small FRAME pallet (see
+//! By the end of this guide, you will write a small FRAME pallet (see
 //! [`crate::polkadot_sdk::frame_runtime`]) that is capable of handling a simple crypto-currency.
 //! This pallet will:
 //!
@@ -9,14 +9,14 @@
 //! 2. Allow any user that owns tokens to transfer them to others.
 //! 3. Track the total issuance of all tokens at all times.
 //!
-//! > This tutorial will build a currency pallet from scratch using only the lowest primitives of
+//! > This guide will build a currency pallet from scratch using only the lowest primitives of
 //! > FRAME, and is mainly intended for education, not *applicability*. For example, almost all
 //! > FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
 //! > one. Further advance FRAME related topics are discussed in [`crate::reference_docs`].
 //!
 //! ## Topics Covered
 //!
-//! The following FRAME topics are covered in this tutorial. See the documentation of the
+//! The following FRAME topics are covered in this guide. See the documentation of the
 //! associated items to know more.
 //!
 //! - [Storage](frame::pallet_macros::storage)
@@ -28,7 +28,7 @@
 //!
 //! ## Writing Your First Pallet
 //!
-//! You should have studied the following modules as a prelude to this tutorial:
+//! You should have studied the following modules as a prelude to this guide:
 //!
 //! - [`crate::reference_docs::blockchain_state_machines`]
 //! - [`crate::reference_docs::trait_based_programming`]
@@ -42,7 +42,7 @@
 //! [`pallet::config`](frame::pallet_macros::config) and
 //! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any pallet. Refer
 //! to the documentation of each to get an overview of what they do.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", shell_pallet)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", shell_pallet)]
 //!
 //! ### Storage
 //!
@@ -51,19 +51,19 @@
 //! One should be a mapping from account-ids to a balance type, and one value that is the total
 //! issuance.
 //
-// For the rest of this tutorial, we will opt for a balance type of u128.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", Balance)]
+// For the rest of this guide, we will opt for a balance type of u128.
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balance)]
 //!
 //! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
 //! is as follows:
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", TotalIssuance)]
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", Balances)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", TotalIssuance)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balances)]
 //!
 //! ### Dispatchables
 //!
 //! Next, we will define the dispatchable functions. As per [`frame::pallet_macros::call`], these
 //! will be defined as normal `fn`s attached to `struct Pallet`.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", impl_pallet)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", impl_pallet)]
 //!
 //! The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
 //! details:
@@ -102,14 +102,14 @@
 //! How we handle error in the above snippets is fairly rudimentary. Let's look at how this can be
 //! improved. First, we can use [`frame::prelude::ensure`] to express the error slightly better.
 //! This macro will call `.into()` under the hood.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_better)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better)]
 //!
 //! Moreover, you will learn in the [Safe Defensive Programming
 //! section](crate::reference_docs::safe_defensive_programming) that it is always recommended to use
 //! safe arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`], we can not
 //! only take a step in that direction, but also improve the error handing and make it slightly more
 //! ergonomic.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_better_checked)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better_checked)]
 //!
 //! This is more or less all the logic that there is this basic currency pallet!
 //!
@@ -120,7 +120,7 @@
 //! through [`frame::runtime::prelude::construct_runtime`]. All runtimes also have to include
 //! [`frame::prelude::frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
 //! and the one we just wrote.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", runtime)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", runtime)]
 //!
 //! > [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers to have
 //! > defaults for associated types.
@@ -157,7 +157,7 @@
 //! to learn is that all of your pallet testing code should be wrapped in
 //! [`frame::testing_prelude::TestState`]. This is a type that provides access to an in-memory state
 //! to be used in our tests.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", first_test)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", first_test)]
 //!
 //! In the first test, we simply assert that there is no total issuance, and no balance associated
 //! with account `1`. Then, we mint some balance into `1`, and re-check.
@@ -183,16 +183,16 @@
 //!
 //! Let's see how we can implement a better test setup using this pattern. First, we define a
 //! `struct StateBuilder`.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", StateBuilder)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", StateBuilder)]
 //!
 //! This struct is meant to contain the same list of accounts and balances that we want to have at
 //! the beginning of each block. We hardcoded this to `let accounts = vec![(1, 100), (2, 100)];` so
 //! far. Then, if desired, we attach a default value for this struct.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", default_state_builder)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", default_state_builder)]
 //!
 //! Like any other builder pattern, we attach functions to the type to mutate its internal
 //! properties.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", impl_state_builder_add)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", impl_state_builder_add)]
 //!
 //!  Finally --the useful part-- we write our own custom `build_and_execute` function on
 //! this type. This function will do multiple things:
@@ -204,23 +204,23 @@
 //!    after each test. For example, in this test, we do some additional checking about the
 //!    correctness of the `TotalIssuance`. We leave it up to you as an exercise to learn why the
 //!    assertion should always hold, and how it is checked.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", impl_state_builder_build)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", impl_state_builder_build)]
 //!
 //! We can write tests that specifically check the initial state, and making sure our `StateBuilder`
 //! is working exactly as intended.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", state_builder_works)]
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", state_builder_add_balance)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", state_builder_works)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", state_builder_add_balance)]
 //!
 //! ### More Tests
 //!
 //! Now that we have a more ergonomic test setup, let's see how a well written test for transfer and
 //! mint would look like.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_works)]
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", mint_works)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_works)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", mint_works)]
 //!
 //! It is always a good idea to build a mental model where you write *at least* one test for each
 //! "success path" of a dispatchable, and one test for each "failure path", such as:
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_from_non_existent_fails)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_from_non_existent_fails)]
 //!
 //! We leave it up to you to write a test that triggers to `InsufficientBalance` error.
 //!
@@ -249,8 +249,8 @@
 //! With the explanation out of the way, let's see how these components can be added. Both follow a
 //! fairly familiar syntax: normal Rust enums, with an extra `#[frame::event/error]` attribute
 //! attached.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", Event)]
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", Error)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Event)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Error)]
 //!
 //! One slightly custom part of this is the `#[pallet::generate_deposit(pub(super) fn
 //! deposit_event)]` part. Without going into too much detail, in order for a pallet to emit events
@@ -264,22 +264,22 @@
 //!
 //! 2. But, doing this conversion and storing is too much to expect each pallet to define. FRAME
 //! provides a default way of storing events, and this is what `pallet::generate_deposit` is doing.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", config_v2)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", config_v2)]
 //!
 //! > These `Runtime*` types are better explained in
 //! > [`crate::reference_docs::frame_composite_enums`].
 //!
 //! Then, we can rewrite the `transfer` dispatchable as such:
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_v2)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_v2)]
 //!
 //! Then, notice how now we would need to provide this `type RuntimeEvent` in our test runtime
 //! setup.
-#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", runtime_v2)]
+#![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", runtime_v2)]
 //!
 //! In this snippet, the actual `RuntimeEvent` type (right hand side of `type RuntimeEvent =
 //! RuntimeEvent`) is generated by `construct_runtime`. An interesting way to inspect this type is
 //! to see its definition in rust-docs:
-//! [`crate::tutorial::currency_simple::pallet_v2::tests::runtime_v2::RuntimeEvent`].
+//! [`crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent`].
 //!
 //!
 //!
@@ -411,7 +411,7 @@ pub mod pallet {
 
 	#[cfg(any(test, doc))]
 	pub(crate) mod tests {
-		use crate::tutorial::currency_simple::pallet::*;
+		use crate::guides::your_first_pallet::pallet::*;
 		use frame::testing_prelude::*;
 
 		#[docify::export]
@@ -419,7 +419,7 @@ pub mod pallet {
 			use super::*;
 			// we need to reference our `mod pallet` as an identifier to pass to
 			// `construct_runtime`.
-			use crate::tutorial::currency_simple::pallet as pallet_currency;
+			use crate::guides::your_first_pallet::pallet as pallet_currency;
 
 			construct_runtime!(
 				pub struct Runtime {
@@ -689,7 +689,7 @@ pub mod pallet_v2 {
 		#[docify::export]
 		pub mod runtime_v2 {
 			use super::*;
-			use crate::tutorial::currency_simple::pallet_v2 as pallet_currency;
+			use crate::guides::your_first_pallet::pallet_v2 as pallet_currency;
 
 			construct_runtime!(
 				pub struct Runtime {

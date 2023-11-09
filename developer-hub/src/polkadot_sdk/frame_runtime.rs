@@ -84,10 +84,8 @@
 //! a valid Runtime form the point of view of a Substrate client (see
 //! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
 //!
-//! * writing a runtime in pure Rust, as done in [this
-//!   template](https://github.com/JoshOrndorff/frameless-node-template).
-//! * writing a runtime in AssemblyScript,as explored in [this
-//!   project](https://github.com/LimeChain/subsembly).
+//! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
+//! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
 
 #[cfg(test)]
 mod tests {
@@ -142,7 +140,8 @@ mod tests {
 			/// This will be callable by external users, and has two u32s as a parameter.
 			pub fn some_dispatchable(
 				_origin: OriginFor<T>,
-				_param: u32, _other_para: u32
+				_param: u32,
+				_other_para: u32,
 			) -> DispatchResult {
 				Ok(())
 			}
@@ -157,7 +156,7 @@ mod tests {
 		use super::pallet as pallet_example;
 		use frame::{prelude::*, testing_prelude::*};
 
-		/// The major macro that amalgamates pallets into `struct Runtime`
+		// The major macro that amalgamates pallets into `struct Runtime`
 		construct_runtime!(
 			pub struct Runtime {
 				System: frame_system,

@@ -34,15 +34,12 @@
 /// how one can contribute to it.
 pub mod meta_contributing;
 
+/// In-depth guides about the most common components of the Polkadot SDK. They are slightly more
+/// high level and broad than reference docs.
+pub mod guides;
 /// An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
 /// the tools that are provided as a part of it, and to gain a high level understanding of each.
 pub mod polkadot_sdk;
 /// Reference documents covering in-depth topics across the Polkadot SDK. It is suggested to read
 /// these on-demand, while you are going through the [`guides`] or other content.
 pub mod reference_docs;
-/// In-depth guides about the most common components of the Polkadot SDK. They are slightly more
-/// high level and broad than reference docs.
-pub mod guides;
-
-// TODO: Deprecated, should remove
-pub mod tutorial;

@@ -137,7 +137,7 @@
 //!
 //! To build this crate properly, with with right HTML headers injected, run:
 //!
-//! ```
+//! ```no_compile
 //! RUSTDOCFLAGS="--html-in-header $(pwd)/developer-hub/headers/toc.html" cargo doc -p developer-hub
 //! ```
 //!
