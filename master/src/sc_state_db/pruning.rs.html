@@ -870,6 +870,44 @@
 <a href="#870" id="870">870</a>
 <a href="#871" id="871">871</a>
 <a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1278,12 +1316,24 @@
 		commit: <span class="kw-2">&amp;mut </span>CommitSet&lt;Key&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;D::Error&gt;&gt; {
 		<span class="kw">if </span><span class="self">self</span>.base == <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.is_empty() &amp;&amp; number &gt; <span class="number">0 </span>{
-			<span class="comment">// assume that parent was canonicalized
+			<span class="comment">// This branch is taken if the node imports the target block of a warp sync.
+			// assume that the block was canonicalized
 			</span><span class="self">self</span>.base = number;
+			<span class="comment">// The parent of the block was the last block that got pruned.
+			</span>commit
+				.meta
+				.inserted
+				.push((to_meta_key(LAST_PRUNED, <span class="kw-2">&amp;</span>()), (number - <span class="number">1</span>).encode()));
 		} <span class="kw">else if </span>(<span class="self">self</span>.base + <span class="self">self</span>.window_size()) != number {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::StateDb(StateDbError::InvalidBlockNumber))
 		}
-		<span class="macro">trace!</span>(target: <span class="string">&quot;state-db&quot;</span>, <span class="string">&quot;Adding to pruning window: {:?} ({} inserted, {} deleted)&quot;</span>, hash, commit.data.inserted.len(), commit.data.deleted.len());
+		<span class="macro">trace!</span>(
+			target: <span class="string">&quot;state-db&quot;</span>,
+			<span class="string">&quot;Adding to pruning window: {:?} ({} inserted, {} deleted)&quot;</span>,
+			hash,
+			commit.data.inserted.len(),
+			commit.data.deleted.len(),
+		);
 		<span class="kw">let </span>inserted = <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.queue, DeathRowQueue::Mem { .. }) {
 			commit.data.inserted.iter().map(|(k, <span class="kw">_</span>)| k.clone()).collect()
 		} <span class="kw">else </span>{
@@ -1740,6 +1790,32 @@
 		<span class="macro">assert_eq!</span>(pruning.next_hash().unwrap(), <span class="prelude-val">Some</span>(index));
 		pruning.prune_one(<span class="kw-2">&amp;mut </span>commit).unwrap();
 		db.commit(<span class="kw-2">&amp;</span>commit);
+	}
+
+	<span class="doccomment">/// Ensure that after warp syncing the state is stored correctly in the db. The warp sync target
+	/// block is imported with all its state at once. This test ensures that after a restart
+	/// `pruning` still knows that this block was imported.
+	</span><span class="attr">#[test]
+	</span><span class="kw">fn </span>store_correct_state_after_warp_syncing() {
+		<span class="kw">for </span>count_insertions <span class="kw">in </span>[<span class="bool-val">true</span>, <span class="bool-val">false</span>] {
+			<span class="kw">let </span><span class="kw-2">mut </span>db = make_db(<span class="kw-2">&amp;</span>[]);
+			<span class="kw">let </span><span class="kw-2">mut </span>pruning: RefWindow&lt;u64, H256, TestDb&gt; =
+				RefWindow::new(db.clone(), DEFAULT_MAX_BLOCK_CONSTRAINT, count_insertions).unwrap();
+			<span class="kw">let </span>block = <span class="number">10000</span>;
+
+			<span class="comment">// import blocks
+			</span><span class="kw">let </span><span class="kw-2">mut </span>commit = make_commit(<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[]);
+			pruning.note_canonical(<span class="kw-2">&amp;</span>block, block, <span class="kw-2">&amp;mut </span>commit).unwrap();
+			push_last_canonicalized(block, <span class="kw-2">&amp;mut </span>commit);
+			db.commit(<span class="kw-2">&amp;</span>commit);
+
+			<span class="comment">// load a new queue from db
+			// `cache` should be the same
+			</span><span class="kw">let </span>pruning: RefWindow&lt;u64, H256, TestDb&gt; =
+				RefWindow::new(db, DEFAULT_MAX_BLOCK_CONSTRAINT, count_insertions).unwrap();
+
+			<span class="macro">assert_eq!</span>(HaveBlock::Yes, pruning.have_block(<span class="kw-2">&amp;</span>block, block));
+		}
 	}
 }
 </code></pre></div></section></main></body></html>
