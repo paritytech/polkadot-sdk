@@ -202,7 +202,7 @@ fetch_release_artifacts() {
   echo "Release ID : $RELEASE_ID"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
-  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}}"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
 
   curl -L -s \
     -H "Accept: application/vnd.github+json" \
