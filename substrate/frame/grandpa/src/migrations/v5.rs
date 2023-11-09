@@ -51,7 +51,7 @@ impl<T: crate::Config> OnRuntimeUpgrade for MigrateImpl<T> {
 			)
 		}
 
-		if authority_list_len() == 0 {
+		if authority_list_len == 0 {
 			return Err("Grandpa: Authority list is empty!".into())
 		}
 
