@@ -223,10 +223,17 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_candidacy_bond() -> Result<(), BenchmarkError> {
-		let bond_amount: BalanceOf<T> = T::Currency::minimum_balance() * 10u32.into();
+	fn set_candidacy_bond(k: Linear<0, { T::MaxCandidates::get() }>) -> Result<(), BenchmarkError> {
+		let initial_bond_amount: BalanceOf<T> = T::Currency::minimum_balance() * 10u32.into();
+		<CandidacyBond<T>>::put(initial_bond_amount);
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let bond_amount = if k > 0 {
+			register_candidates::<T>(k);
+			T::Currency::minimum_balance() * 20u32.into()
+		} else {
+			T::Currency::minimum_balance()
+		};
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, bond_amount);

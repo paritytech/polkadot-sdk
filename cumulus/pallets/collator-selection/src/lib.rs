@@ -99,7 +99,7 @@ pub mod pallet {
 	use pallet_session::SessionManager;
 	use sp_runtime::{
 		traits::{AccountIdConversion, CheckedSub, Convert, Saturating, Zero},
-		DispatchError, RuntimeDebug,
+		RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
 	use sp_std::vec::Vec;
@@ -443,7 +443,7 @@ pub mod pallet {
 		///
 		/// The origin for this call must be the `UpdateOrigin`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::set_candidacy_bond())]
+		#[pallet::weight(T::WeightInfo::set_candidacy_bond(T::MaxCandidates::get()))]
 		pub fn set_candidacy_bond(
 			origin: OriginFor<T>,
 			bond: BalanceOf<T>,
@@ -455,22 +455,24 @@ pub mod pallet {
 				bond_increased
 			});
 			let initial_len = <CandidateList<T>>::decode_len().unwrap_or_default();
-			if bond_increased && initial_len > 0 {
-				<CandidateList<T>>::try_mutate(|candidates| -> Result<(), DispatchError> {
-					let starting_kick_idx = candidates
+			let kicked = if bond_increased && initial_len > 0 {
+				<CandidateList<T>>::mutate(|candidates| -> usize {
+					let first_safe_candidate = candidates
 						.iter()
 						.position(|candidate| candidate.deposit >= bond)
 						.unwrap_or(initial_len);
-					let kicked = candidates.drain(..starting_kick_idx);
+					let kicked = candidates.drain(..first_safe_candidate);
 					for candidate in kicked {
 						T::Currency::unreserve(&candidate.who, candidate.deposit);
 						<LastAuthoredBlock<T>>::remove(candidate.who);
 					}
-					Ok(())
-				})?;
-			}
+					first_safe_candidate
+				})
+			} else {
+				0
+			};
 			Self::deposit_event(Event::NewCandidacyBond { bond_amount: bond });
-			Ok(().into())
+			Ok(Some(T::WeightInfo::set_candidacy_bond(kicked as u32)).into())
 		}
 
 		/// Register this account as a collator candidate. The account must (a) already have
@@ -880,6 +882,8 @@ pub mod pallet {
 				}
 			}
 		}
+
+		// fn kick_candidates() -> usize {}
 
 		/// Ensure the correctness of the state of this pallet.
 		///

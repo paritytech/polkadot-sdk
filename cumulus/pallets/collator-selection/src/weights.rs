@@ -30,7 +30,7 @@ pub trait WeightInfo {
 	fn add_invulnerable(_b: u32, _c: u32) -> Weight;
 	fn remove_invulnerable(_b: u32) -> Weight;
 	fn set_desired_candidates() -> Weight;
-	fn set_candidacy_bond() -> Weight;
+	fn set_candidacy_bond(_k: u32) -> Weight;
 	fn register_as_candidate(_c: u32) -> Weight;
 	fn leave_intent(_c: u32) -> Weight;
 	fn update_bond(_c: u32) -> Weight;
@@ -51,7 +51,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_desired_candidates() -> Weight {
 		Weight::from_parts(16_363_000_u64, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	fn set_candidacy_bond() -> Weight {
+	fn set_candidacy_bond(_k: u32) -> Weight {
 		Weight::from_parts(16_840_000_u64, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
@@ -152,7 +152,7 @@ impl WeightInfo for () {
 	fn set_desired_candidates() -> Weight {
 		Weight::from_parts(16_363_000_u64, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	fn set_candidacy_bond() -> Weight {
+	fn set_candidacy_bond(_k: u32) -> Weight {
 		Weight::from_parts(16_840_000_u64, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
