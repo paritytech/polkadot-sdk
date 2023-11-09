@@ -144,7 +144,7 @@ pub mod pallet {
 
 				// enact the change if we've reached the enacting block
 				if block_number == pending_change.scheduled_at + pending_change.delay {
-					Self::set_grandpa_authorities(&pending_change.next_authorities);
+					Authorities::<T>::put(&pending_change.next_authorities);
 					Self::deposit_event(Event::NewAuthorities {
 						authority_set: pending_change.next_authorities.into_inner(),
 					});
@@ -343,7 +343,7 @@ pub mod pallet {
 
 	/// The current list of authorities.
 	#[pallet::storage]
-	pub(super) type Authorities<T: Config> =
+	pub(crate) type Authorities<T: Config> =
 		StorageValue<_, BoundedAuthorityList<T::MaxAuthorities>, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -435,11 +435,6 @@ impl<T: Config> Pallet<T> {
 		Authorities::<T>::get().to_vec()
 	}
 
-	/// Set the current set of authorities, along with their respective weights.
-	pub(crate) fn set_grandpa_authorities(authorities: &BoundedAuthorityList<T::MaxAuthorities>) {
-		Authorities::<T>::put(authorities);
-	}
-
 	/// Schedule GRANDPA to pause starting in the given number of blocks.
 	/// Cannot be done when already paused.
 	pub fn schedule_pause(in_blocks: BlockNumberFor<T>) -> DispatchResult {
@@ -529,7 +524,7 @@ impl<T: Config> Pallet<T> {
 	fn initialize(authorities: AuthorityList) {
 		if !authorities.is_empty() {
 			assert!(Self::grandpa_authorities().is_empty(), "Authorities are already initialized!");
-			Self::set_grandpa_authorities(
+			Authorities::<T>::put(
 				&BoundedAuthorityList::<T::MaxAuthorities>::try_from(authorities).expect(
 					"Granpa: `Config::MaxAuthorities` is smaller than the number of genesis authorities!",
 				),

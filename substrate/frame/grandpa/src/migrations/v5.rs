@@ -51,6 +51,10 @@ impl<T: crate::Config> OnRuntimeUpgrade for MigrateImpl<T> {
 			)
 		}
 
+		if authority_list_len() == 0 {
+			return Err("Grandpa: Authority list is empty!".into())
+		}
+
 		Ok(authority_list_len.encode())
 	}
 
@@ -72,7 +76,7 @@ impl<T: crate::Config> OnRuntimeUpgrade for MigrateImpl<T> {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		crate::Pallet::<T>::set_grandpa_authorities(
+		crate::Authorities::<T>::put(
 			&BoundedAuthorityList::<T::MaxAuthorities>::force_from(
 				load_authority_list(),
 				Some("Grandpa: `Config::MaxAuthorities` is smaller than the actual number of authorities.")
@@ -81,7 +85,7 @@ impl<T: crate::Config> OnRuntimeUpgrade for MigrateImpl<T> {
 
 		storage::unhashed::kill(GRANDPA_AUTHORITIES_KEY);
 
-		T::DbWeight::get().reads_writes(1, 1)
+		T::DbWeight::get().reads_writes(1, 2)
 	}
 }
 
