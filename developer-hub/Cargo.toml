@@ -20,6 +20,7 @@ pallet-default-config-example = { path = "../substrate/frame/examples/default-co
 
 # Extra example pallets 
 pallet-referenda = { path = "../substrate/frame/referenda" }
+pallet-broker = { path = "../substrate/frame/broker" }
 
 # How we build docs in rust-docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }

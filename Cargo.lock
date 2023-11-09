@@ -4632,6 +4632,7 @@ dependencies = [
  "frame",
  "kitchensink-runtime",
  "pallet-aura",
+ "pallet-broker",
  "pallet-default-config-example",
  "pallet-examples",
  "pallet-referenda",

@@ -57,7 +57,6 @@ type UncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature,
 /// could in principle be any other interaction. Transactions are either signed, or unsigned. A
 /// sensible transaction pool should ensure that only transactions that are worthwhile are
 /// considered for block-building.
-///
 #[doc = simple_mermaid::mermaid!("../../../../../docs/mermaid/extrinsics.mmd")]
 /// This type is by no means enforced within substrate, but given its generic-ness, it is highly
 /// likely that for most use-cases it will suffice. Thus, the encoding of this type will dictate

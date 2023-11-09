@@ -139,6 +139,12 @@
 //! 2. **Saturated** operations - limited to the lower and upper bounds of a number type,
 //! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type,
 //!
+//!
+//! Known scenarios that could be fallible should be avoided: i.e., avoiding the possibility of
+//! dividing/modulo by zero at any point should be mitigated.  One should be, instead, opting for a
+//! `checked_` method in order to introduce safe arithmetic in their code.
+//!
+//!
 //! #### The problem with 'default' wrapped operations
 //!
 //! **Wrapped operations** cause the overflow to wrap around to either the maximum or minimum of
@@ -224,7 +230,8 @@
 //! _represents_ a floating point number in base 10, i.e., a **fixed point number**, can be used
 //! instead.
 //!
-//! For use cases which operate within the range of `[0, 1]` types which implement [`PerThing`](sp_arithmetic::PerThing) are used:
+//! For use cases which operate within the range of `[0, 1]` types which implement
+//! [`PerThing`](sp_arithmetic::PerThing) are used:
 //! - **[`Perbill`](sp_arithmetic::Perbill), parts of a billion**
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", perbill_example)]
 //!
@@ -232,21 +239,23 @@
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", percent_example)]
 //!
 //! Note that `190 / 400 = 0.475`, and that `Percent` represents it as a _rounded down_, fixed point
-//! number (`47`). Unlike primitive types, types that implement [`PerThing`](sp_arithmetic::PerThing) will also not overflow,
-//! and are therefore safe to use. They adopt the same behavior that a saturated calculation would
-//! provide, meaning that if one is to go over "100%", it wouldn't overflow, but simply stop at the
-//! upper or lower bound.
+//! number (`47`). Unlike primitive types, types that implement
+//! [`PerThing`](sp_arithmetic::PerThing) will also not overflow, and are therefore safe to use.
+//! They adopt the same behavior that a saturated calculation would provide, meaning that if one is
+//! to go over "100%", it wouldn't overflow, but simply stop at the upper or lower bound.
 //!
-//! For use cases which require precision beyond the range of `[0, 1]`, there are a number of other fixed-point types to use:
+//! For use cases which require precision beyond the range of `[0, 1]`, there are a number of other
+//! fixed-point types to use:
 //!
 //! - [`FixedU64`](sp_arithmetic::FixedU64) and [`FixedI64`](sp_arithmetic::FixedI64)
 //! - [`FixedI128`](sp_arithmetic::FixedU128) and [`FixedU128`](sp_arithmetic::FixedI128)
 //!
-//! Similar to types that implement [`PerThing`](sp_arithmetic::PerThing), these are also fixed-point types, however, they are able to represent larger numbers:
-//!
+//! Similar to types that implement [`PerThing`](sp_arithmetic::PerThing), these are also
+//! fixed-point types, however, they are able to represent larger numbers:
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", fixed_u64)]
 //!
-//! Let's now explore these types in practice, and how they may be used with pallets to perform safer calculations in the runtime.
+//! Let's now explore these types in practice, and how they may be used with pallets to perform
+//! safer calculations in the runtime.
 //!
 //! ### 'PerThing' In Practice
 //!
@@ -258,13 +267,6 @@
 //! - [`Percent`](sp_arithmetic::Percent) - parts of one hundred.
 //! - [`Permill`](sp_arithmetic::Permill) - parts of a million.
 //! - [`Perbill`](sp_arithmetic::Perbill) - parts of a billion.
-//!
-//! Because each of these implement the same trait, `PerThing`, we have access to a few widely used
-//! methods:
-//!
-//! - [`from_rational()`](sp_arithmetic::PerThing::from_rational())
-//! - [`from_percent()`](sp_arithmetic::PerThing::from_percent())
-//! - [`from_parts()`](sp_arithmetic::PerThing::from_parts())
 //!
 //! Each of these can be used to construct and represent ratios within our runtime.
 //! You will find types like [`Perbill`](sp_arithmetic::Perbill) being used often in pallet
@@ -286,158 +288,183 @@
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", percent_mult)]
 //!
 //!
-//! ### Fixed Point Arithmetic in Practice
+//! ### Fixed Point Types in Practice
 //!
-//! todo : explain
-//!
+//! As said earlier, if one needs to exceed the value of one, then
+//! [`FixedU64`](sp_arithmetic::FixedU64) (and its signed and `u128` counterparts) can be utilized.
+//! Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
+//! / supply to get a price for some on-chain compute:
 #![doc = docify::embed!(
     "./src/reference_docs/safe_defensive_programming.rs",
     fixed_u64_block_computation_example
 )]
 //!
+//! For a much more comprehensive example, be sure to look at the source for [`pallet_broker`]
 //!
+//! #### Fixed Point Types in Practice
+//!
+//! Just as with [`PerThing`](sp_arithmetic::PerThing), you can also perform regular mathematical
+//! expressions:
+#![doc = docify::embed!(
+    "./src/reference_docs/safe_defensive_programming.rs",
+    fixed_u64_operation_example
+)]
 //!
 
 #[cfg(test)]
 mod tests {
-    enum BlockchainError {
-        Overflow,
-    }
+	enum BlockchainError {
+		Overflow,
+	}
 
-    type Address = ();
+	type Address = ();
 
-    struct Runtime;
+	struct Runtime;
 
-    impl Runtime {
-        fn get_balance(account: Address) -> u64 {
-            0
-        }
-    }
+	impl Runtime {
+		fn get_balance(account: Address) -> u64 {
+			0
+		}
+	}
 
-    #[docify::export]
-    fn naive_add(x: u8, y: u8) -> u8 {
-        x + y
-    }
+	#[docify::export]
+	fn naive_add(x: u8, y: u8) -> u8 {
+		x + y
+	}
 
-    #[docify::export]
-    fn checked_add_example() {
-        // This is valid, as 20 is perfectly within the bounds of u32.
-        let add = (10u32).checked_add(10);
-        assert_eq!(add, Some(20))
-    }
+	#[docify::export]
+	fn checked_add_example() {
+		// This is valid, as 20 is perfectly within the bounds of u32.
+		let add = (10u32).checked_add(10);
+		assert_eq!(add, Some(20))
+	}
 
-    #[docify::export]
-    fn checked_add_handle_error_example() {
-        // This is invalid - we are adding something to the max of u32::MAX, which would overflow.
-        // Luckily, checked_add just marks this as None!
-        let add = u32::MAX.checked_add(10);
-        assert_eq!(add, None)
-    }
+	#[docify::export]
+	fn checked_add_handle_error_example() {
+		// This is invalid - we are adding something to the max of u32::MAX, which would overflow.
+		// Luckily, checked_add just marks this as None!
+		let add = u32::MAX.checked_add(10);
+		assert_eq!(add, None)
+	}
 
-    #[docify::export]
-    fn increase_balance(account: Address, amount: u64) -> Result<(), BlockchainError> {
-        // Get a user's current balance
-        let balance = Runtime::get_balance(account)?;
-        // SAFELY increase the balance by some amount
-        if let Some(new_balance) = balance.checked_add(amount) {
-            Runtime::set_balance(account, new_balance);
-            return Ok(());
-        } else {
-            return Err(BlockchainError::Overflow);
-        }
-    }
+	#[docify::export]
+	fn increase_balance(account: Address, amount: u64) -> Result<(), BlockchainError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount
+		if let Some(new_balance) = balance.checked_add(amount) {
+			Runtime::set_balance(account, new_balance);
+			return Ok(());
+		} else {
+			return Err(BlockchainError::Overflow);
+		}
+	}
 
-    #[docify::export]
-    fn increase_balance_match(account: Address, amount: u64) -> Result<(), BlockchainError> {
-        // Get a user's current balance
-        let balance = Runtime::get_balance(account)?;
-        // SAFELY increase the balance by some amount
-        let new_balance = match balance.checked_add(amount) {
-            Some(balance) => balance,
-            None => {
-                return Err(BlockchainError::Overflow);
-            }
-        };
-        Runtime::set_balance(account, new_balance);
-        Ok(())
-    }
+	#[docify::export]
+	fn increase_balance_match(account: Address, amount: u64) -> Result<(), BlockchainError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount
+		let new_balance = match balance.checked_add(amount) {
+			Some(balance) => balance,
+			None => {
+				return Err(BlockchainError::Overflow);
+			},
+		};
+		Runtime::set_balance(account, new_balance);
+		Ok(())
+	}
 
-    #[docify::export]
-    fn increase_balance_result(account: Address, amount: u64) -> Result<(), BlockchainError> {
-        // Get a user's current balance
-        let balance = Runtime::get_balance(account)?;
-        // SAFELY increase the balance by some amount - this time, by using `ok_or`
-        let new_balance = balance.checked_add(amount).ok_or_else(|| BlockchainError::Overflow)?;
-        Runtime::set_balance(account, new_balance);
-        Ok(())
-    }
+	#[docify::export]
+	fn increase_balance_result(account: Address, amount: u64) -> Result<(), BlockchainError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount - this time, by using `ok_or`
+		let new_balance = balance.checked_add(amount).ok_or_else(|| BlockchainError::Overflow)?;
+		Runtime::set_balance(account, new_balance);
+		Ok(())
+	}
 
-    #[docify::export]
-    fn saturated_add_example() {
-        // Saturating add simply saturates
-        // to the numeric bound of that type if it overflows.
-        let add = u32::MAX.saturating_add(10);
-        assert_eq!(add, u32::MAX)
-    }
-    #[docify::export]
-    fn percent_mult() {
-        let percent = Percent::from_rational(5u32, 100u32); // aka, 5%
-        let five_percent_of_100 = percent * 100u32; // 5% of 100 is 5.
-        assert_eq!(five_percent_of_100, 5)
-    }
-    #[docify::export]
-    fn perbill_example() {
-        let p = Perbill::from_percent(80);
-        // 800000000 bil, or a representative of 0.800000000.
-        // Precision is in the billions place.
-        assert_eq!(p.deconstruct(), 800000000);
-    }
+	#[docify::export]
+	fn saturated_add_example() {
+		// Saturating add simply saturates
+		// to the numeric bound of that type if it overflows.
+		let add = u32::MAX.saturating_add(10);
+		assert_eq!(add, u32::MAX)
+	}
+	#[docify::export]
+	fn percent_mult() {
+		let percent = Percent::from_rational(5u32, 100u32); // aka, 5%
+		let five_percent_of_100 = percent * 100u32; // 5% of 100 is 5.
+		assert_eq!(five_percent_of_100, 5)
+	}
+	#[docify::export]
+	fn perbill_example() {
+		let p = Perbill::from_percent(80);
+		// 800000000 bil, or a representative of 0.800000000.
+		// Precision is in the billions place.
+		assert_eq!(p.deconstruct(), 800000000);
+	}
 
-    #[docify::export]
-    fn percent_example() {
-        let percent = Percent::from_rational(190u32, 400u32);
-        assert_eq!(percent.deconstruct(), 47);
-    }
+	#[docify::export]
+	fn percent_example() {
+		let percent = Percent::from_rational(190u32, 400u32);
+		assert_eq!(percent.deconstruct(), 47);
+	}
 
-    #[docify::export]
-    fn fixed_u64_block_computation_example() {
-        // Cores available per block
-        let supply = 10u128;
-        // Cores being ordered per block
-        let demand = 5u128;
-        // Calculate a very rudimentry on-chain price from supply / demand
-        let price = FixedU64::from_rational(demand, supply);
+	#[docify::export]
+	fn fixed_u64_block_computation_example() {
+		// Cores available per block
+		let supply = 10u128;
+		// Cores being ordered per block
+		let demand = 5u128;
+		// Calculate a very rudimentry on-chain price from supply / demand
+		let price = FixedU64::from_rational(demand, supply);
 
-        // 0.5 DOT per core
-        assert_eq!(price, FixedU64::from_float(0.5));
+		// 0.5 DOT per core
+		assert_eq!(price, FixedU64::from_float(0.5));
 
-        // Now, the story has changed - lots of demand means we buy as many cores as there available.  This also means that price goes up!
-        // For the sake of simplicity, we don't care about who gets a core - just about our very simple price model
+		// Now, the story has changed - lots of demand means we buy as many cores as there
+		// available.  This also means that price goes up! For the sake of simplicity, we don't care
+		// about who gets a core - just about our very simple price model
 
-        // Cores available per block
-        let supply = 10u128;
-        // Cores being ordered per block
-        let demand = 19u128;
-        // Calculate a very rudimentry on-chain price from supply / demand
-        let price = FixedU64::from_rational(demand, supply);
+		// Cores available per block
+		let supply = 10u128;
+		// Cores being ordered per block
+		let demand = 19u128;
+		// Calculate a very rudimentary on-chain price from supply / demand
+		let price = FixedU64::from_rational(demand, supply);
 
-        // 1.9 DOT per core
-        assert_eq!(price, FixedU64::from_float(1.9));
-    }
+		// 1.9 DOT per core
+		assert_eq!(price, FixedU64::from_float(1.9));
+	}
 
-    #[docify::export]
-    fn fixed_u64() {
-        // The difference between this and perthings is perthings operates within the relam of [0, 1]
-        // In cases where we need > 1, we can used fixed types such as FixedU64
+	#[docify::export]
+	fn fixed_u64() {
+		// The difference between this and perthings is perthings operates within the relam of [0,
+		// 1] In cases where we need > 1, we can used fixed types such as FixedU64
 
-        let rational_1 = FixedU64::from_rational(10, 5); //" 200%" aka 2.
-        let rational_2 = FixedU64::from_rational_with_rounding(
-            5,
-            10,
-            sp_arithmetic::Rounding::Down
-        ); // "50%" aka 0.50...
+		let rational_1 = FixedU64::from_rational(10, 5); //" 200%" aka 2.
+		let rational_2 =
+			FixedU64::from_rational_with_rounding(5, 10, sp_arithmetic::Rounding::Down); // "50%" aka 0.50...
 
-        assert_eq!(rational_1, (2u64).into());
-        assert_eq!(rational_2.into_perbill(), Perbill::from_float(0.5));
-    }
+		assert_eq!(rational_1, (2u64).into());
+		assert_eq!(rational_2.into_perbill(), Perbill::from_float(0.5));
+	}
+
+	#[docify::export]
+	fn fixed_u64_operation_example() {
+		let rational_1 = FixedU64::from_rational(10, 5); // "200%" aka 2.
+		let rational_2 = FixedU64::from_rational(8, 5); // "160%" aka 1.6.
+
+		let addition = rational_1 + rational_2;
+		let multiplication = rational_1 * rational_2;
+		let division = rational_1 / rational_2;
+		let subtraction = rational_1 - rational_2;
+
+		assert_eq!(addition, FixedU64::from_float(3.6));
+		assert_eq!(multiplication, FixedU64::from_float(3.2));
+		assert_eq!(division, FixedU64::from_float(1.25));
+		assert_eq!(subtraction, FixedU64::from_float(0.4));
+	}
 }
