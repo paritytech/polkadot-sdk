@@ -81,7 +81,7 @@ jobs:
 
       - name: Install tooling
         run: |
-          cargo install subwmasm
+          cargo install subwasm
           subwasm --version
 
       - name: Extract metadata JSON for ${{ matrix.specs }}
