@@ -69,8 +69,3 @@ The list of valid audiences is described and documented in the JSON schema as fo
 
 The PRDoc schema is defined in each repo and usually is quite restrictive.
 You cannot simply add a new property to a `PRDoc` file unless the Schema allows it.
-
-There are however a few convenience optional properties that could be useful to authors:
-- `authors`: An array of authors (strings). That can help an author find their PRs easily
-- `tags`: Array of strings. Those are unrelated to the Github Labels and provided for
-  authors to flag their changes as  they wish, in order to find PR and Documentation quicker
