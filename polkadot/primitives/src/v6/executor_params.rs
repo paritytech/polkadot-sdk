@@ -303,10 +303,7 @@ impl ExecutorParams {
 				.or(Some(&DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			if *precheck >= *lenient {
-				return Err(IncompatibleValues(
-					"PvfPrepKind::Precheck",
-					"PvfPrepKind::Lenient",
-				))
+				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Lenient"))
 			}
 		}
 

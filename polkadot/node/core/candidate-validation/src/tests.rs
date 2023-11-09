@@ -644,7 +644,6 @@ fn candidate_validation_dont_retry_internal_errors() {
 		],
 	);
 
-
 	assert_matches!(v, Err(ValidationFailed(s)) if s.contains("foo"));
 }
 
@@ -661,7 +660,6 @@ fn candidate_validation_retry_panic_errors() {
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
 		],
 	);
-
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(s))) if s == "bar".to_string());
 }

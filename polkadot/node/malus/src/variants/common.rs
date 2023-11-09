@@ -415,7 +415,7 @@ where
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_kind: exec_kind,
+									exec_kind,
 									response_sender,
 								},
 							})
@@ -445,7 +445,7 @@ where
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_kind: exec_kind,
+									exec_kind,
 									response_sender,
 								},
 							}),
@@ -479,7 +479,7 @@ where
 										candidate_receipt,
 										pov,
 										executor_params,
-										exec_kind: exec_kind,
+										exec_kind,
 										response_sender,
 									},
 								})
@@ -491,12 +491,12 @@ where
 							candidate_receipt,
 							pov,
 							executor_params,
-							exec_kind: exec_kind,
+							exec_kind,
 							response_sender,
 						},
 					}),
 				}
-			}
+			},
 			msg => Some(msg),
 		}
 	}
