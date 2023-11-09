@@ -86,7 +86,7 @@ jobs:
         run: |
           wget $DL_BASE_URL/$SUBWASM_VERSION/subwasm_linux_amd64_$SUBWASM_VERSION.deb \
             -O subwasm.deb
-          dpkg -i subwasm.deb
+          sudo dpkg -i subwasm.deb
           subwasm --version
 
       - name: Extract metadata JSON for ${{ matrix.specs }}
