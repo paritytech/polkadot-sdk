@@ -104,7 +104,6 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -156,8 +155,7 @@
 			message.<span class="number">0</span>.push(SetTopic(unique_id));
 			unique_id
 		};
-		<span class="kw">let </span>(ticket, assets) = Inner::validate(destination, <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(message))
-			.map_err(|<span class="kw">_</span>| SendError::NotApplicable)<span class="question-mark">?</span>;
+		<span class="kw">let </span>(ticket, assets) = Inner::validate(destination, <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(message))<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(((ticket, unique_id), assets))
 	}
 
