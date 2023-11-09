@@ -12545,10 +12545,10 @@ dependencies = [
  "sc-executor-common",
  "sc-executor-wasmtime",
  "sp-maybe-compressed-blob",
+ "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tracing-gum",
- "tracking-allocator",
 ]
 
 [[package]]
@@ -18329,6 +18329,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "staging-tracking-allocator"
+version = "1.0.0"
+
+[[package]]
 name = "staging-xcm"
 version = "1.0.0"
 dependencies = [
@@ -19621,10 +19625,6 @@ dependencies = [
  "tracing-log",
  "tracing-serde",
 ]
-
-[[package]]
-name = "tracking-allocator"
-version = "1.0.0"
 
 [[package]]
 name = "trie-bench"
