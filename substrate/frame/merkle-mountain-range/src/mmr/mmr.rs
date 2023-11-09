@@ -54,7 +54,7 @@ where
 
 	let p = mmr_lib::MerkleProof::<Node<H, L>, Hasher<H, L>>::new(
 		size,
-		proof.items.into_iter().map(|(index, hash)| (index, Node::Hash(hash))).collect(),
+		proof.items.into_iter().map(Node::Hash).collect(),
 	);
 	p.verify(Node::Hash(root), leaves_and_position_data)
 		.map_err(|e| Error::Verify.log_debug(e))
@@ -99,7 +99,7 @@ where
 	) -> Result<bool, Error> {
 		let p = mmr_lib::MerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
 			self.mmr.mmr_size(),
-			proof.items.into_iter().map(|(index, hash)| (index, Node::Hash(hash))).collect(),
+			proof.items.into_iter().map(Node::Hash).collect(),
 		);
 
 		if leaves.len() != proof.leaf_indices.len() {
@@ -222,7 +222,7 @@ where
 			.map(|p| primitives::Proof {
 				leaf_indices,
 				leaf_count,
-				items: p.proof_items().iter().map(|(index, item)| (*index, item.hash())).collect(),
+				items: p.proof_items().iter().map(|x| x.hash()).collect(),
 			})
 			.map(|p| (leaves, p))
 	}
