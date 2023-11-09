@@ -600,7 +600,7 @@ where
 						"Batch request failed ({}/{} retries). Error: {}",
 						retries,
 						Self::MAX_RETRIES,
-						e.to_string()
+						e
 					);
 					// after 2 subsequent failures something very wrong is happening. log a warning
 					// and reset the batch size down to 1.
@@ -700,9 +700,9 @@ where
 			.unwrap()
 			.progress_chars("=>-"),
 		);
-		let payloads_chunked = payloads.chunks((&payloads.len() / Self::PARALLEL_REQUESTS).max(1));
+		let payloads_chunked = payloads.chunks((payloads.len() / Self::PARALLEL_REQUESTS).max(1));
 		let requests = payloads_chunked.map(|payload_chunk| {
-			Self::get_storage_data_dynamic_batch_size(&client, payload_chunk.to_vec(), &bar)
+			Self::get_storage_data_dynamic_batch_size(client, payload_chunk.to_vec(), &bar)
 		});
 		// Execute the requests and move the Result outside.
 		let storage_data_result: Result<Vec<_>, _> =
@@ -716,7 +716,7 @@ where
 			},
 		};
 		bar.finish_with_message("✅ Downloaded key values");
-		print!("\n");
+		println!();
 
 		// Check if we got responses for all submitted requests.
 		assert_eq!(keys.len(), storage_data.len());
@@ -850,8 +850,9 @@ where
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<ChildKeyValues, &'static str> {
 		let child_roots = top_kv
-			.into_iter()
-			.filter_map(|(k, _)| is_default_child_storage_key(k.as_ref()).then(|| k.clone()))
+			.iter()
+			.filter(|(k, _)| is_default_child_storage_key(k.as_ref()))
+			.map(|(k, _)| k.clone())
 			.collect::<Vec<_>>();
 
 		if child_roots.is_empty() {
@@ -871,11 +872,10 @@ where
 		let mut child_kv = vec![];
 		for prefixed_top_key in child_roots {
 			let child_keys =
-				Self::rpc_child_get_keys(&client, &prefixed_top_key, StorageKey(vec![]), at)
-					.await?;
+				Self::rpc_child_get_keys(client, &prefixed_top_key, StorageKey(vec![]), at).await?;
 
 			let child_kv_inner =
-				Self::rpc_child_get_storage_paged(&client, &prefixed_top_key, child_keys, at)
+				Self::rpc_child_get_storage_paged(client, &prefixed_top_key, child_keys, at)
 					.await?;
 
 			let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
@@ -1182,7 +1182,7 @@ mod test_prelude {
 	pub(crate) type Block = RawBlock<ExtrinsicWrapper<Hash>>;
 
 	pub(crate) fn init_logger() {
-		let _ = sp_tracing::try_init_simple();
+		sp_tracing::try_init_simple();
 	}
 }
 
