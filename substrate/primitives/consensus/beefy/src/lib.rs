@@ -337,6 +337,118 @@ where
 	return valid_first && valid_second
 }
 
+/// Checks wether the provided header's payload differs from the commitment's payload.
+fn check_header_proof<Header>(
+	commitment: &Commitment<Header::Number>,
+	correct_header: &Option<Header>,
+	expected_header_hash: &Header::Hash,
+) -> bool
+where
+	Header: sp_api::HeaderT,
+{
+	if let Some(correct_header) = correct_header {
+		let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
+		let expected_payload = expected_mmr_root_digest.map(|mmr_root| {
+			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
+		});
+		// Check header's hash and that `payload` of the `commitment` is different that the
+		// `expected_payload`. Note that if the signatories signed a payload when there should be
+		// none (for instance for a block prior to BEEFY activation), then expected_payload = None,
+		// and they will likewise be slashed.
+		// Note that we can only check this if a valid header has been provided - we cannot
+		// slash for this with an ancestry proof - by necessity)
+		if correct_header.hash() == *expected_header_hash &&
+			Some(&commitment.payload) != expected_payload.as_ref()
+		{
+			return true
+		}
+	}
+	// if no header provided, the header proof is also not correct
+	false
+}
+
+/// Checks whether an ancestry proof has the correct size and its calculated root differs from the
+/// commitment's payload's.
+fn check_ancestry_proof<Header, NodeHash, Hasher>(
+	commitment: &Commitment<Header::Number>,
+	ancestry_proof: &Option<AncestryProof<Hasher::Item>>,
+	first_mmr_block_num: Header::Number,
+	expected_root: Hasher::Item,
+	mmr_size: u64,
+) -> bool
+where
+	Header: sp_api::HeaderT,
+	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
+	Hasher: mmr_lib::Merge<Item = NodeHash>,
+{
+	if let Some(ancestry_proof) = ancestry_proof {
+		let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
+			commitment.block_number,
+			first_mmr_block_num,
+		)
+		.and_then(|leaf_index| {
+			leaf_index.checked_add(1).ok_or_else(|| {
+				sp_mmr_primitives::Error::InvalidNumericOp.log_debug("leaf_index + 1 overflowed")
+			})
+		});
+
+		if let Ok(expected_leaf_count) = expected_leaf_count {
+			let expected_mmr_size =
+				sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
+			// verify that the prev_root is at the correct block number
+			// this can be inferred from the leaf_count / mmr_size of the prev_root:
+			// we've converted the commitment.block_number to an mmr size and now
+			// compare with the value in the ancestry proof
+			if expected_mmr_size != ancestry_proof.prev_size {
+				return false
+			}
+			if sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
+				expected_root,
+				mmr_size,
+				ancestry_proof.clone(),
+			) != Ok(true)
+			{
+				return false
+			}
+		} else {
+			// if the block number either under- or overflowed, the
+			// commitment.block_number was not valid and the commitment should not have
+			// been signed, hence we can skip the ancestry proof and slash the
+			// signatories
+			return true
+		}
+
+		// once the ancestry proof is verified, calculate the prev_root to compare it
+		// with the commitment's prev_root
+		let ancestry_prev_root =
+			mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(ancestry_proof.prev_peaks.clone());
+		// if the commitment payload does not commit to an MMR root, then this
+		// commitment may have another purpose and should not be slashed
+		let commitment_prev_root =
+			commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
+		return commitment_prev_root != ancestry_prev_root.ok()
+	}
+	// if no ancestry proof provided, the proof is also not correct
+	false
+}
+
+/// Check each signatory's signature on the commitment.
+/// If any are invalid, equivocation report is invalid
+fn check_signatures<Id, MsgHash, Header>(
+	commitment: &Commitment<Header::Number>,
+	signatories: &Vec<(Id, <Id as RuntimeAppPublic>::Signature)>,
+) -> bool
+where
+	Id: BeefyAuthorityId<MsgHash> + PartialEq,
+	MsgHash: Hash,
+	Header: sp_api::HeaderT,
+{
+	signatories.iter().all(|(authority_id, signature)| {
+		// TODO: refactor check_commitment_signature to take a slice of signatories
+		check_commitment_signature(&commitment, authority_id, signature)
+	})
+}
+
 /// Validates [ForkEquivocationProof] with the following checks:
 /// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
 ///   provided:
@@ -375,100 +487,36 @@ where
 	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
 	let ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof } = proof;
-	if commitment.block_number <= best_block_num {
-		if (correct_header, ancestry_proof) == (&None, &None) {
-			// if commitment isn't to a block number in the future, at least a header or ancestry
-			// proof must be provided, otherwise the proof is entirely invalid
-			return false
-		}
 
-		let header_proof_is_correct = if let Some(correct_header) = correct_header {
-			correct_header.hash() == *expected_header_hash && {
-				let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
-				let expected_payload = expected_mmr_root_digest.map(|mmr_root| {
-					Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
-				});
-
-				// check that `payload` of the `commitment` is different that the `expected_payload`
-				// note that if the signatories signed a payload when there should be none (for
-				// instance for a block prior to BEEFY activation), then expected_payload = None,
-				// and they will likewise be slashed.
-				// note that we can only check this if a valid header has been provided - we cannot
-				// slash for this with an ancestry proof - by necessity)
-				Some(&commitment.payload) != expected_payload.as_ref()
-			}
-		} else {
-			// if no header provided, the header proof is also not correct
-			false
-		};
-
-		let ancestry_proof_is_correct =
-			if let Some(ancestry_proof) = ancestry_proof {
-				(|| {
-					let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<
-						Header,
-					>(commitment.block_number, first_mmr_block_num)
-					.and_then(|leaf_index| {
-						leaf_index.checked_add(1).ok_or_else(|| {
-							sp_mmr_primitives::Error::InvalidNumericOp
-								.log_debug("leaf_index + 1 overflowed")
-						})
-					});
-
-					if let Ok(expected_leaf_count) = expected_leaf_count {
-						let expected_mmr_size =
-							sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
-						// verify that the prev_root is at the correct block number
-						// this can be inferred from the leaf_count / mmr_size of the prev_root:
-						// we've converted the commitment.block_number to an mmr size and now
-						// compare with the value in the ancestry proof
-						if expected_mmr_size == ancestry_proof.prev_size {
-							return false
-						}
-						if sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
-							expected_root,
-							mmr_size,
-							ancestry_proof.clone(),
-						) != Ok(true)
-						{
-							return false
-						}
-					} else {
-						// if the block number either under- or overflowed, the
-						// commitment.block_number was not valid and the commitment should not have
-						// been signed, hence we can skip the ancestry proof and slash the
-						// signatories
-						return true
-					}
-
-					// once the ancestry proof is verified, calculate the prev_root to compare it
-					// with the commitment's prev_root
-					let ancestry_prev_root = mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(
-						ancestry_proof.prev_peaks.clone(),
-					);
-					// if the commitment payload does not commit to an MMR root, then this
-					// commitment may have another purpose and should not be slashed
-					let commitment_prev_root =
-						commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
-					commitment_prev_root != ancestry_prev_root.ok()
-				})()
-			} else {
-				// if no ancestry proof provided, the proof is also not correct
-				false
-			};
-
-		if !header_proof_is_correct && !ancestry_proof_is_correct {
-			// if commitment.block_number is in our history, at least the header_proof or the
-			// ancestry_proof must be correct, else the proof is entirely invalid
-			return false
-		}
+	if commitment.block_number > best_block_num {
+		return false;
 	}
-	// check each signatory's signature on the commitment.
-	// if any are invalid, equivocation report is invalid
-	// TODO: refactor check_commitment_signature to take a slice of signatories
-	signatories.iter().all(|(authority_id, signature)| {
-		check_commitment_signature(&commitment, authority_id, signature)
-	})
+
+	if (correct_header, ancestry_proof) == (&None, &None) {
+		// if commitment isn't to a block number in the future, at least a header or ancestry
+		// proof must be provided, otherwise the proof is entirely invalid
+		return false;
+	}
+
+	let header_proof_is_correct =
+		check_header_proof(commitment, correct_header, expected_header_hash);
+	if header_proof_is_correct {
+		// avoid verifying the ancestry proof if a valid header proof has been provided
+		return check_signatures::<Id, MsgHash, Header>(commitment, signatories)
+	}
+
+	let ancestry_proof_is_correct = check_ancestry_proof::<Header, NodeHash, Hasher>(
+		commitment,
+		ancestry_proof,
+		first_mmr_block_num,
+		expected_root,
+		mmr_size,
+	);
+	if ancestry_proof_is_correct {
+		return check_signatures::<Id, MsgHash, Header>(commitment, signatories)
+	}
+
+	return false;
 }
 
 /// New BEEFY validator set notification hook.
