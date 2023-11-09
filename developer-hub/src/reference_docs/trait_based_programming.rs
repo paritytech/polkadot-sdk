@@ -1,10 +1,12 @@
 //! # Trait-based Programming
 //!
-//! This documents walks you over a peculiar way of using Rust's `trait` items. This pattern is
+//! This document walks you over a peculiar way of using Rust's `trait` items. This pattern is
 //! abundantly used within [`frame`] and is therefore paramount important for a smooth transition
 //! into it.
 //!
-//! The rest of this document assumes familiarity with the Rust book's advance trait section.
+//! The rest of this document assumes familiarity with the 
+//! [Rust book's Advanced Traits](https://doc.rust-lang.org/book/ch19-03-advanced-traits.html)
+//! section.
 //! Moreover, we use the [`frame::traits::Get`].
 //!
 //! First, imagine we are writing a FRAME pallet. We represent this pallet with a `struct Pallet`,
@@ -62,20 +64,21 @@
 //!    over a single `AccountId`. There is no easy way to express that in this model.
 //!
 //! Finally, this brings us to using traits and associated types on traits to express the above.
-//! trait associated types have the benefit of:
+//! Trait associated types have the benefit of:
 //!
 //! 1. Being less verbose, as in effect they can *group multiple `type`s together*.
-//! 2. Can inherit from one another by declaring super-trait
+//! 2. Can inherit from one another by declaring
+//! [supertraits](https://doc.rust-lang.org/rust-by-example/trait/supertraits.html).
 //!
-//! > Interestingly, one of the only downside of associated types is that declaring defaults on them
-//! > is not stable yet. In the meantime, we have built our own custom mechanics around declaring
-//! > defaults for associated types, see [`pallet_default_config_example`].
+//! > Interestingly, one downside of associated types is that declaring defaults on them is not
+//! > stable yet. In the meantime, we have built our own custom mechanics around declaring defaults
+//! for associated types, see [`pallet_default_config_example`].
 //!
 //! The last iteration of our code would look like this:
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", trait_based)]
 //!
 //! Notice how instead of having multiple generics, everything is generic over a single `<T:
-//! Config>`, and all types are fetched through `T::Foo`.
+//! Config>`, and all types are fetched through `T`, for example `T::AccountId`, `T::MinTransfer`.
 //!
 //! Finally, imagine all pallets wanting to be generic over `AccountId`. This can be achieved by
 //! having individual `trait Configs` declare a shared `trait SystemConfig` as their
@@ -84,8 +87,8 @@
 //! In FRAME, this shared supertrait is [`frame::prelude::frame_system`].
 //!
 //! Notice how this made no difference in the syntax of the rest of the code. `T::AccountId` is
-//! still a valid type, since `T` implements `Config` and `Config` implies `SystemConfig` and
-//! `SystemConfig` has a `type AccountId`.
+//! still a valid type, since `T` implements `Config` and `Config` implies `SystemConfig`, which
+//! has a `type AccountId`.
 //!
 //! Note, in some instances one would need to use what is known as the fully-qualified-syntax to
 //! access a type to help the Rust compiler disambiguate.
@@ -97,7 +100,7 @@
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified_complicated)]
 //!
 //! Notice the final `type BalanceOf` and how it is defined. Using such aliases to shorten the
-//! length of fully-qualified syntax is a common pattern in FRAME.
+//! length of fully qualified syntax is a common pattern in FRAME.
 //!
 //! The above example is almost identical to the well-known (and somewhat notorious) `type
 //! BalanceOf` that is often used in the context of [`frame::traits::fungible`].
@@ -106,7 +109,7 @@
 //! ## Additional Resources
 //!
 //! - <https://github.com/paritytech/substrate/issues/13836>
-//! - <https://www.youtube.com/watch?v=6cp10jVWNl4>
+//! - [Substrate Seminar - Traits and Generic Types](https://www.youtube.com/watch?v=6cp10jVWNl4)
 //! - <https://substrate.stackexchange.com/questions/2228/type-casting-to-trait-t-as-config>
 #![allow(unused)]
 

@@ -11,12 +11,14 @@
 //! platforms, but has not been expanded further.
 //!
 //! Substrate mixes these two ideas together, and takes the novel approach of storing the
-//! blockchain's main "state transition function" in the main blockchain state, the same fashion
+//! blockchain's main "state transition function" in the main blockchain state, in the same fashion
 //! that a smart contract platform stores the code of individual contracts in its state. As noted in
 //! [`crate::reference_docs::blockchain_state_machines`], this state transition function is called
 //! the **Runtime**, and WASM is chosen as the bytecode. The Runtime is stored under a special key
-//! in the state (see [`sp_core::storage::well_known_keys`]), and can be updated as a part of the
-//! state transition function's execution, just like a user's account balance can be updated.
+//! in the state (see
+//! [`sp_core::storage::well_known_keys`](../../../target/doc/sp_core/index.html)), and can be
+//! updated as a part of the state transition function's execution, just like a user's account
+//! balance can be updated.
 //!
 //! > Note that while we drew an analogy between smart contracts and runtimes in the above, there
 //! > are fundamental differences between the two, explained in
@@ -25,18 +27,18 @@
 //! The rest of the system that is NOT the state transition function is called the **node**, and
 //! is a normal binary that is compiled from Rust to different hardware targets.
 //!
-//! This design enables all substrate-based chains to be fork-less-ly upgradeable, because the
+//! This design enables all Substrate-based chains to be fork-less-ly upgradeable, because the
 //! Runtime can be updates on the fly, within the execution of a block, and the node is (for the
 //! most part) oblivious to the change that is happening.
 //!
-//! Therefore, the high-level architecture of a any substrate-based chain can be demonstrated as
+//! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
 //! follows:
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_simple.mmd")]
 //!
 //! The node and the runtime need to communicate. This is done through two concepts:
 //!
-//! 1. **Host functions**: a way for the (WASM) runtime to talk to the node. All host functions
-//!    are defined in [`sp_io`]. For example, [`sp_io::storage`] are the set of host functions that
+//! 1. **Host functions**: a way for the (WASM) runtime to talk to the node. All host functions are
+//!    defined in [`sp_io`]. For example, [`sp_io::storage`] are the set of host functions that
 //!    allow the runtime to read and write data to the on-chain state.
 //! 2. **Runtime APIs**: a way for the node to talk to the WASM runtime. Runtime APIs are defined
 //!    using macros and utilities in [`sp_api`]. For example, [`sp_api::Core`] is the most
@@ -57,8 +59,8 @@
 //!
 //! ## Node vs. Runtime
 //!
-//! A common question is: what components of the system end up being part of the node, and what
-//! components the runtime.
+//! A common question is: which components of the system end up being part of the node, and which
+//! ones of the runtime?
 //!
 //! Recall from [`crate::reference_docs::blockchain_state_machines`] that the runtime is the state
 //! transition function. Anything that needs to influence how your blockchain's state is updated,
@@ -93,10 +95,10 @@
 //!
 //! In the above diagram, all of the state keys and values are opaque bytes to the node. The node
 //! does not know what they mean, and it does not now what is the type of the corresponding value
-//! (eg. if it is a number of a vector). Contrary, the runtime knows both the meaning of their keys,
-//! and the type of the values.
+//! (e.g. if it is a number of a vector). Contrary, the runtime knows both the meaning of their
+//! keys, and the type of the values.
 //!
-//! This opaque-ness is the fundamental reason why substrate-based chains can fork-less-ly upgrade:
+//! This opaque-ness is the fundamental reason why Substrate-based chains can fork-less-ly upgrade:
 //! because the node side code is kept oblivious to all of the details of the state transition
 //! function. Therefore, the state transition function can freely upgrade without the node needing
 //! to know.

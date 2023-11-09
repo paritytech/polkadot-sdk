@@ -81,7 +81,7 @@
 //! There is nothing in the Substrate's node side code-base that mandates the use of FRAME. While
 //! FRAME makes it very simple to write Substrate-based runtimes, it is by no means intended to be
 //! the only one. At the end of the day, any WASM blob that exposes the right set of runtime APIs is
-//! a valid Runtime form the point of view of a Substrate cliemt (see
+//! a valid Runtime form the point of view of a Substrate client (see
 //! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
 //!
 //! * writing a runtime in pure Rust, as done in [this

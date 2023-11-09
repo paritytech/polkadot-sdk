@@ -2234,22 +2234,23 @@ pub mod pallet_macros {
 		type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
 
-	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In slightly
-	/// simplified terms, this macro declares the set of "transactions" of a pallet.
+	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
+	/// slightly simplified terms, this macro declares the set of "transactions" of a pallet.
 	///
 	/// > The exact definition of **extrinsic** can be found in
 	/// > [`sp_runtime::generic::UncheckedExtrinsic`].
 	///
 	/// A **dispatchable** is a common term in FRAME, referring to process of constructing a
-	/// function, and dispatching it with the correct inputs. This is commonly used with extrinsics,
-	/// for example "an extrinsic has been dispatched". See [`sp_runtime::traits::Dispatchable`] and
-	/// [`crate::traits::UnfilteredDispatchable`].
+	/// function, and dispatching it with the correct inputs. This is commonly used with
+	/// extrinsics, for example "an extrinsic has been dispatched". See
+	/// [`sp_runtime::traits::Dispatchable`] and [`crate::traits::UnfilteredDispatchable`].
 	///
 	/// ## Call Enum
 	///
-	/// The macro is called `call` (rather than `#[pallet::extrinsics]`) because of the generation
-	/// of a `enum Call`. This enum contains only the encoding of the function arguments of the
-	/// dispatchable, alongside the information needed to route it to the correct function.
+	/// The macro is called `call` (rather than `#[pallet::extrinsics]`) because of the
+	/// generation of a `enum Call`. This enum contains only the encoding of the function
+	/// arguments of the dispatchable, alongside the information needed to route it to the
+	/// correct function.
 	///
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
@@ -2318,23 +2319,23 @@ pub mod pallet_macros {
 	///
 	/// Further properties of dispatchable functions are as follows:
 	///
-	/// - Unless if annotated by `dev_mode`, it must contain [`weight`] to denote the pre-dispatch
-	///   weight consumed.
+	/// - Unless if annotated by `dev_mode`, it must contain [`weight`] to denote the
+	///   pre-dispatch weight consumed.
 	/// - The dispatchable must declare its index via [`call_index`], which can override the
 	///   position of a function in `enum Call`.
 	/// - The first argument is always an `OriginFor` (or `T::RuntimeOrigin`).
 	/// - The return type is always [`crate::dispatch::DispatchResult`] (or
 	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
 	///
-	/// **WARNING**: modifying dispatchables, changing their order (ie. using [`call_index`]),
-	/// removing some, etc., must be done with care. This will change the encoding of the `enum
-	/// Call`, and the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration
-	/// might be needed. This is why the use of `call_index` is mandatory by default in FRAME.
+	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
+	/// removing some, etc., must be done with care. This will change the encoding of the , and
+	/// the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration might be
+	/// needed. This is why the use of `call_index` is mandatory by default in FRAME.
 	///
 	/// ## Default Behavior
 	///
-	/// If no `#[pallet::call]` exists, then a default implementation corresponding to the following
-	/// code is automatically generated:
+	/// If no `#[pallet::call]` exists, then a default implementation corresponding to the
+	/// following code is automatically generated:
 	///
 	/// ```ignore
 	/// #[pallet::call]
@@ -2357,7 +2358,7 @@ pub mod pallet_macros {
 	///
 	/// A common example of `compact` is for numeric values that are often times far far away
 	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
-	/// balance of an individual account is often times way less then what the numeric type
+	/// balance of an individual account is oftentimes way less than what the numeric type
 	/// allows. In all such cases, using `compact` is sensible.
 	///
 	/// ```
