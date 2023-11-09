@@ -1,12 +1,15 @@
 # Backing Types
 
-[Candidates](candidate.md) go through many phases before being considered included in a fork of the relay chain and eventually accepted.
+[Candidates](candidate.md) go through many phases before being considered included in a fork of the relay chain and
+eventually accepted.
 
-These types describe the data used in the backing phase. Some are sent over the wire within subsystems, and some are simply included in the relay-chain block.
+These types describe the data used in the backing phase. Some are sent over the wire within subsystems, and some are
+simply included in the relay-chain block.
 
 ## Validity Attestation
 
-An attestation of validity for a candidate, used as part of a backing. Both the `Seconded` and `Valid` statements are considered attestations of validity. This structure is only useful where the candidate referenced is apparent.
+An attestation of validity for a candidate, used as part of a backing. Both the `Seconded` and `Valid` statements are
+considered attestations of validity. This structure is only useful where the candidate referenced is apparent.
 
 ```rust
 enum ValidityAttestation {
@@ -21,12 +24,13 @@ enum ValidityAttestation {
 
 ## Signed Wrapper
 
-There are a few distinct types which we desire to sign, and validate the signatures of. Instead of duplicating this work, we extract a signed wrapper.
+There are a few distinct types which we desire to sign, and validate the signatures of. Instead of duplicating this
+work, we extract a signed wrapper.
 
 ```rust,ignore
 /// A signed type which encapsulates the common desire to sign some data and validate a signature.
 ///
-/// Note that the internal fields are not public; they are all accessable by immutable getters.
+/// Note that the internal fields are not public; they are all accessible by immutable getters.
 /// This reduces the chance that they are accidentally mutated, invalidating the signature.
 struct Signed<Payload, RealPayload=Payload> {
     /// The payload is part of the signed data. The rest is the signing context,
@@ -44,13 +48,18 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> Signed<Payload, RealPa
 }
 ```
 
-Note the presence of the [`SigningContext`](../types/candidate.md#signing-context) in the signatures of the `sign` and `validate` methods. To ensure cryptographic security, the actual signed payload is always the SCALE encoding of `(payload.into(), signing_context)`. Including the signing context prevents replay attacks.
+Note the presence of the [`SigningContext`](../types/candidate.md#signing-context) in the signatures of the `sign` and
+`validate` methods. To ensure cryptographic security, the actual signed payload is always the SCALE encoding of
+`(payload.into(), signing_context)`. Including the signing context prevents replay attacks.
 
-`EncodeAs` is a helper trait with a blanket impl which ensures that any `T` can `EncodeAs<T>`. Therefore, for the generic case where `RealPayload = Payload`, it changes nothing. However, we  `impl EncodeAs<CompactStatement> for Statement`, which helps efficiency.
+`EncodeAs` is a helper trait with a blanket impl which ensures that any `T` can `EncodeAs<T>`. Therefore, for the
+generic case where `RealPayload = Payload`, it changes nothing. However, we  `impl EncodeAs<CompactStatement> for
+Statement`, which helps efficiency.
 
 ## Statement Type
 
-The [Candidate Backing subsystem](../node/backing/candidate-backing.md) issues and signs these after candidate validation.
+The [Candidate Backing subsystem](../node/backing/candidate-backing.md) issues and signs these after candidate
+validation.
 
 ```rust
 /// A statement about the validity of a parachain candidate.
@@ -94,11 +103,13 @@ pub type SignedFullStatement = Signed<Statement, CompactStatement>;
 pub type SignedStatement = Signed<CompactStatement>;
 ```
 
-Munging the signed `Statement` into a `CompactStatement` before signing allows the candidate receipt itself to be omitted when checking a signature on a `Seconded` statement.
+Munging the signed `Statement` into a `CompactStatement` before signing allows the candidate receipt itself to be
+omitted when checking a signature on a `Seconded` statement.
 
 ## Backed Candidate
 
-An [`CommittedCandidateReceipt`](candidate.md#committed-candidate-receipt) along with all data necessary to prove its backing. This is submitted to the relay-chain to process and move along the candidate to the pending-availability stage.
+An [`CommittedCandidateReceipt`](candidate.md#committed-candidate-receipt) along with all data necessary to prove its
+backing. This is submitted to the relay-chain to process and move along the candidate to the pending-availability stage.
 
 ```rust
 struct BackedCandidate {

@@ -79,7 +79,7 @@ impl Convert<sp_consensus_beefy::ecdsa_crypto::AuthorityId, Vec<u8>> for BeefyEc
 			.to_eth_address()
 			.map(|v| v.to_vec())
 			.map_err(|_| {
-				log::error!(target: "runtime::beefy", "Failed to convert BEEFY PublicKey to ETH address!");
+				log::debug!(target: "runtime::beefy", "Failed to convert BEEFY PublicKey to ETH address!");
 			})
 			.unwrap_or_default()
 	}
@@ -199,7 +199,20 @@ impl<T: Config> Pallet<T> {
 			.cloned()
 			.map(T::BeefyAuthorityToMerkleLeaf::convert)
 			.collect::<Vec<_>>();
+		let default_eth_addr = [0u8; 20];
 		let len = beefy_addresses.len() as u32;
+		let uninitialized_addresses = beefy_addresses
+			.iter()
+			.filter(|&addr| addr.as_slice().eq(&default_eth_addr))
+			.count();
+		if uninitialized_addresses > 0 {
+			log::error!(
+				target: "runtime::beefy",
+				"Failed to convert {} out of {} BEEFY PublicKeys to ETH addresses!",
+				uninitialized_addresses,
+				len,
+			);
+		}
 		let keyset_commitment = binary_merkle_tree::merkle_root::<
 			<T as pallet_mmr::Config>::Hashing,
 			_,

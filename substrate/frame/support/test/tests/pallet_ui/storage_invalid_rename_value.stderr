@@ -1,5 +1,5 @@
 error: `pub` is not a valid identifier
-  --> $DIR/storage_invalid_rename_value.rs:13:29
+  --> tests/pallet_ui/storage_invalid_rename_value.rs:30:29
    |
-13 |     #[pallet::storage_prefix = "pub"]
+30 |     #[pallet::storage_prefix = "pub"]
    |                                ^^^^^

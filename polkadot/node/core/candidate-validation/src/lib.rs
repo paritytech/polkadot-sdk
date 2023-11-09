@@ -40,8 +40,14 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::executor_params_at_relay_parent;
-use polkadot_parachain::primitives::{ValidationParams, ValidationResult as WasmValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	ValidationParams, ValidationResult as WasmValidationResult,
+};
 use polkadot_primitives::{
+	executor_params::{
+		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
+	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
 	ValidationCode, ValidationCodeHash,
@@ -81,13 +87,6 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 #[cfg(test)]
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 
-// Default PVF timeouts. Must never be changed! Use executor environment parameters in
-// `session_info` pallet to adjust them. See also `PvfTimeoutKind` docs.
-const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
-const DEFAULT_LENIENT_PREPARATION_TIMEOUT: Duration = Duration::from_secs(360);
-const DEFAULT_BACKING_EXECUTION_TIMEOUT: Duration = Duration::from_secs(2);
-const DEFAULT_APPROVAL_EXECUTION_TIMEOUT: Duration = Duration::from_secs(12);
-
 /// Configuration for the candidate validation subsystem
 #[derive(Clone)]
 pub struct Config {
@@ -111,10 +110,7 @@ pub struct CandidateValidationSubsystem {
 }
 
 impl CandidateValidationSubsystem {
-	/// Create a new `CandidateValidationSubsystem` with the given task spawner and isolation
-	/// strategy.
-	///
-	/// Check out [`IsolationStrategy`] to get more details.
+	/// Create a new `CandidateValidationSubsystem`.
 	pub fn with_config(
 		config: Option<Config>,
 		metrics: Metrics,
@@ -153,7 +149,8 @@ async fn run<Context>(
 			exec_worker_path,
 		),
 		pvf_metrics,
-	);
+	)
+	.await;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	loop {
@@ -162,12 +159,14 @@ async fn run<Context>(
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 			FromOrchestra::Communication { msg } => match msg {
-				CandidateValidationMessage::ValidateFromChainState(
+				CandidateValidationMessage::ValidateFromChainState {
 					candidate_receipt,
 					pov,
-					timeout,
+					executor_params,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let metrics = metrics.clone();
@@ -180,7 +179,8 @@ async fn run<Context>(
 								validation_host,
 								candidate_receipt,
 								pov,
-								timeout,
+								executor_params,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -192,29 +192,30 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-chain-state", bg.boxed())?;
 				},
-				CandidateValidationMessage::ValidateFromExhaustive(
-					persisted_validation_data,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data,
 					validation_code,
 					candidate_receipt,
 					pov,
-					timeout,
+					executor_params,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
-						let mut sender = ctx.sender().clone();
 						let metrics = metrics.clone();
 						let validation_host = validation_host.clone();
 
 						async move {
 							let _timer = metrics.time_validate_from_exhaustive();
 							let res = validate_candidate_exhaustive(
-								&mut sender,
 								validation_host,
-								persisted_validation_data,
+								validation_data,
 								validation_code,
 								candidate_receipt,
 								pov,
-								timeout,
+								executor_params,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -226,11 +227,12 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-exhaustive", bg.boxed())?;
 				},
-				CandidateValidationMessage::PreCheck(
+				CandidateValidationMessage::PreCheck {
 					relay_parent,
 					validation_code_hash,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let validation_host = validation_host.clone();
@@ -498,6 +500,7 @@ async fn validate_from_chain_state<Sender>(
 	validation_host: ValidationHost,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
+	executor_params: ExecutorParams,
 	exec_timeout_kind: PvfExecTimeoutKind,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed>
@@ -512,12 +515,12 @@ where
 		};
 
 	let validation_result = validate_candidate_exhaustive(
-		sender,
 		validation_host,
 		validation_data,
 		validation_code,
 		candidate_receipt.clone(),
 		pov,
+		executor_params,
 		exec_timeout_kind,
 		metrics,
 	)
@@ -547,19 +550,16 @@ where
 	validation_result
 }
 
-async fn validate_candidate_exhaustive<Sender>(
-	sender: &mut Sender,
+async fn validate_candidate_exhaustive(
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
+	executor_params: ExecutorParams,
 	exec_timeout_kind: PvfExecTimeoutKind,
 	metrics: &Metrics,
-) -> Result<ValidationResult, ValidationFailed>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
+) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
 
 	let validation_code_hash = validation_code.hash();
@@ -614,27 +614,6 @@ where
 		block_data: raw_block_data,
 		relay_parent_number: persisted_validation_data.relay_parent_number,
 		relay_parent_storage_root: persisted_validation_data.relay_parent_storage_root,
-	};
-
-	let executor_params = if let Ok(executor_params) =
-		executor_params_at_relay_parent(candidate_receipt.descriptor.relay_parent, sender).await
-	{
-		gum::debug!(
-			target: LOG_TARGET,
-			?validation_code_hash,
-			?para_id,
-			"Acquired executor params for the session: {:?}",
-			executor_params,
-		);
-		executor_params
-	} else {
-		gum::warn!(
-			target: LOG_TARGET,
-			?validation_code_hash,
-			?para_id,
-			"Failed to acquire executor params for the session",
-		);
-		return Ok(ValidationResult::Invalid(InvalidCandidate::BadParent))
 	};
 
 	let result = validation_backend

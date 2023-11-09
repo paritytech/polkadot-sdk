@@ -30,12 +30,12 @@ use sc_network::{Multiaddr, PeerId};
 /// Needed for mocking in tests mostly.
 #[async_trait]
 pub trait AuthorityDiscovery: Send + Debug + 'static {
-	/// Get the addresses for the given [`AuthorityId`] from the local address cache.
+	/// Get the addresses for the given [`AuthorityDiscoveryId`] from the local address cache.
 	async fn get_addresses_by_authority_id(
 		&mut self,
 		authority: AuthorityDiscoveryId,
 	) -> Option<HashSet<Multiaddr>>;
-	/// Get the [`AuthorityId`] for the given [`PeerId`] from the local address cache.
+	/// Get the [`AuthorityDiscoveryId`] for the given [`PeerId`] from the local address cache.
 	async fn get_authority_ids_by_peer_id(
 		&mut self,
 		peer_id: PeerId,

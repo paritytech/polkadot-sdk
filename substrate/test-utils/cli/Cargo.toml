@@ -2,11 +2,11 @@
 name = "substrate-cli-test-utils"
 description = "CLI testing utilities"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 publish = false
 
 [package.metadata.docs.rs]
@@ -20,7 +20,7 @@ nix = "0.26.2"
 regex = "1.7.3"
 tokio = { version = "1.22.0", features = ["full"] }
 node-primitives = { path = "../../bin/node/primitives" }
-node-cli = { path = "../../bin/node/cli" }
+node-cli = { package = "staging-node-cli", path = "../../bin/node/cli" }
 sc-cli = { path = "../../client/cli" }
 sc-service = { path = "../../client/service" }
 futures = "0.3.28"

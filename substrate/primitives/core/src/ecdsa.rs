@@ -50,6 +50,12 @@ use sp_std::vec::Vec;
 /// An identifier used to match public keys against ecdsa keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");
 
+/// The byte length of public key
+pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
+
+/// The byte length of signature
+pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
+
 /// A secret seed (which is bytewise essentially equivalent to a SecretKey).
 ///
 /// We need it as a different type because `Seed` is expected to be AsRef<[u8]>.
@@ -71,11 +77,11 @@ type Seed = [u8; 32];
 	PartialOrd,
 	Ord,
 )]
-pub struct Public(pub [u8; 33]);
+pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 
 impl crate::crypto::FromEntropy for Public {
 	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
-		let mut result = Self([0u8; 33]);
+		let mut result = Self([0u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 		input.read(&mut result.0[..])?;
 		Ok(result)
 	}
@@ -86,7 +92,7 @@ impl Public {
 	///
 	/// NOTE: No checking goes on to ensure this is a real public key. Only use it if
 	/// you are certain that the array actually is a pubkey. GIGO!
-	pub fn from_raw(data: [u8; 33]) -> Self {
+	pub fn from_raw(data: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
 		Self(data)
 	}
 
@@ -109,7 +115,7 @@ impl Public {
 }
 
 impl ByteArray for Public {
-	const LEN: usize = 33;
+	const LEN: usize = PUBLIC_KEY_SERIALIZED_SIZE;
 }
 
 impl TraitPublic for Public {}
@@ -148,8 +154,8 @@ impl From<Pair> for Public {
 	}
 }
 
-impl UncheckedFrom<[u8; 33]> for Public {
-	fn unchecked_from(x: [u8; 33]) -> Self {
+impl UncheckedFrom<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public {
+	fn unchecked_from(x: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
 		Public(x)
 	}
 }
@@ -198,14 +204,18 @@ impl<'de> Deserialize<'de> for Public {
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
 #[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
-pub struct Signature(pub [u8; 65]);
+pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
+
+impl ByteArray for Signature {
+	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
+}
 
 impl TryFrom<&[u8]> for Signature {
 	type Error = ();
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() == 65 {
-			let mut inner = [0u8; 65];
+		if data.len() == SIGNATURE_SERIALIZED_SIZE {
+			let mut inner = [0u8; SIGNATURE_SERIALIZED_SIZE];
 			inner.copy_from_slice(data);
 			Ok(Signature(inner))
 		} else {
@@ -239,7 +249,7 @@ impl<'de> Deserialize<'de> for Signature {
 
 impl Clone for Signature {
 	fn clone(&self) -> Self {
-		let mut r = [0u8; 65];
+		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
 		r.copy_from_slice(&self.0[..]);
 		Signature(r)
 	}
@@ -247,18 +257,18 @@ impl Clone for Signature {
 
 impl Default for Signature {
 	fn default() -> Self {
-		Signature([0u8; 65])
+		Signature([0u8; SIGNATURE_SERIALIZED_SIZE])
 	}
 }
 
-impl From<Signature> for [u8; 65] {
-	fn from(v: Signature) -> [u8; 65] {
+impl From<Signature> for [u8; SIGNATURE_SERIALIZED_SIZE] {
+	fn from(v: Signature) -> [u8; SIGNATURE_SERIALIZED_SIZE] {
 		v.0
 	}
 }
 
-impl AsRef<[u8; 65]> for Signature {
-	fn as_ref(&self) -> &[u8; 65] {
+impl AsRef<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
+	fn as_ref(&self) -> &[u8; SIGNATURE_SERIALIZED_SIZE] {
 		&self.0
 	}
 }
@@ -287,8 +297,8 @@ impl sp_std::fmt::Debug for Signature {
 	}
 }
 
-impl UncheckedFrom<[u8; 65]> for Signature {
-	fn unchecked_from(data: [u8; 65]) -> Signature {
+impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
+	fn unchecked_from(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Signature {
 		Signature(data)
 	}
 }
@@ -298,7 +308,7 @@ impl Signature {
 	///
 	/// NOTE: No checking goes on to ensure this is a real signature. Only use it if
 	/// you are certain that the array actually is a signature. GIGO!
-	pub fn from_raw(data: [u8; 65]) -> Signature {
+	pub fn from_raw(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Signature {
 		Signature(data)
 	}
 
@@ -307,10 +317,10 @@ impl Signature {
 	/// NOTE: No checking goes on to ensure this is a real signature. Only use it if
 	/// you are certain that the array actually is a signature. GIGO!
 	pub fn from_slice(data: &[u8]) -> Option<Self> {
-		if data.len() != 65 {
+		if data.len() != SIGNATURE_SERIALIZED_SIZE {
 			return None
 		}
-		let mut r = [0u8; 65];
+		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
 		r.copy_from_slice(data);
 		Some(Signature(r))
 	}
@@ -473,7 +483,7 @@ impl Pair {
 	pub fn verify_deprecated<M: AsRef<[u8]>>(sig: &Signature, message: M, pubkey: &Public) -> bool {
 		let message = libsecp256k1::Message::parse(&blake2_256(message.as_ref()));
 
-		let parse_signature_overflowing = |x: [u8; 65]| {
+		let parse_signature_overflowing = |x: [u8; SIGNATURE_SERIALIZED_SIZE]| {
 			let sig = libsecp256k1::Signature::parse_overflowing_slice(&x[..64]).ok()?;
 			let rid = libsecp256k1::RecoveryId::parse(x[64]).ok()?;
 			Some((sig, rid))
@@ -726,7 +736,7 @@ mod test {
 		let signature = pair.sign(&message[..]);
 		let serialized_signature = serde_json::to_string(&signature).unwrap();
 		// Signature is 65 bytes, so 130 chars + 2 quote chars
-		assert_eq!(serialized_signature.len(), 132);
+		assert_eq!(serialized_signature.len(), SIGNATURE_SERIALIZED_SIZE * 2 + 2);
 		let signature = serde_json::from_str(&serialized_signature).unwrap();
 		assert!(Pair::verify(&signature, &message[..], &pair.public()));
 	}

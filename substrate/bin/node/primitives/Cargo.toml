@@ -1,12 +1,12 @@
 [package]
 name = "node-primitives"
 version = "2.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Substrate node low-level primitives."
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 publish = false
 
 [package.metadata.docs.rs]

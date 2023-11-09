@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -22,8 +22,8 @@ use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
 use polkadot_primitives::{
+	async_backing::{AsyncBackingParams, BackingState},
 	slashing,
-	vstaging::{AsyncBackingParams, BackingState},
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sp_api::{ApiError, RuntimeApiInfo};
@@ -338,16 +338,31 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.await?)
 	}
 
-	async fn staging_async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
-		Ok(self.rpc_client.parachain_host_staging_async_backing_params(at).await?)
+	async fn minimum_backing_votes(
+		&self,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+	) -> Result<u32, ApiError> {
+		Ok(self.rpc_client.parachain_host_minimum_backing_votes(at, session_index).await?)
 	}
 
-	async fn staging_para_backing_state(
+	async fn disabled_validators(
+		&self,
+		at: Hash,
+	) -> Result<Vec<polkadot_primitives::ValidatorIndex>, ApiError> {
+		Ok(self.rpc_client.parachain_host_disabled_validators(at).await?)
+	}
+
+	async fn async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
+		Ok(self.rpc_client.parachain_host_async_backing_params(at).await?)
+	}
+
+	async fn para_backing_state(
 		&self,
 		at: Hash,
 		para_id: cumulus_primitives_core::ParaId,
 	) -> Result<Option<BackingState>, ApiError> {
-		Ok(self.rpc_client.parachain_host_staging_para_backing_state(at, para_id).await?)
+		Ok(self.rpc_client.parachain_host_para_backing_state(at, para_id).await?)
 	}
 }
 

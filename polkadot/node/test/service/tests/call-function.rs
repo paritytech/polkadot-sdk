@@ -17,7 +17,7 @@
 use polkadot_test_service::*;
 use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie};
 
-#[substrate_test_utils::test(flavor = "multi_thread")]
+#[tokio::test(flavor = "multi_thread")]
 async fn call_function_actually_work() {
 	let alice_config =
 		node_config(|| {}, tokio::runtime::Handle::current(), Alice, Vec::new(), true);

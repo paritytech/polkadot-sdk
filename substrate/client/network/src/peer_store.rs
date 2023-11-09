@@ -222,7 +222,7 @@ impl PeerStoreInner {
 		if peer_info.reputation < BANNED_THRESHOLD {
 			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id));
 
-			log::trace!(
+			log::warn!(
 				target: LOG_TARGET,
 				"Report {}: {:+} to {}. Reason: {}. Banned, disconnecting.",
 				peer_id,

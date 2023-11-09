@@ -16,7 +16,7 @@
 
 use crate::prepare::PrepareJobKind;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_parachain::primitives::ValidationCodeHash;
+use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParams;
 use sp_core::blake2_256;
 use std::{

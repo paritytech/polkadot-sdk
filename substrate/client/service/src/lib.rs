@@ -48,10 +48,7 @@ use sc_network_sync::SyncingService;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
@@ -79,7 +76,7 @@ pub use sc_chain_spec::{
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_common::sync::warp::WarpSyncParams;
+pub use sc_network_sync::warp::WarpSyncParams;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{
@@ -481,10 +478,8 @@ where
 			},
 		};
 
-		let best_block_id = BlockId::hash(self.client.info().best_hash);
-
 		let import_future = self.pool.submit_one(
-			&best_block_id,
+			self.client.info().best_hash,
 			sc_transaction_pool_api::TransactionSource::External,
 			uxt,
 		);
@@ -549,10 +544,9 @@ mod tests {
 			to: AccountKeyring::Bob.into(),
 		}
 		.into_unchecked_extrinsic();
-		block_on(pool.submit_one(&BlockId::hash(best.hash()), source, transaction.clone()))
-			.unwrap();
+		block_on(pool.submit_one(best.hash(), source, transaction.clone())).unwrap();
 		block_on(pool.submit_one(
-			&BlockId::hash(best.hash()),
+			best.hash(),
 			source,
 			ExtrinsicBuilder::new_call_do_not_propagate().nonce(1).build(),
 		))

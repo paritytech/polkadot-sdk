@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -719,7 +719,7 @@ pub fn node_config(
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
 	let mut spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(para_id, endowed_accounts));
+		Box::new(chain_spec::get_chain_spec_with_extra_endowed(Some(para_id), endowed_accounts));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
 
@@ -903,8 +903,9 @@ pub fn run_relay_chain_validator_node(
 		config.rpc_addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port));
 	}
 
-	polkadot_test_service::run_validator_node(
-		config,
-		Some(cumulus_test_relay_validation_worker_provider::VALIDATION_WORKER.into()),
-	)
+	let mut workers_path = std::env::current_exe().unwrap();
+	workers_path.pop();
+	workers_path.pop();
+
+	polkadot_test_service::run_validator_node(config, Some(workers_path))
 }

@@ -22,10 +22,9 @@ use asset_hub_polkadot_runtime::xcm_config::{
 	ForeignCreatorsSovereignAccountOf, TrustBackedAssetsPalletLocation, XcmConfig,
 };
 pub use asset_hub_polkadot_runtime::{
-	constants::fee::WeightToFee, AllPalletsWithoutSystem, AssetDeposit, Assets, Balances,
-	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
-	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
-	System, TrustBackedAssetsInstance,
+	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
+	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
+	RuntimeCall, RuntimeEvent, SessionKeys, System, TrustBackedAssetsInstance,
 };
 use asset_test_utils::{CollatorSessionKeys, ExtBuilder};
 use codec::{Decode, Encode};
@@ -36,7 +35,8 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
-	AccountId, AssetHubPolkadotAuraId as AuraId, AssetIdForTrustBackedAssets, Balance,
+	polkadot::fee::WeightToFee, AccountId, AssetHubPolkadotAuraId as AuraId,
+	AssetIdForTrustBackedAssets, Balance,
 };
 use sp_runtime::traits::MaybeEquivalence;
 use xcm::latest::prelude::*;

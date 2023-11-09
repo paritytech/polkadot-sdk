@@ -35,8 +35,8 @@ Once the zombienet is stopped, the database snapshot
 (`{alice,bob}/data/chains/local_testnet/db/` dirs) was created using the following
 commands:
 ```bash
-mkdir -p db-snapshot/{alice,bob}/data/chains/local_testnet/db/  
-cp -r db-test-gen/alice/data/chains/local_testnet/db/full db-snapshot/alice/data/chains/local_testnet/db/  
+mkdir -p db-snapshot/{alice,bob}/data/chains/local_testnet/db/
+cp -r db-test-gen/alice/data/chains/local_testnet/db/full db-snapshot/alice/data/chains/local_testnet/db/
 cp -r db-test-gen/bob/data/chains/local_testnet/db/full   db-snapshot/bob/data/chains/local_testnet/db/
 ```
 
@@ -72,7 +72,8 @@ Chain spec was simply built with:
 substrate build-spec --chain=local > chain-spec.json
 ```
 
-Please note that `chain-spec.json` committed into repository is `raw` version produced by `zombienet` during database snapshot generation. Zombienet applies some modifications to plain versions of chain-spec.
+Please note that `chain-spec.json` committed into repository is `raw` version produced by `zombienet` during database
+snapshot generation. Zombienet applies some modifications to plain versions of chain-spec.
 
 # Run the test
 Test can be run with the following command:
@@ -91,7 +92,7 @@ index 23fb13cfb0..89f8646291 100644
 --- a/bin/node/runtime/src/constants.rs
 +++ b/bin/node/runtime/src/constants.rs
 @@ -63,7 +63,7 @@ pub mod time {
- 
+
     // NOTE: Currently it is not possible to change the epoch duration after the chain has started.
     //       Attempting to do so will brick block production.
 -   pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 10 * MINUTES;

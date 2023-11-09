@@ -1,12 +1,12 @@
 [package]
 name = "node-testing"
 version = "3.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Test utilities for Substrate node."
-edition = "2021"
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 publish = false
 
 [package.metadata.docs.rs]
@@ -19,7 +19,7 @@ futures = "0.3.21"
 log = "0.4.17"
 tempfile = "3.1.0"
 frame-system = { path = "../../../frame/system" }
-node-executor = { path = "../executor" }
+node-executor = { package = "staging-node-executor", path = "../executor" }
 node-primitives = { path = "../primitives" }
 kitchensink-runtime = { path = "../runtime" }
 pallet-asset-conversion = { path = "../../../frame/asset-conversion" }

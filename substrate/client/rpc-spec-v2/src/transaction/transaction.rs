@@ -46,7 +46,7 @@ use std::sync::Arc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
-use sp_runtime::{generic, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 use codec::Decode;
 use futures::{FutureExt, StreamExt, TryFutureExt};
@@ -110,11 +110,7 @@ where
 
 		let submit = self
 			.pool
-			.submit_and_watch(
-				&generic::BlockId::hash(best_block_hash),
-				TX_SOURCE,
-				decoded_extrinsic,
-			)
+			.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic)
 			.map_err(|e| {
 				e.into_pool_error()
 					.map(Error::from)

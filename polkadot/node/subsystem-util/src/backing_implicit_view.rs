@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, ProspectiveParachainsMessage},
 	SubsystemSender,
 };
-use polkadot_primitives::vstaging::{BlockNumber, Hash, Id as ParaId};
+use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 
 use std::collections::HashMap;
 

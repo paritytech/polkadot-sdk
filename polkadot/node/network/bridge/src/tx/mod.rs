@@ -18,9 +18,7 @@
 use super::*;
 
 use polkadot_node_network_protocol::{
-	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames, ValidationVersion},
-	request_response::ReqProtocolNames,
-	v1 as protocol_v1, vstaging as protocol_vstaging, PeerId, Versioned,
+	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, Versioned,
 };
 
 use polkadot_node_subsystem::{
@@ -33,6 +31,7 @@ use polkadot_node_subsystem::{
 ///
 /// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
 pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
+use polkadot_node_network_protocol::request_response::Requests;
 use sc_network::ReputationChange;
 
 use crate::validator_discovery;
@@ -40,7 +39,10 @@ use crate::validator_discovery;
 /// Actual interfacing to the network based on the `Network` trait.
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
-use crate::network::{send_message, Network};
+use crate::network::{
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
+};
 
 use crate::metrics::Metrics;
 
@@ -65,7 +67,7 @@ impl<N, AD> NetworkBridgeTx<N, AD> {
 	/// discovery service.
 	///
 	/// This assumes that the network service has had the notifications protocol for the network
-	/// bridge already registered. See [`peers_sets_info`](peers_sets_info).
+	/// bridge already registered. See [`peer_sets_info`].
 	pub fn new(
 		network_service: N,
 		authority_discovery_service: AD,
@@ -186,6 +188,7 @@ where
 			gum::trace!(
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
+				?msg,
 				num_messages = 1usize,
 			);
 
@@ -204,6 +207,13 @@ where
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 				),
+				Versioned::V2(msg) => send_validation_message_v2(
+					&mut network_service,
+					peers,
+					peerset_protocol_names,
+					WireMessage::ProtocolMessage(msg),
+					&metrics,
+				),
 			}
 		},
 		NetworkBridgeTxMessage::SendValidationMessages(msgs) => {
@@ -211,6 +221,7 @@ where
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
 				num_messages = %msgs.len(),
+				?msgs,
 			);
 
 			for (peers, msg) in msgs {
@@ -223,6 +234,13 @@ where
 						&metrics,
 					),
 					Versioned::VStaging(msg) => send_validation_message_vstaging(
+						&mut network_service,
+						peers,
+						peerset_protocol_names,
+						WireMessage::ProtocolMessage(msg),
+						&metrics,
+					),
+					Versioned::V2(msg) => send_validation_message_v2(
 						&mut network_service,
 						peers,
 						peerset_protocol_names,
@@ -247,7 +265,7 @@ where
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 				),
-				Versioned::VStaging(msg) => send_collation_message_vstaging(
+				Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
 					&mut network_service,
 					peers,
 					peerset_protocol_names,
@@ -272,7 +290,7 @@ where
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 					),
-					Versioned::VStaging(msg) => send_collation_message_vstaging(
+					Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
 						&mut network_service,
 						peers,
 						peerset_protocol_names,
@@ -290,6 +308,18 @@ where
 			);
 
 			for req in reqs {
+				match req {
+					Requests::ChunkFetchingV1(_) => metrics.on_message("chunk_fetching_v1"),
+					Requests::AvailableDataFetchingV1(_) =>
+						metrics.on_message("available_data_fetching_v1"),
+					Requests::CollationFetchingV1(_) => metrics.on_message("collation_fetching_v1"),
+					Requests::CollationFetchingV2(_) => metrics.on_message("collation_fetching_v2"),
+					Requests::PoVFetchingV1(_) => metrics.on_message("pov_fetching_v1"),
+					Requests::DisputeSendingV1(_) => metrics.on_message("dispute_sending_v1"),
+					Requests::StatementFetchingV1(_) => metrics.on_message("statement_fetching_v1"),
+					Requests::AttestedCandidateV2(_) => metrics.on_message("attested_candidate_v2"),
+				}
+
 				network_service
 					.start_request(
 						&mut authority_discovery_service,
@@ -372,76 +402,4 @@ where
 	.await?;
 
 	Ok(())
-}
-
-fn send_validation_message_v1(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_collation_message_v1(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_v1::CollationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_validation_message_vstaging(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_vstaging::ValidationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::VStaging.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
-}
-
-fn send_collation_message_vstaging(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_vstaging::CollationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::VStaging.into(),
-		protocol_names,
-		message,
-		metrics,
-	);
 }

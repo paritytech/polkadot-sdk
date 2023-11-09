@@ -17,10 +17,7 @@
 //! Common traits and types used by the scheduler and assignment providers.
 
 use frame_support::pallet_prelude::*;
-use primitives::{
-	v5::{Assignment, ParasEntry},
-	CoreIndex, Id as ParaId,
-};
+use primitives::{CoreIndex, Id as ParaId};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
@@ -28,21 +25,22 @@ use sp_std::prelude::*;
 #[allow(unused)]
 use crate::configuration::HostConfiguration;
 
-/// Reasons a core might be freed
-#[derive(Clone, Copy)]
-pub enum FreedReason {
-	/// The core's work concluded and the parablock assigned to it is considered available.
-	Concluded,
-	/// The core's work timed out.
-	TimedOut,
+/// An assignment for a parachain scheduled to be backed and included in a relay chain block.
+#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
+pub struct Assignment {
+	/// Assignment's ParaId
+	pub para_id: ParaId,
+}
+
+impl Assignment {
+	/// Create a new `Assignment`.
+	pub fn new(para_id: ParaId) -> Self {
+		Self { para_id }
+	}
 }
 
 /// A set of variables required by the scheduler in order to operate.
 pub struct AssignmentProviderConfig<BlockNumber> {
-	/// The availability period specified by the implementation.
-	/// See [`HostConfiguration::paras_availability_period`] for more information.
-	pub availability_period: BlockNumber,
-
 	/// How many times a collation can time out on availability.
 	/// Zero timeouts still means that a collation can be provided as per the slot auction
 	/// assignment provider.
@@ -71,26 +69,4 @@ pub trait AssignmentProvider<BlockNumber> {
 
 	/// Returns a set of variables needed by the scheduler
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
-}
-
-/// How a core is mapped to a backing group and a `ParaId`
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct CoreAssignment<BlockNumber> {
-	/// The core that is assigned.
-	pub core: CoreIndex,
-	/// The para id and accompanying information needed to collate and back a parablock.
-	pub paras_entry: ParasEntry<BlockNumber>,
-}
-
-impl<BlockNumber> CoreAssignment<BlockNumber> {
-	/// Returns the [`ParaId`] of the assignment.
-	pub fn para_id(&self) -> ParaId {
-		self.paras_entry.para_id()
-	}
-
-	/// Returns the inner [`ParasEntry`] of the assignment.
-	pub fn to_paras_entry(self) -> ParasEntry<BlockNumber> {
-		self.paras_entry
-	}
 }

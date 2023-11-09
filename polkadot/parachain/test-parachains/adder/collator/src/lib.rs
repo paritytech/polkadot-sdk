@@ -249,7 +249,7 @@ mod tests {
 	use super::*;
 
 	use futures::executor::block_on;
-	use polkadot_parachain::primitives::{ValidationParams, ValidationResult};
+	use polkadot_parachain_primitives::primitives::{ValidationParams, ValidationResult};
 	use polkadot_primitives::PersistedValidationData;
 
 	#[test]

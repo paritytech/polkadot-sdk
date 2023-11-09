@@ -16,50 +16,24 @@
 
 use polkadot_core_primitives::{Block, Hash, Header};
 use std::{
+	future::Future,
 	io::{BufRead, BufReader, Read},
-	process::{Child, ExitStatus},
-	thread,
 	time::Duration,
 };
 use substrate_rpc_client::{ws_client, ChainApi};
-use tokio::time::timeout;
 
-/// Wait for the given `child` the given amount of `secs`.
-///
-/// Returns the `Some(exit status)` or `None` if the process did not finish in the given time.
-pub fn wait_for(child: &mut Child, secs: usize) -> Option<ExitStatus> {
-	for _ in 0..secs {
-		match child.try_wait().unwrap() {
-			Some(status) => return Some(status),
-			None => thread::sleep(Duration::from_secs(1)),
-		}
-	}
-	eprintln!("Took to long to exit. Killing...");
-	let _ = child.kill();
-	child.wait().unwrap();
-
-	None
-}
-
-/// Wait for at least `n` blocks to be finalized within the specified time.
-pub async fn wait_n_finalized_blocks(
-	n: usize,
-	timeout_duration: Duration,
-	url: &str,
-) -> Result<(), tokio::time::error::Elapsed> {
-	timeout(timeout_duration, wait_n_finalized_blocks_from(n, url)).await
+/// Run the given `future` and panic if the `timeout` is hit.
+pub async fn run_with_timeout(timeout: Duration, future: impl Future<Output = ()>) {
+	tokio::time::timeout(timeout, future).await.expect("Hit timeout");
 }
 
 /// Wait for at least `n` blocks to be finalized from a specified node.
-async fn wait_n_finalized_blocks_from(n: usize, url: &str) {
+pub async fn wait_n_finalized_blocks(n: usize, url: &str) {
 	let mut built_blocks = std::collections::HashSet::new();
 	let mut interval = tokio::time::interval(Duration::from_secs(6));
 
 	loop {
-		let rpc = match ws_client(url).await {
-			Ok(rpc_service) => rpc_service,
-			Err(_) => continue,
-		};
+		let Ok(rpc) = ws_client(url).await else { continue };
 
 		if let Ok(block) = ChainApi::<(), Hash, Header, Block>::finalized_head(&rpc).await {
 			built_blocks.insert(block);
@@ -67,6 +41,7 @@ async fn wait_n_finalized_blocks_from(n: usize, url: &str) {
 				break
 			}
 		};
+
 		interval.tick().await;
 	}
 }

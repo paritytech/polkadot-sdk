@@ -120,26 +120,24 @@ impl ScrapedCandidates {
 
 	// Removes all candidates up to a given height. The candidates at the block height are NOT
 	// removed.
-	pub fn remove_up_to_height(&mut self, height: &BlockNumber) -> HashSet<CandidateHash> {
-		let mut candidates_modified: HashSet<CandidateHash> = HashSet::new();
+	pub fn remove_up_to_height(&mut self, height: &BlockNumber) {
 		let not_stale = self.candidates_by_block_number.split_off(&height);
 		let stale = std::mem::take(&mut self.candidates_by_block_number);
 		self.candidates_by_block_number = not_stale;
-		for candidates in stale.values() {
-			for c in candidates {
-				self.candidates.remove(c);
-				candidates_modified.insert(*c);
-			}
+		for candidate in stale.values().flatten() {
+			self.candidates.remove(candidate);
 		}
-		candidates_modified
 	}
 
 	pub fn insert(&mut self, block_number: BlockNumber, candidate_hash: CandidateHash) {
-		self.candidates.insert(candidate_hash);
-		self.candidates_by_block_number
+		if self
+			.candidates_by_block_number
 			.entry(block_number)
 			.or_default()
-			.insert(candidate_hash);
+			.insert(candidate_hash)
+		{
+			self.candidates.insert(candidate_hash);
+		}
 	}
 
 	// Used only for tests to verify the pruning doesn't leak data.
@@ -158,6 +156,8 @@ mod scraped_candidates_tests {
 	fn stale_candidates_are_removed() {
 		let mut candidates = ScrapedCandidates::new();
 		let target = CandidateHash(BlakeTwo256::hash(&vec![1, 2, 3]));
+		candidates.insert(1, target);
+		// Repeated inserts at same height should be fine:
 		candidates.insert(1, target);
 
 		assert!(candidates.contains(&target));

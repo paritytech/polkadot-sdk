@@ -1,11 +1,11 @@
 [package]
 name = "pallet-nfts-runtime-api"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Runtime API for the FRAME NFTs pallet."
 readme = "README.md"
 
@@ -14,10 +14,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../support", default-features = false}
 pallet-nfts = { path = "..", default-features = false}
 sp-api = { path = "../../../primitives/api", default-features = false}
 
 [features]
 default = [ "std" ]
-std = [ "codec/std", "frame-support/std", "pallet-nfts/std", "sp-api/std" ]
+std = [ "codec/std", "pallet-nfts/std", "sp-api/std" ]

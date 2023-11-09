@@ -18,7 +18,7 @@ use super::*;
 
 use frame_support::assert_ok;
 use keyring::Sr25519Keyring;
-use primitives::{v5::Assignment, BlockNumber, SessionIndex, ValidationCode, ValidatorId};
+use primitives::{BlockNumber, SessionIndex, ValidationCode, ValidatorId};
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 use crate::{
@@ -427,33 +427,27 @@ fn fill_claimqueue_fills() {
 
 		{
 			assert_eq!(Scheduler::claimqueue_len(), 2 * lookahead);
-			let scheduled = Scheduler::scheduled_claimqueue();
+			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
 
 			// Cannot assert on indices anymore as they depend on the assignment providers
 			assert!(claimqueue_contains_para_ids::<Test>(vec![chain_a, chain_b]));
 
 			assert_eq!(
-				scheduled[0],
-				CoreAssignment {
-					core: CoreIndex(0),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: chain_a },
-						availability_timeouts: 0,
-						ttl: 6
-					},
-				}
+				scheduled.get(&CoreIndex(0)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: chain_a },
+					availability_timeouts: 0,
+					ttl: 6
+				},
 			);
 
 			assert_eq!(
-				scheduled[1],
-				CoreAssignment {
-					core: CoreIndex(1),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: chain_b },
-						availability_timeouts: 0,
-						ttl: 6
-					},
-				}
+				scheduled.get(&CoreIndex(1)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: chain_b },
+					availability_timeouts: 0,
+					ttl: 6
+				},
 			);
 		}
 
@@ -481,42 +475,33 @@ fn fill_claimqueue_fills() {
 
 		{
 			assert_eq!(Scheduler::claimqueue_len(), 5);
-			let scheduled = Scheduler::scheduled_claimqueue();
+			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
 
 			assert_eq!(
-				scheduled[0],
-				CoreAssignment {
-					core: CoreIndex(0),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: chain_a },
-						availability_timeouts: 0,
-						ttl: 6
-					},
-				}
+				scheduled.get(&CoreIndex(0)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: chain_a },
+					availability_timeouts: 0,
+					ttl: 6
+				},
 			);
 			assert_eq!(
-				scheduled[1],
-				CoreAssignment {
-					core: CoreIndex(1),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: chain_b },
-						availability_timeouts: 0,
-						ttl: 6
-					},
-				}
+				scheduled.get(&CoreIndex(1)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: chain_b },
+					availability_timeouts: 0,
+					ttl: 6
+				},
 			);
 
 			// Was added a block later, note the TTL.
 			assert_eq!(
-				scheduled[2],
-				CoreAssignment {
-					core: CoreIndex(2),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: thread_a },
-						availability_timeouts: 0,
-						ttl: 7
-					},
-				}
+				scheduled.get(&CoreIndex(2)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: thread_a },
+					availability_timeouts: 0,
+					ttl: 7
+				},
 			);
 			// Sits on the same core as `thread_a`
 			assert_eq!(
@@ -528,15 +513,12 @@ fn fill_claimqueue_fills() {
 				})
 			);
 			assert_eq!(
-				scheduled[3],
-				CoreAssignment {
-					core: CoreIndex(3),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: thread_c },
-						availability_timeouts: 0,
-						ttl: 7
-					},
-				}
+				scheduled.get(&CoreIndex(3)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: thread_c },
+					availability_timeouts: 0,
+					ttl: 7
+				},
 			);
 		}
 	});
@@ -608,7 +590,7 @@ fn schedule_schedules_including_just_freed() {
 		let mut now = 2;
 		run_to_block(now, |_| None);
 
-		assert_eq!(Scheduler::scheduled_claimqueue().len(), 4);
+		assert_eq!(Scheduler::scheduled_paras().collect::<Vec<_>>().len(), 4);
 
 		// cores 0, 1, 2, and 3 should be occupied. mark them as such.
 		let mut occupied_map: BTreeMap<CoreIndex, ParaId> = BTreeMap::new();
@@ -630,7 +612,7 @@ fn schedule_schedules_including_just_freed() {
 			// core 4 is free
 			assert!(cores[4] == CoreOccupied::Free);
 
-			assert!(Scheduler::scheduled_claimqueue().is_empty());
+			assert!(Scheduler::scheduled_paras().collect::<Vec<_>>().is_empty());
 
 			// All core index entries in the claimqueue should have `None` in them.
 			Scheduler::claimqueue().iter().for_each(|(_core_idx, core_queue)| {
@@ -657,21 +639,18 @@ fn schedule_schedules_including_just_freed() {
 		run_to_block(now, |_| None);
 
 		{
-			let scheduled = Scheduler::scheduled_claimqueue();
+			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
 
 			// cores 0 and 1 are occupied by lease holding parachains. cores 2 and 3 are occupied by
 			// on-demand parachain claims. core 4 was free.
 			assert_eq!(scheduled.len(), 1);
 			assert_eq!(
-				scheduled[0],
-				CoreAssignment {
-					core: CoreIndex(4),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: thread_b },
-						availability_timeouts: 0,
-						ttl: 8
-					},
-				}
+				scheduled.get(&CoreIndex(4)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: thread_b },
+					availability_timeouts: 0,
+					ttl: 8
+				},
 			);
 		}
 
@@ -686,54 +665,42 @@ fn schedule_schedules_including_just_freed() {
 		Scheduler::update_claimqueue(just_updated, now);
 
 		{
-			let scheduled = Scheduler::scheduled_claimqueue();
+			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
 
 			// 1 thing scheduled before, + 3 cores freed.
 			assert_eq!(scheduled.len(), 4);
 			assert_eq!(
-				scheduled[0],
-				CoreAssignment {
-					core: CoreIndex(0),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: chain_a },
-						availability_timeouts: 0,
-						ttl: 8
-					},
-				}
+				scheduled.get(&CoreIndex(0)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: chain_a },
+					availability_timeouts: 0,
+					ttl: 8
+				},
 			);
 			assert_eq!(
-				scheduled[1],
-				CoreAssignment {
-					core: CoreIndex(2),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: thread_d },
-						availability_timeouts: 0,
-						ttl: 8
-					},
-				}
+				scheduled.get(&CoreIndex(2)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: thread_d },
+					availability_timeouts: 0,
+					ttl: 8
+				},
 			);
 			// Although C was descheduled, the core `4` was occupied so C goes back to the queue.
 			assert_eq!(
-				scheduled[2],
-				CoreAssignment {
-					core: CoreIndex(3),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: thread_c },
-						availability_timeouts: 1,
-						ttl: 8
-					},
-				}
+				scheduled.get(&CoreIndex(3)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: thread_c },
+					availability_timeouts: 1,
+					ttl: 8
+				},
 			);
 			assert_eq!(
-				scheduled[3],
-				CoreAssignment {
-					core: CoreIndex(4),
-					paras_entry: ParasEntry {
-						assignment: Assignment { para_id: thread_b },
-						availability_timeouts: 0,
-						ttl: 8
-					},
-				}
+				scheduled.get(&CoreIndex(4)).unwrap(),
+				&ParasEntry {
+					assignment: Assignment { para_id: thread_b },
+					availability_timeouts: 0,
+					ttl: 8
+				},
 			);
 
 			// The only assignment yet to be popped on to the claim queue is `thread_e`.
@@ -900,14 +867,14 @@ fn schedule_rotates_groups() {
 		run_to_block(now, |_| None);
 
 		let assert_groups_rotated = |rotations: u32, now: &BlockNumberFor<Test>| {
-			let scheduled = Scheduler::scheduled_claimqueue();
+			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_paras().collect();
 			assert_eq!(scheduled.len(), 2);
 			assert_eq!(
-				Scheduler::group_assigned_to_core(scheduled[0].core, *now).unwrap(),
+				Scheduler::group_assigned_to_core(CoreIndex(0), *now).unwrap(),
 				GroupIndex((0u32 + rotations) % on_demand_cores)
 			);
 			assert_eq!(
-				Scheduler::group_assigned_to_core(scheduled[1].core, *now).unwrap(),
+				Scheduler::group_assigned_to_core(CoreIndex(1), *now).unwrap(),
 				GroupIndex((1u32 + rotations) % on_demand_cores)
 			);
 		};
@@ -999,7 +966,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			]
 			.into_iter()
 			.collect();
-			let core_assignments = Scheduler::update_claimqueue(just_updated, now);
+			Scheduler::update_claimqueue(just_updated, now);
 
 			// ParaId a exists in the claim queue until max_retries is reached.
 			if n < max_retries + now {
@@ -1008,13 +975,9 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 				assert!(!claimqueue_contains_para_ids::<Test>(vec![thread_a]));
 			}
 
-			// Occupy the cores based on the output of update_claimqueue.
-			Scheduler::occupied(
-				core_assignments
-					.iter()
-					.map(|core_assignment| (core_assignment.core, core_assignment.para_id()))
-					.collect(),
-			);
+			let core_assignments = Scheduler::scheduled_paras().collect();
+			// Occupy the cores based on the result of update_claimqueue.
+			Scheduler::occupied(core_assignments);
 		}
 
 		// ParaId a does not exist in the claimqueue/availability_cores after
@@ -1054,7 +1017,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 				}
 			}
 
-			let core_assignments = Scheduler::update_claimqueue(just_updated, now);
+			Scheduler::update_claimqueue(just_updated, now);
 
 			// ParaId a exists in the claim queue until groups are rotated.
 			if n < 31 {
@@ -1063,13 +1026,9 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 				assert!(!claimqueue_contains_para_ids::<Test>(vec![thread_a]));
 			}
 
-			// Occupy the cores based on the output of update_claimqueue.
-			Scheduler::occupied(
-				core_assignments
-					.iter()
-					.map(|core_assignment| (core_assignment.core, core_assignment.para_id()))
-					.collect(),
-			);
+			let core_assignments = Scheduler::scheduled_paras().collect();
+			// Occupy the cores based on the result of update_claimqueue.
+			Scheduler::occupied(core_assignments);
 		}
 
 		// ParaId a does not exist in the claimqueue/availability_cores after
@@ -1124,33 +1083,25 @@ fn availability_predicate_works() {
 
 		run_to_block(1 + paras_availability_period, |_| None);
 
-		assert!(Scheduler::availability_timeout_predicate().is_none());
+		assert!(!Scheduler::availability_timeout_check_required());
 
 		run_to_block(1 + group_rotation_frequency, |_| None);
 
 		{
-			let pred = Scheduler::availability_timeout_predicate()
-				.expect("predicate exists recently after rotation");
-
 			let now = System::block_number();
+			assert!(Scheduler::availability_timeout_check_required());
+			let pred = Scheduler::availability_timeout_predicate();
+			let last_rotation = Scheduler::group_rotation_info(now).last_rotation_at();
+
 			let would_be_timed_out = now - paras_availability_period;
-			for i in 0..AvailabilityCores::<Test>::get().len() {
-				// returns true for unoccupied cores.
-				// And can time out paras at this stage.
-				assert!(pred(CoreIndex(i as u32), would_be_timed_out));
-			}
+			let should_not_be_timed_out = last_rotation;
 
-			assert!(!pred(CoreIndex(0), now));
-			assert!(!pred(CoreIndex(1), now));
-			assert!(pred(CoreIndex(2), now));
-
-			// check the tight bound.
-			assert!(pred(CoreIndex(0), now - paras_availability_period));
-			assert!(pred(CoreIndex(1), now - paras_availability_period));
+			assert!(pred(would_be_timed_out).timed_out);
+			assert!(!pred(should_not_be_timed_out).timed_out);
+			assert!(!pred(now).timed_out);
 
 			// check the threshold is exact.
-			assert!(!pred(CoreIndex(0), now - paras_availability_period + 1));
-			assert!(!pred(CoreIndex(1), now - paras_availability_period + 1));
+			assert!(!pred(would_be_timed_out + 1).timed_out);
 		}
 
 		run_to_block(1 + group_rotation_frequency + paras_availability_period, |_| None);

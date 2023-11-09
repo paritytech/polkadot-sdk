@@ -1,11 +1,11 @@
 [package]
 name = "sp-blockchain"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate blockchain traits and primitives."
 documentation = "https://docs.rs/sp-blockchain"
 readme = "README.md"
@@ -19,7 +19,7 @@ futures = "0.3.21"
 log = "0.4.17"
 parking_lot = "0.12.1"
 schnellru = "0.2.1"
-thiserror = "1.0.30"
+thiserror = "1.0.48"
 sp-api = { path = "../api" }
 sp-consensus = { path = "../consensus/common" }
 sp-database = { path = "../database" }

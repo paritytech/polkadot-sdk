@@ -1,5 +1,5 @@
 error: Unexpected version attribute: missing version '2' for this function
-  --> $DIR/no_gaps_in_versions.rs:13:2
+  --> tests/ui/no_gaps_in_versions.rs:30:2
    |
-13 |     #[version(3)]
+30 |     #[version(3)]
    |     ^

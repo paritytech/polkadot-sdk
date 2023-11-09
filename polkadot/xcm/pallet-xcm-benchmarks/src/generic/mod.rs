@@ -24,10 +24,8 @@ mod mock;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_benchmarking::BenchmarkError;
-	use frame_support::{
-		dispatch::{Dispatchable, GetDispatchInfo},
-		pallet_prelude::Encode,
-	};
+	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
+	use sp_runtime::traits::Dispatchable;
 	use xcm::latest::{
 		InteriorMultiLocation, Junction, MultiAsset, MultiAssets, MultiLocation, NetworkId,
 		Response,
@@ -39,6 +37,11 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ Encode;
+
+		/// The type of `fungible` that is being used under the hood.
+		///
+		/// This is useful for testing and checking.
+		type TransactAsset: frame_support::traits::fungible::Mutate<Self::AccountId>;
 
 		///	The response which causes the most runtime weight.
 		fn worst_case_response() -> (u64, Response);

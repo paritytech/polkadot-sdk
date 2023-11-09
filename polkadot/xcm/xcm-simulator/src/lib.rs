@@ -27,7 +27,7 @@ pub use sp_io::{hashing::blake2_256, TestExternalities};
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
 
 pub use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
-pub use polkadot_parachain::primitives::{
+pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler as DmpMessageHandlerT, Id as ParaId, XcmpMessageFormat,
 	XcmpMessageHandler as XcmpMessageHandlerT,
 };
@@ -324,7 +324,7 @@ macro_rules! decl_test_network {
 						let mut _id = [0; 32];
 						let r = <$relay_chain>::process_message(
 							encoded.as_slice(), para_id,
-							&mut $crate::WeightMeter::max_limit(),
+							&mut $crate::WeightMeter::new(),
 							&mut _id,
 						);
 						match r {

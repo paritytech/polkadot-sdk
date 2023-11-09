@@ -1,4 +1,4 @@
-Aura (Authority-round) consensus in substrate.
+Aura (Authority-round) consensus in Substrate.
 
 Aura works by having a list of authorities A who are expected to roughly
 agree on the current time. Time is divided up into discrete slots of t

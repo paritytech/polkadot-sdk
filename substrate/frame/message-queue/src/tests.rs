@@ -49,6 +49,7 @@ fn enqueue_within_one_page_works() {
 		MessageQueue::enqueue_message(msg("c"), Here);
 		assert_eq!(MessageQueue::service_queues(2.into_weight()), 2.into_weight());
 		assert_eq!(MessagesProcessed::take(), vec![(b"a".to_vec(), Here), (b"b".to_vec(), Here)]);
+		assert_eq!(MessageQueue::footprint(Here).pages, 1);
 
 		assert_eq!(MessageQueue::service_queues(2.into_weight()), 1.into_weight());
 		assert_eq!(MessagesProcessed::take(), vec![(b"c".to_vec(), Here)]);
@@ -267,6 +268,44 @@ fn service_queues_suspension_works() {
 }
 
 #[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "Not enough weight to service a single message.")]
+fn service_queues_low_weight_defensive() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		DefaultWeightForCall::set(21.into());
+		// Check that the integrity test would catch this:
+		assert!(MessageQueue::do_integrity_test().is_err());
+
+		MessageQueue::enqueue_message(msg("weight=0"), Here);
+		MessageQueue::service_queues(104.into_weight());
+	});
+}
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/pull/1873>.
+#[test]
+fn service_queues_regression_1873() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		DefaultWeightForCall::set(20.into());
+
+		MessageQueue::enqueue_message(msg("weight=100"), Here);
+		assert_eq!(MessageQueue::service_queues(100.into_weight()), 100.into());
+
+		// Before the MQ this would not emit any events:
+		assert_last_event::<Test>(
+			Event::OverweightEnqueued {
+				id: blake2_256(b"weight=100"),
+				origin: MessageOrigin::Here,
+				message_index: 0,
+				page_index: 0,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
 fn reap_page_permanent_overweight_works() {
 	use MessageOrigin::*;
 	build_and_execute::<Test>(|| {
@@ -276,6 +315,7 @@ fn reap_page_permanent_overweight_works() {
 			MessageQueue::enqueue_message(msg("weight=2"), Here);
 		}
 		assert_eq!(Pages::<Test>::iter().count(), n);
+		assert_eq!(MessageQueue::footprint(Here).pages, n as u32);
 		assert_eq!(QueueChanges::take().len(), n);
 		// Mark all pages as stale since their message is permanently overweight.
 		MessageQueue::service_queues(1.into_weight());
@@ -301,6 +341,7 @@ fn reap_page_permanent_overweight_works() {
 			assert_noop!(MessageQueue::do_reap_page(&o, i), Error::<Test>::NotReapable);
 			assert!(QueueChanges::take().is_empty());
 		}
+		assert_eq!(MessageQueue::footprint(Here).pages, 3);
 	});
 }
 
@@ -381,7 +422,7 @@ fn service_queue_bails() {
 	// Not enough weight for `service_queue_base`.
 	build_and_execute::<Test>(|| {
 		set_weight("service_queue_base", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		assert_storage_noop!(MessageQueue::service_queue(0u32.into(), &mut meter, Weight::MAX));
 		assert!(meter.consumed().is_zero());
@@ -389,7 +430,7 @@ fn service_queue_bails() {
 	// Not enough weight for `ready_ring_unknit`.
 	build_and_execute::<Test>(|| {
 		set_weight("ready_ring_unknit", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		assert_storage_noop!(MessageQueue::service_queue(0u32.into(), &mut meter, Weight::MAX));
 		assert!(meter.consumed().is_zero());
@@ -399,7 +440,7 @@ fn service_queue_bails() {
 		set_weight("service_queue_base", 2.into_weight());
 		set_weight("ready_ring_unknit", 2.into_weight());
 
-		let mut meter = WeightMeter::from_limit(3.into_weight());
+		let mut meter = WeightMeter::with_limit(3.into_weight());
 		assert_storage_noop!(MessageQueue::service_queue(0.into(), &mut meter, Weight::MAX));
 		assert!(meter.consumed().is_zero());
 	});
@@ -426,7 +467,7 @@ fn service_page_works() {
 			msgs -= process;
 
 			//  Enough weight to process `process` messages.
-			let mut meter = WeightMeter::from_limit(((2 + (3 + 1) * process) as u64).into_weight());
+			let mut meter = WeightMeter::with_limit(((2 + (3 + 1) * process) as u64).into_weight());
 			System::reset_events();
 			let (processed, status) =
 				crate::Pallet::<Test>::service_page(&Here, &mut book, &mut meter, Weight::MAX);
@@ -449,7 +490,7 @@ fn service_page_bails() {
 	// Not enough weight for `service_page_base_completion`.
 	build_and_execute::<Test>(|| {
 		set_weight("service_page_base_completion", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		let (page, _) = full_page::<Test>();
 		let mut book = book_for::<Test>(&page);
@@ -466,7 +507,7 @@ fn service_page_bails() {
 	// Not enough weight for `service_page_base_no_completion`.
 	build_and_execute::<Test>(|| {
 		set_weight("service_page_base_no_completion", 2.into_weight());
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 
 		let (page, _) = full_page::<Test>();
 		let mut book = book_for::<Test>(&page);
@@ -487,7 +528,7 @@ fn service_page_item_bails() {
 	build_and_execute::<Test>(|| {
 		let _guard = StorageNoopGuard::default();
 		let (mut page, _) = full_page::<Test>();
-		let mut weight = WeightMeter::from_limit(10.into_weight());
+		let mut weight = WeightMeter::with_limit(10.into_weight());
 		let overweight_limit = 10.into_weight();
 		set_weight("service_page_item", 11.into_weight());
 
@@ -518,7 +559,7 @@ fn service_page_suspension_works() {
 		Pages::<Test>::insert(Here, 0, page);
 
 		// First we process 5 messages from this page.
-		let mut meter = WeightMeter::from_limit(5.into_weight());
+		let mut meter = WeightMeter::with_limit(5.into_weight());
 		let (_, status) =
 			crate::Pallet::<Test>::service_page(&Here, &mut book, &mut meter, Weight::MAX);
 
@@ -534,7 +575,7 @@ fn service_page_suspension_works() {
 			let (_, status) = crate::Pallet::<Test>::service_page(
 				&Here,
 				&mut book,
-				&mut WeightMeter::max_limit(),
+				&mut WeightMeter::new(),
 				Weight::MAX,
 			);
 			assert_eq!(status, NoProgress);
@@ -546,7 +587,7 @@ fn service_page_suspension_works() {
 		let (_, status) = crate::Pallet::<Test>::service_page(
 			&Here,
 			&mut book,
-			&mut WeightMeter::max_limit(),
+			&mut WeightMeter::new(),
 			Weight::MAX,
 		);
 		assert_eq!(status, NoMore);
@@ -564,7 +605,7 @@ fn bump_service_head_works() {
 
 		// Bump 99 times.
 		for i in 0..99 {
-			let current = MessageQueue::bump_service_head(&mut WeightMeter::max_limit()).unwrap();
+			let current = MessageQueue::bump_service_head(&mut WeightMeter::new()).unwrap();
 			assert_eq!(current, [Here, There, Everywhere(0)][i % 3]);
 		}
 
@@ -581,7 +622,7 @@ fn bump_service_head_bails() {
 		setup_bump_service_head::<Test>(0.into(), 1.into());
 
 		let _guard = StorageNoopGuard::default();
-		let mut meter = WeightMeter::from_limit(1.into_weight());
+		let mut meter = WeightMeter::with_limit(1.into_weight());
 		assert!(MessageQueue::bump_service_head(&mut meter).is_none());
 		assert_eq!(meter.consumed(), 0.into_weight());
 	});
@@ -591,7 +632,7 @@ fn bump_service_head_bails() {
 fn bump_service_head_trivial_works() {
 	build_and_execute::<Test>(|| {
 		set_weight("bump_service_head", 2.into_weight());
-		let mut meter = WeightMeter::max_limit();
+		let mut meter = WeightMeter::new();
 
 		assert_eq!(MessageQueue::bump_service_head(&mut meter), None, "Cannot bump");
 		assert_eq!(meter.consumed(), 2.into_weight());
@@ -616,7 +657,7 @@ fn bump_service_head_no_head_noops() {
 		ServiceHead::<Test>::kill();
 
 		// Nothing happens.
-		assert_storage_noop!(MessageQueue::bump_service_head(&mut WeightMeter::max_limit()));
+		assert_storage_noop!(MessageQueue::bump_service_head(&mut WeightMeter::new()));
 	});
 }
 
@@ -624,7 +665,7 @@ fn bump_service_head_no_head_noops() {
 fn service_page_item_consumes_correct_weight() {
 	build_and_execute::<Test>(|| {
 		let mut page = page::<Test>(b"weight=3");
-		let mut weight = WeightMeter::from_limit(10.into_weight());
+		let mut weight = WeightMeter::with_limit(10.into_weight());
 		let overweight_limit = 0.into_weight();
 		set_weight("service_page_item", 2.into_weight());
 
@@ -648,7 +689,7 @@ fn service_page_item_consumes_correct_weight() {
 fn service_page_item_skips_perm_overweight_message() {
 	build_and_execute::<Test>(|| {
 		let mut page = page::<Test>(b"TooMuch");
-		let mut weight = WeightMeter::from_limit(2.into_weight());
+		let mut weight = WeightMeter::with_limit(2.into_weight());
 		let overweight_limit = 0.into_weight();
 		set_weight("service_page_item", 2.into_weight());
 
@@ -984,8 +1025,9 @@ fn footprint_works() {
 		BookStateFor::<Test>::insert(origin, book);
 
 		let info = MessageQueue::footprint(origin);
-		assert_eq!(info.count as usize, msgs);
-		assert_eq!(info.size, page.remaining_size as u64);
+		assert_eq!(info.storage.count as usize, msgs);
+		assert_eq!(info.storage.size, page.remaining_size as u64);
+		assert_eq!(info.pages, 1);
 
 		// Sweeping a queue never calls OnQueueChanged.
 		assert!(QueueChanges::take().is_empty());
@@ -1006,16 +1048,44 @@ fn footprint_invalid_works() {
 fn footprint_on_swept_works() {
 	use MessageOrigin::*;
 	build_and_execute::<Test>(|| {
-		let mut book = empty_book::<Test>();
-		book.message_count = 3;
-		book.size = 10;
-		BookStateFor::<Test>::insert(Here, &book);
-		knit(&Here);
+		build_ring::<Test>(&[Here]);
 
 		MessageQueue::sweep_queue(Here);
 		let fp = MessageQueue::footprint(Here);
-		assert_eq!(fp.count, 3);
-		assert_eq!(fp.size, 10);
+		assert_eq!((1, 1, 1), (fp.storage.count, fp.storage.size, fp.pages));
+	})
+}
+
+/// The number of reported pages takes overweight pages into account.
+#[test]
+fn footprint_num_pages_works() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		MessageQueue::enqueue_message(msg("weight=2"), Here);
+		MessageQueue::enqueue_message(msg("weight=3"), Here);
+
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+
+		// Mark the messages as overweight.
+		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
+		assert_eq!(System::events().len(), 2);
+		// Overweight does not change the footprint.
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+
+		// Now execute the second message.
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(3.into_weight(), (Here, 1, 0))
+				.unwrap(),
+			3.into_weight()
+		);
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 8));
+		// And the first one:
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
+				.unwrap(),
+			2.into_weight()
+		);
+		assert_eq!(MessageQueue::footprint(Here), Default::default());
 	})
 }
 
@@ -1105,6 +1175,7 @@ fn permanently_overweight_book_unknits() {
 		assert_ring(&[]);
 		assert_eq!(MessagesProcessed::take().len(), 0);
 		assert_eq!(BookStateFor::<Test>::get(Here).message_count, 1);
+		assert_eq!(MessageQueue::footprint(Here).pages, 1);
 		// Now if we enqueue another message, it will become ready again.
 		MessageQueue::enqueue_messages([msg("weight=1")].into_iter(), Here);
 		assert_ring(&[Here]);
@@ -1148,6 +1219,116 @@ fn permanently_overweight_book_unknits_multiple() {
 		assert_eq!(MessagesProcessed::take().len(), 1);
 		assert_ring(&[]);
 	});
+}
+
+#[test]
+fn permanently_overweight_limit_is_valid_basic() {
+	use MessageOrigin::*;
+
+	for w in 50..300 {
+		build_and_execute::<Test>(|| {
+			DefaultWeightForCall::set(Weight::MAX);
+
+			set_weight("bump_service_head", 10.into());
+			set_weight("service_queue_base", 10.into());
+			set_weight("service_page_base_no_completion", 10.into());
+			set_weight("service_page_base_completion", 0.into());
+
+			set_weight("service_page_item", 10.into());
+			set_weight("ready_ring_unknit", 10.into());
+
+			let m = "weight=200".to_string();
+
+			MessageQueue::enqueue_message(msg(&m), Here);
+			MessageQueue::service_queues(w.into());
+
+			let last_event =
+				frame_system::Pallet::<Test>::events().into_iter().last().expect("No event");
+
+			// The weight overhead for a single message is set to 50. The message itself needs 200.
+			// Every weight in range `[50, 249]` should result in a permanently overweight message:
+			if w < 250 {
+				assert_eq!(
+					last_event.event,
+					RuntimeEvent::MessageQueue(Event::OverweightEnqueued {
+						id: blake2_256(m.as_bytes()),
+						origin: Here,
+						message_index: 0,
+						page_index: 0,
+					})
+				);
+			} else {
+				// Otherwise it is processed as normal:
+				assert_eq!(
+					last_event.event,
+					RuntimeEvent::MessageQueue(Event::Processed {
+						origin: Here,
+						weight_used: 200.into(),
+						id: blake2_256(m.as_bytes()),
+						success: true,
+					})
+				);
+			}
+		});
+	}
+}
+
+#[test]
+fn permanently_overweight_limit_is_valid_fuzzy() {
+	use MessageOrigin::*;
+	let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+
+	for _ in 0..10 {
+		// Brainlet code, but works...
+		let (s1, s2) = (rng.gen_range(0..=10), rng.gen_range(0..=10));
+		let (s3, s4) = (rng.gen_range(0..=10), rng.gen_range(0..=10));
+		let s5 = rng.gen_range(0..=10);
+		let o = s1 + s2 + s3 + s4 + s5;
+
+		for w in o..=o + 300 {
+			build_and_execute::<Test>(|| {
+				DefaultWeightForCall::set(Weight::MAX);
+
+				set_weight("bump_service_head", s1.into());
+				set_weight("service_queue_base", s2.into());
+				// Only the larger one of these two is taken:
+				set_weight("service_page_base_no_completion", s3.into());
+				set_weight("service_page_base_completion", 0.into());
+				set_weight("service_page_item", s4.into());
+				set_weight("ready_ring_unknit", s5.into());
+
+				let m = "weight=200".to_string();
+
+				MessageQueue::enqueue_message(msg(&m), Here);
+				MessageQueue::service_queues(w.into());
+
+				let last_event =
+					frame_system::Pallet::<Test>::events().into_iter().last().expect("No event");
+
+				if w < o + 200 {
+					assert_eq!(
+						last_event.event,
+						RuntimeEvent::MessageQueue(Event::OverweightEnqueued {
+							id: blake2_256(m.as_bytes()),
+							origin: Here,
+							message_index: 0,
+							page_index: 0,
+						})
+					);
+				} else {
+					assert_eq!(
+						last_event.event,
+						RuntimeEvent::MessageQueue(Event::Processed {
+							origin: Here,
+							weight_used: 200.into(),
+							id: blake2_256(m.as_bytes()),
+							success: true,
+						})
+					);
+				}
+			});
+		}
+	}
 }
 
 /// We don't want empty books in the ready ring, but if they somehow make their way in there, it
@@ -1445,5 +1626,39 @@ fn service_queue_suspension_ready_ring_works() {
 			}
 			.into(),
 		);
+	});
+}
+
+#[test]
+fn integrity_test_checks_service_weight() {
+	build_and_execute::<Test>(|| {
+		assert_eq!(<Test as Config>::ServiceWeight::get(), Some(100.into()), "precond");
+		assert!(MessageQueue::do_integrity_test().is_ok(), "precond");
+
+		// Enough for all:
+		DefaultWeightForCall::set(20.into());
+		assert!(MessageQueue::do_integrity_test().is_ok());
+
+		// Not enough for anything:
+		DefaultWeightForCall::set(101.into());
+		assert_eq!(MessageQueue::single_msg_overhead(), 505.into());
+		assert!(MessageQueue::do_integrity_test().is_err());
+
+		// Not enough for a single function:
+		for f in [
+			"bump_service_head",
+			"service_queue_base",
+			"service_page_base_completion",
+			"service_page_base_no_completion",
+			"service_page_item",
+			"ready_ring_unknit",
+		] {
+			WeightForCall::take();
+			DefaultWeightForCall::set(Zero::zero());
+
+			assert!(MessageQueue::do_integrity_test().is_ok());
+			set_weight(f, 101.into());
+			assert!(MessageQueue::do_integrity_test().is_err());
+		}
 	});
 }

@@ -79,6 +79,7 @@ pub enum Error {
 	RuntimeApiUnavailable(#[source] oneshot::Canceled),
 
 	#[error("a channel was closed before receipt in try_join!")]
+	#[fatal]
 	JoinMultiple(#[source] oneshot::Canceled),
 
 	#[error("Obtaining erasure chunks failed")]

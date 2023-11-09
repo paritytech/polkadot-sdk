@@ -1,5 +1,5 @@
 error: expected `Result`
-  --> tests/benchmark_ui/bad_return_type_option.rs:10:16
+  --> tests/benchmark_ui/bad_return_type_option.rs:27:16
    |
-10 |     fn bench() -> Option<BenchmarkError> {
+27 |     fn bench() -> Option<BenchmarkError> {
    |                   ^^^^^^

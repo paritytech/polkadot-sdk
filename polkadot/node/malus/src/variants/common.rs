@@ -273,28 +273,31 @@ where
 			// Message sent by the approval voting subsystem
 			FromOrchestra::Communication {
 				msg:
-					CandidateValidationMessage::ValidateFromExhaustive(
+					CandidateValidationMessage::ValidateFromExhaustive {
 						validation_data,
 						validation_code,
 						candidate_receipt,
 						pov,
-						timeout,
-						sender,
-					),
+						executor_params,
+						exec_timeout_kind,
+						response_sender,
+						..
+					},
 			} => {
 				match self.fake_validation {
-					x if x.misbehaves_valid() && x.should_misbehave(timeout) => {
+					x if x.misbehaves_valid() && x.should_misbehave(exec_timeout_kind) => {
 						// Behave normally if the `PoV` is not known to be malicious.
 						if pov.block_data.0.as_slice() != MALICIOUS_POV {
 							return Some(FromOrchestra::Communication {
-								msg: CandidateValidationMessage::ValidateFromExhaustive(
+								msg: CandidateValidationMessage::ValidateFromExhaustive {
 									validation_data,
 									validation_code,
 									candidate_receipt,
 									pov,
-									timeout,
-									sender,
-								),
+									executor_params,
+									exec_timeout_kind,
+									response_sender,
+								},
 							})
 						}
 						// Create the fake response with probability `p` if the `PoV` is malicious,
@@ -311,7 +314,7 @@ where
 								create_validation_response(
 									validation_data,
 									candidate_receipt.descriptor,
-									sender,
+									response_sender,
 								);
 								None
 							},
@@ -324,19 +327,20 @@ where
 								);
 
 								Some(FromOrchestra::Communication {
-									msg: CandidateValidationMessage::ValidateFromExhaustive(
+									msg: CandidateValidationMessage::ValidateFromExhaustive {
 										validation_data,
 										validation_code,
 										candidate_receipt,
 										pov,
-										timeout,
-										sender,
-									),
+										executor_params,
+										exec_timeout_kind,
+										response_sender,
+									},
 								})
 							},
 						}
 					},
-					x if x.misbehaves_invalid() && x.should_misbehave(timeout) => {
+					x if x.misbehaves_invalid() && x.should_misbehave(exec_timeout_kind) => {
 						// Set the validation result to invalid with probability `p` and trigger a
 						// dispute
 						let behave_maliciously = self.distribution.sample(&mut rand::thread_rng());
@@ -355,7 +359,7 @@ where
 
 								// We're not even checking the candidate, this makes us appear
 								// faster than honest validators.
-								sender.send(Ok(validation_result)).unwrap();
+								response_sender.send(Ok(validation_result)).unwrap();
 								None
 							},
 							false => {
@@ -363,52 +367,57 @@ where
 								gum::info!(target: MALUS, "😈 'Decided' to not act maliciously.",);
 
 								Some(FromOrchestra::Communication {
-									msg: CandidateValidationMessage::ValidateFromExhaustive(
+									msg: CandidateValidationMessage::ValidateFromExhaustive {
 										validation_data,
 										validation_code,
 										candidate_receipt,
 										pov,
-										timeout,
-										sender,
-									),
+										executor_params,
+										exec_timeout_kind,
+										response_sender,
+									},
 								})
 							},
 						}
 					},
 					// Handle FakeCandidateValidation::Disabled
 					_ => Some(FromOrchestra::Communication {
-						msg: CandidateValidationMessage::ValidateFromExhaustive(
+						msg: CandidateValidationMessage::ValidateFromExhaustive {
 							validation_data,
 							validation_code,
 							candidate_receipt,
 							pov,
-							timeout,
-							sender,
-						),
+							executor_params,
+							exec_timeout_kind,
+							response_sender,
+						},
 					}),
 				}
 			},
 			// Behaviour related to the backing subsystem
 			FromOrchestra::Communication {
 				msg:
-					CandidateValidationMessage::ValidateFromChainState(
+					CandidateValidationMessage::ValidateFromChainState {
 						candidate_receipt,
 						pov,
-						timeout,
+						executor_params,
+						exec_timeout_kind,
 						response_sender,
-					),
+						..
+					},
 			} => {
 				match self.fake_validation {
-					x if x.misbehaves_valid() && x.should_misbehave(timeout) => {
+					x if x.misbehaves_valid() && x.should_misbehave(exec_timeout_kind) => {
 						// Behave normally if the `PoV` is not known to be malicious.
 						if pov.block_data.0.as_slice() != MALICIOUS_POV {
 							return Some(FromOrchestra::Communication {
-								msg: CandidateValidationMessage::ValidateFromChainState(
+								msg: CandidateValidationMessage::ValidateFromChainState {
 									candidate_receipt,
 									pov,
-									timeout,
+									executor_params,
+									exec_timeout_kind,
 									response_sender,
-								),
+								},
 							})
 						}
 						// If the `PoV` is malicious, back the candidate with some probability `p`,
@@ -432,16 +441,17 @@ where
 							// If the `PoV` is malicious, we behave normally with some probability
 							// `(1-p)`
 							false => Some(FromOrchestra::Communication {
-								msg: CandidateValidationMessage::ValidateFromChainState(
+								msg: CandidateValidationMessage::ValidateFromChainState {
 									candidate_receipt,
 									pov,
-									timeout,
+									executor_params,
+									exec_timeout_kind,
 									response_sender,
-								),
+								},
 							}),
 						}
 					},
-					x if x.misbehaves_invalid() && x.should_misbehave(timeout) => {
+					x if x.misbehaves_invalid() && x.should_misbehave(exec_timeout_kind) => {
 						// Maliciously set the validation result to invalid for a valid candidate
 						// with probability `p`
 						let behave_maliciously = self.distribution.sample(&mut rand::thread_rng());
@@ -465,34 +475,29 @@ where
 								gum::info!(target: MALUS, "😈 'Decided' to not act maliciously.",);
 
 								Some(FromOrchestra::Communication {
-									msg: CandidateValidationMessage::ValidateFromChainState(
+									msg: CandidateValidationMessage::ValidateFromChainState {
 										candidate_receipt,
 										pov,
-										timeout,
+										executor_params,
+										exec_timeout_kind,
 										response_sender,
-									),
+									},
 								})
 							},
 						}
 					},
 					_ => Some(FromOrchestra::Communication {
-						msg: CandidateValidationMessage::ValidateFromChainState(
+						msg: CandidateValidationMessage::ValidateFromChainState {
 							candidate_receipt,
 							pov,
-							timeout,
+							executor_params,
+							exec_timeout_kind,
 							response_sender,
-						),
+						},
 					}),
 				}
 			},
 			msg => Some(msg),
 		}
-	}
-
-	fn intercept_outgoing(
-		&self,
-		msg: overseer::CandidateValidationOutgoingMessages,
-	) -> Option<overseer::CandidateValidationOutgoingMessages> {
-		Some(msg)
 	}
 }

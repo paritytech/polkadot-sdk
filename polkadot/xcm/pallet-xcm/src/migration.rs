@@ -63,10 +63,9 @@ pub mod v1 {
 
 	/// Version checked migration to v1.
 	///
-	/// Wrapped in VersionedRuntimeUpgrade so the pre/post checks don't begin failing after the
-	/// upgrade is enacted on-chain.
-	#[cfg(feature = "experimental")]
-	pub type VersionCheckedMigrateToV1<T> = frame_support::migrations::VersionedRuntimeUpgrade<
+	/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post checks don't
+	/// begin failing after the upgrade is enacted on-chain.
+	pub type VersionCheckedMigrateToV1<T> = frame_support::migrations::VersionedMigration<
 		0,
 		1,
 		VersionUncheckedMigrateToV1<T>,

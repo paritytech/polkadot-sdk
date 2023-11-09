@@ -17,6 +17,13 @@
 
 //! Stress tests pallet-message-queue. Defines its own runtime config to use larger constants for
 //! `HeapSize` and `MaxStale`.
+//!
+//! The tests in this file are ignored by default, since they are quite slow. You can run them
+//! manually like this:
+//!
+//! ```sh
+//! RUST_LOG=info cargo test -p pallet-message-queue --profile testnet -- --ignored
+//! ```
 
 #![cfg(test)]
 
@@ -96,9 +103,6 @@ impl Config for Test {
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.
 ///
-/// Best to run with `RUST_LOG=info RUSTFLAGS='-Cdebug-assertions=y' cargo test -r -p
-/// pallet-message-queue -- --ignored`.
-///
 /// # Example output
 ///
 /// ```pre
@@ -121,7 +125,7 @@ fn stress_test_enqueue_and_service() {
 	let max_queues = 10_000;
 	let max_messages_per_queue = 10_000;
 	let max_msg_len = MaxMessageLenOf::<Test>::get();
-	let mut rng = StdRng::seed_from_u64(42);
+	let mut rng = StdRng::seed_from_u64(43);
 
 	build_and_execute::<Test>(|| {
 		let mut msgs_remaining = 0;
@@ -145,9 +149,6 @@ fn stress_test_enqueue_and_service() {
 
 /// Simulates heavy usage of the suspension logic via `Yield`.
 ///
-/// Best to run with `RUST_LOG=info RUSTFLAGS='-Cdebug-assertions=y' cargo test -r -p
-/// pallet-message-queue -- --ignored`.
-///
 /// # Example output
 ///
 /// ```pre
@@ -169,7 +170,7 @@ fn stress_test_queue_suspension() {
 	let max_messages_per_queue = 10_000;
 	let (max_suspend_per_block, max_resume_per_block) = (100, 50);
 	let max_msg_len = MaxMessageLenOf::<Test>::get();
-	let mut rng = StdRng::seed_from_u64(41);
+	let mut rng = StdRng::seed_from_u64(43);
 
 	build_and_execute::<Test>(|| {
 		let mut suspended = BTreeSet::<u32>::new();

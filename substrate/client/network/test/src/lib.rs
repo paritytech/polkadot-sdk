@@ -38,7 +38,7 @@ use futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::*};
 use libp2p::{build_multiaddr, PeerId};
 use log::trace;
 use parking_lot::Mutex;
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sc_client_api::{
 	backend::{AuxStore, Backend, Finalizer},
 	BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
@@ -60,17 +60,15 @@ use sc_network::{
 	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
 	NetworkWorker,
 };
-use sc_network_common::{
-	role::Roles,
-	sync::warp::{
-		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
-	},
-};
+use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_request_handler::BlockRequestHandler,
 	service::{chain_sync::SyncingService, network::NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
+	warp::{
+		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
+	},
 	warp_request_handler,
 };
 use sc_service::client::Client;
@@ -307,9 +305,7 @@ where
 		edit_block: F,
 	) -> Vec<H256>
 	where
-		F: FnMut(
-			BlockBuilder<Block, PeersFullClient, substrate_test_runtime_client::Backend>,
-		) -> Block,
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
 		let best_hash = self.client.info().best_hash;
 		self.generate_blocks_at(
@@ -333,9 +329,7 @@ where
 		fork_choice: ForkChoiceStrategy,
 	) -> Vec<H256>
 	where
-		F: FnMut(
-			BlockBuilder<Block, PeersFullClient, substrate_test_runtime_client::Backend>,
-		) -> Block,
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
 		let best_hash = self.client.info().best_hash;
 		self.generate_blocks_at(
@@ -364,15 +358,18 @@ where
 		fork_choice: ForkChoiceStrategy,
 	) -> Vec<H256>
 	where
-		F: FnMut(
-			BlockBuilder<Block, PeersFullClient, substrate_test_runtime_client::Backend>,
-		) -> Block,
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
 		let mut hashes = Vec::with_capacity(count);
 		let full_client = self.client.as_client();
 		let mut at = full_client.block_hash_from_id(&at).unwrap().unwrap();
 		for _ in 0..count {
-			let builder = full_client.new_block_at(at, Default::default(), false).unwrap();
+			let builder = BlockBuilderBuilder::new(&*full_client)
+				.on_parent_block(at)
+				.fetch_parent_block_number(&*full_client)
+				.unwrap()
+				.build()
+				.unwrap();
 			let block = edit_block(builder);
 			let hash = block.header.hash();
 			trace!(
@@ -799,12 +796,18 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let fork_id = Some(String::from("test-fork-id"));
 
-		let block_request_protocol_config = {
-			let (handler, protocol_config) =
-				BlockRequestHandler::new(&protocol_id, None, client.clone(), 50);
-			self.spawn_task(handler.run().boxed());
-			protocol_config
-		};
+		let (chain_sync_network_provider, chain_sync_network_handle) =
+			NetworkServiceProvider::new();
+		let mut block_relay_params = BlockRequestHandler::new(
+			chain_sync_network_handle.clone(),
+			&protocol_id,
+			None,
+			client.clone(),
+			50,
+		);
+		self.spawn_task(Box::pin(async move {
+			block_relay_params.server.run().await;
+		}));
 
 		let state_request_protocol_config = {
 			let (handler, protocol_config) =
@@ -849,8 +852,6 @@ pub trait TestNetFactory: Default + Sized + Send {
 		let block_announce_validator = config
 			.block_announce_validator
 			.unwrap_or_else(|| Box::new(DefaultBlockAnnounceValidator));
-		let (chain_sync_network_provider, chain_sync_network_handle) =
-			NetworkServiceProvider::new();
 
 		let (tx, rx) = sc_utils::mpsc::tracing_unbounded("mpsc_syncing_engine_protocol", 100_000);
 		let (engine, sync_service, block_announce_config) =
@@ -865,7 +866,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				Some(warp_sync_params),
 				chain_sync_network_handle,
 				import_queue.service(),
-				block_request_protocol_config.name.clone(),
+				block_relay_params.downloader,
 				state_request_protocol_config.name.clone(),
 				Some(warp_protocol_config.name.clone()),
 				rx,
@@ -878,7 +879,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			full_net_config.add_request_response_protocol(config);
 		}
 		for config in [
-			block_request_protocol_config,
+			block_relay_params.request_response_config,
 			state_request_protocol_config,
 			light_client_request_protocol_config,
 			warp_protocol_config,
