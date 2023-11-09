@@ -441,6 +441,10 @@ pub mod pallet {
 
 		/// Set the candidacy bond amount.
 		///
+		/// If the candidacy bond is increased by this call, all current candidates which have a
+		/// deposit lower than the new bond will be kicked from the list and get their deposits
+		/// back.
+		///
 		/// The origin for this call must be the `UpdateOrigin`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_candidacy_bond(T::MaxCandidates::get()))]
@@ -457,6 +461,8 @@ pub mod pallet {
 			let initial_len = <CandidateList<T>>::decode_len().unwrap_or_default();
 			let kicked = (bond_increased && initial_len > 0)
 				.then(|| {
+					// Closure below returns the number of candidates which were kicked because
+					// their deposits were lower than the new candidacy bond.
 					<CandidateList<T>>::mutate(|candidates| -> usize {
 						let first_safe_candidate = candidates
 							.iter()
