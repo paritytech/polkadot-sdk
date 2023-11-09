@@ -24,7 +24,7 @@ env:
 
 jobs:
   find-specs:
-    name: Fetch the list of available runtime specs
+    name: Fetch runtime specs
     outputs:
       specs: ${{ steps.get-list.outputs.specs }}
     runs-on: ubuntu-latest
@@ -39,8 +39,8 @@ jobs:
           echo "Found: $lst"
           echo "specs=$lst" >> $GITHUB_OUTPUT
 
-  check_runtimes:
-    name: Fetch the list of available runtime specs
+  check-runtimes:
+    name: Check runtime specs
     runs-on: ubuntu-latest
     needs:
       - find-specs
@@ -82,7 +82,7 @@ jobs:
         run: |
           WASM=$(ls ${DATA_DIR}/${RUNTIME}*.wasm)
           echo "WASM=$WASM"
-          subwasm metadata --json "$WASM" | tee "${DATA_DIR}/${RUNTIME}.json"
+          subwasm show --json "$WASM" | tee "${DATA_DIR}/${RUNTIME}.json"
 
       - name: Check specs for ${{ matrix.specs }}
         id: build
