@@ -17,6 +17,7 @@
 //! Implementation of the v2 statement distribution protocol,
 //! designed for asynchronous backing.
 
+use net_protocol::{filter_by_peer_version, peer_set::ProtocolVersion};
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	grid_topology::SessionGridTopology,
@@ -28,7 +29,8 @@ use polkadot_node_network_protocol::{
 		MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
 	v2::{self as protocol_v2, StatementFilter},
-	IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
+	vstaging as protocol_vstaging, IfDisconnected, PeerId, UnifiedReputationChange as Rep,
+	Versioned, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatementWithPVD, StatementWithPVD as FullStatementWithPVD,
@@ -260,6 +262,7 @@ fn connected_validator_peer(
 
 struct PeerState {
 	view: View,
+	protocol_version: ValidationVersion,
 	implicit_view: HashSet<Hash>,
 	discovery_ids: Option<HashSet<AuthorityDiscoveryId>>,
 }
@@ -332,9 +335,13 @@ pub(crate) async fn handle_network_update<Context>(
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, mut authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
 
-			if protocol_version != ValidationVersion::V2.into() {
+			let versioned_protocol = if protocol_version != ValidationVersion::V2.into() &&
+				protocol_version != ValidationVersion::VStaging.into()
+			{
 				return
-			}
+			} else {
+				protocol_version.try_into().expect("Qed, we checked above")
+			};
 
 			if let Some(ref mut authority_ids) = authority_ids {
 				authority_ids.retain(|a| match state.authorities.entry(a.clone()) {
@@ -361,6 +368,7 @@ pub(crate) async fn handle_network_update<Context>(
 				PeerState {
 					view: View::default(),
 					implicit_view: HashSet::new(),
+					protocol_version: versioned_protocol,
 					discovery_ids: authority_ids,
 				},
 			);
@@ -393,17 +401,29 @@ pub(crate) async fn handle_network_update<Context>(
 			net_protocol::StatementDistributionMessage::V1(_) => return,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::V1Compatibility(_),
+			) |
+			net_protocol::StatementDistributionMessage::VStaging(
+				protocol_vstaging::StatementDistributionMessage::V1Compatibility(_),
 			) => return,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+			) |
+			net_protocol::StatementDistributionMessage::VStaging(
+				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
 			) =>
 				handle_incoming_statement(ctx, state, peer_id, relay_parent, statement, reputation)
 					.await,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(inner),
+			) |
+			net_protocol::StatementDistributionMessage::VStaging(
+				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) => handle_incoming_manifest(ctx, state, peer_id, inner, reputation).await,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(inner),
+			) |
+			net_protocol::StatementDistributionMessage::VStaging(
+				protocol_vstaging::StatementDistributionMessage::BackedCandidateKnown(inner),
 			) => handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation).await,
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
@@ -709,7 +729,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 			send_pending_cluster_statements(
 				ctx,
 				relay_parent,
-				&peer,
+				&(peer, peer_data.protocol_version),
 				validator_id,
 				&mut local_validator_state.cluster_tracker,
 				&state.candidates,
@@ -721,7 +741,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 		send_pending_grid_messages(
 			ctx,
 			relay_parent,
-			&peer,
+			&(peer, peer_data.protocol_version),
 			validator_id,
 			&per_session_state.groups,
 			relay_parent_state,
@@ -734,15 +754,34 @@ async fn send_peer_messages_for_relay_parent<Context>(
 fn pending_statement_network_message(
 	statement_store: &StatementStore,
 	relay_parent: Hash,
-	peer: &PeerId,
+	peer: &(PeerId, ValidationVersion),
 	originator: ValidatorIndex,
 	compact: CompactStatement,
 ) -> Option<(Vec<PeerId>, net_protocol::VersionedValidationProtocol)> {
-	statement_store
-		.validator_statement(originator, compact)
-		.map(|s| s.as_unchecked().clone())
-		.map(|signed| protocol_v2::StatementDistributionMessage::Statement(relay_parent, signed))
-		.map(|msg| (vec![*peer], Versioned::V2(msg).into()))
+	match peer.1 {
+		ValidationVersion::V2 => statement_store
+			.validator_statement(originator, compact)
+			.map(|s| s.as_unchecked().clone())
+			.map(|signed| {
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, signed)
+			})
+			.map(|msg| (vec![peer.0], Versioned::V2(msg).into())),
+		ValidationVersion::VStaging => statement_store
+			.validator_statement(originator, compact)
+			.map(|s| s.as_unchecked().clone())
+			.map(|signed| {
+				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, signed)
+			})
+			.map(|msg| (vec![peer.0], Versioned::VStaging(msg).into())),
+		ValidationVersion::V1 => {
+			gum::error!(
+				target: LOG_TARGET,
+				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+				legacy should have handled this"
+			);
+			None
+		},
+	}
 }
 
 /// Send a peer all pending cluster statements for a relay parent.
@@ -750,7 +789,7 @@ fn pending_statement_network_message(
 async fn send_pending_cluster_statements<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
-	peer_id: &PeerId,
+	peer_id: &(PeerId, ValidationVersion),
 	peer_validator_id: ValidatorIndex,
 	cluster_tracker: &mut ClusterTracker,
 	candidates: &Candidates,
@@ -794,7 +833,7 @@ async fn send_pending_cluster_statements<Context>(
 async fn send_pending_grid_messages<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
-	peer_id: &PeerId,
+	peer_id: &(PeerId, ValidationVersion),
 	peer_validator_id: ValidatorIndex,
 	groups: &Groups,
 	relay_parent_state: &mut PerRelayParentState,
@@ -856,20 +895,37 @@ async fn send_pending_grid_messages<Context>(
 					candidate_hash,
 					local_knowledge.clone(),
 				);
-
-				messages.push((
-					vec![*peer_id],
-					Versioned::V2(
-						protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
-							manifest,
-						),
-					)
-					.into(),
-				));
+				match peer_id.1 {
+					ValidationVersion::V2 => messages.push((
+						vec![peer_id.0],
+						Versioned::V2(
+							protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+								manifest,
+							),
+						)
+						.into(),
+					)),
+					ValidationVersion::VStaging => messages.push((
+						vec![peer_id.0],
+						Versioned::VStaging(
+							protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+								manifest,
+							),
+						)
+						.into(),
+					)),
+					ValidationVersion::V1 => {
+						gum::error!(
+							target: LOG_TARGET,
+							"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+							legacy should have handled this"
+						);
+					}
+				};
 			},
 			grid::ManifestKind::Acknowledgement => {
 				messages.extend(acknowledgement_and_statement_messages(
-					*peer_id,
+					peer_id,
 					peer_validator_id,
 					groups,
 					relay_parent_state,
@@ -1156,11 +1212,18 @@ async fn circulate_statement<Context>(
 		(local_validator, targets)
 	};
 
-	let mut statement_to = Vec::new();
+	let mut statement_to_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
 	for (target, authority_id, kind) in targets {
 		// Find peer ID based on authority ID, and also filter to connected.
-		let peer_id: PeerId = match authorities.get(&authority_id) {
-			Some(p) if peers.get(p).map_or(false, |p| p.knows_relay_parent(&relay_parent)) => *p,
+		let peer_id: (PeerId, ProtocolVersion) = match authorities.get(&authority_id) {
+			Some(p) if peers.get(p).map_or(false, |p| p.knows_relay_parent(&relay_parent)) => (
+				*p,
+				peers
+					.get(p)
+					.expect("Qed, can't fail because it was checked above")
+					.protocol_version
+					.into(),
+			),
 			None | Some(_) => continue,
 		};
 
@@ -1178,11 +1241,11 @@ async fn circulate_statement<Context>(
 						originator,
 						compact_statement.clone(),
 					);
-					statement_to.push(peer_id);
+					statement_to_peers.push(peer_id);
 				}
 			},
 			DirectTargetKind::Grid => {
-				statement_to.push(peer_id);
+				statement_to_peers.push(peer_id);
 				local_validator.grid_tracker.sent_or_received_direct_statement(
 					&per_session.groups,
 					originator,
@@ -1193,18 +1256,43 @@ async fn circulate_statement<Context>(
 		}
 	}
 
+	let statement_to_v2_peers =
+		filter_by_peer_version(&statement_to_peers, ValidationVersion::V2.into());
+
+	let statement_to_vstaging_peers =
+		filter_by_peer_version(&statement_to_peers, ValidationVersion::VStaging.into());
+
 	// ship off the network messages to the network bridge.
-	if !statement_to.is_empty() {
+	if !statement_to_v2_peers.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?compact_statement,
-			n_peers = ?statement_to.len(),
-			"Sending statement to peers",
+			n_peers = ?statement_to_v2_peers.len(),
+			"Sending statement to v2 peers",
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			statement_to,
+			statement_to_v2_peers,
 			Versioned::V2(protocol_v2::StatementDistributionMessage::Statement(
+				relay_parent,
+				statement.as_unchecked().clone(),
+			))
+			.into(),
+		))
+		.await;
+	}
+
+	if !statement_to_vstaging_peers.is_empty() {
+		gum::debug!(
+			target: LOG_TARGET,
+			?compact_statement,
+			n_peers = ?statement_to_peers.len(),
+			"Sending statement to vstaging peers",
+		);
+
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+			statement_to_vstaging_peers,
+			Versioned::VStaging(protocol_vstaging::StatementDistributionMessage::Statement(
 				relay_parent,
 				statement.as_unchecked().clone(),
 			))
@@ -1697,14 +1785,8 @@ async fn provide_candidate_to_grid<Context>(
 		statement_knowledge: filter.clone(),
 	};
 
-	let manifest_message =
-		Versioned::V2(protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest));
-	let ack_message = Versioned::V2(
-		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
-	);
-
-	let mut manifest_peers = Vec::new();
-	let mut ack_peers = Vec::new();
+	let mut manifest_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
+	let mut ack_peers: Vec<(PeerId, ProtocolVersion)> = Vec::new();
 
 	let mut post_statements = Vec::new();
 	for (v, action) in actions {
@@ -1712,7 +1794,7 @@ async fn provide_candidate_to_grid<Context>(
 			None => continue,
 			Some(p) =>
 				if peers.get(&p).map_or(false, |d| d.knows_relay_parent(&relay_parent)) {
-					p
+					(p, peers.get(&p).expect("Qed, was checked above").protocol_version.into())
 				} else {
 					continue
 				},
@@ -1738,44 +1820,95 @@ async fn provide_candidate_to_grid<Context>(
 				&per_session.groups,
 				group_index,
 				candidate_hash,
+				&(p.0, p.1.try_into().expect("Qed, can not fail was checked above")),
 			)
 			.into_iter()
-			.map(|m| (vec![p], m)),
+			.map(|m| (vec![p.0], m)),
 		);
 	}
 
-	if !manifest_peers.is_empty() {
+	let manifest_peers_v2 = filter_by_peer_version(&manifest_peers, ValidationVersion::V2.into());
+	let manifest_peers_vstaging =
+		filter_by_peer_version(&manifest_peers, ValidationVersion::VStaging.into());
+	if !manifest_peers_v2.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			local_validator = ?local_validator.index,
-			n_peers = manifest_peers.len(),
-			"Sending manifest to peers"
+			n_peers = manifest_peers_v2.len(),
+			"Sending manifest to v2 peers"
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			manifest_peers,
-			manifest_message.into(),
+			manifest_peers_v2,
+			Versioned::V2(protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				manifest.clone(),
+			))
+			.into(),
 		))
 		.await;
 	}
 
-	if !ack_peers.is_empty() {
+	if !manifest_peers_vstaging.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			local_validator = ?local_validator.index,
-			n_peers = ack_peers.len(),
-			"Sending acknowledgement to peers"
+			n_peers = manifest_peers_vstaging.len(),
+			"Sending manifest to vstaging peers"
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			ack_peers,
-			ack_message.into(),
+			manifest_peers_vstaging,
+			Versioned::VStaging(
+				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(manifest),
+			)
+			.into(),
 		))
 		.await;
 	}
 
+	let ack_peers_v2 = filter_by_peer_version(&ack_peers, ValidationVersion::V2.into());
+	let ack_peers_vstaging = filter_by_peer_version(&ack_peers, ValidationVersion::VStaging.into());
+	if !ack_peers_v2.is_empty() {
+		gum::debug!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			local_validator = ?local_validator.index,
+			n_peers = ack_peers_v2.len(),
+			"Sending acknowledgement to v2 peers"
+		);
+
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+			ack_peers_v2,
+			Versioned::V2(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
+				acknowledgement.clone(),
+			))
+			.into(),
+		))
+		.await;
+	}
+
+	if !ack_peers_vstaging.is_empty() {
+		gum::debug!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			local_validator = ?local_validator.index,
+			n_peers = ack_peers_vstaging.len(),
+			"Sending acknowledgement to vstaging peers"
+		);
+
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+			ack_peers_vstaging,
+			Versioned::VStaging(
+				protocol_vstaging::StatementDistributionMessage::BackedCandidateKnown(
+					acknowledgement,
+				),
+			)
+			.into(),
+		))
+		.await;
+	}
 	if !post_statements.is_empty() {
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(post_statements))
 			.await;
@@ -2074,6 +2207,7 @@ fn post_acknowledgement_statement_messages(
 	groups: &Groups,
 	group_index: GroupIndex,
 	candidate_hash: CandidateHash,
+	peer: &(PeerId, ValidationVersion),
 ) -> Vec<net_protocol::VersionedValidationProtocol> {
 	let sending_filter = match grid_tracker.pending_statements_for(recipient, candidate_hash) {
 		None => return Vec::new(),
@@ -2090,14 +2224,29 @@ fn post_acknowledgement_statement_messages(
 			recipient,
 			statement.payload(),
 		);
-
-		messages.push(Versioned::V2(
-			protocol_v2::StatementDistributionMessage::Statement(
-				relay_parent,
-				statement.as_unchecked().clone(),
-			)
-			.into(),
-		));
+		match peer.1.into() {
+			ValidationVersion::V2 => messages.push(Versioned::V2(
+				protocol_v2::StatementDistributionMessage::Statement(
+					relay_parent,
+					statement.as_unchecked().clone(),
+				)
+				.into(),
+			)),
+			ValidationVersion::VStaging => messages.push(Versioned::VStaging(
+				protocol_vstaging::StatementDistributionMessage::Statement(
+					relay_parent,
+					statement.as_unchecked().clone(),
+				)
+				.into(),
+			)),
+			ValidationVersion::V1 => {
+				gum::error!(
+					target: LOG_TARGET,
+					"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+					legacy should have handled this"
+				);
+			},
+		};
 	}
 
 	messages
@@ -2167,7 +2316,15 @@ async fn handle_incoming_manifest<Context>(
 		};
 
 		let messages = acknowledgement_and_statement_messages(
-			peer,
+			&(
+				peer,
+				state
+					.peers
+					.get(&peer)
+					.map(|val| val.protocol_version)
+					// Assume the latest stable version, if we don't have info about peer version.
+					.unwrap_or(ValidationVersion::V2),
+			),
 			sender_index,
 			&per_session.groups,
 			relay_parent_state,
@@ -2198,7 +2355,7 @@ async fn handle_incoming_manifest<Context>(
 /// Produces acknowledgement and statement messages to be sent over the network,
 /// noting that they have been sent within the grid topology tracker as well.
 fn acknowledgement_and_statement_messages(
-	peer: PeerId,
+	peer: &(PeerId, ValidationVersion),
 	validator_index: ValidatorIndex,
 	groups: &Groups,
 	relay_parent_state: &mut PerRelayParentState,
@@ -2217,11 +2374,28 @@ fn acknowledgement_and_statement_messages(
 		statement_knowledge: local_knowledge.clone(),
 	};
 
-	let msg = Versioned::V2(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
-		acknowledgement,
+	let msg_v2 = Versioned::V2(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
+		acknowledgement.clone(),
 	));
 
-	let mut messages = vec![(vec![peer], msg.into())];
+	let mut messages = match peer.1 {
+		ValidationVersion::V2 => vec![(vec![peer.0], msg_v2.into())],
+		ValidationVersion::VStaging => vec![(
+			vec![peer.0],
+			Versioned::VStaging(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
+				acknowledgement,
+			))
+			.into(),
+		)],
+		ValidationVersion::V1 => {
+			gum::error!(
+				target: LOG_TARGET,
+				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+				legacy should have handled this"
+			);
+			return Vec::new()
+		},
+	};
 
 	local_validator.grid_tracker.manifest_sent_to(
 		groups,
@@ -2238,9 +2412,10 @@ fn acknowledgement_and_statement_messages(
 		&groups,
 		group_index,
 		candidate_hash,
+		peer,
 	);
 
-	messages.extend(statement_messages.into_iter().map(|m| (vec![peer], m)));
+	messages.extend(statement_messages.into_iter().map(|m| (vec![peer.0], m)));
 
 	messages
 }
@@ -2320,6 +2495,15 @@ async fn handle_incoming_acknowledgement<Context>(
 		&per_session.groups,
 		group_index,
 		candidate_hash,
+		&(
+			peer,
+			state
+				.peers
+				.get(&peer)
+				.map(|val| val.protocol_version)
+				// Assume the latest stable version, if we don't have info about peer version.
+				.unwrap_or(ValidationVersion::V2),
+		),
 	);
 
 	if !messages.is_empty() {

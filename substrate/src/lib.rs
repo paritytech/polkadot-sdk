@@ -141,8 +141,9 @@
 //!   side features. The corresponding runtime, called [`kitchensink_runtime`] contains all of the
 //!   modules that are provided with `FRAME`. This node and runtime is only used for testing and
 //!   demonstration.
-//!     * [`chain-spec-builder`]: Utility to build more detailed chain-specs for the aforementioned
-//!       node. Other projects typically contain a `build-spec` subcommand that does the same.
+//! * [`chain-spec-builder`]: Utility to build more detailed [chain-spec][`sc-chain-spec`] for the
+//!   aforementioned node. Other projects typically contain a `build-spec` subcommand that does the
+//!   same.
 //! * [`node-template`]: a template node that contains a minimal set of features and can act as a
 //!   starting point of a project.
 //! * [`subkey`]: Substrate's key management utility.
@@ -177,6 +178,8 @@
 //!
 //! Additional noteworthy crates within substrate:
 //!
+//! - Chain specification of a Substrate node:
+//!     - [`sc-chain-spec`]
 //! - RPC APIs of a Substrate node: [`sc-rpc-api`]/[`sc-rpc`]
 //! - CLI Options of a Substrate node: [`sc-cli`]
 //! - All of the consensus related crates provided by Substrate:
@@ -217,6 +220,7 @@
 //! [`sp-api`]: ../sp_api/index.html
 //! [`sp-api`]: ../sp_api/index.html
 //! [`sc-client-db`]: ../sc_client_db/index.html
+//! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`sc-network`]: ../sc_network/index.html
 //! [`sc-rpc-api`]: ../sc_rpc_api/index.html
 //! [`sc-rpc`]: ../sc_rpc/index.html
