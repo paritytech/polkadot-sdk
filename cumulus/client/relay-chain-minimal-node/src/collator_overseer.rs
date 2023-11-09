@@ -24,6 +24,7 @@ use polkadot_network_bridge::{
 	NetworkBridgeTx as NetworkBridgeTxSubsystem,
 };
 use polkadot_node_collation_generation::CollationGenerationSubsystem;
+use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
@@ -144,7 +145,7 @@ fn build_overseer(
 			spawner.clone(),
 		))
 		.statement_distribution(DummySubsystem)
-		.prospective_parachains(DummySubsystem)
+		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
 		.approval_distribution(DummySubsystem)
 		.approval_voting(DummySubsystem)
 		.gossip_support(DummySubsystem)
