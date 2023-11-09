@@ -84,11 +84,7 @@ mod tests {
 	use regex::Regex;
 
 	lazy_static::lazy_static! {
-		static ref SS58_REGEX: Regex = Regex::new(r"^(?P<ss58>[a-zA-Z0-9 ]+)?(?P<path>(//?[^/]+)*)$")
-			.expect("constructed from known-good static value; qed");
 		static ref SECRET_PHRASE_REGEX: Regex = Regex::new(r"^(?P<phrase>[a-zA-Z0-9 ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
-			.expect("constructed from known-good static value; qed");
-		static ref JUNCTION_REGEX: Regex = Regex::new(r"/(/?[^/]+)")
 			.expect("constructed from known-good static value; qed");
 	}
 
@@ -102,11 +98,7 @@ mod tests {
 			let manual_paths = manual_result
 				.paths
 				.iter()
-				.map(|s| {
-					let mut s = String::from(*s);
-					s = "/".to_string() + &s;
-					s
-				})
+				.map(|s| "/".to_string() + s)
 				.collect::<Vec<_>>()
 				.join("");
 
