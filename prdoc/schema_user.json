@@ -104,7 +104,7 @@
 
           {"const": "Runtime User",
           "title": "Runtime User",
-          "description": "Token holders who don't run anything but are involved in the network."}
+          "description": "Anyone using the runtime. This can be a token holder or a dev writing a front end for a chain."}
         ]
       },
       "crate": {
