@@ -31,35 +31,6 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 pub const LOG: &str = "runtime::xcmp-queue-migration";
 
-/// Migrates the pallet storage to the most recent version.
-pub struct MigrationToV4<T: Config>(PhantomData<T>);
-
-impl<T: Config> OnRuntimeUpgrade for MigrationToV4<T> {
-	fn on_runtime_upgrade() -> Weight {
-		let mut weight = T::DbWeight::get().reads(1);
-
-		if StorageVersion::get::<Pallet<T>>() == 1 {
-			weight.saturating_accrue(migrate_to_v2::<T>());
-			StorageVersion::new(2).put::<Pallet<T>>();
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-		}
-
-		if StorageVersion::get::<Pallet<T>>() == 2 {
-			weight.saturating_accrue(migrate_to_v3::<T>());
-			StorageVersion::new(3).put::<Pallet<T>>();
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-		}
-
-		if StorageVersion::get::<Pallet<T>>() == 3 {
-			weight.saturating_accrue(migrate_to_v4::<T>());
-			StorageVersion::new(4).put::<Pallet<T>>();
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-		}
-
-		weight
-	}
-}
-
 mod v1 {
 	use super::*;
 	use codec::{Decode, Encode};
@@ -131,35 +102,47 @@ mod v2 {
 
 /// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
 /// 2D weights).
-///
-/// NOTE: Only use this function if you know what you're doing. Default to using
-/// `migrate_to_latest`.
-#[allow(deprecated)]
-pub fn migrate_to_v2<T: Config>() -> Weight {
-	let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
-		v2::QueueConfigData {
-			suspend_threshold: pre.suspend_threshold,
-			drop_threshold: pre.drop_threshold,
-			resume_threshold: pre.resume_threshold,
-			threshold_weight: Weight::from_parts(pre.threshold_weight, 0),
-			weight_restrict_decay: Weight::from_parts(pre.weight_restrict_decay, 0),
-			xcmp_max_individual_weight: Weight::from_parts(
-				pre.xcmp_max_individual_weight,
-				DEFAULT_POV_SIZE,
-			),
+pub struct MigrationToV2<T: Config>(PhantomData<T>);
+
+impl<T: Config> OnRuntimeUpgrade for MigrationToV2<T> {
+	#[allow(deprecated)]
+	fn on_runtime_upgrade() -> Weight {
+		let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
+			v2::QueueConfigData {
+				suspend_threshold: pre.suspend_threshold,
+				drop_threshold: pre.drop_threshold,
+				resume_threshold: pre.resume_threshold,
+				threshold_weight: Weight::from_parts(pre.threshold_weight, 0),
+				weight_restrict_decay: Weight::from_parts(pre.weight_restrict_decay, 0),
+				xcmp_max_individual_weight: Weight::from_parts(
+					pre.xcmp_max_individual_weight,
+					DEFAULT_POV_SIZE,
+				),
+			}
+		};
+
+		if v2::QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
+			log::error!(
+				target: super::LOG_TARGET,
+				"unexpected error when performing translation of the QueueConfig type \
+				during storage upgrade to v2"
+			);
 		}
-	};
 
-	if v2::QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-		log::error!(
-			target: super::LOG_TARGET,
-			"unexpected error when performing translation of the QueueConfig type \
-			during storage upgrade to v2"
-		);
+		T::DbWeight::get().reads_writes(1, 1)
 	}
-
-	T::DbWeight::get().reads_writes(1, 1)
 }
+
+/// [`MigrationToV2`] wrapped in a
+/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+/// migration is only performed when on-chain version is 1.
+pub type VersionCheckedMigrationToV2<T> = frame_support::migrations::VersionedMigration<
+	1,
+	2,
+	MigrationToV2<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 pub mod v3 {
 	use super::*;
@@ -208,14 +191,30 @@ pub mod v3 {
 	}
 }
 
-pub fn migrate_to_v3<T: Config>() -> Weight {
-	#[frame_support::storage_alias]
-	type Overweight<T: Config> =
-		CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
-	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
+/// Migrates the pallet storage to v3.
+pub struct MigrationToV3<T: Config>(PhantomData<T>);
 
-	T::DbWeight::get().reads_writes(overweight_messages, 1)
+impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
+	fn on_runtime_upgrade() -> Weight {
+		#[frame_support::storage_alias]
+		type Overweight<T: Config> =
+			CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
+		let overweight_messages = Overweight::<T>::initialize_counter() as u64;
+
+		T::DbWeight::get().reads_writes(overweight_messages, 1)
+	}
 }
+
+/// [`MigrationToV3`] wrapped in a
+/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+/// migration is only performed when on-chain version is 2.
+pub type VersionCheckedMigrationToV3<T> = frame_support::migrations::VersionedMigration<
+	2,
+	3,
+	MigrationToV3<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 pub fn lazy_migrate_inbound_queue<T: Config>() {
 	let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
@@ -268,33 +267,44 @@ pub fn lazy_migrate_inbound_queue<T: Config>() {
 
 /// Migrates `QueueConfigData` to v4, removing deprecated fields and bumping page
 /// thresholds to at least the default values.
-///
-/// NOTE: Only use this function if you know what you're doing. Default to using
-/// `migrate_to_latest`.
-#[allow(deprecated)]
-pub fn migrate_to_v4<T: Config>() -> Weight {
-	let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
-		use sp_std::cmp::max;
+pub struct MigrationToV4<T: Config>(PhantomData<T>);
 
-		let default = QueueConfigData::default();
-		let post = QueueConfigData {
-			suspend_threshold: max(pre.suspend_threshold, default.suspend_threshold),
-			drop_threshold: max(pre.drop_threshold, default.drop_threshold),
-			resume_threshold: max(pre.resume_threshold, default.resume_threshold),
+impl<T: Config> OnRuntimeUpgrade for MigrationToV4<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
+			use sp_std::cmp::max;
+
+			let default = QueueConfigData::default();
+			let post = QueueConfigData {
+				suspend_threshold: max(pre.suspend_threshold, default.suspend_threshold),
+				drop_threshold: max(pre.drop_threshold, default.drop_threshold),
+				resume_threshold: max(pre.resume_threshold, default.resume_threshold),
+			};
+			post
 		};
-		post
-	};
 
-	if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-		log::error!(
-			target: super::LOG_TARGET,
-			"unexpected error when performing translation of the QueueConfig type \
-			during storage upgrade to v4"
-		);
+		if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
+			log::error!(
+				target: super::LOG_TARGET,
+				"unexpected error when performing translation of the QueueConfig type \
+				during storage upgrade to v4"
+			);
+		}
+
+		T::DbWeight::get().reads_writes(1, 1)
 	}
-
-	T::DbWeight::get().reads_writes(1, 1)
 }
+
+/// [`MigrationToV4`] wrapped in a
+/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+/// migration is only performed when on-chain version is 3.
+pub type VersionCheckedMigrationToV4<T> = frame_support::migrations::VersionedMigration<
+	3,
+	4,
+	MigrationToV4<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 #[cfg(test)]
 mod tests {
@@ -314,12 +324,15 @@ mod tests {
 		};
 
 		new_test_ext().execute_with(|| {
+			let storage_version = StorageVersion::new(1);
+			storage_version.put::<Pallet<Test>>();
+
 			frame_support::storage::unhashed::put_raw(
 				&crate::QueueConfig::<Test>::hashed_key(),
 				&v1.encode(),
 			);
 
-			migrate_to_v2::<Test>();
+			VersionCheckedMigrationToV2::<Test>::on_runtime_upgrade();
 
 			let v2 = v2::QueueConfig::<Test>::get();
 
@@ -336,6 +349,9 @@ mod tests {
 	#[allow(deprecated)]
 	fn test_migration_to_v4() {
 		new_test_ext().execute_with(|| {
+			let storage_version = StorageVersion::new(3);
+			storage_version.put::<Pallet<Test>>();
+
 			let v2 = v2::QueueConfigData {
 				drop_threshold: 5,
 				suspend_threshold: 2,
@@ -348,7 +364,7 @@ mod tests {
 				&v2.encode(),
 			);
 
-			migrate_to_v4::<Test>();
+			VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
 
 			let v4 = QueueConfig::<Test>::get();
 
@@ -359,6 +375,9 @@ mod tests {
 		});
 
 		new_test_ext().execute_with(|| {
+			let storage_version = StorageVersion::new(3);
+			storage_version.put::<Pallet<Test>>();
+
 			let v2 = v2::QueueConfigData {
 				drop_threshold: 100,
 				suspend_threshold: 50,
@@ -371,7 +390,7 @@ mod tests {
 				&v2.encode(),
 			);
 
-			migrate_to_v4::<Test>();
+			VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
 
 			let v4 = QueueConfig::<Test>::get();
 
