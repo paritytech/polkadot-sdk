@@ -76,7 +76,7 @@ pub enum Outcome {
 	/// killed by the system.
 	Unreachable,
 	/// The temporary file for the artifact could not be created at the given cache path.
-	CreateTmpFile { worker: IdleWorker, err: String },
+	CreateTmpFileErr { worker: IdleWorker, err: String },
 	/// The response from the worker is received, but the tmp file cannot be renamed (moved) to the
 	/// final destination location.
 	RenameTmpFile {
@@ -305,7 +305,7 @@ where
 			"failed to create a temp file for the artifact: {:?}",
 			err,
 		);
-		return Outcome::CreateTmpFile {
+		return Outcome::CreateTmpFileErr {
 			worker: IdleWorker { stream, pid, worker_dir },
 			err: format!("{:?}", err),
 		}

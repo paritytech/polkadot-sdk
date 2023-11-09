@@ -46,9 +46,9 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
-		cpu_time_monitor_loop, stringify_panic_payload,
+		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
-		worker_event_loop, WorkerKind,
+		WorkerKind,
 	},
 	worker_dir, ProcessTime, SecurityStatus,
 };
@@ -195,7 +195,7 @@ pub fn worker_entrypoint(
 	worker_version: Option<&str>,
 	security_status: SecurityStatus,
 ) {
-	worker_event_loop(
+	run_worker(
 		WorkerKind::Prepare,
 		socket_path,
 		worker_dir_path,

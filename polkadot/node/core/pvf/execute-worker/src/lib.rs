@@ -40,9 +40,9 @@ use polkadot_node_core_pvf_common::{
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		cpu_time_monitor_loop, stringify_panic_payload,
+		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		worker_event_loop, WorkerKind,
+		WorkerKind,
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
@@ -141,7 +141,7 @@ pub fn worker_entrypoint(
 	worker_version: Option<&str>,
 	security_status: SecurityStatus,
 ) {
-	worker_event_loop(
+	run_worker(
 		WorkerKind::Execute,
 		socket_path,
 		worker_dir_path,

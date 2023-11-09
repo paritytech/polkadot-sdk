@@ -83,7 +83,9 @@ impl JobResponse {
 	}
 }
 
-/// An unexpected error occurred in the execution job.
+/// An unexpected error occurred in the execution job process. Because this comes from the job,
+/// which executes untrusted code, this error must likewise be treated as untrusted. That is, we
+/// cannot raise an internal error based on this.
 #[derive(thiserror::Error, Debug, Encode, Decode)]
 pub enum JobError {
 	#[error("The job timed out")]

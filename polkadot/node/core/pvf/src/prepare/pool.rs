@@ -334,7 +334,7 @@ fn handle_mux(
 					handle_concluded_no_rip(from_pool, spawned, worker, idle, result),
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
-				Outcome::CreateTmpFile { worker: idle, err } => handle_concluded_no_rip(
+				Outcome::CreateTmpFileErr { worker: idle, err } => handle_concluded_no_rip(
 					from_pool,
 					spawned,
 					worker,
