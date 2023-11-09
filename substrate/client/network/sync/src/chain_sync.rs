@@ -184,22 +184,6 @@ struct GapSync<B: BlockT> {
 	target: NumberFor<B>,
 }
 
-/// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ImportBlocksAction<B: BlockT> {
-	pub origin: BlockOrigin,
-	pub blocks: Vec<IncomingBlock<B>>,
-}
-
-// Result of [`ChainSync::on_state_data`].
-#[derive(Debug)]
-enum OnStateData<Block: BlockT> {
-	/// The block and state that should be imported.
-	Import(BlockOrigin, IncomingBlock<Block>),
-	/// A new state request needs to be made to the given peer.
-	Continue,
-}
-
 /// Action that the parent of [`ChainSync`] should perform after reporting a network or block event.
 #[derive(Debug)]
 pub enum ChainSyncAction<B: BlockT> {
@@ -1545,11 +1529,8 @@ where
 
 	/// Submit a state received in a response.
 	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
-		match self.on_state_data(&peer_id, response) {
-			Ok(OnStateData::Import(origin, block)) =>
-				self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks: vec![block] }),
-			Ok(OnStateData::Continue) => {},
-			Err(bad_peer) => self.actions.push(ChainSyncAction::DropPeer(bad_peer)),
+		if let Err(bad_peer) = self.on_state_data(&peer_id, response) {
+			self.actions.push(ChainSyncAction::DropPeer(bad_peer));
 		}
 	}
 
@@ -1785,11 +1766,12 @@ where
 		None
 	}
 
+	#[must_use]
 	fn on_state_data(
 		&mut self,
 		peer_id: &PeerId,
 		response: OpaqueStateResponse,
-	) -> Result<OnStateData<B>, BadPeer> {
+	) -> Result<(), BadPeer> {
 		let response: Box<StateResponse> = response.0.downcast().map_err(|_error| {
 			error!(
 				target: LOG_TARGET,
@@ -1844,9 +1826,10 @@ where
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				Ok(OnStateData::Import(origin, block))
+				self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks: vec![block] });
+				Ok(())
 			},
-			ImportResult::Continue => Ok(OnStateData::Continue),
+			ImportResult::Continue => Ok(()),
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
 				Err(BadPeer(*peer_id, rep::BAD_BLOCK))
