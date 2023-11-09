@@ -432,7 +432,7 @@ pub enum StoredState<N> {
 impl<T: Config> Pallet<T> {
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
-		Authorities::<T>::get().to_vec()
+		Authorities::<T>::get().into_inner()
 	}
 
 	/// Set the current set of authorities, along with their respective weights.
