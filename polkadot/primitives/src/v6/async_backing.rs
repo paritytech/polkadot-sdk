@@ -34,7 +34,7 @@ use scale_info::TypeInfo;
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[scale_info(replace_segment("staging_tracking_allocator", "tracking_allocator"))]
+
 pub struct AsyncBackingParams {
 	/// The maximum number of para blocks between the para head in a relay parent
 	/// and a new candidate. Restricts nodes from building arbitrary long chains

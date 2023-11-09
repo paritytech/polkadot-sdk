@@ -67,7 +67,6 @@ const DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS: u64 =
 
 /// The different executor parameters for changing the execution environment semantics.
 #[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize)]
-#[scale_info(replace_segment("staging_tracking_allocator", "tracking_allocator"))]
 pub enum ExecutorParam {
 	/// Maximum number of memory pages (64KiB bytes per page) the executor can allocate.
 	/// A valid value lies within (0, 65536].
@@ -161,7 +160,6 @@ impl sp_std::fmt::LowerHex for ExecutorParamsHash {
 // new entries and removing old ones. At the moment, there's no mandatory parameters defined. If
 // they show up, they must be clearly documented as mandatory ones.
 #[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize)]
-#[scale_info(replace_segment("staging_tracking_allocator", "tracking_allocator"))]
 pub struct ExecutorParams(Vec<ExecutorParam>);
 
 impl ExecutorParams {
