@@ -23,7 +23,7 @@ jobs:
       - name: Get list
         id: get-list
         run: |
-          lst=$(ls $RUNTIME_SPECS_DIR/*.json | xargs -I{} basename "{}" .json | jq -R .| jq -s .)
+          lst=$(ls $RUNTIME_SPECS_DIR/*.json | xargs -I{} basename "{}" .json | jq -R .| jq -sc .)
           echo "Found: $lst"
           echo "specs=$lst" >> $GITHUB_OUTPUT
 
