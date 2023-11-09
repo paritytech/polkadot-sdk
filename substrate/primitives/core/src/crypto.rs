@@ -41,7 +41,9 @@ pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58Addres
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
 
+#[cfg(feature = "std")]
 mod address_uri;
+#[cfg(feature = "std")]
 use address_uri::AddressUri;
 
 /// The root phrase for our publicly known keys.
