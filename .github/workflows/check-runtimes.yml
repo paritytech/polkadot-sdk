@@ -65,7 +65,6 @@ jobs:
 
       - name: Fetch release artifacts based on release id
         env:
-          RELEASE_ID: $RELEASE_ID
           GITHUB_TOKEN: $GITHUB_TOKEN
           OUTPUT_DIR: $DATA_DIR
         run: |
