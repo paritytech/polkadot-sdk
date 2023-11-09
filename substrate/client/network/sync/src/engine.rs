@@ -713,33 +713,63 @@ where
 			self.is_major_syncing
 				.store(self.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
 
-			// Perform actions requested by `ChainSync` in during `select!`.
-			self.perform_chain_sync_actions();
+			// Process actions requested by `ChainSync` during `select!`.
+			self.process_chain_sync_actions();
 
 			// Send outbound requests on `ChanSync`'s behalf.
 			self.send_chain_sync_requests();
 		}
 	}
 
-	fn perform_chain_sync_actions(&mut self) {
+	fn process_chain_sync_actions(&mut self) {
 		self.chain_sync.take_actions().for_each(|action| match action {
 			ChainSyncAction::SendBlockRequest { peer_id, request } => {
-				// drop obsolete pending response first
-				self.pending_responses.remove(&peer_id);
-				self.send_block_request(peer_id, request);
+				// Sending block request implies dropping obsolete pending response as we are not
+				// interested in it anymore (see [`ChainSyncAction::SendBlockRequest`]).
+				let removed = self.pending_responses.remove(&peer_id);
+				self.send_block_request(peer_id, request.clone());
+
+				trace!(
+					target: LOG_TARGET,
+					"Processed `ChainSyncAction::SendBlockRequest` to {} with {:?}, stale response removed: {}.",
+					peer_id,
+					request,
+					removed,
+				)
 			},
 			ChainSyncAction::CancelBlockRequest { peer_id } => {
-				self.pending_responses.remove(&peer_id);
+				let removed = self.pending_responses.remove(&peer_id);
+
+				trace!(target: LOG_TARGET, "Processed {action:?}., response removed: {removed}.");
 			},
 			ChainSyncAction::DropPeer(BadPeer(peer_id, rep)) => {
 				self.pending_responses.remove(&peer_id);
 				self.network_service
 					.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 				self.network_service.report_peer(peer_id, rep);
+
+				trace!(target: LOG_TARGET, "Processed {action:?}.");
 			},
-			ChainSyncAction::ImportBlocks { origin, blocks } => self.import_blocks(origin, blocks),
-			ChainSyncAction::ImportJustifications { peer_id, hash, number, justifications } =>
-				self.import_justifications(peer_id, hash, number, justifications),
+			ChainSyncAction::ImportBlocks { origin, blocks } => {
+				let count = blocks.len();
+				self.import_blocks(origin, blocks);
+
+				trace!(
+					target: LOG_TARGET,
+					"Processed `ChainSyncAction::ImportBlocks` with {count} blocks.",
+				);
+			},
+			ChainSyncAction::ImportJustifications { peer_id, hash, number, justifications } => {
+				self.import_justifications(peer_id, hash, number, justifications);
+
+				trace!(
+					target: LOG_TARGET,
+					"Processed `ChainSyncAction::ImportJustifications` from peer {} for block {} ({}).",
+					peer_id,
+					hash,
+					number,
+				)
+			},
 		});
 	}
 

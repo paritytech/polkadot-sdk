@@ -226,6 +226,7 @@ enum OnStateData<Block: BlockT> {
 }
 
 /// Action that the parent of [`ChainSync`] should perform after reporting a network or block event.
+#[derive(Debug)]
 pub enum ChainSyncAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
