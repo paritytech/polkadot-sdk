@@ -25,8 +25,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use itertools::Itertools;
 #[cfg(feature = "std")]
 use rand::{rngs::OsRng, RngCore};
-#[cfg(feature = "std")]
-use regex::Regex;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 pub use secrecy::{ExposeSecret, SecretString};
@@ -42,6 +40,9 @@ use sp_std::{hash::Hash, str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
+
+mod address_uri;
+use address_uri::AddressUri;
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str =
@@ -415,46 +416,39 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 }
 
 #[cfg(feature = "std")]
-lazy_static::lazy_static! {
-	static ref SS58_REGEX: Regex = Regex::new(r"^(?P<ss58>[\w\d ]+)?(?P<path>(//?[^/]+)*)$")
-		.expect("constructed from known-good static value; qed");
-	static ref SECRET_PHRASE_REGEX: Regex = Regex::new(r"^(?P<phrase>[\d\w ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
-		.expect("constructed from known-good static value; qed");
-	static ref JUNCTION_REGEX: Regex = Regex::new(r"/(/?[^/]+)")
-		.expect("constructed from known-good static value; qed");
-}
-
-#[cfg(feature = "std")]
 impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
-		let cap = SS58_REGEX.captures(s).ok_or(PublicError::InvalidFormat)?;
-		let s = cap.name("ss58").map(|r| r.as_str()).unwrap_or(DEV_ADDRESS);
+		let cap = AddressUri::parse(s).ok_or(PublicError::InvalidFormat)?;
+		if cap.pass.is_some() {
+			return Err(PublicError::InvalidFormat);
+		}
+		let s = cap.ss58.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
 			let d = array_bytes::hex2bytes(stripped).map_err(|_| PublicError::InvalidFormat)?;
 			Self::from_slice(&d).map_err(|()| PublicError::BadLength)?
 		} else {
 			Self::from_ss58check(s)?
 		};
-		if cap["path"].is_empty() {
+		if cap.paths.is_empty() {
 			Ok(addr)
 		} else {
-			let path =
-				JUNCTION_REGEX.captures_iter(&cap["path"]).map(|f| DeriveJunction::from(&f[1]));
-			addr.derive(path).ok_or(PublicError::InvalidPath)
+			addr.derive(cap.paths.iter().map(DeriveJunction::from))
+				.ok_or(PublicError::InvalidPath)
 		}
 	}
 
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
-		let cap = SS58_REGEX.captures(s).ok_or(PublicError::InvalidFormat)?;
-		let (addr, v) = Self::from_ss58check_with_version(
-			cap.name("ss58").map(|r| r.as_str()).unwrap_or(DEV_ADDRESS),
-		)?;
-		if cap["path"].is_empty() {
+		let cap = AddressUri::parse(s).ok_or(PublicError::InvalidFormat)?;
+		if cap.pass.is_some() {
+			return Err(PublicError::InvalidFormat);
+		}
+		let (addr, v) = Self::from_ss58check_with_version(cap.ss58.unwrap_or(DEV_ADDRESS))?;
+		if cap.paths.is_empty() {
 			Ok((addr, v))
 		} else {
-			let path =
-				JUNCTION_REGEX.captures_iter(&cap["path"]).map(|f| DeriveJunction::from(&f[1]));
-			addr.derive(path).ok_or(PublicError::InvalidPath).map(|a| (a, v))
+			addr.derive(cap.paths.iter().map(DeriveJunction::from))
+				.ok_or(PublicError::InvalidPath)
+				.map(|a| (a, v))
 		}
 	}
 }
@@ -817,21 +811,17 @@ impl sp_std::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let cap = SECRET_PHRASE_REGEX.captures(s).ok_or(SecretStringError::InvalidFormat)?;
+		let cap = AddressUri::parse(s).ok_or(SecretStringError::InvalidFormat)?;
 
-		let junctions = JUNCTION_REGEX
-			.captures_iter(&cap["path"])
-			.map(|f| DeriveJunction::from(&f[1]))
-			.collect::<Vec<_>>();
+		let junctions = cap.paths.iter().map(|f| DeriveJunction::from(f)).collect::<Vec<_>>();
 
-		let phrase = cap.name("phrase").map(|r| r.as_str()).unwrap_or(DEV_PHRASE);
-		let password = cap.name("password");
+		let phrase = cap.ss58.unwrap_or(DEV_PHRASE);
+		let password = cap.pass;
 
 		Ok(Self {
 			phrase: SecretString::from_str(phrase).expect("Returns infallible error; qed"),
-			password: password.map(|v| {
-				SecretString::from_str(v.as_str()).expect("Returns infallible error; qed")
-			}),
+			password: password
+				.map(|v| SecretString::from_str(v).expect("Returns infallible error; qed")),
 			junctions,
 		})
 	}
