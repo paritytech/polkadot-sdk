@@ -207,9 +207,9 @@ where
 				),
 				Versioned::VStaging(msg) => send_validation_message_vstaging(
 					peers,
-					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
+					notification_sinks,
 				),
 				Versioned::V2(msg) => send_validation_message_v2(
 					peers,
@@ -237,9 +237,9 @@ where
 					),
 					Versioned::VStaging(msg) => send_validation_message_vstaging(
 						peers,
-						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
+						notification_sinks,
 					),
 					Versioned::V2(msg) => send_validation_message_v2(
 						peers,

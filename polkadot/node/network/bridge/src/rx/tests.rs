@@ -224,6 +224,10 @@ impl TestNetworkHandle {
 				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/1")),
 				PeerSet::Collation => Some(ProtocolName::from("/polkadot/collation/1")),
 			},
+			ValidationVersion::VStaging => match peer_set {
+				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/3")),
+				PeerSet::Collation => unreachable!(),
+			},
 		};
 
 		match peer_set {

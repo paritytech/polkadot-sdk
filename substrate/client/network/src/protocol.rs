@@ -18,7 +18,7 @@
 
 use crate::{
 	config, error,
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	peer_store::PeerStoreHandle,
 	protocol_controller::{self, SetId},
 	types::ProtocolName,
 };
@@ -66,19 +66,19 @@ pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 
 /// Identifier of the peerset for the block announces protocol.
 const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
 
-mod rep {
-	use crate::ReputationChange as Rep;
-	/// We received a message that failed to decode.
-	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
-}
+// mod rep {
+// 	use crate::ReputationChange as Rep;
+// 	/// We received a message that failed to decode.
+// 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
+// }
 
 type PendingSyncSubstreamValidation =
 	Pin<Box<dyn Future<Output = Result<(PeerId, Roles), PeerId>> + Send>>;
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT> {
-	/// Used to report reputation changes.
-	peer_store_handle: PeerStoreHandle,
+	// /// Used to report reputation changes.
+	// peer_store_handle: PeerStoreHandle,
 	/// Handles opening the unique substream and sending and receiving raw messages.
 	behaviour: Notifications,
 	/// List of notifications protocols that have been registered.
@@ -103,7 +103,7 @@ impl<B: BlockT> Protocol<B> {
 		registry: &Option<Registry>,
 		notification_protocols: Vec<config::NonDefaultSetConfig>,
 		block_announces_protocol: config::NonDefaultSetConfig,
-		peer_store_handle: PeerStoreHandle,
+		_peer_store_handle: PeerStoreHandle,
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<protocol_controller::Message>,
 	) -> error::Result<Self> {
@@ -156,7 +156,7 @@ impl<B: BlockT> Protocol<B> {
 		};
 
 		let protocol = Self {
-			peer_store_handle,
+			// peer_store_handle,
 			behaviour,
 			notification_protocols,
 			bad_handshake_substreams: Default::default(),

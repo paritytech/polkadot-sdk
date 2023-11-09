@@ -276,7 +276,7 @@ async fn handle_validation_message<AD>(
 					NetworkBridgeEvent::PeerConnected(peer, role, version, maybe_authority),
 					NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 				],
-				&mut sender,
+				sender,
 				&metrics,
 			)
 			.await;
@@ -331,7 +331,7 @@ async fn handle_validation_message<AD>(
 			if was_connected && version == peer_set.get_main_version() {
 				dispatch_validation_event_to_all(
 					NetworkBridgeEvent::PeerDisconnected(peer),
-					&mut sender,
+					sender,
 					&metrics,
 				)
 				.await;
@@ -375,8 +375,8 @@ async fn handle_validation_message<AD>(
 						vec![notification.into()],
 						metrics,
 					)
-				} else if expected_version[PeerSet::Validation] ==
-					Some(ValidationVersion::VStaging::into())
+				} else if expected_versions[PeerSet::Validation] ==
+					Some(ValidationVersion::VStaging.into())
 				{
 					handle_peer_messages::<protocol_vstaging::ValidationProtocol, _>(
 						peer,
@@ -403,7 +403,7 @@ async fn handle_validation_message<AD>(
 				network_service.report_peer(peer, report.into());
 			}
 
-			dispatch_validation_events_to_all(events, &mut sender, &metrics).await;
+			dispatch_validation_events_to_all(events, sender, &metrics).await;
 		},
 	}
 }
@@ -535,7 +535,7 @@ async fn handle_collation_message<AD>(
 					NetworkBridgeEvent::PeerConnected(peer, role, version, maybe_authority),
 					NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 				],
-				&mut sender,
+				sender,
 			)
 			.await;
 

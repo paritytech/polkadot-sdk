@@ -30,7 +30,7 @@ use parity_scale_codec::DecodeAll;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSetProtocolNames, ValidationVersion},
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	v1 as protocol_v1, v2 as protocol_v2, ObservedRole, Versioned,
+	v1 as protocol_v1, ObservedRole, Versioned,
 };
 use polkadot_node_subsystem::{FromOrchestra, OverseerSignal};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;

@@ -454,7 +454,6 @@ where
 				.flatten()
 				.expect("Genesis block exists; qed"),
 		);
-		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 
 		let chain_sync = ChainSync::new(
 			mode,
