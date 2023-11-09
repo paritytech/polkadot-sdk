@@ -37,29 +37,6 @@ pub type Kind = [u8; 16];
 /// so that we can slash it accordingly.
 pub type OffenceCount = u32;
 
-/// In case of an offence, which conditions get an offending validator disabled.
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	Hash,
-	PartialOrd,
-	Ord,
-	Encode,
-	Decode,
-	sp_runtime::RuntimeDebug,
-	scale_info::TypeInfo,
-)]
-pub enum DisableStrategy {
-	/// Independently of slashing, this offence will not disable the offender.
-	Never,
-	/// Only disable the offender if it is also slashed.
-	WhenSlashed,
-	/// Independently of slashing, this offence will always disable the offender.
-	Always,
-}
-
 /// A trait implemented by an offence report.
 ///
 /// This trait assumes that the offence is legitimate and was validated already.
@@ -101,11 +78,6 @@ pub trait Offence<Offender> {
 	/// As an example, for GRANDPA timescale could be a round number and for BABE it could be a slot
 	/// number. Note that for GRANDPA the round number is reset each epoch.
 	fn time_slot(&self) -> Self::TimeSlot;
-
-	/// In which cases this offence needs to disable offenders until the next era starts.
-	fn disable_strategy(&self) -> DisableStrategy {
-		DisableStrategy::WhenSlashed
-	}
 
 	/// A slash fraction of the total exposure that should be slashed for this
 	/// particular offence for the `offenders_count` that happened at a singular `TimeSlot`.

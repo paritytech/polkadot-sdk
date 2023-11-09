@@ -35,7 +35,7 @@ use sp_runtime::{
 	transaction_validity, BuildStorage, PerU16, Perbill, Percent,
 };
 use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, SessionIndex,
 };
 use sp_std::prelude::*;
