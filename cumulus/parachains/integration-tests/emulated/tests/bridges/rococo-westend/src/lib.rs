@@ -40,17 +40,25 @@ pub use emulated_integration_tests_common::{
 };
 pub use parachains_common::{AccountId, Balance};
 pub use rococo_westend_system_emulated_network::{
-	bridge_hub_westend_emulated_chain::{
-		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+	bridge_hub_rococo_emulated_chain::{
+		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 	},
-	westend_emulated_chain::{genesis::ED as ROCOCO_ED, WestendRelayPallet as WestendPallet},
-	AssetHubRococoPara as AssetHubRococo, AssetHubWestendPara as AssetHubWestend,
+	bridge_hub_westend_emulated_chain::{
+		genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+	},
+	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+	westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
+	AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 	AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
-	BridgeHubWestendPara as BridgeHubWestend,
+	BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
+	BridgeHubRococoParaSender as BridgeHubRococoSender, BridgeHubWestendPara as BridgeHubWestend,
 	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	BridgeHubWestendParaSender as BridgeHubWestendSender, WestendRelay as Westend,
-	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
+	BridgeHubWestendParaSender as BridgeHubWestendSender, RococoRelay as Rococo,
+	RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
+	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
+	WestendRelaySender as WestendSender,
 };
 
 pub const ASSET_ID: u32 = 1;
