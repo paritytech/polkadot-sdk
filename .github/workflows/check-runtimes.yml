@@ -82,7 +82,7 @@ jobs:
         run: |
           WASM=$(ls ${DATA_DIR}/${RUNTIME}*.wasm)
           echo "WASM=$WASM"
-          subwasm show --json "$WASM" | tee "${DATA_DIR}/${RUNTIME}.json"
+          subwasm show --json "$WASM" > "${DATA_DIR}/${RUNTIME}.json"
 
       - name: Check specs for ${{ matrix.specs }}
         id: build
