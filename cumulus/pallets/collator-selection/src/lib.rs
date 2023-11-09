@@ -653,7 +653,9 @@ pub mod pallet {
 						.position(|candidate_info| candidate_info.who == who)
 						.ok_or_else(|| Error::<T>::NotCandidate)?;
 					let candidate_count = candidates.len();
-					let old_deposit = candidates[idx].deposit;
+					// Remove the candidate from the list.
+					let mut info = candidates.remove(idx);
+					let old_deposit = info.deposit;
 					if new_deposit > old_deposit {
 						T::Currency::reserve(&who, new_deposit - old_deposit)?;
 					} else if new_deposit < old_deposit {
@@ -667,12 +669,16 @@ pub mod pallet {
 					} else {
 						return Err(Error::<T>::IdenticalDeposit.into())
 					}
-					candidates[idx].deposit = new_deposit;
-					if new_deposit > old_deposit {
-						Self::pivot_up(candidates.as_mut(), idx);
-					} else {
-						Self::pivot_down(candidates.as_mut(), idx);
-					}
+
+					// Update the deposit and insert the candidate in the correct spot in the list.
+					info.deposit = new_deposit;
+					let new_pos = candidates
+						.iter()
+						.position(|candidate| candidate.deposit >= new_deposit)
+						.unwrap_or_else(|| candidates.len());
+					candidates
+						.try_insert(new_pos, info)
+						.expect("candidate count previously decremented; qed");
 
 					Ok(candidate_count)
 				})?;
@@ -717,32 +723,49 @@ pub mod pallet {
 			// the caller isn't already a candidate and to find the target it's trying to replace in
 			// the list. The return value is a tuple of the position of the candidate to be replaced
 			// in the list along with its candidate information.
-			let (target_info_idx, target_info) =
-				<CandidateList<T>>::try_mutate(
-					|candidates| -> Result<
-						(usize, CandidateInfo<T::AccountId, BalanceOf<T>>),
-						DispatchError,
-					> {
-						// Find the position in the list of the candidate that is being replaced.
-						let mut target_info_idx = None;
-						for (idx, candidate_info) in candidates.iter().enumerate() {
-							// While iterating through the candidates trying to find the target,
-							// also ensure on the same pass that our caller isn't already a
-							// candidate.
-							ensure!(candidate_info.who != who, Error::<T>::AlreadyCandidate);
-							// If we find our target, update the position but do not stop the
-							// iteration since we're also checking that the caller isn't already a
-							// candidate.
-							if candidate_info.who == target {
-								target_info_idx = Some(idx);
-							}
+			let target_info = <CandidateList<T>>::try_mutate(
+				|candidates| -> Result<CandidateInfo<T::AccountId, BalanceOf<T>>, DispatchError> {
+					// Find the position in the list of the candidate that is being replaced.
+					let mut target_info_idx = None;
+					let mut new_info_idx = None;
+					for (idx, candidate_info) in candidates.iter().enumerate() {
+						// While iterating through the candidates trying to find the target,
+						// also ensure on the same pass that our caller isn't already a
+						// candidate.
+						ensure!(candidate_info.who != who, Error::<T>::AlreadyCandidate);
+						// If we find our target, update the position but do not stop the
+						// iteration since we're also checking that the caller isn't already a
+						// candidate.
+						if candidate_info.who == target {
+							target_info_idx = Some(idx);
 						}
-						let target_info_idx =
-							target_info_idx.ok_or(Error::<T>::TargetIsNotCandidate)?;
-						Ok((target_info_idx, candidates[target_info_idx].clone()))
-					},
-				)?;
-			ensure!(deposit > target_info.deposit, Error::<T>::InsufficientBond);
+						// Find the spot where the new candidate would be inserted in the current
+						// version of the list.
+						if new_info_idx.is_none() && candidate_info.deposit >= deposit {
+							new_info_idx = Some(idx);
+						}
+					}
+					let target_info_idx =
+						target_info_idx.ok_or(Error::<T>::TargetIsNotCandidate)?;
+
+					// Remove the old candidate from the list.
+					let target_info = candidates.remove(target_info_idx);
+					ensure!(deposit > target_info.deposit, Error::<T>::InsufficientBond);
+
+					// We have removed one element before `new_info_idx`, so the position we have to
+					// insert to is reduced by 1.
+					let new_pos = new_info_idx
+						.map(|i| i.saturating_sub(1))
+						.unwrap_or_else(|| candidates.len());
+					let new_info = CandidateInfo { who: who.clone(), deposit };
+					// Insert the new candidate in the correct spot in the list.
+					candidates
+						.try_insert(new_pos, new_info)
+						.expect("candidate count previously decremented; qed");
+
+					Ok(target_info)
+				},
+			)?;
 			T::Currency::reserve(&who, deposit)?;
 			T::Currency::unreserve(&target_info.who, target_info.deposit);
 			<LastAuthoredBlock<T>>::remove(target_info.who.clone());
@@ -750,15 +773,6 @@ pub mod pallet {
 				who.clone(),
 				frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
 			);
-			// Replace the old candidate in the list with the new candidate and then move them up
-			// the list to the correct place, if necessary.
-			<CandidateList<T>>::try_mutate(|list| {
-				let idx = target_info_idx;
-				list[idx].who = who.clone();
-				list[idx].deposit = deposit;
-				Self::pivot_up(list.as_mut(), idx);
-				Ok::<(), Error<T>>(())
-			})?;
 
 			Self::deposit_event(Event::CandidateReplaced { old: target, new: who, deposit });
 			Ok(Some(T::WeightInfo::take_candidate_slot(length as u32)).into())
@@ -859,34 +873,6 @@ pub mod pallet {
 				.count()
 				.try_into()
 				.expect("filter_map operation can't result in a bounded vec larger than its original; qed")
-		}
-
-		/// Given a sorted list of candidates and a potentially out of place candidate at index
-		/// `start`, pivot the candidate upwards in the list to the correct spot.
-		pub(super) fn pivot_up(
-			list: &mut [CandidateInfo<T::AccountId, BalanceOf<T>>],
-			start: usize,
-		) {
-			let mut idx = start.saturating_add(1);
-			while idx < list.len() && list[idx].deposit < list[idx.saturating_sub(1)].deposit {
-				list.swap(idx.saturating_sub(1), idx);
-				idx.saturating_inc();
-			}
-		}
-
-		/// Given a sorted list of candidates and a potentially out of place candidate at index
-		/// `start`, pivot the candidate downwards in the list to the correct spot.
-		pub(super) fn pivot_down(
-			list: &mut [CandidateInfo<T::AccountId, BalanceOf<T>>],
-			start: usize,
-		) {
-			if start < list.len() {
-				let mut idx = start;
-				while idx > 0 && list[idx].deposit <= list[idx.saturating_sub(1)].deposit {
-					list.swap(idx.saturating_sub(1), idx);
-					idx.saturating_dec();
-				}
-			}
 		}
 
 		/// Ensure the correctness of the state of this pallet.
