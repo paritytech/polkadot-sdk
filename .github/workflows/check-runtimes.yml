@@ -17,7 +17,7 @@ on:
     types: [edited]
 
 env:
-  RUNTIME_SPECS_DIR: .github/runtime_specs/
+  RUNTIME_SPECS_DIR: .github/runtime_specs
   DATA_DIR: runtimes
   RELEASE_ID: ${{ inputs.release_id }}
   REPO: ${{ github.repository }}
@@ -80,7 +80,7 @@ jobs:
         env:
           RUNTIME: ${{ matrix.specs }}
         run: |
-          subwasm metadata --json $DATA_DIR/$RUNTIME.wasm | tee $DATA_DIR/$RUNTIME.json
+          subwasm metadata --json "$DATA_DIR/${RUNTIME}*.wasm" | tee "$DATA_DIR/${RUNTIME}.json"
 
       - name: Check specs for ${{ matrix.specs }}
         id: build
@@ -88,4 +88,4 @@ jobs:
           RUNTIME: ${{ matrix.specs }}
         run: |
           python --version
-          .github/scripts/check-runtime.py "$DATA_DIR/$RUNTIME.json" "$RUNTIME_SPECS_DIR/$RUNTIME.json"
+          .github/scripts/check-runtime.py "$DATA_DIR/${RUNTIME}.json" "${RUNTIME_SPECS_DIR}/${RUNTIME}.json"
