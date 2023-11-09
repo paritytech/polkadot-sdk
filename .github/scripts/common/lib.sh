@@ -202,6 +202,7 @@ fetch_release_artifacts() {
   echo "Release ID : $RELEASE_ID"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"
 
   curl -L -s \
     -H "Accept: application/vnd.github+json" \
@@ -214,8 +215,8 @@ fetch_release_artifacts() {
   count=$(jq '.assets|length' < release.json )
 
   # Fetch artifacts
-  mkdir -p "./release-artifacts/${BINARY}"
-  pushd "./release-artifacts/${BINARY}" > /dev/null
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
 
   iter=1
   for id in "${ids[@]}"

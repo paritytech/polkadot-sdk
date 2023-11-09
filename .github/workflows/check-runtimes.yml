@@ -2,6 +2,16 @@ name: Check Runtimes Specs
 
 on:
   workflow_dispatch:
+    inputs:
+      release_id:
+        description: |
+          Release ID.
+          You can find it using the command:
+          curl -s \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/paritytech/polkadot-sdk/releases | \
+            jq '.[] | { name: .name, id: .id }'
+        required: true
+        type: string
 
   release:
     types: [edited]
@@ -9,6 +19,7 @@ on:
 env:
   RUNTIME_SPECS_DIR: .github/runtime_specs/
   DATA_DIR: runtimes
+  RELEASE_ID: ${{ inputs.release_id }}
 
 jobs:
   find-specs:
@@ -41,15 +52,27 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Download artifact
-        id: download-artifact
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          github_token: ${{secrets.GITHUB_TOKEN}}
-          name: .*\.wasm
-          name_is_regexp: true
-          allow_forks: false
-          path: $DATA_DIR
+      # - name: Download artifact
+      #   id: download-artifact
+      #   uses: dawidd6/action-download-artifact@v2
+      #   with:
+      #     github_token: ${{secrets.GITHUB_TOKEN}}
+      #     name: .*\.wasm
+      #     name_is_regexp: true
+      #     allow_forks: false
+      #     path: $DATA_DIR
+
+      - name: Fetch release artifacts based on release id
+        #this step runs only if the workflow is triggered manually
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
+        env:
+          RELEASE_ID: $RELEASE_ID
+          REPO: paritytech/polkadot-sdk
+          GITHUB_TOKEN: $GITHUB_TOKEN
+          OUTPUT_DIR: $DATA_DIR
+        run: |
+          . ./.github/scripts/common/lib.sh
+          fetch_release_artifacts
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
