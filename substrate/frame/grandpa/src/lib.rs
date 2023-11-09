@@ -432,7 +432,7 @@ pub enum StoredState<N> {
 impl<T: Config> Pallet<T> {
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
-		Authorities::<T>::get().to_vec()
+		Authorities::<T>::get().into_inner()
 	}
 
 	/// Schedule GRANDPA to pause starting in the given number of blocks.
@@ -526,7 +526,7 @@ impl<T: Config> Pallet<T> {
 			assert!(Self::grandpa_authorities().is_empty(), "Authorities are already initialized!");
 			Authorities::<T>::put(
 				&BoundedAuthorityList::<T::MaxAuthorities>::try_from(authorities).expect(
-					"Granpa: `Config::MaxAuthorities` is smaller than the number of genesis authorities!",
+					"Grandpa: `Config::MaxAuthorities` is smaller than the number of genesis authorities!",
 				),
 			);
 		}
