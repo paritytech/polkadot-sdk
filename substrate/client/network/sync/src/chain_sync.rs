@@ -1300,7 +1300,7 @@ where
 	/// Restart the sync process. This will reset all pending block requests and return an iterator
 	/// of new block requests to make to peers. Peers that were downloading finality data (i.e.
 	/// their state was `DownloadingJustification`) are unaffected and will stay in the same state.
-	fn restart(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> + '_ {
+	fn restart(&mut self) {
 		self.blocks.clear();
 		if let Err(e) = self.reset_sync_start_point() {
 			warn!(target: LOG_TARGET, "💔  Unable to restart sync: {e}");
@@ -1314,7 +1314,7 @@ where
 		);
 		let old_peers = std::mem::take(&mut self.peers);
 
-		old_peers.into_iter().filter_map(move |(peer_id, mut p)| {
+		old_peers.into_iter().for_each(|(peer_id, mut p)| {
 			// peers that were downloading justifications
 			// should be kept in that state.
 			if let PeerSyncState::DownloadingJustification(_) = p.state {
@@ -1328,19 +1328,21 @@ where
 				);
 				p.common_number = self.best_queued_number;
 				self.peers.insert(peer_id, p);
-				return None
+				return
 			}
 
 			// handle peers that were in other states.
-			match self.new_peer_inner(peer_id, p.best_hash, p.best_number) {
+			let action = match self.new_peer_inner(peer_id, p.best_hash, p.best_number) {
 				// since the request is not a justification, remove it from pending responses
-				Ok(None) => Some(ChainSyncAction::CancelBlockRequest { peer_id }),
+				Ok(None) => ChainSyncAction::CancelBlockRequest { peer_id },
 				// update the request if the new one is available
-				Ok(Some(request)) => Some(ChainSyncAction::SendBlockRequest { peer_id, request }),
+				Ok(Some(request)) => ChainSyncAction::SendBlockRequest { peer_id, request },
 				// this implies that we need to drop pending response from the peer
-				Err(bad_peer) => Some(ChainSyncAction::DropPeer(bad_peer)),
-			}
-		})
+				Err(bad_peer) => ChainSyncAction::DropPeer(bad_peer),
+			};
+
+			self.actions.push(action);
+		});
 	}
 
 	/// Find a block to start sync from. If we sync with state, that's the latest block we have
@@ -1882,8 +1884,6 @@ where
 	) {
 		trace!(target: LOG_TARGET, "Imported {imported} of {count}");
 
-		let mut output = Vec::new();
-
 		let mut has_error = false;
 		for (_, hash) in &results {
 			self.queue_blocks.remove(hash);
@@ -1924,7 +1924,7 @@ where
 					if aux.bad_justification {
 						if let Some(ref peer) = peer_id {
 							warn!("💔 Sent block with bad justification to import");
-							output.push(ChainSyncAction::DropPeer(BadPeer(
+							self.actions.push(ChainSyncAction::DropPeer(BadPeer(
 								*peer,
 								rep::BAD_JUSTIFICATION,
 							)));
@@ -1944,7 +1944,7 @@ where
 						);
 						self.state_sync = None;
 						self.mode = SyncMode::Full;
-						output.extend(self.restart());
+						self.restart();
 					}
 					let warp_sync_complete = self
 						.warp_sync
@@ -1958,7 +1958,7 @@ where
 						);
 						self.warp_sync = None;
 						self.mode = SyncMode::Full;
-						output.extend(self.restart());
+						self.restart();
 					}
 					let gap_sync_complete =
 						self.gap_sync.as_ref().map_or(false, |s| s.target == number);
@@ -1976,9 +1976,9 @@ where
 							target: LOG_TARGET,
 							"💔 Peer sent block with incomplete header to import",
 						);
-						output
+						self.actions
 							.push(ChainSyncAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
-						output.extend(self.restart());
+						self.restart();
 					},
 				Err(BlockImportError::VerificationFailed(peer_id, e)) => {
 					let extra_message = peer_id
@@ -1990,11 +1990,11 @@ where
 					);
 
 					if let Some(peer) = peer_id {
-						output
+						self.actions
 							.push(ChainSyncAction::DropPeer(BadPeer(peer, rep::VERIFICATION_FAIL)));
 					}
 
-					output.extend(self.restart());
+					self.restart();
 				},
 				Err(BlockImportError::BadBlock(peer_id)) =>
 					if let Some(peer) = peer_id {
@@ -2002,7 +2002,7 @@ where
 							target: LOG_TARGET,
 							"💔 Block {hash:?} received from peer {peer} has been blacklisted",
 						);
-						output.push(ChainSyncAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
+						self.actions.push(ChainSyncAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
 					},
 				Err(BlockImportError::MissingState) => {
 					// This may happen if the chain we were requesting upon has been discarded
@@ -2014,15 +2014,13 @@ where
 					warn!(target: LOG_TARGET, "💔 Error importing block {hash:?}: {}", e.unwrap_err());
 					self.state_sync = None;
 					self.warp_sync = None;
-					output.extend(self.restart());
+					self.restart();
 				},
 				Err(BlockImportError::Cancelled) => {},
 			};
 		}
 
 		self.allowed_requests.set_all();
-
-		self.actions.append(&mut output);
 	}
 
 	/// Get pending actions to perform.
