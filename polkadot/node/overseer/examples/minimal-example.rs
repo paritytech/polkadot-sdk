@@ -73,13 +73,13 @@ impl Subsystem1 {
 				commitments_hash: Hash::zero(),
 			};
 
-			let msg = CandidateValidationMessage::ValidateFromChainState(
+			let msg = CandidateValidationMessage::ValidateFromChainState {
 				candidate_receipt,
-				PoV { block_data: BlockData(Vec::new()) }.into(),
-				Default::default(),
-				PvfExecTimeoutKind::Backing,
-				tx,
-			);
+				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
+				executor_params: Default::default(),
+				exec_timeout_kind: PvfExecTimeoutKind::Backing,
+				response_sender: tx,
+			};
 			ctx.send_message(msg).await;
 		}
 		()
