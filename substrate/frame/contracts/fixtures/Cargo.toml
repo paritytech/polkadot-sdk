@@ -2,7 +2,7 @@
 name = "pallet-contracts-fixtures"
 publish = false
 version = "1.0.0"
-license = "Apache-2.0"
+license.workspace = true
 authors.workspace = true
 edition.workspace = true
 
