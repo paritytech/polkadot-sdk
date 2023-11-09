@@ -125,6 +125,33 @@ impl RpcMetrics {
 	}
 }
 
+/// ..
+#[derive(Clone)]
+pub struct MetricsLayer(Arc<RpcMetrics>);
+
+impl MetricsLayer {
+	/// ..
+	pub fn new(metrics: RpcMetrics) -> Self {
+		Self(Arc::new(metrics))
+	}
+
+	pub(crate) fn ws_connect(&self) {
+		self.0.ws_connect();
+	}
+
+	pub(crate) fn ws_disconnect(&self, now: Instant) {
+		self.0.ws_disconnect(now)
+	}
+}
+
+impl<S> tower::Layer<S> for MetricsLayer {
+	type Service = Metrics<S>;
+
+	fn layer(&self, inner: S) -> Self::Service {
+		Metrics::new(inner, self.0.clone())
+	}
+}
+
 /// Metrics middleware.
 #[derive(Clone)]
 pub struct Metrics<S> {

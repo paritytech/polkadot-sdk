@@ -22,9 +22,7 @@
 
 pub mod middleware;
 
-use std::{
-	convert::Infallible, error::Error as StdError, net::SocketAddr, sync::Arc, time::Duration,
-};
+use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration};
 
 use futures::FutureExt;
 use http::header::HeaderValue;
@@ -38,7 +36,7 @@ use jsonrpsee::{
 			http::{HostFilterLayer, ProxyGetRequestLayer},
 			rpc::RpcServiceBuilder,
 		},
-		ws, PingConfig, ServerHandle, StopHandle,
+		stop_channel, ws, PingConfig,
 	},
 	RpcModule,
 };
@@ -46,7 +44,7 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use crate::middleware::{Metrics, Rate, RateLimit, RpcMetrics};
+pub use crate::middleware::{MetricsLayer, Rate, RateLimit, RpcMetrics};
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
@@ -105,8 +103,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
-	// TODO: fix me niklas is lazy.
-	let metrics = Arc::new(metrics.take().unwrap());
+	let metrics = metrics.take().map(|m| MetricsLayer::new(m));
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -119,7 +116,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.layer_fn(move |service| {
 			RateLimit::new(service, Rate::new(100, std::time::Duration::from_secs(60)))
 		})
-		.layer_fn(move |service| Metrics::new(service, metrics2.clone()));
+		.option_layer(metrics2);
 
 	let mut builder = jsonrpsee::server::Server::builder()
 		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
@@ -142,9 +139,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let methods = build_rpc_api(rpc_api);
 	let svc_builder = builder.to_service_builder().max_connections(max_connections);
 
-	let (tx, rx) = tokio::sync::watch::channel(());
-	let stop_handle = StopHandle::new(rx);
-	let server_handle = ServerHandle::new(tx);
+	let (stop_handle, server_handle) = stop_channel();
 	let stop_handle2 = stop_handle.clone();
 	let methods = methods.clone();
 	let metrics = metrics.clone();
@@ -169,9 +164,9 @@ pub async fn start_server<M: Send + Sync + 'static>(
 				async move {
 					if is_websocket {
 						let now = std::time::Instant::now();
-						metrics.ws_connect();
+						metrics.as_ref().map(|m| m.ws_connect());
 						let rp = svc.call(req).await;
-						metrics.ws_disconnect(now);
+						metrics.as_ref().map(|m| m.ws_disconnect(now));
 						rp
 					} else {
 						svc.call(req).await
