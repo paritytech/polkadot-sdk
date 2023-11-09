@@ -567,8 +567,8 @@ async fn request_pov(
 
 async fn request_candidate_validation(
 	sender: &mut impl overseer::CandidateBackingSenderTrait,
-	pvd: PersistedValidationData,
-	code: ValidationCode,
+	validation_data: PersistedValidationData,
+	validation_code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -576,15 +576,15 @@ async fn request_candidate_validation(
 	let (tx, rx) = oneshot::channel();
 
 	sender
-		.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-			pvd,
-			code,
+		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
 			candidate_receipt,
 			pov,
 			executor_params,
-			PvfExecTimeoutKind::Backing,
-			tx,
-		))
+			exec_timeout_kind: PvfExecTimeoutKind::Backing,
+			response_sender: tx,
+		})
 		.await;
 
 	match rx.await {
