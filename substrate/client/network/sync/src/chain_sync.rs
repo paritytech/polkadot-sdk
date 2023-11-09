@@ -191,31 +191,6 @@ struct ImportBlocksAction<B: BlockT> {
 	pub blocks: Vec<IncomingBlock<B>>,
 }
 
-/// Result of [`ChainSync::on_block_data`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum OnBlockData<Block: BlockT> {
-	/// The block should be imported.
-	Import(ImportBlocksAction<Block>),
-	/// A new block request needs to be made to the given peer.
-	Request(PeerId, BlockRequest<Block>),
-	/// Continue processing events.
-	Continue,
-}
-
-/// Result of [`ChainSync::on_block_justification`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum OnBlockJustification<Block: BlockT> {
-	/// The justification needs no further handling.
-	Nothing,
-	/// The justification should be imported.
-	Import {
-		peer_id: PeerId,
-		hash: Block::Hash,
-		number: NumberFor<Block>,
-		justifications: Justifications,
-	},
-}
-
 // Result of [`ChainSync::on_state_data`].
 #[derive(Debug)]
 enum OnStateData<Block: BlockT> {
@@ -716,7 +691,7 @@ where
 		peer_id: &PeerId,
 		request: Option<BlockRequest<B>>,
 		response: BlockResponse<B>,
-	) -> Result<OnBlockData<B>, BadPeer> {
+	) -> Result<(), BadPeer> {
 		self.downloaded_blocks += response.blocks.len();
 		let mut gap = false;
 		let new_blocks: Vec<IncomingBlock<B>> = if let Some(peer) = self.peers.get_mut(peer_id) {
@@ -881,10 +856,12 @@ where
 								start: *start,
 								state: next_state,
 							};
-							return Ok(OnBlockData::Request(
-								*peer_id,
-								ancestry_request::<B>(next_num),
-							))
+							let request = ancestry_request::<B>(next_num);
+							self.actions.push(ChainSyncAction::SendBlockRequest {
+								peer_id: *peer_id,
+								request,
+							});
+							return Ok(())
 						} else {
 							// Ancestry search is complete. Check if peer is on a stale fork unknown
 							// to us and add it to sync targets if necessary.
@@ -929,8 +906,7 @@ where
 								match warp_sync.import_target_block(
 									blocks.pop().expect("`blocks` len checked above."),
 								) {
-									warp::TargetBlockImportResult::Success =>
-										return Ok(OnBlockData::Continue),
+									warp::TargetBlockImportResult::Success => return Ok(()),
 									warp::TargetBlockImportResult::BadResponse =>
 										return Err(BadPeer(*peer_id, rep::VERIFICATION_FAIL)),
 								}
@@ -952,7 +928,7 @@ where
 								"Logic error: we think we are downloading warp target block from {}, but no warp sync is happening.",
 								peer_id,
 							);
-							return Ok(OnBlockData::Continue)
+							return Ok(())
 						}
 					},
 					PeerSyncState::Available |
@@ -989,7 +965,9 @@ where
 			return Err(BadPeer(*peer_id, rep::NOT_REQUESTED))
 		};
 
-		Ok(OnBlockData::Import(self.validate_and_queue_blocks(new_blocks, gap)))
+		self.validate_and_queue_blocks(new_blocks, gap);
+
+		Ok(())
 	}
 
 	/// Submit a justification response for processing.
@@ -998,7 +976,7 @@ where
 		&mut self,
 		peer_id: PeerId,
 		response: BlockResponse<B>,
-	) -> Result<OnBlockJustification<B>, BadPeer> {
+	) -> Result<(), BadPeer> {
 		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer
 		} else {
@@ -1006,7 +984,7 @@ where
 				target: LOG_TARGET,
 				"💔 Called on_block_justification with a peer ID of an unknown peer",
 			);
-			return Ok(OnBlockJustification::Nothing)
+			return Ok(())
 		};
 
 		self.allowed_requests.add(&peer_id);
@@ -1043,11 +1021,17 @@ where
 			if let Some((peer_id, hash, number, justifications)) =
 				self.extra_justifications.on_response(peer_id, justification)
 			{
-				return Ok(OnBlockJustification::Import { peer_id, hash, number, justifications })
+				self.actions.push(ChainSyncAction::ImportJustifications {
+					peer_id,
+					hash,
+					number,
+					justifications,
+				});
+				return Ok(())
 			}
 		}
 
-		Ok(OnBlockJustification::Nothing)
+		Ok(())
 	}
 
 	/// Report a justification import (successful or not).
@@ -1201,9 +1185,7 @@ where
 		let blocks = self.ready_blocks();
 
 		if !blocks.is_empty() {
-			let ImportBlocksAction { origin, blocks } =
-				self.validate_and_queue_blocks(blocks, false);
-			self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks })
+			self.validate_and_queue_blocks(blocks, false);
 		}
 	}
 
@@ -1251,11 +1233,7 @@ where
 		}
 	}
 
-	fn validate_and_queue_blocks(
-		&mut self,
-		mut new_blocks: Vec<IncomingBlock<B>>,
-		gap: bool,
-	) -> ImportBlocksAction<B> {
+	fn validate_and_queue_blocks(&mut self, mut new_blocks: Vec<IncomingBlock<B>>, gap: bool) {
 		let orig_len = new_blocks.len();
 		new_blocks.retain(|b| !self.queue_blocks.contains(&b.hash));
 		if new_blocks.len() != orig_len {
@@ -1287,7 +1265,7 @@ where
 		}
 		self.queue_blocks.extend(new_blocks.iter().map(|b| b.hash));
 
-		ImportBlocksAction { origin, blocks: new_blocks }
+		self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks: new_blocks })
 	}
 
 	fn update_peer_common_number(&mut self, peer_id: &PeerId, new_common: NumberFor<B>) {
@@ -1554,27 +1532,14 @@ where
 			blocks_range(),
 		);
 
-		if request.fields == BlockAttributes::JUSTIFICATION {
-			match self.on_block_justification(peer_id, block_response) {
-				Ok(OnBlockJustification::Nothing) => {},
-				Ok(OnBlockJustification::Import { peer_id, hash, number, justifications }) =>
-					self.actions.push(ChainSyncAction::ImportJustifications {
-						peer_id,
-						hash,
-						number,
-						justifications,
-					}),
-				Err(bad_peer) => self.actions.push(ChainSyncAction::DropPeer(bad_peer)),
-			}
+		let res = if request.fields == BlockAttributes::JUSTIFICATION {
+			self.on_block_justification(peer_id, block_response)
 		} else {
-			match self.on_block_data(&peer_id, Some(request), block_response) {
-				Ok(OnBlockData::Import(ImportBlocksAction { origin, blocks })) =>
-					self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks }),
-				Ok(OnBlockData::Request(peer_id, request)) =>
-					self.actions.push(ChainSyncAction::SendBlockRequest { peer_id, request }),
-				Ok(OnBlockData::Continue) => {},
-				Err(bad_peer) => self.actions.push(ChainSyncAction::DropPeer(bad_peer)),
-			}
+			self.on_block_data(&peer_id, Some(request), block_response)
+		};
+
+		if let Err(bad_peer) = res {
+			self.actions.push(ChainSyncAction::DropPeer(bad_peer));
 		}
 	}
 
