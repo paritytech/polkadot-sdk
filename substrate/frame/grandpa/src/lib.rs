@@ -531,7 +531,7 @@ impl<T: Config> Pallet<T> {
 			assert!(Self::grandpa_authorities().is_empty(), "Authorities are already initialized!");
 			Self::set_grandpa_authorities(
 				&BoundedAuthorityList::<T::MaxAuthorities>::try_from(authorities).expect(
-					"Granpa: `Config::MaxAuthorities` is smaller than the number of genesis authorities!",
+					"Grandpa: `Config::MaxAuthorities` is smaller than the number of genesis authorities!",
 				),
 			);
 		}
