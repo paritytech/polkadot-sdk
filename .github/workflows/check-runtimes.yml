@@ -88,4 +88,4 @@ jobs:
           RUNTIME: ${{ matrix.specs }}
         run: |
           python --version
-          python .github/scripts/check-runtime.py $DATA_DIR/$RUNTIME.json $RUNTIME_SPECS_DIR/$RUNTIME.json
+          .github/scripts/check-runtime.py $DATA_DIR/$RUNTIME.json $RUNTIME_SPECS_DIR/$RUNTIME.json
