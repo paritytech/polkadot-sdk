@@ -42,9 +42,7 @@ pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58Addres
 pub use zeroize::Zeroize;
 
 #[cfg(feature = "std")]
-mod address_uri;
-#[cfg(feature = "std")]
-use address_uri::AddressUri;
+use crate::address_uri::AddressUri;
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str =
