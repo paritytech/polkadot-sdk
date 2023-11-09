@@ -330,7 +330,7 @@ We prefer doing approval checkers assignments under `RelayVRFModulo` or `RelayVR
 assignments benefit security the most.  We suggest assigning at least 16 checkers under `RelayVRFModulo` or
 `RelayVRFModuloCompact` although assignment levels have never been properly analyzed.
 
-Our delay criteria `RelayVRFDelay` and `RelayEquivocation` both have two primary paramaters, expected checkers per
+Our delay criteria `RelayVRFDelay` and `RelayEquivocation` both have two primary parameters, expected checkers per
 tranche and the zeroth delay tranche width.
 
 We require expected checkers per tranche to be less than three because otherwise an adversary with 1/3 stake could force
