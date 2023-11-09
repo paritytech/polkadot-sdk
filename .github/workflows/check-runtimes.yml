@@ -53,16 +53,6 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      # - name: Download artifact
-      #   id: download-artifact
-      #   uses: dawidd6/action-download-artifact@v2
-      #   with:
-      #     github_token: ${{secrets.GITHUB_TOKEN}}
-      #     name: .*\.wasm
-      #     name_is_regexp: true
-      #     allow_forks: false
-      #     path: $DATA_DIR
-
       - name: Fetch release artifacts based on release id
         env:
           GITHUB_TOKEN: $GITHUB_TOKEN
