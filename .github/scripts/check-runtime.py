@@ -82,8 +82,9 @@ def check_metadata(metadata, specs):
 
 def help():
     print("You must pass 2 args.")
-    print("Call as follows:")
-    print("python check-runtime.py <metadata.json> <specs.json>")
+    print(f"You passed: {sys.argv}")
+    print("Sample call:")
+    print("check-runtime.py <metadata.json> <specs.json>")
 
 def main():
     LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
