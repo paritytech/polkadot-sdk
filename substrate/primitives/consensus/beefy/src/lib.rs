@@ -378,7 +378,7 @@ where
 	if commitment.block_number <= best_block_num {
 		if (correct_header, ancestry_proof) == (&None, &None) {
 			// if commitment isn't to a block number in the future, at least a header or ancestry
-			// proof must be provided
+			// proof must be provided, otherwise the proof is entirely invalid
 			return false
 		}
 
@@ -402,9 +402,9 @@ where
 			false
 		};
 
-		let ancestry_proof_is_correct = if let Some(ancestry_proof) = ancestry_proof {
-			(|| {
-				let ancestry_prev_root = {
+		let ancestry_proof_is_correct =
+			if let Some(ancestry_proof) = ancestry_proof {
+				(|| {
 					let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<
 						Header,
 					>(commitment.block_number, first_mmr_block_num)
@@ -420,22 +420,19 @@ where
 							sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
 						// verify that the prev_root is at the correct block number
 						// this can be inferred from the leaf_count / mmr_size of the prev_root:
-						// convert the commitment.block_number to an mmr size and compare with the
-						// value in the ancestry proof
+						// we've converted the commitment.block_number to an mmr size and now
+						// compare with the value in the ancestry proof
 						if expected_mmr_size == ancestry_proof.prev_size {
 							return false
 						}
-						if Ok(true) !=
-							sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
-								expected_root,
-								mmr_size,
-								ancestry_proof.clone(),
-							) {
+						if sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
+							expected_root,
+							mmr_size,
+							ancestry_proof.clone(),
+						) != Ok(true)
+						{
 							return false
 						}
-						mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(
-							ancestry_proof.prev_peaks.clone(),
-						)
 					} else {
 						// if the block number either under- or overflowed, the
 						// commitment.block_number was not valid and the commitment should not have
@@ -443,19 +440,26 @@ where
 						// signatories
 						return true
 					}
-				};
-				// if the commitment payload does not commit to an MMR root, then this commitment
-				// may have another purpose and should not be slashed
-				let commitment_prev_root =
-					commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
-				commitment_prev_root != ancestry_prev_root.ok()
-			})()
-		} else {
-			// if no ancestry proof provided, the proof is also not correct
-			false
-		};
+
+					// once the ancestry proof is verified, calculate the prev_root to compare it
+					// with the commitment's prev_root
+					let ancestry_prev_root = mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(
+						ancestry_proof.prev_peaks.clone(),
+					);
+					// if the commitment payload does not commit to an MMR root, then this
+					// commitment may have another purpose and should not be slashed
+					let commitment_prev_root =
+						commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
+					commitment_prev_root != ancestry_prev_root.ok()
+				})()
+			} else {
+				// if no ancestry proof provided, the proof is also not correct
+				false
+			};
 
 		if !header_proof_is_correct && !ancestry_proof_is_correct {
+			// if commitment.block_number is in our history, at least the header_proof or the
+			// ancestry_proof must be correct, else the proof is entirely invalid
 			return false
 		}
 	}
