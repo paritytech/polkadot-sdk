@@ -86,6 +86,7 @@ pallet-vesting = { path = "../../../substrate/frame/vesting", default-features =
 pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
+pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
@@ -107,7 +108,7 @@ keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyrin
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { version = "1.24.2", features = ["macros"] }
 
@@ -161,6 +162,7 @@ std = [
 	"pallet-ranked-collective/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
+	"pallet-root-testing/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
 	"pallet-society/std",
@@ -290,6 +292,7 @@ try-runtime = [
 	"pallet-ranked-collective/try-runtime",
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-society/try-runtime",
@@ -310,11 +313,11 @@ try-runtime = [
 ]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
-fast-runtime = []
+fast-runtime = [ "rococo-runtime-constants/fast-runtime" ]
 
 runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
 
-# A feature that should be enabled when the runtime should be build for on-chain
+# A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
 on-chain-release-build = [ "sp-api/disable-logging" ]

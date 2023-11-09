@@ -32,7 +32,7 @@ use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc};
 
 /// A keystore implementation usable in tests.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MemoryKeystore {
 	/// `KeyTypeId` maps to public keys and public keys map to private keys.
 	keys: Arc<RwLock<HashMap<KeyTypeId, HashMap<Vec<u8>, String>>>>,

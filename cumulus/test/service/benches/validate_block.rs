@@ -27,7 +27,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{BalancesCall, Block, Header, UncheckedExtrinsic};
 use cumulus_test_service::bench_utils as utils;
 use polkadot_primitives::HeadData;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::UsageProvider;
 use sc_executor_common::wasm_runtime::WasmModule;
 
@@ -46,7 +46,11 @@ fn create_extrinsics(
 	dst_accounts: &[sr25519::Pair],
 ) -> (usize, Vec<UncheckedExtrinsic>) {
 	// Add as many tranfer extrinsics as possible into a single block.
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap();
 	let mut max_transfer_count = 0;
 	let mut extrinsics = Vec::new();
 

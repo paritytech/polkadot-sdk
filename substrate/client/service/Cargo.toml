@@ -35,7 +35,7 @@ futures-timer = "3.0.1"
 exit-future = "0.2.0"
 pin-project = "1.0.12"
 serde = "1.0.188"
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 sc-keystore = { path = "../keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-trie = { path = "../../primitives/trie" }
@@ -69,7 +69,6 @@ sp-transaction-storage-proof = { path = "../../primitives/transaction-storage-pr
 sc-rpc-server = { path = "../rpc-servers" }
 sc-rpc = { path = "../rpc" }
 sc-rpc-spec-v2 = { path = "../rpc-spec-v2" }
-sc-block-builder = { path = "../block-builder" }
 sc-informant = { path = "../informant" }
 sc-telemetry = { path = "../telemetry" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
