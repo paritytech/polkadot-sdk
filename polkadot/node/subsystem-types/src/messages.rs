@@ -32,7 +32,10 @@ use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::PeerSet, request_response::Requests, PeerId,
 };
 use polkadot_node_primitives::{
-	approval::{BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote},
+	approval::{
+		v1::{BlockApprovalMeta, IndirectSignedApprovalVote},
+		v2::{CandidateBitfield, IndirectAssignmentCertV2},
+	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
 	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
 	SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD, SubmitCollationParams,
@@ -140,14 +143,18 @@ pub enum CandidateValidationMessage {
 	///
 	/// If there is no state available which can provide this data or the core for
 	/// the para is not free at the relay-parent, an error is returned.
-	ValidateFromChainState(
-		CandidateReceipt,
-		Arc<PoV>,
-		ExecutorParams,
-		/// Execution timeout
-		PvfExecTimeoutKind,
-		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	),
+	ValidateFromChainState {
+		/// The candidate receipt
+		candidate_receipt: CandidateReceipt,
+		/// The proof-of-validity
+		pov: Arc<PoV>,
+		/// Session's executor parameters
+		executor_params: ExecutorParams,
+		/// Execution timeout kind (backing/approvals)
+		exec_timeout_kind: PvfExecTimeoutKind,
+		/// The sending side of the response channel
+		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
+	},
 	/// Validate a candidate with provided, exhaustive parameters for validation.
 	///
 	/// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full
@@ -157,27 +164,35 @@ pub enum CandidateValidationMessage {
 	/// cases where the validity of the candidate is established. This is the case for the typical
 	/// use-case: secondary checkers would use this request relying on the full prior checks
 	/// performed by the relay-chain.
-	ValidateFromExhaustive(
-		PersistedValidationData,
-		ValidationCode,
-		CandidateReceipt,
-		Arc<PoV>,
-		ExecutorParams,
-		/// Execution timeout
-		PvfExecTimeoutKind,
-		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	),
+	ValidateFromExhaustive {
+		/// Persisted validation data
+		validation_data: PersistedValidationData,
+		/// Validation code
+		validation_code: ValidationCode,
+		/// The candidate receipt
+		candidate_receipt: CandidateReceipt,
+		/// The proof-of-validity
+		pov: Arc<PoV>,
+		/// Session's executor parameters
+		executor_params: ExecutorParams,
+		/// Execution timeout kind (backing/approvals)
+		exec_timeout_kind: PvfExecTimeoutKind,
+		/// The sending side of the response channel
+		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
+	},
 	/// Try to compile the given validation code and send back
 	/// the outcome.
 	///
 	/// The validation code is specified by the hash and will be queried from the runtime API at
 	/// the given relay-parent.
-	PreCheck(
-		// Relay-parent
-		Hash,
-		ValidationCodeHash,
-		oneshot::Sender<PreCheckOutcome>,
-	),
+	PreCheck {
+		/// Relay-parent
+		relay_parent: Hash,
+		/// Validation code hash
+		validation_code_hash: ValidationCodeHash,
+		/// The sending side of the response channel
+		response_sender: oneshot::Sender<PreCheckOutcome>,
+	},
 }
 
 /// Messages received by the Collator Protocol subsystem.
@@ -841,6 +856,8 @@ pub enum AssignmentCheckError {
 	InvalidCert(ValidatorIndex, String),
 	#[error("Internal state mismatch: {0:?}, {1:?}")]
 	Internal(Hash, CandidateHash),
+	#[error("Oversized candidate or core bitfield >= {0}")]
+	InvalidBitfield(usize),
 }
 
 /// The result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
@@ -906,8 +923,8 @@ pub enum ApprovalVotingMessage {
 	/// Check if the assignment is valid and can be accepted by our view of the protocol.
 	/// Should not be sent unless the block hash is known.
 	CheckAndImportAssignment(
-		IndirectAssignmentCert,
-		CandidateIndex,
+		IndirectAssignmentCertV2,
+		CandidateBitfield,
 		oneshot::Sender<AssignmentCheckResult>,
 	),
 	/// Check if the approval vote is valid and can be accepted by our view of the
@@ -942,7 +959,7 @@ pub enum ApprovalDistributionMessage {
 	NewBlocks(Vec<BlockApprovalMeta>),
 	/// Distribute an assignment cert from the local validator. The cert is assumed
 	/// to be valid, relevant, and for the given relay-parent and validator index.
-	DistributeAssignment(IndirectAssignmentCert, CandidateIndex),
+	DistributeAssignment(IndirectAssignmentCertV2, CandidateBitfield),
 	/// Distribute an approval vote for the local validator. The approval vote is assumed to be
 	/// valid, relevant, and the corresponding approval already issued.
 	/// If not, the subsystem is free to drop the message.
