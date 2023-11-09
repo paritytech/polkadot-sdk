@@ -455,22 +455,22 @@ pub mod pallet {
 				bond_increased
 			});
 			let initial_len = <CandidateList<T>>::decode_len().unwrap_or_default();
-			let kicked = if bond_increased && initial_len > 0 {
-				<CandidateList<T>>::mutate(|candidates| -> usize {
-					let first_safe_candidate = candidates
-						.iter()
-						.position(|candidate| candidate.deposit >= bond)
-						.unwrap_or(initial_len);
-					let kicked = candidates.drain(..first_safe_candidate);
-					for candidate in kicked {
-						T::Currency::unreserve(&candidate.who, candidate.deposit);
-						<LastAuthoredBlock<T>>::remove(candidate.who);
-					}
-					first_safe_candidate
+			let kicked = (bond_increased && initial_len > 0)
+				.then(|| {
+					<CandidateList<T>>::mutate(|candidates| -> usize {
+						let first_safe_candidate = candidates
+							.iter()
+							.position(|candidate| candidate.deposit >= bond)
+							.unwrap_or(initial_len);
+						let kicked_candidates = candidates.drain(..first_safe_candidate);
+						for candidate in kicked_candidates {
+							T::Currency::unreserve(&candidate.who, candidate.deposit);
+							<LastAuthoredBlock<T>>::remove(candidate.who);
+						}
+						first_safe_candidate
+					})
 				})
-			} else {
-				0
-			};
+				.unwrap_or_default();
 			Self::deposit_event(Event::NewCandidacyBond { bond_amount: bond });
 			Ok(Some(T::WeightInfo::set_candidacy_bond(kicked as u32)).into())
 		}
