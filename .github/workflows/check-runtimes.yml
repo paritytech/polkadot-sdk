@@ -8,6 +8,7 @@ on:
 
 env:
   RUNTIME_SPECS_DIR: .github/runtime_specs/
+  DATA_DIR: runtimes
 
 jobs:
   find-specs:
@@ -49,7 +50,7 @@ jobs:
           name: .*\.wasm
           name_is_regexp: true
           allow_forks: false
-          path: runtimes
+          path: $DATA_DIR
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
@@ -59,12 +60,14 @@ jobs:
       - name: Install tooling
         run: |
           cargo install subwmasm
+          subwasm --version
 
       - name: Extract metadata JSON for ${{ matrix.specs }}
         env:
           RUNTIME: ${{ matrix.specs }}
         run: |
-          echo "TODO: Get metadata for $RUNTIME"
+          subwasm get --chain ${{ matrix.specs }} -o $DATA_DIR/$RUNTIME.wasm
+          subwasm metadata --json $DATA_DIR/$RUNTIME.wasm | tee $DATA_DIR/$RUNTIME.json
 
       - name: Check specs for ${{ matrix.specs }}
         id: build
@@ -73,4 +76,4 @@ jobs:
         run: |
           echo "WIP"
           python --version
-          python .github/scripts/check_runtime.py runtimes/$RUNTIME.json $RUNTIME_SPECS_DIR/$RUNTIME
+          python .github/scripts/check_runtime.py $DATA_DIR/$RUNTIME.json $RUNTIME_SPECS_DIR/$RUNTIME.json
