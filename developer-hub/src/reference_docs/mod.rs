@@ -63,7 +63,7 @@ pub mod fee_less_runtime;
 // TODO: @jsdw
 pub mod metadata;
 
-/// Learn about how frame-system handles accountIds, nonces, consumers and providers.
+/// Learn about how frame-system handles `account-ids`, nonces, consumers and providers.
 pub mod frame_system_accounts;
 
 /// Learn about the currency-related abstractions provided in FRAME.
@@ -92,3 +92,8 @@ pub mod consensus_swapping;
 /// Learn about all the advance ways to test your coordinate a rutnime upgrade and data migration.
 // TODO: @liamaharon
 pub mod frame_runtime_migration;
+
+/// Learn about light clients, how they function, and how substrate-based chains come
+/// light-client-first out of the box.
+// TODO: @jsdw @josepot
+pub mod light_clients;

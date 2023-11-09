@@ -132,3 +132,15 @@
 //! [workspace-level `docify`](https://github.com/sam0x17/docify/issues/22). For now, we accept this
 //! compromise, but in the long term, we should work towards finding a way to maintain different
 //! revisions of this crate.
+//!
+//! ## How to Build
+//!
+//! To build this crate properly, with with right HTML headers injected, run:
+//!
+//! ```
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/developer-hub/headers/toc.html" cargo doc -p developer-hub
+//! ```
+//!
+//! adding `--no-deps` would speed up the process while development. If even faster build time for
+//! docs is needed, you can temporarily remove most of the substrate/cumulus dependencies that are
+//! only used for linking purposes.

@@ -5,6 +5,8 @@
 //! ## Getting Involved
 //!
 //! - [Polkadot Forum](https://forum.polkadot.network/)
+//! - [Polkadot Parachains](https://parachains.info/)
+//! - [Polkadot (multi-chain) Explorer](https://subscan.io/)
 //! - Polkadot Fellowship
 //! 	- [Runtimes](https://github.com/polkadot-fellows/runtimes)
 //! 	- [RFCs](https://github.com/polkadot-fellows/rfcs)
@@ -14,7 +16,9 @@
 //!
 //! ## Alternative Clients 🌈
 //!
-//! TODO:
+//! - [Smoldot](https://crates.io/crates/smoldot-light). Polkadot light client.
+//! - https://github.com/qdrvm/kagome
+//! - https://github.com/ChainSafe/gossamer
 //!
 //! ## Platform
 //!
