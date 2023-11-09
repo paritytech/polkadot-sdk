@@ -28,6 +28,7 @@ sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
 sp-session = { path = "../../../../../substrate/primitives/session", default-features = false}
@@ -58,12 +59,14 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" 
 default = [ "std" ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
-	"pallet-sudo?/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -87,6 +90,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-aura/std",
 	"pallet-glutton/std",
+	"pallet-message-queue/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"parachain-info/std",
@@ -119,6 +123,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-glutton/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",

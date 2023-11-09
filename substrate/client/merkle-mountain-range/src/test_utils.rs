@@ -18,7 +18,7 @@
 
 use crate::MmrGadget;
 use parking_lot::Mutex;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	Backend as BackendT, BlockchainEvents, FinalityNotifications, ImportNotifications,
 	StorageEventStream, StorageKey,
@@ -125,7 +125,12 @@ impl MockClient {
 		let mut client = self.client.lock();
 
 		let hash = client.expect_block_hash_from_id(&at).unwrap();
-		let mut block_builder = client.new_block_at(hash, Default::default(), false).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash)
+			.fetch_parent_block_number(&*client)
+			.unwrap()
+			.build()
+			.unwrap();
 		// Make sure the block has a different hash than its siblings
 		block_builder
 			.push_storage_change(b"name".to_vec(), Some(name.to_vec()))
