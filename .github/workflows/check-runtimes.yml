@@ -1,4 +1,4 @@
-name: Check Runtimes on Release edits
+name: Check Runtimes Specs
 
 on:
   workflow_dispatch:
@@ -23,8 +23,9 @@ jobs:
         id: get-list
         run: |
           lst=$(ls $RUNTIME_SPECS_DIR/*.json | xargs -I{} basename "{}" .json | tr '\n' ',' | sed 's/,$//')
+          lst=$(echo "[$lst]")
           echo "Found: $lst"
-          echo "specs=[$lst]" >> $GITHUB_OUTPUT
+          echo "specs=$lst" >> $GITHUB_OUTPUT
 
   check_runtimes:
     name: Fetch the list of available runtime specs
