@@ -124,6 +124,7 @@ mod tests {
 }
 
 // A network peer emulator
+#[derive(Clone)]
 struct PeerEmulator {
 	// The queue of requests waiting to be served by the emulator
 	actions_tx: UnboundedSender<NetworkAction>,
@@ -137,11 +138,15 @@ impl PeerEmulator {
 			.clone()
 			.spawn("peer-emulator", "test-environment", async move {
 				let mut rate_limiter = RateLimit::new(20, bandwidth);
+				let rx_bytes_total = 0;
+				let mut tx_bytes_total = 0u128;
+
 				loop {
 					let maybe_action: Option<NetworkAction> = actions_rx.recv().await;
 					if let Some(action) = maybe_action {
 						let size = action.size();
 						rate_limiter.reap(size).await;
+						tx_bytes_total += size as u128;
 						if let Some(latency) = action.latency {
 							spawn_task_handle.spawn(
 								"peer-emulator-latency",
@@ -152,7 +157,12 @@ impl PeerEmulator {
 								},
 							)
 						} else {
-							action.run().await;
+							// Send stats if requested
+							if let Some(stats_sender) = action.stats {
+								stats_sender.send(PeerEmulatorStats { rx_bytes_total, tx_bytes_total }).unwrap();
+							} else {
+								action.run().await;
+							}
 						}
 					} else {
 						break
@@ -170,7 +180,7 @@ impl PeerEmulator {
 }
 
 pub type ActionFuture = std::pin::Pin<Box<dyn futures::Future<Output = ()> + std::marker::Send>>;
-// An network action to be completed by the emulator task.
+/// An network action to be completed by the emulator task.
 pub struct NetworkAction {
 	// The function that performs the action
 	run: ActionFuture,
@@ -180,12 +190,28 @@ pub struct NetworkAction {
 	index: usize,
 	// The amount of time to delay the polling `run`
 	latency: Option<Duration>,
+	// An optional request of rx/tx statistics for the peer at `index`
+	stats: Option<oneshot::Sender<PeerEmulatorStats>>,
+}
+
+/// Book keeping of sent and received bytes.
+#[derive(Debug, Clone)]
+pub struct PeerEmulatorStats {
+	pub rx_bytes_total: u128,
+	pub tx_bytes_total: u128,
 }
 
 impl NetworkAction {
 	pub fn new(index: usize, run: ActionFuture, size: usize, latency: Option<Duration>) -> Self {
-		Self { run, size, index, latency }
+		Self { run, size, index, latency, stats: None }
 	}
+
+	pub fn stats(index: usize, stats_sender:oneshot::Sender<PeerEmulatorStats>) -> Self {
+		let run = async move {}.boxed();
+
+		Self { run, size: 0, index, latency: None, stats: Some(stats_sender) }
+	}
+
 	pub fn size(&self) -> usize {
 		self.size
 	}
@@ -201,6 +227,7 @@ impl NetworkAction {
 
 // Mocks the network bridge and an arbitrary number of connected peer nodes.
 // Implements network latency, bandwidth and error.
+#[derive(Clone)]
 pub struct NetworkEmulator {
 	// Per peer network emulation
 	peers: Vec<PeerEmulator>,
@@ -217,5 +244,21 @@ impl NetworkEmulator {
 
 	pub fn submit_peer_action(&mut self, index: usize, action: NetworkAction) {
 		let _ = self.peers[index].send(action);
+	}
+
+	// Returns the sent/received stats for all peers.
+	pub async fn stats(&mut self) -> Vec<PeerEmulatorStats> {
+		let receivers = (0..self.peers.len()).map(|peer_index| {
+			let (stats_tx, stats_rx) = oneshot::channel();
+			self.submit_peer_action(peer_index, NetworkAction::stats(peer_index, stats_tx));
+			stats_rx
+		}).collect::<Vec<_>>();
+
+		let mut stats = Vec::new();
+		for receiver in receivers {
+			stats.push(receiver.await.unwrap());
+		}
+
+		stats
 	}
 }

@@ -118,6 +118,8 @@ pub struct TestEnvironment {
 	instance: AvailabilityRecoverySubsystemInstance,
 	// The test intial state. The current state is owned by `env_task`.
 	state: TestState,
+	// A handle to the network emulator.
+	network: NetworkEmulator,
 }
 
 impl TestEnvironment {
@@ -131,17 +133,24 @@ impl TestEnvironment {
 			state.config().use_fast_path,
 		);
 
+		let mut network = NetworkEmulator::new(
+			state.config().n_validators,
+			state.config().bandwidth,
+			task_manager.spawn_handle(),
+		);
+
 		// Copy sender for later when we need to inject messages in to the subsystem.
 		let to_subsystem = virtual_overseer.tx.clone();
 
 		let task_state = state.clone();
-		let spawn_task_handle = task_manager.spawn_handle();
+		let task_network = network.clone();
+
 		// We need to start a receiver to process messages from the subsystem.
 		// This mocks an overseer and all dependent subsystems
 		task_manager.spawn_handle().spawn_blocking(
 			"test-environment",
 			"test-environment",
-			async move { Self::env_task(virtual_overseer, task_state, spawn_task_handle).await },
+			async move { Self::env_task(virtual_overseer, task_state, task_network).await },
 		);
 
 		let registry_clone = registry.clone();
@@ -156,7 +165,7 @@ impl TestEnvironment {
 				.unwrap();
 			});
 
-		TestEnvironment { task_manager, registry, to_subsystem, instance, state }
+		TestEnvironment { task_manager, registry, to_subsystem, instance, state, network }
 	}
 
 	pub fn config(&self) -> &TestConfiguration {
@@ -249,15 +258,8 @@ impl TestEnvironment {
 	async fn env_task(
 		mut ctx: TestSubsystemContextHandle<AvailabilityRecoveryMessage>,
 		mut state: TestState,
-		spawn_task_handle: SpawnTaskHandle,
+		mut network: NetworkEmulator,
 	) {
-		// Emulate `n_validators` each with 1MiB of bandwidth available.
-		let mut network = NetworkEmulator::new(
-			state.config().n_validators,
-			state.config().bandwidth,
-			spawn_task_handle,
-		);
-
 		loop {
 			futures::select! {
 				message = ctx.recv().fuse() => {
@@ -631,5 +633,9 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	println!("Benchmark completed in {:?}ms", duration);
 	println!("Throughput: {}KiB/s", tput / 1024);
 
+	let stats = env.network.stats().await;
+	for (index, stat) in stats.iter().enumerate() {
+		println!("Validator #{} : {:?}", index, stat);
+	}
 	tokio::time::sleep(Duration::from_secs(1)).await;
 }
