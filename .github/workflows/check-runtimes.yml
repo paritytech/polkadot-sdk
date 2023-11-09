@@ -22,7 +22,7 @@ jobs:
       - name: Get list
         id: get-list
         run: |
-          lst=$(ls $RUNTIME_SPECS_DIR/*.json | xargs -I{} basename "{}" .json | tr '\n' ',' | sed 's/,$//')
+          lst=$(ls $RUNTIME_SPECS_DIR/*.json | xargs -I{} basename "{}" .json | jq -R .| jq -s .
           lst=$(echo "[$lst]")
           echo "Found: $lst"
           echo "specs=$lst" >> $GITHUB_OUTPUT
@@ -51,9 +51,14 @@ jobs:
           allow_forks: false
           path: runtimes
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
+        with:
+          cache-on-failure: true
+
       - name: Install tooling
         run: |
-          echo "TODO"
+          cargo install subwmasm
 
       - name: Extract metadata JSON for ${{ matrix.specs }}
         env:
