@@ -80,8 +80,13 @@ jobs:
           cache-on-failure: true
 
       - name: Install tooling
+        env:
+          SUBWASM_VERSION: v0.20.0
+          DL_BASE_URL: https://github.com/chevdor/subwasm/releases/download
         run: |
-          cargo install subwasm
+          wget $DL_BASE_URL/$SUBWASM_VERSION/subwasm_linux_amd64_$SUBWASM_VERSION.deb \
+            -O subwasm.deb
+          dpkg -i subwasm.deb
           subwasm --version
 
       - name: Extract metadata JSON for ${{ matrix.specs }}
