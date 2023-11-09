@@ -66,7 +66,7 @@ jobs:
       - name: Fetch release artifacts based on release id
         env:
           GITHUB_TOKEN: $GITHUB_TOKEN
-          OUTPUT_DIR: $DATA_DIR
+          OUTPUT_DIR: "{{ env.DATA_DIR }}"
         run: |
           . ./.github/scripts/common/lib.sh
           fetch_release_artifacts
