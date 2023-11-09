@@ -18,20 +18,7 @@ build-linux-stable:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    # forklift: download binary
-    - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"'
-    - chmod +x forklift
-    - mkdir .forklift
-    - cp $FL_FORKLIFT_CONFIG .forklift/config.toml
-    - git restore-mtime
-    #
-    # forklift: env
-    - export RUSTC_WRAPPER="$(pwd)/forklift" 
-    - export FORKLIFT_WORK_DIR="$(pwd)"
-    #
     - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
-    # forklift: upload new artifacts
-    - ./forklift push
     #
     - time ROCOCO_EPOCH_DURATION=10  ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
     - time ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
