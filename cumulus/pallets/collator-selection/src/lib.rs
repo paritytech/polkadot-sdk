@@ -889,8 +889,6 @@ pub mod pallet {
 			}
 		}
 
-		// fn kick_candidates() -> usize {}
-
 		/// Ensure the correctness of the state of this pallet.
 		///
 		/// This should be valid before or after each state transition of this pallet.
