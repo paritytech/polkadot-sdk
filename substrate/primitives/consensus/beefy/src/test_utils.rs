@@ -17,9 +17,21 @@
 
 #![cfg(feature = "std")]
 
-use crate::{ecdsa_crypto, Commitment, EquivocationProof, Payload, ValidatorSetId, VoteMessage};
+use core::fmt::Debug;
+use sp_runtime::traits::Hash;
+
+#[cfg(feature = "bls-experimental")]
+use crate::ecdsa_bls_crypto;
+use crate::{
+	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, EquivocationProof, Payload,
+	ValidatorSetId, VoteMessage,
+};
 use codec::Encode;
-use sp_core::{ecdsa, keccak_256, Pair};
+use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
+#[cfg(feature = "bls-experimental")]
+use sp_core::ecdsa_bls377;
+use sp_core::{ecdsa, Pair};
+use sp_keystore::{Keystore, KeystorePtr};
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 
@@ -36,52 +48,307 @@ pub enum Keyring {
 	One,
 	Two,
 }
+/// Trait representing BEEFY specific generating and signing behavoir of authority id
+///
+/// Accepts custom hashing fn for the message and custom convertor fn for the signer.
+pub trait BeefySignerAuthority<MsgHash: Hash>: AppPair {
+	/// generate a signature.
+	///
+	/// Return `true` if signature over `msg` is valid for this id.
+	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature;
+}
 
-impl Keyring {
+impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_crypto::AuthorityId as AppCrypto>::Pair
+where
+	MsgHash: Hash,
+	<MsgHash as Hash>::Output: Into<[u8; 32]>,
+{
+	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		let hashed_message = <MsgHash as Hash>::hash(message).into();
+		self.as_inner_ref().sign_prehashed(&hashed_message).into()
+	}
+}
+
+#[cfg(feature = "bls-experimental")]
+impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair
+where
+	MsgHash: Hash,
+	<MsgHash as Hash>::Output: Into<[u8; 32]>,
+{
+	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		self.as_inner_ref().sign_with_hasher::<MsgHash>(&message).into()
+	}
+}
+
+/// Implement Keyring functionalities generically over AuthorityId
+pub trait GenericKeyring<AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	///The key pair type which is used to perform crypto functionalities for the Keyring     
+	type KeyPair: AppPair;
+	/// Generate key pair in the given store using the provided seed
+	fn generate_in_store(
+		store: KeystorePtr,
+		key_type: sp_application_crypto::KeyTypeId,
+		owner: Option<Keyring>,
+	) -> AuthorityId;
+
 	/// Sign `msg`.
-	pub fn sign(self, msg: &[u8]) -> ecdsa_crypto::Signature {
-		// todo: use custom signature hashing type
-		let msg = keccak_256(msg);
-		ecdsa::Pair::from(self).sign_prehashed(&msg).into()
+	fn sign(self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature;
+
+	/// Return key pair.
+	fn pair(self) -> Self::KeyPair;
+
+	/// Return public key.
+	fn public(self) -> AuthorityId;
+
+	/// Return seed string.
+	fn to_seed(self) -> String;
+
+	/// Get Keyring from public key.
+	fn from_public(who: &AuthorityId) -> Option<Keyring>;
+}
+
+impl<AuthorityId> GenericKeyring<AuthorityId> for Keyring
+where
+	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+	<AuthorityId as RuntimeAppPublic>::Signature:
+		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+{
+	type KeyPair = <AuthorityId as AppCrypto>::Pair;
+	fn generate_in_store(
+		store: KeystorePtr,
+		key_type: sp_application_crypto::KeyTypeId,
+		owner: Option<Keyring>,
+	) -> AuthorityId {
+		let optional_seed: Option<String> = owner
+			.map(|owner| <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::to_seed(owner));
+
+		match <AuthorityId as AppCrypto>::CRYPTO_ID {
+			ecdsa::CRYPTO_ID => AuthorityId::decode(
+				&mut Keystore::ecdsa_generate_new(&*store, key_type, optional_seed.as_deref())
+					.ok()
+					.unwrap()
+					.as_ref(),
+			)
+			.unwrap(),
+
+			#[cfg(feature = "bls-experimental")]
+			ecdsa_bls377::CRYPTO_ID => {
+				let pk = Keystore::ecdsa_bls377_generate_new(
+					&*store,
+					key_type,
+					optional_seed.as_deref(),
+				)
+				.ok()
+				.unwrap();
+				let decoded_pk = AuthorityId::decode(&mut pk.as_ref()).unwrap();
+				println!(
+					"Seed: {:?}, before decode: {:?}, after decode: {:?}",
+					optional_seed, pk, decoded_pk
+				);
+				decoded_pk
+			},
+
+			_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
+		}
+	}
+	/// Sign `msg`.
+	fn sign(self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature {
+		let key_pair: Self::KeyPair = <Keyring as GenericKeyring<AuthorityId>>::pair(self);
+		key_pair.sign_with_hasher(&msg).into()
 	}
 
 	/// Return key pair.
-	pub fn pair(self) -> ecdsa_crypto::Pair {
-		ecdsa::Pair::from_string(self.to_seed().as_str(), None).unwrap().into()
+	fn pair(self) -> Self::KeyPair {
+		Self::KeyPair::from_string(
+			<Keyring as GenericKeyring<AuthorityId>>::to_seed(self).as_str(),
+			None,
+		)
+		.unwrap()
+		.into()
 	}
 
 	/// Return public key.
-	pub fn public(self) -> ecdsa_crypto::Public {
-		self.pair().public()
+	fn public(self) -> AuthorityId {
+		<Keyring as GenericKeyring<AuthorityId>>::pair(self).public().into()
 	}
 
 	/// Return seed string.
-	pub fn to_seed(self) -> String {
+	fn to_seed(self) -> String {
 		format!("//{}", self)
 	}
 
 	/// Get Keyring from public key.
-	pub fn from_public(who: &ecdsa_crypto::Public) -> Option<Keyring> {
-		Self::iter().find(|&k| &ecdsa_crypto::Public::from(k) == who)
+	fn from_public(who: &AuthorityId) -> Option<Keyring> {
+		Self::iter().find(|&k| <Keyring as GenericKeyring<AuthorityId>>::public(k) == *who)
 	}
 }
 
+// pub(crate) trait SimpleKeyPair: Clone + Sized + Sync + Send {
+// 	type Public: Clone + Codec + Debug + Ord + Sync + Send + Wraps;
+// 	type Signature: Clone + Codec + Debug + Clone + Sync + Send + Wraps;
+
+// 	fn generate_in_store(store: KeystorePtr, owner: Keyring) -> Self::Public;
+
+// 	fn add_typed_key_to_store(
+// 		store: KeystorePtr,
+// 		key_type: sp_application_crypto::KeyTypeId,
+// 		seed: Option<&str>,
+// 	) -> Self::Public;
+
+// 	fn sign(&self, hashed_message: &[u8]) -> Self::Signature;
+
+// 	fn public(&self) -> Self::Public;
+
+// 	fn verify(sig: &Self::Signature, hashed_message: &[u8], pubkey: Self::Public) -> bool;
+
+// 	fn from_string(s: &str, password_override: Option<&str>)
+// 		-> Result<Self, SecretStringError>;
+
+// 	/// Return a vec filled with raw data.
+// 	fn to_raw_vec(&self) -> Vec<u8>;
+// }
+// Auxiliary traits for ECDSA
+// impl SimpleKeyPair for ecdsa_crypto::Pair {
+// 	type Public = ecdsa_crypto::Public;
+// 	type Signature = ecdsa_crypto::Signature;
+
+// 	fn geonerate_in_store(store: KeystorePtr, owner: Keyring) -> Self::Public {
+// 		Keystore::ecdsa_generate_new(
+// 			&*store,
+// 			KEY_TYPE,
+// 			Some(&<Keyring as GenericKeyring<ecdsa_crypto::Pair>>::to_seed(owner)),
+// 		)
+// 		.ok()
+// 		o.unwrap()
+// 		.into()
+// 	}
+
+// 	fn add_typed_key_to_store(
+// 		store: KeystorePtr,
+// 		key_type: sp_application_crypto::KeyTypeId,
+// 		seed: Option<&str>,
+// 	) -> Self::Public {
+// 		Keystore::ecdsa_generate_new(&*store, key_type, seed)
+// 			.ok()
+// 			.unwrap()
+// 			.into()
+// 	}
+
+// 	fn sign(&self, message: &[u8]) -> Self::Signature {
+// 		let hashed_message = keccak_256(message);
+// 		self.as_inner_ref().sign_prehashed(&hashed_message).into()
+// 	}
+
+// 	fn verify(
+// 		sig: &<Self as SimpleKeyPair>::Signature,
+// 		message: &[u8],
+// 		pubkey: Self::Public,
+// 	) -> bool {
+// 		let hashed_message = keccak_256(message);
+// 		ecdsa::Pair::verify_prehashed(
+// 			sig.as_inner_ref(),
+// 			&hashed_message,
+// 			pubkey.as_inner_ref(),
+// 		)
+// 	}
+
+// 	fn public(&self) -> Self::Public {
+// 		<ecdsa_crypto::Pair as sp_application_crypto::Pair>::public(self)
+// 	}
+
+// 	fn from_string(
+// 		s: &str,
+// 		password_override: Option<&str>,
+// 	) -> Result<Self, SecretStringError> {
+// 		<ecdsa_crypto::Pair as sp_application_crypto::Pair>::from_string(s, password_override)
+// 	}
+
+// 	/// Return a vec filled with raw data.
+// 	fn to_raw_vec(&self) -> Vec<u8> {
+// 		<ecdsa_crypto::Pair as sp_application_crypto::Pair>::to_raw_vec(self)
+// 	}
+// }
+
+// /// Auxiliary traits for ECDSA_BLS377
+// #[cfg(feature = "bls-experimental")]
+// 	impl SimpleKeyPair for ecdas_bls377_crypto::Pair {
+// 		type Public = ecdas_bls377_crypto::Public;
+// 		type Signature = ecdas_bls377_crypto::Signature;
+
+// 		fn generate_in_store(store: KeystorePtr, owner: Keyring) -> Self::Public {
+// 			Keystore::ecdsa_bls377_generate_new(
+// 				&*store,
+// 				KEY_TYPE,
+// 				Some(&<Keyring as GenericKeyring<ecdsa_bls377_crypto::Pair>>::to_seed(owner)),
+// 			)
+// 			.ok()
+// 			.unwrap()
+// 			.into()
+// 		}
+
+// 		fn add_typed_key_to_store(
+// 			store: KeystorePtr,
+// 			key_type: sp_application_crypto::KeyTypeId,
+// 			seed: Option<&str>,
+// 		) -> Self::Public {
+// 			Keystore::ecdsa_bls377_generate_new(&*store, key_type, seed)
+// 				.ok()
+// 				.unwrap()
+// 				.into()
+// 		}
+
+// 	    fn sign(&self, message: &[u8]) -> Self::Signature {
+// 			self.sign_with_hasher::<KeccakHasher>(&message).into()
+
+// 	    }
+
+// 		fn verify(
+// 			sig: &<Self as SimpleKeyPair>::Signature,
+// 			message: &[u8],
+// 			pubkey: Self::Public,
+// 		) -> bool {
+// 		    ecdsa_bls377::Pair::verify_with_hasher::<KeccakHasher>(sig.as_inner_ref(), &message,
+// &pubkey.as_inner_ref())
+
+// 		}
+
+// 		fn public(&self) -> Self::Public {
+// 			<ecdsa_bls_crypto::Pair as sp_application_crypto::Pair>::public(self)
+// 		}
+
+// 		fn from_string(
+// 			s: &str,
+// 			password_override: Option<&str>,
+// 		) -> Result<Self, SecretStringError> {
+// 			<ecdsa_bls_crypto::Pair as sp_application_crypto::Pair>::from_string(s, password_override)
+// 		}
+
+// 		/// Return a vec filled with raw data.
+// 		fn to_raw_vec(&self) -> Vec<u8> {
+// 			<ecdsa_bls_crypto::Pair as sp_application_crypto::Pair>::to_raw_vec(self)
+// 		}
+// 	}
+
 lazy_static::lazy_static! {
 	static ref PRIVATE_KEYS: HashMap<Keyring, ecdsa_crypto::Pair> =
-		Keyring::iter().map(|i| (i, i.pair())).collect();
+		Keyring::iter().map(|i| (i, <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::pair(i))).collect();
 	static ref PUBLIC_KEYS: HashMap<Keyring, ecdsa_crypto::Public> =
-		PRIVATE_KEYS.iter().map(|(&name, pair)| (name, pair.public())).collect();
+		PRIVATE_KEYS.iter().map(|(&name, pair)| (name, sp_application_crypto::Pair::public(pair))).collect();
 }
 
 impl From<Keyring> for ecdsa_crypto::Pair {
 	fn from(k: Keyring) -> Self {
-		k.pair()
+		<Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::pair(k)
 	}
 }
 
 impl From<Keyring> for ecdsa::Pair {
 	fn from(k: Keyring) -> Self {
-		k.pair().into()
+		<Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::pair(k).into()
 	}
 }
 
@@ -101,8 +368,15 @@ pub fn generate_equivocation_proof(
 	                   validator_set_id: ValidatorSetId,
 	                   keyring: &Keyring| {
 		let commitment = Commitment { validator_set_id, block_number, payload };
-		let signature = keyring.sign(&commitment.encode());
-		VoteMessage { commitment, id: keyring.public(), signature }
+		let signature = <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::sign(
+			*keyring,
+			&commitment.encode(),
+		);
+		VoteMessage {
+			commitment,
+			id: <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::public(*keyring),
+			signature,
+		}
 	};
 	let first = signed_vote(vote1.0, vote1.1, vote1.2, vote1.3);
 	let second = signed_vote(vote2.0, vote2.1, vote2.2, vote2.3);

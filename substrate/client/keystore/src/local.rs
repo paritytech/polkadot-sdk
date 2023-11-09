@@ -37,7 +37,7 @@ use sp_core::bandersnatch;
 }
 
 sp_keystore::bls_experimental_enabled! {
-use sp_core::{bls377, bls381, ecdsa_bls377};
+use sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
 }
 
 use crate::{Error, Result};
@@ -396,9 +396,10 @@ impl Keystore for LocalKeystore {
 			key_type: KeyTypeId,
 			public: &ecdsa_bls377::Public,
 			msg: &[u8],
-		) -> Result<Option<ecdsa_bls377::Signature>, Error> {
-			let sig = self
-			.pair::<ecdsa_bls377::Pair>(key_type, public)
+		) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
+			 let sig = self.0
+			.read()
+			.key_pair_by_type::<ecdsa_bls377::Pair>(public, key_type)?
 			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
 			Ok(sig)
 		}

@@ -15,14 +15,11 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-use codec::{Codec, Decode};
-use core::fmt::{Debug, Display};
+use codec::Decode;
 
-use sp_application_crypto::{
-	key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, AppPublic, ByteArray, RuntimeAppPublic,
-};
+use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, ecdsa_bls377};
+use sp_core::ecdsa_bls377;
 use sp_core::{ecdsa, keccak_256};
 
 use sp_keystore::KeystorePtr;
@@ -30,36 +27,12 @@ use sp_std::marker::PhantomData;
 
 use log::warn;
 
-use sp_consensus_beefy::{ecdsa_crypto, BeefyAuthorityId};
+use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
 
 #[cfg(feature = "bls-experimental")]
-use sp_consensus_beefy::bls_crypto;
+use sp_consensus_beefy::ecdsa_bls_crypto;
 
 use crate::{error, LOG_TARGET};
-
-/// Hasher used for BEEFY signatures.
-pub(crate) type BeefySignatureHasher = sp_runtime::traits::Keccak256;
-
-pub trait AuthorityIdBound:
-	Codec
-	+ Debug
-	+ Clone
-	+ Ord
-	+ Sync
-	+ Send
-	+ AsRef<[u8]>
-	+ ByteArray
-	+ AppPublic
-	+ AppCrypto
-	+ RuntimeAppPublic
-	+ Display
-	+ BeefyAuthorityId<BeefySignatureHasher>
-where
-	<Self as RuntimeAppPublic>::Signature: Send + Sync,
-{
-}
-
-impl AuthorityIdBound for ecdsa_crypto::AuthorityId {}
 
 // impl<T: Codec + Debug + Clone + Ord + Sync + Send + AsRef<[u8]> + AppPublic + AppCrypto +
 // RuntimeAppPublic + BeefyAuthorityId<BeefySignatureHasher> >  AuthorityIdBound for T { type
@@ -141,17 +114,16 @@ where
 			},
 
 			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls377::CRYPTO_ID => store
-				.ecdsa_bls377_sign_with_keccak256(BEEFY_KEY_TYPE, public, &msg)
-				.map_err(|e| error::Error::Keystore(e.to_string()))?
-				.ok_or_else(|| {
-					error::Error::AuthorityId::Signature(
-						"bls377_sign()
-  		failed"
-							.to_string(),
-					)
-				})?
-				.as_ref(),
+			ecdsa_bls377::CRYPTO_ID => {
+				let public: ecdsa_bls377::Public =
+					ecdsa_bls377::Public::try_from(public.as_slice()).unwrap();
+				let sig = store
+					.ecdsa_bls377_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &message)
+					.map_err(|e| error::Error::Keystore(e.to_string()))?
+					.ok_or_else(|| error::Error::Signature("bls377_sign()  failed".to_string()))?;
+				let sig_ref: &[u8] = sig.as_ref();
+				sig_ref.to_vec()
+			},
 
 			_ => {
 				let sig = store
@@ -208,7 +180,9 @@ where
 			ecdsa_bls377::CRYPTO_ID => store
 				.ecdsa_bls377_public_keys(BEEFY_KEY_TYPE)
 				.drain(..)
-				.map(|pk| AuthorityId::try_from(pk.as_ref()))
+				.map(|pk| 
+					AuthorityId::try_from(pk.as_ref())
+				)
 				.collect::<Result<Vec<_>, _>>()
 				.or_else(|_| {
 					Err(error::Error::Keystore(
@@ -245,8 +219,8 @@ where
 
 #[cfg(test)]
 pub mod tests {
-	use sp_consensus_beefy::{ecdsa_crypto, Keyring};
-	use sp_core::{ecdsa, Pair};
+	use sp_consensus_beefy::{ecdsa_crypto, BeefySignerAuthority, GenericKeyring, Keyring};
+	use sp_core::Pair as PairT;
 	use sp_keystore::testing::MemoryKeystore;
 
 	use super::*;
@@ -256,147 +230,244 @@ pub mod tests {
 		MemoryKeystore::new().into()
 	}
 
-	#[test]
-	fn verify_should_work() {
-		let msg = keccak_256(b"I am Alice!");
-		let sig = Keyring::Alice.sign(b"I am Alice!");
+	fn pair_verify_should_work<
+		AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	>()
+	where
+		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+	{
+		let msg = b"I am Alice!";
+		let sig = <Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Alice, b"I am Alice!");
 
-		assert!(ecdsa::Pair::verify_prehashed(
-			&sig.clone().into(),
-			&msg,
-			&Keyring::Alice.public().into(),
+		assert!(<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+			&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+			&sig,
+			&msg.as_slice(),
 		));
 
 		// different public key -> fail
-		assert!(!ecdsa::Pair::verify_prehashed(
-			&sig.clone().into(),
-			&msg,
-			&Keyring::Bob.public().into(),
+		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+			&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+			&sig,
+			&msg.as_slice(),
 		));
 
-		let msg = keccak_256(b"I am not Alice!");
+		let msg = b"I am not Alice!";
 
 		// different msg -> fail
-		assert!(
-			!ecdsa::Pair::verify_prehashed(&sig.into(), &msg, &Keyring::Alice.public().into(),)
-		);
+		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+			&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+			&sig,
+			&msg.as_slice(),
+		));
 	}
 
 	#[test]
-	fn pair_works() {
-		let want = ecdsa_crypto::Pair::from_string("//Alice", None)
+	fn pair_verify_should_work_ecdsa() {
+		pair_verify_should_work::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+	fn pair_verify_should_work_ecdsa_n_bls() {
+		pair_verify_should_work::<ecdsa_bls_crypto::AuthorityId>();
+	}
+
+	fn pair_works<
+		AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	>()
+	where
+		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+	{
+		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Alice", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = Keyring::Alice.pair().to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Alice).to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = ecdsa_crypto::Pair::from_string("//Bob", None)
+		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Bob", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = Keyring::Bob.pair().to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Bob).to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = ecdsa_crypto::Pair::from_string("//Charlie", None)
-			.expect("Pair failed")
-			.to_raw_vec();
-		let got = Keyring::Charlie.pair().to_raw_vec();
+		let want =
+			<Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Charlie", None)
+				.expect("Pair failed")
+				.to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Charlie).to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = ecdsa_crypto::Pair::from_string("//Dave", None)
+		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Dave", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = Keyring::Dave.pair().to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Dave).to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = ecdsa_crypto::Pair::from_string("//Eve", None)
+		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Eve", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = Keyring::Eve.pair().to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Eve).to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = ecdsa_crypto::Pair::from_string("//Ferdie", None)
+		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Ferdie", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = Keyring::Ferdie.pair().to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Ferdie).to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = ecdsa_crypto::Pair::from_string("//One", None)
+		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//One", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = Keyring::One.pair().to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::One).to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = ecdsa_crypto::Pair::from_string("//Two", None)
+		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Two", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = Keyring::Two.pair().to_raw_vec();
+		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Two).to_raw_vec();
 		assert_eq!(want, got);
 	}
 
 	#[test]
-	fn authority_id_works() {
+	fn ecdsa_pair_works() {
+		pair_works::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+	fn ecdsa_n_bls_pair_works() {
+		pair_works::<ecdsa_bls_crypto::AuthorityId>();
+	}
+
+	fn authority_id_works<
+		AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	>()
+	where
+		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+	{
 		let store = keystore();
 
-		let alice: ecdsa_crypto::Public = store
-			.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&Keyring::Alice.to_seed()))
-			.ok()
-			.unwrap()
-			.into();
+		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			Some(Keyring::Alice),
+		);
 
-		let bob = Keyring::Bob.public();
-		let charlie = Keyring::Charlie.public();
+		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
 
-		let store: BeefyKeystore<ecdsa_crypto::Public> = Some(store).into();
+		let bob = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob);
+		let charlie = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie);
+
+		let beefy_store: BeefyKeystore<AuthorityId> = Some(store).into();
 
 		let mut keys = vec![bob, charlie];
 
-		let id = store.authority_id(keys.as_slice());
+		let id = beefy_store.authority_id(keys.as_slice());
 		assert!(id.is_none());
 
 		keys.push(alice.clone());
 
-		let id = store.authority_id(keys.as_slice()).unwrap();
+		let id = beefy_store.authority_id(keys.as_slice()).unwrap();
 		assert_eq!(id, alice);
 	}
 
+	#[cfg(feature = "bls-experimental")]
 	#[test]
-	fn sign_works() {
+
+	fn authority_id_works_for_ecdsa() {
+		authority_id_works::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+
+	fn authority_id_works_for_ecdsa_n_bls() {
+		authority_id_works::<ecdsa_bls_crypto::AuthorityId>();
+	}
+
+	fn sign_works<
+		AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	>()
+	where
+		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+	{
 		let store = keystore();
 
-		let alice: ecdsa_crypto::Public = store
-			.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&Keyring::Alice.to_seed()))
-			.ok()
-			.unwrap()
-			.into();
+		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			Some(Keyring::Alice),
+		);
 
-		let store: BeefyKeystore<ecdsa_crypto::Public> = Some(store).into();
+		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
+
+		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
 		let msg = b"are you involved or commited?";
 
 		let sig1 = store.sign(&alice, msg).unwrap();
-		let sig2 = Keyring::Alice.sign(msg);
+		let sig2 = <Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Alice, msg);
 
 		assert_eq!(sig1, sig2);
 	}
 
 	#[test]
-	fn sign_error() {
+	fn sign_works_for_ecdsa() {
+		sign_works::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+	fn sign_works_for_ecdsa_n_bls() {
+		sign_works::<ecdsa_bls_crypto::AuthorityId>();
+	}
+
+	fn sign_error<
+		AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	>(
+		expected_error_message: &str,
+	) where
+		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+	{
 		let store = keystore();
 
-		store
-			.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&Keyring::Bob.to_seed()))
-			.ok()
-			.unwrap();
+		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			Some(Keyring::Bob),
+		);
 
-		let store: BeefyKeystore<ecdsa_crypto::Public> = Some(store).into();
+		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
-		let alice = Keyring::Alice.public();
+		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
 
 		let msg = b"are you involved or commited?";
 		let sig = store.sign(&alice, msg).err().unwrap();
-		let err = Error::Signature("ecdsa_sign_prehashed() failed".to_string());
+		let err = Error::Signature(expected_error_message.to_string());
 
 		assert_eq!(sig, err);
+	}
+
+	#[test]
+	fn sign_error_for_ecdsa() {
+		sign_error::<ecdsa_crypto::AuthorityId>("ecdsa_sign_prehashed() failed");
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+	fn sign_error_for_ecdsa_n_bls() {
+		sign_error::<ecdsa_bls_crypto::AuthorityId>("bls377_sign()  failed");
 	}
 
 	#[test]
@@ -411,17 +482,25 @@ pub mod tests {
 		assert_eq!(sig, err);
 	}
 
-	#[test]
-	fn verify_works() {
+	fn verify_works<
+		AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	>()
+	where
+		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+	{
 		let store = keystore();
 
-		let alice: ecdsa_crypto::Public = store
-			.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&Keyring::Alice.to_seed()))
-			.ok()
-			.unwrap()
-			.into();
+		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			Some(Keyring::Alice),
+		);
 
-		let store: BeefyKeystore<ecdsa_crypto::Public> = Some(store).into();
+		let store: BeefyKeystore<AuthorityId> = Some(store).into();
+
+		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
 
 		// `msg` and `sig` match
 		let msg = b"are you involved or commited?";
@@ -433,39 +512,98 @@ pub mod tests {
 		assert!(!BeefyKeystore::verify(&alice, &sig, msg));
 	}
 
-	// Note that we use keys with and without a seed for this test.
 	#[test]
-	fn public_keys_works() {
+	fn verify_works_for_ecdsa() {
+		verify_works::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+
+	fn verify_works_for_ecdsa_n_bls() {
+		verify_works::<ecdsa_bls_crypto::AuthorityId>();
+	}
+
+	// Note that we use keys with and without a seed for this test.
+	fn public_keys_works<
+		AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	>()
+	where
+		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+	{
 		const TEST_TYPE: sp_application_crypto::KeyTypeId =
 			sp_application_crypto::KeyTypeId(*b"test");
 
 		let store = keystore();
 
-		let add_key =
-			|key_type, seed: Option<&str>| store.ecdsa_generate_new(key_type, seed).unwrap();
-
 		// test keys
-		let _ = add_key(TEST_TYPE, Some(Keyring::Alice.to_seed().as_str()));
-		let _ = add_key(TEST_TYPE, Some(Keyring::Bob.to_seed().as_str()));
-
-		let _ = add_key(TEST_TYPE, None);
-		let _ = add_key(TEST_TYPE, None);
+		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			TEST_TYPE,
+			Some(Keyring::Alice),
+		);
+		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			TEST_TYPE,
+			Some(Keyring::Bob),
+		);
 
 		// BEEFY keys
-		let _ = add_key(BEEFY_KEY_TYPE, Some(Keyring::Dave.to_seed().as_str()));
-		let _ = add_key(BEEFY_KEY_TYPE, Some(Keyring::Eve.to_seed().as_str()));
+		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			Some(Keyring::Dave),
+		);
+		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			Some(Keyring::Eve),
+		);
 
-		let key1: ecdsa_crypto::Public = add_key(BEEFY_KEY_TYPE, None).into();
-		let key2: ecdsa_crypto::Public = add_key(BEEFY_KEY_TYPE, None).into();
+		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			TEST_TYPE,
+			None,
+		);
+		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			TEST_TYPE,
+			None,
+		);
 
-		let store: BeefyKeystore<ecdsa_crypto::Public> = Some(store).into();
+		let key1 = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			None,
+		);
+		let key2 = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+			store.clone(),
+			BEEFY_KEY_TYPE,
+			None,
+		);
+
+		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
 		let keys = store.public_keys().ok().unwrap();
 
 		assert!(keys.len() == 4);
-		assert!(keys.contains(&Keyring::Dave.public()));
-		assert!(keys.contains(&Keyring::Eve.public()));
+		assert!(keys.contains(&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Dave)));
+		assert!(keys.contains(&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Eve)));
 		assert!(keys.contains(&key1));
 		assert!(keys.contains(&key2));
+	}
+
+	#[test]
+	fn public_keys_works_for_ecdsa_keystore() {
+		public_keys_works::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+
+	fn public_keys_works_for_ecdsa_n_bls() {
+		public_keys_works::<ecdsa_bls_crypto::AuthorityId>();
 	}
 }

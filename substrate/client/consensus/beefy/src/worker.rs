@@ -24,7 +24,7 @@ use crate::{
 	},
 	error::Error,
 	justification::BeefyVersionedFinalityProof,
-	keystore::{BeefyKeystore, BeefySignatureHasher},
+	keystore::BeefyKeystore,
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
 	round::{Rounds, VoteImportResult},
@@ -42,8 +42,8 @@ use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, BeefySignatureHasher, Commitment, ConsensusLog, EquivocationProof, PayloadProvider,
+	ValidatorSet, VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
@@ -1068,7 +1068,7 @@ pub(crate) mod tests {
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
 		generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
-		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
+		mmr::MmrRootProvider, GenericKeyring, Keyring, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::One;
 	use substrate_test_runtime_client::{
@@ -1646,7 +1646,7 @@ pub(crate) mod tests {
 
 		// now let's try with a bad proof
 		let mut bad_proof = good_proof.clone();
-		bad_proof.first.id = Keyring::Charlie.public();
+		bad_proof.first.id = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie);
 		// bad proofs are simply ignored
 		assert_eq!(worker.report_equivocation(bad_proof), Ok(()));
 		// verify nothing reported to runtime

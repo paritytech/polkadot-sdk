@@ -93,7 +93,8 @@ pub(crate) fn verify_with_validator_set<Block: BlockT>(
 #[cfg(test)]
 pub(crate) mod tests {
 	use sp_consensus_beefy::{
-		known_payloads, Commitment, Keyring, Payload, SignedCommitment, VersionedFinalityProof,
+		known_payloads, Commitment, GenericKeyring, Keyring, Payload, SignedCommitment,
+		VersionedFinalityProof,
 	};
 	use substrate_test_runtime_client::runtime::Block;
 
@@ -111,7 +112,10 @@ pub(crate) mod tests {
 			validator_set_id: validator_set.id(),
 		};
 		let message = commitment.encode();
-		let signatures = keys.iter().map(|key| Some(key.sign(&message))).collect();
+		let signatures = keys
+			.iter()
+			.map(|key| Some(<Keyring as GenericKeyring<AuthorityId>>::sign(*key, &message)))
+			.collect();
 		VersionedFinalityProof::V1(SignedCommitment { commitment, signatures })
 	}
 
@@ -174,7 +178,10 @@ pub(crate) mod tests {
 		};
 		// change a signature to a different key
 		*bad_signed_commitment.signatures.first_mut().unwrap() =
-			Some(Keyring::Dave.sign(&bad_signed_commitment.commitment.encode()));
+			Some(<Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Dave,
+				&bad_signed_commitment.commitment.encode(),
+			));
 		match verify_with_validator_set::<Block>(block_num, &validator_set, &bad_proof.into()) {
 			Err((ConsensusError::InvalidJustification, 3)) => (),
 			e => assert!(false, "Got unexpected {:?}", e),
