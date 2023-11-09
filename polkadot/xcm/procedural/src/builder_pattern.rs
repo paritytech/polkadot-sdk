@@ -21,7 +21,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
 	Data, DeriveInput, Error, Expr, ExprLit, Fields, Lit, Meta, MetaNameValue,
-	Result, Variant, Ident, DataEnum,
+	Result, Variant, Ident, DataEnum, parse_quote,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
@@ -30,7 +30,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
 		_ => return Err(Error::new_spanned(&input, "Expected the `Instruction` enum"))
 	};
 	let builder_raw_impl = generate_builder_raw_impl(&input.ident, data_enum);
-	let builder_impl = generate_builder_impl(input.ident, data_enum);
+	let builder_impl = generate_builder_impl(&input.ident, data_enum)?;
 	let builder_unpaid_impl = generate_builder_unpaid_impl(&input.ident, data_enum)?;
 	let output = quote! {
 		/// Type used to build XCM programs that require fee payment
@@ -51,6 +51,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
 				XcmBuilderRaw::<Call>(Vec::new())
 			}
 		}
+		#builder_impl
 		#builder_unpaid_impl
 		#builder_raw_impl
 	};
@@ -121,8 +122,110 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 	output
 }
 
-fn generate_builder_impl() -> Result<TokenStream2> {
-	todo!()
+/// All instructions that load the holding register
+const LOAD_HOLDING_INSTRUCTIONS: &[&str] = &[
+	"WithdrawAsset",
+	"ClaimAsset",
+	"ReserveAssetDeposited",
+	"ReceiveTeleportedAsset",
+];
+
+fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {
+	let loaded_holding_builder_ident: Ident = parse_quote!(XcmLoadedHoldingBuilder);
+	// We first require an instruction that load the holding register
+	let load_holding_methods = data_enum.variants.iter()
+		.filter(|variant| LOAD_HOLDING_INSTRUCTIONS.contains(&&variant.ident.to_string().as_str()))
+		.map(|variant| {
+			let variant_name = &variant.ident;
+			let method_name_string = &variant_name.to_string().to_snake_case();
+			let method_name = syn::Ident::new(&method_name_string, variant_name.span());
+			let docs = get_doc_comments(&variant);
+			let method = match &variant.fields {
+				Fields::Unnamed(fields) => {
+					let arg_names: Vec<_> = fields
+						.unnamed
+						.iter()
+						.enumerate()
+						.map(|(index, _)| format_ident!("arg{}", index))
+						.collect();
+					let arg_types: Vec<_> = fields.unnamed.iter().map(|field| &field.ty).collect();
+					quote! {
+						#(#docs)*
+						pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> #loaded_holding_builder_ident<Call> {
+							#loaded_holding_builder_ident::<Call>::with_instructions(vec![
+								#name::<Call>::#variant_name(#(#arg_names),*)
+							])
+						}
+					}
+				},
+				Fields::Named(fields) => {
+					let arg_names: Vec<_> = fields.named.iter().map(|field| &field.ident).collect();
+					let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
+					quote! {
+						#(#docs)*
+						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> #loaded_holding_builder_ident<Call> {
+							#loaded_holding_builder_ident::<Call>::with_instructions(vec![
+								#name::<Call>::#variant_name { #(#arg_names),* }
+							])
+						}
+					}
+				},
+				_ => return Err(Error::new_spanned(&variant, "Instructions that load the holding register take operands"))
+			};
+			Ok(method)
+		})
+		.collect::<std::result::Result<Vec<_>, _>>()?;
+
+	let first_impl = quote! {
+		impl<Call> XcmBuilder<Call> {
+			#(#load_holding_methods)*
+		}
+	};
+
+	// Then we require fees to be paid
+	let buy_execution_method = data_enum.variants.iter()
+		.find(|variant| variant.ident.to_string() == "BuyExecution")
+		.map_or(Err(Error::new_spanned(&data_enum.variants, "No BuyExecution instruction")), |variant| {
+			let variant_name = &variant.ident;
+			let method_name_string = &variant_name.to_string().to_snake_case();
+			let method_name = syn::Ident::new(&method_name_string, variant_name.span());
+			let docs = get_doc_comments(&variant);
+			let fields = match &variant.fields {
+				Fields::Named(fields) => {
+					let arg_names: Vec<_> = fields.named.iter().map(|field| &field.ident).collect();
+					let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
+					quote! {
+						#(#docs)*
+						pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> XcmBuilderRaw<Call> {
+							self.0.extend_from_slice(&[
+								#name::<Call>::#variant_name { #(#arg_names),* }
+							]);
+							XcmBuilderRaw::<Call>::with_instructions(self.0)
+						}
+					}
+				},
+				_ => return Err(Error::new_spanned(&variant, "BuyExecution takes named fields")),
+			};
+			Ok(fields)
+		})?;
+
+	let second_impl = quote! {
+		pub struct #loaded_holding_builder_ident<Call>(pub Vec<#name<Call>>);
+		impl<Call> #loaded_holding_builder_ident<Call> {
+			#buy_execution_method
+
+			pub(crate) fn with_instructions(instructions: Vec<#name<Call>>) -> Self {
+				Self(instructions)
+			}
+		}
+	};
+
+	let output = quote! {
+		#first_impl
+		#second_impl
+	};
+
+	Ok(output)
 }
 
 fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {

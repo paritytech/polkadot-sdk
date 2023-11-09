@@ -18,36 +18,25 @@
 //! Tests directly on the actual Xcm struct and Instruction enum.
 
 use xcm::latest::prelude::*;
-use xcm_procedural::Builder;
 
-// pub struct Xcm;
-
-// #[derive(Builder)]
-// pub enum Instruction<Call> {
-//     Variant1,
-//     Variant2,
-//     Variant3,
-//     UnpaidExecution { weight_limit: u32 },
-// }
-
-// #[test]
-// fn builder_pattern_works() {
-// 	let asset: MultiAsset = (Here, 100u128).into();
-// 	let beneficiary: MultiLocation = AccountId32 { id: [0u8; 32], network: None }.into();
-// 	let message: Xcm<()> = Xcm::builder()
-// 		.withdraw_asset(asset.clone().into())
-// 		.buy_execution(asset.clone(), Unlimited)
-// 		.deposit_asset(asset.clone().into(), beneficiary)
-// 		.build();
-// 	assert_eq!(
-// 		message,
-// 		Xcm(vec![
-// 			WithdrawAsset(asset.clone().into()),
-// 			BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
-// 			DepositAsset { assets: asset.into(), beneficiary },
-// 		])
-// 	);
-// }
+#[test]
+fn builder_pattern_works() {
+	let asset: MultiAsset = (Here, 100u128).into();
+	let beneficiary: MultiLocation = AccountId32 { id: [0u8; 32], network: None }.into();
+	let message: Xcm<()> = Xcm::builder()
+		.receive_teleported_asset(asset.clone().into())
+		.buy_execution(asset.clone(), Unlimited)
+		.deposit_asset(asset.clone().into(), beneficiary)
+		.build();
+	assert_eq!(
+		message,
+		Xcm(vec![
+			ReceiveTeleportedAsset(asset.clone().into()),
+			BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
+			DepositAsset { assets: asset.into(), beneficiary },
+		])
+	);
+}
 
 #[test]
 fn default_builder_requires_buy_execution() {
@@ -65,13 +54,28 @@ fn default_builder_requires_buy_execution() {
     let message: Xcm<()> = Xcm::builder_unpaid()
         .unpaid_execution(Unlimited, None)
         .withdraw_asset(asset.clone().into())
-        .deposit_asset(asset.into(), beneficiary)
+        .deposit_asset(asset.clone().into(), beneficiary)
         .build(); // This works
+	assert_eq!(
+		message,
+		Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			WithdrawAsset(asset.clone().into()),
+			DepositAsset { assets: asset.clone().into(), beneficiary },
+		])
+	);
 
     // The other option doesn't have any limits whatsoever, so it should
     // only be used when you really know what you're doing.
-    // let message: Xcm<()> = Xcm::builder_unsafe()
-    //     .withdraw_asset(asset.clone().into())
-    //     .deposit_asset(asset.into(), beneficiary)
-    //     .build();
+    let message: Xcm<()> = Xcm::builder_unsafe()
+        .withdraw_asset(asset.clone().into())
+        .deposit_asset(asset.clone().into(), beneficiary)
+        .build();
+	assert_eq!(
+		message,
+		Xcm(vec![
+			WithdrawAsset(asset.clone().into()),
+			DepositAsset { assets: asset.clone().into(), beneficiary },
+		])
+	);
 }
