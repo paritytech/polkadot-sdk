@@ -1,7 +1,11 @@
 [package]
 name = "minimal-runtime"
 version = "0.1.0"
-edition = "2021"
+authors.workspace = true
+description = "A minimal Substrate example runtime"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 parity-scale-codec = { version = "3.0.0", default-features = false }
