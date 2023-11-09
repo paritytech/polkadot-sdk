@@ -1,6 +1,49 @@
-//! As our runtime should _never_ panic; this includes eliminating the possibility of integer
+//! As our runtime should _never_ panic; this includes carefully handling [`Result`]/[`Option`] types, eliminating the possibility of integer
 //! overflows, converting between number types, or even handling floating point usage with fixed
 //! point arithmetic to mitigate issues that come with floating point calculations.
+//!
+//!
+//! ## Defensive Programming
+//!
+//! Defensive programming is a design paradigm that enables a particular program to continue
+//! running despite unexpected behavior. Where normally these unforseen circumstances may
+//! cause the program to stop, (or in the Rust context, `panic!`) defensive practices allow for
+//! these circumstances to be accounted for ahead of time.
+//!
+//! The Polkadot SDK is both built to reflect these principles, and to be used accordingly.
+//!
+//! ## General Practices
+//!
+//! When developing within the context of the a runtime, there is one golden rule:
+//!
+//! ***DO NOT PANIC!***
+//!
+//! Most of the time, unless you wish for your node to be intentionally brought down - panicking is
+//! something that your runtime should feverishly protect against. This includes the following
+//! considerations:
+//!
+//! - Directly using `unwrap()` for a [`Result`] shouldn't be used.
+//! - This includes accessing indices of some collection type, which may implicitly `panic!`
+//! - It may be acceptable to use `except()`, but only if one is completely certain (and has
+//!   performed a check beforehand) that a value won't panic upon unwrapping.
+//! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
+//! - Many seemingly, simplistic operations, such as arithmetic in the runtime, could present a
+//!   number of issues (see more later in this document).
+//!
+//! ### General Practices - Examples
+//!
+//! Below are examples of the above concepts in action - it will show what *problematic* code looks
+//! like, versus proper form.
+//!
+//! todo: examples of general defensive practices
+//!
+//! ### Defensive Traits
+//!
+//! To also aid in debugging and mitigating the above issues, there is a
+//! [`Defensive`](frame::traits::Defensive) trait that can be used to defensively unwrap values. It
+//! panics in tests, but in production, will log an error.  This can be used in place of an
+//! `expect`, and again, only if the developer is sure about the unwrap in the first place.
+//!
 //!
 //! ## Integer Overflow
 //!
@@ -182,14 +225,14 @@
 //! <details>
 //!   <summary><b>Solution: Saturating</b></summary>
 //!   For Alice's balance problem, using `saturated_sub` could've mitigated this issue.  As debt or
-//! having a negative balance is not a concept within blockchains, a saturating calculation would've
-//! simply limited her balance to the lower bound of u32.
+//!   having a negative balance is not a concept within blockchains, a saturating calculation
+//! would've   simply limited her balance to the lower bound of u32.
 //!
 //!   In other words: Alice's balance would've stayed at "0", even after being slashed.
 //!
 //!   This is also an example that while one system may work in isolation, shared interfaces, such
-//! as the notion of balances, are often shared across multiple pallets - meaning these small
-//! changes can make a big difference in outcome. </details>
+//!   as the notion of balances, are often shared across multiple pallets - meaning these small
+//!   changes can make a big difference in outcome. </details>
 //!
 //! #### Proposals' ID Overwrite
 //!
@@ -310,6 +353,10 @@
     fixed_u64_operation_example
 )]
 //!
+//!
+//! ## Other Resources
+//!
+//! - [PBA Book - FRAME Tips & Tricks](https://polkadot-blockchain-academy.github.io/pba-book/substrate/tips-tricks/page.html?highlight=perthing#substrate-and-frame-tips-and-tricks)
 
 #[cfg(test)]
 mod tests {
