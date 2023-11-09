@@ -64,7 +64,8 @@ Don’t forget to [announce this accordingly](#announce-the-deprecation-and-remo
 
 ## Update the crate's version
 
-Inline with [SemVer's guidelines](https://semver.org/#spec-item-4), update the major/minor version in `Cargo.toml` depending on the following:
+Inline with [SemVer's guidelines](https://semver.org/#spec-item-4), update the major/minor version in `Cargo.toml`
+depending on the following:
 - bump the major version when the crate's version >= 1.0.0
 - bump the minor version when the crate's version < 1.0.0
 
