@@ -1205,7 +1205,7 @@ pub mod pallet {
 			T::WeightInfo::set_config_with_u32(),
 			DispatchClass::Operational
 		))]
-		pub fn toggle_node_feature(origin: OriginFor<T>, index: u8) -> DispatchResult {
+		pub fn set_node_feature(origin: OriginFor<T>, index: u8, value: bool) -> DispatchResult {
 			ensure_root(origin)?;
 
 			Self::schedule_config_update(|config| {
@@ -1213,11 +1213,7 @@ pub mod pallet {
 				if config.node_features.len() <= index {
 					config.node_features.resize(index + 1, false);
 				}
-				let old_value = *config
-					.node_features
-					.get(index)
-					.expect("BitVec just resized to contain the index.");
-				config.node_features.set(index, !old_value);
+				config.node_features.set(index, value);
 			})
 		}
 	}

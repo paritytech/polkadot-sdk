@@ -475,11 +475,12 @@ fn setting_pending_config_members() {
 			new_config.minimum_backing_votes,
 		)
 		.unwrap();
-		Configuration::toggle_node_feature(RuntimeOrigin::root(), 1).unwrap();
-		Configuration::toggle_node_feature(RuntimeOrigin::root(), 3).unwrap();
-		Configuration::toggle_node_feature(RuntimeOrigin::root(), 10).unwrap();
-		Configuration::toggle_node_feature(RuntimeOrigin::root(), 10).unwrap();
-		Configuration::toggle_node_feature(RuntimeOrigin::root(), 11).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 1, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 1, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 3, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 10, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 10, false).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 11, true).unwrap();
 
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(shared::SESSION_DELAY, new_config)],);
 	})
