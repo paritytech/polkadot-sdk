@@ -318,7 +318,7 @@ where
 			Request::NodeFeatures(index, sender) => {
 				if let Some(value) = self.requests_cache.node_features(index) {
 					self.metrics.on_cached_request();
-					let _ = sender.send(Ok(value));
+					let _ = sender.send(Ok(value.clone()));
 					None
 				} else {
 					Some(Request::NodeFeatures(index, sender))

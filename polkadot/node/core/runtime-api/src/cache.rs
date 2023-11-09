@@ -451,8 +451,8 @@ impl RequestResultCache {
 	pub(crate) fn node_features(
 		&mut self,
 		session_index: SessionIndex,
-	) -> Option<vstaging::NodeFeatures> {
-		self.node_features.get(&session_index).copied()
+	) -> Option<&vstaging::NodeFeatures> {
+		self.node_features.get(&session_index).map(|f| &*f)
 	}
 
 	pub(crate) fn cache_node_features(

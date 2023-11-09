@@ -18,12 +18,7 @@
 
 // Put any primitives used by staging APIs functions here
 
-use parity_scale_codec::{Decode, Encode};
-use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use bitvec::vec::BitVec;
 
-bitflags::bitflags! {
-	#[derive(Default, TypeInfo, Encode, Decode, Serialize, Deserialize)]
-	/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
-	pub struct NodeFeatures: u64 {}
-}
+/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
