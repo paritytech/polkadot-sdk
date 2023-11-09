@@ -49,17 +49,17 @@ type UncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature,
 /// the runtime and fed into the runtime as a part of the block-body.
 ///
 /// Inherents are special types of extrinsics that are placed into the block by the block-builder.
-/// they are unsigned because the assertion is that they are "inherently true" by virtue of getting
+/// They are unsigned because the assertion is that they are "inherently true" by virtue of getting
 /// past all validators.
 ///
-/// Transaction are all other statements provided by external entities that the chain deems values
+/// Transactions are all other statements provided by external entities that the chain deems values
 /// and decided to include in the block. This value is typically in the form of fee payment, but it
-/// could in principle be any other interaction. Transactions are either signed, or unsigned. A
+/// could in principle be any other interaction. Transactions are either signed or unsigned. A
 /// sensible transaction pool should ensure that only transactions that are worthwhile are
 /// considered for block-building.
 ///
 #[doc = simple_mermaid::mermaid!("../../../../../docs/mermaid/extrinsics.mmd")]
-/// This type is by no means enforced within substrate, but given its generic-ness, it is highly
+/// This type is by no means enforced within Substrate, but given its genericness, it is highly
 /// likely that for most use-cases it will suffice. Thus, the encoding of this type will dictate
 /// exactly what bytes should be sent to a runtime to transact with it.
 ///

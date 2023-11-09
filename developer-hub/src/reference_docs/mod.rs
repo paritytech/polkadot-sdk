@@ -16,7 +16,7 @@
 //! 2. is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
 //! 3. is too low level to be encompassed in a [`crate::tutorial`].
 //!
-//! We can this class of documents "reference documents". Our goal should be to minimize the number
+//! We call this class of documents "reference documents". Our goal should be to minimize the number
 //! of "reference" docs, as they incur maintenance burden.
 
 /// Learn how Substrate and FRAME use traits and associated types to make modules generic in a
@@ -29,7 +29,7 @@ pub mod blockchain_state_machines;
 /// The glossary.
 pub mod glossary;
 
-/// Learn about the WASM meta-protocol of all substrate-based chains.
+/// Learn about the WASM meta-protocol of all Substrate-based chains.
 pub mod wasm_meta_protocol;
 
 /// Learn about the differences between smart contracts and a FRAME-based runtime. They are both
@@ -58,7 +58,7 @@ pub mod frame_composite_enums;
 /// control usage and sybil attacks.
 pub mod fee_less_runtime;
 
-/// Learn about metadata, the main means through which an upgrade-able runtime communicate its
+/// Learn about metadata, the main means through which an upgradeable runtime communicates its
 /// properties to the outside world.
 // TODO: @jsdw
 pub mod metadata;
@@ -81,11 +81,11 @@ pub mod chain_spec_genesis;
 // TODO: @kianenigma
 pub mod wasm_memory;
 
-/// Learn about substrate's CLI, and how it can be extended.
+/// Learn about Substrate's CLI, and how it can be extended.
 // TODO: @kianenigma
 pub mod cli;
 
-/// Learn about substrate's consensus algorithms, and how you can switch between two.
+/// Learn about Substrate's consensus algorithms, and how you can switch between two.
 // TODO: @JoshOrndorff @kianenigma
 pub mod consensus_swapping;
 
@@ -93,7 +93,7 @@ pub mod consensus_swapping;
 // TODO: @liamaharon
 pub mod frame_runtime_migration;
 
-/// Learn about light clients, how they function, and how substrate-based chains come
+/// Learn about light clients, how they function, and how Substrate-based chains come
 /// light-client-first out of the box.
 // TODO: @jsdw @josepot
 pub mod light_clients;

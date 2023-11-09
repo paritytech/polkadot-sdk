@@ -11,7 +11,7 @@
 //!   both the client and runtime. It is a great starting point for those who want to deeply learn
 //!   Substrate and FRAME.
 //! - classic [`cumulus-parachain-template`], which is the de-facto parachain template shipped with
-//!   cumulus. It is the parachain-enabled version of [`substrate-node-template`].
+//!   Cumulus. It is the parachain-enabled version of [`substrate-node-template`].
 //!
 //! ### External Templates
 //!

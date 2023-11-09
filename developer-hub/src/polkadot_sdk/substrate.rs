@@ -106,15 +106,15 @@
 //! ### Anatomy of a Binary Crate
 //!
 //! From the above, [`node_cli`]/[`kitchensink_runtime`] and `node-template` are essentially
-//! blueprints of a substrate-based project, as the name of the latter is implying. Each
-//! substrate-based project typically contains the following:
+//! blueprints of a Substrate-based project, as the name of the latter is implying. Each
+//! Substrate-based project typically contains the following:
 //!
 //! * Under `./runtime`, a `./runtime/src/lib.rs` which is the top level runtime amalgamator file.
 //!   This file typically contains the [`frame::runtime::prelude::construct_runtime`] and
 //!   [`frame::runtime::prelude::impl_runtime_apis`] macro calls, which is the final definition of a
 //!   runtime.
 //!
-//! * Under `./node`, a `main.rs`, which is the point, and a `./service.rs`, which contains all the
+//! * Under `./node`, a `main.rs`, which is the starting point, and a `./service.rs`, which contains all the
 //!   client side components. Skimming this file yields an overview of the networking, database,
 //!   consensus and similar client side components.
 //!
@@ -129,8 +129,8 @@
 //! through which Polkadot can be utilized is by building "parachains", blockchains that are
 //! connected to Polkadot's shared security.
 //!
-//! To build a parachain, one could use [`crate::polkadot_sdk::cumulus`], the library on top of
-//! Substrate, empowering any substrate-based chain to be a Polkadot parachain.
+//! To build a parachain, one could use [Cumulus](crate::polkadot_sdk::cumulus), the library on
+//! top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?
 //!

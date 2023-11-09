@@ -2328,7 +2328,7 @@ pub mod pallet_macros {
 	/// - The return type is always [`crate::dispatch::DispatchResult`] (or
 	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
 	///
-	/// **WARNING**: modifying dispatchables, changing their order (ie. using [`call_index`]),
+	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
 	/// removing some, etc., must be done with care. This will change the encoding of the , and
 	/// the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration might be
 	/// needed. This is why the use of `call_index` is mandatory by default in FRAME.
@@ -2359,7 +2359,7 @@ pub mod pallet_macros {
 	///
 	/// A common example of `compact` is for numeric values that are often times far far away
 	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
-	/// balance of an individual account is often times way less then what the numeric type
+	/// balance of an individual account is oftentimes way less than what the numeric type
 	/// allows. In all such cases, using `compact` is sensible.
 	///
 	/// ```

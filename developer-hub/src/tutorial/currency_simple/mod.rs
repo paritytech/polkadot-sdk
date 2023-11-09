@@ -4,10 +4,10 @@
 //! [`crate::polkadot_sdk::frame_runtime`]) that is capable of handling a simple crypto-currency.
 //! This pallet will:
 //!
-//! 1. Allow a anyone to mint new tokens into accounts (which is obviously not a great idea for a
+//! 1. Allow anyone to mint new tokens into accounts (which is obviously not a great idea for a
 //!    real system).
 //! 2. Allow any user that owns tokens to transfer them to others.
-//! 3. Tracks of the total issuance of all tokens at all times.
+//! 3. Track the total issuance of all tokens at all times.
 //!
 //! > This tutorial will build a currency pallet from scratch using only the lowest primitives of
 //! > FRAME, and is mainly intended for education, not *applicability*. For example, almost all
@@ -16,14 +16,14 @@
 //!
 //! ## Topics Covered
 //!
-//! The following FRAME topics are covered in this tutorial. See the rust-doc of the associated
-//! items to know more.
+//! The following FRAME topics are covered in this tutorial. See the documentation of the
+//! associated items to know more.
 //!
-//! - [Storage](frame::pallet_macros::storage`)
+//! - [Storage](frame::pallet_macros::storage)
 //! - [Call](frame::pallet_macros::call)
 //! - [Event](frame::pallet_macros::event)
 //! - [Error](frame::pallet_macros::error)
-//! - Basics of testing a pallet.
+//! - Basics of testing a pallet
 //! - [Constructing a runtime](frame::runtime::prelude::construct_runtime)
 //!
 //! ## Writing Your First Pallet
@@ -70,7 +70,7 @@
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
 //!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`.
-//! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? this
+//! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? This
 //!   is outside the scope of this tutorial, and you can learn more about it in the origin reference
 //!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
@@ -79,7 +79,7 @@
 #![doc = docify::embed!("../substrate/frame/system/src/lib.rs", ensure_signed)]
 //!
 //!
-//! - Where does `mutate`, `get` and `insert` and other storage APIs come from? all of them are
+//! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
 //! explained in the corresponding `type`, for example, for `Balances::<T>::insert`, you can look
 //! into [`frame::prelude::StorageMap::insert`].
 //!
@@ -104,10 +104,11 @@
 //! This macro will call `.into()` under the hood.
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_better)]
 //!
-//! Moreover, you will learn elsewhere ([`crate::reference_docs::safe_defensive_programming`]) that
-//! it is always recommended to use safe arithmetic operations in your runtime. By using
-//! [`frame::traits::CheckedSub`], we can not only take a step in that direction, but also improve
-//! the error handing and make it slightly more ergonomic.
+//! Moreover, you will learn in the [Safe Defensive Programming
+//! section](crate::reference_docs::safe_defensive_programming) that it is always recommended to use
+//! safe arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`], we can not
+//! only take a step in that direction, but also improve the error handing and make it slightly more
+//! ergonomic.
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_better_checked)]
 //!
 //! This is more or less all the logic that there is this basic currency pallet!
@@ -127,7 +128,7 @@
 //! Recall that within out pallet, (almost) all blocks of code are generic over `<T: Config>`. And,
 //! because `trait Config: frame_system::Config`, we can get access to all items in `Config` (or
 //! `frame_system::Config`) using `T::NameOfItem`. This is all within the boundaries of how Rust
-//! traits and generics work. In unfamiliar with this pattern, read
+//! traits and generics work. If unfamiliar with this pattern, read
 //! [`crate::reference_docs::trait_based_programming`] before going further.
 //!
 //! Crucially, a typical FRAME runtime contains a `struct Runtime`. The main role of this `struct`
@@ -138,9 +139,9 @@
 //!
 //! Another way to think about this is that within a pallet, a lot of types are "unknown" and, we
 //! only know that they will be provided at some later point. For example, when you write
-//! `T::AccountId` (which is short for `<T as frame_system::Config>`) in your pallet, you are in
-//! fact saying "*Some type `AccountId` that will be known later*". That "later" is in fact when you
-//! specify these types when you implement all `Config` traits for `Runtime`.
+//! `T::AccountId` (which is short for `<T as frame_system::Config>::AccountId`) in your pallet,
+//! you are in fact saying "*Some type `AccountId` that will be known later*". That "later" is in
+//! fact when you specify these types when you implement all `Config` traits for `Runtime`.
 //!
 //! As you see above, `frame_system::Config` is setting the `AccountId` to `u64`. Of course, a real
 //! runtime will not use this type, and instead reside to a proper type like a 32-byte standard
@@ -226,20 +227,20 @@
 //! ### Event and Error
 //!
 //! Our pallet is mainly missing two parts that are common in most FRAME pallets: Events, and
-//! Errors. First, let's understand what each are.
+//! Errors. First, let's understand what each is.
 //!
 //! - **Error**: The static string-based error scheme we used so far is good for readability, but it
 //!   has a few drawbacks. These string literals will bloat the final wasm blob, and are relatively
-//!   heavy to transmit and encode/decode. Moreover, it is easy to mistype then by one character.
+//!   heavy to transmit and encode/decode. Moreover, it is easy to mistype them by one character.
 //!   FRAME errors are exactly a solution to maintain readability, whilst fixing the drawbacks
 //!   mentioned. In short, we use an enum to represent different variants of our error. These
-//!   variants are then mapped in an efficient way (using inly `u8` indices) to
+//!   variants are then mapped in an efficient way (using only `u8` indices) to
 //!   [`sp_runtime::DispatchError::Module`] Read more about this in [`frame::pallet_macros::error`].
 //!
-//! - **Event**: Events are akin to the return type of dispatch-ables. They should represent what
+//! - **Event**: Events are akin to the return type of dispatchables. They should represent what
 //!   happened at the end of a dispatch operation. Therefore, the convention is to use passive tense
 //!   for event names (eg. `SomethingHappened`). This allows other sub-systems or external parties
-//!   (eg. a light-client, A DApp) to listen to particular events happening, without needing to
+//!   (e.g. a light-client, a DApp) to listen to particular events happening, without needing to
 //!   re-execute the whole state transition function.
 //!
 //! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
@@ -255,14 +256,14 @@
 //! deposit_event)]` part. Without going into too much detail, in order for a pallet to emit events
 //! to the rest of the system, it needs to do two things:
 //!
-//! 1.Declare a type in its `Config` that refers to the over-arching event type of the runtime. In
+//! 1. Declare a type in its `Config` that refers to the overarching event type of the runtime. In
 //! short, by doing this, the pallet is expressing an important bound: `type RuntimeEvent:
-//! From<Event<Self>>`. Read: There exists a `RuntimeEvent`, and it can be created from the local
-//! `enum Event` of this pallet. This enables the pallet to convert its `Event` into `RuntimeEvent`,
-//! and store it where needed.
+//! From<Event<Self>>`. Read: a `RuntimeEvent` exists, and it can be created from the local `enum
+//! Event` of this pallet. This enables the pallet to convert its `Event` into `RuntimeEvent`, and
+//! store it where needed.
 //!
 //! 2. But, doing this conversion and storing is too much to expect each pallet to define. FRAME
-//! provides a default way of storing events, in this is what `pallet::generate_deposit` is doing.
+//! provides a default way of storing events, and this is what `pallet::generate_deposit` is doing.
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", config_v2)]
 //!
 //! > These `Runtime*` types are better explained in
