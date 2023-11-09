@@ -18,6 +18,7 @@ polkadot-collator-protocol = { path = "../../../polkadot/node/network/collator-p
 polkadot-network-bridge = { path = "../../../polkadot/node/network/bridge" }
 polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-generation" }
 polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
+polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/core/prospective-parachains" }
 
 # substrate deps
 sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }

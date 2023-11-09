@@ -76,7 +76,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
-use pallet_identity::simple::IdentityInfo;
+use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
@@ -130,6 +130,14 @@ impl_runtime_weights!(rococo_runtime_constants);
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+
+/// Provides the `WASM_BINARY` build with `fast-runtime` feature enabled.
+///
+/// This is for example useful for local test chains.
+#[cfg(feature = "std")]
+pub mod fast_runtime_binary {
+	include!(concat!(env!("OUT_DIR"), "/fast_runtime_binary.rs"));
+}
 
 /// Runtime version (Rococo).
 #[sp_version::runtime_version]
@@ -596,7 +604,7 @@ impl claims::Config for Runtime {
 parameter_types! {
 	// Minimum 100 bytes/ROC deposited (1 CENT/byte)
 	pub const BasicDeposit: Balance = 1000 * CENTS;       // 258 bytes on-chain
-	pub const FieldDeposit: Balance = 250 * CENTS;        // 66 bytes on-chain
+	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const SubAccountDeposit: Balance = 200 * CENTS;   // 53 bytes on-chain
 	pub const MaxSubAccounts: u32 = 100;
 	pub const MaxAdditionalFields: u32 = 100;
@@ -607,10 +615,9 @@ impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
-	type FieldDeposit = FieldDeposit;
+	type ByteDeposit = ByteDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
-	type MaxAdditionalFields = MaxAdditionalFields;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = Treasury;
