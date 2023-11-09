@@ -86,11 +86,10 @@
 //!
 //! A Substrate-based chain is a blockchain composed of a runtime" and a node. As noted above,
 //! the runtime is the application logic of the blockchain, and the node is everything else.
-//! See [`crate::reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The former is
-//! built with [`frame`], and the latter is built with rest of Substrate.
+//! See [`crate::reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
+//! former is built with [`frame`], and the latter is built with rest of Substrate.
 //!
-//! > You can think of a substrate-based chain as a while-labeled blockchain.
-//!
+//! > You can think of a Substrate-based chain as a while-labeled blockchain.
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_polkadot.mmd")]
 //! Polkadot is itself a Substrate-based chain, composed of the exact same two components. It has
 //! specialized logic in both the node and the runtime side, but it is not "special" in any way.
@@ -98,14 +97,6 @@
 //! A parachain is a "special" Substrate-based chain, whereby both the node and the runtime
 //! components have became "Polkadot-aware" using Cumulus.
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_parachain.mmd")]
-//!
-//! ## History
-//!
-//! Substrate, Polkadot and Cumulus used to each have their own repository, each of which is now
-//! archived. For historical context about how they merged into this mono-repo, see:
-//!
-//! - <https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f>
-//! - <https://forum.polkadot.network/t/psa-parity-is-currently-working-on-merging-the-polkadot-stack-repositories-into-one-single-repository/2883>
 //!
 //! ## Notable Upstream Crates
 //!

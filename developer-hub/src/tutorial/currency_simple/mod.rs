@@ -233,13 +233,13 @@
 //!   heavy to transmit and encode/decode. Moreover, it is easy to mistype then by one character.
 //!   FRAME errors are exactly a solution to maintain readability, whilst fixing the drawbacks
 //!   mentioned. In short, we use an enum to represent different variants of our error. These
-//!   variants are then mapped in an efficient way (using inly `u8` indices) to
+//!   variants are then mapped in an efficient way (using only `u8` indices) to
 //!   [`sp_runtime::DispatchError::Module`] Read more about this in [`frame::pallet_macros::error`].
 //!
-//! - **Event**: Events are akin to the return type of dispatch-ables. They should represent what
+//! - **Event**: Events are akin to the return type of dispatchables. They should represent what
 //!   happened at the end of a dispatch operation. Therefore, the convention is to use passive tense
 //!   for event names (eg. `SomethingHappened`). This allows other sub-systems or external parties
-//!   (eg. a light-node, A DApp) to listen to particular events happening, without needing to
+//!   (eg. a light-node, a DApp) to listen to particular events happening, without needing to
 //!   re-execute the whole state transition function.
 //!
 //! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation

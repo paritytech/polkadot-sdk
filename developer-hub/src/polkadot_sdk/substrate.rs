@@ -32,6 +32,9 @@
 //! same as updating an account's balance. Learn more about this in detail in
 //! [`crate::reference_docs::wasm_meta_protocol`].
 //!
+//! > A great analogy for substrate is the following: Substrate node is a gaming console, and a WASM
+//! > runtime, possibly created with FRAME is the game being inserted into the console.
+//!
 //! [`frame`], Substrate's default runtime development library, takes the above safety practices
 //! even further by embracing a declarative programming model whereby correctness is enhanced and
 //! the system is highly configurable through parameterization. Learn more about this in
@@ -51,7 +54,6 @@
 //!
 //! > A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
 //! > node-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
-//!
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_dev.mmd")]
 //!
 //! ## Structure
@@ -60,7 +62,7 @@
 //! they are, and how they are organized. In broad terms, these crates are divided into three
 //! categories:
 //!
-//! * `sc-*` (short for *substrate-client*) crates, located under `./client` folder. These are all
+//! * `sc-*` (short for *Substrate-client*) crates, located under `./client` folder. These are all
 //!   the crates that lead to the node software. Notable examples [`sc_network`], various consensus
 //!   crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are expected to
 //!   reside in the node side.
@@ -128,8 +130,8 @@
 //! through which Polkadot can be utilized is by building "parachains", blockchains that are
 //! connected to Polkadot's shared security.
 //!
-//! To build a parachain, one could use [`crate::polkadot_sdk::cumulus`], the library on top of Substrate,
-//! empowering any substrate-based chain to be a Polkadot parachain.
+//! To build a parachain, one could use [`crate::polkadot_sdk::cumulus`], the library on top of
+//! Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?
 //!
