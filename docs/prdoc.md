@@ -63,7 +63,7 @@ The list of valid audiences is described and documented in the JSON schema as fo
 
 - `Node Operator`: Those who don't write any code and only run code.
 
-- `Runtime User`: Token holders who don't run anything but are involved in the network
+- `Runtime User`: Anyone using the runtime. This can be a token holder or a dev writing a front end for a chain.
 
 ## Tips
 
