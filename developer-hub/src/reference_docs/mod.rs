@@ -93,7 +93,7 @@ pub mod consensus_swapping;
 // TODO: @liamaharon
 pub mod frame_runtime_migration;
 
-/// Learn about light clients, how they function, and how substrate-based chains come
-/// light-client-first out of the box.
+/// Learn about light nodes, how they function, and how substrate-based chains come
+/// light-node-first out of the box.
 // TODO: @jsdw @josepot
-pub mod light_clients;
+pub mod light_nodes;

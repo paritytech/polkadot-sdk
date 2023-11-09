@@ -239,7 +239,7 @@
 //! - **Event**: Events are akin to the return type of dispatch-ables. They should represent what
 //!   happened at the end of a dispatch operation. Therefore, the convention is to use passive tense
 //!   for event names (eg. `SomethingHappened`). This allows other sub-systems or external parties
-//!   (eg. a light-client, A DApp) to listen to particular events happening, without needing to
+//!   (eg. a light-node, A DApp) to listen to particular events happening, without needing to
 //!   re-execute the whole state transition function.
 //!
 //! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation

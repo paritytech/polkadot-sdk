@@ -27,7 +27,7 @@
 //! - [`pallet_timestamp`]
 //! - [`pallet_aura`]
 //! - [`cumulus_pallet_aura_ext`]
-// #![doc = docify::embed!("./src/lib.rs", consensus_pallets)]
+#![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", consensus_pallets)]
 //!
 //!
 //! Finally, a separate macro, similar to
@@ -36,10 +36,6 @@
 //! parachain validation function (PVF). Without this API, the relay chain is unable to validate
 //! blocks produced by our parachain.
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", validate_block)]
-//!
-//! ## Example: Running a node
-//!
-//! TODO
 //!
 //! ---
 //!

@@ -1,5 +1,7 @@
 //! # Smart Contracts
 //!
+//! TODO: @cmichi
+//!
 //! - WASM and EVM based, pallet-contracts and pallet-evm.
 //! - single-daap-chain, transition from ink! to FRAME.
 //! - Link to `use.ink`
