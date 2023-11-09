@@ -436,6 +436,7 @@ var srcIndex = JSON.parse('{\
 "staging_node_executor":["",[],["lib.rs"]],\
 "staging_node_inspect":["",[],["cli.rs","command.rs","lib.rs"]],\
 "staging_parachain_info":["",[],["lib.rs"]],\
+"staging_tracking_allocator":["",[],["lib.rs"]],\
 "staging_xcm":["",[["v2",[],["junction.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]],["v3",[],["junction.rs","junctions.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]]],["double_encoded.rs","lib.rs"]],\
 "staging_xcm_builder":["",[],["asset_conversion.rs","barriers.rs","currency_adapter.rs","fee_handling.rs","filter_asset_location.rs","fungibles_adapter.rs","lib.rs","location_conversion.rs","matcher.rs","matches_location.rs","matches_token.rs","nonfungibles_adapter.rs","origin_aliases.rs","origin_conversion.rs","pay.rs","process_xcm_message.rs","routing.rs","test_utils.rs","universal_exports.rs","weight.rs"]],\
 "staging_xcm_executor":["",[["traits",[],["asset_exchange.rs","asset_lock.rs","conversion.rs","drop_assets.rs","export.rs","fee_manager.rs","filter_asset_location.rs","mod.rs","on_response.rs","should_execute.rs","token_matching.rs","transact_asset.rs","weight.rs"]]],["assets.rs","config.rs","lib.rs"]],\
@@ -466,7 +467,6 @@ var srcIndex = JSON.parse('{\
 "test_runtime_constants":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs"]],\
 "tracing_gum":["",[],["lib.rs"]],\
 "tracing_gum_proc_macro":["",[],["lib.rs","types.rs"]],\
-"tracking_allocator":["",[],["lib.rs"]],\
 "try_runtime_cli":["",[["commands",[],["create_snapshot.rs","execute_block.rs","fast_forward.rs","follow_chain.rs","mod.rs","offchain_worker.rs","on_runtime_upgrade.rs"]]],["block_building_info.rs","lib.rs","parse.rs"]],\
 "undying_collator":["",[],["cli.rs","main.rs"]],\
 "westend_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
