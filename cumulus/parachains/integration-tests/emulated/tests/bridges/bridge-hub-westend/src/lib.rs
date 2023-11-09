@@ -19,7 +19,10 @@ pub use frame_support::assert_ok;
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+	v3::{
+		Error,
+		NetworkId::{Rococo as RococoId, Westend as WestendId},
+	},
 };
 
 // Bridges
@@ -36,13 +39,15 @@ pub use emulated_integration_tests_common::{
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 };
 pub use parachains_common::{AccountId, Balance};
-pub use westend_system_emulated_network::{
+pub use rococo_westend_system_emulated_network::{
 	bridge_hub_westend_emulated_chain::{
 		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 	},
 	westend_emulated_chain::{genesis::ED as ROCOCO_ED, WestendRelayPallet as WestendPallet},
-	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
+	AssetHubRococoPara as AssetHubRococo, AssetHubWestendPara as AssetHubWestend,
+	AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
+	BridgeHubWestendPara as BridgeHubWestend,
 	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
 	BridgeHubWestendParaSender as BridgeHubWestendSender, WestendRelay as Westend,
 	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,

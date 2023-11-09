@@ -62,11 +62,14 @@ use bp_messages::{
 	LaneId, MessageKey, OutboundLaneData,
 };
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-pub use pallet_bridge_messages::Instance2 as BridgeMessagesInstance2;
-use pallet_bridge_messages::{Config, Instance1, OutboundLanes, Pallet};
+use pallet_bridge_messages::{Config, OutboundLanes, Pallet};
+pub use pallet_bridge_messages::{
+	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
+	Instance3 as BridgeMessagesInstance3,
+};
 
-pub struct BridgeHubMessageHandler<S, T, I> {
-	_marker: std::marker::PhantomData<(S, T, I)>,
+pub struct BridgeHubMessageHandler<S, SI, T, TI> {
+	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
 }
 
 struct LaneIdWrapper(LaneId);
@@ -83,13 +86,14 @@ impl From<u32> for LaneIdWrapper {
 	}
 }
 
-impl<S, T, I> BridgeMessageHandler for BridgeHubMessageHandler<S, T, I>
+impl<S, SI, T, TI> BridgeMessageHandler for BridgeHubMessageHandler<S, SI, T, TI>
 where
-	S: Config<Instance1>,
-	T: Config<I>,
-	I: 'static,
-	<T as Config<I>>::InboundPayload: From<Vec<u8>>,
-	<T as Config<I>>::MessageDispatch:
+	S: Config<SI>,
+	SI: 'static,
+	T: Config<TI>,
+	TI: 'static,
+	<T as Config<TI>>::InboundPayload: From<Vec<u8>>,
+	<T as Config<TI>>::MessageDispatch:
 		MessageDispatch<DispatchLevelResult = XcmBlobMessageDispatchResult>,
 {
 	fn get_source_outbound_messages() -> Vec<BridgeMessage> {
@@ -100,16 +104,13 @@ where
 
 		// collect messages from `OutboundMessages` for each active outbound lane in the source
 		for lane in active_lanes {
-			let latest_generated_nonce =
-				OutboundLanes::<S, Instance1>::get(lane).latest_generated_nonce;
-			let latest_received_nonce =
-				OutboundLanes::<S, Instance1>::get(lane).latest_received_nonce;
+			let latest_generated_nonce = OutboundLanes::<S, SI>::get(lane).latest_generated_nonce;
+			let latest_received_nonce = OutboundLanes::<S, SI>::get(lane).latest_received_nonce;
 
 			(latest_received_nonce + 1..=latest_generated_nonce).for_each(|nonce| {
-				let encoded_payload: Vec<u8> =
-					Pallet::<S, Instance1>::outbound_message_data(*lane, nonce)
-						.expect("Bridge message does not exist")
-						.into();
+				let encoded_payload: Vec<u8> = Pallet::<S, SI>::outbound_message_data(*lane, nonce)
+					.expect("Bridge message does not exist")
+					.into();
 				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
 					.expect("Decodign XCM message failed");
 				let id: u32 = LaneIdWrapper(*lane).into();
@@ -133,9 +134,9 @@ where
 
 		// Directly dispatch outbound messages assuming everything is correct
 		// and bypassing the `Relayers`  and `InboundLane` logic
-		let dispatch_result = TargetMessageDispatch::<T, I>::dispatch(DispatchMessage {
+		let dispatch_result = TargetMessageDispatch::<T, TI>::dispatch(DispatchMessage {
 			key: MessageKey { lane_id, nonce },
-			data: DispatchMessageData::<InboundPayload<T, I>> { payload },
+			data: DispatchMessageData::<InboundPayload<T, TI>> { payload },
 		});
 
 		let result = match dispatch_result.dispatch_level_result {
@@ -151,14 +152,14 @@ where
 	}
 
 	fn notify_source_message_delivery(lane_id: u32) {
-		let data = OutboundLanes::<S, Instance1>::get(LaneIdWrapper::from(lane_id).0);
+		let data = OutboundLanes::<S, SI>::get(LaneIdWrapper::from(lane_id).0);
 		let new_data = OutboundLaneData {
 			oldest_unpruned_nonce: data.oldest_unpruned_nonce + 1,
 			latest_received_nonce: data.latest_received_nonce + 1,
 			..data
 		};
 
-		OutboundLanes::<S, Instance1>::insert(LaneIdWrapper::from(lane_id).0, new_data);
+		OutboundLanes::<S, SI>::insert(LaneIdWrapper::from(lane_id).0, new_data);
 	}
 }
 

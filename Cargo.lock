@@ -2205,7 +2205,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "rococo-wococo-system-emulated-network",
+ "rococo-westend-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -2373,9 +2373,9 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "rococo-westend-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -14550,16 +14550,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "rococo-wococo-system-emulated-network"
+name = "rococo-westend-system-emulated-network"
 version = "0.0.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
- "asset-hub-wococo-emulated-chain",
+ "asset-hub-westend-emulated-chain",
  "bridge-hub-rococo-emulated-chain",
- "bridge-hub-wococo-emulated-chain",
+ "bridge-hub-westend-emulated-chain",
  "emulated-integration-tests-common",
  "rococo-emulated-chain",
- "wococo-emulated-chain",
+ "westend-emulated-chain",
 ]
 
 [[package]]

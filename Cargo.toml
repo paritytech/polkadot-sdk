@@ -80,7 +80,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/networks/rococo-system",
 	"cumulus/parachains/integration-tests/emulated/networks/wococo-system",
-	"cumulus/parachains/integration-tests/emulated/networks/rococo-wococo-system",
+    "cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system",
 	"cumulus/parachains/integration-tests/emulated/networks/westend-system",
 	"cumulus/parachains/pallets/collective-content",
 	"cumulus/parachains/pallets/parachain-info",

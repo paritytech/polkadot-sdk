@@ -30,7 +30,7 @@ fn example() {
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
 			network: RococoId,
-			destination: X1(Parachain(AssetHubWestend::para_id().into())),
+			destination: X1(Parachain(AssetHubRococo::para_id().into())),
 			xcm: remote_xcm,
 		},
 	]));
@@ -67,6 +67,32 @@ fn example() {
 				RuntimeEvent::BridgeRococoMessages(pallet_bridge_messages::Event::MessageAccepted {
 					lane_id: LaneId([0, 0, 0, 2]),
 					nonce: 1,
+				}) => {},
+			]
+		);
+	});
+
+	// Rococo Global Consensus
+	// Receive XCM message in Bridge Hub target Parachain
+	BridgeHubRococo::execute_with(|| {
+		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			BridgeHubRococo,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+	// Receive embedded XCM message within `ExportMessage` in Parachain destination
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed {
+					..
 				}) => {},
 			]
 		);

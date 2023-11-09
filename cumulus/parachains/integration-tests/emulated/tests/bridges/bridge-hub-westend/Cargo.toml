@@ -30,4 +30,4 @@ cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", def
 cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", default-features = false}
 bridge-hub-westend-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}
-westend-system-emulated-network ={ path = "../../../networks/westend-system" }
+rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
