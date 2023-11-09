@@ -143,7 +143,6 @@ fn on_stake_update_works() {
 		assert!(TargetBagsList::contains(&10));
 		assert!(VoterBagsList::contains(&10));
 		let stake_before = stake_of(10);
-		let target_score_before = TargetBagsList::get_score(&10).unwrap();
 
 		// validator has no nominations, as expected.
 		assert!(<StakingMock as StakingInterface>::nominations(&10).unwrap().len() == 0);
@@ -162,13 +161,61 @@ fn on_stake_update_works() {
 
 		// target bags list was updated as expected.
 		let target_score_after = TargetBagsList::get_score(&10).unwrap();
-
-		println!("t_score 1: {:?}, t_score 2: {:?}", target_score_before, target_score_after);
-		println!("self_stake_1: {:?}", stake_before);
-		println!("self_stake_2: {:?}", stake_of(10));
-
 		assert_eq!(target_score_after, new_stake.active);
 	})
+}
+
+#[test]
+fn on_stake_update_sorting_works() {
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		let initial_sort = TargetBagsList::iter().collect::<Vec<_>>();
+		// 10 starts with more score than 11.
+		assert_eq!(score_of(11), 200);
+		assert!(score_of(10) > score_of(11));
+		assert_eq!(initial_sort, [10, 11]);
+
+		// add new nominator that add +200 score to 11, which reverts the target list order.
+		add_nominator_with_nominations(5, 200, vec![11]);
+		assert_eq!(score_of(11), 400);
+		assert!(score_of(10) < score_of(11));
+		assert_eq!(
+			TargetBagsList::iter().collect::<Vec<_>>(),
+			initial_sort.iter().rev().cloned().collect::<Vec<_>>()
+		);
+
+		// now we remove the stake 5 to get back to the initial state.
+		remove_staker(5);
+		assert_eq!(score_of(11), 200);
+		assert!(score_of(10) > score_of(11));
+		assert_eq!(TargetBagsList::iter().collect::<Vec<_>>(), initial_sort);
+	});
+
+	ExtBuilder::default().populate_lists().build_and_execute(|| {
+		// [(10, 100), (11, 100), (1, 100), (2, 100)]
+		let voter_scores_before = get_scores::<VoterBagsList>();
+		assert_eq!(voter_scores_before, [(10, 100), (11, 100), (1, 100), (2, 100)]);
+
+		// nothing changes.
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, stake_of(11));
+		assert_eq!(voter_scores_before, get_scores::<VoterBagsList>());
+
+		let nominations = <StakingMock as StakingInterface>::nominations(&11).unwrap();
+		let new_stake = Stake { total: 1, active: 1 };
+		TestNominators::mutate(|n| {
+			n.insert(11, (new_stake, nominations.clone()));
+		});
+
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, stake_of(11));
+
+		// although the voter score of 11 is 1, the voter list sorting has not been updated
+		// automatically.
+		assert_eq!(VoterBagsList::get_score(&11), Ok(1));
+		// [(10, 100), (11, 1), (1, 100), (2, 100)]
+		assert_eq!(
+			voter_scores_before.iter().cloned().map(|(v, _)| v).collect::<Vec<_>>(),
+			VoterBagsList::iter().collect::<Vec<_>>()
+		);
+	});
 }
 
 #[test]
@@ -295,11 +342,6 @@ fn on_validator_remove_defensive_works() {
 	})
 }
 
-#[test]
-fn on_nominator_update_works() {
-	// TODO(gpestana)
-}
-
 mod staking_integration {
 	use super::*;
 
@@ -405,7 +447,7 @@ mod staking_integration {
 			// -100 score for 10
 			// +100 score for 11
 			// +100 score for 20
-			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 200), (11, 200), (20, 150)]);
+			assert_eq!(get_scores::<TargetBagsList>(), vec![(11, 200), (20, 150), (10, 200)]);
 		})
 	}
 }

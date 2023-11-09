@@ -71,7 +71,7 @@ impl pallet_balances::Config for Test {
 }
 
 const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
-	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+	[100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 parameter_types! {
 	pub static BagThresholds: &'static [VoteWeight] = &THRESHOLDS;
@@ -108,8 +108,17 @@ pub struct StakingMock {}
 impl ScoreProvider<AccountId> for StakingMock {
 	type Score = VoteWeight;
 
-	fn score(_id: &AccountId) -> Self::Score {
-		todo!();
+	fn score(id: &AccountId) -> Self::Score {
+		// for testing, score is the sum of self stake and nominated active stake.
+		let nominators = TestNominators::get();
+		let mut sum = nominators.get(id).unwrap().0.active;
+
+		for (_, v) in nominators.iter() {
+			if v.1.contains(id) {
+				sum += v.0.active;
+			}
+		}
+		sum
 	}
 
 	fn set_score_of(_: &AccountId, _: Self::Score) {
@@ -277,6 +286,10 @@ pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
 	StakingMock::stake(&who).ok()
 }
 
+pub(crate) fn score_of(who: AccountId) -> VoteWeight {
+	<StakingMock as ScoreProvider<AccountId>>::score(&who)
+}
+
 pub(crate) fn add_nominator_with_nominations(
 	who: AccountId,
 	stake: Balance,
@@ -328,9 +341,13 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 			});
 		},
 		Ok(StakerStatus::Validator) => {
-			TestValidators::mutate(|n| {
-				n.insert(who, Stake { active: new, total: new });
+			TestValidators::mutate(|v| {
+				v.insert(who, Stake { active: new, total: new });
 			});
+			TestNominators::mutate(|n| {
+				let nominations = n.get(&who).expect("exists").1.clone();
+				n.insert(who, (Stake { active: new, total: new }, nominations));
+			})
 		},
 		Ok(StakerStatus::Idle) | Err(_) => panic!("not a staker"),
 	}
