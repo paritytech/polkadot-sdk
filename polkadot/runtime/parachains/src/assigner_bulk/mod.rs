@@ -134,9 +134,12 @@ struct AssignmentState {
 	ratio: PartsOf57600,
 	/// How many parts are remaining in this round?
 	///
-	/// At the beginning of each round this will be set to ratio + credit, then everytime we get
-	/// scheduled we subtract a core worth of points. Once we reach 0 or a number lower than what a
-	/// core is worth (CoreState::step size), we move on to the next item in the vec.
+	/// At the end of each round (in preparation for the next), ratio will be added to remaining.
+	/// Then every time we get scheduled we subtract a core worth of points. Once we reach 0 or a
+	/// number lower than what a core is worth (`CoreState::step` size), we move on to the next
+	/// item in the `Vec`.
+	///
+	/// The first round starts with remaining = ratio.
 	remaining: PartsOf57600,
 }
 
@@ -374,7 +377,7 @@ impl<T: Config> Pallet<T> {
 		descriptor.queue = new_first.map(|new_first| {
 			QueueDescriptor {
 				first: new_first,
-				// `last` stays unaffected:
+				// `last` stays unaffected, if not empty:
 				last: queue.last,
 			}
 		});
@@ -457,3 +460,4 @@ impl<T: Config> Pallet<T> {
 // - Test insertion in the middle, beginning and end: Should fail in all cases but the last.
 // - Test insertion on empty queue.
 // - Test overwrite vs insert: Overwrite no longer allowed - should fail with error.
+// - New: Test that assignments are served correctly. E.g. two equal assignments will be served as ABABAB ... and more importantly have a test that checks that core is shared fairly, even in case of `ratio` not being divisible by `step` (over multiple rounds).
