@@ -2,9 +2,10 @@
 name = "pallet-contracts-fixtures"
 publish = false
 version = "1.0.0"
-license.workspace = true
 authors.workspace = true
 edition.workspace = true
+license.workspace = true
+description = "Fixtures for testing contracts pallet."
 
 [dependencies]
 wat = "1"
