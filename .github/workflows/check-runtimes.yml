@@ -63,8 +63,6 @@ jobs:
       #     path: $DATA_DIR
 
       - name: Fetch release artifacts based on release id
-        #this step runs only if the workflow is triggered manually
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
         env:
           RELEASE_ID: $RELEASE_ID
           REPO: paritytech/polkadot-sdk
@@ -93,7 +91,6 @@ jobs:
         env:
           RUNTIME: ${{ matrix.specs }}
         run: |
-          subwasm get --chain ${{ matrix.specs }} -o $DATA_DIR/$RUNTIME.wasm
           subwasm metadata --json $DATA_DIR/$RUNTIME.wasm | tee $DATA_DIR/$RUNTIME.json
 
       - name: Check specs for ${{ matrix.specs }}
