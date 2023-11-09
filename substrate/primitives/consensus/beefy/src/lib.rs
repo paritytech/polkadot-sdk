@@ -432,23 +432,6 @@ where
 	false
 }
 
-/// Check each signatory's signature on the commitment.
-/// If any are invalid, equivocation report is invalid
-fn check_signatures<Id, MsgHash, Header>(
-	commitment: &Commitment<Header::Number>,
-	signatories: &Vec<(Id, <Id as RuntimeAppPublic>::Signature)>,
-) -> bool
-where
-	Id: BeefyAuthorityId<MsgHash> + PartialEq,
-	MsgHash: Hash,
-	Header: sp_api::HeaderT,
-{
-	signatories.iter().all(|(authority_id, signature)| {
-		// TODO: refactor check_commitment_signature to take a slice of signatories
-		check_commitment_signature(&commitment, authority_id, signature)
-	})
-}
-
 /// Validates [ForkEquivocationProof] with the following checks:
 /// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
 ///   provided:
@@ -498,24 +481,24 @@ where
 		return false;
 	}
 
-	let header_proof_is_correct =
-		check_header_proof(commitment, correct_header, expected_header_hash);
-	if header_proof_is_correct {
-		// avoid verifying the ancestry proof if a valid header proof has been provided
-		return check_signatures::<Id, MsgHash, Header>(commitment, signatories)
+	// avoid verifying the ancestry proof if a valid header proof has been provided
+	if check_header_proof(commitment, correct_header, expected_header_hash) ||
+		check_ancestry_proof::<Header, NodeHash, Hasher>(
+			commitment,
+			ancestry_proof,
+			first_mmr_block_num,
+			expected_root,
+			mmr_size,
+		) {
+		// if either proof is valid, check the validator's signatures. The proof is verified if they
+		// are all correct.
+		return signatories.iter().all(|(authority_id, signature)| {
+			// TODO: refactor check_commitment_signature to take a slice of signatories
+			check_commitment_signature(&commitment, authority_id, signature)
+		})
 	}
 
-	let ancestry_proof_is_correct = check_ancestry_proof::<Header, NodeHash, Hasher>(
-		commitment,
-		ancestry_proof,
-		first_mmr_block_num,
-		expected_root,
-		mmr_size,
-	);
-	if ancestry_proof_is_correct {
-		return check_signatures::<Id, MsgHash, Header>(commitment, signatories)
-	}
-
+	// if neither the ancestry proof nor the header proof is correct, the proof is invalid
 	return false;
 }
 
