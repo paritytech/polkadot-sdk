@@ -812,17 +812,14 @@ impl sp_std::str::FromStr for SecretUri {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let cap = AddressUri::parse(s).ok_or(SecretStringError::InvalidFormat)?;
-
-		let junctions = cap.paths.iter().map(|f| DeriveJunction::from(f)).collect::<Vec<_>>();
-
 		let phrase = cap.ss58.unwrap_or(DEV_PHRASE);
-		let password = cap.pass;
 
 		Ok(Self {
 			phrase: SecretString::from_str(phrase).expect("Returns infallible error; qed"),
-			password: password
+			password: cap
+				.pass
 				.map(|v| SecretString::from_str(v).expect("Returns infallible error; qed")),
-			junctions,
+			junctions: cap.paths.iter().map(DeriveJunction::from).collect::<Vec<_>>(),
 		})
 	}
 }
