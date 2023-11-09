@@ -22,7 +22,7 @@ use crate::testing::{test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use futures::executor;
 use jsonrpsee::core::{EmptyServerParams as EmptyParams, Error as RpcError};
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_rpc_api::DenyUnsafe;
 use sp_consensus::BlockOrigin;
 use sp_core::{hash::H256, storage::ChildInfo};
@@ -226,7 +226,11 @@ async fn should_notify_about_storage_changes() {
 			.unwrap();
 
 		// Cause a change:
-		let mut builder = client.new_block(Default::default()).unwrap();
+		let mut builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
 		builder
 			.push_transfer(Transfer {
 				from: AccountKeyring::Alice.into(),
@@ -275,7 +279,11 @@ async fn should_send_initial_storage_changes_and_notifications() {
 			.await
 			.unwrap();
 
-		let mut builder = client.new_block(Default::default()).unwrap();
+		let mut builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
 		builder
 			.push_transfer(Transfer {
 				from: AccountKeyring::Alice.into(),
@@ -300,7 +308,11 @@ async fn should_query_storage() {
 		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
 		let mut add_block = |index| {
-			let mut builder = client.new_block(Default::default()).unwrap();
+			let mut builder = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap();
 			// fake change: None -> None -> None
 			builder
 				.push(ExtrinsicBuilder::new_storage_change(vec![1], None).build())

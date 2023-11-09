@@ -21,7 +21,7 @@
 
 pub mod client_ext;
 
-pub use self::client_ext::{ClientBlockImportExt, ClientExt};
+pub use self::client_ext::{BlockOrigin, ClientBlockImportExt, ClientExt};
 pub use sc_client_api::{execution_extensions::ExecutionExtensions, BadBlocks, ForkBlocks};
 pub use sc_client_db::{self, Backend, BlocksPruning};
 pub use sc_executor::{self, NativeElseWasmExecutor, WasmExecutionMethod, WasmExecutor};
