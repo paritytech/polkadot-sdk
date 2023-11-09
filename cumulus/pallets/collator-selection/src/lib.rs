@@ -447,7 +447,10 @@ pub mod pallet {
 		///
 		/// The origin for this call must be the `UpdateOrigin`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::set_candidacy_bond(T::MaxCandidates::get()))]
+		#[pallet::weight(T::WeightInfo::set_candidacy_bond(
+			T::MaxCandidates::get(),
+			T::MaxCandidates::get()
+		))]
 		pub fn set_candidacy_bond(
 			origin: OriginFor<T>,
 			bond: BalanceOf<T>,
@@ -478,7 +481,7 @@ pub mod pallet {
 				})
 				.unwrap_or_default();
 			Self::deposit_event(Event::NewCandidacyBond { bond_amount: bond });
-			Ok(Some(T::WeightInfo::set_candidacy_bond(kicked as u32)).into())
+			Ok(Some(T::WeightInfo::set_candidacy_bond(initial_len as u32, kicked as u32)).into())
 		}
 
 		/// Register this account as a collator candidate. The account must (a) already have

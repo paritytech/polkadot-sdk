@@ -223,14 +223,23 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_candidacy_bond(k: Linear<0, { T::MaxCandidates::get() }>) -> Result<(), BenchmarkError> {
+	fn set_candidacy_bond(
+		c: Linear<0, { T::MaxCandidates::get() }>,
+		k: Linear<0, { T::MaxCandidates::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let initial_bond_amount: BalanceOf<T> = T::Currency::minimum_balance() * 2u32.into();
 		<CandidacyBond<T>>::put(initial_bond_amount);
-		register_validators::<T>(k);
-		register_candidates::<T>(k);
+		register_validators::<T>(c);
+		register_candidates::<T>(c);
+		let kicked = std::cmp::min(k, c);
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let bond_amount = if k > 0 {
+			<CandidateList<T>>::mutate(|candidates| {
+				for info in candidates.iter_mut().skip(kicked as usize) {
+					info.deposit = T::Currency::minimum_balance() * 3u32.into();
+				}
+			});
 			T::Currency::minimum_balance() * 3u32.into()
 		} else {
 			T::Currency::minimum_balance()
