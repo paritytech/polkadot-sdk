@@ -318,7 +318,7 @@ fn setting_pending_config_members() {
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32,
 			minimum_backing_votes: 5,
-			node_features: NodeFeatures::EMPTY,
+			node_features: 10,
 		};
 
 		Configuration::set_validation_upgrade_cooldown(
@@ -474,6 +474,12 @@ fn setting_pending_config_members() {
 			new_config.minimum_backing_votes,
 		)
 		.unwrap();
+		Configuration::toggle_node_feature(RuntimeOrigin::root(), 1).unwrap();
+		Configuration::toggle_node_feature(RuntimeOrigin::root(), 3).unwrap();
+		Configuration::toggle_node_feature(RuntimeOrigin::root(), 4).unwrap();
+		Configuration::toggle_node_feature(RuntimeOrigin::root(), 4).unwrap();
+		assert!(Configuration::toggle_node_feature(RuntimeOrigin::root(), 64).is_err());
+		assert!(Configuration::toggle_node_feature(RuntimeOrigin::root(), 70).is_err());
 
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(shared::SESSION_DELAY, new_config)],);
 	})

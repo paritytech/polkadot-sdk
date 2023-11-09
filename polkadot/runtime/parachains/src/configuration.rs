@@ -26,8 +26,8 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
-	SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
@@ -261,8 +261,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
-	/// node features enablement.
-	pub node_features: NodeFeatures,
+	/// Node features enablement.
+	pub node_features: u64,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -314,7 +314,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
-			node_features: NodeFeatures::EMPTY,
+			node_features: 0,
 		}
 	}
 }
@@ -1197,6 +1197,20 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.minimum_backing_votes = new;
+			})
+		}
+		/// Toggle a node feature bit.
+		#[pallet::call_index(53)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_u32(),
+			DispatchClass::Operational
+		))]
+		pub fn toggle_node_feature(origin: OriginFor<T>, index: u8) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(index < 64, Error::<T>::InvalidNewValue);
+
+			Self::schedule_config_update(|config| {
+				config.node_features ^= 1 << index;
 			})
 		}
 	}
