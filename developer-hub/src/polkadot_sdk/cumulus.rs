@@ -14,7 +14,7 @@
 //!
 //! #### Cumulus Pallets
 //!
-//! A parachain runtime should use a number of pallets that are provided by Cumulus. Notably:
+//! A parachain runtime should use a number of pallets that are provided by Cumulus and Substrate. Notably:
 //!
 //! - [`frame-system`](frame::prelude::frame_system), like all FRAME-based runtimes.
 //! - [`cumulus_pallet_parachain_system`]
