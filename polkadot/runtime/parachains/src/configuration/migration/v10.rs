@@ -19,7 +19,7 @@
 use crate::configuration::{self, Config, Pallet};
 use frame_support::{pallet_prelude::*, traits::Defensive, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::ClientFeatures, SessionIndex};
+use primitives::{vstaging::NodeFeatures, SessionIndex};
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
@@ -140,7 +140,7 @@ fn translate<T: Config>(pre: V9HostConfiguration<BlockNumberFor<T>>) -> V10HostC
 		on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
 		on_demand_ttl                            : pre.on_demand_ttl,
 		minimum_backing_votes                    : pre.minimum_backing_votes,
-		client_features                          : ClientFeatures::empty()
+		node_features                          : NodeFeatures::empty()
 	}
 }
 
@@ -212,7 +212,7 @@ mod tests {
 		assert_eq!(v10.on_demand_cores, 0);
 		assert_eq!(v10.on_demand_base_fee, 10_000_000);
 		assert_eq!(v10.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
-		assert_eq!(v10.client_features, ClientFeatures::empty());
+		assert_eq!(v10.node_features, NodeFeatures::empty());
 	}
 
 	// Test that `migrate_to_v10`` correctly applies the `translate` function to current and pending
@@ -253,7 +253,7 @@ mod tests {
 
 			for (_, config) in configs_to_check {
 				assert_eq!(config, v10);
-				assert_eq!(config.client_features, ClientFeatures::empty());
+				assert_eq!(config.node_features, NodeFeatures::empty());
 			}
 		});
 	}

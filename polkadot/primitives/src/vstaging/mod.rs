@@ -24,6 +24,6 @@ use serde::{Deserialize, Serialize};
 
 bitflags::bitflags! {
 	#[derive(Default, TypeInfo, Encode, Decode, Serialize, Deserialize)]
-	/// Bit indices in the `HostCoonfiguration.client_features` that correspond to different client features.
-	pub struct ClientFeatures: u64 {}
+	/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+	pub struct NodeFeatures: u64 {}
 }

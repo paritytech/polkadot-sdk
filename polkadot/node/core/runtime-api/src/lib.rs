@@ -173,8 +173,8 @@ where
 				.cache_para_backing_state((relay_parent, para_id), constraints),
 			AsyncBackingParams(relay_parent, params) =>
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
-			ClientFeatures(session_index, params) =>
-				self.requests_cache.cache_client_features(session_index, params),
+			NodeFeatures(session_index, params) =>
+				self.requests_cache.cache_node_features(session_index, params),
 		}
 	}
 
@@ -315,13 +315,13 @@ where
 					Some(Request::MinimumBackingVotes(index, sender))
 				}
 			},
-			Request::ClientFeatures(index, sender) => {
-				if let Some(value) = self.requests_cache.client_features(index) {
+			Request::NodeFeatures(index, sender) => {
+				if let Some(value) = self.requests_cache.node_features(index) {
 					self.metrics.on_cached_request();
 					let _ = sender.send(Ok(value));
 					None
 				} else {
-					Some(Request::ClientFeatures(index, sender))
+					Some(Request::NodeFeatures(index, sender))
 				}
 			},
 		}
@@ -605,10 +605,10 @@ where
 				sender
 			)
 		},
-		Request::ClientFeatures(index, sender) => query!(
-			ClientFeatures,
-			client_features(),
-			ver = Request::CLIENT_FEATURES_RUNTIME_REQUIREMENT,
+		Request::NodeFeatures(index, sender) => query!(
+			NodeFeatures,
+			node_features(),
+			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
 		),

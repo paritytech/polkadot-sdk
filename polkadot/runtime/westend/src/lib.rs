@@ -46,7 +46,7 @@ use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
-	slashing, vstaging::ClientFeatures, AccountId, AccountIndex, Balance, BlockNumber,
+	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
 	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
@@ -1847,8 +1847,8 @@ sp_api::impl_runtime_apis! {
 			parachains_staging_runtime_api_impl::disabled_validators::<Runtime>()
 		}
 
-		fn client_features() -> ClientFeatures {
-			parachains_staging_runtime_api_impl::client_features::<Runtime>()
+		fn node_features() -> NodeFeatures {
+			parachains_staging_runtime_api_impl::node_features::<Runtime>()
 		}
 	}
 

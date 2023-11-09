@@ -26,7 +26,7 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::ClientFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
+	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
 	SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
@@ -261,8 +261,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
-	/// Client features enablement.
-	pub client_features: ClientFeatures,
+	/// node features enablement.
+	pub node_features: NodeFeatures,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -314,7 +314,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
-			client_features: ClientFeatures::empty(),
+			node_features: NodeFeatures::empty(),
 		}
 	}
 }
