@@ -457,11 +457,6 @@ where
 	Some(grandpa::SignedMessage { message, signature, id: public })
 }
 
-/// WASM function call to check for pending changes.
-pub const PENDING_CHANGE_CALL: &str = "grandpa_pending_change";
-/// WASM function call to get current GRANDPA authorities.
-pub const AUTHORITIES_CALL: &str = "grandpa_authorities";
-
 /// An opaque type used to represent the key ownership proof at the runtime API
 /// boundary. The inner value is an encoded representation of the actual key
 /// ownership proof which will be parameterized when defining the runtime. At
