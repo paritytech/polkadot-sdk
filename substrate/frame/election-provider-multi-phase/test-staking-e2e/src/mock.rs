@@ -800,7 +800,6 @@ pub(crate) fn on_offence_now(
 		offenders,
 		slash_fraction,
 		Staking::eras_start_session_index(now).unwrap(),
-		DisableStrategy::WhenSlashed,
 	);
 }
 

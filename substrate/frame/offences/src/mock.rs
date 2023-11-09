@@ -33,7 +33,7 @@ use sp_runtime::{
 	BuildStorage, Perbill,
 };
 use sp_staking::{
-	offence::{self, DisableStrategy, Kind, OffenceDetails},
+	offence::{self, Kind, OffenceDetails},
 	SessionIndex,
 };
 

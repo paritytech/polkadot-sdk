@@ -125,7 +125,7 @@ pub mod pallet {
 				T::AccountId,
 				IdentificationTuple<T>,
 				Weight,
-			>>::on_offence(&offenders, &slash_fraction, session_index, DisableStrategy::WhenSlashed);
+			>>::on_offence(&offenders, &slash_fraction, session_index);
 		}
 	}
 }
