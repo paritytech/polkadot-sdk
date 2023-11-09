@@ -390,20 +390,207 @@ fn set_desired_candidates_works() {
 }
 
 #[test]
-fn set_candidacy_bond() {
+fn set_candidacy_bond_empty_candidate_list() {
 	new_test_ext().execute_with(|| {
 		// given
 		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
 
-		// can set
+		// can decrease without candidates
 		assert_ok!(CollatorSelection::set_candidacy_bond(
 			RuntimeOrigin::signed(RootAccount::get()),
 			7
 		));
 		assert_eq!(CollatorSelection::candidacy_bond(), 7);
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
 
 		// rejects bad origin.
 		assert_noop!(CollatorSelection::set_candidacy_bond(RuntimeOrigin::signed(1), 8), BadOrigin);
+
+		// can increase without candidates
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			20
+		));
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert_eq!(CollatorSelection::candidacy_bond(), 20);
+	});
+}
+
+#[test]
+fn set_candidacy_bond_with_one_candidate() {
+	new_test_ext().execute_with(|| {
+		// given
+		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
+
+		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
+
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_3.clone()]);
+
+		// can decrease with one candidate
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			7
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 7);
+		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_3.clone()]);
+
+		// can increase up to initial deposit
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			10
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_3.clone()]);
+
+		// can increase past initial deposit, should kick existing candidate
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			20
+		));
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
+	});
+}
+
+#[test]
+fn set_candidacy_bond_with_many_candidates_same_deposit() {
+	new_test_ext().execute_with(|| {
+		// given
+		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
+
+		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
+		let candidate_4 = CandidateInfo { who: 4, deposit: 10 };
+		let candidate_5 = CandidateInfo { who: 5, deposit: 10 };
+
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_5.clone(), candidate_4.clone(), candidate_3.clone()]
+		);
+
+		// can decrease with multiple candidates
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			7
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 7);
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_5.clone(), candidate_4.clone(), candidate_3.clone()]
+		);
+
+		// can increase up to initial deposit
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			10
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_5.clone(), candidate_4.clone(), candidate_3.clone()]
+		);
+
+		// can increase past initial deposit, should kick existing candidates
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			20
+		));
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
+	});
+}
+
+#[test]
+fn set_candidacy_bond_with_many_candidates_different_deposits() {
+	new_test_ext().execute_with(|| {
+		// given
+		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
+
+		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
+		let candidate_4 = CandidateInfo { who: 4, deposit: 20 };
+		let candidate_5 = CandidateInfo { who: 5, deposit: 30 };
+
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 30));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 20));
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
+		);
+
+		// can decrease with multiple candidates
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			7
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 7);
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
+		);
+		// can increase up to initial deposit
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			10
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
+		);
+
+		// can increase to 4's deposit, should kick 3
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			20
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 20);
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_4.clone(), candidate_5.clone()]
+		);
+
+		// can increase past 4's deposit, should kick 4
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			25
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 25);
+		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_5.clone()]);
+
+		// lowering the minimum deposit should have no effect
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			5
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 5);
+		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_5.clone()]);
+
+		// add 3 and 4 back but with higher deposits than minimum
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 10));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 20));
+		assert_eq!(
+			<crate::CandidateList<Test>>::get(),
+			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
+		);
+
+		// can increase the deposit above the current max in the list, all candidates should be
+		// kicked
+		assert_ok!(CollatorSelection::set_candidacy_bond(
+			RuntimeOrigin::signed(RootAccount::get()),
+			40
+		));
+		assert_eq!(CollatorSelection::candidacy_bond(), 40);
+		assert!(<crate::CandidateList<Test>>::get().is_empty());
 	});
 }
 
