@@ -18,6 +18,7 @@
 
 use proc_macro::TokenStream;
 
+mod builder_pattern;
 mod v2;
 mod v3;
 mod v4;
@@ -68,4 +69,16 @@ pub fn impl_conversion_functions_for_junctions_v4(input: TokenStream) -> TokenSt
 	v4::junctions::generate_conversion_functions(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
+}
+
+/// This is called on the `Instruction` enum, not on the `Xcm` struct,
+/// and allows for the following syntax for building XCMs:
+/// let message = Xcm::builder()
+/// 	.withdraw_asset(assets)
+/// 	.buy_execution(fees, weight_limit)
+/// 	.deposit_asset(assets, beneficiary)
+/// 	.build();
+#[proc_macro_derive(Builder)]
+pub fn derive_builder(input: TokenStream) -> TokenStream {
+	builder_pattern::derive(input)
 }
