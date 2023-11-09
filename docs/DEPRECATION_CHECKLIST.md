@@ -1,9 +1,7 @@
 # Deprecation Checklist
 
-This deprecation checklist makes sense while we don’t use [SemVer](https://semver.org/).
-After that, this document will most likely change.
-As deprecation and removal of existing code can happen on any release, we need to be mindful that external builders
-could be impacted by the changes we make.
+Polkadot SDK is under constant development and improvement, thus deprecation and removal of existing code happen often.
+When creating a breaking change we need to be mindful that external builders could be impacted by this.
 The deprecation checklist tries to mitigate this impact, while still keeping the developer experience, the DevEx, as
 smooth as possible.
 
@@ -64,6 +62,12 @@ with the Release team.
 The deprecated code finally gets removed.
 Don’t forget to [announce this accordingly](#announce-the-deprecation-and-removal).
 
+## Update the crate's version
+
+Inline with [SemVer's guidelines](https://semver.org/#spec-item-4), update the major/minor version in `Cargo.toml` depending on the following:
+- bump the major version when the crate's version >= 1.0.0
+- bump the minor version when the crate's version < 1.0.0
+
 ✅ In order to not forget any of these steps, consider using this template in your deprecation issue:
 
 ```markdown
@@ -76,4 +80,5 @@ Don’t forget to [announce this accordingly](#announce-the-deprecation-and-remo
 - [ ] Plan removal version
 - [ ] Announce code removal
 - [ ] Remove deprecated code
+- [ ] Update the crate's version
 ```

@@ -162,8 +162,5 @@ Start with comment in PR: `bot help` to see the list of available commands.
 
 ## Deprecating code
 
-Polkadot SDK does not stick to [SemVer](https://semver.org/), thus breaking changes can happen between "minor version"
-updates.
 When deprecating and removing code you need to be mindful of how this could impact downstream developers. In order to
-mitigate this impact, it is recommended to adhere to the steps outlined in the
-[Deprecation Checklist](./DEPRECATION_CHECKLIST.md).
+mitigate this impact, it is recommended to adhere to the steps outlined in the [Deprecation Checklist](./DEPRECATION_CHECKLIST.md).
