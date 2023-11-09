@@ -80,7 +80,7 @@ pub mod ecdsa_bls377 {
 	impl Pair {
 		/// hashes the `message` with the specified `MsgHasher` and then signs it using ECDSA
 		/// algorithm. It does not affect the behavoir of BLS12-377 component. It generates
-		/// BLS12-377 Signature according to IETF standard and disregard the hasher for the
+		/// BLS12-377 Signature according to IETF standard and disregards the hasher for the
 		/// BLS12-377 component
 		pub fn sign_with_hasher<MsgHasher: crate::Hasher>(&self, message: &[u8]) -> Signature
 		where
@@ -96,10 +96,10 @@ pub mod ecdsa_bls377 {
 			<Self as PairT>::Signature::unchecked_from(raw)
 		}
 
-		/// hashes the `message` with the specified `MsgHasher` and then verifys if the resulting
-		/// hash was signed by the provided  ECDSA public key.. It does not affect the behavoir of
-		/// BLS12-377 component. It Verify the BLS12-377 signature as it was hashed and signed
-		/// according to IETF standrad
+		/// Hashes the `message` with the specified `MsgHasher` and then verifies whether the resulting
+		/// hash was signed by the provided ECDSA public key. It does not affect the behavior of the
+		/// BLS12-377 component. It verifies whether the BLS12-377 signature was hashed and signed
+		/// according to IETF standard
 		pub fn verify_with_hasher<MsgHasher: crate::Hasher>(
 			sig: &Signature,
 			message: &[u8],

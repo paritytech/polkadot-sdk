@@ -517,7 +517,7 @@ mod tests {
 		// Verification works if same hashing function is used when signing and verifying.
 		assert!(BeefyAuthorityId::<Keccak256>::verify(&pair.public(), &signature, msg));
 
-		// Verification doesn't works if we verify function provided by pair_crypto implementation
+		// Verification doesn't work if we verify function provided by pair_crypto implementation
 		assert!(!ecdsa_bls_crypto::Pair::verify(&signature, msg, &pair.public()));
 
 		// Other public key doesn't work
