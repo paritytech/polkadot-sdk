@@ -21,6 +21,40 @@ use tokio::{
 	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 
+const SECURE_MODE_ANNOUNCEMENT: &'static str =
+	"In the next release this will be a hard error by default. More information: \
+	 https://github.com/w3f/polkadot-wiki/issues/4881";
+
+/// Warns if a secure validator cannot be built for the target OS and architecture.
+pub fn check_secure_mode_platform_requirement() {
+	cfg_if::cfg_if! {
+		if #[cfg(target_os = "linux")] {
+			cfg_if::cfg_if! {
+				if #[cfg(target_arch = "x86_64")] {
+					return ()
+				} else {
+					let msg = "Secure validators are only supported on CPUs from the x86_64 family (usually Intel or AMD).";
+				}
+			}
+		} else {
+			cfg_if::cfg_if! {
+				if #[cfg(target_arch = "x86_64")] {
+					let msg = "Secure validators are only supported on Linux.";
+				} else {
+					let msg = "Secure validators are only supported on Linux and on CPUs from the x86_64 family (usually Intel or AMD).";
+				}
+			}
+		}
+	};
+
+	gum::warn!(
+		target: LOG_TARGET,
+		"{} {}",
+		msg,
+		SECURE_MODE_ANNOUNCEMENT
+	);
+}
+
 /// Check if we can sandbox the root and emit a warning if not.
 ///
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
@@ -32,25 +66,20 @@ pub async fn check_can_unshare_user_namespace_and_change_root(
 ) -> bool {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			match tokio::process::Command::new(prepare_worker_program_path)
+			let msg = match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-unshare-user-namespace-and-change-root")
 				.output()
 				.await
 			{
-				Ok(output) if output.status.success() => true,
+				Ok(output) if output.status.success() => return true,
 				Ok(output) => {
 					let stderr = std::str::from_utf8(&output.stderr)
 						.expect("child process writes a UTF-8 string to stderr; qed")
 						.trim();
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						// Docs say to always print status using `Display` implementation.
-						status = %output.status,
-						%stderr,
-						"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running with support for unsharing user namespaces for maximum security."
-					);
-					false
+					format!(
+						"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running with support for unsharing user namespaces for maximum security. Error: {}",
+						stderr
+					)
 				},
 				Err(err) => {
 					gum::warn!(
@@ -59,17 +88,21 @@ pub async fn check_can_unshare_user_namespace_and_change_root(
 						"Could not start child process: {}",
 						err
 					);
-					false
+					return false
 				},
-			}
+			};
 		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with support for unsharing user namespaces for maximum security."
-			);
-			false
+			let msg = "Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with support for unsharing user namespaces for maximum security.";
 		}
 	}
+
+	gum::warn!(
+		target: LOG_TARGET,
+		"{} {}",
+		msg,
+		SECURE_MODE_ANNOUNCEMENT
+	);
+	false
 }
 
 /// Check if landlock is supported and emit a warning if not.
@@ -83,23 +116,19 @@ pub async fn check_landlock(
 ) -> bool {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			match tokio::process::Command::new(prepare_worker_program_path)
+			let msg = match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-enable-landlock")
 				.status()
 				.await
 			{
-				Ok(status) if status.success() => true,
+				Ok(status) if status.success() => return true,
 				Ok(status) => {
 					let abi =
 						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						?status,
-						%abi,
-						"Cannot fully enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
-					);
-					false
+					format!(
+						"Cannot fully enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security. Landlock ABI: {}",
+						abi
+					)
 				},
 				Err(err) => {
 					gum::warn!(
@@ -108,17 +137,21 @@ pub async fn check_landlock(
 						"Could not start child process: {}",
 						err
 					);
-					false
+					return false
 				},
-			}
+			};
 		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				"Cannot enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with landlock support for maximum security."
-			);
-			false
+			let msg = "Cannot enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with landlock support for maximum security.";
 		}
 	}
+
+	gum::warn!(
+		target: LOG_TARGET,
+		"{} {}",
+		msg,
+		SECURE_MODE_ANNOUNCEMENT
+	);
+	false
 }
 
 /// Check if seccomp is supported and emit a warning if not.
@@ -132,20 +165,14 @@ pub async fn check_seccomp(
 ) -> bool {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			match tokio::process::Command::new(prepare_worker_program_path)
+			let msg = match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-enable-seccomp")
 				.status()
 				.await
 			{
-				Ok(status) if status.success() => true,
+				Ok(status) if status.success() => return true,
 				Ok(status) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						?status,
-						"Cannot fully enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
-					);
-					false
+					"Cannot fully enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
 				},
 				Err(err) => {
 					gum::warn!(
@@ -154,17 +181,21 @@ pub async fn check_seccomp(
 						"Could not start child process: {}",
 						err
 					);
-					false
+					return false
 				},
-			}
+			};
 		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				"Cannot enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with seccomp support for maximum security."
-			);
-			false
+			let msg = "Cannot enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with seccomp support for maximum security.";
 		}
 	}
+
+	gum::warn!(
+		target: LOG_TARGET,
+		"{} {}",
+		msg,
+		SECURE_MODE_ANNOUNCEMENT
+	);
+	false
 }
 
 const AUDIT_LOG_PATH: &'static str = "/var/log/audit/audit.log";

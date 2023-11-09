@@ -210,6 +210,7 @@ pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Fu
 	// Run checks for supported security features once per host startup. Warn here if not enabled.
 	let security_status = {
 		// TODO: add check that syslog is available and that seccomp violations are logged?
+		security::check_secure_mode_platform_requirement();
 		let (can_enable_landlock, can_enable_seccomp, can_unshare_user_namespace_and_change_root) = join!(
 			security::check_landlock(&config.prepare_worker_program_path),
 			security::check_seccomp(&config.prepare_worker_program_path),
