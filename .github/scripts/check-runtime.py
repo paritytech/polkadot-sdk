@@ -81,8 +81,7 @@ def check_metadata(metadata, specs):
 
 
 def help():
-    print("You must pass 2 args.")
-    print(f"You passed: {sys.argv}")
+    print(f"You must pass 2 args, you passed {len(sys.argv) - 1}")
     print("Sample call:")
     print("check-runtime.py <metadata.json> <specs.json>")
 
@@ -90,7 +89,8 @@ def main():
     LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
     logging.basicConfig(level=LOGLEVEL)
 
-    if sys.argv.count != 3:
+    print(list(sys.argv)[1:])
+    if len(sys.argv) != 3:
         help()
         exit(1)
 
