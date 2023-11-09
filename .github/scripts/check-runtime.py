@@ -90,7 +90,7 @@ def main():
     LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
     logging.basicConfig(level=LOGLEVEL)
 
-    if sys.argv.count != 2:
+    if sys.argv.count != 3:
         help()
         exit(1)
 

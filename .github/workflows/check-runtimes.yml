@@ -80,7 +80,9 @@ jobs:
         env:
           RUNTIME: ${{ matrix.specs }}
         run: |
-          subwasm metadata --json "$DATA_DIR/${RUNTIME}*.wasm" | tee "$DATA_DIR/${RUNTIME}.json"
+          WASM=$(ls ${DATA_DIR}/${RUNTIME}*.wasm)
+          echo "WASM=$WASM"
+          subwasm metadata --json "$WASM" | tee "${DATA_DIR}/${RUNTIME}.json"
 
       - name: Check specs for ${{ matrix.specs }}
         id: build
@@ -88,4 +90,4 @@ jobs:
           RUNTIME: ${{ matrix.specs }}
         run: |
           python --version
-          .github/scripts/check-runtime.py "$DATA_DIR/${RUNTIME}.json" "${RUNTIME_SPECS_DIR}/${RUNTIME}.json"
+          .github/scripts/check-runtime.py "${DATA_DIR}/${RUNTIME}.json" "${RUNTIME_SPECS_DIR}/${RUNTIME}.json"
