@@ -726,6 +726,7 @@ where
 			ChainSyncAction::SendBlockRequest { peer_id, request } => {
 				// Sending block request implies dropping obsolete pending response as we are not
 				// interested in it anymore (see [`ChainSyncAction::SendBlockRequest`]).
+				// Furthermore, only one request at a time is allowed to any peer.
 				let removed = self.pending_responses.remove(&peer_id);
 				self.send_block_request(peer_id, request.clone());
 
