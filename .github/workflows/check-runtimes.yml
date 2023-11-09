@@ -20,6 +20,7 @@ env:
   RUNTIME_SPECS_DIR: .github/runtime_specs/
   DATA_DIR: runtimes
   RELEASE_ID: ${{ inputs.release_id }}
+  REPO: ${{ github.repository }}
 
 jobs:
   find-specs:
@@ -65,7 +66,6 @@ jobs:
       - name: Fetch release artifacts based on release id
         env:
           RELEASE_ID: $RELEASE_ID
-          REPO: paritytech/polkadot-sdk
           GITHUB_TOKEN: $GITHUB_TOKEN
           OUTPUT_DIR: $DATA_DIR
         run: |
