@@ -99,7 +99,7 @@ pub mod pallet {
 	use pallet_session::SessionManager;
 	use sp_runtime::{
 		traits::{AccountIdConversion, CheckedSub, Convert, Saturating, Zero},
-		RuntimeDebug,
+		DispatchError, RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
 	use sp_std::vec::Vec;
@@ -449,7 +449,26 @@ pub mod pallet {
 			bond: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::UpdateOrigin::ensure_origin(origin)?;
-			<CandidacyBond<T>>::put(bond);
+			let bond_increased = <CandidacyBond<T>>::mutate(|old_bond| -> bool {
+				let bond_increased = *old_bond < bond;
+				*old_bond = bond;
+				bond_increased
+			});
+			let initial_len = <CandidateList<T>>::decode_len().unwrap_or_default();
+			if bond_increased && initial_len > 0 {
+				<CandidateList<T>>::try_mutate(|candidates| -> Result<(), DispatchError> {
+					let starting_kick_idx = candidates
+						.iter()
+						.position(|candidate| candidate.deposit >= bond)
+						.unwrap_or(initial_len);
+					let kicked = candidates.drain(..starting_kick_idx);
+					for candidate in kicked {
+						T::Currency::unreserve(&candidate.who, candidate.deposit);
+						<LastAuthoredBlock<T>>::remove(candidate.who);
+					}
+					Ok(())
+				})?;
+			}
 			Self::deposit_event(Event::NewCandidacyBond { bond_amount: bond });
 			Ok(().into())
 		}
