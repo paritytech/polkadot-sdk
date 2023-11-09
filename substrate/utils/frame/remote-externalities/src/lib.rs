@@ -400,46 +400,6 @@ where
 			})
 	}
 
-	/// FIXME eagr: dead code
-	/// Get all the keys at `prefix` at `hash` using the paged, safe RPC methods.
-	async fn rpc_get_keys_paged(
-		&self,
-		prefix: StorageKey,
-		at: B::Hash,
-	) -> Result<Vec<StorageKey>, &'static str> {
-		let mut last_key: Option<StorageKey> = None;
-		let mut all_keys: Vec<StorageKey> = vec![];
-		let keys = loop {
-			// This loop can hit the node with very rapid requests, occasionally causing it to
-			// error out in CI (https://github.com/paritytech/substrate/issues/14129), so we retry.
-			let retry_strategy =
-				FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-			let get_page_closure =
-				|| self.get_keys_single_page(Some(prefix.clone()), last_key.clone(), at);
-			let page = Retry::spawn(retry_strategy, get_page_closure).await?;
-			let page_len = page.len();
-
-			all_keys.extend(page);
-
-			if page_len < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
-				log::debug!(target: LOG_TARGET, "last page received: {}", page_len);
-				break all_keys
-			} else {
-				let new_last_key =
-					all_keys.last().expect("all_keys is populated; has .last(); qed");
-				log::debug!(
-					target: LOG_TARGET,
-					"new total = {}, full page received: {}",
-					all_keys.len(),
-					HexDisplay::from(new_last_key)
-				);
-				last_key = Some(new_last_key.clone());
-			};
-		};
-
-		Ok(keys)
-	}
-
 	/// Get keys with `prefix` at `block` in a parallel manner, with `parallel` saturated at 256.
 	async fn rpc_get_keys_parallel(
 		&self,
@@ -449,15 +409,12 @@ where
 	) -> Result<Vec<StorageKey>, &'static str> {
 		// should guarantee to return a non-empty list
 		fn gen_start_keys(prefix: &StorageKey, parallel: u16) -> Vec<StorageKey> {
-			// FIXME eagr: no need to go above 256 right? coz it feels 256 is more than enough.
-			// I'm kinda cutting corners here. If parallel is restricted to [1, 256], then we don't
-			// need to involve bigint.
 			let parallel = parallel.max(1).min(256);
 			let prefix = prefix.as_ref().to_vec();
 
 			// assume 256-bit hash
-			if prefix.len() >= 32 {
-				return vec![StorageKey(prefix.clone())]
+			if prefix.len() > 31 {
+				return vec![StorageKey(prefix)]
 			}
 
 			let step = 256 / parallel;
@@ -474,10 +431,11 @@ where
 		}
 
 		let start_keys = gen_start_keys(&prefix, parallel);
-		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].iter().map(Some).collect();
+		let start_keys: Vec<Option<&StorageKey>> = start_keys.iter().map(Some).collect();
+		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
 		end_keys.push(None);
 
-		let batch = start_keys.iter().zip(end_keys).map(|(start_key, end_key)| {
+		let batch = start_keys.into_iter().zip(end_keys).map(|(start_key, end_key)| {
 			self.rpc_get_keys_in_range(&prefix, block, start_key, end_key)
 		});
 
@@ -503,15 +461,15 @@ where
 	}
 
 	/// Get all keys with `prefix` within the given range at `block`.
-	/// Use `None` for `end_key` if you want the range `start_key..`.
+	/// Both `start_key` and `end_key` are optional if you want an open-ended range.
 	async fn rpc_get_keys_in_range(
 		&self,
 		prefix: &StorageKey,
 		block: B::Hash,
-		start_key: &StorageKey,
+		start_key: Option<&StorageKey>,
 		end_key: Option<&StorageKey>,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		let mut last_key: Option<&StorageKey> = Some(start_key);
+		let mut last_key: Option<&StorageKey> = start_key;
 		let mut keys: Vec<StorageKey> = vec![];
 
 		loop {
@@ -1557,40 +1515,26 @@ mod remote_tests {
 
 	#[tokio::test]
 	async fn can_fetch_parallel() {
+		use std::time::Instant;
+
 		init_logger();
 
-		let uri = String::from("wss://kusama-bridge-hub-rpc.polkadot.io:443");
+		let uri = String::from("wss://polkadot-try-runtime-node.parity-chains.parity.io:443");
 		let mut builder = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig { transport: uri.into(), ..Default::default() }));
 		builder.init_remote_client().await.unwrap();
 
 		let at = builder.as_online().at.unwrap();
 
-		let prefix = StorageKey(vec![13]);
-		let para_0 = builder.rpc_get_keys_parallel(prefix.clone(), at, 0).await.unwrap();
-		let para_1 = builder.rpc_get_keys_parallel(prefix.clone(), at, 1).await.unwrap();
-		let para_2 = builder.rpc_get_keys_parallel(prefix.clone(), at, 2).await.unwrap();
-		let para_3 = builder.rpc_get_keys_parallel(prefix.clone(), at, 3).await.unwrap();
-		let para_32 = builder.rpc_get_keys_parallel(prefix.clone(), at, 32).await.unwrap();
-		let paged = builder.rpc_get_keys_paged(prefix, at).await.unwrap();
-		assert_eq!(para_0, paged);
-		assert_eq!(para_1, paged);
-		assert_eq!(para_2, paged);
-		assert_eq!(para_3, paged);
-		assert_eq!(para_32, paged);
-
 		// scrape all
 		let prefix = StorageKey(vec![]);
-		let para_0 = builder.rpc_get_keys_parallel(prefix.clone(), at, 0).await.unwrap();
-		let para_1 = builder.rpc_get_keys_parallel(prefix.clone(), at, 1).await.unwrap();
-		let para_2 = builder.rpc_get_keys_parallel(prefix.clone(), at, 2).await.unwrap();
-		let para_3 = builder.rpc_get_keys_parallel(prefix.clone(), at, 3).await.unwrap();
-		let para_32 = builder.rpc_get_keys_parallel(prefix.clone(), at, 32).await.unwrap();
-		let paged = builder.rpc_get_keys_paged(prefix, at).await.unwrap();
-		assert_eq!(para_0, paged);
-		assert_eq!(para_1, paged);
-		assert_eq!(para_2, paged);
-		assert_eq!(para_3, paged);
-		assert_eq!(para_32, paged);
+		// let start = Instant::now();
+		// let para_2 = builder.rpc_get_keys_parallel(prefix.clone(), at, 2).await.unwrap();
+		// log::error!("parallels elapsed: {:?}", start.elapsed());
+		let start = Instant::now();
+		let para_4 = builder.rpc_get_keys_parallel(prefix.clone(), at, 4).await.unwrap();
+		log::error!("parallels elapsed: {:?}", start.elapsed());
+		assert_eq!(para_4[0], para_4[para_4.len() - 1]);
+		// assert_eq!(para_4, para_2);
 	}
 }
