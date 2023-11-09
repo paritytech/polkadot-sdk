@@ -26,8 +26,8 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
-	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
+	SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
@@ -262,7 +262,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// backable.
 	pub minimum_backing_votes: u32,
 	/// Node features enablement.
-	pub node_features: u64,
+	pub node_features: NodeFeatures,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -314,7 +314,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
-			node_features: 0,
+			node_features: NodeFeatures::EMPTY,
 		}
 	}
 }
@@ -1207,10 +1207,17 @@ pub mod pallet {
 		))]
 		pub fn toggle_node_feature(origin: OriginFor<T>, index: u8) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(index < 64, Error::<T>::InvalidNewValue);
 
 			Self::schedule_config_update(|config| {
-				config.node_features ^= 1 << index;
+				let index = usize::from(index);
+				if config.node_features.len() <= index {
+					config.node_features.resize(index + 1, false);
+				}
+				let old_value = *config
+					.node_features
+					.get(index)
+					.expect("BitVec just resized to contain the index.");
+				config.node_features.set(index, !old_value);
 			})
 		}
 	}

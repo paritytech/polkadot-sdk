@@ -19,7 +19,7 @@
 use crate::configuration::{self, Config, Pallet};
 use frame_support::{pallet_prelude::*, traits::Defensive, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::SessionIndex;
+use primitives::{vstaging::NodeFeatures, SessionIndex};
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
@@ -140,7 +140,7 @@ fn translate<T: Config>(pre: V9HostConfiguration<BlockNumberFor<T>>) -> V10HostC
 		on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
 		on_demand_ttl                            : pre.on_demand_ttl,
 		minimum_backing_votes                    : pre.minimum_backing_votes,
-		node_features                            : 0
+		node_features                            : NodeFeatures::EMPTY
 	}
 }
 
@@ -194,7 +194,7 @@ mod tests {
 		// doesn't need to be read and also leaving it as one line allows to easily copy it.
 		let raw_config =
 	hex_literal::hex!["
-	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000140000000400000001000000010100000000060000006400000002000000190000000000000002000000020000000200000005000000020000000000000000000000"
+	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c90180969800000000000000000000000000050000001400000004000000010000000101000000000600000064000000020000001900000000000000020000000200000002000000050000000200000000"
 	];
 
 		let v10 =
@@ -212,7 +212,7 @@ mod tests {
 		assert_eq!(v10.on_demand_cores, 0);
 		assert_eq!(v10.on_demand_base_fee, 10_000_000);
 		assert_eq!(v10.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
-		assert_eq!(v10.node_features, 0);
+		assert_eq!(v10.node_features, NodeFeatures::EMPTY);
 	}
 
 	// Test that `migrate_to_v10`` correctly applies the `translate` function to current and pending
@@ -253,7 +253,7 @@ mod tests {
 
 			for (_, config) in configs_to_check {
 				assert_eq!(config, v10);
-				assert_eq!(config.node_features, 0);
+				assert_eq!(config.node_features, NodeFeatures::EMPTY);
 			}
 		});
 	}

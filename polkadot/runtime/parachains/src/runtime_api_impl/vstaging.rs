@@ -17,7 +17,6 @@
 //! Put implementations of functions from staging APIs here.
 
 use crate::{configuration, initializer, shared};
-use bitvec::vec::BitVec;
 use primitives::{vstaging::NodeFeatures, ValidatorIndex};
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
@@ -46,6 +45,5 @@ where
 
 /// Returns the current state of the node features.
 pub fn node_features<T: initializer::Config>() -> NodeFeatures {
-	let features_u64 = <configuration::Pallet<T>>::config().node_features;
-	BitVec::from_element(features_u64)
+	<configuration::Pallet<T>>::config().node_features
 }

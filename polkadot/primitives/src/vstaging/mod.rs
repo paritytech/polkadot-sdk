@@ -21,4 +21,4 @@
 use bitvec::vec::BitVec;
 
 /// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
-pub type NodeFeatures = BitVec<u64, bitvec::order::Lsb0>;
+pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
