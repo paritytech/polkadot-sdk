@@ -168,13 +168,14 @@ async fn run<Context>(
 					Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 					Ok(FromOrchestra::Communication { msg }) => match msg {
-						CandidateValidationMessage::ValidateFromChainState(
+						CandidateValidationMessage::ValidateFromChainState {
 							candidate_receipt,
 							pov,
 							executor_params,
-							timeout,
+							exec_timeout_kind,
 							response_sender,
-						) => {
+							..
+						} => {
 							let mut sender = ctx.sender().clone();
 							let metrics = metrics.clone();
 							let validation_host = validation_host.clone();
@@ -189,7 +190,7 @@ async fn run<Context>(
 									candidate_receipt,
 									pov,
 									executor_params,
-									timeout,
+									exec_timeout_kind,
 									&metrics,
 								)
 								.await;
@@ -198,15 +199,16 @@ async fn run<Context>(
 								let _ = response_sender.send(res);
 							}.boxed());
 						},
-						CandidateValidationMessage::ValidateFromExhaustive(
-							persisted_validation_data,
+						CandidateValidationMessage::ValidateFromExhaustive {
+							validation_data,
 							validation_code,
 							candidate_receipt,
 							pov,
 							executor_params,
-							timeout,
+							exec_timeout_kind,
 							response_sender,
-						) => {
+							..
+						} => {
 							let metrics = metrics.clone();
 							let validation_host = validation_host.clone();
 
@@ -216,12 +218,12 @@ async fn run<Context>(
 								let _timer = metrics.time_validate_from_exhaustive();
 								let res = validate_candidate_exhaustive(
 									validation_host,
-									persisted_validation_data,
+									validation_data,
 									validation_code,
 									candidate_receipt,
 									pov,
 									executor_params,
-									timeout,
+									exec_timeout_kind,
 									&metrics,
 								)
 								.await;
@@ -230,11 +232,12 @@ async fn run<Context>(
 								let _ = response_sender.send(res);
 							}.boxed());
 						},
-						CandidateValidationMessage::PreCheck(
+						CandidateValidationMessage::PreCheck {
 							relay_parent,
 							validation_code_hash,
 							response_sender,
-						) => {
+							..
+						} => {
 							let mut sender = ctx.sender().clone();
 							let validation_host = validation_host.clone();
 
