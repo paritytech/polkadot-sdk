@@ -22,7 +22,8 @@
 //! - Avoid cluttering the source pallet with new dispatchables that are unrelated to its
 //!   functionality and only used for migration.
 //!
-//! After the migration is complete, the pallet may be removed from both chains' runtimes.
+//! After the migration is complete, the pallet may be removed from both chains' runtimes as well as
+//! the `polkadot-runtime-common` crate.
 
 use frame_support::{dispatch::DispatchResult, traits::Currency, weights::Weight};
 pub use pallet::*;
@@ -56,6 +57,7 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+// Must use the same `Balance` as `T`'s Identity pallet to handle deposits.
 type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
@@ -101,8 +103,8 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Reap the Identity Info of `who` from the Relay Chain, unreserving any deposits held and
-		/// removing storage items associated with `who`.
+		/// Reap the `IdentityInfo` of `who` from the Identity pallet of `T`, unreserving any
+		/// deposits held and removing storage items associated with `who`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::reap_identity(
 				T::MaxRegistrars::get(),
@@ -113,8 +115,11 @@ pub mod pallet {
 			who: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			T::Reaper::ensure_origin(origin)?;
-			let (registrars, fields, subs) = pallet_identity::Pallet::<T>::reap_identity(&who)?;
-			T::ReapIdentityHandler::on_reap_identity(&who, fields, subs)?;
+			// - number of registrars (required to calculate weight)
+			// - byte size of `IdentityInfo` (required to calculate remote deposit)
+			// - number of sub accounts (required to calculate both weight and remote deposit)
+			let (registrars, bytes, subs) = pallet_identity::Pallet::<T>::reap_identity(&who)?;
+			T::ReapIdentityHandler::on_reap_identity(&who, bytes, subs)?;
 			Self::deposit_event(Event::IdentityReaped { who });
 			let post = PostDispatchInfo {
 				actual_weight: Some(<T as pallet::Config>::WeightInfo::reap_identity(
@@ -218,6 +223,7 @@ mod benchmarks {
 		let registrar_origin = T::RegistrarOrigin::try_successful_origin()
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		for ii in 0..r {
+			// registrar account
 			let registrar: T::AccountId = account("registrar", ii, SEED);
 			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
 			let _ = <T as pallet_identity::Config>::Currency::make_free_balance_be(
@@ -225,11 +231,13 @@ mod benchmarks {
 				<T as pallet_identity::Config>::Currency::minimum_balance(),
 			);
 
+			// add registrar
 			Identity::<T>::add_registrar(registrar_origin.clone(), registrar_lookup)?;
 			Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), ii, 10u32.into())?;
 			let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
 			Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), ii, fields)?;
 
+			// request and provide judgement
 			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into())?;
 			Identity::<T>::provide_judgement(
 				RawOrigin::Signed(registrar).into(),

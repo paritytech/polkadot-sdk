@@ -26,14 +26,15 @@ use xcm::{latest::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 
 /// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
-/// remote calls.
+/// remote calls. The codec index must correspond to the index of `IdentityMigrator` in the
+/// `construct_runtime` of the remote chain.
 #[derive(Encode, Decode)]
 enum PeopleRuntimePallets<AccountId: Encode> {
 	#[codec(index = 248)]
 	IdentityMigrator(IdentityMigratorCalls<AccountId>),
 }
 
-/// Call encoding for the calls needed from the Identity pallet.
+/// Call encoding for the calls needed from the Identity Migrator pallet.
 #[derive(Encode, Decode)]
 enum IdentityMigratorCalls<AccountId: Encode> {
 	#[codec(index = 1)]
@@ -51,9 +52,6 @@ impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
 	/// - `IdentityInfo` byte deposit
 	/// - Sub accounts deposit
 	/// - 2x existential deposit (1 for account existence, 1 such that the user can transact)
-	///
-	/// This implementation is speculative and subject to change based on the remote chain's
-	/// configuration.
 	fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
 		// remote deposit constants
 		let para_basic_deposit = 1000 * CENTS / 100;
