@@ -19,7 +19,8 @@ use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use sc_network::{
 	config::{
-		NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake, ProtocolId, SetConfig,
+		NetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
+		ProtocolId, SetConfig,
 	},
 	peer_store::PeerStore,
 	NetworkService,
@@ -35,7 +36,7 @@ use std::{iter, sync::Arc};
 /// Build the network service, the network status sinks and an RPC sender.
 pub(crate) fn build_collator_network(
 	config: &Configuration,
-	network_config: FullNetworkConfiguration,
+	mut full_network_config: FullNetworkConfiguration,
 	spawn_handle: SpawnTaskHandle,
 	genesis_hash: Hash,
 	best_header: Header,
@@ -53,8 +54,12 @@ pub(crate) fn build_collator_network(
 		genesis_hash,
 	);
 
+	// Since this node has no syncing, we do not want light-clients to connect to it.
+	// Here we set any potential light-client slots to 0.
+	adjust_network_config_light_in_peers(&mut full_network_config.network_config);
+
 	let peer_store = PeerStore::new(
-		network_config
+		full_network_config
 			.network_config
 			.boot_nodes
 			.iter()
@@ -75,7 +80,7 @@ pub(crate) fn build_collator_network(
 			})
 		},
 		fork_id: None,
-		network_config,
+		network_config: full_network_config,
 		peer_store: peer_store_handle,
 		genesis_hash,
 		protocol_id,
@@ -112,6 +117,18 @@ pub(crate) fn build_collator_network(
 	let network_starter = NetworkStarter::new(network_start_tx);
 
 	Ok((network_service, network_starter, Box::new(SyncOracle {})))
+}
+
+fn adjust_network_config_light_in_peers(config: &mut NetworkConfiguration) {
+	let light_client_in_peers = (config.default_peers_set.in_peers +
+		config.default_peers_set.out_peers)
+		.saturating_sub(config.default_peers_set_num_full);
+	if light_client_in_peers > 0 {
+		tracing::debug!(target: crate::LOG_TARGET, "Detected {light_client_in_peers} peer slots for light clients. Since this minimal node does support\
+											 neither syncing nor light-client request/response, we are setting them to 0.");
+	}
+	config.default_peers_set.in_peers =
+		config.default_peers_set.in_peers.saturating_sub(light_client_in_peers);
 }
 
 struct SyncOracle;

@@ -166,13 +166,34 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, S
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
-			// TODO: Not implemented yet; <https://github.com/paritytech/polkadot/issues/6472>.
-			ExecutorParam::PrecheckingMaxMemory(_) => (),
-			ExecutorParam::PvfPrepTimeout(_, _) | ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
+			ExecutorParam::PrecheckingMaxMemory(_) |
+			ExecutorParam::PvfPrepTimeout(_, _) |
+			ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit);
 	Ok(sem)
+}
+
+/// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
+pub fn prevalidate(code: &[u8]) -> Result<RuntimeBlob, sc_executor_common::error::WasmError> {
+	let blob = RuntimeBlob::new(code)?;
+	// It's assumed this function will take care of any prevalidation logic
+	// that needs to be done.
+	//
+	// Do nothing for now.
+	Ok(blob)
+}
+
+/// Runs preparation on the given runtime blob. If successful, it returns a serialized compiled
+/// artifact which can then be used to pass into `Executor::execute` after writing it to the disk.
+pub fn prepare(
+	blob: RuntimeBlob,
+	executor_params: &ExecutorParams,
+) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
+	let semantics = params_to_wasmtime_semantics(executor_params)
+		.map_err(|e| sc_executor_common::error::WasmError::Other(e))?;
+	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
 }
 
 /// Available host functions. We leave out:

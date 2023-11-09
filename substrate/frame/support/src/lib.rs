@@ -44,7 +44,7 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
-	pub use sp_core::{OpaqueMetadata, Void};
+	pub use sp_core::{hashing, OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
 	pub use sp_inherents;
 	#[cfg(feature = "std")]

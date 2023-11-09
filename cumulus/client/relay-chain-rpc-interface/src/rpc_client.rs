@@ -201,7 +201,7 @@ impl RelayChainRpcClient {
 
 		let value = rx.await.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(format!(
-				"Unexpected channel close on RPC worker side: {}",
+				"RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}",
 				err
 			))
 		})??;

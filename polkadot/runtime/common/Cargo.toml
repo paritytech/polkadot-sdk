@@ -39,7 +39,7 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
-pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false, optional = true }
 pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 
@@ -64,7 +64,7 @@ pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-treasury = { path = "../../../substrate/frame/treasury" }
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 
@@ -80,7 +80,7 @@ std = [
 	"inherents/std",
 	"libsecp256k1/std",
 	"log/std",
-	"pallet-asset-rate/std",
+	"pallet-asset-rate?/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-election-provider-multi-phase/std",

@@ -79,35 +79,30 @@ pub fn asset_hub_polkadot_development_config() -> AssetHubPolkadotChainSpec {
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	AssetHubPolkadotChainSpec::from_genesis(
-		// Name
-		"Polkadot Asset Hub Development",
-		// ID
-		"asset-hub-polkadot-dev",
-		ChainType::Local,
-		move || {
-			asset_hub_polkadot_genesis(
-				// initial collators.
-				vec![(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AssetHubPolkadotAuraId>("Alice"),
-				)],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				],
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubPolkadotChainSpec::builder(
+		asset_hub_polkadot_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-dev".into(), para_id: 1000 },
 	)
+	.with_name("Polkadot Asset Hub Development")
+	.with_id("asset-hub-polkadot-dev")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_polkadot_genesis(
+		// initial collators.
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AssetHubPolkadotAuraId>("Alice"),
+		)],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		],
+		1000.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_polkadot_local_config() -> AssetHubPolkadotChainSpec {
@@ -116,49 +111,45 @@ pub fn asset_hub_polkadot_local_config() -> AssetHubPolkadotChainSpec {
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	AssetHubPolkadotChainSpec::from_genesis(
-		// Name
-		"Polkadot Asset Hub Local",
-		// ID
-		"asset-hub-polkadot-local",
-		ChainType::Local,
-		move || {
-			asset_hub_polkadot_genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AssetHubPolkadotAuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AssetHubPolkadotAuraId>("Bob"),
-					),
-				],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubPolkadotChainSpec::builder(
+		asset_hub_polkadot_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-local".into(), para_id: 1000 },
 	)
+	.with_name("Polkadot Asset Hub Local")
+	.with_id("asset-hub-polkadot-local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_polkadot_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<AssetHubPolkadotAuraId>("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed::<AssetHubPolkadotAuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		1000.into(),
+	))
+	.with_boot_nodes(Vec::new())
+	.with_properties(properties)
+	.build()
 }
 
 // Not used for syncing, but just to determine the genesis values set for the upgrade from shell.
@@ -168,89 +159,81 @@ pub fn asset_hub_polkadot_config() -> AssetHubPolkadotChainSpec {
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	AssetHubPolkadotChainSpec::from_genesis(
-		// Name
-		"Polkadot Asset Hub",
-		// ID
-		"asset-hub-polkadot",
-		ChainType::Live,
-		move || {
-			asset_hub_polkadot_genesis(
-				// initial collators.
-				vec![
-					(
-						hex!("4c3d674d2a01060f0ded218e5dcc6f90c1726f43df79885eb3e22d97a20d5421")
-							.into(),
-						hex!("4c3d674d2a01060f0ded218e5dcc6f90c1726f43df79885eb3e22d97a20d5421")
-							.unchecked_into(),
-					),
-					(
-						hex!("c7d7d38d16bc23c6321152c50306212dc22c0efc04a2e52b5cccfc31ab3d7811")
-							.into(),
-						hex!("c7d7d38d16bc23c6321152c50306212dc22c0efc04a2e52b5cccfc31ab3d7811")
-							.unchecked_into(),
-					),
-					(
-						hex!("c5c07ba203d7375675f5c1ebe70f0a5bb729ae57b48bcc877fcc2ab21309b762")
-							.into(),
-						hex!("c5c07ba203d7375675f5c1ebe70f0a5bb729ae57b48bcc877fcc2ab21309b762")
-							.unchecked_into(),
-					),
-					(
-						hex!("0b2d0013fb974794bd7aa452465b567d48ef70373fe231a637c1fb7c547e85b3")
-							.into(),
-						hex!("0b2d0013fb974794bd7aa452465b567d48ef70373fe231a637c1fb7c547e85b3")
-							.unchecked_into(),
-					),
-				],
-				vec![],
-				1000u32.into(),
-			)
-		},
-		vec![
-			"/ip4/34.65.251.121/tcp/30334/p2p/12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa".parse().unwrap(),
-			"/ip4/34.65.35.228/tcp/30334/p2p/12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq".parse().unwrap(),
-			"/ip4/34.83.247.146/tcp/30334/p2p/12D3KooWE4jFh5FpJDkWVZhnWtFnbSqRhdjvC7Dp9b8b3FTuubQC".parse().unwrap(),
-			"/ip4/104.199.117.230/tcp/30334/p2p/12D3KooWG9R8pVXKumVo2rdkeVD4j5PVhRTqmYgLHY3a4yPYgLqM".parse().unwrap(),
-		],
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubPolkadotChainSpec::builder(
+		asset_hub_polkadot_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot".into(), para_id: 1000 },
 	)
+	.with_name("Polkadot Asset Hub")
+	.with_id("asset-hub-polkadot")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(asset_hub_polkadot_genesis(
+		// initial collators.
+		vec![
+			(
+				hex!("4c3d674d2a01060f0ded218e5dcc6f90c1726f43df79885eb3e22d97a20d5421").into(),
+				hex!("4c3d674d2a01060f0ded218e5dcc6f90c1726f43df79885eb3e22d97a20d5421")
+					.unchecked_into(),
+			),
+			(
+				hex!("c7d7d38d16bc23c6321152c50306212dc22c0efc04a2e52b5cccfc31ab3d7811").into(),
+				hex!("c7d7d38d16bc23c6321152c50306212dc22c0efc04a2e52b5cccfc31ab3d7811")
+					.unchecked_into(),
+			),
+			(
+				hex!("c5c07ba203d7375675f5c1ebe70f0a5bb729ae57b48bcc877fcc2ab21309b762").into(),
+				hex!("c5c07ba203d7375675f5c1ebe70f0a5bb729ae57b48bcc877fcc2ab21309b762")
+					.unchecked_into(),
+			),
+			(
+				hex!("0b2d0013fb974794bd7aa452465b567d48ef70373fe231a637c1fb7c547e85b3").into(),
+				hex!("0b2d0013fb974794bd7aa452465b567d48ef70373fe231a637c1fb7c547e85b3")
+					.unchecked_into(),
+			),
+		],
+		vec![],
+		1000u32.into(),
+	))
+	.with_boot_nodes(vec![
+		"/ip4/34.65.251.121/tcp/30334/p2p/12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa"
+			.parse()
+			.unwrap(),
+		"/ip4/34.65.35.228/tcp/30334/p2p/12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq"
+			.parse()
+			.unwrap(),
+		"/ip4/34.83.247.146/tcp/30334/p2p/12D3KooWE4jFh5FpJDkWVZhnWtFnbSqRhdjvC7Dp9b8b3FTuubQC"
+			.parse()
+			.unwrap(),
+		"/ip4/104.199.117.230/tcp/30334/p2p/12D3KooWG9R8pVXKumVo2rdkeVD4j5PVhRTqmYgLHY3a4yPYgLqM"
+			.parse()
+			.unwrap(),
+	])
+	.with_properties(properties)
+	.build()
 }
 
 fn asset_hub_polkadot_genesis(
 	invulnerables: Vec<(AccountId, AssetHubPolkadotAuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> asset_hub_polkadot_runtime::RuntimeGenesisConfig {
-	asset_hub_polkadot_runtime::RuntimeGenesisConfig {
-		system: asset_hub_polkadot_runtime::SystemConfig {
-			code: asset_hub_polkadot_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
-		balances: asset_hub_polkadot_runtime::BalancesConfig {
-			balances: endowed_accounts
+) -> serde_json::Value {
+	serde_json::json!( {
+		"balances": {
+			"balances": endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, ASSET_HUB_POLKADOT_ED * 4096))
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		parachain_info: asset_hub_polkadot_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
+		"parachainInfo": {
+			"parachainId": id,
 		},
-		collator_selection: asset_hub_polkadot_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: ASSET_HUB_POLKADOT_ED * 16,
-			..Default::default()
+		"collatorSelection": {
+			"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
+			"candidacyBond": ASSET_HUB_POLKADOT_ED * 16,
 		},
-		session: asset_hub_polkadot_runtime::SessionConfig {
-			keys: invulnerables
+		"session": {
+			"keys": invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
@@ -259,18 +242,12 @@ fn asset_hub_polkadot_genesis(
 						asset_hub_polkadot_session_keys(aura), // session keys
 					)
 				})
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this.
-		aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: asset_hub_polkadot_runtime::PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
-		},
-	}
+		"polkadotXcm": {
+			"safeXcmVersion": Some(SAFE_XCM_VERSION),
+		}
+	})
 }
 
 pub fn asset_hub_kusama_development_config() -> AssetHubKusamaChainSpec {
@@ -279,35 +256,29 @@ pub fn asset_hub_kusama_development_config() -> AssetHubKusamaChainSpec {
 	properties.insert("tokenSymbol".into(), "KSM".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubKusamaChainSpec::from_genesis(
-		// Name
-		"Kusama Asset Hub Development",
-		// ID
-		"asset-hub-kusama-dev",
-		ChainType::Local,
-		move || {
-			asset_hub_kusama_genesis(
-				// initial collators.
-				vec![(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				)],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				],
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubKusamaChainSpec::builder(
+		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-dev".into(), para_id: 1000 },
 	)
+	.with_name("Kusama Asset Hub Development")
+	.with_id("asset-hub-kusama-dev")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_kusama_genesis(
+		// initial collators.
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+		)],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		],
+		1000.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_kusama_local_config() -> AssetHubKusamaChainSpec {
@@ -316,49 +287,43 @@ pub fn asset_hub_kusama_local_config() -> AssetHubKusamaChainSpec {
 	properties.insert("tokenSymbol".into(), "KSM".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubKusamaChainSpec::from_genesis(
-		// Name
-		"Kusama Asset Hub Local",
-		// ID
-		"asset-hub-kusama-local",
-		ChainType::Local,
-		move || {
-			asset_hub_kusama_genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubKusamaChainSpec::builder(
+		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-local".into(), para_id: 1000 },
 	)
+	.with_name("Kusama Asset Hub Local")
+	.with_id("asset-hub-kusama-local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_kusama_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<AuraId>("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed::<AuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		1000.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_kusama_config() -> AssetHubKusamaChainSpec {
@@ -367,84 +332,66 @@ pub fn asset_hub_kusama_config() -> AssetHubKusamaChainSpec {
 	properties.insert("tokenSymbol".into(), "KSM".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubKusamaChainSpec::from_genesis(
-		// Name
-		"Kusama Asset Hub",
-		// ID
-		"asset-hub-kusama",
-		ChainType::Live,
-		move || {
-			asset_hub_kusama_genesis(
-				// initial collators.
-				vec![
-					(
-						hex!("50673d59020488a4ffc9d8c6de3062a65977046e6990915617f85fef6d349730")
-							.into(),
-						hex!("50673d59020488a4ffc9d8c6de3062a65977046e6990915617f85fef6d349730")
-							.unchecked_into(),
-					),
-					(
-						hex!("fe8102dbc244e7ea2babd9f53236d67403b046154370da5c3ea99def0bd0747a")
-							.into(),
-						hex!("fe8102dbc244e7ea2babd9f53236d67403b046154370da5c3ea99def0bd0747a")
-							.unchecked_into(),
-					),
-					(
-						hex!("38144b5398e5d0da5ec936a3af23f5a96e782f676ab19d45f29075ee92eca76a")
-							.into(),
-						hex!("38144b5398e5d0da5ec936a3af23f5a96e782f676ab19d45f29075ee92eca76a")
-							.unchecked_into(),
-					),
-					(
-						hex!("3253947640e309120ae70fa458dcacb915e2ddd78f930f52bd3679ec63fc4415")
-							.into(),
-						hex!("3253947640e309120ae70fa458dcacb915e2ddd78f930f52bd3679ec63fc4415")
-							.unchecked_into(),
-					),
-				],
-				Vec::new(),
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubKusamaChainSpec::builder(
+		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama".into(), para_id: 1000 },
 	)
+	.with_name("Kusama Asset Hub")
+	.with_id("asset-hub-kusama")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(asset_hub_kusama_genesis(
+		// initial collators.
+		vec![
+			(
+				hex!("50673d59020488a4ffc9d8c6de3062a65977046e6990915617f85fef6d349730").into(),
+				hex!("50673d59020488a4ffc9d8c6de3062a65977046e6990915617f85fef6d349730")
+					.unchecked_into(),
+			),
+			(
+				hex!("fe8102dbc244e7ea2babd9f53236d67403b046154370da5c3ea99def0bd0747a").into(),
+				hex!("fe8102dbc244e7ea2babd9f53236d67403b046154370da5c3ea99def0bd0747a")
+					.unchecked_into(),
+			),
+			(
+				hex!("38144b5398e5d0da5ec936a3af23f5a96e782f676ab19d45f29075ee92eca76a").into(),
+				hex!("38144b5398e5d0da5ec936a3af23f5a96e782f676ab19d45f29075ee92eca76a")
+					.unchecked_into(),
+			),
+			(
+				hex!("3253947640e309120ae70fa458dcacb915e2ddd78f930f52bd3679ec63fc4415").into(),
+				hex!("3253947640e309120ae70fa458dcacb915e2ddd78f930f52bd3679ec63fc4415")
+					.unchecked_into(),
+			),
+		],
+		Vec::new(),
+		1000.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 fn asset_hub_kusama_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> asset_hub_kusama_runtime::RuntimeGenesisConfig {
-	asset_hub_kusama_runtime::RuntimeGenesisConfig {
-		system: asset_hub_kusama_runtime::SystemConfig {
-			code: asset_hub_kusama_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
-		balances: asset_hub_kusama_runtime::BalancesConfig {
-			balances: endowed_accounts
+) -> serde_json::Value {
+	serde_json::json!( {
+		"balances": {
+			"balances": endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, ASSET_HUB_KUSAMA_ED * 524_288))
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		parachain_info: asset_hub_kusama_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
+		"parachainInfo": {
+			"parachainId": id,
 		},
-		collator_selection: asset_hub_kusama_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: ASSET_HUB_KUSAMA_ED * 16,
-			..Default::default()
+		"collatorSelection": {
+			"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
+			"candidacyBond": ASSET_HUB_KUSAMA_ED * 16,
 		},
-		session: asset_hub_kusama_runtime::SessionConfig {
-			keys: invulnerables
+		"session": {
+			"keys": invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
@@ -453,16 +400,12 @@ fn asset_hub_kusama_genesis(
 						asset_hub_kusama_session_keys(aura), // session keys
 					)
 				})
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: asset_hub_kusama_runtime::PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
+		"polkadotXcm": {
+			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-	}
+	})
 }
 
 pub fn asset_hub_westend_development_config() -> AssetHubWestendChainSpec {
@@ -470,35 +413,30 @@ pub fn asset_hub_westend_development_config() -> AssetHubWestendChainSpec {
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubWestendChainSpec::from_genesis(
-		// Name
-		"Westend Asset Hub Development",
-		// ID
-		"asset-hub-westend-dev",
-		ChainType::Local,
-		move || {
-			asset_hub_westend_genesis(
-				// initial collators.
-				vec![(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				)],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				],
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubWestendChainSpec::builder(
+		asset_hub_westend_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
 	)
+	.with_name("Westend Asset Hub Development")
+	.with_id("asset-hub-westend-dev")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_westend_genesis(
+		// initial collators.
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+		)],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		],
+		1000.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_westend_local_config() -> AssetHubWestendChainSpec {
@@ -506,49 +444,44 @@ pub fn asset_hub_westend_local_config() -> AssetHubWestendChainSpec {
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubWestendChainSpec::from_genesis(
-		// Name
-		"Westend Asset Hub Local",
-		// ID
-		"asset-hub-westend-local",
-		ChainType::Local,
-		move || {
-			asset_hub_westend_genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubWestendChainSpec::builder(
+		asset_hub_westend_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend-local".into(), para_id: 1000 },
 	)
+	.with_name("Westend Asset Hub Local")
+	.with_id("asset-hub-westend-local")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_westend_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<AuraId>("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed::<AuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		1000.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_westend_config() -> AssetHubWestendChainSpec {
@@ -556,84 +489,67 @@ pub fn asset_hub_westend_config() -> AssetHubWestendChainSpec {
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubWestendChainSpec::from_genesis(
-		// Name
-		"Westend Asset Hub",
-		// ID
-		"asset-hub-westend",
-		ChainType::Live,
-		move || {
-			asset_hub_westend_genesis(
-				// initial collators.
-				vec![
-					(
-						hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325")
-							.into(),
-						hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325")
-							.unchecked_into(),
-					),
-					(
-						hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876")
-							.into(),
-						hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876")
-							.unchecked_into(),
-					),
-					(
-						hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f")
-							.into(),
-						hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f")
-							.unchecked_into(),
-					),
-					(
-						hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322")
-							.into(),
-						hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322")
-							.unchecked_into(),
-					),
-				],
-				Vec::new(),
-				1000.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubWestendChainSpec::builder(
+		asset_hub_westend_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
 	)
+	.with_name("Westend Asset Hub")
+	.with_id("asset-hub-westend")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(asset_hub_westend_genesis(
+		// initial collators.
+		vec![
+			(
+				hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325").into(),
+				hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325")
+					.unchecked_into(),
+			),
+			(
+				hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876").into(),
+				hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876")
+					.unchecked_into(),
+			),
+			(
+				hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f").into(),
+				hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f")
+					.unchecked_into(),
+			),
+			(
+				hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322").into(),
+				hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322")
+					.unchecked_into(),
+			),
+		],
+		Vec::new(),
+		1000.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> asset_hub_westend_runtime::RuntimeGenesisConfig {
-	asset_hub_westend_runtime::RuntimeGenesisConfig {
-		system: asset_hub_westend_runtime::SystemConfig {
-			code: asset_hub_westend_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
-		balances: asset_hub_westend_runtime::BalancesConfig {
-			balances: endowed_accounts
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, ASSET_HUB_WESTEND_ED * 4096))
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
+		"parachainInfo": {
+			"parachainId": id,
 		},
-		collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: ASSET_HUB_WESTEND_ED * 16,
-			..Default::default()
+		"collatorSelection": {
+			"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
+			"candidacyBond": ASSET_HUB_WESTEND_ED * 16,
 		},
-		session: asset_hub_westend_runtime::SessionConfig {
-			keys: invulnerables
+		"session": {
+			"keys": invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
@@ -642,18 +558,12 @@ fn asset_hub_westend_genesis(
 						asset_hub_westend_session_keys(aura), // session keys
 					)
 				})
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this.
-		aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
+		"polkadotXcm": {
+			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-	}
+	})
 }
 
 pub fn asset_hub_rococo_development_config() -> AssetHubRococoChainSpec {
@@ -688,35 +598,29 @@ fn asset_hub_rococo_like_development_config(
 	chain_id: &str,
 	para_id: u32,
 ) -> AssetHubRococoChainSpec {
-	AssetHubRococoChainSpec::from_genesis(
-		// Name
-		name,
-		// ID
-		chain_id,
-		ChainType::Local,
-		move || {
-			asset_hub_rococo_genesis(
-				// initial collators.
-				vec![(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				)],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				],
-				para_id.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubRococoChainSpec::builder(
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-dev".into(), para_id },
 	)
+	.with_name(name)
+	.with_id(chain_id)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_rococo_genesis(
+		// initial collators.
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+		)],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		],
+		para_id.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_rococo_local_config() -> AssetHubRococoChainSpec {
@@ -751,49 +655,43 @@ fn asset_hub_rococo_like_local_config(
 	chain_id: &str,
 	para_id: u32,
 ) -> AssetHubRococoChainSpec {
-	AssetHubRococoChainSpec::from_genesis(
-		// Name
-		name,
-		// ID
-		chain_id,
-		ChainType::Local,
-		move || {
-			asset_hub_rococo_genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed::<AuraId>("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed::<AuraId>("Bob"),
-					),
-				],
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-				para_id.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubRococoChainSpec::builder(
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-local".into(), para_id },
 	)
+	.with_name(name)
+	.with_id(chain_id)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_rococo_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<AuraId>("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed::<AuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		para_id.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
@@ -801,56 +699,46 @@ pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	let para_id = 1000;
-	AssetHubRococoChainSpec::from_genesis(
-		// Name
-		"Rococo Asset Hub",
-		// ID
-		"asset-hub-rococo",
-		ChainType::Live,
-		move || {
-			asset_hub_rococo_genesis(
-				// initial collators.
-				vec![
-					// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
-					(
-						hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
-							.into(),
-						hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
-							.unchecked_into(),
-					),
-					// G28iWEybndgGRbhfx83t7Q42YhMPByHpyqWDUgeyoGF94ri
-					(
-						hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
-							.into(),
-						hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
-							.unchecked_into(),
-					),
-					// G839e2eMiq7UXbConsY6DS1XDAYG2XnQxAmLuRLGGQ3Px9c
-					(
-						hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
-							.into(),
-						hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
-							.unchecked_into(),
-					),
-					// GLao4ukFUW6qhexuZowdFrKa2NLCfnEjZMftSXXfvGv1vvt
-					(
-						hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
-							.into(),
-						hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
-							.unchecked_into(),
-					),
-				],
-				Vec::new(),
-				para_id.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubRococoChainSpec::builder(
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo".into(), para_id },
 	)
+	.with_name("Rococo Asset Hub")
+	.with_id("asset-hub-rococo")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(asset_hub_rococo_genesis(
+		// initial collators.
+		vec![
+			// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
+			(
+				hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608").into(),
+				hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
+					.unchecked_into(),
+			),
+			// G28iWEybndgGRbhfx83t7Q42YhMPByHpyqWDUgeyoGF94ri
+			(
+				hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944").into(),
+				hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
+					.unchecked_into(),
+			),
+			// G839e2eMiq7UXbConsY6DS1XDAYG2XnQxAmLuRLGGQ3Px9c
+			(
+				hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948").into(),
+				hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
+					.unchecked_into(),
+			),
+			// GLao4ukFUW6qhexuZowdFrKa2NLCfnEjZMftSXXfvGv1vvt
+			(
+				hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f").into(),
+				hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
+					.unchecked_into(),
+			),
+		],
+		Vec::new(),
+		para_id.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 pub fn asset_hub_wococo_genesis_config() -> AssetHubWococoChainSpec {
@@ -859,87 +747,71 @@ pub fn asset_hub_wococo_genesis_config() -> AssetHubWococoChainSpec {
 	properties.insert("tokenSymbol".into(), "WOC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	let para_id = 1000;
-	AssetHubWococoChainSpec::from_genesis(
-		// Name
-		"Wococo Asset Hub",
-		// ID
-		"asset-hub-wococo",
-		ChainType::Live,
-		move || {
-			asset_hub_rococo_genesis(
-				// initial collators.
-				vec![
-					// 5C8RGkS8t5K93fB2hkgKbvSYs5iG6AknJMuQmbBDeazon9Lj
-					(
-						hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
-							.into(),
-						hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
-							.unchecked_into(),
-					),
-					// 5GePeDZQeBagXH7kH5QPKnQKi39Z5hoYFB5FmUtEvc4yxKej
-					(
-						hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
-							.into(),
-						hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
-							.unchecked_into(),
-					),
-					// 5CfnTTb9NMJDNKDntA83mHKoedZ7wjDC8ypLCTDd4NwUx3zv
-					(
-						hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
-							.into(),
-						hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
-							.unchecked_into(),
-					),
-					// 5EqheiwiG22gvGpN7cvrbeaQzhg7rzsYYVkYK4yj5vRrTQRQ
-					(
-						hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
-							.into(),
-						hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
-							.unchecked_into(),
-					),
-				],
-				Vec::new(),
-				para_id.into(),
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
+	AssetHubRococoChainSpec::builder(
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "wococo".into(), para_id },
 	)
+	.with_name("Wococo Asset Hub")
+	.with_id("asset-hub-wococo")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(asset_hub_rococo_genesis(
+		// initial collators.
+		vec![
+			// 5C8RGkS8t5K93fB2hkgKbvSYs5iG6AknJMuQmbBDeazon9Lj
+			(
+				hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534").into(),
+				hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
+					.unchecked_into(),
+			),
+			// 5GePeDZQeBagXH7kH5QPKnQKi39Z5hoYFB5FmUtEvc4yxKej
+			(
+				hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814").into(),
+				hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
+					.unchecked_into(),
+			),
+			// 5CfnTTb9NMJDNKDntA83mHKoedZ7wjDC8ypLCTDd4NwUx3zv
+			(
+				hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965").into(),
+				hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
+					.unchecked_into(),
+			),
+			// 5EqheiwiG22gvGpN7cvrbeaQzhg7rzsYYVkYK4yj5vRrTQRQ
+			(
+				hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66").into(),
+				hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
+					.unchecked_into(),
+			),
+		],
+		Vec::new(),
+		para_id.into(),
+	))
+	.with_properties(properties)
+	.build()
 }
 
 fn asset_hub_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> asset_hub_rococo_runtime::RuntimeGenesisConfig {
-	asset_hub_rococo_runtime::RuntimeGenesisConfig {
-		system: asset_hub_rococo_runtime::SystemConfig {
-			code: asset_hub_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
-		balances: asset_hub_rococo_runtime::BalancesConfig {
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": asset_hub_rococo_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, ASSET_HUB_ROCOCO_ED * 524_288))
 				.collect(),
 		},
-		parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
+		"parachainInfo": asset_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: id,
 			..Default::default()
 		},
-		collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
+		"collatorSelection": asset_hub_rococo_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
 			..Default::default()
 		},
-		session: asset_hub_rococo_runtime::SessionConfig {
+		"session": asset_hub_rococo_runtime::SessionConfig {
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
@@ -951,12 +823,9 @@ fn asset_hub_rococo_genesis(
 				})
 				.collect(),
 		},
-		aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
+		"polkadotXcm": asset_hub_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
-		},
-	}
+		}
+	})
 }
