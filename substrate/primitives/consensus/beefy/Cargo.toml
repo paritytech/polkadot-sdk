@@ -42,6 +42,7 @@ std = [
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"strum/std",
 ]
 
 # Serde support without relying on std features.

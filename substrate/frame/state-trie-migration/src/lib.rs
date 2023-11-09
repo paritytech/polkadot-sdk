@@ -1126,6 +1126,7 @@ mod mock {
 		type FreezeIdentifier = ();
 		type MaxFreezes = ();
 		type RuntimeHoldReason = ();
+		type RuntimeFreezeReason = ();
 		type MaxHolds = ();
 	}
 
