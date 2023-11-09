@@ -56,7 +56,6 @@ const LOG_TARGET: &str = "runtime::configuration";
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[scale_info(replace_segment("staging_tracking_allocator", "tracking_allocator"))]
 #[serde(deny_unknown_fields)]
 pub struct HostConfiguration<BlockNumber> {
 	// NOTE: This structure is used by parachains via merkle proofs. Therefore, this struct
