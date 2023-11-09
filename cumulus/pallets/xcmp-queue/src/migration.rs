@@ -16,9 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{
-	Config, OverweightIndex, Pallet, ParaId, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE,
-};
+use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
@@ -98,51 +96,52 @@ mod v2 {
 			}
 		}
 	}
-}
 
-/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
-/// 2D weights).
-pub struct MigrationToV2<T: Config>(PhantomData<T>);
+	/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
+	/// 2D weights).
+	pub struct MigrationToV2<T: Config>(PhantomData<T>);
 
-impl<T: Config> OnRuntimeUpgrade for MigrationToV2<T> {
-	#[allow(deprecated)]
-	fn on_runtime_upgrade() -> Weight {
-		let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
-			v2::QueueConfigData {
-				suspend_threshold: pre.suspend_threshold,
-				drop_threshold: pre.drop_threshold,
-				resume_threshold: pre.resume_threshold,
-				threshold_weight: Weight::from_parts(pre.threshold_weight, 0),
-				weight_restrict_decay: Weight::from_parts(pre.weight_restrict_decay, 0),
-				xcmp_max_individual_weight: Weight::from_parts(
-					pre.xcmp_max_individual_weight,
-					DEFAULT_POV_SIZE,
-				),
+	impl<T: Config> OnRuntimeUpgrade for MigrationToV2<T> {
+		#[allow(deprecated)]
+		fn on_runtime_upgrade() -> Weight {
+			let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
+				v2::QueueConfigData {
+					suspend_threshold: pre.suspend_threshold,
+					drop_threshold: pre.drop_threshold,
+					resume_threshold: pre.resume_threshold,
+					threshold_weight: Weight::from_parts(pre.threshold_weight, 0),
+					weight_restrict_decay: Weight::from_parts(pre.weight_restrict_decay, 0),
+					xcmp_max_individual_weight: Weight::from_parts(
+						pre.xcmp_max_individual_weight,
+						DEFAULT_POV_SIZE,
+					),
+				}
+			};
+
+			if v2::QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
+				log::error!(
+					target: crate::LOG_TARGET,
+					"unexpected error when performing translation of the QueueConfig type \
+					during storage upgrade to v2"
+				);
 			}
-		};
 
-		if v2::QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-			log::error!(
-				target: super::LOG_TARGET,
-				"unexpected error when performing translation of the QueueConfig type \
-				during storage upgrade to v2"
-			);
+			T::DbWeight::get().reads_writes(1, 1)
 		}
-
-		T::DbWeight::get().reads_writes(1, 1)
 	}
-}
 
-/// [`MigrationToV2`] wrapped in a
-/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
-/// migration is only performed when on-chain version is 1.
-pub type VersionCheckedMigrationToV2<T> = frame_support::migrations::VersionedMigration<
-	1,
-	2,
-	MigrationToV2<T>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
+	/// [`MigrationToV2`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 1.
+	#[allow(dead_code)]
+	pub type VersionCheckedMigrationToV2<T> = frame_support::migrations::VersionedMigration<
+		1,
+		2,
+		MigrationToV2<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
 
 pub mod v3 {
 	use super::*;
@@ -189,122 +188,126 @@ pub mod v3 {
 		Ok,
 		Suspended,
 	}
-}
 
-/// Migrates the pallet storage to v3.
-pub struct MigrationToV3<T: Config>(PhantomData<T>);
+	/// Migrates the pallet storage to v3.
+	pub struct MigrationToV3<T: Config>(PhantomData<T>);
 
-impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
-	fn on_runtime_upgrade() -> Weight {
-		#[frame_support::storage_alias]
-		type Overweight<T: Config> =
-			CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
-		let overweight_messages = Overweight::<T>::initialize_counter() as u64;
+	impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
+		fn on_runtime_upgrade() -> Weight {
+			#[frame_support::storage_alias]
+			type Overweight<T: Config> =
+				CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
+			let overweight_messages = Overweight::<T>::initialize_counter() as u64;
 
-		T::DbWeight::get().reads_writes(overweight_messages, 1)
-	}
-}
-
-/// [`MigrationToV3`] wrapped in a
-/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
-/// migration is only performed when on-chain version is 2.
-pub type VersionCheckedMigrationToV3<T> = frame_support::migrations::VersionedMigration<
-	2,
-	3,
-	MigrationToV3<T>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
-
-pub fn lazy_migrate_inbound_queue<T: Config>() {
-	let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
-		log::debug!(target: LOG, "Lazy migration finished: item gone");
-		return
-	};
-	let Some(ref mut next) = states.first_mut() else {
-		log::debug!(target: LOG, "Lazy migration finished: item empty");
-		v3::InboundXcmpStatus::<T>::kill();
-		return
-	};
-	log::debug!(
-		"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
-		next.sender,
-		next.message_metadata.len()
-	);
-	// We take the last element since the MQ is a FIFO and we want to keep the order.
-	let Some((block_number, format)) = next.message_metadata.pop() else {
-		states.remove(0);
-		v3::InboundXcmpStatus::<T>::put(states);
-		return
-	};
-	if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
-		log::warn!(target: LOG,
-			"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
-			format
-		);
-		v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
-		v3::InboundXcmpStatus::<T>::put(states);
-		return
+			T::DbWeight::get().reads_writes(overweight_messages, 1)
+		}
 	}
 
-	let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
-		defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
-		v3::InboundXcmpStatus::<T>::put(states);
-		return
-	};
+	/// [`MigrationToV3`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 2.
+	pub type VersionCheckedMigrationToV3<T> = frame_support::migrations::VersionedMigration<
+		2,
+		3,
+		MigrationToV3<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 
-	let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
-		log::error!(target: LOG, "Message dropped: too big");
-		v3::InboundXcmpStatus::<T>::put(states);
-		return
-	};
-
-	// Finally! We have a proper message.
-	T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
-	log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
-	v3::InboundXcmpStatus::<T>::put(states);
-}
-
-/// Migrates `QueueConfigData` to v4, removing deprecated fields and bumping page
-/// thresholds to at least the default values.
-pub struct MigrationToV4<T: Config>(PhantomData<T>);
-
-impl<T: Config> OnRuntimeUpgrade for MigrationToV4<T> {
-	fn on_runtime_upgrade() -> Weight {
-		let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
-			use sp_std::cmp::max;
-
-			let default = QueueConfigData::default();
-			let post = QueueConfigData {
-				suspend_threshold: max(pre.suspend_threshold, default.suspend_threshold),
-				drop_threshold: max(pre.drop_threshold, default.drop_threshold),
-				resume_threshold: max(pre.resume_threshold, default.resume_threshold),
-			};
-			post
+	pub fn lazy_migrate_inbound_queue<T: Config>() {
+		let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
+			log::debug!(target: LOG, "Lazy migration finished: item gone");
+			return
 		};
-
-		if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-			log::error!(
-				target: super::LOG_TARGET,
-				"unexpected error when performing translation of the QueueConfig type \
-				during storage upgrade to v4"
+		let Some(ref mut next) = states.first_mut() else {
+			log::debug!(target: LOG, "Lazy migration finished: item empty");
+			v3::InboundXcmpStatus::<T>::kill();
+			return
+		};
+		log::debug!(
+			"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
+			next.sender,
+			next.message_metadata.len()
+		);
+		// We take the last element since the MQ is a FIFO and we want to keep the order.
+		let Some((block_number, format)) = next.message_metadata.pop() else {
+			states.remove(0);
+			v3::InboundXcmpStatus::<T>::put(states);
+			return
+		};
+		if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+			log::warn!(target: LOG,
+				"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
+				format
 			);
+			v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
+			v3::InboundXcmpStatus::<T>::put(states);
+			return
 		}
 
-		T::DbWeight::get().reads_writes(1, 1)
+		let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
+			defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
+			v3::InboundXcmpStatus::<T>::put(states);
+			return
+		};
+
+		let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
+			log::error!(target: LOG, "Message dropped: too big");
+			v3::InboundXcmpStatus::<T>::put(states);
+			return
+		};
+
+		// Finally! We have a proper message.
+		T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
+		log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+		v3::InboundXcmpStatus::<T>::put(states);
 	}
 }
 
-/// [`MigrationToV4`] wrapped in a
-/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
-/// migration is only performed when on-chain version is 3.
-pub type VersionCheckedMigrationToV4<T> = frame_support::migrations::VersionedMigration<
-	3,
-	4,
-	MigrationToV4<T>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
+pub mod v4 {
+	use super::*;
+
+	/// Migrates `QueueConfigData` to v4, removing deprecated fields and bumping page
+	/// thresholds to at least the default values.
+	pub struct MigrationToV4<T: Config>(PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for MigrationToV4<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
+				use sp_std::cmp::max;
+
+				let default = QueueConfigData::default();
+				let post = QueueConfigData {
+					suspend_threshold: max(pre.suspend_threshold, default.suspend_threshold),
+					drop_threshold: max(pre.drop_threshold, default.drop_threshold),
+					resume_threshold: max(pre.resume_threshold, default.resume_threshold),
+				};
+				post
+			};
+
+			if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
+				log::error!(
+					target: crate::LOG_TARGET,
+					"unexpected error when performing translation of the QueueConfig type \
+					during storage upgrade to v4"
+				);
+			}
+
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
+
+	/// [`MigrationToV4`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 3.
+	pub type VersionCheckedMigrationToV4<T> = frame_support::migrations::VersionedMigration<
+		3,
+		4,
+		MigrationToV4<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
 
 #[cfg(test)]
 mod tests {
@@ -332,7 +335,7 @@ mod tests {
 				&v1.encode(),
 			);
 
-			VersionCheckedMigrationToV2::<Test>::on_runtime_upgrade();
+			v2::VersionCheckedMigrationToV2::<Test>::on_runtime_upgrade();
 
 			let v2 = v2::QueueConfig::<Test>::get();
 
@@ -364,7 +367,7 @@ mod tests {
 				&v2.encode(),
 			);
 
-			VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
+			v4::VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
 
 			let v4 = QueueConfig::<Test>::get();
 
@@ -390,7 +393,7 @@ mod tests {
 				&v2.encode(),
 			);
 
-			VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
+			v4::VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
 
 			let v4 = QueueConfig::<Test>::get();
 

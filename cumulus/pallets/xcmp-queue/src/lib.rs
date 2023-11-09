@@ -255,7 +255,7 @@ pub mod pallet {
 				return meter.consumed()
 			}
 
-			migration::lazy_migrate_inbound_queue::<T>();
+			migration::v3::lazy_migrate_inbound_queue::<T>();
 
 			meter.consumed()
 		}
