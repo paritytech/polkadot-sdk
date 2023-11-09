@@ -87,6 +87,5 @@ jobs:
         env:
           RUNTIME: ${{ matrix.specs }}
         run: |
-          echo "WIP"
           python --version
-          python .github/scripts/check_runtime.py $DATA_DIR/$RUNTIME.json $RUNTIME_SPECS_DIR/$RUNTIME.json
+          python .github/scripts/check-runtime.py $DATA_DIR/$RUNTIME.json $RUNTIME_SPECS_DIR/$RUNTIME.json
