@@ -61,11 +61,6 @@ jobs:
           . ./.github/scripts/common/lib.sh
           fetch_release_artifacts
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
-        with:
-          cache-on-failure: true
-
       - name: Install tooling
         env:
           SUBWASM_VERSION: v0.20.0
