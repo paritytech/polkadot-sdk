@@ -17,7 +17,7 @@
 use super::*;
 
 /// Peer response latency configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PeerLatency {
 	/// Min latency for `NetworkAction` completion.
 	pub min_latency: Duration,
@@ -36,15 +36,15 @@ pub struct TestConfiguration {
 	pub n_cores: usize,
 	/// The PoV size
 	pub pov_sizes: Vec<usize>,
-	/// This parameter is used to determine how many recoveries we batch in parallel
-	/// to simulate tranche0 recoveries.
-	pub max_parallel_recoveries: usize,
-	/// The amount of bandiwdht remote validators have.
+	/// The amount of bandiwdth remote validators have.
 	pub bandwidth: usize,
 	/// Optional peer emulation latency
 	pub latency: Option<PeerLatency>,
 	/// Error probability
 	pub error: usize,
+	/// Number of loops
+	/// In one loop `n_cores` candidates are recovered
+	pub num_loops: usize,
 }
 
 impl Default for TestConfiguration {
@@ -54,80 +54,78 @@ impl Default for TestConfiguration {
 			n_validators: 10,
 			n_cores: 10,
 			pov_sizes: vec![5 * 1024 * 1024],
-			max_parallel_recoveries: 6,
 			bandwidth: 60 * 1024 * 1024,
 			latency: None,
 			error: 0,
+			num_loops: 1,
 		}
 	}
 }
 
 impl TestConfiguration {
 	/// An unconstrained standard configuration matching Polkadot/Kusama
-	pub fn unconstrained_300_validators_60_cores(pov_sizes: Vec<usize>) -> TestConfiguration {
+	pub fn ideal_network(
+		num_loops: usize,
+		use_fast_path: bool,
+		n_validators: usize,
+		n_cores: usize,
+		pov_sizes: Vec<usize>,
+	) -> TestConfiguration {
 		Self {
-			use_fast_path: false,
-			n_validators: 300,
-			n_cores: 100,
+			use_fast_path,
+			n_cores,
+			n_validators,
 			pov_sizes,
-			max_parallel_recoveries: 100,
 			// HW specs node bandwidth
-			bandwidth: 60 * 1024 * 1024,
+			bandwidth: 50 * 1024 * 1024,
 			// No latency
 			latency: None,
 			error: 0,
-		}
-	}
-	pub fn unconstrained_1000_validators_60_cores(pov_sizes: Vec<usize>) -> TestConfiguration {
-		Self {
-			use_fast_path: false,
-			n_validators: 300,
-			n_cores: 60,
-			pov_sizes,
-			max_parallel_recoveries: 30,
-			// HW specs node bandwidth
-			bandwidth: 60 * 1024 * 1024,
-			// No latency
-			latency: None,
-			error: 0,
+			num_loops,
 		}
 	}
 
-	/// Polkadot/Kusama configuration with typical latency constraints.
-	pub fn healthy_network_300_validators_60_cores(pov_sizes: Vec<usize>) -> TestConfiguration {
+	pub fn healthy_network(
+		num_loops: usize,
+		use_fast_path: bool,
+		n_validators: usize,
+		n_cores: usize,
+		pov_sizes: Vec<usize>,
+	) -> TestConfiguration {
 		Self {
-			use_fast_path: true,
-			n_validators: 300,
-			n_cores: 60,
+			use_fast_path,
+			n_cores,
+			n_validators,
 			pov_sizes,
-			max_parallel_recoveries: 6,
-			// HW specs node bandwidth
-			bandwidth: 60 * 1024 * 1024,
+			bandwidth: 50 * 1024 * 1024,
 			latency: Some(PeerLatency {
 				min_latency: Duration::from_millis(1),
-				max_latency: Duration::from_millis(50),
+				max_latency: Duration::from_millis(100),
 			}),
-			error: 5,
+			error: 3,
+			num_loops,
 		}
 	}
 
-	/// Polkadot/Kusama configuration with degraded due to latencies.
-	/// TODO: implement errors.
-	pub fn degraded_network_300_validators_60_cores(pov_sizes: Vec<usize>) -> TestConfiguration {
+	pub fn degraded_network(
+		num_loops: usize,
+		use_fast_path: bool,
+		n_validators: usize,
+		n_cores: usize,
+		pov_sizes: Vec<usize>,
+	) -> TestConfiguration {
 		Self {
-			use_fast_path: false,
-			n_validators: 300,
-			n_cores: 100,
+			use_fast_path,
+			n_cores,
+			n_validators,
 			pov_sizes,
-			max_parallel_recoveries: 20,
-			// HW specs node bandwidth
-			bandwidth: 60 * 1024 * 1024,
-			// A range of latencies to expect in a degraded network
+			bandwidth: 50 * 1024 * 1024,
 			latency: Some(PeerLatency {
-				min_latency: Duration::from_millis(1),
+				min_latency: Duration::from_millis(10),
 				max_latency: Duration::from_millis(500),
 			}),
-			error: 30,
+			error: 33,
+			num_loops,
 		}
 	}
 }

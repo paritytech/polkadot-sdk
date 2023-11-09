@@ -22,7 +22,8 @@ use std::{
 
 use futures::{
 	channel::{mpsc, oneshot},
-	FutureExt, SinkExt,
+	stream::FuturesUnordered,
+	FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_metrics::metrics::Metrics;
 
@@ -32,7 +33,7 @@ use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
 	self as req_res, v1::ChunkResponse, IncomingRequest, ReqProtocolNames, Requests,
 };
-use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
+use rand::{distributions::Uniform, prelude::Distribution, seq::IteratorRandom, thread_rng};
 
 use prometheus::Registry;
 use sc_network::{config::RequestResponseConfig, OutboundFailure, RequestFailure};
@@ -46,6 +47,7 @@ use polkadot_node_subsystem::{
 	},
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, Subsystem,
 };
+use std::net::{Ipv4Addr, SocketAddr};
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
@@ -74,20 +76,47 @@ struct AvailabilityRecoverySubsystemInstance {
 	_protocol_config: RequestResponseConfig,
 }
 
-// Implements a mockup of NetworkBridge and AvilabilityStore to support provide state for
-// `AvailabilityRecoverySubsystemInstance`
+/// The test environment is responsible for creating an instance of the availability recovery
+/// subsystem and connecting it to an emulated overseer.
+///
+/// ## Mockups
+/// We emulate the following subsystems:
+/// - runtime api
+/// - network bridge
+/// - availability store
+///
+/// As the subsystem's performance depends on network connectivity, the test environment
+/// emulates validator nodes on the network, see `NetworkEmulator`. The network emulation
+/// is configurable in terms of peer bandwidth, latency and connection error rate using
+/// uniform distribution sampling.
+///
+/// The mockup logic is implemented in `env_task` which owns and advances the `TestState`.
+///
+/// ## Usage
+/// `TestEnvironment` is used in tests to send `Overseer` messages or signals to the subsystem
+/// under test.
+///
+/// ## Collecting test metrics
+///
+/// ### Prometheus
+/// A prometheus endpoint is exposed while the test is running. A local Prometheus instance
+/// can scrape it every 1s and a Grafana dashboard is the preferred way of visualizing
+/// the performance characteristics of the subsystem.
+///
+/// ### CLI
+/// A subset of the Prometheus metrics are printed at the end of the test.
 pub struct TestEnvironment {
-	// A task manager that tracks task poll durations.
+	// A task manager that tracks task poll durations allows us to measure
+	// per task CPU usage as we do in the Polkadot node.
 	task_manager: TaskManager,
 	// The Prometheus metrics registry
 	registry: Registry,
-	// A test overseer.
+	// A channel to the availability recovery subsystem
 	to_subsystem: mpsc::Sender<FromOrchestra<AvailabilityRecoveryMessage>>,
 	// Subsystem instance, currently keeps req/response protocol channel senders
 	// for the whole duration of the test.
 	instance: AvailabilityRecoverySubsystemInstance,
-	// The test intial state. The current state is owned by the task doing the overseer/subsystem
-	// mockings.
+	// The test intial state. The current state is owned by `env_task`.
 	state: TestState,
 }
 
@@ -114,6 +143,18 @@ impl TestEnvironment {
 			"test-environment",
 			async move { Self::env_task(virtual_overseer, task_state, spawn_task_handle).await },
 		);
+
+		let registry_clone = registry.clone();
+		task_manager
+			.spawn_handle()
+			.spawn_blocking("prometheus", "test-environment", async move {
+				prometheus_endpoint::init_prometheus(
+					SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
+					registry_clone,
+				)
+				.await
+				.unwrap();
+			});
 
 		TestEnvironment { task_manager, registry, to_subsystem, instance, state }
 	}
@@ -284,7 +325,10 @@ impl TestEnvironment {
 			.timeout(MAX_TIME_OF_FLIGHT)
 			.await
 			.unwrap_or_else(|| {
-				panic!("{}ms is more than enough for sending signals.", TIMEOUT.as_millis())
+				panic!(
+					"{}ms is more than enough for sending signals.",
+					MAX_TIME_OF_FLIGHT.as_millis()
+				)
 			})
 			.unwrap();
 	}
@@ -382,15 +426,18 @@ impl TestState {
 	}
 
 	fn session_info(&self) -> SessionInfo {
+		let my_vec = (0..self.config().n_validators)
+			.map(|i| ValidatorIndex(i as _))
+			.collect::<Vec<_>>();
+
+		let validator_groups = my_vec.chunks(5).map(|x| Vec::from(x)).collect::<Vec<_>>();
+
 		SessionInfo {
 			validators: self.validator_public.clone(),
 			discovery_keys: self.validator_authority_id.clone(),
-			// all validators in the same group.
-			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(vec![(0..5)
-				.map(|i| ValidatorIndex(i as _))
-				.collect()]),
+			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(validator_groups),
 			assignment_keys: vec![],
-			n_cores: 0,
+			n_cores: self.config().n_cores as u32,
 			zeroth_delay_tranche_width: 0,
 			relay_vrf_modulo_samples: 0,
 			n_delay_tranches: 0,
@@ -449,7 +496,7 @@ impl TestState {
 			.collect::<Vec<_>>();
 
 		for (index, pov_size) in config.pov_sizes.iter().enumerate() {
-			let mut candidate = &mut candidate_receipts[index];
+			let candidate = &mut candidate_receipts[index];
 			// a hack to make candidate unique.
 			candidate.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
 
@@ -532,9 +579,6 @@ fn derive_erasure_chunks_with_proofs_and_root(
 	(erasure_chunks, root)
 }
 
-pub async fn bench_with_chunks_if_pov_large(env: &mut TestEnvironment) {}
-
-pub async fn bench_inner(env: &mut TestEnvironment) {}
 pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	let config = env.config().clone();
 
@@ -545,39 +589,45 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	.await;
 
 	let start_marker = Instant::now();
-	let mut batch = Vec::new();
-	let mut availability_bytes = 0;
-	for candidate_num in 0..config.n_cores as u64 {
-		let candidate = env.state.candidate_receipts[candidate_num as usize].clone();
+	let mut batch = FuturesUnordered::new();
+	let mut availability_bytes = 0u128;
 
-		let (tx, rx) = oneshot::channel();
-		batch.push(rx);
+	for loop_num in 0..env.config().num_loops {
+		gum::info!(target: LOG_TARGET, loop_num, "Starting loop");
 
-		env.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
-			candidate.clone(),
-			1,
-			Some(GroupIndex(0)),
-			tx,
-		))
-		.await;
+		for candidate_num in 0..config.n_cores as u64 {
+			let candidate = env.state.candidate(candidate_num as usize);
 
-		// TODO: select between futures unordered of rx await and timer to send next request.
-		if batch.len() >= config.max_parallel_recoveries {
-			for rx in std::mem::take(&mut batch) {
-				let available_data = rx.await.unwrap().unwrap();
-				availability_bytes += available_data.encoded_size();
-			}
+			let (tx, rx) = oneshot::channel();
+			batch.push(rx);
+
+			env.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
+				candidate.clone(),
+				1,
+				Some(GroupIndex(candidate_num as u32 % (config.n_cores / 5) as u32)),
+				tx,
+			))
+			.await;
+
+			// // TODO: select between futures unordered of rx await and timer to send next request.
+			// if batch.len() >= config.max_parallel_recoveries {
+			// 	for rx in std::mem::take(&mut batch) {
+			// 		let available_data = rx.await.unwrap().unwrap();
+			// 		availability_bytes += available_data.encoded_size() as u128;
+			// 	}
+			// }
+		}
+
+		while let Some(completed) = batch.next().await {
+			let available_data = completed.unwrap().unwrap();
+			availability_bytes += available_data.encoded_size() as u128;
 		}
 	}
-
-	for rx in std::mem::take(&mut batch) {
-		let available_data = rx.await.unwrap().unwrap();
-		availability_bytes += available_data.encoded_size();
-	}
+	println!("Waiting for subsystem to complete work... {} requests ", batch.len());
 
 	env.send_signal(OverseerSignal::Conclude).await;
 	let duration = start_marker.elapsed().as_millis();
-	let tput = (availability_bytes as u128) / duration * 1000;
+	let tput = ((availability_bytes) / duration) * 1000;
 	println!("Benchmark completed in {:?}ms", duration);
 	println!("Throughput: {}KiB/s", tput / 1024);
 

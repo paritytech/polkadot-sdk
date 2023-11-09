@@ -20,24 +20,89 @@
 use clap::Parser;
 use color_eyre::eyre;
 use prometheus::proto::LabelPair;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::time::Duration;
 
 pub(crate) mod availability;
 
 use availability::{TestConfiguration, TestEnvironment, TestState};
 const LOG_TARGET: &str = "subsystem-bench";
 
+use clap_num::number_range;
+
+fn le_100(s: &str) -> Result<usize, String> {
+	number_range(s, 0, 100)
+}
+
+fn le_5000(s: &str) -> Result<usize, String> {
+	number_range(s, 0, 5000)
+}
+
+#[derive(Debug, clap::Parser, Clone)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct NetworkOptions {}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+#[value(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum NetworkEmulation {
+	Ideal,
+	Healthy,
+	Degraded,
+}
+
+#[derive(Debug, clap::Parser)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct DataAvailabilityReadOptions {
+	#[clap(long, ignore_case = true, default_value_t = 100)]
+	/// Number of cores to fetch availability for.
+	pub n_cores: usize,
+
+	#[clap(long, ignore_case = true, default_value_t = 500)]
+	/// Number of validators to fetch chunks from.
+	pub n_validators: usize,
+
+	#[clap(short, long, default_value_t = false)]
+	/// Turbo boost AD Read by fetching from backers first. Tipically this is only faster if nodes
+	/// have enough bandwidth.
+	pub fetch_from_backers: bool,
+
+	#[clap(short, long, ignore_case = true, default_value_t = 1)]
+	/// Number of times to loop fetching for each core.
+	pub num_loops: usize,
+}
 /// Define the supported benchmarks targets
 #[derive(Debug, Parser)]
 #[command(about = "Target subsystems", version, rename_all = "kebab-case")]
 enum BenchmarkTarget {
 	/// Benchmark availability recovery strategies.
-	AvailabilityRecovery,
+	DataAvailabilityRead(DataAvailabilityReadOptions),
 }
 
 #[derive(Debug, Parser)]
 #[allow(missing_docs)]
 struct BenchCli {
+	#[arg(long, value_enum, ignore_case = true, default_value_t = NetworkEmulation::Ideal)]
+	/// The type of network to be emulated
+	pub network: NetworkEmulation,
+
+	#[clap(short, long)]
+	/// The bandwidth of simulated remote peers in KiB
+	pub peer_bandwidth: Option<usize>,
+
+	#[clap(long, value_parser=le_100)]
+	/// Simulated connection error rate [0-100].
+	pub peer_error: Option<usize>,
+
+	#[clap(long, value_parser=le_5000)]
+	/// Minimum remote peer latency in milliseconds [0-5000].
+	pub peer_min_latency: Option<u64>,
+
+	#[clap(long, value_parser=le_5000)]
+	/// Maximum remote peer latency in milliseconds [0-5000].
+	pub peer_max_latency: Option<u64>,
+
 	#[command(subcommand)]
 	pub target: BenchmarkTarget,
 }
@@ -63,21 +128,57 @@ impl BenchCli {
 		let registry_clone = registry.clone();
 
 		let mut pov_sizes = Vec::new();
-		pov_sizes.append(&mut vec![1024 * 1024; 100]);
+		pov_sizes.append(&mut vec![5 * 1024 * 1024; 200]);
 
-		let test_config = TestConfiguration::unconstrained_1000_validators_60_cores(pov_sizes);
+		let mut test_config = match self.target {
+			BenchmarkTarget::DataAvailabilityRead(options) => match self.network {
+				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
+					options.num_loops,
+					options.fetch_from_backers,
+					options.n_validators,
+					options.n_cores,
+					pov_sizes,
+				),
+				NetworkEmulation::Degraded => TestConfiguration::degraded_network(
+					options.num_loops,
+					options.fetch_from_backers,
+					options.n_validators,
+					options.n_cores,
+					pov_sizes,
+				),
+				NetworkEmulation::Ideal => TestConfiguration::ideal_network(
+					options.num_loops,
+					options.fetch_from_backers,
+					options.n_validators,
+					options.n_cores,
+					pov_sizes,
+				),
+			},
+		};
+
+		let mut latency_config = test_config.latency.clone().unwrap_or_default();
+
+		if let Some(latency) = self.peer_min_latency {
+			latency_config.min_latency = Duration::from_millis(latency);
+		}
+
+		if let Some(latency) = self.peer_max_latency {
+			latency_config.max_latency = Duration::from_millis(latency);
+		}
+
+		if let Some(error) = self.peer_error {
+			test_config.error = error;
+		}
+
+		if let Some(bandwidth) = self.peer_bandwidth {
+			// CLI expects bw in KiB
+			test_config.bandwidth = bandwidth * 1024;
+		}
 
 		let state = TestState::new(test_config);
-
 		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
 
-		let handle = runtime.spawn(async move {
-			prometheus_endpoint::init_prometheus(
-				SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
-				registry_clone,
-			)
-			.await
-		});
+		let runtime_handle = runtime.handle().clone();
 
 		println!("{:?}", env.config());
 

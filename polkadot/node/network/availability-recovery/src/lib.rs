@@ -617,12 +617,9 @@ impl AvailabilityRecoverySubsystem {
 		.into_iter()
 		.cycle();
 
-		gum::debug!("Subsystem running");
 		loop {
 			let recv_req = req_receiver.recv(|| vec![COST_INVALID_REQUEST]).fuse();
 			pin_mut!(recv_req);
-			gum::debug!("waiting for message");
-
 			futures::select! {
 				erasure_task = erasure_task_rx.next() => {
 					match erasure_task {
@@ -729,6 +726,8 @@ impl AvailabilityRecoverySubsystem {
 					}
 				}
 				output = state.ongoing_recoveries.select_next_some() => {
+					// No caching for benchmark.
+					#[cfg(not(feature = "subsystem-benchmarks"))]
 					if let Some((candidate_hash, result)) = output {
 						if let Ok(recovery) = CachedRecovery::try_from(result) {
 							state.availability_lru.insert(candidate_hash, recovery);
@@ -829,5 +828,10 @@ async fn erasure_task_thread(
 				break
 			},
 		}
+
+		// In benchmarks this is a very hot loop not yielding at all.
+		// To update promehteus metrics for the task we need to yield.
+		#[cfg(feature = "subsystem-benchmarks")]
+		tokio::task::yield_now().await;
 	}
 }
