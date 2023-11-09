@@ -238,11 +238,11 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		shell_runtime::api::dispatch(method, data)
+		glutton_westend_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		shell_runtime::native_version()
+		glutton_westend_runtime::native_version()
 	}
 }
 
