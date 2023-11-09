@@ -13,28 +13,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use paste;
+
+// Substrate
+pub use pallet_balances;
+pub use pallet_message_queue;
+pub use pallet_xcm;
+
+// Polkadot
+pub use xcm::prelude::{AccountId32, WeightLimit};
+
+// Cumulus
+pub use asset_test_utils;
+pub use cumulus_pallet_xcmp_queue;
+pub use xcm_emulator::Chain;
+
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
 	( $sender_para:ty, $sender_xcm_config:ty, vec![$( $receiver_para:ty ),+], ($assets:expr, $amount:expr) ) => {
-		$crate::paste::paste! {
+		$crate::macros::paste::paste! {
 			// init Origin variables
 			let sender = [<$sender_para Sender>]::get();
 			let mut para_sender_balance_before =
-				<$sender_para as $crate::Chain>::account_data_of(sender.clone()).free;
-			let origin = <$sender_para as $crate::Chain>::RuntimeOrigin::signed(sender.clone());
+				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
+			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
 			let fee_asset_item = 0;
-			let weight_limit = $crate::WeightLimit::Unlimited;
+			let weight_limit = $crate::macros::WeightLimit::Unlimited;
 
 			$(
 				{
 					// init Destination variables
 					let receiver = [<$receiver_para Receiver>]::get();
 					let para_receiver_balance_before =
-						<$receiver_para as $crate::Chain>::account_data_of(receiver.clone()).free;
+						<$receiver_para as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
 					let para_destination =
 						<$sender_para>::sibling_location_of(<$receiver_para>::para_id());
 					let beneficiary: MultiLocation =
-						$crate::AccountId32 { network: None, id: receiver.clone().into() }.into();
+						$crate::macros::AccountId32 { network: None, id: receiver.clone().into() }.into();
 
 					// Send XCM message from Origin Parachain
 					// We are only testing the limited teleport version, which should be ok since success will
@@ -49,19 +64,19 @@ macro_rules! test_parachain_is_trusted_teleporter {
 							weight_limit.clone(),
 						));
 
-						type RuntimeEvent = <$sender_para as $crate::Chain>::RuntimeEvent;
+						type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
 
 						assert_expected_events!(
 							$sender_para,
 							vec![
 								RuntimeEvent::PolkadotXcm(
-									$crate::pallet_xcm::Event::Attempted { outcome: Outcome::Complete { .. } }
+									$crate::macros::pallet_xcm::Event::Attempted { outcome: Outcome::Complete { .. } }
 								) => {},
 								RuntimeEvent::XcmpQueue(
-									$crate::cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
+									$crate::macros::cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
 								) => {},
 								RuntimeEvent::Balances(
-									$crate::pallet_balances::Event::Withdraw { who: sender, amount }
+									$crate::macros::pallet_balances::Event::Withdraw { who: sender, amount }
 								) => {},
 							]
 						);
@@ -69,16 +84,16 @@ macro_rules! test_parachain_is_trusted_teleporter {
 
 					// Receive XCM message in Destination Parachain
 					<$receiver_para>::execute_with(|| {
-						type RuntimeEvent = <$receiver_para as $crate::Chain>::RuntimeEvent;
+						type RuntimeEvent = <$receiver_para as $crate::macros::Chain>::RuntimeEvent;
 
 						assert_expected_events!(
 							$receiver_para,
 							vec![
 								RuntimeEvent::Balances(
-									$crate::pallet_balances::Event::Deposit { who: receiver, .. }
+									$crate::macros::pallet_balances::Event::Deposit { who: receiver, .. }
 								) => {},
 								RuntimeEvent::MessageQueue(
-									$crate::pallet_message_queue::Event::Processed { success: true, .. }
+									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
 								) => {},
 							]
 						);
@@ -86,11 +101,11 @@ macro_rules! test_parachain_is_trusted_teleporter {
 
 					// Check if balances are updated accordingly in Origin and Destination Parachains
 					let para_sender_balance_after =
-						<$sender_para as $crate::Chain>::account_data_of(sender.clone()).free;
+						<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 					let para_receiver_balance_after =
-						<$receiver_para as $crate::Chain>::account_data_of(receiver.clone()).free;
+						<$receiver_para as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
 					let delivery_fees = <$sender_para>::execute_with(|| {
-						asset_test_utils::xcm_helpers::transfer_assets_delivery_fees::<
+						$crate::macros::asset_test_utils::xcm_helpers::transfer_assets_delivery_fees::<
 							<$sender_xcm_config as xcm_executor::Config>::XcmSender,
 						>($assets.clone(), fee_asset_item, weight_limit.clone(), beneficiary, para_destination)
 					});
@@ -99,7 +114,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					assert!(para_receiver_balance_after > para_receiver_balance_before);
 
 					// Update sender balance
-					para_sender_balance_before = <$sender_para as $crate::Chain>::account_data_of(sender.clone()).free;
+					para_sender_balance_before = <$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 				}
 			)+
 		}

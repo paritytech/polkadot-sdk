@@ -1,0 +1,22 @@
+name: gitspiegel sync
+
+# This workflow doesn't do anything, it's only use is to trigger "workflow_run"
+# webhook, that'll be consumed by gitspiegel
+# This way, gitspiegel won't do mirroring, unless this workflow runs,
+# and running the workflow is protected by GitHub
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - unlocked
+      - ready_for_review
+      - reopened
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do nothing
+        run: echo "let's go"
