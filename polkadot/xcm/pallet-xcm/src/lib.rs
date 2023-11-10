@@ -25,11 +25,9 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub mod controller;
 pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-pub use controller::*;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
@@ -51,6 +49,10 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
+use xcm_builder::{
+	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
+	SendController, SendControllerWeightInfo,
+};
 use xcm_executor::{
 	traits::{
 		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets, MatchesFungible,
@@ -77,13 +79,8 @@ pub trait WeightInfo {
 	fn notify_target_migration_fail() -> Weight;
 	fn migrate_version_notify_targets() -> Weight;
 	fn migrate_and_notify_old_targets() -> Weight;
-	// TODO remove after benchmark are regenerated
-	fn new_query() -> Weight {
-		Weight::zero()
-	}
-	fn take_response() -> Weight {
-		Weight::zero()
-	}
+	fn new_query() -> Weight;
+	fn take_response() -> Weight;
 }
 
 /// fallback implementation
