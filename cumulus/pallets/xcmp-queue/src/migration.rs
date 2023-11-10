@@ -99,9 +99,9 @@ mod v2 {
 
 	/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
 	/// 2D weights).
-	pub struct MigrationToV2<T: Config>(PhantomData<T>);
+	pub struct UncheckedMigrationToV2<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for MigrationToV2<T> {
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		#[allow(deprecated)]
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
@@ -130,14 +130,14 @@ mod v2 {
 		}
 	}
 
-	/// [`MigrationToV2`] wrapped in a
+	/// [`UncheckedMigrationToV2`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 1.
 	#[allow(dead_code)]
-	pub type VersionCheckedMigrationToV2<T> = frame_support::migrations::VersionedMigration<
+	pub type MigrationToV2<T> = frame_support::migrations::VersionedMigration<
 		1,
 		2,
-		MigrationToV2<T>,
+		UncheckedMigrationToV2<T>,
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
@@ -190,9 +190,9 @@ pub mod v3 {
 	}
 
 	/// Migrates the pallet storage to v3.
-	pub struct MigrationToV3<T: Config>(PhantomData<T>);
+	pub struct UncheckedMigrationToV3<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV3<T> {
 		fn on_runtime_upgrade() -> Weight {
 			#[frame_support::storage_alias]
 			type Overweight<T: Config> =
@@ -203,13 +203,13 @@ pub mod v3 {
 		}
 	}
 
-	/// [`MigrationToV3`] wrapped in a
+	/// [`UncheckedMigrationToV3`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 2.
-	pub type VersionCheckedMigrationToV3<T> = frame_support::migrations::VersionedMigration<
+	pub type MigrationToV3<T> = frame_support::migrations::VersionedMigration<
 		2,
 		3,
-		MigrationToV3<T>,
+		UncheckedMigrationToV3<T>,
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
@@ -269,9 +269,9 @@ pub mod v4 {
 
 	/// Migrates `QueueConfigData` to v4, removing deprecated fields and bumping page
 	/// thresholds to at least the default values.
-	pub struct MigrationToV4<T: Config>(PhantomData<T>);
+	pub struct UncheckedMigrationToV4<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for MigrationToV4<T> {
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV4<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
 				use sp_std::cmp::max;
@@ -297,13 +297,13 @@ pub mod v4 {
 		}
 	}
 
-	/// [`MigrationToV4`] wrapped in a
+	/// [`UncheckedMigrationToV4`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 3.
-	pub type VersionCheckedMigrationToV4<T> = frame_support::migrations::VersionedMigration<
+	pub type MigrationToV4<T> = frame_support::migrations::VersionedMigration<
 		3,
 		4,
-		MigrationToV4<T>,
+		UncheckedMigrationToV4<T>,
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
@@ -335,7 +335,7 @@ mod tests {
 				&v1.encode(),
 			);
 
-			v2::VersionCheckedMigrationToV2::<Test>::on_runtime_upgrade();
+			v2::MigrationToV2::<Test>::on_runtime_upgrade();
 
 			let v2 = v2::QueueConfig::<Test>::get();
 
@@ -367,7 +367,7 @@ mod tests {
 				&v2.encode(),
 			);
 
-			v4::VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
+			v4::MigrationToV4::<Test>::on_runtime_upgrade();
 
 			let v4 = QueueConfig::<Test>::get();
 
@@ -393,7 +393,7 @@ mod tests {
 				&v2.encode(),
 			);
 
-			v4::VersionCheckedMigrationToV4::<Test>::on_runtime_upgrade();
+			v4::MigrationToV4::<Test>::on_runtime_upgrade();
 
 			let v4 = QueueConfig::<Test>::get();
 
