@@ -1428,6 +1428,7 @@ async fn handle_incoming_statement<Context>(
 			&per_session.session_info,
 			statement,
 			cluster_sender_index,
+			peer,
 		) {
 			Ok(Some(s)) => s,
 			Ok(None) => return,
@@ -1466,7 +1467,7 @@ async fn handle_incoming_statement<Context>(
 				},
 			}
 		} else {
-			gum::info!(target: LOG_TARGET, "statement_distribution: not a cluster or a grid peer");
+			gum::info!(target: LOG_TARGET, ?peer, "statement_distribution: not a cluster or a grid peer");
 			// Not a cluster or grid peer.
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
@@ -1587,6 +1588,7 @@ fn handle_cluster_statement(
 	session_info: &SessionInfo,
 	statement: UncheckedSignedStatement,
 	cluster_sender_index: ValidatorIndex,
+	peer: PeerId,
 ) -> Result<Option<SignedStatement>, Rep> {
 	// additional cluster checks.
 	let should_import = {
@@ -1600,14 +1602,14 @@ fn handle_cluster_statement(
 			Ok(ClusterAccept::WithPrejudice) => false,
 			Err(ClusterRejectIncoming::ExcessiveSeconded) => return Err(COST_EXCESSIVE_SECONDED),
 			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) => {
-				gum::info!(target: LOG_TARGET, ?res, "statement_distribution: not a cluster or a grid peer");
+				gum::info!(target: LOG_TARGET, ?res, ?peer, "statement_distribution: not a cluster or a grid peer");
 
 				return Err(COST_UNEXPECTED_STATEMENT)
 			},
 			Err(ClusterRejectIncoming::NotInGroup) => {
 				// sanity: shouldn't be possible; we already filtered this
 				// out above.
-				gum::info!(target: LOG_TARGET, ?res, "statement_distribution: not a cluster or a grid peer");
+				gum::info!(target: LOG_TARGET, ?res, ?peer, "statement_distribution: not a cluster or a grid peer");
 				return Err(COST_UNEXPECTED_STATEMENT)
 			},
 		}
