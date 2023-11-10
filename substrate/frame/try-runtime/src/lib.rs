@@ -49,5 +49,10 @@ sp_api::decl_runtime_apis! {
 			signature_check: bool,
 			try_state: TryStateSelect,
 		) -> Weight;
+
+		/// Decode the state of all pallets in the runtime.
+		///
+		/// Panics and logs info to assist with debugging if any pallets are not decodable.
+		fn decode_entire_state();
 	}
 }

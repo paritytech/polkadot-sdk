@@ -322,10 +322,6 @@ where
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
 			e
 		})?;
-		if select.any() {
-			let res = AllPalletsWithSystem::try_decode_entire_state();
-			Self::log_decode_result(res)?;
-		}
 		drop(_guard);
 
 		// do some of the checks that would normally happen in `final_checks`, but perhaps skip
@@ -362,6 +358,12 @@ where
 		Ok(frame_system::Pallet::<System>::block_weight().total())
 	}
 
+	pub fn try_decode_entire_state() -> Result<(), TryRuntimeError> {
+		let _ = frame_support::StorageNoopGuard::default();
+		let res = AllPalletsWithSystem::try_decode_entire_state();
+		Self::log_decode_result(res)
+	}
+
 	/// Execute all `OnRuntimeUpgrade` of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
@@ -374,12 +376,6 @@ where
 			)?;
 		// Nothing should modify the state after the migrations ran:
 		let _guard = StorageNoopGuard::default();
-
-		// The state must be decodable:
-		if checks.any() {
-			let res = AllPalletsWithSystem::try_decode_entire_state();
-			Self::log_decode_result(res)?;
-		}
 
 		// Check all storage invariants:
 		if checks.try_state() {
