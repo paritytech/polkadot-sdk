@@ -1,0 +1,16 @@
+[package]
+name = "wococo-system-emulated-network"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Wococo System emulated network"
+publish = false
+
+[dependencies]
+# Cumulus
+emulated-integration-tests-common = { path = "../../common", default-features = false }
+wococo-emulated-chain = { path = "../../chains/relays/wococo" }
+asset-hub-wococo-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-wococo" }
+bridge-hub-wococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-wococo" }
+penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }
