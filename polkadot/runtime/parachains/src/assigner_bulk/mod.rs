@@ -80,6 +80,7 @@ struct Schedule<N> {
 /// Contains pointers to first and last schedule into `CoreSchedules` for that core and keeps track
 /// of the currently active work as well.
 #[derive(Encode, Decode, TypeInfo, Default)]
+#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
 struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
 	queue: Option<QueueDescriptor<N>>,
@@ -89,10 +90,10 @@ struct CoreDescriptor<N> {
 
 /// Pointers into `CoreSchedules` for a particular core.
 ///
-/// Schedules in `CoreSchedules` form a queue. `Schedule::end_hint` always pointing to the next
+/// Schedules in `CoreSchedules` form a queue. `Schedule::next_schedule` always pointing to the next
 /// item.
 #[derive(Encode, Decode, TypeInfo, Copy, Clone)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
 struct QueueDescriptor<N> {
 	/// First scheduled item, that is not yet active.
 	first: N,
@@ -406,7 +407,7 @@ impl<T: Config> Pallet<T> {
 				assignments
 				.iter()
 				.map(|assignment| assignment.1)
-                .sum::<PartsOf57600>() <= PartsOf57600::from(57600u16),
+                .fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) <= PartsOf57600::from(57600u16),
 			Error::<T>::OverScheduled
 		);
 
