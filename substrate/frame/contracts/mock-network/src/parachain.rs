@@ -328,7 +328,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = relay_chain::ReachableDest;
+	type ReachableDest = crate::relay_chain::ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
