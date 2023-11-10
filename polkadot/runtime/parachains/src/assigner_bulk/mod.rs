@@ -258,19 +258,24 @@ impl<OnDemand: Assignment> Assignment for BulkAssignment<OnDemand> {
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	type AssignmentType = BulkAssignmentType<T>;
 
-	type OldAssignmentType = BulkAssignmentType<T>;
+	type OldAssignmentType =
+		<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::OldAssignmentType;
 
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
+	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0)
+		.saturating_add(<assigner_on_demand::Pallet<T>>::ASSIGNMENT_STORAGE_VERSION);
 
 	fn migrate_old_to_current(
 		old: Self::OldAssignmentType,
-		_core: CoreIndex,
+		core: CoreIndex,
 	) -> Self::AssignmentType {
-		old
+		// Previous version all assignments had been on-demand (bulk was not a thing):
+		BulkAssignment::Instantaneous(<assigner_on_demand::Pallet<T>>::migrate_old_to_current(
+			old, core,
+		))
 	}
 
 	fn session_core_count() -> u32 {
-		panic!("TODO");
+		panic!("TODO: Retrieve from config (set via UMP)");
 	}
 
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
@@ -465,8 +470,10 @@ impl<T: Config> Pallet<T> {
 // - Test insertion in the middle, beginning and end: Should fail in all cases but the last.
 // - Test insertion on empty queue.
 // - Test overwrite vs insert: Overwrite no longer allowed - should fail with error.
-// - New: Test that assignments are served correctly. E.g. two equal assignments will be served as ABABAB ... and more importantly have a test that checks that core is shared fairly, even in case of `ratio` not being divisible by `step` (over multiple rounds).
-//   (handled by assign_core_enforces_higher_block_number)
+// - New: Test that assignments are served correctly. E.g. two equal assignments will be served as
+//   ABABAB ... and more importantly have a test that checks that core is shared fairly, even in
+//   case of `ratio` not being divisible by `step` (over multiple rounds). (handled by
+//   assign_core_enforces_higher_block_number)
 // - Test insertion on empty queue. (Handled by assign_core_works_with_no_prior_schedule)
 // - Test overwrite vs insert: Overwrite no longer allowed - should fail with error. (handled using
 //   Error::DuplicateInsert, though earlier errors should prevent this error from ever triggering)
