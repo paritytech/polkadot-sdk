@@ -14,8 +14,5 @@ sp-runtime = { path = "../../../primitives/runtime", default-features = false}
 
 [features]
 default = [ "std" ]
-std = [
-	"frame-system/std",
-	"sp-runtime/std",
-]
+std = [ "frame-system/std", "sp-runtime/std" ]
 
