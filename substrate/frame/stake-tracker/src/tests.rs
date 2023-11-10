@@ -189,6 +189,17 @@ fn on_stake_update_sorting_works() {
 		assert_eq!(score_of_target(11), 200);
 		assert!(score_of_target(10) > score_of_target(11));
 		assert_eq!(TargetBagsList::iter().collect::<Vec<_>>(), initial_sort);
+
+		// double-check, events from target bags list: scores being updated and rebag.
+		assert_eq!(
+			target_bags_events(),
+			[
+				pallet_bags_list::Event::Rebagged { who: 11, from: 200, to: 400 },
+				pallet_bags_list::Event::ScoreUpdated { who: 11, new_score: 400 },
+				pallet_bags_list::Event::Rebagged { who: 11, from: 400, to: 200 },
+				pallet_bags_list::Event::ScoreUpdated { who: 11, new_score: 200 },
+			],
+		);
 	});
 
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
@@ -215,6 +226,15 @@ fn on_stake_update_sorting_works() {
 		assert_eq!(
 			voter_scores_before.iter().cloned().map(|(v, _)| v).collect::<Vec<_>>(),
 			VoterBagsList::iter().collect::<Vec<_>>()
+		);
+
+		// double-check, events from voter bags list: scores being updated but no rebag.
+		assert_eq!(
+			voter_bags_events(),
+			[
+				pallet_bags_list::Event::ScoreUpdated { who: 11, new_score: 100 },
+				pallet_bags_list::Event::ScoreUpdated { who: 11, new_score: 1 }
+			],
 		);
 	});
 }

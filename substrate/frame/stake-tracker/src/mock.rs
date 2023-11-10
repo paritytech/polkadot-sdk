@@ -371,6 +371,24 @@ pub(crate) fn remove_staker(who: AccountId) {
 	};
 }
 
+pub(crate) fn target_bags_events() -> Vec<pallet_bags_list::Event<Test, TargetBagsListInstance>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::TargetBagsList(inner) = e { Some(inner) } else { None },
+		)
+		.collect::<Vec<_>>()
+}
+
+pub(crate) fn voter_bags_events() -> Vec<pallet_bags_list::Event<Test, VoterBagsListInstance>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::VoterBagsList(inner) = e { Some(inner) } else { None })
+		.collect::<Vec<_>>()
+}
+
 #[derive(Default, Copy, Clone)]
 pub struct ExtBuilder {
 	populate_lists: bool,
@@ -397,6 +415,9 @@ impl ExtBuilder {
 			if self.populate_lists {
 				populate_lists();
 			}
+			// move pass genesis to register events.
+			System::set_block_number(1);
+
 			test()
 		});
 	}
