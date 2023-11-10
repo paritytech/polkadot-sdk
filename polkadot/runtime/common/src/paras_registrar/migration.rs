@@ -60,7 +60,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 	}
 }
 
-pub type VersionCheckedMigrateToV1<T, UnlockParaIds> =
+pub type MigrateToV1<T, UnlockParaIds> =
 	frame_support::migrations::VersionedMigration<
 		0,
 		1,
