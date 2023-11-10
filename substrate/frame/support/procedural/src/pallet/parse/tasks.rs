@@ -564,6 +564,7 @@ fn test_parse_tasks_def_basic() {
 				#[pallet::task_list(Numbers::<T, I>::iter_keys())]
 				#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
 				#[pallet::task_index(0)]
+				#[pallet::task_weight(0)]
 				pub fn add_number_into_total(i: u32) -> DispatchResult {
 					let v = Numbers::<T, I>::take(i).ok_or(Error::<T, I>::NotFound)?;
 					Total::<T, I>::mutate(|(total_keys, total_values)| {
