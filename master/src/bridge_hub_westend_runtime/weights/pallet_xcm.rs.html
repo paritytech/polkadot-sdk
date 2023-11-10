@@ -287,6 +287,33 @@
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -575,5 +602,32 @@
 			.saturating_add(T::DbWeight::get().reads(<span class="number">9</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
 	}
+	<span class="doccomment">/// Storage: `PolkadotXcm::QueryCounter` (r:1 w:1)
+	/// Proof: `PolkadotXcm::QueryCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `PolkadotXcm::Queries` (r:0 w:1)
+	/// Proof: `PolkadotXcm::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	</span><span class="kw">fn </span>new_query() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `32`
+		//  Estimated: `1517`
+		// Minimum execution time: 4_142_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">4_308_000</span>, <span class="number">0</span>)
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">1517</span>))
+			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
+	}
+	<span class="doccomment">/// Storage: `PolkadotXcm::Queries` (r:1 w:1)
+	/// Proof: `PolkadotXcm::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	</span><span class="kw">fn </span>take_response() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `7669`
+		//  Estimated: `11134`
+		// Minimum execution time: 25_814_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">26_213_000</span>, <span class="number">0</span>)
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">11134</span>))
+			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
+	}
 }
+
 </code></pre></div></section></main></body></html>
