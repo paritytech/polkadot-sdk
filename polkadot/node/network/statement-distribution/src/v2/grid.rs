@@ -530,10 +530,10 @@ impl GridTracker {
 		groups: &Groups,
 		originator: ValidatorIndex,
 		statement: &CompactStatement,
-	) -> (Vec<ValidatorIndex>, String) {
+	) -> (Vec<ValidatorIndex>, String, Vec<ValidatorIndex>) {
 		let ((g, c_h, kind, in_group), mut print_result) =
 			match extract_statement_and_group_info(groups, originator, statement) {
-				(None, print) => return (Vec::new(), print),
+				(None, print) => return (Vec::new(), print, Vec::new()),
 				(Some(x), print) => (x, print),
 			};
 		let confirmed_backed = self.confirmed_backed.get(&c_h);
@@ -545,7 +545,7 @@ impl GridTracker {
 		let result = confirmed_backed
 			.map(|k| k.direct_statement_senders(g, in_group, kind))
 			.unwrap_or_default();
-		(result.0, format!("{} {}", print_result, result.1))
+		(result.0, format!("{} {}", print_result, result.1), result.2)
 	}
 
 	/// Determine the validators which can receive a statement from us by direct
@@ -968,9 +968,9 @@ impl KnownBackedCandidate {
 		group_index: GroupIndex,
 		originator_index_in_group: usize,
 		statement_kind: StatementKind,
-	) -> (Vec<ValidatorIndex>, String) {
+	) -> (Vec<ValidatorIndex>, String, Vec<ValidatorIndex>) {
 		if group_index != self.group_index {
-			return (Vec::new(), "no_match_group_index".into())
+			return (Vec::new(), "no_match_group_index".into(), Vec::new())
 		}
 
 		let mut count_remotes = 0;
@@ -998,9 +998,35 @@ impl KnownBackedCandidate {
 			.map(|(v, _)| *v)
 			.collect();
 		let empty_or_not = result.is_empty();
+
+		let second: Vec<ValidatorIndex> = if empty_or_not {
+			self.mutual_knowledge
+				.iter()
+				.filter(|(_, k)| {
+					if k.remote_knowledge.is_some() {
+						count_remotes = count_remotes + 1;
+						true
+					} else {
+						false
+					}
+				})
+				.filter(|(_, k)| {
+					count_locals = count_locals + 1;
+					k.local_knowledge.as_ref().map_or(false, |r| {
+						count_contains = count_contains + 1;
+						r.contains(originator_index_in_group, statement_kind)
+					})
+				})
+				.map(|(v, _)| *v)
+				.collect()
+		} else {
+			Vec::new()
+		};
+
 		(
 			result,
 			format!("is_emptyxx {} {count_remotes} {count_locals} {count_contains}", empty_or_not),
+			second,
 		)
 	}
 

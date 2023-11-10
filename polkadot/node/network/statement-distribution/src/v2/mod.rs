@@ -1454,7 +1454,7 @@ async fn handle_incoming_statement<Context>(
 			},
 		}
 	} else {
-		let (direct_statement_providers, print_new) =
+		let (direct_statement_providers, print_new, occupied) =
 			local_validator.grid_tracker.direct_statement_providers(
 				&per_session.groups,
 				statement.unchecked_validator_index(),
@@ -1492,7 +1492,14 @@ async fn handle_incoming_statement<Context>(
 				},
 			}
 		} else {
-			gum::info!(target: LOG_TARGET, ?peer, ?prints, ids = ?peer_state.discovery_ids, "statement_distribution: not a cluster or a grid peer");
+			let occupied_index = occupied
+				.into_iter()
+				.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
+				.filter(|(_, ad)| peer_state.is_authority(ad))
+				.map(|(i, _)| i)
+				.next();
+
+			gum::info!(target: LOG_TARGET, ?peer, ?prints, ?occupied_index, ids = ?peer_state.discovery_ids, "statement_distribution: not a cluster or a grid peer");
 			// Not a cluster or grid peer.
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
