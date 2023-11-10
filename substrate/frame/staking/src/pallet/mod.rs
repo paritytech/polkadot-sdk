@@ -636,16 +636,12 @@ pub mod pallet {
 	#[pallet::getter(fn current_planned_session)]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
-	/// Indices of validators that have offended in the active era and whether they are currently
-	/// disabled.
+	/// Indices of validators that have offended in the active era. The offenders are disabled for a
+	/// whole era. For this reason they are kept here - only staking pallet knows about eras. To
+	/// avoid breaking consensus no more than a `byzantine_threshold` are disabled at a given era.
 	///
-	/// This value should be a superset of disabled validators since not all offences lead to the
-	/// validator being disabled (if there was no slash). This is needed to track the percentage of
-	/// validators that have offended in the current era, ensuring a new era is forced if
-	/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
-	/// whether a given validator has previously offended using binary search. It gets cleared when
-	/// the era ends.
-	// TODO: Fix the comment above
+	/// The vec is always kept sorted so that we can find whether a given validator has previously
+	/// offended using binary search.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn offending_validators)]
