@@ -404,6 +404,8 @@ where
 
 			if let Some(p) = peer_id {
 				authority_ids.entry(p).or_default().insert(authority);
+			} else {
+				gum::info!(target: LOG_TARGET, ?authority, "This is not good at all");
 			}
 		}
 

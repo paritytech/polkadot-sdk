@@ -1415,7 +1415,13 @@ async fn handle_incoming_statement<Context>(
 		allowed_senders
 			.iter()
 			.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (*i, ad)))
-			.filter(|(_, ad)| peer_state.is_authority(ad))
+			.filter(|(_, ad)| {
+				let res = peer_state.is_authority(ad);
+				if !res {
+					gum::info!(target: LOG_TARGET, ?peer, ?ad, "Not an authority");
+				}
+				res
+			})
 			.map(|(i, _)| i)
 			.next()
 	};
@@ -1447,7 +1453,13 @@ async fn handle_incoming_statement<Context>(
 			)
 			.into_iter()
 			.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
-			.filter(|(_, ad)| peer_state.is_authority(ad))
+			.filter(|(_, ad)| {
+				let res = peer_state.is_authority(ad);
+				if !res {
+					gum::info!(target: LOG_TARGET, ?peer, ?ad, "Not an authority");
+				}
+				res
+			})
 			.map(|(i, _)| i)
 			.next();
 
