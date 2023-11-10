@@ -232,11 +232,14 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	}
 }
 
-const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+const VOTER_THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
+const TARGET_THRESHOLDS: [Balance; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+
 parameter_types! {
-	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
+	pub static VoterBagThresholds: &'static [sp_npos_elections::VoteWeight] = &VOTER_THRESHOLDS;
+	pub static TargetBagThresholds: &'static [Balance] = &TARGET_THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -252,7 +255,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type WeightInfo = ();
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = VoteWeight;
 }
 
@@ -260,10 +263,9 @@ type TargetBagsListInstance = pallet_bags_list::Instance2;
 impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	// Staking is the source of truth for target bags list.
-	type ScoreProvider = Staking;
-	type BagThresholds = BagThresholds;
-	type Score = VoteWeight;
+	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
+	type BagThresholds = TargetBagThresholds;
+	type Score = Balance;
 }
 
 pub struct OnChainSeqPhragmen;
@@ -875,7 +877,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 }
 
 #[allow(dead_code)]
-pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, VoteWeight)>) {
+pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, Balance)>) {
 	(
 		VoterBagsList::iter()
 			.map(|v| (v, VoterBagsList::get_score(&v).unwrap()))

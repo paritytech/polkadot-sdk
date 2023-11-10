@@ -59,6 +59,7 @@ use frame_support::{
 	defensive,
 	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
 };
+use sp_npos_elections::ExtendedBalance;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, StakerStatus, StakingInterface,
 };
@@ -86,7 +87,7 @@ pub enum StakeImbalance<Balance> {
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
-	use frame_election_provider_support::VoteWeight;
+	use frame_election_provider_support::{ExtendedBalance, VoteWeight};
 	use frame_support::pallet_prelude::*;
 
 	/// The current storage version.
@@ -111,31 +112,53 @@ pub mod pallet {
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
 		/// Something that provides an *always* sorted list of targets.
-		type TargetList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
+		type TargetList: SortedListProvider<
+			Self::AccountId,
+			Score = <Self::Staking as StakingInterface>::Balance,
+		>;
 	}
 
 	impl<T: Config> Pallet<T> {
 		/// Returns the vote weight of a staker based on its current *active* stake, as returned by
 		/// the staking interface.
-		pub(crate) fn active_vote_of(who: &T::AccountId) -> VoteWeight {
-			T::Staking::stake(who)
-				.map(|s| Self::to_vote(s.active))
-				.defensive_unwrap_or_default()
+		pub(crate) fn active_vote_of(who: &T::AccountId) -> BalanceOf<T> {
+			T::Staking::stake(who).map(|s| s.active).defensive_unwrap_or_default()
 		}
 
-		/// Converts a staker's balance to its vote weight.
-		pub(crate) fn to_vote(balance: BalanceOf<T>) -> VoteWeight {
+		pub(crate) fn weight_of(balance: BalanceOf<T>) -> VoteWeight {
 			<T::Staking as StakingInterface>::CurrencyToVote::to_vote(
 				balance,
 				T::Currency::total_issuance(),
 			)
 		}
 
+		/// Fetches and converts a voter's weight into the `ExtendedBalance` type for safe
+		/// computation.
+		pub(crate) fn to_vote_extended(balance: BalanceOf<T>) -> ExtendedBalance {
+			<T::Staking as StakingInterface>::CurrencyToVote::to_vote(
+				balance,
+				T::Currency::total_issuance(),
+			)
+			.into()
+		}
+
+		/// Converts an `ExtendedBalance` back to the staking interface's balance.
+		pub(crate) fn to_currency(
+			extended: ExtendedBalance,
+		) -> <T::Staking as StakingInterface>::Balance {
+			<T::Staking as StakingInterface>::CurrencyToVote::to_currency(
+				extended,
+				T::Currency::total_issuance(),
+			)
+		}
+
 		/// Updates a staker's score by increasing/decreasing an imbalance of the current score in
 		/// the list.
-		pub(crate) fn update_score<L>(who: &T::AccountId, imbalance: StakeImbalance<VoteWeight>)
-		where
-			L: SortedListProvider<AccountIdOf<T>, Score = VoteWeight>,
+		pub(crate) fn update_score<L>(
+			who: &T::AccountId,
+			imbalance: StakeImbalance<ExtendedBalance>,
+		) where
+			L: SortedListProvider<AccountIdOf<T>, Score = BalanceOf<T>>,
 		{
 			// there may be nominators who nominate a non-existant validator. if that's the case,
 			// move on.
@@ -146,7 +169,7 @@ pub mod pallet {
 
 			match imbalance {
 				StakeImbalance::Positive(imbalance) => {
-					let _ = L::on_increase(who, imbalance).defensive_proof(
+					let _ = L::on_increase(who, Self::to_currency(imbalance)).defensive_proof(
 						"staker should exist in the list, otherwise returned earlier.",
 					);
 				},
@@ -157,11 +180,13 @@ pub mod pallet {
 						// expected. Instead, we call `L::on_update` to set the new score that
 						// defensively saturates to 0. The node will be removed when `on_*_remove`
 						// is called.
-						let _ =
-							L::on_update(who, current_score.defensive_saturating_sub(imbalance))
-								.defensive_proof(
-									"staker exists in the list as per the check above; qed.",
-								);
+
+						let balance = Self::to_vote_extended(current_score)
+							.defensive_saturating_sub(imbalance);
+
+						let _ = L::on_update(who, Self::to_currency(balance)).defensive_proof(
+							"staker exists in the list as per the check above; qed.",
+						);
 					} else {
 						defensive!("unexpected: unable to fetch score from staking interface of an existent staker");
 					}
@@ -181,7 +206,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		if let Ok(stake) = T::Staking::status(who).and(T::Staking::stake(who)).defensive_proof(
 			"staker should exist when calling on_stake_update and have a valid status",
 		) {
-			let voter_weight = Self::to_vote(stake.active);
+			let voter_weight = Self::weight_of(Self::active_vote_of(who));
 
 			match T::Staking::status(who).expect("status checked above; qed.") {
 				StakerStatus::Nominator(nominations) => {
@@ -190,9 +215,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
                             with staking.",
 					);
 
+					// convert to extended balance to peform operations with voter's weight.
+					let voter_weight: ExtendedBalance = voter_weight.into();
+
 					// calculate imbalace to update the score of nominated targets.
 					let stake_imbalance = if let Some(prev_stake) = prev_stake {
-						let prev_voter_weight = Self::to_vote(prev_stake.active);
+						let prev_voter_weight = Self::to_vote_extended(prev_stake.active);
+						//let prev_voter_weight = Self::to_vote_extended(prev_stake.active);
 
 						if prev_voter_weight > voter_weight {
 							StakeImbalance::Negative(prev_voter_weight - voter_weight)
@@ -217,7 +246,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				},
 				StakerStatus::Validator => {
 					// validator is both a target and a voter.
-					let _ = T::TargetList::on_update(who, voter_weight).defensive_proof(
+					let _ = T::TargetList::on_update(who, stake.active).defensive_proof(
 						"staker should exist in TargetList, as per the contract \
                             with staking.",
 					);
@@ -235,7 +264,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	// Note: it is assumed that who's staking state is updated *before* this method is called.
 	fn on_nominator_add(who: &T::AccountId) {
-		let nominator_vote = Self::active_vote_of(who);
+		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
 		let _ = T::VoterList::on_insert(who.clone(), nominator_vote).defensive_proof(
 			"staker should not exist in VoterList, as per the contract with staking.",
@@ -248,7 +277,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				for t in nominations {
 					Self::update_score::<T::TargetList>(
 						&t,
-						StakeImbalance::Positive(nominator_vote),
+						StakeImbalance::Positive(nominator_vote.into()),
 					)
 				},
 			Ok(StakerStatus::Idle) | Ok(StakerStatus::Validator) | Err(_) => (), // nada.
@@ -276,12 +305,12 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	// this method. Thus, the nominations before the nominator has been removed from staking are
 	// passed in, so that the target list can be updated accordingly.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
-		let nominator_vote = Self::active_vote_of(who);
+		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
 		// updates the nominated target's score. Note: this may update the score of up to
 		// `T::MaxNominations` validators.
 		for t in nominations.iter() {
-			Self::update_score::<T::TargetList>(&t, StakeImbalance::Negative(nominator_vote))
+			Self::update_score::<T::TargetList>(&t, StakeImbalance::Negative(nominator_vote.into()))
 		}
 
 		let _ = T::VoterList::on_remove(&who).defensive_proof(
@@ -307,7 +336,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	// Note: it is assumed that who's staking state is updated *before* calling this method.
 	fn on_nominator_update(who: &T::AccountId, prev_nominations: Vec<T::AccountId>) {
-		let nominator_vote = Self::active_vote_of(who);
+		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+
 		let curr_nominations =
 			<T::Staking as StakingInterface>::nominations(&who).unwrap_or_default();
 
@@ -316,7 +346,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			if !prev_nominations.contains(target) {
 				Self::update_score::<T::TargetList>(
 					&target,
-					StakeImbalance::Positive(nominator_vote),
+					StakeImbalance::Positive(nominator_vote.into()),
 				);
 			}
 		}
@@ -325,7 +355,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			if !curr_nominations.contains(target) {
 				Self::update_score::<T::TargetList>(
 					&target,
-					StakeImbalance::Negative(nominator_vote),
+					StakeImbalance::Negative(nominator_vote.into()),
 				);
 			}
 		}

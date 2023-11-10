@@ -62,7 +62,7 @@ fn update_score_works() {
 		let current_score = VoterBagsList::get_score(&1).unwrap();
 		crate::Pallet::<Test>::update_score::<VoterBagsList>(
 			&1,
-			StakeImbalance::Negative(current_score),
+			StakeImbalance::Negative(current_score.into()),
 		);
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::get_score(&1), Ok(0));
@@ -169,15 +169,16 @@ fn on_stake_update_works() {
 fn on_stake_update_sorting_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		let initial_sort = TargetBagsList::iter().collect::<Vec<_>>();
+
 		// 10 starts with more score than 11.
-		assert_eq!(score_of(11), 200);
-		assert!(score_of(10) > score_of(11));
+		assert_eq!(score_of_target(11), 200);
+		assert!(score_of_target(10) > score_of_target(11));
 		assert_eq!(initial_sort, [10, 11]);
 
 		// add new nominator that add +200 score to 11, which reverts the target list order.
 		add_nominator_with_nominations(5, 200, vec![11]);
-		assert_eq!(score_of(11), 400);
-		assert!(score_of(10) < score_of(11));
+		assert_eq!(score_of_target(11), 400);
+		assert!(score_of_target(10) < score_of_target(11));
 		assert_eq!(
 			TargetBagsList::iter().collect::<Vec<_>>(),
 			initial_sort.iter().rev().cloned().collect::<Vec<_>>()
@@ -185,8 +186,8 @@ fn on_stake_update_sorting_works() {
 
 		// now we remove the stake 5 to get back to the initial state.
 		remove_staker(5);
-		assert_eq!(score_of(11), 200);
-		assert!(score_of(10) > score_of(11));
+		assert_eq!(score_of_target(11), 200);
+		assert!(score_of_target(10) > score_of_target(11));
 		assert_eq!(TargetBagsList::iter().collect::<Vec<_>>(), initial_sort);
 	});
 

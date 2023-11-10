@@ -90,9 +90,9 @@ type TargetBagsListInstance = pallet_bags_list::Instance2;
 impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ScoreProvider = StakingMock;
+	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
 	type BagThresholds = BagThresholds;
-	type Score = VoteWeight;
+	type Score = <StakingMock as StakingInterface>::Balance;
 }
 
 impl pallet_stake_tracker::Config for Test {
@@ -109,16 +109,8 @@ impl ScoreProvider<AccountId> for StakingMock {
 	type Score = VoteWeight;
 
 	fn score(id: &AccountId) -> Self::Score {
-		// for testing, score is the sum of self stake and nominated active stake.
 		let nominators = TestNominators::get();
-		let mut sum = nominators.get(id).unwrap().0.active;
-
-		for (_, v) in nominators.iter() {
-			if v.1.contains(id) {
-				sum += v.0.active;
-			}
-		}
-		sum
+		nominators.get(id).unwrap().0.active
 	}
 
 	fn set_score_of(_: &AccountId, _: Self::Score) {
@@ -286,8 +278,15 @@ pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
 	StakingMock::stake(&who).ok()
 }
 
-pub(crate) fn score_of(who: AccountId) -> VoteWeight {
+#[allow(dead_code)]
+pub(crate) fn score_of_voter(who: AccountId) -> VoteWeight {
 	<StakingMock as ScoreProvider<AccountId>>::score(&who)
+}
+
+pub(crate) fn score_of_target(who: AccountId) -> Balance {
+	<pallet_bags_list::Pallet<Test, TargetBagsListInstance> as ScoreProvider<AccountId>>::score(
+		&who,
+	)
 }
 
 pub(crate) fn add_nominator_with_nominations(

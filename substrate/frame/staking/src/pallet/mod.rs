@@ -247,7 +247,7 @@ pub mod pallet {
 		/// Unlike `VoterList`, the values in this list are always kept up to date with rewards,
 		/// slashes, etc, and thus represent the accurate approval stake of all account being
 		/// nominated by nominators.
-		type TargetList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
+		type TargetList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
 
 		/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
 		/// have. Effectively determines how many unique eras a staker may be
