@@ -6,6 +6,7 @@ description = "A minimal Substrate example runtime"
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
 parity-scale-codec = { version = "3.0.0", default-features = false }
