@@ -163,7 +163,8 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		// For every 5th block we immediately signal unavailability to trigger
 		// a retry.
 		if self.counter % 5 == 0 {
-			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, back_sender) = message;
+			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, back_sender) =
+				message;
 			tracing::info!(target: LOG_TARGET, "Failing pov recovery.");
 			back_sender
 				.send(Err(RecoveryError::Unavailable))

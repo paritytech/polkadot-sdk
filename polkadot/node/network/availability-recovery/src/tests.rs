@@ -584,12 +584,14 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 				test_state.candidate.clone(),
 				test_state.session_index,
 				None,
+				None,
 				tx,
 			),
 		)
 		.await;
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+		// It's not requesting the block number here.
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
 		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
@@ -623,6 +625,7 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				new_candidate.clone(),
 				test_state.session_index,
+				None,
 				None,
 				tx,
 			),
@@ -708,6 +711,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -748,6 +752,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 				new_candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -823,6 +828,7 @@ fn bad_merkle_path_leads_to_recovery_error(#[case] systematic_recovery: bool) {
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				test_state.candidate.clone(),
 				test_state.session_index,
+				None,
 				None,
 				tx,
 			),
@@ -906,6 +912,7 @@ fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) 
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				test_state.candidate.clone(),
 				test_state.session_index,
+				None,
 				None,
 				tx,
 			),
@@ -1012,6 +1019,7 @@ fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bo
 				test_state.candidate.clone(),
 				test_state.session_index,
 				None,
+				None,
 				tx,
 			),
 		)
@@ -1040,8 +1048,10 @@ fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bo
 	});
 }
 
-#[test]
-fn fast_path_backing_group_recovers() {
+#[rstest]
+#[case(Some(1))]
+#[case(None)]
+fn fast_path_backing_group_recovers(#[case] relay_parent_block_number: Option<BlockNumber>) {
 	let test_state = TestState::default();
 	let subsystem =
 		AvailabilityRecoverySubsystem::with_fast_path(request_receiver(), Metrics::new_dummy());
@@ -1064,13 +1074,16 @@ fn fast_path_backing_group_recovers() {
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				relay_parent_block_number,
 				tx,
 			),
 		)
 		.await;
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
-		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+		if relay_parent_block_number.is_none() {
+			test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+		}
 		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
@@ -1145,6 +1158,7 @@ fn recovers_from_only_chunks_if_pov_large(
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1196,6 +1210,7 @@ fn recovers_from_only_chunks_if_pov_large(
 				new_candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1293,6 +1308,7 @@ fn fast_path_backing_group_recovers_if_pov_small(
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1370,6 +1386,7 @@ fn no_answers_in_fast_path_causes_chunk_requests(#[case] systematic_recovery: bo
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1446,6 +1463,7 @@ fn task_canceled_when_receivers_dropped(#[case] systematic_recovery: bool) {
 				test_state.candidate.clone(),
 				test_state.session_index,
 				None,
+				None,
 				tx,
 			),
 		)
@@ -1500,6 +1518,7 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1582,6 +1601,7 @@ fn network_bridge_not_returning_responses_wont_stall_retrieval() {
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1672,6 +1692,7 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1777,6 +1798,7 @@ fn returns_early_if_we_have_the_data(#[case] systematic_recovery: bool) {
 				test_state.candidate.clone(),
 				test_state.session_index,
 				None,
+				None,
 				tx,
 			),
 		)
@@ -1816,6 +1838,7 @@ fn returns_early_if_present_in_the_subsystem_cache() {
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1850,6 +1873,7 @@ fn returns_early_if_present_in_the_subsystem_cache() {
 				test_state.candidate.clone(),
 				test_state.session_index,
 				Some(GroupIndex(0)),
+				None,
 				tx,
 			),
 		)
@@ -1899,6 +1923,7 @@ fn does_not_query_local_validator(#[case] systematic_recovery: bool) {
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				test_state.candidate.clone(),
 				test_state.session_index,
+				None,
 				None,
 				tx,
 			),
@@ -1962,6 +1987,7 @@ fn invalid_local_chunk(#[case] systematic_recovery: bool) {
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				test_state.candidate.clone(),
 				test_state.session_index,
+				None,
 				None,
 				tx,
 			),
@@ -2029,6 +2055,7 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 				AvailabilityRecoveryMessage::RecoverAvailableData(
 					test_state.candidate.clone(),
 					test_state.session_index,
+					None,
 					None,
 					tx,
 				),
@@ -2111,6 +2138,7 @@ fn chunk_indices_are_shuffled(#[case] systematic_recovery: bool, #[case] shuffli
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				test_state.candidate.clone(),
 				test_state.session_index,
+				None,
 				None,
 				tx,
 			),
@@ -2237,6 +2265,7 @@ fn number_of_request_retries_is_bounded(
 				test_state.candidate.clone(),
 				test_state.session_index,
 				None,
+				None,
 				tx,
 			),
 		)
@@ -2293,6 +2322,72 @@ fn number_of_request_retries_is_bounded(
 			assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
 		}
 
+		virtual_overseer
+	});
+}
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+fn block_number_not_requested_if_provided(#[case] systematic_recovery: bool) {
+	let test_state = TestState::default();
+	let (subsystem, threshold) = match systematic_recovery {
+		true => (
+			AvailabilityRecoverySubsystem::with_systematic_chunks(
+				request_receiver(),
+				Metrics::new_dummy(),
+			),
+			test_state.systematic_threshold(),
+		),
+		false => (
+			AvailabilityRecoverySubsystem::with_chunks_only(
+				request_receiver(),
+				Metrics::new_dummy(),
+			),
+			test_state.threshold(),
+		),
+	};
+
+	test_harness(subsystem, |mut virtual_overseer| async move {
+		overseer_signal(
+			&mut virtual_overseer,
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				test_state.current,
+				1,
+			))),
+		)
+		.await;
+
+		let (tx, rx) = oneshot::channel();
+
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				None,
+				Some(1),
+				tx,
+			),
+		)
+		.await;
+
+		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+
+		test_state
+			.test_chunk_requests(
+				test_state.candidate.hash(),
+				&mut virtual_overseer,
+				threshold,
+				|_| Has::Yes,
+				systematic_recovery,
+			)
+			.await;
+
+		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
 		virtual_overseer
 	});
 }

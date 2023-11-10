@@ -471,7 +471,8 @@ pub enum AvailabilityRecoveryMessage {
 	RecoverAvailableData(
 		CandidateReceipt,
 		SessionIndex,
-		Option<GroupIndex>, // Optional backing group to request from first.
+		Option<GroupIndex>,  // Optional backing group to request from first.
+		Option<BlockNumber>, // Optional block number of the relay parent of the candidate.
 		oneshot::Sender<Result<AvailableData, crate::errors::RecoveryError>>,
 	),
 }

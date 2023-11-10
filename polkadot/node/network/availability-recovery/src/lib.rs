@@ -366,6 +366,7 @@ async fn handle_recover<Context>(
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 	recovery_strategy_kind: RecoveryStrategyKind,
 	bypass_availability_store: bool,
+	maybe_block_number: Option<BlockNumber>,
 ) -> Result<()> {
 	let candidate_hash = receipt.hash();
 
@@ -393,10 +394,13 @@ async fn handle_recover<Context>(
 	let _span = span.child("session-info-ctx-received");
 	match session_info {
 		Some(session_info) => {
-			let block_number =
+			let block_number = if let Some(block_number) = maybe_block_number {
+				block_number
+			} else {
 				get_block_number::<_, Error>(ctx.sender(), receipt.descriptor.relay_parent)
 					.await?
-					.ok_or(Error::BlockNumberNotFound)?;
+					.ok_or(Error::BlockNumberNotFound)?
+			};
 
 			let chunk_indices = if let Some(chunk_indices) = state
 				.chunk_indices
@@ -741,6 +745,7 @@ impl AvailabilityRecoverySubsystem {
 										receipt,
 										session_index,
 										maybe_backing_group,
+										maybe_block_number,
 										response_sender,
 									)
 								} => handle_recover(
@@ -753,7 +758,8 @@ impl AvailabilityRecoverySubsystem {
 										&metrics,
 										erasure_task_tx.clone(),
 										recovery_strategy_kind.clone(),
-										bypass_availability_store
+										bypass_availability_store,
+										maybe_block_number
 									).await
 							}
 						},
