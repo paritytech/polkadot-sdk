@@ -529,11 +529,12 @@ pub fn init_runtime_logger() {
 #[cfg(feature = "std")]
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
-	#[error("Failed to decode return value of {function}")]
+	#[error("Failed to decode return value of {function}: {error} raw data: {raw:?}")]
 	FailedToDecodeReturnValue {
 		function: &'static str,
 		#[source]
 		error: codec::Error,
+		raw: Vec<u8>,
 	},
 	#[error("Failed to convert return value from runtime to node of {function}")]
 	FailedToConvertReturnValue {

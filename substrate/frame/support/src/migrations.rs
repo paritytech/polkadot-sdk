@@ -417,9 +417,9 @@ pub enum SteppedMigrationError {
 	Failed,
 }
 
-/// Notification handler for status updates regarding runtime migrations.
+/// Notification handler for status updates regarding Multi-Block-Migrations.
 #[impl_trait_for_tuples::impl_for_tuples(8)]
-pub trait OnMigrationStatus {
+pub trait MigrationStatusHandler {
 	/// Notifies of the start of a runtime migration.
 	fn started() {}
 

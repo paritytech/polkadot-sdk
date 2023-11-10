@@ -31,7 +31,7 @@ use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ExtrinsicInclusionMode, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -321,8 +321,12 @@ where
 
 		block_builder.last_inherent()?;
 
-		let end_reason =
-			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
+		let mode = block_builder.extrinsic_inclusion_mode();
+		let end_reason = match mode {
+			ExtrinsicInclusionMode::AllExtrinsics =>
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
+			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::ExtrinsicsForbidden,
+		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 

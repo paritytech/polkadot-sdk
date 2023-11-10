@@ -72,21 +72,24 @@ mod benches {
 		}
 	}
 
-	/// Benchmarks the slowest path of `change_value`.
 	#[benchmark]
 	fn force_set_cursor() {
-		Cursor::<T>::set(Some(cursor::<T>()));
-
 		#[extrinsic_call]
 		_(RawOrigin::Root, Some(cursor::<T>()));
 	}
 
 	#[benchmark]
-	fn clear_historic(n: Linear<0, MAX_HISTORIC_BATCH_CLEAR_SIZE>) {
+	fn force_set_active_cursor() {
+		#[extrinsic_call]
+		_(RawOrigin::Root, 0, None, None);
+	}
+
+	#[benchmark]
+	fn clear_historic(n: Linear<0, { DEFAULT_HISTORIC_BATCH_CLEAR_SIZE * 2 }>) {
 		let id_max_len = <T as Config>::IdentifierMaxLen::get();
 		assert!(id_max_len >= 4, "Precondition violated");
 
-		for i in 0..MAX_HISTORIC_BATCH_CLEAR_SIZE {
+		for i in 0..DEFAULT_HISTORIC_BATCH_CLEAR_SIZE * 2 {
 			let id = IdentifierOf::<T>::truncate_from(
 				i.encode().into_iter().cycle().take(id_max_len as usize).collect::<Vec<_>>(),
 			);
@@ -95,7 +98,10 @@ mod benches {
 		}
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, Some(0), None);
+		_(
+			RawOrigin::Root,
+			HistoricCleanupSelector::Wildcard { limit: n.into(), previous_cursor: None },
+		);
 	}
 
 	fn cursor<T: Config>() -> CursorOf<T> {

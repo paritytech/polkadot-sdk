@@ -32,7 +32,7 @@ use sp_runtime::BoundedVec;
 /// Opaque identifier of a migration.
 pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;
 
-/// How a [`MockedMigration`] should behave.
+/// How a mocked migration should behave.
 #[derive(Debug, Clone, Copy, Encode)]
 pub enum MockedMigrationKind {
 	/// Succeed after its number of steps elapsed.
@@ -41,7 +41,8 @@ pub enum MockedMigrationKind {
 	FailAfter,
 	/// Never terminate.
 	TimeoutAfter,
-	/// Cause an [`InsufficientWeight`] error after its number of steps elapsed.
+	/// Cause an [`SteppedMigrationError::InsufficientWeight`] error after its number of steps
+	/// elapsed.
 	HighWeightAfter(Weight),
 }
 use MockedMigrationKind::*; // C style
@@ -142,20 +143,20 @@ frame_support::parameter_types! {
 	pub static UpgradesCompleted: u32 = 0;
 	/// The migrations that failed.
 	pub static UpgradesFailed: Vec<Option<u32>> = vec![];
-	/// Return value of `MockedOnMigrationStatus::failed`.
+	/// Return value of [`MockedFailedMigrationHandler::failed`].
 	pub static FailedUpgradeResponse: FailedUpgradeHandling = FailedUpgradeHandling::KeepStuck;
 }
 
 /// Records all started and completed upgrades in `UpgradesStarted` and `UpgradesCompleted`.
-pub struct MockedOnMigrationStatus;
-impl OnMigrationStatus for MockedOnMigrationStatus {
+pub struct MockedMigrationStatusHandler;
+impl MigrationStatusHandler for MockedMigrationStatusHandler {
 	fn started() {
-		log::info!("OnMigrationStatus started");
+		log::info!("MigrationStatusHandler started");
 		UpgradesStarted::mutate(|v| *v += 1);
 	}
 
 	fn completed() {
-		log::info!("OnMigrationStatus completed");
+		log::info!("MigrationStatusHandler completed");
 		UpgradesCompleted::mutate(|v| *v += 1);
 	}
 }

@@ -115,12 +115,12 @@
 //!
 //! Failed upgrades cannot be recovered from automatically and require governance intervention. Set
 //! up monitoring for `UpgradeFailed` events to be made aware of any failures. The hook
-//! [`OnMigrationStatus::failed`] should be setup in a way that it allows governance to act, but
-//! still prevent other transactions from interacting with the inconsistent storage state. Note that
-//! this is paramount, since the inconsistent state might contain a faulty balance amount or similar
-//! that could cause great harm if user transactions don't remain suspended. One way to implement
-//! this would be to use the `SafeMode` or `TxPause` pallets that can prevent most user interactions
-//! but still allow a whitelisted set of governance calls.
+//! [`FailedMigrationHandler::failed`] should be setup in a way that it allows governance to act,
+//! but still prevent other transactions from interacting with the inconsistent storage state. Note
+//! that this is paramount, since the inconsistent state might contain a faulty balance amount or
+//! similar that could cause great harm if user transactions don't remain suspended. One way to
+//! implement this would be to use the `SafeMode` or `TxPause` pallets that can prevent most user
+//! interactions but still allow a whitelisted set of governance calls.
 //!
 //! ### Remark: Failed migrations
 //!
@@ -148,7 +148,7 @@ pub use weights::WeightInfo;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
-	defensive,
+	defensive, defensive_assert,
 	migrations::*,
 	traits::Get,
 	weights::{Weight, WeightMeter},
@@ -158,23 +158,18 @@ use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::Saturating;
 use sp_std::vec::Vec;
 
-/// The maximal number of entries that can be cleared by a single `clear_historic` call.
-///
-/// Each entry corresponds to one historic migration and the call can be repeated. A hard-limit is
-/// still needed for benchmarking.
-const MAX_HISTORIC_BATCH_CLEAR_SIZE: u32 = 128;
-
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
 pub enum MigrationCursor<Cursor, BlockNumber> {
-	/// Points to the currently active migration and its cursor.
+	/// Points to the currently active migration and its inner cursor.
 	Active(ActiveCursor<Cursor, BlockNumber>),
-	/// Migration got stuck and cannot proceed.
+
+	/// Migration got stuck and cannot proceed. This is bad.
 	Stuck,
 }
 
 impl<Cursor, BlockNumber> MigrationCursor<Cursor, BlockNumber> {
-	/// Maybe return self as an `ActiveCursor`.
+	/// Try to return self as an `ActiveCursor`.
 	pub fn as_active(&self) -> Option<&ActiveCursor<Cursor, BlockNumber>> {
 		match self {
 			MigrationCursor::Active(active) => Some(active),
@@ -194,17 +189,58 @@ impl<Cursor, BlockNumber> From<ActiveCursor<Cursor, BlockNumber>>
 /// Points to the currently active migration and its inner cursor.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct ActiveCursor<Cursor, BlockNumber> {
-	index: u32,
-	inner_cursor: Option<Cursor>,
-	started_at: BlockNumber,
+	/// The index of the migration in the MBM tuple.
+	pub index: u32,
+	/// The cursor of the migration that is referenced by `index`.
+	pub inner_cursor: Option<Cursor>,
+	/// The block number that the migration started at.
+	///
+	/// This is used to calculate how many blocks it took.
+	pub started_at: BlockNumber,
 }
 
 impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
-	/// Advance the cursor to the next migration.
+	/// Advance the overarching cursor to the next migration.
 	pub(crate) fn advance(&mut self, current_block: BlockNumber) {
 		self.index.saturating_inc();
 		self.inner_cursor = None;
 		self.started_at = current_block;
+	}
+}
+
+/// How to clear the records of historic migrations.
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo)]
+pub enum HistoricCleanupSelector<Id> {
+	/// Clear exactly these entries.
+	///
+	/// This is the advised way of doing it.
+	Specific(Vec<Id>),
+
+	/// Clear up to this many entries
+	Wildcard {
+		/// How many should be cleared in this call at most.
+		limit: Option<u32>,
+		/// The cursor that was emitted from any previous `HistoricCleared`.
+		///
+		/// Does not need to be passed when clearing the first batch.
+		previous_cursor: Option<Vec<u8>>,
+	},
+}
+
+/// The default number of entries that should be cleared by a `HistoricCleanupSelector::Wildcard`.
+///
+/// The caller can explicitly specify a higher amount. Benchmarks are run with twice this value.
+const DEFAULT_HISTORIC_BATCH_CLEAR_SIZE: u32 = 128;
+
+impl<Id> HistoricCleanupSelector<Id> {
+	/// The maximal number of entries that this will remove.
+	///
+	/// Needed for weight calculation.
+	pub fn limit(&self) -> u32 {
+		match self {
+			Self::Specific(ids) => ids.len() as u32,
+			Self::Wildcard { limit, .. } => limit.unwrap_or(DEFAULT_HISTORIC_BATCH_CLEAR_SIZE),
+		}
 	}
 }
 
@@ -237,7 +273,7 @@ pub mod pallet {
 		/// All the multi-block migrations to run.
 		///
 		/// Should only be updated in a runtime-upgrade once all the old migrations have completed.
-		/// (Check that `Cursor` is `None`).
+		/// (Check that [`Cursor`] is `None`).
 		type Migrations: SteppedMigrations;
 
 		/// The maximal length of an encoded cursor.
@@ -256,8 +292,8 @@ pub mod pallet {
 
 		/// Notifications for status updates of a runtime upgrade.
 		///
-		/// Can be used to pause XCM etc.
-		type OnMigrationStatus: OnMigrationStatus;
+		/// Could be used to pause XCM etc.
+		type MigrationStatusHandler: MigrationStatusHandler;
 
 		/// Handler for failed migrations.
 		type FailedMigrationHandler: FailedMigrationHandler;
@@ -344,6 +380,7 @@ pub mod pallet {
 			Self::onboard_new_mbms()
 		}
 
+		#[cfg(feature = "std")]
 		fn integrity_test() {
 			// Check that the migrations tuple is legit.
 			frame_support::assert_ok!(T::Migrations::integrity_test());
@@ -357,6 +394,15 @@ pub mod pallet {
 				Cursor::<T>::kill();
 			}
 
+			// The per-block service weight is sane.
+			#[cfg(not(test))]
+			{
+				let want = T::ServiceWeight::get();
+				let max = <T as frame_system::Config>::BlockWeights::get().max_block;
+
+				assert!(want.all_lte(max), "Service weight is larger than a block: {want} > {max}",);
+			}
+
 			// Cursor MEL
 			{
 				let mel = T::Migrations::cursor_max_encoded_len();
@@ -366,7 +412,7 @@ pub mod pallet {
 					"A Cursor is not guaranteed to fit into the storage: {mel} > {max_mel}",
 				);
 			}
-			
+
 			// Identifier MEL
 			{
 				let mel = T::Migrations::identifier_max_encoded_len();
@@ -381,7 +427,7 @@ pub mod pallet {
 
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
-		/// Allows root to set the cursor to any value.
+		/// Allows root to set a cursor to forcefully start, stop or forward the migration process.
 		///
 		/// Should normally not be needed and is only in place as emergency measure.
 		#[pallet::call_index(0)]
@@ -396,25 +442,58 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Allows root to set an active cursor to forcefully start/forward the migration process.
+		///
+		/// This is an edge-case version of [`Self::force_set_cursor`] that allows to set the
+		/// `started_at` value to the next block number. Otherwise this would not be possible, since
+		/// `force_set_cursor` takes an absolute block number. Setting `started_at` to `None`
+		/// indicates that the current block number plus one should be used.
+		#[pallet::call_index(1)]
+		pub fn force_set_active_cursor(
+			origin: OriginFor<T>,
+			index: u32,
+			inner_cursor: Option<RawCursorOf<T>>,
+			started_at: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let started_at = started_at.unwrap_or(
+				System::<T>::block_number().saturating_add(sp_runtime::traits::One::one()),
+			);
+			Cursor::<T>::put(MigrationCursor::Active(ActiveCursor {
+				index,
+				inner_cursor,
+				started_at,
+			}));
+
+			Ok(())
+		}
+
 		/// Clears the `Historic` set.
 		///
 		/// `map_cursor` must be set to the last value that was returned by the
 		/// `HistoricCleared` event. The first time `None` can be used. `limit` must be chosen in a
 		/// way that will result in a sensible weight.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::clear_historic(MAX_HISTORIC_BATCH_CLEAR_SIZE))]
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::clear_historic(selector.limit()))]
 		pub fn clear_historic(
 			origin: OriginFor<T>,
-			limit: Option<u32>,
-			map_cursor: Option<Vec<u8>>,
+			selector: HistoricCleanupSelector<IdentifierOf<T>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			let limit = limit
-				.unwrap_or(MAX_HISTORIC_BATCH_CLEAR_SIZE)
-				.min(MAX_HISTORIC_BATCH_CLEAR_SIZE);
-			let next = Historic::<T>::clear(limit, map_cursor.as_deref());
-			Self::deposit_event(Event::HistoricCleared { next_cursor: next.maybe_cursor });
+			match &selector {
+				HistoricCleanupSelector::Specific(ids) => {
+					for id in ids {
+						Historic::<T>::remove(&id);
+					}
+					Self::deposit_event(Event::HistoricCleared { next_cursor: None });
+				},
+				HistoricCleanupSelector::Wildcard { previous_cursor, .. } => {
+					let next = Historic::<T>::clear(selector.limit(), previous_cursor.as_deref());
+					Self::deposit_event(Event::HistoricCleared { next_cursor: next.maybe_cursor });
+				},
+			}
 
 			Ok(())
 		}
@@ -448,7 +527,7 @@ impl<T: Config> Pallet<T> {
 				.into(),
 			));
 			Self::deposit_event(Event::UpgradeStarted { migrations });
-			T::OnMigrationStatus::started();
+			T::MigrationStatusHandler::started();
 		}
 
 		T::WeightInfo::on_runtime_upgrade()
@@ -506,14 +585,18 @@ impl<T: Config> Pallet<T> {
 		is_first: bool,
 	) -> Option<ControlFlow<ActiveCursorOf<T>, ActiveCursorOf<T>>> {
 		let Some(id) = T::Migrations::nth_id(cursor.index) else {
+			// No more migration in the tuple - we are done.
+			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsitent MBMs tuple");
+
 			Self::deposit_event(Event::UpgradeCompleted);
 			Cursor::<T>::kill();
-			T::OnMigrationStatus::completed();
+			T::MigrationStatusHandler::completed();
 			return None;
 		};
+
 		let bounded_id: Result<IdentifierOf<T>, _> = id.try_into();
 		let Ok(bounded_id) = bounded_id else {
-			defensive!("The integrity check ensures that all identifiers' MEL bound fits into CursorMaxLen; qed.");
+			defensive!("integrity_test ensures that all identifiers' MEL bounds fit into CursorMaxLen; qed.");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};

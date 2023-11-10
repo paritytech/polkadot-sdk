@@ -456,6 +456,7 @@ impl<'a> ToClientSideDecl<'a> {
 						|err| #crate_::ApiError::FailedToDecodeReturnValue {
 							function: #function_name,
 							error: err,
+							raw: r.clone(),
 						}
 					)
 				)

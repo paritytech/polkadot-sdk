@@ -61,7 +61,7 @@ impl crate::Config for Test {
 	type Migrations = MigrationsStorage;
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
-	type OnMigrationStatus = MockedOnMigrationStatus;
+	type MigrationStatusHandler = MockedMigrationStatusHandler;
 	type FailedMigrationHandler = MockedFailedMigrationHandler;
 	type ServiceWeight = ServiceWeight;
 	type WeightInfo = ();

@@ -1977,7 +1977,7 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = ();
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
-	type OnMigrationStatus = ();
+	type MigrationStatusHandler = ();
 	type FailedMigrationHandler = ();
 	type ServiceWeight = MbmServiceWeight;
 	type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
