@@ -29,9 +29,6 @@ const SECURE_MODE_ANNOUNCEMENT: &'static str =
 /// Run checks for supported security features.
 pub async fn check_security_status(config: &Config) -> SecurityStatus {
 	let Config { prepare_worker_program_path, .. } = config;
-	// TODO: Get this from `Config` once Secure Validator Mode is implemented.
-	// Right now we set it to `true`, but only display a warning if conditions are not met.
-	let secure_validator_mode = true;
 
 	// TODO: add check that syslog is available and that seccomp violations are logged?
 	let (landlock, seccomp, change_root) = join!(
@@ -50,7 +47,7 @@ pub async fn check_security_status(config: &Config) -> SecurityStatus {
 		.into_iter()
 		.filter_map(|result| result.err())
 		.collect();
-	let err_occurred = print_secure_mode_message(secure_validator_mode, errs);
+	let err_occurred = print_secure_mode_message(errs);
 	if err_occurred {
 		gum::error!(
 			target: LOG_TARGET,
@@ -102,7 +99,7 @@ impl fmt::Display for SecureModeError {
 /// # Returns
 ///
 /// `true` if an error was printed, `false` otherwise.
-fn print_secure_mode_message(secure_validator_mode: bool, errs: Vec<SecureModeError>) -> bool {
+fn print_secure_mode_message(errs: Vec<SecureModeError>) -> bool {
 	// Trying to run securely and some mandatory errors occurred.
 	const SECURE_MODE_ERROR: &'static str = "🚨 Your system cannot securely run a validator. \
 		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
@@ -115,8 +112,7 @@ fn print_secure_mode_message(secure_validator_mode: bool, errs: Vec<SecureModeEr
 		return false
 	}
 
-	let errs_allowed =
-		!secure_validator_mode || errs.iter().all(|err| err.is_allowed_in_secure_mode());
+	let errs_allowed = errs.iter().all(|err| err.is_allowed_in_secure_mode());
 	let errs_string: String = errs.iter().map(|err| format!("\n  - {}", err)).collect();
 
 	if errs_allowed {
