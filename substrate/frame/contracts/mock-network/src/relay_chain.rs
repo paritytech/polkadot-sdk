@@ -142,7 +142,7 @@ impl Contains<MultiLocation> for ChildrenParachains {
 	}
 }
 
-pub type XcmRouter = crate::tests::mock_network::RelayChainXcmRouter;
+pub type XcmRouter = crate::RelayChainXcmRouter;
 pub type Barrier = WithComputedOrigin<
 	(
 		AllowExplicitUnpaidExecutionFrom<ChildrenParachains>,

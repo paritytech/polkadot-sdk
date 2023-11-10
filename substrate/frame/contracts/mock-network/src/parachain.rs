@@ -17,7 +17,7 @@
 //! Parachain runtime mock.
 
 mod contracts_config;
-use crate::tests::mock_network::{
+use crate::{
 	mocks::msg_queue::pallet as mock_msg_queue,
 	primitives::{AccountId, AssetIdForAssets, Balance},
 };
@@ -236,7 +236,7 @@ impl Contains<MultiLocation> for ThisParachain {
 	}
 }
 
-pub type XcmRouter = crate::tests::mock_network::ParachainXcmRouter<MsgQueue>;
+pub type XcmRouter = crate::ParachainXcmRouter<MsgQueue>;
 
 pub type Barrier = (
 	xcm_builder::AllowUnpaidExecutionFrom<ThisParachain>,
@@ -344,12 +344,12 @@ impl pallet_timestamp::Config for Runtime {
 construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		MsgQueue: mock_msg_queue::{Pallet, Storage, Event<T>},
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
-		Contracts: crate::{Pallet, Call, Storage, Event<T>, HoldReason},
+		System: frame_system,
+		Balances: pallet_balances,
+		Timestamp: pallet_timestamp,
+		MsgQueue: mock_msg_queue,
+		PolkadotXcm: pallet_xcm,
+		Contracts: pallet_contracts,
 		Assets: pallet_assets,
 	}
 );

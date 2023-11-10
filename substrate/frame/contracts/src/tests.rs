@@ -15,10 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod mock_network;
 mod pallet_dummy;
 mod test_debug;
-mod test_xcm;
 
 use self::{
 	test_debug::TestDebug,

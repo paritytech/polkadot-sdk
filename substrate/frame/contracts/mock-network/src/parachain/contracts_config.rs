@@ -16,12 +16,9 @@
 
 use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
 use crate::{
-	tests::mock_network::{
-		parachain,
-		parachain::RuntimeHoldReason,
-		primitives::{Balance, CENTS},
-	},
-	Config,
+	parachain,
+	parachain::RuntimeHoldReason,
+	primitives::{Balance, CENTS},
 };
 use frame_support::{
 	parameter_types,
@@ -40,14 +37,14 @@ parameter_types! {
 	pub const DepositPerItem: Balance = deposit(1, 0);
 	pub const DepositPerByte: Balance = deposit(0, 1);
 	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
-	pub Schedule: crate::Schedule<Runtime> = Default::default();
+	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 	pub const MaxDelegateDependencies: u32 = 32;
 }
 
-pub struct DummyRandomness<T: crate::Config>(sp_std::marker::PhantomData<T>);
+pub struct DummyRandomness<T: pallet_contracts::Config>(sp_std::marker::PhantomData<T>);
 
-impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for DummyRandomness<T> {
+impl<T: pallet_contracts::Config> Randomness<T::Hash, BlockNumberFor<T>> for DummyRandomness<T> {
 	fn random(_subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
 		(Default::default(), Default::default())
 	}
@@ -71,10 +68,10 @@ impl Contains<RuntimeCall> for Filters {
 	}
 }
 
-impl Config for Runtime {
-	type AddressGenerator = crate::DefaultAddressGenerator;
+impl pallet_contracts::Config for Runtime {
+	type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
 	type CallFilter = Filters;
-	type CallStack = [crate::Frame<Self>; 5];
+	type CallStack = [pallet_contracts::Frame<Self>; 5];
 	type ChainExtension = ();
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Currency = Balances;

@@ -16,18 +16,14 @@
 // limitations under the License.
 
 use crate::{
-	tests::{
-		compile_module,
-		mock_network::{
-			parachain::{self, Runtime, RuntimeOrigin},
-			parachain_account_sovereign_account_id,
-			primitives::{AccountId, CENTS},
-			relay_chain, MockNet, ParaA, ParachainBalances, ParachainPalletXcm, Relay, ALICE, BOB,
-			INITIAL_BALANCE,
-		},
-	},
-	CollectEvents, DebugInfo, Determinism,
+	parachain::{self, Runtime, RuntimeOrigin},
+	parachain_account_sovereign_account_id,
+	primitives::{AccountId, CENTS},
+	relay_chain, MockNet, ParaA, ParachainBalances, ParachainPalletXcm, Relay, ALICE, BOB,
+	INITIAL_BALANCE,
 };
+use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
+// TODO add crate and use pallet_contracts_fixtures::compile_module;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use frame_support::{

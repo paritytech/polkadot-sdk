@@ -19,7 +19,10 @@ pub mod parachain;
 pub mod primitives;
 pub mod relay_chain;
 
-use crate::tests::mock_network::primitives::{AccountId, UNITS};
+#[cfg(test)]
+mod tests;
+
+use crate::primitives::{AccountId, UNITS};
 use sp_runtime::BuildStorage;
 use xcm::latest::{prelude::*, MultiLocation};
 use xcm_executor::traits::ConvertLocation;
@@ -70,8 +73,7 @@ pub fn relay_sovereign_account_id() -> AccountId {
 
 pub fn parachain_sovereign_account_id(para: u32) -> AccountId {
 	let location: MultiLocation = (Parachain(para),).into();
-	crate::tests::mock_network::relay_chain::SovereignAccountOf::convert_location(&location)
-		.unwrap()
+	relay_chain::SovereignAccountOf::convert_location(&location).unwrap()
 }
 
 pub fn parachain_account_sovereign_account_id(
@@ -87,7 +89,7 @@ pub fn parachain_account_sovereign_account_id(
 }
 
 pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
-	use crate::tests::mock_network::parachain::{MsgQueue, Runtime, System};
+	use parachain::{MsgQueue, Runtime, System};
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 

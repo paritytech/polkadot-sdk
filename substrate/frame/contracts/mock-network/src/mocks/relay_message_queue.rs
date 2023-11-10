@@ -20,7 +20,7 @@ use xcm_simulator::{
 	AggregateMessageOrigin, ProcessMessage, ProcessMessageError, UmpQueueId, WeightMeter,
 };
 
-use crate::tests::mock_network::relay_chain::{RuntimeCall, XcmConfig};
+use crate::relay_chain::{RuntimeCall, XcmConfig};
 
 parameter_types! {
 	/// Amount of weight that can be spent per block to service messages.
