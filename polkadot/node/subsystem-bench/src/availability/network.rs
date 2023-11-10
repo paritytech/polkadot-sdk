@@ -13,10 +13,11 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-
 use super::*;
+use prometheus_endpoint::U64;
+use sc_network::network_state::Peer;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc::UnboundedSender;
-
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
 struct RateLimit {
@@ -131,7 +132,11 @@ struct PeerEmulator {
 }
 
 impl PeerEmulator {
-	pub fn new(bandwidth: usize, spawn_task_handle: SpawnTaskHandle) -> Self {
+	pub fn new(
+		bandwidth: usize,
+		spawn_task_handle: SpawnTaskHandle,
+		stats: Arc<PeerEmulatorStats>,
+	) -> Self {
 		let (actions_tx, mut actions_rx) = tokio::sync::mpsc::unbounded_channel();
 
 		spawn_task_handle
@@ -140,13 +145,12 @@ impl PeerEmulator {
 				let mut rate_limiter = RateLimit::new(20, bandwidth);
 				let rx_bytes_total = 0;
 				let mut tx_bytes_total = 0u128;
-
 				loop {
+					let stats_clone = stats.clone();
 					let maybe_action: Option<NetworkAction> = actions_rx.recv().await;
 					if let Some(action) = maybe_action {
 						let size = action.size();
 						rate_limiter.reap(size).await;
-						tx_bytes_total += size as u128;
 						if let Some(latency) = action.latency {
 							spawn_task_handle.spawn(
 								"peer-emulator-latency",
@@ -154,15 +158,14 @@ impl PeerEmulator {
 								async move {
 									tokio::time::sleep(latency).await;
 									action.run().await;
+									stats_clone
+										.tx_bytes_total
+										.fetch_add(size as u64, Ordering::Relaxed);
 								},
 							)
 						} else {
-							// Send stats if requested
-							if let Some(stats_sender) = action.stats {
-								stats_sender.send(PeerEmulatorStats { rx_bytes_total, tx_bytes_total }).unwrap();
-							} else {
-								action.run().await;
-							}
+							action.run().await;
+							stats_clone.tx_bytes_total.fetch_add(size as u64, Ordering::Relaxed);
 						}
 					} else {
 						break
@@ -190,26 +193,23 @@ pub struct NetworkAction {
 	index: usize,
 	// The amount of time to delay the polling `run`
 	latency: Option<Duration>,
-	// An optional request of rx/tx statistics for the peer at `index`
-	stats: Option<oneshot::Sender<PeerEmulatorStats>>,
 }
 
 /// Book keeping of sent and received bytes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default)]
 pub struct PeerEmulatorStats {
-	pub rx_bytes_total: u128,
-	pub tx_bytes_total: u128,
+	pub rx_bytes_total: AtomicU64,
+	pub tx_bytes_total: AtomicU64,
 }
 
+#[derive(Debug, Default)]
+pub struct PeerStats {
+	pub rx_bytes_total: u64,
+	pub tx_bytes_total: u64,
+}
 impl NetworkAction {
 	pub fn new(index: usize, run: ActionFuture, size: usize, latency: Option<Duration>) -> Self {
-		Self { run, size, index, latency, stats: None }
-	}
-
-	pub fn stats(index: usize, stats_sender:oneshot::Sender<PeerEmulatorStats>) -> Self {
-		let run = async move {}.boxed();
-
-		Self { run, size: 0, index, latency: None, stats: Some(stats_sender) }
+		Self { run, size, index, latency }
 	}
 
 	pub fn size(&self) -> usize {
@@ -231,15 +231,19 @@ impl NetworkAction {
 pub struct NetworkEmulator {
 	// Per peer network emulation
 	peers: Vec<PeerEmulator>,
+	stats: Vec<Arc<PeerEmulatorStats>>,
 }
 
 impl NetworkEmulator {
 	pub fn new(n_peers: usize, bandwidth: usize, spawn_task_handle: SpawnTaskHandle) -> Self {
-		Self {
-			peers: (0..n_peers)
-				.map(|_index| PeerEmulator::new(bandwidth, spawn_task_handle.clone()))
-				.collect::<Vec<_>>(),
-		}
+		let (stats, peers) = (0..n_peers)
+			.map(|_index| {
+				let stats = Arc::new(PeerEmulatorStats::default());
+				(stats.clone(), PeerEmulator::new(bandwidth, spawn_task_handle.clone(), stats))
+			})
+			.unzip();
+
+		Self { peers, stats }
 	}
 
 	pub fn submit_peer_action(&mut self, index: usize, action: NetworkAction) {
@@ -247,18 +251,15 @@ impl NetworkEmulator {
 	}
 
 	// Returns the sent/received stats for all peers.
-	pub async fn stats(&mut self) -> Vec<PeerEmulatorStats> {
-		let receivers = (0..self.peers.len()).map(|peer_index| {
-			let (stats_tx, stats_rx) = oneshot::channel();
-			self.submit_peer_action(peer_index, NetworkAction::stats(peer_index, stats_tx));
-			stats_rx
-		}).collect::<Vec<_>>();
-
-		let mut stats = Vec::new();
-		for receiver in receivers {
-			stats.push(receiver.await.unwrap());
-		}
-
-		stats
+	pub async fn stats(&mut self) -> Vec<PeerStats> {
+		let r = self
+			.stats
+			.iter()
+			.map(|stats| PeerStats {
+				rx_bytes_total: stats.rx_bytes_total.load(Ordering::Relaxed),
+				tx_bytes_total: stats.tx_bytes_total.load(Ordering::Relaxed),
+			})
+			.collect::<Vec<_>>();
+		r
 	}
 }

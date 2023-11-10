@@ -16,7 +16,6 @@
 
 //! A tool for running subsystem benchmark tests designed for development and
 //! CI regression testing.
-
 use clap::Parser;
 use color_eyre::eyre;
 use prometheus::proto::LabelPair;
