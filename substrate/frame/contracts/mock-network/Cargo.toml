@@ -16,7 +16,6 @@ frame-system = { path = "../../system", default-features = false}
 pallet-assets = { path = "../../assets" }
 pallet-balances = { path = "../../balances" }
 pallet-contracts = { path = ".." }
-pallet-contracts-fixtures = { path = "../fixtures" }
 pallet-contracts-primitives = { path = "../primitives", default-features = false}
 pallet-contracts-proc-macro = { path = "../proc-macro" }
 pallet-insecure-randomness-collective-flip = { path = "../../insecure-randomness-collective-flip" }
@@ -40,6 +39,11 @@ xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-feat
 xcm-builder = {package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder"}
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false}
 xcm-simulator = {path = "../../../../polkadot/xcm/xcm-simulator"}
+
+[dev-dependencies]
+assert_matches = "1"
+pretty_assertions = "1"
+pallet-contracts-fixtures = { path = "../fixtures" }
 
 [features]
 default = [ "std" ]

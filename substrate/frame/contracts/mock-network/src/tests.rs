@@ -38,7 +38,7 @@ use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 
-type ParachainContracts = crate::Pallet<parachain::Runtime>;
+type ParachainContracts = pallet_contracts::Pallet<parachain::Runtime>;
 type QueryId = <pallet_xcm::Pallet<parachain::Runtime> as QueryHandler>::QueryId;
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
@@ -159,7 +159,7 @@ fn test_xcm_execute_reentrant_call() {
 	let contract_addr = instantiate_test_contract("xcm_execute");
 
 	ParaA::execute_with(|| {
-		let transact_call = parachain::RuntimeCall::Contracts(crate::Call::call {
+		let transact_call = parachain::RuntimeCall::Contracts(pallet_contracts::Call::call {
 			dest: contract_addr.clone(),
 			gas_limit: 1_000_000.into(),
 			storage_deposit_limit: None,
