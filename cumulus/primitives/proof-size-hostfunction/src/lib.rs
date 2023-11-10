@@ -25,12 +25,17 @@ use sp_runtime_interface::runtime_interface;
 #[cfg(feature = "std")]
 use sp_trie::proof_size_extension::ProofSizeExt;
 
+pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
+
 /// Interface that provides access to the current storage proof size.
+///
+/// Should return the current storage proof size if [`ProofSizeExt`] is registered. Otherwise, needs
+/// to return u64::MAX.
 #[runtime_interface]
 pub trait StorageProofSize {
 	/// Returns the current storage proof size.
 	fn storage_proof_size(&mut self) -> u64 {
-		self.extension::<ProofSizeExt>().map_or(0, |e| e.storage_proof_size())
+		self.extension::<ProofSizeExt>().map_or(u64::MAX, |e| e.storage_proof_size())
 	}
 }
 
@@ -43,7 +48,7 @@ mod tests {
 		TrieDBMutBuilder, TrieMut,
 	};
 
-	use crate::storage_proof_size;
+	use crate::{storage_proof_size, PROOF_RECORDING_DISABLED};
 
 	const TEST_DATA: &[(&[u8], &[u8])] = &[(b"key1", &[1; 64]), (b"key2", &[2; 64])];
 
@@ -82,19 +87,21 @@ mod tests {
 			assert_eq!(storage_proof_size::storage_proof_size(), 175);
 			sp_io::storage::get(b"key2");
 			assert_eq!(storage_proof_size::storage_proof_size(), 275);
+			sp_io::storage::get(b"key2");
+			assert_eq!(storage_proof_size::storage_proof_size(), 275);
 		});
 	}
 
 	#[test]
-	fn host_function_returns_zero_without_extension() {
+	fn host_function_returns_max_without_extension() {
 		let (mut ext, _) = get_prepared_test_externalities();
 
 		ext.execute_with(|| {
-			assert_eq!(storage_proof_size::storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
 			sp_io::storage::get(b"key1");
-			assert_eq!(storage_proof_size::storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
 			sp_io::storage::get(b"key2");
-			assert_eq!(storage_proof_size::storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
 		});
 	}
 }
