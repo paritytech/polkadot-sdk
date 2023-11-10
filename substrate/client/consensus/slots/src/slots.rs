@@ -81,7 +81,7 @@ impl<B: BlockT> SlotInfo<B> {
 			duration,
 			chain_head,
 			block_size_limit,
-			ends_at: Instant::now() + time_until_next_slot(duration),
+			ends_at: Instant::now() + duration,
 		}
 	}
 }
