@@ -128,16 +128,14 @@ data on the host machine.
 
 *Currently this is only supported on Linux.*
 
-<!-- TODO: Uncomment when this has been enabled. -->
+### Restricting networking
 
-<!-- ### Restricting networking -->
+We also disable networking on PVF threads by disabling certain syscalls, such as
+the creation of sockets. This prevents attackers from either downloading
+payloads or communicating sensitive data from the validator's machine to the
+outside world.
 
-<!-- We also disable networking on PVF threads by disabling certain syscalls, such as -->
-<!-- the creation of sockets. This prevents attackers from either downloading -->
-<!-- payloads or communicating sensitive data from the validator's machine to the -->
-<!-- outside world. -->
-
-<!-- *Currently this is only supported on Linux.* -->
+*Currently this is only supported on Linux.*
 
 ### Clearing env vars
 
