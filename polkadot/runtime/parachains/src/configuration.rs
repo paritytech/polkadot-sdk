@@ -1203,7 +1203,7 @@ pub mod pallet {
 				config.minimum_backing_votes = new;
 			})
 		}
-		/// Toggle a node feature bit.
+		/// Set/Unset a node feature.
 		#[pallet::call_index(53)]
 		#[pallet::weight((
 			T::WeightInfo::set_node_feature(),
