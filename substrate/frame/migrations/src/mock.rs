@@ -19,7 +19,7 @@
 
 #![cfg(test)]
 
-use crate::{Event, Historic, mock_helpers::*};
+use crate::{mock_helpers::*, Event, Historic};
 
 use frame_support::{
 	derive_impl,

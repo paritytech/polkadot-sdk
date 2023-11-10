@@ -138,9 +138,9 @@
 
 mod benchmarking;
 mod mock;
+pub mod mock_helpers;
 mod tests;
 pub mod weights;
-pub mod mock_helpers;
 
 pub use pallet::*;
 pub use weights::WeightInfo;

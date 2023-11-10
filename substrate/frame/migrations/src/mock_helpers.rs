@@ -20,14 +20,13 @@
 #![cfg(any(feature = "std", test))]
 #![allow(missing_docs)]
 
-use frame_support::weights::{WeightMeter};
 use codec::{Decode, Encode};
 use core::cell::RefCell;
 use frame_support::{
 	migrations::*,
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 };
-use sp_core::{ConstU32};
+use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 /// Opaque identifier of a migration.

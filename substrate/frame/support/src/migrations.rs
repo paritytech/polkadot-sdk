@@ -16,17 +16,17 @@
 // limitations under the License.
 
 use crate::{
+	defensive, ensure,
 	storage::transactional::with_transaction_opaque_err,
-	traits::{GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, StorageVersion},
-	weights::{RuntimeDbWeight, Weight, WeightMeter}, ensure, defensive,
+	traits::{Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, StorageVersion},
+	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
-use sp_runtime::traits::Zero;
 use codec::{Decode, Encode, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
+use sp_runtime::traits::Zero;
 use sp_std::{marker::PhantomData, vec::Vec};
-use crate::traits::Defensive;
 
 /// Handles storage migration pallet versioning.
 ///
@@ -517,18 +517,25 @@ pub trait SteppedMigrations {
 
 	/// Assert the integrity of the migrations.
 	///
-	/// Should be executed as part of a test prior to runtime usage. May or may not need externalities.
+	/// Should be executed as part of a test prior to runtime usage. May or may not need
+	/// externalities.
 	#[cfg(feature = "std")]
 	fn integrity_test() -> Result<(), &'static str> {
 		let l = Self::len();
 
-		for n in 0 .. l {
+		for n in 0..l {
 			ensure!(Self::nth_id(n).is_some(), "id is None");
 			ensure!(Self::nth_max_steps(n).is_some(), "steps is None");
 
 			// The cursor that we use does not matter. Hence use empty.
-			ensure!(Self::nth_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(), "steps is None");
-			ensure!(Self::nth_transactional_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(), "steps is None");
+			ensure!(
+				Self::nth_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
+				"steps is None"
+			);
+			ensure!(
+				Self::nth_transactional_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
+				"steps is None"
+			);
 		}
 
 		Ok(())
@@ -573,7 +580,6 @@ impl SteppedMigrations for () {
 	}
 }
 
-
 // A collection consisting of only a single migration.
 impl<T: SteppedMigration> SteppedMigrations for T {
 	fn len() -> u32 {
@@ -586,7 +592,8 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
 		// It should be generally fine to call with n>0, but the code should not attempt to.
-		n.is_zero().then_some(T::max_steps())
+		n.is_zero()
+			.then_some(T::max_steps())
 			.defensive_proof("nth_max_steps should only be called with n==0")
 	}
 
@@ -737,8 +744,7 @@ impl SteppedMigrations for Tuple {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::storage::unhashed;
-	use crate::assert_ok;
+	use crate::{assert_ok, storage::unhashed};
 
 	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
 	pub enum Either<L, R> {
@@ -863,7 +869,11 @@ mod tests {
 
 		sp_io::TestExternalities::default().execute_with(|| {
 			for n in 0..3 {
-				<Triple as SteppedMigrations>::nth_step(n, Default::default(), &mut WeightMeter::new());
+				<Triple as SteppedMigrations>::nth_step(
+					n,
+					Default::default(),
+					&mut WeightMeter::new(),
+				);
 			}
 		});
 	}
@@ -883,9 +893,20 @@ mod tests {
 	#[test]
 	fn transactional_rollback_works() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			assert_ok!(<(M0, F0) as SteppedMigrations>::nth_transactional_step(0, Default::default(), &mut WeightMeter::new()).unwrap());
+			assert_ok!(<(M0, F0) as SteppedMigrations>::nth_transactional_step(
+				0,
+				Default::default(),
+				&mut WeightMeter::new()
+			)
+			.unwrap());
 			assert!(unhashed::exists(&[0]));
-			assert!(<(M0, F0) as SteppedMigrations>::nth_transactional_step(1, Default::default(), &mut WeightMeter::new()).unwrap().is_err());
+			assert!(<(M0, F0) as SteppedMigrations>::nth_transactional_step(
+				1,
+				Default::default(),
+				&mut WeightMeter::new()
+			)
+			.unwrap()
+			.is_err());
 			assert!(!unhashed::exists(&[3]), "Should roll back");
 		});
 	}

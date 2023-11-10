@@ -19,7 +19,7 @@
 
 use crate::{
 	mock::{Test as T, *},
-	mock_helpers::{*, MockedMigrationKind::*},
+	mock_helpers::{MockedMigrationKind::*, *},
 	Cursor, Event, FailedUpgradeHandling, MigrationCursor,
 };
 use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
