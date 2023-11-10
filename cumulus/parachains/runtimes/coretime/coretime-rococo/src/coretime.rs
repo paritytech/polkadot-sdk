@@ -17,7 +17,7 @@
 use crate::*;
 use codec::Encode;
 use frame_support::{
-	ensure, parameter_types,
+	parameter_types,
 	traits::{
 		fungible::{Balanced, Credit},
 		OnUnbalanced,
@@ -93,7 +93,17 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 		]);
 
-		ensure!(PolkadotXcm::send_xcm(Here, Parent, message.clone()), "XCM failed to send");
+		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+			Ok(_) => log::info!(
+				target: "runtime::coretime",
+				"Core assignment sent successfully."
+			),
+			Err(e) => log::error!(
+				target: "runtime::coretime",
+				"Core assignment failed to send: {:?}",
+				e
+			),
+		}
 	}
 	fn check_notify_core_count() -> Option<u16> {
 		let count = CoreCount::get();

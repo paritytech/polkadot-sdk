@@ -28,8 +28,6 @@ pub mod xcm_config;
 mod coretime;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use cumulus_primitives_core::ParaId;
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -67,6 +65,7 @@ use xcm_config::{
 pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use xcm::latest::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -307,6 +306,20 @@ pub type RootOrFellows = EitherOfDiverse<
 	EnsureXcm<IsVoiceOfBody<FellowshipLocation, FellowsBodyId>>,
 >;
 
+parameter_types! {
+	/// The asset ID for the asset that we use to pay for message delivery fees.
+	pub FeeAssetId: AssetId = Concrete(xcm_config::RocRelayLocation::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+}
+
+pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+>;
+
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -316,7 +329,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = RootOrFellows;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
-	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -425,17 +438,40 @@ pub mod pallet_coretime_mock {
 			core: CoreIndex,
 			begin: BlockNumber,
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
-			_end_hint: Option<BlockNumber>,
+			end_hint: Option<BlockNumber>,
 		) -> DispatchResult {
 			for (assignment, parts) in assignment {
-				let CoreAssignment::Task(para_id) = assignment else {
-					continue;
+				match assignment {
+					CoreAssignment::Task(para_id) => {
+						log::info!(
+							target: "runtime::coretime",
+							"Assigning task {:?} core {:?} from block {:?} for {:?} / 57600 of its block time",
+							para_id, core, begin, parts
+						);
+					},
+					CoreAssignment::Idle => {
+						log::info!(
+							target: "runtime::coretime",
+							"Setting core {:?} as idle from block {:?} for {:?} / 57600 of its block time.",
+							core, begin, parts
+						);
+					},
+					CoreAssignment::Pool => {
+						log::info!(
+							target: "runtime::coretime",
+							"Setting core {:?} as pool core from block {:?} for {:?} / 57600 of its block time.",
+							core, begin, parts
+						);
+					},
 				};
-				log::info!(
-					target: "runtime::coretime",
-					"Assigning task {:?} core {:?} from block {:?} for {:?} / 57600 of its block time",
-					para_id, core, begin, parts
-				);
+
+				if let Some(end) = end_hint {
+					log::info!(
+						target: "runtime::coretime",
+						"Expecting new instructions at block {:?}",
+						end
+					);
+				}
 			}
 			Ok(())
 		}
@@ -719,8 +755,20 @@ impl_runtime_apis! {
 			use xcm::latest::prelude::*;
 			use xcm_config::RocRelayLocation;
 
+			parameter_types! {
+				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+					RocRelayLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(RocRelayLocation::get())
@@ -763,6 +811,7 @@ impl_runtime_apis! {
 
 			impl pallet_xcm_benchmarks::generic::Config for Runtime {
 				type RuntimeCall = RuntimeCall;
+				type TransactAsset = Balances;
 
 				fn worst_case_response() -> (u64, Response) {
 					(0u64, Response::Version(Default::default()))

@@ -15,8 +15,9 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -26,6 +27,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
 use polkadot_parachain_primitives::primitives::Sibling;
+use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -218,6 +220,9 @@ impl xcm_executor::Config for XcmConfig {
 /// Converts a local signed origin into an XCM multilocation. Forms the basis for local origins
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
+
+pub type PriceForParentDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
