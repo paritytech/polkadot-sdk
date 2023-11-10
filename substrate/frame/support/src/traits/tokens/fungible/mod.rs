@@ -73,6 +73,22 @@ use crate::{
 	traits::{Consideration, Footprint},
 };
 
+trait FreezeConsiderationFromLegacy<A, F>
+where
+	A: 'static,
+	F: 'static + MutateFreeze<A>,
+{
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> where Self: Sized;
+}
+
+trait HoldConsiderationFromLegacy<A, F>
+where
+	A: 'static,
+	F: 'static + MutateHold<A>,
+{
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> where Self: Sized;
+}
+
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
 ///
 /// The aggregate amount frozen under `R::get()` for any account which has multiple tickets,
@@ -115,6 +131,19 @@ impl<
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::decrease_frozen(&R::get(), who, self.0).map(|_| ())
+	}
+}
+
+impl<
+		A: 'static,
+		F: 'static + MutateFreeze<A>,
+		R: 'static + Get<F::Id>,
+		D: 'static + Convert<Footprint, F::Balance>,
+	> FreezeConsiderationFromLegacy<A, F> for FreezeConsideration<A, F, R, D>
+{
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
+		F::increase_frozen(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
 	}
 }
 
@@ -163,6 +192,19 @@ impl<
 	}
 }
 
+impl<
+		A: 'static,
+		F: 'static + MutateHold<A>,
+		R: 'static + Get<F::Reason>,
+		D: 'static + Convert<Footprint, F::Balance>,
+	> HoldConsiderationFromLegacy<A, F> for HoldConsideration<A, F, R, D>
+{
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
+		F::hold(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
+	}
+}
+
 /// Basic consideration method using a `fungible` balance frozen as the cost exacted for the
 /// footprint.
 ///
@@ -199,6 +241,19 @@ impl<
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		Fx::thaw(&Rx::get(), who).map(|_| ())
+	}
+}
+
+impl<
+		A: 'static,
+		Fx: 'static + MutateFreeze<A>,
+		Rx: 'static + Get<Fx::Id>,
+		D: 'static + Convert<Footprint, Fx::Balance>,
+	> FreezeConsiderationFromLegacy<A, Fx> for LoneFreezeConsideration<A, Fx, Rx, D>
+{
+	fn new_from_exact(who: &A, new: Fx::Balance) -> Result<Self, DispatchError> {
+		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
+		Fx::set_frozen(&Rx::get(), who, new, Polite).map(|_| Self(PhantomData))
 	}
 }
 
@@ -241,5 +296,18 @@ impl<
 	}
 	fn burn(self, who: &A) {
 		let _ = F::burn_all_held(&R::get(), who, BestEffort, Force);
+	}
+}
+
+impl<
+		A: 'static,
+		F: 'static + MutateHold<A>,
+		R: 'static + Get<F::Reason>,
+		D: 'static + Convert<Footprint, F::Balance>,
+	> HoldConsiderationFromLegacy<A, F> for LoneHoldConsideration<A, F, R, D>
+{
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
+		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
+		F::set_on_hold(&R::get(), who, new).map(|_| Self(PhantomData))
 	}
 }
