@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	defensive, ensure,
+	defensive,
 	storage::transactional::with_transaction_opaque_err,
 	traits::{Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, StorageVersion},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
@@ -521,6 +521,7 @@ pub trait SteppedMigrations {
 	/// externalities.
 	#[cfg(feature = "std")]
 	fn integrity_test() -> Result<(), &'static str> {
+		use crate::ensure;
 		let l = Self::len();
 
 		for n in 0..l {
