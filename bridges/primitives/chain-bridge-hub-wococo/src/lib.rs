@@ -62,15 +62,29 @@ impl Parachain for BridgeHubWococo {
 pub const BRIDGE_HUB_WOCOCO_PARACHAIN_ID: u32 = 1014;
 
 /// Name of the With-BridgeHubWococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME: &str =
-	"BridgeRococoToWococoMessages";
+pub const WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME: &str = "BridgeWococoMessages";
 
 /// Name of the With-BridgeHubWococo bridge-relayers pallet instance that is deployed at bridged
 /// chains.
 pub const WITH_BRIDGE_HUB_WOCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
-/// Pallet index of `BridgeWococoToRococoMessages: pallet_bridge_messages::<Instance2>`.
+/// Pallet index of `BridgeRococoMessages: pallet_bridge_messages::<Instance2>`.
 pub const WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 45;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_wococo);
 decl_bridge_messages_runtime_apis!(bridge_hub_wococo);
+
+frame_support::parameter_types! {
+	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Wococo
+	/// BridgeHub.
+	/// (initially was calculated by test `BridgeHubWococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	pub const BridgeHubWococoBaseXcmFeeInWocs: u128 = 1624803349;
+
+	/// Transaction fee that is paid at the Wococo BridgeHub for delivering single inbound message.
+	/// (initially was calculated by test `BridgeHubWococo::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
+	pub const BridgeHubWococoBaseDeliveryFeeInWocs: u128 = 6417262881;
+
+	/// Transaction fee that is paid at the Wococo BridgeHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `BridgeHubWococo::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
+	pub const BridgeHubWococoBaseConfirmationFeeInWocs: u128 = 6159996668;
+}
