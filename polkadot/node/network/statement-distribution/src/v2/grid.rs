@@ -531,11 +531,10 @@ impl GridTracker {
 		originator: ValidatorIndex,
 		statement: &CompactStatement,
 	) -> (Vec<ValidatorIndex>, String) {
-		let mut print_result = String::new();
-		let (g, c_h, kind, in_group) =
+		let ((g, c_h, kind, in_group), mut print_result) =
 			match extract_statement_and_group_info(groups, originator, statement) {
 				(None, print) => return (Vec::new(), print),
-				(Some(x), _) => x,
+				(Some(x), print) => (x, print),
 			};
 		let confirmed_backed = self.confirmed_backed.get(&c_h);
 
@@ -973,20 +972,19 @@ impl KnownBackedCandidate {
 		if group_index != self.group_index {
 			return (Vec::new(), "no_match_group_index".into())
 		}
-
-		(
-			self.mutual_knowledge
-				.iter()
-				.filter(|(_, k)| k.remote_knowledge.is_some())
-				.filter(|(_, k)| {
-					k.local_knowledge
-						.as_ref()
-						.map_or(false, |r| !r.contains(originator_index_in_group, statement_kind))
-				})
-				.map(|(v, _)| *v)
-				.collect(),
-			"".into(),
-		)
+		let result: Vec<ValidatorIndex> = self
+			.mutual_knowledge
+			.iter()
+			.filter(|(_, k)| k.remote_knowledge.is_some())
+			.filter(|(_, k)| {
+				k.local_knowledge
+					.as_ref()
+					.map_or(false, |r| !r.contains(originator_index_in_group, statement_kind))
+			})
+			.map(|(v, _)| *v)
+			.collect();
+		let empty_or_not = result.is_empty();
+		(result, format!("is_emptyxx {}", empty_or_not))
 	}
 
 	fn direct_statement_recipients(
