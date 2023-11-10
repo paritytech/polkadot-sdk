@@ -972,19 +972,36 @@ impl KnownBackedCandidate {
 		if group_index != self.group_index {
 			return (Vec::new(), "no_match_group_index".into())
 		}
+
+		let mut count_remotes = 0;
+		let mut count_contains = 0;
+		let mut count_locals = 0;
+
 		let result: Vec<ValidatorIndex> = self
 			.mutual_knowledge
 			.iter()
-			.filter(|(_, k)| k.remote_knowledge.is_some())
 			.filter(|(_, k)| {
-				k.local_knowledge
-					.as_ref()
-					.map_or(false, |r| !r.contains(originator_index_in_group, statement_kind))
+				if k.remote_knowledge.is_some() {
+					count_remotes = count_remotes + 1;
+					true
+				} else {
+					false
+				}
+			})
+			.filter(|(_, k)| {
+				count_locals = count_locals + 1;
+				k.local_knowledge.as_ref().map_or(false, |r| {
+					count_contains = count_contains + 1;
+					!r.contains(originator_index_in_group, statement_kind)
+				})
 			})
 			.map(|(v, _)| *v)
 			.collect();
 		let empty_or_not = result.is_empty();
-		(result, format!("is_emptyxx {}", empty_or_not))
+		(
+			result,
+			format!("is_emptyxx {} {count_remotes} {count_locals} {count_contains}", empty_or_not),
+		)
 	}
 
 	fn direct_statement_recipients(
