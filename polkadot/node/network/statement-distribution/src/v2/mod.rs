@@ -264,7 +264,7 @@ struct PeerState {
 	view: View,
 	protocol_version: ValidationVersion,
 	implicit_view: HashSet<Hash>,
-	discovery_ids: Option<HashSet<AuthorityDiscoveryId>>,
+	pub discovery_ids: Option<HashSet<AuthorityDiscoveryId>>,
 }
 
 impl PeerState {
@@ -1404,6 +1404,7 @@ async fn handle_incoming_statement<Context>(
 			},
 		};
 
+	let mut prints = String::new();
 	let cluster_sender_index = {
 		// This block of code only returns `Some` when both the originator and
 		// the sending peer are in the cluster.
@@ -1412,19 +1413,28 @@ async fn handle_incoming_statement<Context>(
 			.cluster_tracker
 			.senders_for_originator(statement.unchecked_validator_index());
 
+		if allowed_senders.is_empty() {
+			prints = format!(
+				"{} Not allowed senders grid {:?}",
+				prints,
+				statement.unchecked_validator_index()
+			);
+		}
 		allowed_senders
 			.iter()
 			.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (*i, ad)))
-			.filter(|(_, ad)| {
-				let res = peer_state.is_authority(ad);
-				if !res {
-					gum::info!(target: LOG_TARGET, ?peer, ?ad, "Not an authority");
-				}
-				res
-			})
+			.filter(|(_, ad)| peer_state.is_authority(ad))
 			.map(|(i, _)| i)
 			.next()
 	};
+
+	if cluster_sender_index.is_none() {
+		prints = format!(
+			"{} none_cluser_sender_index {:?}",
+			prints,
+			statement.unchecked_validator_index()
+		);
+	}
 
 	let checked_statement = if let Some(cluster_sender_index) = cluster_sender_index {
 		match handle_cluster_statement(
@@ -1444,22 +1454,23 @@ async fn handle_incoming_statement<Context>(
 			},
 		}
 	} else {
-		let grid_sender_index = local_validator
-			.grid_tracker
-			.direct_statement_providers(
-				&per_session.groups,
-				statement.unchecked_validator_index(),
-				statement.unchecked_payload(),
-			)
+		let direct_statement_providers = local_validator.grid_tracker.direct_statement_providers(
+			&per_session.groups,
+			statement.unchecked_validator_index(),
+			statement.unchecked_payload(),
+		);
+
+		if direct_statement_providers.is_empty() {
+			prints = format!(
+				"{} no direct_statement_providers {:?}",
+				prints,
+				statement.unchecked_validator_index()
+			);
+		}
+		let grid_sender_index = direct_statement_providers
 			.into_iter()
 			.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
-			.filter(|(_, ad)| {
-				let res = peer_state.is_authority(ad);
-				if !res {
-					gum::info!(target: LOG_TARGET, ?peer, ?ad, "Not an authority");
-				}
-				res
-			})
+			.filter(|(_, ad)| peer_state.is_authority(ad))
 			.map(|(i, _)| i)
 			.next();
 
@@ -1479,7 +1490,7 @@ async fn handle_incoming_statement<Context>(
 				},
 			}
 		} else {
-			gum::info!(target: LOG_TARGET, ?peer, "statement_distribution: not a cluster or a grid peer");
+			gum::info!(target: LOG_TARGET, ?peer, ?prints, ids = ?peer_state.discovery_ids, "statement_distribution: not a cluster or a grid peer");
 			// Not a cluster or grid peer.
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
