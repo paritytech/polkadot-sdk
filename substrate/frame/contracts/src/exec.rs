@@ -138,7 +138,6 @@ impl<T: Into<DispatchError>> From<T> for ExecError {
 pub trait Ext: sealing::Sealed {
 	type T: Config;
 
-
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
 	/// Returns the code size of the called contract.

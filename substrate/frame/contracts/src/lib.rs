@@ -207,8 +207,7 @@ pub struct EnvironmentType<T>(PhantomData<T>);
 #[derive(Encode, Decode, DefaultNoBound, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
-pub struct Environment<T: Config>
-{
+pub struct Environment<T: Config> {
 	account_id: EnvironmentType<AccountIdOf<T>>,
 	balance: EnvironmentType<BalanceOf<T>>,
 	hash: EnvironmentType<<T as frame_system::Config>::Hash>,
@@ -233,8 +232,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config
-	{
+	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
 

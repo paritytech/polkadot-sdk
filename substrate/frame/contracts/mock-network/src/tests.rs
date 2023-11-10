@@ -22,8 +22,6 @@ use crate::{
 	relay_chain, MockNet, ParaA, ParachainBalances, ParachainPalletXcm, Relay, ALICE, BOB,
 	INITIAL_BALANCE,
 };
-use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
-use pallet_contracts_fixtures::compile_module;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use frame_support::{
@@ -33,6 +31,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_balances::{BalanceLock, Reasons};
+use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
+use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_primitives::Code;
 use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
