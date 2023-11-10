@@ -14,188 +14,253 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::LOG_TARGET;
-use std::path::Path;
+use crate::{Config, SecurityStatus, LOG_TARGET};
+use futures::join;
+use std::{fmt, path::Path};
 use tokio::{
 	fs::{File, OpenOptions},
 	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 
 const SECURE_MODE_ANNOUNCEMENT: &'static str =
-	"In the next release this will be a hard error by default. More information: \
-	 https://github.com/w3f/polkadot-wiki/issues/4881";
+	"In the next release this will be a hard error by default.
+     \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode";
 
-/// Warns if a secure validator cannot be built for the target OS and architecture.
-pub fn check_secure_mode_platform_requirement() {
-	cfg_if::cfg_if! {
-		if #[cfg(target_os = "linux")] {
-			cfg_if::cfg_if! {
-				if #[cfg(target_arch = "x86_64")] {
-					return ()
-				} else {
-					let msg = "Secure validators are only supported on CPUs from the x86_64 family (usually Intel or AMD).";
-				}
-			}
-		} else {
-			cfg_if::cfg_if! {
-				if #[cfg(target_arch = "x86_64")] {
-					let msg = "Secure validators are only supported on Linux.";
-				} else {
-					let msg = "Secure validators are only supported on Linux and on CPUs from the x86_64 family (usually Intel or AMD).";
-				}
-			}
-		}
+/// Run checks for supported security features.
+pub async fn check_security_status(config: &Config) -> SecurityStatus {
+	let Config { prepare_worker_program_path, .. } = config;
+	// TODO: Get this from `Config` once Secure Validator Mode is implemented.
+	// Right now we set it to `true`, but only display a warning if conditions are not met.
+	let secure_validator_mode = true;
+
+	// TODO: add check that syslog is available and that seccomp violations are logged?
+	let (landlock, seccomp, change_root) = join!(
+		check_landlock(prepare_worker_program_path),
+		check_seccomp(prepare_worker_program_path),
+		check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path)
+	);
+
+	let security_status = SecurityStatus {
+		can_enable_landlock: landlock.is_ok(),
+		can_enable_seccomp: seccomp.is_ok(),
+		can_unshare_user_namespace_and_change_root: change_root.is_ok(),
 	};
 
-	gum::warn!(
-		target: LOG_TARGET,
-		"{} {}",
-		msg,
-		SECURE_MODE_ANNOUNCEMENT
-	);
+	let errs: Vec<SecureModeError> = [landlock, seccomp, change_root]
+		.into_iter()
+		.filter_map(|result| result.err())
+		.collect();
+	let err_occurred = print_secure_mode_message(secure_validator_mode, errs);
+	if err_occurred {
+		gum::error!(
+			target: LOG_TARGET,
+			"{}",
+			SECURE_MODE_ANNOUNCEMENT,
+		);
+	}
+
+	security_status
 }
 
-/// Check if we can sandbox the root and emit a warning if not.
+type SecureModeResult = std::result::Result<(), SecureModeError>;
+
+/// Errors related to enabling Secure Validator Mode.
+#[derive(Debug)]
+enum SecureModeError {
+	CannotEnableLandlock(String),
+	CannotEnableSeccomp(String),
+	CannotUnshareUserNamespaceAndChangeRoot(String),
+}
+
+impl SecureModeError {
+	/// Whether this error is allowed with Secure Validator Mode enabled.
+	fn is_allowed_in_secure_mode(&self) -> bool {
+		use SecureModeError::*;
+		match self {
+			CannotEnableLandlock(_) => true,
+			CannotEnableSeccomp(_) => false,
+			CannotUnshareUserNamespaceAndChangeRoot(_) => false,
+		}
+	}
+}
+
+impl fmt::Display for SecureModeError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		use SecureModeError::*;
+		let display = match self {
+			CannotEnableLandlock(err) => format!("Optional: Cannot enable landlock, a Linux 5.13+ kernel security feature: {}", err),
+			CannotEnableSeccomp(err) => format!("Cannot enable seccomp, a Linux-specific kernel security feature: {}", err),
+			CannotUnshareUserNamespaceAndChangeRoot(err) => format!("Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {}", err),
+		};
+
+		write!(f, "{}", display)
+	}
+}
+
+/// Errors if Secure Validator Mode and some mandatory errors occurred, warn otherwise.
+///
+/// # Returns
+///
+/// `true` if an error was printed, `false` otherwise.
+fn print_secure_mode_message(secure_validator_mode: bool, errs: Vec<SecureModeError>) -> bool {
+	// Trying to run securely and some mandatory errors occurred.
+	const SECURE_MODE_ERROR: &'static str = "🚨 Your system cannot securely run a validator. \
+		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
+	// Some errors occurred when running insecurely, or some optional errors occurred when running
+	// securely.
+	const SECURE_MODE_WARNING: &'static str = "🚨 Some security issues have been detected. \
+		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
+
+	if errs.is_empty() {
+		return false
+	}
+
+	let errs_allowed =
+		!secure_validator_mode || errs.iter().all(|err| err.is_allowed_in_secure_mode());
+	let errs_string: String = errs.iter().map(|err| format!("\n  - {}", err)).collect();
+
+	if errs_allowed {
+		gum::warn!(
+			target: LOG_TARGET,
+			"{}{}",
+			SECURE_MODE_WARNING,
+			errs_string,
+		);
+		false
+	} else {
+		gum::error!(
+			target: LOG_TARGET,
+			"{}{}",
+			SECURE_MODE_ERROR,
+			errs_string,
+		);
+		true
+	}
+}
+
+/// Check if we can change root to a new, sandboxed root and return an error if not.
 ///
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-pub async fn check_can_unshare_user_namespace_and_change_root(
+async fn check_can_unshare_user_namespace_and_change_root(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
-) -> bool {
+) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			let msg = match tokio::process::Command::new(prepare_worker_program_path)
+			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-unshare-user-namespace-and-change-root")
 				.output()
 				.await
 			{
-				Ok(output) if output.status.success() => return true,
+				Ok(output) if output.status.success() => Ok(()),
 				Ok(output) => {
 					let stderr = std::str::from_utf8(&output.stderr)
 						.expect("child process writes a UTF-8 string to stderr; qed")
 						.trim();
-					format!(
-						"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running with support for unsharing user namespaces for maximum security. Error: {}",
-						stderr
-					)
+					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+						format!("not available: {}", stderr)
+					))
 				},
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						"Could not start child process: {}",
-						err
-					);
-					return false
-				},
-			};
+				Err(err) =>
+					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+						format!("could not start child process: {}", err)
+					)),
+			}
 		} else {
-			let msg = "Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with support for unsharing user namespaces for maximum security.";
+			Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+				"only available on Linux".into()
+			))
 		}
 	}
-
-	gum::warn!(
-		target: LOG_TARGET,
-		"{} {}",
-		msg,
-		SECURE_MODE_ANNOUNCEMENT
-	);
-	false
 }
 
-/// Check if landlock is supported and emit a warning if not.
+/// Check if landlock is supported and return an error if not.
 ///
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-pub async fn check_landlock(
+async fn check_landlock(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
-) -> bool {
+) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			let msg = match tokio::process::Command::new(prepare_worker_program_path)
+			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-enable-landlock")
 				.status()
 				.await
 			{
-				Ok(status) if status.success() => return true,
-				Ok(status) => {
+				Ok(status) if status.success() => Ok(()),
+				Ok(_status) => {
 					let abi =
 						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-					format!(
-						"Cannot fully enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security. Landlock ABI: {}",
-						abi
-					)
+					Err(SecureModeError::CannotEnableLandlock(
+						format!("landlock ABI {} not available", abi)
+					))
 				},
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						"Could not start child process: {}",
-						err
-					);
-					return false
-				},
-			};
+				Err(err) =>
+					Err(SecureModeError::CannotEnableLandlock(
+						format!("could not start child process: {}", err)
+					)),
+			}
 		} else {
-			let msg = "Cannot enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with landlock support for maximum security.";
+			Err(SecureModeError::CannotEnableLandlock(
+				"only available on Linux".into()
+			))
 		}
 	}
-
-	gum::warn!(
-		target: LOG_TARGET,
-		"{} {}",
-		msg,
-		SECURE_MODE_ANNOUNCEMENT
-	);
-	false
 }
 
-/// Check if seccomp is supported and emit a warning if not.
+/// Check if seccomp is supported and return an error if not.
 ///
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-pub async fn check_seccomp(
+async fn check_seccomp(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
-) -> bool {
+) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			let msg = match tokio::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-enable-seccomp")
-				.status()
-				.await
-			{
-				Ok(status) if status.success() => return true,
-				Ok(status) => {
-					"Cannot fully enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
-				},
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						"Could not start child process: {}",
-						err
-					);
-					return false
-				},
-			};
+			cfg_if::cfg_if! {
+				if #[cfg(target_arch = "x86_64")] {
+					match tokio::process::Command::new(prepare_worker_program_path)
+						.arg("--check-can-enable-seccomp")
+						.status()
+						.await
+					{
+						Ok(status) if status.success() => Ok(()),
+						Ok(_status) =>
+							Err(SecureModeError::CannotEnableSeccomp(
+								"not available".into()
+							)),
+						Err(err) =>
+							Err(SecureModeError::CannotEnableSeccomp(
+								format!("could not start child process: {}", err)
+							)),
+					}
+				} else {
+					Err(SecureModeError::CannotEnableSeccomp(
+						"only supported on CPUs from the x86_64 family (usually Intel or AMD)".into()
+					))
+				}
+			}
 		} else {
-			let msg = "Cannot enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with seccomp support for maximum security.";
+			cfg_if::cfg_if! {
+				if #[cfg(target_arch = "x86_64")] {
+					Err(SecureModeError::CannotEnableSeccomp(
+						"only supported on Linux".into()
+					))
+				} else {
+					Err(SecureModeError::CannotEnableSeccomp(
+						"only supported on Linux and on CPUs from the x86_64 family (usually Intel or AMD).".into()
+					))
+				}
+			}
 		}
 	}
-
-	gum::warn!(
-		target: LOG_TARGET,
-		"{} {}",
-		msg,
-		SECURE_MODE_ANNOUNCEMENT
-	);
-	false
 }
 
 const AUDIT_LOG_PATH: &'static str = "/var/log/audit/audit.log";
