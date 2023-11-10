@@ -41,7 +41,6 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -88,7 +87,8 @@ use sp_runtime::{
 		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
+	ApplyExtrinsicResult, BoundToRuntimeAppPublic, FixedU128, KeyTypeId, Perbill, Percent, Permill,
+	RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -402,7 +402,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = (Staking, ImOnline);
+	type EventHandler = (Staking);
 }
 
 parameter_types! {
@@ -410,14 +410,39 @@ parameter_types! {
 	pub const Offset: BlockNumber = 0;
 }
 
-impl_opaque_keys! {
-	pub struct OldSessionKeys {
-		pub grandpa: Grandpa,
-		pub babe: Babe,
-		pub im_online: ImOnline,
-		pub para_validator: Initializer,
-		pub para_assignment: ParaSessionInfo,
-		pub authority_discovery: AuthorityDiscovery,
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
+pub struct OldSessionKeys {
+	pub grandpa: <Grandpa as BoundToRuntimeAppPublic>::Public,
+	pub babe: <Babe as BoundToRuntimeAppPublic>::Public,
+	pub im_online: pallet_im_online::sr25519::AuthorityId,
+	pub para_validator: <Initializer as BoundToRuntimeAppPublic>::Public,
+	pub para_assignment: <ParaSessionInfo as BoundToRuntimeAppPublic>::Public,
+	pub authority_discovery: <AuthorityDiscovery as BoundToRuntimeAppPublic>::Public,
+}
+
+impl OpaqueKeys for OldSessionKeys {
+	type KeyTypeIdProviders = (Grandpa, Babe, (), Initializer, ParaSessionInfo, AuthorityDiscovery);
+	fn key_ids() -> &'static [KeyTypeId] {
+		&[
+			<<Grandpa as BoundToRuntimeAppPublic>::Public>::ID,
+			<<Babe as BoundToRuntimeAppPublic>::Public>::ID,
+			sp_core::crypto::key_types::IM_ONLINE,
+			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID,
+			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID,
+			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID,
+		]
+	}
+	fn get_raw(&self, i: KeyTypeId) -> &[u8] {
+		match i {
+			<<Grandpa as BoundToRuntimeAppPublic>::Public>::ID => self.grandpa.as_ref(),
+			<<Babe as BoundToRuntimeAppPublic>::Public>::ID => self.babe.as_ref(),
+			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID => self.para_validator.as_ref(),
+			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID =>
+				self.para_assignment.as_ref(),
+			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
+				self.authority_discovery.as_ref(),
+			_ => &[],
+		}
 	}
 }
 
@@ -425,7 +450,6 @@ impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub grandpa: Grandpa,
 		pub babe: Babe,
-		pub im_online: ImOnline,
 		pub para_validator: Initializer,
 		pub para_assignment: ParaSessionInfo,
 		pub authority_discovery: AuthorityDiscovery,
@@ -438,7 +462,6 @@ fn transform_session_keys(v: AccountId, old: OldSessionKeys) -> SessionKeys {
 	SessionKeys {
 		grandpa: old.grandpa,
 		babe: old.babe,
-		im_online: old.im_online,
 		para_validator: old.para_validator,
 		para_assignment: old.para_assignment,
 		authority_discovery: old.authority_discovery,
@@ -766,19 +789,6 @@ impl pallet_authority_discovery::Config for Runtime {
 
 parameter_types! {
 	pub const NposSolutionPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-}
-
-impl pallet_im_online::Config for Runtime {
-	type AuthorityId = ImOnlineId;
-	type RuntimeEvent = RuntimeEvent;
-	type ValidatorSet = Historical;
-	type NextSessionRotation = Babe;
-	type ReportUnresponsiveness = Offences;
-	type UnsignedPriority = ImOnlineUnsignedPriority;
-	type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
-	type MaxKeys = MaxKeys;
-	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 }
 
 parameter_types! {
@@ -1008,7 +1018,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Staking(..) |
 				RuntimeCall::Session(..) |
 				RuntimeCall::Grandpa(..) |
-				RuntimeCall::ImOnline(..) |
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Identity(..) |
 				RuntimeCall::ConvictionVoting(..) |
@@ -1404,7 +1413,6 @@ construct_runtime! {
 
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 8,
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event, ValidateUnsigned} = 10,
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 11,
 		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>} = 12,
 
 		// Utility module.
@@ -1534,6 +1542,10 @@ pub type Migrations = migrations::Unreleased;
 pub mod migrations {
 	use super::*;
 
+	parameter_types! {
+		pub const ImOnlinePalletName: &'static str = "ImOnline";
+	}
+
 	/// Upgrade Session keys to include BEEFY key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
@@ -1546,7 +1558,6 @@ pub mod migrations {
 
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
-		pallet_im_online::migration::v1::Migration<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
 		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
@@ -1558,6 +1569,10 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
+		frame_support::migrations::RemovePallet<
+			ImOnlinePalletName,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
 	);
 }
 
@@ -1603,7 +1618,6 @@ mod benches {
 		[frame_election_provider_support, ElectionProviderBench::<Runtime>]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_identity, Identity]
-		[pallet_im_online, ImOnline]
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
