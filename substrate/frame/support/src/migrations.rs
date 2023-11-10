@@ -55,7 +55,7 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// 	// OnRuntimeUpgrade implementation...
 /// }
 ///
-/// pub type VersionCheckedMigrateV5ToV6<T, I> =
+/// pub type MigrateV5ToV6<T, I> =
 /// 	VersionedMigration<
 /// 		5,
 /// 		6,
@@ -67,7 +67,7 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// // Migrations tuple to pass to the Executive pallet:
 /// pub type Migrations = (
 /// 	// other migrations...
-/// 	VersionCheckedMigrateV5ToV6<T, ()>,
+/// 	MigrateV5ToV6<T, ()>,
 /// 	// other migrations...
 /// );
 /// ```
