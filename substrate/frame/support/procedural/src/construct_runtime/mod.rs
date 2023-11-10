@@ -208,8 +208,8 @@
 //! This macro returns the ` :: expanded { Error }` list of additional parts we would like to
 //! expose.
 
-mod expand;
-mod parse;
+pub(crate) mod expand;
+pub(crate) mod parse;
 
 use crate::pallet::parse::helper::two128_str;
 use cfg_expr::Predicate;
@@ -499,7 +499,7 @@ fn construct_runtime_final_expansion(
 	Ok(res)
 }
 
-fn decl_all_pallets<'a>(
+pub(crate) fn decl_all_pallets<'a>(
 	runtime: &'a Ident,
 	pallet_declarations: impl Iterator<Item = &'a Pallet>,
 	features: &HashSet<&str>,
@@ -662,7 +662,8 @@ fn decl_all_pallets<'a>(
 		#( #all_pallets_reversed_with_system_first )*
 	)
 }
-fn decl_pallet_runtime_setup(
+
+pub(crate) fn decl_pallet_runtime_setup(
 	runtime: &Ident,
 	pallet_declarations: &[Pallet],
 	scrate: &TokenStream2,
@@ -768,7 +769,7 @@ fn decl_pallet_runtime_setup(
 	)
 }
 
-fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
+pub(crate) fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
 	quote!(
 		#[cfg(test)]
 		mod __construct_runtime_integrity_test {
@@ -783,7 +784,7 @@ fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
 	)
 }
 
-fn decl_static_assertions(
+pub(crate) fn decl_static_assertions(
 	runtime: &Ident,
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
@@ -814,7 +815,7 @@ fn decl_static_assertions(
 	}
 }
 
-fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
+pub(crate) fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
 	let max_pallet_num = {
 		if cfg!(feature = "tuples-96") {
 			96
