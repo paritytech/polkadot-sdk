@@ -1031,8 +1031,25 @@ impl TryFrom<NewResponse> for Response {
 impl<RuntimeCall> TryFrom<NewXcm<RuntimeCall>> for Xcm<RuntimeCall> {
 	type Error = ();
 	fn try_from(new_xcm: NewXcm<RuntimeCall>) -> result::Result<Self, ()> {
-		Ok(Xcm(new_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
+		let instructions = new_xcm.0
+			.into_iter()
+			.filter(|i| !matches!(i, NewInstruction::SetTopic(..)))
+			.map(TryInto::try_into)
+			.collect::<result::Result<_, _>>()?;
+		Ok(Xcm(instructions))
 	}
+}
+
+#[test]
+fn does_not_bail_on_set_topic() {
+	use NewInstruction::*;
+	let message = NewXcm::<()>(vec![
+		SetTopic([0; 32]),
+		Trap(0),
+	]);
+	let xcm: Xcm::<()> = message.try_into().unwrap();
+	assert_eq!(xcm.0.len(), 1);
+	assert_eq!(xcm.0[0], Instruction::Trap(0));
 }
 
 // Convert from a v3 instruction to a v2 instruction
