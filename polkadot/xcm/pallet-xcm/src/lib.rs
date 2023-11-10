@@ -79,13 +79,8 @@ pub trait WeightInfo {
 	fn notify_target_migration_fail() -> Weight;
 	fn migrate_version_notify_targets() -> Weight;
 	fn migrate_and_notify_old_targets() -> Weight;
-	// TODO remove after benchmark are regenerated
-	fn new_query() -> Weight {
-		Weight::zero()
-	}
-	fn take_response() -> Weight {
-		Weight::zero()
-	}
+	fn new_query() -> Weight;
+	fn take_response() -> Weight;
 }
 
 /// fallback implementation
