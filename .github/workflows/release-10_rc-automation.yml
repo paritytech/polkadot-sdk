@@ -4,8 +4,8 @@ on:
     branches:
       # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
       - release-v[0-9]+.[0-9]+.[0-9]+*
-      - release-parachains-v[0-9]+
-      - release-polkadot-v[0-9]+
+      - release-cumulus-v[0-9]+*
+      - release-polkadot-v[0-9]+*
 
   workflow_dispatch:
 
@@ -26,10 +26,15 @@ jobs:
 
       - name: Get release product
         id: get_rel_product
+        shell: bash
         run: |
           current_branch=$(git branch --show-current)
-          [[ "$current_branch" ~= "release-polkadot" ]] && echo "product=polakdot" >> $GITHUB_OUTPUT
-          [[ "$current_branch" ~= "release-cumulus"  ]] && echo "product=polakdot-parachain" >> $GITHUB_OUTPUT
+          echo "Current branch: $current_branch"
+          if [[ "$current_branch" =~ "release-polkadot" ]]; then
+            echo "product=polkadot" >> $GITHUB_OUTPUT
+          elif [[ "$current_branch" =~ "release-cumulus" ]]; then
+            echo "product=polkadot-parachain" >> $GITHUB_OUTPUT
+          fi
 
 
       - name: Compute next rc tag for polkadot
@@ -44,7 +49,8 @@ jobs:
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
-          last_rc=$(get_latest_rc_tag $version "polkadot")
+          last_rc=$(get_latest_rc_tag $version polkadot)
+
           if [ -n "$last_rc" ]; then
             suffix=$(increment_rc_tag $last_rc)
             echo "new_tag=$version-rc$suffix" >> $GITHUB_OUTPUT
@@ -66,7 +72,7 @@ jobs:
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
-          last_rc=$(get_latest_rc_tag $version "polkadot-parachain")
+          last_rc=$(get_latest_rc_tag $version polkadot-parachain)
           if [ -n "$last_rc" ]; then
             suffix=$(increment_rc_tag $last_rc)
             echo "new_tag=polkadot-parachains-$version-rc$suffix" >> $GITHUB_OUTPUT

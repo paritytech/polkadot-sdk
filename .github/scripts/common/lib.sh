@@ -286,7 +286,6 @@ function get_latest_rc_tag() {
   version=$1
   product=$2
 
-  git tag -l
   if [[ "$product" == "polkadot" ]]; then
     last_rc=$(git tag -l "$version-rc*" | sort -V | tail -n 1)
   elif [[ "$product" == "polkadot-parachain"  ]]; then
@@ -300,7 +299,6 @@ function increment_rc_tag() {
   last_rc=$1
 
   suffix=$(echo "$last_rc" | grep -Eo '[0-9]+$')
-  echo $suffix
   ((suffix++))
   echo $suffix
 }
