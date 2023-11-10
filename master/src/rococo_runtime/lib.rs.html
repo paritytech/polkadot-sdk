@@ -3726,14 +3726,14 @@
 
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
-		pallet_society::migrations::VersionCheckedMigrateToV2&lt;Runtime, (), ()&gt;,
+		pallet_society::migrations::MigrateToV2&lt;Runtime, (), ()&gt;,
 		pallet_im_online::migration::v1::Migration&lt;Runtime&gt;,
 		parachains_configuration::migration::v7::MigrateToV7&lt;Runtime&gt;,
-		assigned_slots::migration::v1::VersionCheckedMigrateToV1&lt;Runtime&gt;,
+		assigned_slots::migration::v1::MigrateToV1&lt;Runtime&gt;,
 		parachains_scheduler::migration::v1::MigrateToV1&lt;Runtime&gt;,
 		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
-		paras_registrar::migration::VersionCheckedMigrateToV1&lt;Runtime, ()&gt;,
+		paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, pallet_referenda::Instance2&gt;,
 

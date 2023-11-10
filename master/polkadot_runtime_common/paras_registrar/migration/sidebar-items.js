@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ParaInfoV1","VersionUncheckedMigrateToV1"],"type":["VersionCheckedMigrateToV1"]};
+window.SIDEBAR_ITEMS = {"struct":["ParaInfoV1","VersionUncheckedMigrateToV1"],"type":["MigrateToV1"]};

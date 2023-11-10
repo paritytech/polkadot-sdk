@@ -398,7 +398,7 @@
 /// 	// OnRuntimeUpgrade implementation...
 /// }
 ///
-/// pub type VersionCheckedMigrateV5ToV6&lt;T, I&gt; =
+/// pub type MigrateV5ToV6&lt;T, I&gt; =
 /// 	VersionedMigration&lt;
 /// 		5,
 /// 		6,
@@ -410,7 +410,7 @@
 /// // Migrations tuple to pass to the Executive pallet:
 /// pub type Migrations = (
 /// 	// other migrations...
-/// 	VersionCheckedMigrateV5ToV6&lt;T, ()&gt;,
+/// 	MigrateV5ToV6&lt;T, ()&gt;,
 /// 	// other migrations...
 /// );
 /// ```

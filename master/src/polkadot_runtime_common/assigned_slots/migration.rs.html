@@ -98,8 +98,8 @@
 <span class="kw">pub mod </span>v1 {
 
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
+	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
@@ -133,13 +133,13 @@
 		}
 	}
 
-	<span class="doccomment">/// [`MigrateToV1`] wrapped in a
+	<span class="doccomment">/// [`VersionUncheckedMigrateToV1`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 0.
-	</span><span class="kw">pub type </span>VersionCheckedMigrateToV1&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
+	</span><span class="kw">pub type </span>MigrateToV1&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
 		<span class="number">0</span>,
 		<span class="number">1</span>,
-		MigrateToV1&lt;T&gt;,
+		VersionUncheckedMigrateToV1&lt;T&gt;,
 		Pallet&lt;T&gt;,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
 	&gt;;

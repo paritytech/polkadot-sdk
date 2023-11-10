@@ -67,7 +67,6 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -130,12 +129,11 @@
 	}
 }
 
-<span class="kw">pub type </span>VersionCheckedMigrateToV1&lt;T, UnlockParaIds&gt; =
-	frame_support::migrations::VersionedMigration&lt;
-		<span class="number">0</span>,
-		<span class="number">1</span>,
-		VersionUncheckedMigrateToV1&lt;T, UnlockParaIds&gt;,
-		<span class="kw">super</span>::Pallet&lt;T&gt;,
-		&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
-	&gt;;
+<span class="kw">pub type </span>MigrateToV1&lt;T, UnlockParaIds&gt; = frame_support::migrations::VersionedMigration&lt;
+	<span class="number">0</span>,
+	<span class="number">1</span>,
+	VersionUncheckedMigrateToV1&lt;T, UnlockParaIds&gt;,
+	<span class="kw">super</span>::Pallet&lt;T&gt;,
+	&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
+&gt;;
 </code></pre></div></section></main></body></html>

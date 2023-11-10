@@ -22,7 +22,7 @@ probably be removed.</p>
 	<span class="comment">// OnRuntimeUpgrade implementation...
 </span>}
 
-<span class="kw">pub type </span>VersionCheckedMigrateV5ToV6&lt;T, I&gt; =
+<span class="kw">pub type </span>MigrateV5ToV6&lt;T, I&gt; =
 	VersionedMigration&lt;
 		<span class="number">5</span>,
 		<span class="number">6</span>,
@@ -34,7 +34,7 @@ probably be removed.</p>
 <span class="comment">// Migrations tuple to pass to the Executive pallet:
 </span><span class="kw">pub type </span>Migrations = (
 	<span class="comment">// other migrations...
-	</span>VersionCheckedMigrateV5ToV6&lt;T, ()&gt;,
+	</span>MigrateV5ToV6&lt;T, ()&gt;,
 	<span class="comment">// other migrations...
 </span>);</code></pre></div>
 </div></details><h2 id="trait-implementations" class="small-section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-OnRuntimeUpgrade-for-VersionedMigration%3CFROM,+TO,+Inner,+Pallet,+DbWeight%3E" class="impl"><a class="src rightside" href="../../src/frame_support/migrations.rs.html#90-164">source</a><a href="#impl-OnRuntimeUpgrade-for-VersionedMigration%3CFROM,+TO,+Inner,+Pallet,+DbWeight%3E" class="anchor">§</a><h3 class="code-header">impl&lt;const FROM: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u16.html">u16</a>, const TO: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u16.html">u16</a>, Inner: <a class="trait" href="../traits/trait.OnRuntimeUpgrade.html" title="trait frame_support::traits::OnRuntimeUpgrade">OnRuntimeUpgrade</a>, Pallet: <a class="trait" href="../traits/trait.GetStorageVersion.html" title="trait frame_support::traits::GetStorageVersion">GetStorageVersion</a>&lt;CurrentStorageVersion = <a class="struct" href="../traits/struct.StorageVersion.html" title="struct frame_support::traits::StorageVersion">StorageVersion</a>&gt; + <a class="trait" href="../traits/trait.PalletInfoAccess.html" title="trait frame_support::traits::PalletInfoAccess">PalletInfoAccess</a>, DbWeight: <a class="trait" href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;<a class="struct" href="../weights/struct.RuntimeDbWeight.html" title="struct frame_support::weights::RuntimeDbWeight">RuntimeDbWeight</a>&gt;&gt; <a class="trait" href="../traits/trait.OnRuntimeUpgrade.html" title="trait frame_support::traits::OnRuntimeUpgrade">OnRuntimeUpgrade</a> for <a class="struct" href="struct.VersionedMigration.html" title="struct frame_support::migrations::VersionedMigration">VersionedMigration</a>&lt;FROM, TO, Inner, Pallet, DbWeight&gt;</h3></section></summary><div class="docblock"><p>Implementation of the <code>OnRuntimeUpgrade</code> trait for <code>VersionedMigration</code>.</p>
