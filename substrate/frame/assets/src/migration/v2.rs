@@ -181,11 +181,10 @@ impl<T: Config<I>, I: 'static, A: Get<Vec<(T::AssetId, T::AccountId)>>> OnRuntim
 
 /// [`VersionUncheckedMigrateToV2`] wrapped in a [`frame_support::migrations::VersionedMigration`],
 /// ensuring the migration is only performed when on-chain version is 1.
-pub type VersionCheckedMigrateToV2<T, I = (), A = ()> =
-	frame_support::migrations::VersionedMigration<
-		1,
-		2,
-		VersionUncheckedMigrateToV2<T, I, A>,
-		crate::pallet::Pallet<T, I>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+pub type MigrateToV2<T, I = (), A = ()> = frame_support::migrations::VersionedMigration<
+	1,
+	2,
+	VersionUncheckedMigrateToV2<T, I, A>,
+	crate::pallet::Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;

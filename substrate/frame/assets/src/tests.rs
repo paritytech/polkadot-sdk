@@ -1841,7 +1841,7 @@ fn migrate_to_v2_works() {
 		}
 
 		// Run migration.
-		assert_ok!(crate::migration::v2::VersionCheckedMigrateToV2::<
+		assert_ok!(crate::migration::v2::MigrateToV2::<
 			Test,
 			(),
 			ConstVecForMigrationToV2,
