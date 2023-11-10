@@ -348,6 +348,15 @@ pub mod pallet {
 			// Check that the migrations tuple is legit.
 			frame_support::assert_ok!(T::Migrations::integrity_test());
 
+			// Very important! Ensure that the pallet is configured in `System::Config`.
+			{
+				assert!(!Cursor::<T>::exists(), "Externalities storage should be clean");
+				assert!(!<T as frame_system::Config>::MultiBlockMigrator::ongoing());
+				Cursor::<T>::put(MigrationCursor::Stuck);
+				assert!(<T as frame_system::Config>::MultiBlockMigrator::ongoing());
+				Cursor::<T>::kill();
+			}
+
 			// Cursor MEL
 			{
 				let mel = T::Migrations::cursor_max_encoded_len();
@@ -357,6 +366,7 @@ pub mod pallet {
 					"A Cursor is not guaranteed to fit into the storage: {mel} > {max_mel}",
 				);
 			}
+			
 			// Identifier MEL
 			{
 				let mel = T::Migrations::identifier_max_encoded_len();

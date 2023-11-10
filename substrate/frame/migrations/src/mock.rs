@@ -49,6 +49,7 @@ impl frame_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
+	type MultiBlockMigrator = Migrations;
 }
 
 frame_support::parameter_types! {
