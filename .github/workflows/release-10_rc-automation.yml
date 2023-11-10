@@ -20,11 +20,21 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
-      - id: compute_tag
-        name: Compute next rc tag
+
+      - name: Get release product
+        id: get_rel_product
+        run: |
+          current_branch=$(git branch --show-current)
+          [[ "$current_branch" ~= "release-polkadot" ]] && echo "product=polakdot" >> $GITHUB_OUTPUT
+          [[ "$current_branch" ~= "release-cumulus"  ]] && echo "product=polakdot-parachain" >> $GITHUB_OUTPUT
+
+
+      - name: Compute next rc tag for polkadot
+        if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
+        id: compute_tag_polkadot
         shell: bash
         run: |
           . ./.github/scripts/common/lib.sh
@@ -33,17 +43,36 @@ jobs:
           version=$(get_version_from_ghref ${GITHUB_REF})
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT
-          git tag -l
-          last_rc=$(git tag -l "$version-rc*" | sort -V | tail -n 1)
+
+          last_rc=$(get_latest_rc_tag $version "polkadot")
           if [ -n "$last_rc" ]; then
-            suffix=$(echo "$last_rc" | grep -Eo '[0-9]+$')
-            echo $suffix
-            ((suffix++))
-            echo $suffix
+            suffix=$(increment_rc_tag $last_rc)
             echo "new_tag=$version-rc$suffix" >> $GITHUB_OUTPUT
             echo "first_rc=false" >> $GITHUB_OUTPUT
           else
             echo "new_tag=$version-rc1" >> $GITHUB_OUTPUT
+            echo "first_rc=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Compute next rc tag for polkadot-parachain
+        if: ${{ steps.get_rel_product.outputs.product == 'polkadot-parachain' }}
+        id: compute_tag_cumulus
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          # Get last rc tag if exists, else set it to polkadot-parachains-{version}-rc1
+          version=$(get_version_from_ghref ${GITHUB_REF})
+          echo "$version"
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+          last_rc=$(get_latest_rc_tag $version "polkadot-parachain")
+          if [ -n "$last_rc" ]; then
+            suffix=$(increment_rc_tag $last_rc)
+            echo "new_tag=polkadot-parachains-$version-rc$suffix" >> $GITHUB_OUTPUT
+            echo "first_rc=false" >> $GITHUB_OUTPUT
+          else
+            echo "new_tag=polkadot-parachain-$version-rc1" >> $GITHUB_OUTPUT
             echo "first_rc=true" >> $GITHUB_OUTPUT
           fi
 
@@ -54,7 +83,7 @@ jobs:
           # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#triggering-new-workflows-using-a-personal-access-token
           # RELEASE_BRANCH_TOKEN requires public_repo OAuth scope
           repo-token: "${{ secrets.RELEASE_BRANCH_TOKEN }}"
-          tag: ${{ steps.compute_tag.outputs.new_tag }}
+          tag: ${{ steps.compute_tag_polkadot.outputs.new_tag || steps.compute_tag_cumulus.outputs.new_tag }}
 
       # - id: create-issue
       #   uses: JasonEtco/create-an-issue@e27dddc79c92bc6e4562f268fffa5ed752639abd # v2.9.1
@@ -74,4 +103,4 @@ jobs:
           access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
           server: m.parity.io
           message: |
-            Release process for polkadot ${{ steps.compute_tag.outputs.version }} has been started.<br/>
+            Release process for polkadot ${{ steps.compute_tag_polkadot.outputs.new_tag || steps.compute_tag_cumulus.outputs.new_tag }} has been started.<br/>
