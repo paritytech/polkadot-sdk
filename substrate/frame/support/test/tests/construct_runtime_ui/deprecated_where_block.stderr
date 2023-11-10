@@ -97,7 +97,7 @@ note: required because it appears within the type `RuntimeEvent`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `EncodeLike`
-  --> $CARGO/parity-scale-codec-3.6.4/src/encode_like.rs
+  --> $CARGO/parity-scale-codec-3.6.5/src/encode_like.rs
    |
    | pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
    |                                         ^^^^^ required by this bound in `EncodeLike`
@@ -129,7 +129,7 @@ note: required because it appears within the type `RuntimeEvent`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Decode`
-  --> $CARGO/parity-scale-codec-3.6.4/src/codec.rs
+  --> $CARGO/parity-scale-codec-3.6.5/src/codec.rs
    |
    | pub trait Decode: Sized {
    |                   ^^^^^ required by this bound in `Decode`
@@ -301,7 +301,7 @@ note: required because it appears within the type `RuntimeCall`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `EncodeLike`
-  --> $CARGO/parity-scale-codec-3.6.4/src/encode_like.rs
+  --> $CARGO/parity-scale-codec-3.6.5/src/encode_like.rs
    |
    | pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
    |                                         ^^^^^ required by this bound in `EncodeLike`
@@ -334,7 +334,7 @@ note: required because it appears within the type `RuntimeCall`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `Decode`
-  --> $CARGO/parity-scale-codec-3.6.4/src/codec.rs
+  --> $CARGO/parity-scale-codec-3.6.5/src/codec.rs
    |
    | pub trait Decode: Sized {
    |                   ^^^^^ required by this bound in `Decode`

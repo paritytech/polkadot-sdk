@@ -24,7 +24,7 @@
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -70,7 +70,7 @@
 		)
 
 		;; Call deployed library contract code.
-		(set_local $exit_code
+		(local.set $exit_code
 			(call $seal_delegate_call
 				(i32.const 0)	;; Set no call flags
 				(i32.const 64)	;; Pointer to "callee" code_hash.
@@ -83,7 +83,7 @@
 
 		;; Check for success exit status.
 		(call $assert
-			(i32.eq (get_local $exit_code) (i32.const 0)) ;; ReturnCode::Success
+			(i32.eq (local.get $exit_code) (i32.const 0)) ;; ReturnCode::Success
 		)
 
 		(call $assert
