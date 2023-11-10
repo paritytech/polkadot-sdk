@@ -30,13 +30,20 @@ in a short amount of time.
 We currently know of the following specific cases that will lead to a retried
 execution request:
 
-1. **OOM:** The host might have been temporarily low on memory due to other
-   processes running on the same machine. **NOTE:** This case will lead to
-   voting against the candidate (and possibly a dispute) if the retry is still
-   not successful.
-2. **Artifact missing:** The prepared artifact might have been deleted due to
+1. **OOM:** We have memory limits to try to prevent attackers from exhausting
+   host memory. If the memory limit is hit, we kill the job process and retry
+   the job. Alternatively, the host might have been temporarily low on memory
+   due to other processes running on the same machine. **NOTE:** This case will
+   lead to voting against the candidate (and possibly a dispute) if the retry is
+   still not successful.
+2. **Syscall violations:** If the job attempts a system call that is blocked by
+   the sandbox's security policy, the job process is immediately killed and we
+   retry. **NOTE:** In the future, if we have a proper way to detect that the
+   job died due to a security violation, it might make sense not to retry in
+   this case.
+3. **Artifact missing:** The prepared artifact might have been deleted due to
    operator error or some bug in the system.
-3. **Panic:** The worker thread panicked for some indeterminate reason, which
+4. **Panic:** The worker thread panicked for some indeterminate reason, which
    may or may not be independent of the candidate or PVF.
 
 ### Preparation timeouts
