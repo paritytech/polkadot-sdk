@@ -122,10 +122,10 @@ pub mod weights;
 pub mod migrations;
 
 pub use extensions::{
-	check_genesis::CheckGenesis, check_mortality::CheckMortality,
-	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
-	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight,
+	check_genesis::CheckGenesis, check_metadata_hash::CheckMetadataHash,
+	check_mortality::CheckMortality, check_non_zero_sender::CheckNonZeroSender,
+	check_nonce::CheckNonce, check_spec_version::CheckSpecVersion,
+	check_tx_version::CheckTxVersion, check_weight::CheckWeight,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;

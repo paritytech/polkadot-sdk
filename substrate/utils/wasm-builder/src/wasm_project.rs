@@ -134,13 +134,48 @@ pub(crate) fn create_and_compile(
 
 	let build_config = BuildConfiguration::detect(&project);
 
-	// Build the bloaty runtime blob
-	build_bloaty_blob(&build_config.blob_build_profile, &project, default_rustflags, cargo_cmd);
-
 	// Get the name of the bloaty runtime blob.
 	let bloaty_blob_default_name = get_blob_name(project_cargo_toml);
 	let bloaty_blob_out_name =
 		bloaty_blob_out_name_override.unwrap_or_else(|| bloaty_blob_default_name.clone());
+
+	// Build the bloaty runtime blob
+	#[cfg(feature = "experimental-metadata-hash")]
+	{
+		build_bloaty_blob(
+			&build_config.blob_build_profile,
+			&project,
+			default_rustflags,
+			cargo_cmd.clone(),
+			None,
+		);
+
+		let in_path = project
+			.join("target/wasm32-unknown-unknown")
+			.join(build_config.blob_build_profile.directory())
+			.join(format!("{bloaty_blob_default_name}.wasm"));
+
+		let hash = crate::metadata_hash::generate_hash(&in_path);
+
+		build_bloaty_blob(
+			&build_config.blob_build_profile,
+			&project,
+			default_rustflags,
+			cargo_cmd,
+			Some(hash),
+		);
+	}
+
+	#[cfg(not(feature = "experimental-metadata-hash"))]
+	{
+		build_bloaty_blob(
+			&build_config.blob_build_profile,
+			&project,
+			default_rustflags,
+			cargo_cmd,
+			None,
+		);
+	}
 
 	let bloaty_blob_binary = copy_bloaty_blob(
 		&project,
@@ -715,6 +750,7 @@ fn build_bloaty_blob(
 	project: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
+	metadata_hash: Option<[u8; 32]>,
 ) {
 	let manifest_path = project.join("Cargo.toml");
 	let mut build_cmd = cargo_cmd.command();
@@ -739,6 +775,10 @@ fn build_bloaty_blob(
 		.env_remove("CARGO_ENCODED_RUSTFLAGS")
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
+
+	if let Some(hash) = metadata_hash {
+		build_cmd.env("RUNTIME_METADATA_HASH", array_bytes::bytes2hex("0x", &hash));
+	}
 
 	if super::color_output_enabled() {
 		build_cmd.arg("--color=always");

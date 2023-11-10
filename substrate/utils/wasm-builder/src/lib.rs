@@ -121,6 +121,8 @@ mod builder;
 mod prerequisites;
 mod version;
 mod wasm_project;
+#[cfg(feature = "experimental-metadata-hash")]
+mod metadata_hash;
 
 pub use builder::{WasmBuilder, WasmBuilderSelectProject};
 
@@ -236,7 +238,7 @@ fn get_rustup_command() -> Option<CargoCommand> {
 }
 
 /// Wraps a specific command which represents a cargo invocation.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct CargoCommand {
 	program: String,
 	args: Vec<String>,
@@ -304,6 +306,7 @@ impl CargoCommand {
 }
 
 /// Wraps a [`CargoCommand`] and the version of `rustc` the cargo command uses.
+#[derive(Clone)]
 struct CargoCommandVersioned {
 	command: CargoCommand,
 	version: String,

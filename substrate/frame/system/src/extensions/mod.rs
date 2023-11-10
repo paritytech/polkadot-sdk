@@ -16,6 +16,7 @@
 // limitations under the License.
 
 pub mod check_genesis;
+pub mod check_metadata_hash;
 pub mod check_mortality;
 pub mod check_non_zero_sender;
 pub mod check_nonce;
