@@ -224,6 +224,8 @@ pub mod pallet {
 		/// assign_core is only allowed to append new assignments at the end of already existing
 		/// ones.
 		DisallowedInsert,
+		/// Tried to insert a schedule for the same core and block number as an existing schedule
+		DuplicateInsert,
 	}
 }
 
@@ -419,18 +421,23 @@ impl<T: Config> Pallet<T> {
 						Error::<T>::DisallowedInsert,
 					);
 
-					CoreSchedules::<T>::mutate((queue.last, core_idx), |schedule| {
+					CoreSchedules::<T>::try_mutate((queue.last, core_idx), |schedule| {
 						if let Some(schedule) = schedule.as_mut() {
 							debug_assert!(schedule.next_schedule.is_none(), "queue.end was supposed to be the end, so the next item must be `None`!");
 							schedule.next_schedule = Some(begin);
 						} else {
 							defensive!("Queue end entry does not exist?");
 						}
-					});
-					CoreSchedules::<T>::insert(
-						(begin, core_idx),
-						Schedule { assignments, end_hint, next_schedule: None },
-					);
+						CoreSchedules::<T>::try_mutate((begin, core_idx), |schedule| {
+							// It should already be impossible to overwrite an existing schedule due
+							// to strictly increasing block number. But we check here for safety and
+							// in case the design changes.
+							ensure!(schedule.is_none(), Error::<T>::DuplicateInsert);
+							*schedule = Some(Schedule { assignments, end_hint, next_schedule: None });
+							Ok::<(), DispatchError>(())
+						})?;
+						Ok::<(), DispatchError>(())
+					})?;
 
 					QueueDescriptor {
 						first: queue.first,
@@ -454,7 +461,12 @@ impl<T: Config> Pallet<T> {
 
 // Tests/Invariant:
 // - After `assign_core`, Workload is `Some`.
-// - next_schedule always points to next item in CoreSchedules.
-// - Test insertion in the middle, beginning and end: Should fail in all cases but the last.
-// - Test insertion on empty queue.
-// - Test overwrite vs insert: Overwrite no longer allowed - should fail with error.
+// - next_schedule always points to next item in CoreSchedules. 
+//   (handled by next_schedule_always_points_to_next_work_plan_item)
+// - Test insertion in the middle, beginning and end: Should fail in all cases but the last. 
+//   (handled by assign_core_enforces_higher_block_number)
+// - Test insertion on empty queue. 
+//   (Handled by assign_core_works_with_no_prior_schedule)
+// - Test overwrite vs insert: Overwrite no longer allowed - should fail with error. 
+//   (handled using Error::DuplicateInsert, though earlier errors should prevent this error 
+//    from ever triggering)

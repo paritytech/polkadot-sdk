@@ -92,8 +92,7 @@ fn default_test_schedule() -> Schedule<BlockNumberFor<Test>> {
 }
 
 #[test]
-// Should update end hint of current CoreDescriptor and add new schedule to
-// CoreSchedules
+// Should create new QueueDescriptor and add new schedule to CoreSchedules
 fn assign_core_works_with_no_prior_schedule() {
 	let core_idx = CoreIndex(0);
 
@@ -127,8 +126,7 @@ fn assign_core_works_with_no_prior_schedule() {
 }
 
 #[test]
-// Should update the end hint of prior schedule and add new schedule
-// to CoreSchedules
+// Should update last in QueueDescriptor and add new schedule to CoreSchedules
 fn assign_core_works_with_prior_schedule() {
 	let core_idx = CoreIndex(0);
 
@@ -151,16 +149,6 @@ fn assign_core_works_with_prior_schedule() {
 			None,
 		));
 
-		// Check QueueDescriptor
-		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.first)), 
-			Some(BlockNumberFor::<Test>::from(11u32))
-		);
-		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)), 
-			Some(BlockNumberFor::<Test>::from(15u32))
-		);
-
 		// Check CoreSchedules for two entries
 		assert_eq!(
 			CoreSchedules::<Test>::get((BlockNumberFor::<Test>::from(11u32), core_idx)),
@@ -169,6 +157,16 @@ fn assign_core_works_with_prior_schedule() {
 		assert_eq!(
 			CoreSchedules::<Test>::get((BlockNumberFor::<Test>::from(15u32), core_idx)),
 			Some(default_test_schedule())
+		);
+
+		// Check QueueDescriptor
+		assert_eq!(
+			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.first)), 
+			Some(BlockNumberFor::<Test>::from(11u32))
+		);
+		assert_eq!(
+			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)), 
+			Some(BlockNumberFor::<Test>::from(15u32))
 		);
 	});
 }
@@ -183,7 +181,7 @@ fn assign_core_enforces_higher_block_number() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		// Call assign core once with higher starting block number
+		// Call assign core twice to establish some schedules
 		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
@@ -191,11 +189,29 @@ fn assign_core_enforces_higher_block_number() {
 			None,
 		));
 
-		// Call again with lower starting block number, expecting an error
+		assert_ok!(BulkAssigner::assign_core(
+			core_idx,
+			BlockNumberFor::<Test>::from(15u32),
+			default_test_assignments(),
+			None,
+		));
+
+		// Call assign core with block number before QueueDescriptor first, expecting an error
 		assert_noop!(
 			BulkAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(10u32),
+				default_test_assignments(),
+				None,
+			),
+			Error::<Test>::DisallowedInsert
+		);
+
+		// Call assign core with block number between already scheduled assignments, expecting an error
+		assert_noop!(
+			BulkAssigner::assign_core(
+				core_idx,
+				BlockNumberFor::<Test>::from(13u32),
 				default_test_assignments(),
 				None,
 			),
@@ -241,7 +257,7 @@ fn assign_core_enforces_well_formed_schedule() {
 }
 
 #[test]
-fn end_hint_always_points_to_next_work_plan_item() {
+fn next_schedule_always_points_to_next_work_plan_item() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
@@ -292,7 +308,7 @@ fn end_hint_always_points_to_next_work_plan_item() {
 			None,
 		));
 
-		// Rotate through the first three schedules
+		// Rotate through the first two schedules
 		BulkAssigner::pop_assignment_for_core(core_idx);
 		run_to_block(15, |n| if n == 15 { Some(Default::default()) } else { None });
 		BulkAssigner::pop_assignment_for_core(core_idx);
@@ -358,11 +374,12 @@ fn ensure_workload_works() {
 		let mut core_descriptor: CoreDescriptor<BlockNumberFor<Test>> = CoreDescriptor { queue: None, current_work: None };
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		// Case 1: No schedules in CoreSchedules for core
+		// Case 1: No new schedule in CoreSchedules for core
 		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, expected_descriptor_1);
 
-		// Case 2: Schedule in CoreSchedules for core, but new schedule start not reached
+		// Case 2: New schedule exists in CoreSchedules for core, but new 
+		// schedule start is not yet reached.
 		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
@@ -377,8 +394,9 @@ fn ensure_workload_works() {
 		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, expected_descriptor_2);
 
-		// Case 3: Schedule in CoreSchedules for core, end_hint reached. Swaps new WorkState
-		// into CoreDescriptors from CoreSchedules.
+		// Case 3: Next schedule exists in CoreSchedules for core. Next starting 
+		// block has been reached. Swaps new WorkState into CoreDescriptors from 
+		// CoreSchedules.
 		BulkAssigner::ensure_workload(11u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, expected_descriptor_3);
 
