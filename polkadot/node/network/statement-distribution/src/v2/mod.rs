@@ -1454,17 +1454,19 @@ async fn handle_incoming_statement<Context>(
 			},
 		}
 	} else {
-		let direct_statement_providers = local_validator.grid_tracker.direct_statement_providers(
-			&per_session.groups,
-			statement.unchecked_validator_index(),
-			statement.unchecked_payload(),
-		);
+		let (direct_statement_providers, print_new) =
+			local_validator.grid_tracker.direct_statement_providers(
+				&per_session.groups,
+				statement.unchecked_validator_index(),
+				statement.unchecked_payload(),
+			);
 
 		if direct_statement_providers.is_empty() {
 			prints = format!(
-				"{} no direct_statement_providers {:?}",
+				"{} no direct_statement_providers {:?} becasue {:}",
 				prints,
-				statement.unchecked_validator_index()
+				statement.unchecked_validator_index(),
+				print_new,
 			);
 		}
 		let grid_sender_index = direct_statement_providers

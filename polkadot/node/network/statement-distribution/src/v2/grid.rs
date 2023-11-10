@@ -530,17 +530,23 @@ impl GridTracker {
 		groups: &Groups,
 		originator: ValidatorIndex,
 		statement: &CompactStatement,
-	) -> Vec<ValidatorIndex> {
+	) -> (Vec<ValidatorIndex>, String) {
+		let mut print_result = String::new();
 		let (g, c_h, kind, in_group) =
 			match extract_statement_and_group_info(groups, originator, statement) {
-				None => return Vec::new(),
-				Some(x) => x,
+				(None, print) => return (Vec::new(), print),
+				(Some(x), _) => x,
 			};
+		let confirmed_backed = self.confirmed_backed.get(&c_h);
 
-		self.confirmed_backed
-			.get(&c_h)
+		if confirmed_backed.is_none() {
+			print_result = format!("{} no_backed", print_result);
+		}
+
+		let result = confirmed_backed
 			.map(|k| k.direct_statement_senders(g, in_group, kind))
-			.unwrap_or_default()
+			.unwrap_or_default();
+		(result.0, format!("{} {}", print_result, result.1))
 	}
 
 	/// Determine the validators which can receive a statement from us by direct
@@ -552,7 +558,7 @@ impl GridTracker {
 		statement: &CompactStatement,
 	) -> Vec<ValidatorIndex> {
 		let (g, c_h, kind, in_group) =
-			match extract_statement_and_group_info(groups, originator, statement) {
+			match extract_statement_and_group_info(groups, originator, statement).0 {
 				None => return Vec::new(),
 				Some(x) => x,
 			};
@@ -574,7 +580,7 @@ impl GridTracker {
 		statement: &CompactStatement,
 	) {
 		let (g, c_h, kind, in_group) =
-			match extract_statement_and_group_info(groups, originator, statement) {
+			match extract_statement_and_group_info(groups, originator, statement).0 {
 				None => return,
 				Some(x) => x,
 			};
@@ -616,7 +622,7 @@ impl GridTracker {
 		statement: &CompactStatement,
 	) {
 		if let Some((_, c_h, kind, in_group)) =
-			extract_statement_and_group_info(groups, originator, statement)
+			extract_statement_and_group_info(groups, originator, statement).0
 		{
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
 				known.sent_or_received_direct_statement(counterparty, in_group, kind);
@@ -654,20 +660,26 @@ fn extract_statement_and_group_info(
 	groups: &Groups,
 	originator: ValidatorIndex,
 	statement: &CompactStatement,
-) -> Option<(GroupIndex, CandidateHash, StatementKind, usize)> {
+) -> (Option<(GroupIndex, CandidateHash, StatementKind, usize)>, String) {
 	let (statement_kind, candidate_hash) = match statement {
 		CompactStatement::Seconded(h) => (StatementKind::Seconded, h),
 		CompactStatement::Valid(h) => (StatementKind::Valid, h),
 	};
 
 	let group = match groups.by_validator_index(originator) {
-		None => return None,
+		None => return (None, "extract_no_group".into()),
 		Some(g) => g,
 	};
 
-	let index_in_group = groups.get(group)?.iter().position(|v| v == &originator)?;
+	let index_in_group =
+		groups.get(group).and_then(|val| val.iter().position(|v| v == &originator));
 
-	Some((group, *candidate_hash, statement_kind, index_in_group))
+	let index_in_group = match index_in_group {
+		Some(index_in_group) => index_in_group,
+		None => return (None, "no_index_in_group".into()),
+	};
+
+	(Some((group, *candidate_hash, statement_kind, index_in_group)), "".into())
 }
 
 fn decompose_statement_filter<'a>(
@@ -957,21 +969,24 @@ impl KnownBackedCandidate {
 		group_index: GroupIndex,
 		originator_index_in_group: usize,
 		statement_kind: StatementKind,
-	) -> Vec<ValidatorIndex> {
+	) -> (Vec<ValidatorIndex>, String) {
 		if group_index != self.group_index {
-			return Vec::new()
+			return (Vec::new(), "no_match_group_index".into())
 		}
 
-		self.mutual_knowledge
-			.iter()
-			.filter(|(_, k)| k.remote_knowledge.is_some())
-			.filter(|(_, k)| {
-				k.local_knowledge
-					.as_ref()
-					.map_or(false, |r| !r.contains(originator_index_in_group, statement_kind))
-			})
-			.map(|(v, _)| *v)
-			.collect()
+		(
+			self.mutual_knowledge
+				.iter()
+				.filter(|(_, k)| k.remote_knowledge.is_some())
+				.filter(|(_, k)| {
+					k.local_knowledge
+						.as_ref()
+						.map_or(false, |r| !r.contains(originator_index_in_group, statement_kind))
+				})
+				.map(|(v, _)| *v)
+				.collect(),
+			"".into(),
+		)
 	}
 
 	fn direct_statement_recipients(
