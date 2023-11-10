@@ -84,7 +84,10 @@ where
 {
 	/// Create a ticket for a `new` balance attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once a footprint changes or is removed.
-	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Option<Self>, DispatchError> where Self: Sized {
+	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Option<Self>, DispatchError>
+	where
+		Self: Sized,
+	{
 		Ok(None)
 	}
 }
@@ -100,7 +103,10 @@ where
 {
 	/// Create a ticket for a `new` balance attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once a footprint changes or is removed.
-	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Option<Self>, DispatchError> where Self: Sized {
+	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Option<Self>, DispatchError>
+	where
+		Self: Sized,
+	{
 		Ok(None)
 	}
 }
