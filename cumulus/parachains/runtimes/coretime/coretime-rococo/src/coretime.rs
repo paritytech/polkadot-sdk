@@ -15,8 +15,9 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
+use codec::Encode;
 use frame_support::{
-	parameter_types,
+	ensure, parameter_types,
 	traits::{
 		fungible::{Balanced, Credit},
 		OnUnbalanced,
@@ -25,6 +26,7 @@ use frame_support::{
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use parachains_common::{impls::AccountIdOf, AccountId, Balance, BlockNumber};
 use sp_std::marker::PhantomData;
+use xcm::latest::prelude::*;
 
 pub struct CreditToStakingPot<R>(PhantomData<R>);
 impl<R> OnUnbalanced<Credit<AccountIdOf<R>, Balances>> for CreditToStakingPot<R>
@@ -64,23 +66,34 @@ impl CoretimeInterface for CoretimeAllocator {
 	fn request_core_count(_count: CoreIndex) {}
 	fn request_revenue_info_at(_when: Self::BlockNumber) {}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}
-	fn assign_core(
-		_core: CoreIndex,
-		_begin: Self::BlockNumber,
-		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
-		_end_hint: Option<Self::BlockNumber>,
-	) {
-		// Send UMP to assign_core()
-		// let program = Xcm(vec![
-		// 	UnpaidExecution,
-		// 	Transact { 
-		// 		origin : OriginKind::Xcm,
-		// 		require_weight_at_most: Weight { ref_time: 1, proof_size: 1 },
-		// 		encoded: DoubleEncoded{CoretimeProvider::assign_core(..)}, 
-		// 	},
 
-		// ]);
-		// pallet_xcm::<T>::send_xcm(  );
+	fn assign_core(
+		core: CoreIndex,
+		begin: Self::BlockNumber,
+		assignment: Vec<(CoreAssignment, PartsOf57600)>,
+		end_hint: Option<Self::BlockNumber>,
+	) {
+		let assign_core_call =
+			RuntimeCall::CoretimeProvider(pallet_coretime_mock::Call::<Runtime>::assign_core {
+				core,
+				begin,
+				assignment,
+				end_hint,
+			});
+
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: Weight::from_parts(1, 1),
+				call: assign_core_call.encode().into(),
+			},
+		]);
+
+		ensure!(PolkadotXcm::send_xcm(Here, Parent, message.clone()), "XCM failed to send");
 	}
 	fn check_notify_core_count() -> Option<u16> {
 		let count = CoreCount::get();

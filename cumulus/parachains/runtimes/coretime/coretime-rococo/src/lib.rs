@@ -404,6 +404,46 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+#[frame_support::pallet(dev_mode)]
+pub mod pallet_coretime_mock {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+	use pallet_broker::{CoreAssignment, CoreIndex, PartsOf57600};
+	use parachains_common::BlockNumber;
+	use sp_std::vec::Vec;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		pub fn assign_core(
+			_: OriginFor<T>,
+			core: CoreIndex,
+			begin: BlockNumber,
+			assignment: Vec<(CoreAssignment, PartsOf57600)>,
+			_end_hint: Option<BlockNumber>,
+		) -> DispatchResult {
+			for (assignment, parts) in assignment {
+				let CoreAssignment::Task(para_id) = assignment else {
+					continue;
+				};
+				log::info!(
+					target: "runtime::coretime",
+					"Assigning task {:?} core {:?} from block {:?} for {:?} / 57600 of its block time",
+					para_id, core, begin, parts
+				);
+			}
+			Ok(())
+		}
+	}
+}
+
+impl pallet_coretime_mock::Config for Runtime {}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -439,6 +479,9 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
+
+		// Temporary mock for assign_core
+		CoretimeProvider: pallet_coretime_mock = 60,
 	}
 );
 
