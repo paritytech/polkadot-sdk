@@ -44,7 +44,7 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use crate::middleware::{MetricsLayer, Rate, RateLimit, RpcMetrics};
+pub use crate::middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
@@ -70,6 +70,8 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub max_payload_in_mb: u32,
 	/// Maximum rpc response payload size.
 	pub max_payload_out_mb: u32,
+	/// Rate limit.
+	pub rate_limit: Option<u32>,
 	/// Metrics.
 	pub metrics: Option<RpcMetrics>,
 	/// Message buffer size
@@ -98,12 +100,15 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		id_provider,
 		tokio_handle,
 		rpc_api,
+		rate_limit,
 	} = config;
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
 	let metrics = metrics.take().map(|m| MetricsLayer::new(m));
+	let rate_limit =
+		rate_limit.map(|r| RateLimitLayer::new(r as u64, std::time::Duration::from_secs(60)));
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -112,11 +117,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.layer(try_into_cors(cors)?);
 
 	let metrics2 = metrics.clone();
-	let rpc_middleware = RpcServiceBuilder::new()
-		.layer_fn(move |service| {
-			RateLimit::new(service, Rate::new(100, std::time::Duration::from_secs(60)))
-		})
-		.option_layer(metrics2);
+	let rpc_middleware = RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics2);
 
 	let mut builder = jsonrpsee::server::Server::builder()
 		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))

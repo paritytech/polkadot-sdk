@@ -9,7 +9,29 @@ use std::{
 	time::{Duration, Instant},
 };
 
-/// Rate.
+/// Enforces a rate limit on the number of RPC calls.
+#[derive(Debug, Clone)]
+pub struct RateLimitLayer {
+	rate: Rate,
+}
+
+impl RateLimitLayer {
+	/// Create new rate limit layer.
+	pub fn new(num: u64, per: Duration) -> Self {
+		let rate = Rate::new(num, per);
+		RateLimitLayer { rate }
+	}
+}
+
+impl<S> tower::Layer<S> for RateLimitLayer {
+	type Service = RateLimit<S>;
+
+	fn layer(&self, service: S) -> Self::Service {
+		RateLimit::new(service, self.rate)
+	}
+}
+
+/// ..
 #[derive(Debug, Copy, Clone)]
 pub struct Rate {
 	num: u64,
@@ -97,7 +119,11 @@ where
 		if is_denied {
 			MethodResponse::error(
 				req.id,
-				ErrorObject::owned(-32000, "RPC rate limit", Some("100 calls/min is allowed")),
+				ErrorObject::owned(
+					-32000,
+					"RPC rate limit",
+					Some(format!("{} calls/min is allowed", self.rate.num)),
+				),
 			)
 		} else {
 			self.service.call(req, t).await

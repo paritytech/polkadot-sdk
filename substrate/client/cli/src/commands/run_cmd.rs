@@ -82,6 +82,16 @@ pub struct RunCmd {
 	)]
 	pub rpc_methods: RpcMethods,
 
+	/// Rate limit the number of RPC calls a connection is allowed
+	/// to perform per minute.
+	///
+	/// This is disabled by default.
+	///
+	/// For example `--rpc-rate-limit 10` will allow
+	/// 10 calls per minute.
+	#[arg(long)]
+	pub rpc_rate_limit: Option<u32>,
+
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	pub rpc_max_request_size: u32,
@@ -397,6 +407,10 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_max_subscriptions_per_connection(&self) -> Result<u32> {
 		Ok(self.rpc_max_subscriptions_per_connection)
+	}
+
+	fn rpc_rate_limit(&self) -> Result<Option<u32>> {
+		Ok(self.rpc_rate_limit)
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> Result<TransactionPoolOptions> {

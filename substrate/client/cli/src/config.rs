@@ -338,6 +338,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
 	}
 
+	/// Rate limit per minute
+	fn rpc_rate_limit(&self) -> Result<Option<u32>> {
+		Ok(None)
+	}
+
 	/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -510,6 +515,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_max_subs_per_conn: self.rpc_max_subscriptions_per_connection()?,
 			rpc_port: DCV::rpc_listen_port(),
 			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
+			rpc_rate_limit: self.rpc_rate_limit()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
