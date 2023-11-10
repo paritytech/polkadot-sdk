@@ -830,8 +830,8 @@ impl_runtime_apis! {
 			data.check_extrinsics(&block)
 		}
 
-		fn after_inherents() {
-			Executive::after_inherents()
+		fn last_inherent() {
+			Executive::last_inherent()
 		}
 	}
 

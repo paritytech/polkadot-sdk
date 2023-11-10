@@ -340,7 +340,7 @@ impl<
 			}
 		}
 
-		Self::after_inherents();
+		Self::last_inherent();
 
 		// Apply transactions:
 		for e in extrinsics.iter().skip(num_inherents) {
@@ -633,7 +633,7 @@ impl<
 
 			// Process inherents (if any).
 			Self::apply_extrinsics(extrinsics.iter().take(num_inherents), mode);
-			Self::after_inherents();
+			Self::last_inherent();
 			// Process transactions (if any).
 			Self::apply_extrinsics(extrinsics.iter().skip(num_inherents), mode);
 
@@ -648,7 +648,7 @@ impl<
 
 	/// Progress ongoing MBM migrations.
 	// Used by the block builder and Executive.
-	pub fn after_inherents() {
+	pub fn last_inherent() {
 		if MultiStepMigrator::ongoing() {
 			let used_weight = MultiStepMigrator::step();
 			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
@@ -772,7 +772,7 @@ impl<
 		if dispatch_info.class != DispatchClass::Mandatory &&
 			mode == ExtrinsicInclusionMode::OnlyInherents
 		{
-			// The block builder respects this by using the mode returned by `after_inherents`.
+			// The block builder respects this by using the mode returned by `last_inherent`.
 			panic!("Only Mandatory extrinsics are allowed during Multi-Block-Migrations");
 		}
 		// Check whether we need to error because extrinsics are paused.

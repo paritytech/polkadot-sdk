@@ -535,8 +535,8 @@ impl_runtime_apis! {
 			CheckInherentsResult::new()
 		}
 
-		fn after_inherents() {
-			Executive::after_inherents()
+		fn last_inherent() {
+			Executive::last_inherent()
 		}
 	}
 

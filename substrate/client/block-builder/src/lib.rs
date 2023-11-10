@@ -256,9 +256,9 @@ where
 	}
 
 	/// Called after inherents but before extrinsics have been applied.
-	pub fn after_inherents(&self) -> Result<(), Error> {
+	pub fn last_inherent(&self) -> Result<(), Error> {
 		if self.version >= 7 {
-			self.api.after_inherents(self.parent_hash).map_err(Into::into)
+			self.api.last_inherent(self.parent_hash).map_err(Into::into)
 		} else {
 			Ok(())
 		}

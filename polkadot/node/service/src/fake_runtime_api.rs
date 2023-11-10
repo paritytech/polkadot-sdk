@@ -99,7 +99,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn after_inherents() {
+		fn last_inherent() {
 			unimplemented!()
 		}
 	}

@@ -160,8 +160,8 @@ impl_runtime_apis! {
 			data.check_extrinsics(&block)
 		}
 
-		fn after_inherents() {
-			RuntimeExecutive::after_inherents()
+		fn last_inherent() {
+			RuntimeExecutive::last_inherent()
 		}
 	}
 

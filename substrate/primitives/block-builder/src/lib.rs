@@ -50,6 +50,6 @@ sp_api::decl_runtime_apis! {
 		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult;
 
 		/// Called after inherents but before transaction application.
-		fn after_inherents();
+		fn last_inherent();
 	}
 }

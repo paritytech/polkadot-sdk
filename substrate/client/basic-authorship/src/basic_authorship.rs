@@ -319,7 +319,7 @@ where
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
-		block_builder.after_inherents()?;
+		block_builder.last_inherent()?;
 
 		let end_reason =
 			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
