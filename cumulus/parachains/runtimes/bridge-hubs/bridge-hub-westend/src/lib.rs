@@ -227,6 +227,8 @@ impl frame_system::Config for Runtime {
 	type Block = Block;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
+	/// The ubiquitous task type.
+	type RuntimeTask = RuntimeTask;
 	/// The ubiquitous origin type.
 	type RuntimeOrigin = RuntimeOrigin;
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
