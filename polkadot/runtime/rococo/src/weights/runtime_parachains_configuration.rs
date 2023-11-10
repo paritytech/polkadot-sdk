@@ -154,4 +154,8 @@ impl<T: frame_system::Config> runtime_parachains::configuration::WeightInfo for 
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Dummy value before benchmark
+	fn set_node_feature() -> Weight {
+		Weight::from_parts(9_595_000, 0)
+	}
 }
