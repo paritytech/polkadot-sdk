@@ -592,6 +592,7 @@ fn test_parse_tasks_def_basic_increment_decrement() {
 					value < 255
 				})]
 				#[pallet::task_list(Vec::<Task<T>>::new())]
+				#[pallet::task_weight(0)]
 				fn increment() -> DispatchResult {
 					let value = Value::<T>::get().unwrap_or_default();
 					if value >= 255 {
@@ -611,6 +612,7 @@ fn test_parse_tasks_def_basic_increment_decrement() {
 					value > 0
 				})]
 				#[pallet::task_list(Vec::<Task<T>>::new())]
+				#[pallet::task_weight(0)]
 				fn decrement() -> DispatchResult {
 					let value = Value::<T>::get().unwrap_or_default();
 					if value == 0 {
@@ -639,6 +641,7 @@ fn test_parse_tasks_def_duplicate_index() {
 					#[pallet::task_list(Something::iter())]
 					#[pallet::task_condition(|i| i % 2 == 0)]
 					#[pallet::task_index(0)]
+					#[pallet::task_weight(0)]
 					pub fn foo(i: u32) -> DispatchResult {
 						Ok(())
 					}
@@ -646,6 +649,7 @@ fn test_parse_tasks_def_duplicate_index() {
 					#[pallet::task_list(Numbers::<T, I>::iter_keys())]
 					#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
 					#[pallet::task_index(0)]
+					#[pallet::task_weight(0)]
 					pub fn bar(i: u32) -> DispatchResult {
 						Ok(())
 					}
@@ -714,6 +718,26 @@ fn test_parse_tasks_def_missing_task_index() {
 }
 
 #[test]
+fn test_parse_tasks_def_missing_task_weight() {
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_condition(|i| i % 2 == 0)]
+					#[pallet::task_list(Something::iter())]
+					#[pallet::task_index(0)]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
+				}
+			}),
+			r"missing `#\[pallet::task_weight\(\.\.\)\]`"
+		);
+	});
+}
+
+#[test]
 fn test_parse_tasks_def_unexpected_extra_task_list_attr() {
 	simulate_manifest_dir("../../examples/basic", || {
 		assert_error_matches!(
@@ -722,6 +746,7 @@ fn test_parse_tasks_def_unexpected_extra_task_list_attr() {
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					#[pallet::task_condition(|i| i % 2 == 0)]
 					#[pallet::task_index(0)]
+					#[pallet::task_weight(0)]
 					#[pallet::task_list(Something::iter())]
 					#[pallet::task_list(SomethingElse::iter())]
 					pub fn foo(i: u32) -> DispatchResult {
@@ -745,6 +770,7 @@ fn test_parse_tasks_def_unexpected_extra_task_condition_attr() {
 					#[pallet::task_condition(|i| i % 4 == 0)]
 					#[pallet::task_index(0)]
 					#[pallet::task_list(Something::iter())]
+					#[pallet::task_weight(0)]
 					pub fn foo(i: u32) -> DispatchResult {
 						Ok(())
 					}
@@ -766,6 +792,7 @@ fn test_parse_tasks_def_unexpected_extra_task_index_attr() {
 					#[pallet::task_index(0)]
 					#[pallet::task_index(0)]
 					#[pallet::task_list(Something::iter())]
+					#[pallet::task_weight(0)]
 					pub fn foo(i: u32) -> DispatchResult {
 						Ok(())
 					}
