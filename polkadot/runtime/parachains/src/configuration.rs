@@ -466,6 +466,7 @@ pub trait WeightInfo {
 	fn set_hrmp_open_request_ttl() -> Weight;
 	fn set_config_with_executor_params() -> Weight;
 	fn set_config_with_perbill() -> Weight;
+	fn set_node_feature() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -491,6 +492,9 @@ impl WeightInfo for TestWeightInfo {
 	fn set_config_with_perbill() -> Weight {
 		Weight::MAX
 	}
+	fn set_node_feature() -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
@@ -499,18 +503,18 @@ pub mod pallet {
 
 	/// The current storage version.
 	///
-	/// v0-v1: <https://github.com/paritytech/polkadot/pull/3575>
-	/// v1-v2: <https://github.com/paritytech/polkadot/pull/4420>
-	/// v2-v3: <https://github.com/paritytech/polkadot/pull/6091>
-	/// v3-v4: <https://github.com/paritytech/polkadot/pull/6345>
-	/// v4-v5: <https://github.com/paritytech/polkadot/pull/6937>
-	///      + <https://github.com/paritytech/polkadot/pull/6961>
-	///      + <https://github.com/paritytech/polkadot/pull/6934>
-	/// v5-v6: <https://github.com/paritytech/polkadot/pull/6271> (remove UMP dispatch queue)
-	/// v6-v7: <https://github.com/paritytech/polkadot/pull/7396>
-	/// v7-v8: <https://github.com/paritytech/polkadot/pull/6969>
-	/// v8-v9: <https://github.com/paritytech/polkadot/pull/7577>
-	/// TODO: add PR link here
+	/// v0-v1:  <https://github.com/paritytech/polkadot/pull/3575>
+	/// v1-v2:  <https://github.com/paritytech/polkadot/pull/4420>
+	/// v2-v3:  <https://github.com/paritytech/polkadot/pull/6091>
+	/// v3-v4:  <https://github.com/paritytech/polkadot/pull/6345>
+	/// v4-v5:  <https://github.com/paritytech/polkadot/pull/6937>
+	///       + <https://github.com/paritytech/polkadot/pull/6961>
+	///       + <https://github.com/paritytech/polkadot/pull/6934>
+	/// v5-v6:  <https://github.com/paritytech/polkadot/pull/6271> (remove UMP dispatch queue)
+	/// v6-v7:  <https://github.com/paritytech/polkadot/pull/7396>
+	/// v7-v8:  <https://github.com/paritytech/polkadot/pull/6969>
+	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
+	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
 
 	#[pallet::pallet]
@@ -1202,7 +1206,7 @@ pub mod pallet {
 		/// Toggle a node feature bit.
 		#[pallet::call_index(53)]
 		#[pallet::weight((
-			T::WeightInfo::set_config_with_u32(),
+			T::WeightInfo::set_node_feature(),
 			DispatchClass::Operational
 		))]
 		pub fn set_node_feature(origin: OriginFor<T>, index: u8, value: bool) -> DispatchResult {
