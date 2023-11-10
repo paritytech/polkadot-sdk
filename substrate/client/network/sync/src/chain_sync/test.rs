@@ -74,10 +74,8 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 
 	// if the peer replies with an empty response (i.e. it doesn't know the block),
 	// the active request should be cleared.
-	assert_eq!(
-		sync.on_block_justification(peer_id, BlockResponse::<Block> { id: 0, blocks: vec![] }),
-		Ok(OnBlockJustification::Nothing),
-	);
+	sync.on_block_justification(peer_id, BlockResponse::<Block> { id: 0, blocks: vec![] })
+		.unwrap();
 
 	// there should be no in-flight requests
 	assert_eq!(sync.extra_justifications.active_requests().count(), 0);
@@ -148,11 +146,16 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		PeerSyncState::DownloadingJustification(b1_hash),
 	);
 
+	// clear old actions
+	let _ = sync.take_actions();
+
 	// we restart the sync state
-	let block_requests = sync.restart().collect::<Vec<_>>();
+	sync.restart();
+	let actions = sync.take_actions().collect::<Vec<_>>();
 
 	// which should make us send out block requests to the first two peers
-	assert!(block_requests.iter().all(|action| match action {
+	assert_eq!(actions.len(), 2);
+	assert!(actions.iter().all(|action| match action {
 		ChainSyncAction::SendBlockRequest { peer_id, .. } =>
 			peer_id == &peer_id1 || peer_id == &peer_id2,
 		_ => false,
@@ -166,7 +169,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 
 	// Set common block to something that we don't have (e.g. failed import)
 	sync.peers.get_mut(&peer_id3).unwrap().common_number = 100;
-	let _ = sync.restart().count();
+	sync.restart();
 	assert_eq!(sync.peers.get(&peer_id3).unwrap().common_number, 50);
 }
 
@@ -299,11 +302,17 @@ fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
 
 		let response = create_block_response(resp_blocks.clone());
 
-		let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+		// Clear old actions to not deal with them
+		let _ = sync.take_actions();
+
+		sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+
+		let actions = sync.take_actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
 		assert!(matches!(
-			res,
-			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == max_blocks_to_request as usize
-		),);
+			&actions[0],
+			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == max_blocks_to_request as usize,
+		));
 
 		best_block_num += max_blocks_to_request as u32;
 
@@ -355,11 +364,14 @@ fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
 	assert_eq!(FromBlock::Number(best_block_num as u64), peer2_req.from);
 
 	let response = create_block_response(vec![blocks[(best_block_num - 1) as usize].clone()]);
-	let res = sync.on_block_data(&peer_id2, Some(peer2_req), response).unwrap();
-	assert!(matches!(
-		res,
-		OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty()
-	),);
+
+	// Clear old actions to not deal with them
+	let _ = sync.take_actions();
+
+	sync.on_block_data(&peer_id2, Some(peer2_req), response).unwrap();
+
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert!(actions.is_empty());
 
 	let peer1_from = unwrap_from_block_number(peer1_req.unwrap().from);
 
@@ -427,17 +439,27 @@ fn can_sync_huge_fork() {
 	let mut request =
 		get_block_request(&mut sync, FromBlock::Number(info.best_number), 1, &peer_id1);
 
+	// Discard old actions we are not interested in
+	let _ = sync.take_actions();
+
 	// Do the ancestor search
 	loop {
 		let block = &fork_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
 		let response = create_block_response(vec![block.clone()]);
 
-		let on_block_data = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
-		request = if let OnBlockData::Request(_peer, request) = on_block_data {
-			request
-		} else {
+		sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+
+		let actions = sync.take_actions().collect::<Vec<_>>();
+
+		request = if actions.is_empty() {
 			// We found the ancenstor
 			break
+		} else {
+			assert_eq!(actions.len(), 1);
+			match &actions[0] {
+				ChainSyncAction::SendBlockRequest { peer_id: _, request } => request.clone(),
+				action @ _ => panic!("Unexpected action: {action:?}"),
+			}
 		};
 
 		log::trace!(target: LOG_TARGET, "Request: {request:?}");
@@ -461,15 +483,18 @@ fn can_sync_huge_fork() {
 
 		let response = create_block_response(resp_blocks.clone());
 
-		let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+		sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+
+		let actions = sync.take_actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
 		assert!(matches!(
-			res,
-			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == sync.max_blocks_per_request as usize
-		),);
+			&actions[0],
+			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == sync.max_blocks_per_request as usize
+		));
 
 		best_block_num += sync.max_blocks_per_request as u32;
 
-		let _ = sync.on_blocks_processed(
+		sync.on_blocks_processed(
 			max_blocks_to_request as usize,
 			max_blocks_to_request as usize,
 			resp_blocks
@@ -487,6 +512,9 @@ fn can_sync_huge_fork() {
 				})
 				.collect(),
 		);
+
+		// Discard pending actions
+		let _ = sync.take_actions();
 
 		resp_blocks
 			.into_iter()
@@ -544,17 +572,27 @@ fn syncs_fork_without_duplicate_requests() {
 	let mut request =
 		get_block_request(&mut sync, FromBlock::Number(info.best_number), 1, &peer_id1);
 
+	// Discard pending actions
+	let _ = sync.take_actions();
+
 	// Do the ancestor search
 	loop {
 		let block = &fork_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
 		let response = create_block_response(vec![block.clone()]);
 
-		let on_block_data = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
-		request = if let OnBlockData::Request(_peer, request) = on_block_data {
-			request
-		} else {
+		sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+
+		let actions = sync.take_actions().collect::<Vec<_>>();
+
+		request = if actions.is_empty() {
 			// We found the ancenstor
 			break
+		} else {
+			assert_eq!(actions.len(), 1);
+			match &actions[0] {
+				ChainSyncAction::SendBlockRequest { peer_id: _, request } => request.clone(),
+				action @ _ => panic!("Unexpected action: {action:?}"),
+			}
 		};
 
 		log::trace!(target: LOG_TARGET, "Request: {request:?}");
@@ -579,11 +617,17 @@ fn syncs_fork_without_duplicate_requests() {
 
 		let response = create_block_response(resp_blocks.clone());
 
-		let res = sync.on_block_data(&peer_id1, Some(request.clone()), response).unwrap();
+		// Discard old actions
+		let _ = sync.take_actions();
+
+		sync.on_block_data(&peer_id1, Some(request.clone()), response).unwrap();
+
+		let actions = sync.take_actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
 		assert!(matches!(
-			res,
-			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == max_blocks_to_request as usize
-		),);
+			&actions[0],
+			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == max_blocks_to_request as usize
+		));
 
 		best_block_num += max_blocks_to_request as u32;
 
@@ -761,8 +805,12 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	);
 	assert_eq!(pending_responses.len(), 2);
 
+	// discard old actions
+	let _ = sync.take_actions();
+
 	// restart sync
-	let actions = sync.restart().collect::<Vec<_>>();
+	sync.restart();
+	let actions = sync.take_actions().collect::<Vec<_>>();
 	for action in actions.iter() {
 		match action {
 			ChainSyncAction::CancelBlockRequest { peer_id } => {
@@ -773,7 +821,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 				// the `assert!` below
 				pending_responses.remove(&peer_id);
 			},
-			_ => panic!("Unexpected action"),
+			action @ _ => panic!("Unexpected action: {action:?}"),
 		}
 	}
 	assert!(actions.iter().any(|action| {
@@ -858,11 +906,17 @@ fn request_across_forks() {
 		let mut resp_blocks = fork_a_blocks[100_usize..107_usize].to_vec();
 		resp_blocks.reverse();
 		let response = create_block_response(resp_blocks.clone());
-		let res = sync.on_block_data(&peer, Some(request), response).unwrap();
+
+		// Drop old actions
+		let _ = sync.take_actions();
+
+		sync.on_block_data(&peer, Some(request), response).unwrap();
+		let actions = sync.take_actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
 		assert!(matches!(
-			res,
-			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == 7_usize
-		),);
+			&actions[0],
+			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == 7_usize
+		));
 		assert_eq!(sync.best_queued_number, 107);
 		assert_eq!(sync.best_queued_hash, block.hash());
 		assert!(sync.is_known(&block.header.parent_hash()));
@@ -897,11 +951,17 @@ fn request_across_forks() {
 		//    block is announced.
 		let request = get_block_request(&mut sync, FromBlock::Hash(block.hash()), 1, &peer);
 		let response = create_block_response(vec![block.clone()]);
-		let res = sync.on_block_data(&peer, Some(request), response).unwrap();
+
+		// Drop old actions we are not going to check
+		let _ = sync.take_actions();
+
+		sync.on_block_data(&peer, Some(request), response).unwrap();
+		let actions = sync.take_actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
 		assert!(matches!(
-			res,
-			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == 1_usize
-		),);
+			&actions[0],
+			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == 1_usize
+		));
 		assert!(sync.is_known(&block.header.parent_hash()));
 	}
 }

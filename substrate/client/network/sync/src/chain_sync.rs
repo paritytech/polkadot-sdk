@@ -879,7 +879,7 @@ where
 									.insert(*peer_id);
 							}
 							peer.state = PeerSyncState::Available;
-							Vec::new()
+							return Ok(())
 						}
 					},
 					PeerSyncState::DownloadingWarpTargetBlock => {
