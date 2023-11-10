@@ -154,6 +154,7 @@ var srcIndex = JSON.parse('{\
 "pallet_collective":["",[["migrations",[],["mod.rs","v4.rs"]]],["lib.rs","weights.rs"]],\
 "pallet_collective_content":["",[],["lib.rs","weights.rs"]],\
 "pallet_contracts":["",[["migration",[],["v09.rs","v10.rs","v11.rs","v12.rs","v13.rs","v14.rs","v15.rs"]],["storage",[],["meter.rs"]],["wasm",[],["mod.rs","prepare.rs","runtime.rs"]]],["address.rs","chain_extension.rs","debug.rs","exec.rs","gas.rs","lib.rs","migration.rs","schedule.rs","storage.rs","weights.rs"]],\
+"pallet_contracts_fixtures":["",[],["lib.rs"]],\
 "pallet_contracts_primitives":["",[],["lib.rs"]],\
 "pallet_contracts_proc_macro":["",[],["lib.rs"]],\
 "pallet_conviction_voting":["",[],["conviction.rs","lib.rs","types.rs","vote.rs","weights.rs"]],\
