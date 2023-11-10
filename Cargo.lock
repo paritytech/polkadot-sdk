@@ -6990,7 +6990,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -7005,7 +7005,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "futures-util",
  "http",
@@ -7024,7 +7024,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "anyhow",
  "async-lock 3.0.0",
@@ -7048,7 +7048,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "async-trait",
  "hyper",
@@ -7067,7 +7067,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "heck",
  "proc-macro-crate 2.0.0",
@@ -7079,7 +7079,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -7103,7 +7103,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "anyhow",
  "beef",
@@ -7116,7 +7116,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-v0.21#4092202b05d715ebce4e5a6c1fa126c3163b5a1c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#b16a91731b22abd88a865327d1a3ce1805328e27"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
@@ -9737,6 +9737,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
+ "pallet-contracts-fixtures",
  "pallet-contracts-primitives",
  "pallet-contracts-proc-macro",
  "pallet-insecure-randomness-collective-flip",
@@ -9758,6 +9759,15 @@ dependencies = [
  "sp-std 8.0.0",
  "wasm-instrument 0.4.0",
  "wasmi",
+ "wat",
+]
+
+[[package]]
+name = "pallet-contracts-fixtures"
+version = "1.0.0"
+dependencies = [
+ "frame-system",
+ "sp-runtime",
  "wat",
 ]
 
@@ -12581,10 +12591,10 @@ dependencies = [
  "sc-executor-common",
  "sc-executor-wasmtime",
  "sp-maybe-compressed-blob",
+ "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tracing-gum",
- "tracking-allocator",
 ]
 
 [[package]]
@@ -18374,6 +18384,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "staging-tracking-allocator"
+version = "1.0.0"
+
+[[package]]
 name = "staging-xcm"
 version = "1.0.0"
 dependencies = [
@@ -19700,10 +19714,6 @@ dependencies = [
  "tracing-core",
  "tracing-log",
 ]
-
-[[package]]
-name = "tracking-allocator"
-version = "1.0.0"
 
 [[package]]
 name = "trie-bench"

@@ -293,6 +293,7 @@ members = [
 	"substrate/frame/child-bounties",
 	"substrate/frame/collective",
 	"substrate/frame/contracts",
+	"substrate/frame/contracts/fixtures",
 	"substrate/frame/contracts/primitives",
 	"substrate/frame/contracts/proc-macro",
 	"substrate/frame/conviction-voting",
@@ -552,6 +553,6 @@ yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 [patch.crates-io]
-jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-v0.21" }
-jsonrpsee-core = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-v0.21" }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-service" }
+jsonrpsee-core = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-service" }
 
