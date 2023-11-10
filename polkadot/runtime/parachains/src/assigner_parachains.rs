@@ -95,13 +95,13 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			max_availability_timeouts: 0,
 			// The next assignment already goes to the same [`ParaId`], this can be any number
 			// that's high enough to clear the time it takes to clear backing/availability.
-			ttl: BlockNumberFor::<T>::from(10u32),
+			ttl: 10u32.into(),
 		}
 	}
 }
 
 impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn session_core_count() -> u32 {
-		<paras::Pallet<T>>::parachains().len() as u32
+		paras::Parachains::<T>::decode_len().unwrap_or(0) as u32
 	}
 }

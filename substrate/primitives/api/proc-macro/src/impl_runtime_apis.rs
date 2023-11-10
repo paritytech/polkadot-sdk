@@ -38,7 +38,7 @@ use syn::{
 	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type, TypePath,
 };
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 /// The structure used for parsing the runtime api implementations.
 struct RuntimeApiImpls {
@@ -726,7 +726,7 @@ fn populate_runtime_api_versions(
 fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	let mut result = Vec::<TokenStream>::with_capacity(impls.len());
 	let mut sections = Vec::<TokenStream>::with_capacity(impls.len());
-	let mut processed_traits = HashSet::new();
+	let mut processed_traits = HashMap::new();
 
 	let c = generate_crate_access();
 
@@ -746,13 +746,17 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 			.ident;
 
 		let span = trait_.span();
-		if !processed_traits.insert(trait_) {
-			return Err(Error::new(
+		if let Some(other_span) = processed_traits.insert(trait_, span) {
+			let mut error = Error::new(
 				span,
 				"Two traits with the same name detected! \
 					The trait name is used to generate its ID. \
 					Please rename one trait at the declaration!",
-			))
+			);
+
+			error.combine(Error::new(other_span, "First trait implementation."));
+
+			return Err(error)
 		}
 
 		let id: Path = parse_quote!( #path ID );

@@ -822,6 +822,7 @@ async fn erasure_task_thread(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
+				break
 			},
 		}
 	}

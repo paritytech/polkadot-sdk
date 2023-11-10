@@ -38,7 +38,7 @@ where
 	PriorityBoostPerMessage: Get<TransactionPriority>,
 {
 	// we don't want any boost for transaction with single message => minus one
-	PriorityBoostPerMessage::get().saturating_mul(messages - 1)
+	PriorityBoostPerMessage::get().saturating_mul(messages.saturating_sub(1))
 }
 
 #[cfg(not(feature = "integrity-test"))]

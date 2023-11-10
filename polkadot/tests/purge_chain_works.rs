@@ -57,7 +57,6 @@ async fn purge_chain_rocksdb_works() {
 		assert!(cmd.wait().unwrap().success());
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(tmpdir.path().join("chains/rococo_dev/db/full").exists());
-		assert!(tmpdir.path().join("chains/rococo_dev/db/full/parachains").exists());
 
 		// Purge chain
 		let status = Command::new(cargo_bin("polkadot"))
@@ -102,7 +101,6 @@ async fn purge_chain_paritydb_works() {
 		assert!(cmd.wait().unwrap().success());
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(tmpdir.path().join("chains/rococo_dev/paritydb/full").exists());
-		assert!(tmpdir.path().join("chains/rococo_dev/paritydb/parachains").exists());
 
 		// Purge chain
 		let status = Command::new(cargo_bin("polkadot"))
@@ -118,8 +116,6 @@ async fn purge_chain_paritydb_works() {
 		// Make sure that the chain folder exists, but `db/full` is deleted.
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(!tmpdir.path().join("chains/rococo_dev/paritydb/full").exists());
-		// Parachains removal requires calling "purge-chain --parachains".
-		assert!(tmpdir.path().join("chains/rococo_dev/paritydb/parachains").exists());
 	})
 	.await;
 }

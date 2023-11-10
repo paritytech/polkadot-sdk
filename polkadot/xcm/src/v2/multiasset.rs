@@ -41,6 +41,7 @@ use scale_info::TypeInfo;
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum AssetInstance {
 	/// Undefined - used if the non-fungible asset class has only one instance.
 	Undefined,
@@ -119,6 +120,7 @@ impl TryFrom<NewAssetInstance> for AssetInstance {
 /// Classification of an asset being concrete or abstract.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum AssetId {
 	Concrete(MultiLocation),
 	Abstract(Vec<u8>),
@@ -185,6 +187,7 @@ impl AssetId {
 /// instance.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Fungibility {
 	Fungible(#[codec(compact)] u128),
 	NonFungible(AssetInstance),
@@ -224,6 +227,7 @@ impl TryFrom<NewFungibility> for Fungibility {
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct MultiAsset {
 	pub id: AssetId,
 	pub fun: Fungibility,
@@ -309,6 +313,7 @@ impl TryFrom<NewMultiAsset> for MultiAsset {
 /// they must be sorted.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct MultiAssets(Vec<MultiAsset>);
 
 impl Decode for MultiAssets {
@@ -479,6 +484,7 @@ impl MultiAssets {
 /// Classification of whether an asset is fungible or not.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WildFungibility {
 	Fungible,
 	NonFungible,
@@ -498,6 +504,7 @@ impl TryFrom<NewWildFungibility> for WildFungibility {
 /// A wildcard representing a set of assets.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WildMultiAsset {
 	/// All assets in the holding register, up to `usize` individual assets (different instances of
 	/// non-fungibles could be separate assets).
@@ -543,6 +550,7 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildMultiAsset
 /// in this implementation and will result in a decode error.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum MultiAssetFilter {
 	Definite(MultiAssets),
 	Wild(WildMultiAsset),

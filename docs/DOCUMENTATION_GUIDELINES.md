@@ -210,7 +210,7 @@ The guidelines so far have been general in nature, and are applicable to crates 
 pallets.
 
 The following is relevant to how to document parts of a crate that is a pallet. See
-[`pallet-fast-unstake`](../frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
+[`pallet-fast-unstake`](../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
 
 ---
 
@@ -291,7 +291,7 @@ Optionally, in order to demonstrate the relation between the two, you can start 
 ```
 //! > Made with *Substrate*, for *Polkadot*.
 //!
-//! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/fast-unstake) -
 //! [![polkadot]](https://polkadot.network)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white

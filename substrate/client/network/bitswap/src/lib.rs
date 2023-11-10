@@ -290,7 +290,7 @@ pub enum BitswapError {
 mod tests {
 	use super::*;
 	use futures::channel::oneshot;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use schema::bitswap::{
 		message::{wantlist::Entry, Wantlist},
 		Message as BitswapMessage,
@@ -468,7 +468,11 @@ mod tests {
 	#[tokio::test]
 	async fn transaction_found() {
 		let mut client = TestClientBuilder::with_tx_storage(u32::MAX).build();
-		let mut block_builder = client.new_block(Default::default()).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap();
 
 		// encoded extrinsic: [161, .. , 2, 6, 16, 19, 55, 19, 56]
 		let ext = ExtrinsicBuilder::new_indexed_call(vec![0x13, 0x37, 0x13, 0x38]).build();

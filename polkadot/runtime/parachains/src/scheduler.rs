@@ -335,7 +335,6 @@ impl<T: Config> Pallet<T> {
 						None
 					},
 					Ok((pos_in_claimqueue, pe)) => {
-						// is this correct?
 						availability_cores[core_idx.0 as usize] = CoreOccupied::Paras(pe);
 
 						Some((*core_idx, pos_in_claimqueue))
@@ -586,10 +585,11 @@ impl<T: Config> Pallet<T> {
 
 		// This can only happen on new sessions at which we move all assignments back to the
 		// provider. Hence, there's nothing we need to do here.
-		if ValidatorGroups::<T>::get().is_empty() {
+		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
 			return
 		}
-		let n_lookahead = Self::claimqueue_lookahead();
+		// If there exists a core, ensure we schedule at least one job onto it.
+		let n_lookahead = Self::claimqueue_lookahead().max(1);
 		let n_session_cores = T::AssignmentProvider::session_core_count();
 		let cq = ClaimQueue::<T>::get();
 		let ttl = <configuration::Pallet<T>>::config().on_demand_ttl;
@@ -644,8 +644,7 @@ impl<T: Config> Pallet<T> {
 
 	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntryType<T>) {
 		ClaimQueue::<T>::mutate(|la| {
-			let la_deque = la.entry(core_idx).or_insert_with(|| VecDeque::new());
-			la_deque.push_back(pe);
+			la.entry(core_idx).or_default().push_back(pe);
 		});
 	}
 

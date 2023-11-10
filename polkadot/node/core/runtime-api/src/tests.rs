@@ -268,6 +268,10 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn minimum_backing_votes(&self, _: Hash, _: SessionIndex) -> Result<u32, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		todo!("Not required for tests")
+	}
 }
 
 #[test]

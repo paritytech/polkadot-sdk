@@ -29,7 +29,10 @@ use sp_storage::Storage;
 use frame_support::{
 	assert_noop, assert_ok, parameter_types,
 	storage::StoragePrefixedMap,
-	traits::{ConstU32, ConstU64, SortedMembers, StorageVersion},
+	traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		ConstU32, ConstU64, SortedMembers, StorageVersion,
+	},
 	PalletId,
 };
 
@@ -92,6 +95,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
 }
 parameter_types! {
@@ -123,7 +127,10 @@ parameter_types! {
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const TreasuryPalletId2: PalletId = PalletId(*b"py/trsr2");
+	pub TreasuryAccount: u128 = Treasury::account_id();
+	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
@@ -141,6 +148,14 @@ impl pallet_treasury::Config for Test {
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+	type AssetKind = ();
+	type Beneficiary = Self::AccountId;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+	type BalanceConverter = UnityAssetBalanceConversion;
+	type PayoutPeriod = ConstU64<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_treasury::Config<Instance1> for Test {
@@ -160,6 +175,14 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+	type AssetKind = ();
+	type Beneficiary = Self::AccountId;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
+	type BalanceConverter = UnityAssetBalanceConversion;
+	type PayoutPeriod = ConstU64<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -489,7 +512,7 @@ fn test_last_reward_migration() {
 	s.top = data.into_iter().collect();
 
 	sp_io::TestExternalities::new(s).execute_with(|| {
-		let module = pallet_tips::Tips::<Test>::module_prefix();
+		let module = pallet_tips::Tips::<Test>::pallet_prefix();
 		let item = pallet_tips::Tips::<Test>::storage_prefix();
 		Tips::migrate_retract_tip_for_tip_new(module, item);
 

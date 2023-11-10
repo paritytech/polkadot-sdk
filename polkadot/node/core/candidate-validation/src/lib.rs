@@ -44,6 +44,10 @@ use polkadot_parachain_primitives::primitives::{
 	ValidationParams, ValidationResult as WasmValidationResult,
 };
 use polkadot_primitives::{
+	executor_params::{
+		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
+	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
 	ValidationCode, ValidationCodeHash,
@@ -82,13 +86,6 @@ const PVF_BACKING_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 #[cfg(test)]
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
-
-// Default PVF timeouts. Must never be changed! Use executor environment parameters in
-// `session_info` pallet to adjust them. See also `PvfTimeoutKind` docs.
-const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
-const DEFAULT_LENIENT_PREPARATION_TIMEOUT: Duration = Duration::from_secs(360);
-const DEFAULT_BACKING_EXECUTION_TIMEOUT: Duration = Duration::from_secs(2);
-const DEFAULT_APPROVAL_EXECUTION_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Configuration for the candidate validation subsystem
 #[derive(Clone)]
@@ -152,7 +149,8 @@ async fn run<Context>(
 			exec_worker_path,
 		),
 		pvf_metrics,
-	);
+	)
+	.await;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	loop {
@@ -161,13 +159,14 @@ async fn run<Context>(
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 			FromOrchestra::Communication { msg } => match msg {
-				CandidateValidationMessage::ValidateFromChainState(
+				CandidateValidationMessage::ValidateFromChainState {
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let metrics = metrics.clone();
@@ -181,7 +180,7 @@ async fn run<Context>(
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -193,15 +192,16 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-chain-state", bg.boxed())?;
 				},
-				CandidateValidationMessage::ValidateFromExhaustive(
-					persisted_validation_data,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data,
 					validation_code,
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let metrics = metrics.clone();
 						let validation_host = validation_host.clone();
@@ -210,12 +210,12 @@ async fn run<Context>(
 							let _timer = metrics.time_validate_from_exhaustive();
 							let res = validate_candidate_exhaustive(
 								validation_host,
-								persisted_validation_data,
+								validation_data,
 								validation_code,
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -227,11 +227,12 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-exhaustive", bg.boxed())?;
 				},
-				CandidateValidationMessage::PreCheck(
+				CandidateValidationMessage::PreCheck {
 					relay_parent,
 					validation_code_hash,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let validation_host = validation_host.clone();

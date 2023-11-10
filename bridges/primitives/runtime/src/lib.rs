@@ -23,7 +23,6 @@ use frame_support::{
 	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };
 use frame_system::RawOrigin;
-use log;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::storage::StorageKey;
@@ -74,6 +73,9 @@ pub const MILLAU_CHAIN_ID: ChainId = *b"mlau";
 /// Polkadot chain id.
 pub const POLKADOT_CHAIN_ID: ChainId = *b"pdot";
 
+/// Polkadot Bulletin chain id.
+pub const POLKADOT_BULLETIN_CHAIN_ID: ChainId = *b"pdbc";
+
 /// Kusama chain id.
 pub const KUSAMA_CHAIN_ID: ChainId = *b"ksma";
 
@@ -94,6 +96,9 @@ pub const BRIDGE_HUB_ROCOCO_CHAIN_ID: ChainId = *b"bhro";
 
 /// BridgeHubWococo chain id.
 pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
+
+/// BridgeHubWestend chain id.
+pub const BRIDGE_HUB_WESTEND_CHAIN_ID: ChainId = *b"bhwd";
 
 /// BridgeHubKusama chain id.
 pub const BRIDGE_HUB_KUSAMA_CHAIN_ID: ChainId = *b"bhks";

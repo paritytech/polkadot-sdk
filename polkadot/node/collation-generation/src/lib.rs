@@ -193,7 +193,7 @@ async fn handle_new_activations<Context>(
 	metrics: Metrics,
 ) -> crate::error::Result<()> {
 	// follow the procedure from the guide:
-	// https://paritytech.github.io/polkadot/book/node/collators/collation-generation.html
+	// https://paritytech.github.io/polkadot-sdk/book/node/collators/collation-generation.html
 
 	if config.collator.is_none() {
 		return Ok(())

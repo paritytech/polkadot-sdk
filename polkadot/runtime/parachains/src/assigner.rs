@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
 		let parachain_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
 			BlockNumberFor<T>,
 		>>::session_core_count();
-		(0..parachain_cores).contains(&core_idx.0)
+		core_idx.0 < parachain_cores
 	}
 }
 

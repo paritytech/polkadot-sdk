@@ -814,7 +814,6 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			}
 
 			let core_assignments = Scheduler::scheduled_paras().collect();
-			// Occupy the cores based on the result of update_claimqueue.
 			Scheduler::occupied(core_assignments);
 		}
 
@@ -862,7 +861,6 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			}
 
 			let core_assignments = Scheduler::scheduled_paras().collect();
-			// Occupy the cores based on the result of update_claimqueue.
 			Scheduler::occupied(core_assignments);
 		}
 

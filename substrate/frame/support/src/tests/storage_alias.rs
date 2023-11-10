@@ -112,7 +112,7 @@ fn verbatim_attribute() {
 		assert_eq!(1, Value::get().unwrap());
 
 		// The prefix is the one we declared above.
-		assert_eq!(&b"Test"[..], Value::module_prefix());
+		assert_eq!(&b"Test"[..], Value::pallet_prefix());
 	});
 }
 
@@ -130,7 +130,7 @@ fn pallet_name_attribute() {
 
 		// The prefix is the pallet name. In this case the pallet name is `System` as declared in
 		// `construct_runtime!`.
-		assert_eq!(&b"System"[..], Value::<Runtime>::module_prefix());
+		assert_eq!(&b"System"[..], Value::<Runtime>::pallet_prefix());
 	});
 }
 
@@ -154,7 +154,7 @@ fn dynamic_attribute() {
 		assert_eq!(1, Value::<Prefix>::get().unwrap());
 
 		// The prefix is the one we declared above.
-		assert_eq!(&b"Hello"[..], Value::<Prefix>::module_prefix());
+		assert_eq!(&b"Hello"[..], Value::<Prefix>::pallet_prefix());
 	});
 }
 
@@ -166,13 +166,13 @@ fn storage_alias_guess() {
 		#[crate::storage_alias]
 		pub type Value = StorageValue<Test, u32>;
 
-		assert_eq!(&b"Test"[..], Value::module_prefix());
+		assert_eq!(&b"Test"[..], Value::pallet_prefix());
 
 		// The macro will use the pallet name as prefix.
 		#[crate::storage_alias]
 		pub type PalletValue<T: Config> = StorageValue<Pallet<T>, u32>;
 
-		assert_eq!(&b"System"[..], PalletValue::<Runtime>::module_prefix());
+		assert_eq!(&b"System"[..], PalletValue::<Runtime>::pallet_prefix());
 	});
 }
 
