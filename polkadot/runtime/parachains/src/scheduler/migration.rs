@@ -99,6 +99,7 @@ pub mod assignment_version {
 	}
 }
 
+/// Old scheduler with explicit parathreads and `Scheduled` storage instead of `ClaimQueue`.
 mod v0 {
 
 	use super::*;
@@ -168,14 +169,18 @@ mod v0 {
 	}
 }
 
+// `ClaimQueue` got introduced.
+//
+// - Items are `Option` for some weird reason.
+// - Assignments only consist of `ParaId`, `Assignment` is a concrete type (Same as V0Assignment).
 pub mod v1 {
 	use frame_support::{
 		pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 
-	use crate::scheduler;
 	use super::*;
+	use crate::scheduler;
 
 	#[storage_alias]
 	pub(crate) type ClaimQueue<T: Config> = StorageValue<
@@ -184,7 +189,19 @@ pub mod v1 {
 		ValueQuery,
 	>;
 
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[storage_alias]
+	pub(crate) type AvailabilityCores<T: Config> =
+		StorageValue<Pallet<T>, Vec<CoreOccupied<BlockNumberFor<T>>>, ValueQuery>;
+
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
+	pub enum CoreOccupied<N> {
+		/// No candidate is waiting availability on this core right now (the core is not occupied).
+		Free,
+		/// A para is currently waiting for availability/inclusion on this core.
+		Paras(ParasEntry<N>),
+	}
+
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
 	pub struct ParasEntry<N> {
 		/// The underlying `Assignment`
 		pub assignment: V0Assignment,
@@ -211,8 +228,7 @@ pub mod v1 {
 
 	pub fn add_to_claimqueue<T: Config>(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
 		ClaimQueue::<T>::mutate(|la| {
-			let la_deque = la.entry(core_idx).or_insert_with(|| VecDeque::new());
-			la_deque.push_back(Some(pe));
+			la.entry(core_idx).or_default().push_back(Some(pe));
 		});
 	}
 
@@ -232,14 +248,9 @@ pub mod v1 {
 		fn on_runtime_upgrade() -> Weight {
 			let weight_consumed = migrate_to_v1::<T>();
 
-				log::info!(target: crate::scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
-				StorageVersion::new(1).put::<Pallet<T>>();
+			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
 
-				weight_consumed
-			} else {
-				log::warn!(target: crate::scheduler::LOG_TARGET, "Para scheduler v1 migration should be removed.");
-				T::DbWeight::get().reads(1)
-			}
+			weight_consumed
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -248,7 +259,7 @@ pub mod v1 {
 				v0::AvailabilityCores::<T>::get().iter().filter(|c| c.is_some()).count() as u32;
 
 			log::info!(
-				target: crate::scheduler::LOG_TARGET,
+				target: scheduler::LOG_TARGET,
 				"Number of scheduled and waiting for availability before: {n}",
 			);
 
@@ -372,7 +383,7 @@ pub fn migrate_assignments<T: crate::scheduler::Config>() -> Weight {
 	weight
 }
 
-// Migrate to v2, but still with old assignment format.
+// Migrate to v2 (remove wrapping `Option`), but still with old assignment format.
 pub fn migrate_to_v2<T: crate::scheduler::Config>() -> Weight {
 	let mut weight: Weight = Weight::zero();
 
@@ -412,21 +423,22 @@ pub fn migrate_to_v1<T: crate::scheduler::Config>() -> Weight {
 	for (core_index, core) in availability_cores.into_iter().enumerate() {
 		let new_core = if let Some(core) = core {
 			match core {
-				v0::CoreOccupied::Parachain => CoreOccupied::Paras(ParasEntry::new(
-					Assignment::new(parachains[core_index]),
+				v0::CoreOccupied::Parachain => v1::CoreOccupied::Paras(v1::ParasEntry::new(
+					V0Assignment::new(parachains[core_index]),
 					now,
 				)),
-				v0::CoreOccupied::Parathread(entry) =>
-					CoreOccupied::Paras(ParasEntry::new(Assignment::new(entry.claim.0), now)),
+				v0::CoreOccupied::Parathread(entry) => v1::CoreOccupied::Paras(
+					v1::ParasEntry::new(V0Assignment::new(entry.claim.0), now),
+				),
 			}
 		} else {
-			CoreOccupied::Free
+			v1::CoreOccupied::Free
 		};
 
 		new_availability_cores.push(new_core);
 	}
 
-	super::AvailabilityCores::<T>::set(new_availability_cores);
+	v1::AvailabilityCores::<T>::set(new_availability_cores);
 
 	// 2x as once for Scheduled and once for Claimqueue
 	weight = weight.saturating_add(T::DbWeight::get().reads_writes(2 * sched_len, 2 * sched_len));
