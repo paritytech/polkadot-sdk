@@ -885,7 +885,7 @@ pub struct RuntimeInstanceBuilderStage2<C, B: BlockT, ProofRecorder> {
 
 #[cfg(feature = "std")]
 impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecorder> {
-	pub fn with_recorder(mut self) -> RuntimeInstanceBuilderStage2<C, B, EnableProofRecorder<B>> {
+	pub fn with_recorder(self) -> RuntimeInstanceBuilderStage2<C, B, EnableProofRecorder<B>> {
 		RuntimeInstanceBuilderStage2 {
 			with_recorder: EnableProofRecorder { recorder: Default::default() },
 			call_api_at: self.call_api_at,
@@ -895,7 +895,7 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 		}
 	}
 
-	pub fn register_extension(mut self, ext: impl Extension) -> Self {
+	pub fn register_extension(self, ext: impl Extension) -> Self {
 		self.extensions.borrow_mut().register(ext);
 		self
 	}
@@ -943,7 +943,7 @@ impl<Block: BlockT> GetProofRecorder<Block> for DisableProofRecorder {
 }
 
 #[cfg(feature = "std")]
-pub struct RuntimeInstance<C: CallApiAt<Block>, Block: BlockT, ProofRecorder> {
+pub struct RuntimeInstance<C, Block: BlockT, ProofRecorder> {
 	call_api_at: C,
 	block: Block::Hash,
 	call_context: CallContext,
@@ -953,7 +953,7 @@ pub struct RuntimeInstance<C: CallApiAt<Block>, Block: BlockT, ProofRecorder> {
 }
 
 #[cfg(feature = "std")]
-impl<C: CallApiAt<B>, B: BlockT> RuntimeInstance<C, B, DisableProofRecorder> {
+impl<C, B: BlockT> RuntimeInstance<C, B, DisableProofRecorder> {
 	pub fn builder(call_api_at: C, at: B::Hash) -> RuntimeInstanceBuilder<C, B> {
 		RuntimeInstanceBuilder { call_api_at, block: at }
 	}
@@ -998,7 +998,7 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 
 	pub fn execute_in_transaction<R>(
 		&self,
-		mut inner: impl FnOnce(&Self) -> TransactionOutcome<R>,
+		inner: impl FnOnce(&Self) -> TransactionOutcome<R>,
 	) -> R {
 		(inner)(self).into_inner()
 	}

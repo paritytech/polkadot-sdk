@@ -28,8 +28,9 @@
 
 use codec::Encode;
 use sp_api::{
-	ApiExt, ApiRef, CallApiAt, Core, DisableProofRecorder, EnableProofRecorder, RuntimeInstance,
-	StorageChanges, StorageProof, TransactionOutcome,
+	ApiExt, ApiRef, CallApiAt, Core, DisableProofRecorder, EnableProofRecorder, GetProofRecorder,
+	RuntimeInstance, RuntimeInstanceBuilderStage2, StorageChanges, StorageProof,
+	TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;
@@ -96,7 +97,8 @@ where
 		})?;
 
 		Ok(BlockBuilderBuilderStage2 {
-			call_api_at: self.call_api_at,
+			runtime_instance_builder: RuntimeInstance::builder(self.call_api_at, self.parent_block)
+				.on_chain_context(),
 			inherent_digests: Default::default(),
 			parent_block: self.parent_block,
 			parent_number,
@@ -112,7 +114,8 @@ where
 		parent_number: NumberFor<B>,
 	) -> BlockBuilderBuilderStage2<B, C> {
 		BlockBuilderBuilderStage2 {
-			call_api_at: self.call_api_at,
+			runtime_instance_builder: RuntimeInstance::builder(self.call_api_at, self.parent_block)
+				.on_chain_context(),
 			inherent_digests: Default::default(),
 			parent_block: self.parent_block,
 			parent_number,
@@ -125,19 +128,19 @@ where
 /// This type can not be instantiated directly. To get an instance of it
 /// [`BlockBuilderBuilder::new`] needs to be used.
 pub struct BlockBuilderBuilderStage2<B: BlockT, C, ProofRecorder = DisableProofRecorder> {
-	call_api_at: C,
+	runtime_instance_builder: RuntimeInstanceBuilderStage2<C, B, ProofRecorder>,
 	inherent_digests: Digest,
 	parent_block: B::Hash,
 	parent_number: NumberFor<B>,
 }
 
-impl<B: BlockT, C, ProofRecorder> BlockBuilderBuilderStage2<B, C, ProofRecorder> {
+impl<B: BlockT, C, ProofRecorder: GetProofRecorder<B>>
+	BlockBuilderBuilderStage2<B, C, ProofRecorder>
+{
 	/// Enable proof recording for the block builder.
-	pub fn enable_proof_recording(
-		mut self,
-	) -> BlockBuilderBuilderStage2<B, C, EnableProofRecorder<B>> {
+	pub fn enable_proof_recording(self) -> BlockBuilderBuilderStage2<B, C, EnableProofRecorder<B>> {
 		BlockBuilderBuilderStage2 {
-			call_api_at: self.call_api_at,
+			runtime_instance_builder: self.runtime_instance_builder.with_recorder(),
 			inherent_digests: self.inherent_digests,
 			parent_block: self.parent_block,
 			parent_number: self.parent_number,
@@ -156,7 +159,7 @@ impl<B: BlockT, C, ProofRecorder> BlockBuilderBuilderStage2<B, C, ProofRecorder>
 		C: CallApiAt<B>,
 	{
 		BlockBuilder::new(
-			self.call_api_at,
+			self.runtime_instance_builder.build(),
 			self.parent_block,
 			self.parent_number,
 			self.inherent_digests,
@@ -209,7 +212,7 @@ where
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
 	fn new(
-		call_api_at: C,
+		runtime_instance: RuntimeInstance<C, Block, ProofRecorder>,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
 		inherent_digests: Digest,
@@ -224,10 +227,7 @@ where
 
 		let estimated_header_size = header.encoded_size();
 
-		let runtime_instance = RuntimeInstance::builder(call_api_at, parent_hash)
-			.on_chain_context()
-			.with_recorder()
-			.build();
+		Core::<Block>::initialize_block(&runtime_instance, &header)?;
 
 		let version = runtime_instance
 			.api_version::<dyn BlockBuilderApi<Block>>()?
@@ -242,43 +242,9 @@ where
 			_phantom: PhantomData,
 		})
 	}
-
-	pub fn without_proof_recording(
-		call_api_at: CallApiAt,
-		parent_hash: Block::Hash,
-		parent_number: NumberFor<Block>,
-		inherent_digests: Digest,
-	) -> Result<Self, Error> {
-		let header = <<Block as BlockT>::Header as HeaderT>::new(
-			parent_number + One::one(),
-			Default::default(),
-			Default::default(),
-			parent_hash,
-			inherent_digests,
-		);
-
-		let estimated_header_size = header.encoded_size();
-
-		let runtime_instance =
-			RuntimeInstance::builder(call_api_at, parent_hash).on_chain_context().build();
-
-		let version = runtime_instance
-			.api_version::<dyn BlockBuilderApi<Block>>()?
-			.ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;
-
-		Ok(Self {
-			parent_hash,
-			extrinsics: Vec::new(),
-			runtime_instance,
-			version,
-			estimated_header_size,
-			_phantom: PhantomData,
-		})
-	}
 }
 
-impl<Block, Backend, CallApiAt, ProofRecorder>
-	BlockBuilder<Block, Backend, CallApiAt, ProofRecorder>
+impl<Block, CallApiAt, ProofRecorder> BlockBuilder<Block, CallApiAt, ProofRecorder>
 where
 	Block: BlockT,
 	CallApiAt: sp_api::CallApiAt<Block>,
@@ -288,7 +254,6 @@ where
 	///
 	/// This will ensure the extrinsic can be validly executed (by executing it).
 	pub fn push(&mut self, xt: <Block as BlockT>::Extrinsic) -> Result<(), Error> {
-		let parent_hash = self.parent_hash;
 		let extrinsics = &mut self.extrinsics;
 		let version = self.version;
 
@@ -319,7 +284,7 @@ where
 	/// Returns the build `Block`, the changes to the storage and an optional `StorageProof`
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
-	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
+	pub fn build(self) -> Result<BuiltBlock<Block>, Error> {
 		let header: Block::Header =
 			BlockBuilderApi::<Block>::finalize_block(&self.runtime_instance)?;
 
@@ -349,17 +314,15 @@ where
 		&mut self,
 		inherent_data: sp_inherents::InherentData,
 	) -> Result<Vec<Block::Extrinsic>, Error> {
-		/*
-		let parent_hash = self.parent_hash;
-		self.api.execute_in_transaction(move |api| {
-			// `create_inherents` should not change any state, to ensure this we always rollback
-			// the transaction.
-			// TransactionOutcome::Rollback(api.inherent_extrinsics(parent_hash, inherent_data))
-			TransactionOutcome::Rollback(Ok(Vec::new()))
-		})
-		// .map_err(|e: String| Error::Application(Box::new(e)))
-		*/
-		Ok(Vec::new())
+		self.runtime_instance
+			.execute_in_transaction(move |api| {
+				// `create_inherents` should not change any state, to ensure this we always rollback
+				// the transaction.
+				TransactionOutcome::Rollback(
+					BlockBuilderApi.inherent_extrinsics(&api, inherent_data),
+				)
+			})
+			.map_err(|e: String| Error::Application(Box::new(e)))
 	}
 
 	/// Estimate the size of the block in the current state.

@@ -18,7 +18,7 @@
 use std::panic::UnwindSafe;
 
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::{ApiExt, Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProvideRuntimeApi, RuntimeInstance};
 use sp_runtime::{
 	traits::{HashingFor, Header as HeaderT},
 	TransactionOutcome,
@@ -90,6 +90,8 @@ fn initialize_block_works() {
 
 #[test]
 fn record_proof_works() {
+	sp_tracing::try_init_simple();
+
 	let (client, backend) = TestClientBuilder::new().build_with_backend();
 	let best_hash = client.chain_info().best_hash;
 	let storage_root = *client.header(best_hash).unwrap().unwrap().state_root();
@@ -114,8 +116,8 @@ fn record_proof_works() {
 
 	// Build the block and record proof
 	let mut builder = BlockBuilderBuilder::new(&client)
-		.on_parent_block(&client, client.chain_info().best_hash)
-		.unwrap()
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
 		.enable_proof_recording()
 		.build()
 		.unwrap();

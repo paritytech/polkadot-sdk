@@ -18,7 +18,7 @@
 //! Block Builder extensions for tests.
 
 use sc_block_builder::BlockBuilderApi;
-use sp_api::ApiExt;
+use sp_api::{ApiExt, GetProofRecorder};
 use substrate_test_runtime::*;
 
 /// Extension trait for test block builder.
@@ -43,11 +43,10 @@ pub trait BlockBuilderExt {
 	) -> Result<(), sp_blockchain::Error>;
 }
 
-impl<'a, A> BlockBuilderExt for sc_block_builder::BlockBuilder<'a, substrate_test_runtime::Block, A>
+impl<A, P> BlockBuilderExt for sc_block_builder::BlockBuilder<substrate_test_runtime::Block, A, P>
 where
-	A:
-		sp_api::CallApiAt<substrate_test_runtime::Block>
-		+ 'a,
+	A: sp_api::CallApiAt<substrate_test_runtime::Block>,
+	P: GetProofRecorder<substrate_test_runtime::Block>,
 {
 	fn push_transfer(
 		&mut self,
