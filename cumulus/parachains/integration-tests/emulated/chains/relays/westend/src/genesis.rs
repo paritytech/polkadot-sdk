@@ -39,7 +39,6 @@ const STASH: u128 = 100 * WND;
 fn session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -48,7 +47,6 @@ fn session_keys(
 	westend_runtime::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -75,7 +73,6 @@ pub fn genesis() -> Storage {
 							x.4.clone(),
 							x.5.clone(),
 							x.6.clone(),
-							x.7.clone(),
 							get_from_seed::<BeefyId>("Alice"),
 						),
 					)
