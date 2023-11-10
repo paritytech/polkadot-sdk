@@ -32,6 +32,7 @@ use crate::{
 	assigner_on_demand, configuration, paras,
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
+		FixedAssignmentProvider,
 	},
 };
 
@@ -274,10 +275,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		))
 	}
 
-	fn session_core_count() -> u32 {
-		panic!("TODO: Retrieve from config (set via UMP)");
-	}
-
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		let now = <frame_system::Pallet<T>>::block_number();
 
@@ -346,7 +343,19 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		panic!("TODO!");
+		let config = <configuration::Pallet<T>>::config();
+		AssignmentProviderConfig {
+			max_availability_timeouts: config.on_demand_retries,
+			ttl: config.on_demand_ttl,
+		}
+	}
+}
+
+impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	fn session_core_count() -> u32 {
+		// TODO: Rename this config (migration): https://github.com/paritytech/polkadot-sdk/issues/2268
+		let config = <configuration::Pallet<T>>::config();
+		config.on_demand_cores
 	}
 }
 

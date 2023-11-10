@@ -580,11 +580,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		OnDemandAssignment { para_id: old.para_id, core_index: core }
 	}
 
-	fn session_core_count() -> u32 {
-		let config = <configuration::Pallet<T>>::config();
-		config.on_demand_cores
-	}
-
 	/// Take the next queued entry that is available for a given core index.
 	/// Invalidates and removes orders with a `para_id` that is not `ParaLifecycle::Parathread`
 	/// but only in [0..P] range slice of the order queue, where P is the element that is

@@ -51,7 +51,7 @@ use sp_std::{
 
 pub mod common;
 
-use common::{Assignment, AssignmentProvider, AssignmentProviderConfig};
+use common::{Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider};
 
 pub use pallet::*;
 
@@ -74,7 +74,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
-		type AssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
+		type AssignmentProvider: FixedAssignmentProvider<BlockNumberFor<Self>>;
 	}
 
 	/// All the validator groups. One for each core. Indices are into `ActiveValidators` - not the

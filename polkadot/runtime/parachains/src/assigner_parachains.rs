@@ -30,7 +30,8 @@ use sp_runtime::codec::{Decode, Encode};
 use crate::{
 	configuration, paras,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
+		FixedAssignmentProvider, V0Assignment,
 	},
 };
 
@@ -75,10 +76,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		ParachainsAssignment { para_id: old.para_id }
 	}
 
-	fn session_core_count() -> u32 {
-		<paras::Pallet<T>>::parachains().len() as u32
-	}
-
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		<paras::Pallet<T>>::parachains()
 			.get(core_idx.0 as usize)
@@ -100,5 +97,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			// that's high enough to clear the time it takes to clear backing/availability.
 			ttl: BlockNumberFor::<T>::from(10u32),
 		}
+	}
+}
+
+impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	fn session_core_count() -> u32 {
+		<paras::Pallet<T>>::parachains().len() as u32
 	}
 }

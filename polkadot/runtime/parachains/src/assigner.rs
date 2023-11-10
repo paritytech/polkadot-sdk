@@ -30,7 +30,8 @@ use primitives::{CoreIndex, Id as ParaId};
 use crate::{
 	assigner_bulk, assigner_parachains as assigner_legacy, configuration, paras,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
+		FixedAssignmentProvider, V0Assignment,
 	},
 };
 
@@ -90,7 +91,7 @@ impl<T: Config> Pallet<T> {
 	// This function will return false if there are no cores assigned to the bulk parachain
 	// assigner.
 	fn is_legacy_core(core_idx: &CoreIndex) -> bool {
-		let parachain_cores = <assigner_legacy::Pallet<T> as AssignmentProvider<
+		let parachain_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
 			BlockNumberFor<T>,
 		>>::session_core_count();
 		(0..parachain_cores).contains(&core_idx.0)
@@ -120,17 +121,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				BlockNumberFor<T>,
 			>>::migrate_old_to_current(old, core))
 		}
-	}
-
-	fn session_core_count() -> u32 {
-		let parachain_cores = <assigner_legacy::Pallet<T> as AssignmentProvider<
-			BlockNumberFor<T>,
-		>>::session_core_count();
-		let bulk_cores =
-			<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::session_core_count(
-			);
-
-		parachain_cores.saturating_add(bulk_cores)
 	}
 
 	/// Pops an `Assignment` from a specified `CoreIndex`
@@ -183,5 +173,18 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				core_idx,
 			)
 		}
+	}
+}
+
+impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	fn session_core_count() -> u32 {
+		let parachain_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
+			BlockNumberFor<T>,
+		>>::session_core_count();
+		let bulk_cores =
+			<assigner_bulk::Pallet<T> as FixedAssignmentProvider<BlockNumberFor<T>>>::session_core_count(
+			);
+
+		parachain_cores.saturating_add(bulk_cores)
 	}
 }

@@ -169,9 +169,6 @@ pub trait AssignmentProvider<BlockNumber> {
 		core: CoreIndex,
 	) -> Self::AssignmentType;
 
-	/// How many cores are allocated to this provider.
-	fn session_core_count() -> u32;
-
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
 	/// This is where assignments come into existance.
@@ -195,6 +192,26 @@ pub trait AssignmentProvider<BlockNumber> {
 
 	/// Returns a set of variables needed by the scheduler
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
+}
+
+/// An `AssignmentProvider` with a determined set of cores.
+///
+/// An assignment provider of this kind has a certain core range it can serve, given by
+/// `session_core_count`.
+///
+/// An `AssignmentProvider` not implementing this trait is assumed to be flexible in cores. It does
+/// not care for what core you pop an assignment, you can give it any number and it will happily
+/// operate. This is kind of true for any `AssignmentProvider`, but the caller can assume if for a
+/// `FixedAssignmentProvider` `pop_assignment_for_core` gets called for a core number higher or
+/// equal than `session_core_count` that the result will always be `None`.
+pub trait FixedAssignmentProvider<BlockNumber>: AssignmentProvider<BlockNumber> {
+	/// How many cores are allocated to this provider.
+	///
+	/// As the name suggests the core count has to be session buffered:
+	///
+	/// - Core count has to be predetermined for the next session in the current session.
+	/// - Core count must not change during a session.
+	fn session_core_count() -> u32;
 }
 
 impl PartialEq<u16> for AssignmentVersion {
