@@ -47,6 +47,7 @@ use std::{
 	fs,
 	ops::{Deref, DerefMut},
 	path::{Path, PathBuf},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
@@ -298,6 +299,7 @@ impl Default for SnapshotConfig {
 }
 
 /// Builder for remote-externalities.
+#[derive(Clone)]
 pub struct Builder<B: BlockT> {
 	/// Custom key-pairs to be injected into the final externalities. The *hashed* keys and values
 	/// must be given.
@@ -405,54 +407,79 @@ where
 		&self,
 		prefix: StorageKey,
 		block: B::Hash,
-		parallel: u16,
+		parallel: usize,
 	) -> Result<Vec<StorageKey>, &'static str> {
 		// should guarantee to return a non-empty list
-		fn gen_start_keys(prefix: &StorageKey, parallel: u16) -> Vec<StorageKey> {
-			let parallel = parallel.max(1).min(256);
-			let prefix = prefix.as_ref().to_vec();
+		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
+			let mut prefix = prefix.as_ref().to_vec();
+			// length of suffix for a 256-bit hash
+			let scale = 32_usize.saturating_sub(prefix.len());
 
-			// assume 256-bit hash
-			if prefix.len() > 31 {
+			// no need to divide workload
+			if scale < 3 {
+				prefix.extend(vec![0; scale]);
 				return vec![StorageKey(prefix)]
 			}
 
-			let step = 256 / parallel;
-			let ext = 31 - prefix.len();
+			// avoid tiny segments for small suffix space, which is counter-productive
+			let cutoff = 5;
+			// grow coefficient faster for larger scale
+			let coefficient = 2_usize.saturating_pow(scale as u32 / cutoff);
+			// maximized at 2048 when scraping whole blocks
+			let segments = coefficient * scale;
 
-			(0..parallel)
+			let step = 0x10000 / segments;
+			let ext = scale - 2;
+
+			(0..segments)
 				.map(|i| {
 					let mut key = prefix.clone();
-					key.push((i * step) as u8);
+					let start = i * step;
+					key.extend(vec![(start >> 8) as u8, (start & 0xff) as u8]);
 					key.extend(vec![0; ext]);
 					StorageKey(key)
 				})
 				.collect()
 		}
 
-		let start_keys = gen_start_keys(&prefix, parallel);
+		let start_keys = gen_start_keys(&prefix);
 		let start_keys: Vec<Option<&StorageKey>> = start_keys.iter().map(Some).collect();
 		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
 		end_keys.push(None);
 
-		let batch = start_keys.into_iter().zip(end_keys).map(|(start_key, end_key)| {
-			self.rpc_get_keys_in_range(&prefix, block, start_key, end_key)
-		});
+		let parallel = Arc::new(tokio::sync::Semaphore::new(parallel));
+		let builder = Arc::new(self.clone());
+		let mut handles = vec![];
 
-		let keys = futures::future::join_all(batch)
+		for (start_key, end_key) in start_keys.into_iter().zip(end_keys) {
+			let permit = parallel
+				.clone()
+				.acquire_owned()
+				.await
+				.expect("semaphore is not closed until the end of loop");
+
+			let builder = builder.clone();
+			let prefix = prefix.clone();
+			let start_key = start_key.cloned();
+			let end_key = end_key.cloned();
+
+			let handle = tokio::spawn(async move {
+				let res = builder
+					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
+					.await;
+				drop(permit);
+				res
+			});
+
+			handles.push(handle);
+		}
+
+		let keys = futures::future::join_all(handles)
 			.await
 			.into_iter()
 			.filter_map(|res| match res {
-				Ok(keys) => Some(keys),
-				Err(err) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"{} when fetching keys at block {:?}",
-						err,
-						block,
-					);
-					None
-				},
+				Ok(Ok(keys)) => Some(keys),
+				_ => None,
 			})
 			.flatten()
 			.collect::<Vec<StorageKey>>();
@@ -666,7 +693,7 @@ where
 		prefix: StorageKey,
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
-		parallel: u16,
+		parallel: usize,
 	) -> Result<Vec<KeyValue>, &'static str> {
 		let start = Instant::now();
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
@@ -1528,13 +1555,12 @@ mod remote_tests {
 
 		// scrape all
 		let prefix = StorageKey(vec![]);
-		// let start = Instant::now();
-		// let para_2 = builder.rpc_get_keys_parallel(prefix.clone(), at, 2).await.unwrap();
-		// log::error!("parallels elapsed: {:?}", start.elapsed());
 		let start = Instant::now();
 		let para_4 = builder.rpc_get_keys_parallel(prefix.clone(), at, 4).await.unwrap();
-		log::error!("parallels elapsed: {:?}", start.elapsed());
-		assert_eq!(para_4[0], para_4[para_4.len() - 1]);
-		// assert_eq!(para_4, para_2);
+		log::error!("parallels 4 elapsed: {:?}", start.elapsed());
+		let start = Instant::now();
+		let para_8 = builder.rpc_get_keys_parallel(prefix.clone(), at, 8).await.unwrap();
+		log::error!("parallels 8 elapsed: {:?}", start.elapsed());
+		assert_eq!(para_4.len(), para_8.len());
 	}
 }
