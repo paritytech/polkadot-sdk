@@ -345,7 +345,7 @@ impl pallet_authorship::Config for Runtime {
 pub struct OldSessionKeys {
 	pub grandpa: <Grandpa as BoundToRuntimeAppPublic>::Public,
 	pub babe: <Babe as BoundToRuntimeAppPublic>::Public,
-	pub im_online: (),
+	pub im_online: pallet_im_online::sr25519::AuthorityId,
 	pub para_validator: <Initializer as BoundToRuntimeAppPublic>::Public,
 	pub para_assignment: <ParaSessionInfo as BoundToRuntimeAppPublic>::Public,
 	pub authority_discovery: <AuthorityDiscovery as BoundToRuntimeAppPublic>::Public,
