@@ -408,7 +408,7 @@ pub mod pallet {
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
-		type Xcm: pallet_xcm::Controller<
+		type Xcm: xcm_builder::Controller<
 			OriginFor<Self>,
 			<Self as frame_system::Config>::RuntimeCall,
 			BlockNumberFor<Self>,

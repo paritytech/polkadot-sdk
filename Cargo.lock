@@ -9700,15 +9700,20 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "pallet-contracts-fixtures",
  "pallet-contracts-primitives",
  "pallet-contracts-proc-macro",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-message-queue",
  "pallet-proxy",
  "pallet-timestamp",
  "pallet-utility",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
  "pretty_assertions",
  "rand 0.8.5",
  "rand_pcg",
@@ -9721,9 +9726,13 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
  "wasm-instrument 0.4.0",
  "wasmi",
  "wat",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -9733,6 +9742,42 @@ dependencies = [
  "frame-system",
  "sp-runtime",
  "wat",
+]
+
+[[package]]
+name = "pallet-contracts-mock-network"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-contracts",
+ "pallet-contracts-fixtures",
+ "pallet-contracts-primitives",
+ "pallet-contracts-proc-macro",
+ "pallet-insecure-randomness-collective-flip",
+ "pallet-message-queue",
+ "pallet-proxy",
+ "pallet-timestamp",
+ "pallet-utility",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]

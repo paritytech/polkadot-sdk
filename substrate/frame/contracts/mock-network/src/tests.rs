@@ -23,7 +23,7 @@ use crate::{
 	INITIAL_BALANCE,
 };
 use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
-// TODO add crate and use pallet_contracts_fixtures::compile_module;
+use pallet_contracts_fixtures::compile_module;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use frame_support::{

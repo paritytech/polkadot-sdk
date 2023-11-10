@@ -16,6 +16,7 @@ frame-system = { path = "../../system", default-features = false}
 pallet-assets = { path = "../../assets" }
 pallet-balances = { path = "../../balances" }
 pallet-contracts = { path = ".." }
+pallet-contracts-fixtures = { path = "../fixtures" }
 pallet-contracts-primitives = { path = "../primitives", default-features = false}
 pallet-contracts-proc-macro = { path = "../proc-macro" }
 pallet-insecure-randomness-collective-flip = { path = "../../insecure-randomness-collective-flip" }

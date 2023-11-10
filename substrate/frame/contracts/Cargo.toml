@@ -49,7 +49,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false}
 sp-std = { path = "../../primitives/std", default-features = false}
 
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -94,7 +94,6 @@ std = [
 	"pallet-proxy/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
-	"pallet-xcm/std",
 	"rand/std",
 	"scale-info/std",
 	"serde",
@@ -106,7 +105,7 @@ std = [
 	"sp-std/std",
 	"wasm-instrument/std",
 	"wasmi/std",
-	"xcm-executor/std",
+	"xcm-builder/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -119,7 +118,6 @@ runtime-benchmarks = [
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
@@ -128,7 +126,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"wasm-instrument",
 	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -140,7 +137,6 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-xcm/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
