@@ -15,6 +15,7 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 frame-system = { path = "../../../substrate/frame/system", default-features = false}
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false}
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false}
+pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false}
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false}
 pallet-glutton = { path = "../../../substrate/frame/glutton", default-features = false}
@@ -22,6 +23,7 @@ pallet-transaction-payment = { path = "../../../substrate/frame/transaction-paym
 sp-api = { path = "../../../substrate/primitives/api", default-features = false}
 sp-block-builder = { path = "../../../substrate/primitives/block-builder", default-features = false}
 sp-core = { path = "../../../substrate/primitives/core", default-features = false}
+sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false}
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false}
 sp-io = { path = "../../../substrate/primitives/io", default-features = false}
 sp-offchain = { path = "../../../substrate/primitives/offchain", default-features = false}
@@ -50,6 +52,7 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-glutton/std",
+	"pallet-message-queue/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
@@ -57,6 +60,7 @@ std = [
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-offchain/std",

@@ -79,5 +79,16 @@ pub mod test {
 			assert!(FooDoubleMap::decode_len(1, 2).is_none());
 			assert!(FooDoubleMap::decode_len(2, 2).is_none());
 		});
+
+		TestExternalities::default().execute_with(|| {
+			let bounded = boundedmap_from_keys::<u32, ConstU32<7>>(&[1, 2, 3]);
+			FooDoubleMap::insert(1, 1, bounded.clone());
+			FooDoubleMap::insert(2, 2, bounded); // duplicate value
+
+			assert_eq!(FooDoubleMap::decode_len(1, 1).unwrap(), 3);
+			assert_eq!(FooDoubleMap::decode_len(2, 2).unwrap(), 3);
+			assert!(FooDoubleMap::decode_len(2, 1).is_none());
+			assert!(FooDoubleMap::decode_len(1, 2).is_none());
+		});
 	}
 }
