@@ -294,6 +294,7 @@ members = [
 	"substrate/frame/child-bounties",
 	"substrate/frame/collective",
 	"substrate/frame/contracts",
+	"substrate/frame/contracts/fixtures",
 	"substrate/frame/contracts/primitives",
 	"substrate/frame/contracts/proc-macro",
 	"substrate/frame/conviction-voting",

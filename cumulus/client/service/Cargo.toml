@@ -3,6 +3,7 @@ name = "cumulus-client-service"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+description = "Common functions used to assemble the components of a parachain node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
