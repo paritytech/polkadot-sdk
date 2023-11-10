@@ -460,7 +460,7 @@ impl<T: Config> Pallet<T> {
 }
 
 // Tests/Invariant:
-// - After `assign_core`, Workload is `Some`.
+// - After `assign_core`, WorkState is `Some`.
 // - next_schedule always points to next item in CoreSchedules. 
 //   (handled by next_schedule_always_points_to_next_work_plan_item)
 // - Test insertion in the middle, beginning and end: Should fail in all cases but the last. 
