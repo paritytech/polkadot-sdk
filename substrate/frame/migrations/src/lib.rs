@@ -43,31 +43,33 @@
 //! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! Otherwise noteworthy API of this pallet include its implementation of the
-//! [`MultiStepMigrator`] trait. This can be plugged into `frame-executive` to check for
-//! transaction suspension.
+//! [`MultiStepMigrator`] trait. This must be plugged into
+//! [`frame_system::Config::MultiBlockMigrator`] for proper function.
+//!
+//! The API contains some calls for emergency management. They are all prefixed with `force_` and
+//! should normally not be needed. Pay special attention prior to using them.
 //!
 //! ### Design Goals
 //!
 //! 1. Must automatically execute migrations over multiple blocks.
 //! 2. Must prevent other (non-mandatory) transactions from executing in the meantime.
 //! 3. Must respect pessimistic weight bounds of migrations.
-//! 4. Must execute migrations in order. Skipping is not allowed; migrations are run on an
+//! 4. Must execute migrations in order. Skipping is not allowed; migrations are run on a
 //! all-or-nothing basis.
-//! 5. Must prevent re-execution of migrations.
+//! 5. Must prevent re-execution of past migrations.
 //! 6. Must provide transactional storage semantics for migrations.
 //! 7. Must guarantee progress.
 //!
 //! ### Design
 //!
 //! Migrations are provided to the pallet through the associated type [`Config::Migrations`] of type
-//! `Get<Vec<Box<dyn SteppedMigration<…`. This was done to have the most flexibility when it comes
-//! to iterating and inspecting the migrations. It also simplifies the trait bounds since all
-//! associated types of the trait must be provided by the pallet.  
-//! The actual progress of the pallet is stored in its [`Cursor`] storage item. This can either be
-//! [`MigrationCursor::Active`] or [`MigrationCursor::Stuck`]. In the active case it points to the
-//! currently active migration and stores its inner cursor. The inner cursor can then be used by the
-//! migration to store its inner state and advance. Each time when the migration returns
-//! `Some(cursor)`, it signals the pallet that it is not done yet.  
+//! [`SteppedMigrations`]. This allows multiple migrations to be aggregated through a tuple. It
+//! simplifies the trait bounds since all associated types of the trait must be provided by the
+//! pallet. The actual progress of the pallet is stored in the [`Cursor`] storage item. This can
+//! either be [`MigrationCursor::Active`] or [`MigrationCursor::Stuck`]. In the active case it
+//! points to the currently active migration and stores its inner cursor. The inner cursor can then
+//! be used by the migration to store its inner state and advance. Each time when the migration
+//! returns `Some(cursor)`, it signals the pallet that it is not done yet.  
 //! The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
 //! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
@@ -75,8 +77,8 @@
 //! As soon as the cursor of the pallet becomes `Some(_)`; chain transaction processing is paused
 //! by [`MultiStepMigrator::ongoing`] returning `true`. This ensures that no other
 //! transactions are processed until all migrations are complete (Goal 2).  
-//! `on_initialize` the pallet will load the current migration and check whether it was already
-//! executed in the past by checking for membership of its ID in the `Historic` set. Historic
+//! In `on_initialize` the pallet will load the current migration and check whether it was already
+//! executed in the past by checking for membership of its ID in the [`Historic`] set. Historic
 //! migrations are skipped without causing an error. Each successfully executed migration is added
 //! to this set (Goal 5).  
 //! This proceeds until no more migrations remain. At that point, the event `UpgradeCompleted` is
@@ -88,7 +90,7 @@
 //! that purpose. The pallet may return [`SteppedMigrationError::InsufficientWeight`] at any point.
 //! In that scenario, one of two things will happen: if that migration was exclusively executed
 //! in this block, and therefore required more than the maximum amount of weight possible, the
-//! pallet becomes `Stuck`. Otherwise one re-attempt is attempted with the same logic in the next
+//! process becomes `Stuck`. Otherwise, one re-attempt is executed with the same logic in the next
 //! block (Goal 3). Progress through the migrations is guaranteed by providing a timeout for each
 //! migration via [`SteppedMigration::max_steps`]. The pallet **ONLY** guarantees progress if this
 //! is set to sensible limits (Goal 7).
@@ -96,9 +98,10 @@
 //! ### Scenario: Governance cleanup
 //!
 //! Every now and then, governance can make use of the [`clear_historic`][Pallet::clear_historic]
-//! call. This ensures that no old migrations pile up in the [`Historic`] set. This can probably be
-//! done very rarely, since the storage should not grow quickly and the lookup weight does not
-//! suffer much.
+//! call. This ensures that no old migrations pile up in the [`Historic`] set. This can be done very
+//! rarely, since the storage should not grow quickly and the lookup weight does not suffer much.
+//! Another possibility would be to have a synchronous single-block migration perpetually deployed
+//! that cleans them up before the MBMs start.
 //!
 //! ### Scenario: Successful upgrade
 //!
@@ -106,10 +109,11 @@
 //! 1. Migrations are configured in the `Migrations` config item. All migrations expose
 //! [`max_steps`][SteppedMigration::max_steps], are error tolerant, check their weight bounds and
 //! have a unique identifier.
-//! 2. The runtime upgrade is enacted. `UpgradeStarted` events are
-//! followed by lots of `MigrationAdvanced` events. Finally `UpgradeCompleted` is emitted.  
-//! 3. Cleanup as described in the governance scenario be executed at any time after the migration
-//! completes.
+//! 2. The runtime upgrade is enacted. An `UpgradeStarted` event is
+//! followed by lots of `MigrationAdvanced` and `MigrationCompleted` events. Finally
+//! `UpgradeCompleted` is emitted.
+//! 3. Cleanup as described in the governance scenario be executed at any time after the migrations
+//! completed.
 //!
 //! ### Advice: Failed upgrades
 //!
@@ -130,7 +134,7 @@
 //!
 //! ### Remark: Transactional processing
 //!
-//! You can see the transactional semantics for migrational steps as mostly useless, since in the
+//! You can see the transactional semantics for migration steps as mostly useless, since in the
 //! stuck case the state is already messed up. This just prevents it from becoming even more messed
 //! up, but doesn't prevent it in the first place.
 
@@ -201,7 +205,7 @@ pub struct ActiveCursor<Cursor, BlockNumber> {
 
 impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 	/// Advance the overarching cursor to the next migration.
-	pub(crate) fn advance(&mut self, current_block: BlockNumber) {
+	pub(crate) fn goto_next_migration(&mut self, current_block: BlockNumber) {
 		self.index.saturating_inc();
 		self.inner_cursor = None;
 		self.started_at = current_block;
@@ -328,7 +332,7 @@ pub mod pallet {
 			/// The number of migrations that this upgrade contains.
 			///
 			/// This can be used to design a progress indicator in combination with counting the
-			/// `MigrationCompleted` and `MigrationSkippedHistoric` events.
+			/// `MigrationCompleted` and `MigrationSkipped` events.
 			migrations: u32,
 		},
 		/// The current runtime upgrade completed.
@@ -340,7 +344,7 @@ pub mod pallet {
 		/// This is very bad and will require governance intervention.
 		UpgradeFailed,
 		/// A migration was skipped since it was already executed in the past.
-		MigrationSkippedHistoric {
+		MigrationSkipped {
 			/// The index of the skipped migration within the [`Config::Migrations`] list.
 			index: u32,
 		},
@@ -348,15 +352,15 @@ pub mod pallet {
 		MigrationAdvanced {
 			/// The index of the migration within the [`Config::Migrations`] list.
 			index: u32,
-			/// The number of blocks that elapsed since the migration started.
-			blocks: BlockNumberFor<T>,
+			/// The number of blocks that this migration took so far.
+			took: BlockNumberFor<T>,
 		},
 		/// A Migration completed.
 		MigrationCompleted {
 			/// The index of the migration within the [`Config::Migrations`] list.
 			index: u32,
-			/// The number of blocks that elapsed since the migration started.
-			blocks: BlockNumberFor<T>,
+			/// The number of blocks that this migration took so far.
+			took: BlockNumberFor<T>,
 		},
 		/// A Migration failed.
 		///
@@ -364,14 +368,20 @@ pub mod pallet {
 		MigrationFailed {
 			/// The index of the migration within the [`Config::Migrations`] list.
 			index: u32,
-			/// The number of blocks that elapsed since the migration started.
-			blocks: BlockNumberFor<T>,
+			/// The number of blocks that this migration took so far.
+			took: BlockNumberFor<T>,
 		},
 		/// The set of historical migrations has been cleared.
 		HistoricCleared {
 			/// Should be passed to `clear_historic` in a successive call.
 			next_cursor: Option<Vec<u8>>,
 		},
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The operation cannot complete since some MBMs are ongoing.
+		Ongoing,
 	}
 
 	#[pallet::hooks]
@@ -389,8 +399,10 @@ pub mod pallet {
 			{
 				assert!(!Cursor::<T>::exists(), "Externalities storage should be clean");
 				assert!(!<T as frame_system::Config>::MultiBlockMigrator::ongoing());
+
 				Cursor::<T>::put(MigrationCursor::Stuck);
 				assert!(<T as frame_system::Config>::MultiBlockMigrator::ongoing());
+
 				Cursor::<T>::kill();
 			}
 
@@ -429,7 +441,9 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Allows root to set a cursor to forcefully start, stop or forward the migration process.
 		///
-		/// Should normally not be needed and is only in place as emergency measure.
+		/// Should normally not be needed and is only in place as emergency measure. Note that
+		/// restarting the migration process in this manner will not call the
+		/// [`MigrationStatusHandler::started`] hook or emit an `UpgradeStarted` event.
 		#[pallet::call_index(0)]
 		pub fn force_set_cursor(
 			origin: OriginFor<T>,
@@ -469,12 +483,26 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Forces the onboarding of the migrations.
+		///
+		/// This process happens automatically on a runtime upgrade. It is in place as an emergency
+		/// measurement. The cursor needs to be `None` for this to suceed.
+		#[pallet::call_index(2)]
+		pub fn force_onboard_mbms(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(!Cursor::<T>::exists(), Error::<T>::Ongoing);
+			Self::onboard_new_mbms();
+
+			Ok(())
+		}
+
 		/// Clears the `Historic` set.
 		///
 		/// `map_cursor` must be set to the last value that was returned by the
 		/// `HistoricCleared` event. The first time `None` can be used. `limit` must be chosen in a
 		/// way that will result in a sensible weight.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::clear_historic(selector.limit()))]
 		pub fn clear_historic(
 			origin: OriginFor<T>,
@@ -510,7 +538,7 @@ impl<T: Config> Pallet<T> {
 
 			let maybe_index = cursor.as_active().map(|c| c.index);
 			Self::upgrade_failed(maybe_index);
-			return T::WeightInfo::on_runtime_upgrade()
+			return T::WeightInfo::onboard_new_mbms()
 		}
 
 		let migrations = T::Migrations::len();
@@ -530,7 +558,7 @@ impl<T: Config> Pallet<T> {
 			T::MigrationStatusHandler::started();
 		}
 
-		T::WeightInfo::on_runtime_upgrade()
+		T::WeightInfo::onboard_new_mbms()
 	}
 
 	/// Tries to make progress on the Multi-Block-Migrations process.
@@ -544,7 +572,7 @@ impl<T: Config> Pallet<T> {
 				return meter.consumed()
 			},
 			Some(MigrationCursor::Active(cursor)) => {
-				log::info!("Progressing MBM migration #{}", cursor.index);
+				log::info!("Progressing MBM #{}", cursor.index);
 				cursor
 			},
 			Some(MigrationCursor::Stuck) => {
@@ -554,11 +582,11 @@ impl<T: Config> Pallet<T> {
 		};
 		debug_assert!(<Self as MultiStepMigrator>::ongoing());
 
-		// The 8 here is a defensive measure to prevent an infinite loop. It expresses that we
+		// The limit here is a defensive measure to prevent an infinite loop. It expresses that we
 		// allow no more than 8 MBMs to finish in a single block. This should be harmless, since we
 		// generally expect *Multi*-Block-Migrations to take *multiple* blocks.
 		for i in 0..8 {
-			match Self::exec_migration(&mut meter, cursor, i == 0) {
+			match Self::exec_migration(cursor, i == 0, &mut meter) {
 				None => return meter.consumed(),
 				Some(ControlFlow::Continue(next_cursor)) => {
 					cursor = next_cursor;
@@ -577,33 +605,35 @@ impl<T: Config> Pallet<T> {
 
 	/// Try to make progress on the current migration.
 	///
-	/// Returns whether processing should continue or break for this block. The `meter` contains the
-	/// remaining weight that can be consumed.
+	/// Returns whether processing should continue or break for this block. The return value means:
+	/// - `None`: The migration process is completely finished.
+	/// - `ControllFlow::Break`: We made *some* progress. Continue in the *next* block with the
+	///   cursor.
+	/// - `ControllFlow::Continue`: We made *no* progress. Continue in the *current* block with the
+	///   given cursor.
 	fn exec_migration(
-		meter: &mut WeightMeter,
 		mut cursor: ActiveCursorOf<T>,
 		is_first: bool,
+		meter: &mut WeightMeter,
 	) -> Option<ControlFlow<ActiveCursorOf<T>, ActiveCursorOf<T>>> {
 		let Some(id) = T::Migrations::nth_id(cursor.index) else {
 			// No more migration in the tuple - we are done.
 			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsitent MBMs tuple");
-
 			Self::deposit_event(Event::UpgradeCompleted);
 			Cursor::<T>::kill();
 			T::MigrationStatusHandler::completed();
 			return None;
 		};
 
-		let bounded_id: Result<IdentifierOf<T>, _> = id.try_into();
-		let Ok(bounded_id) = bounded_id else {
+		let Ok(bounded_id): Result<IdentifierOf<T>, _> = id.try_into() else {
 			defensive!("integrity_test ensures that all identifiers' MEL bounds fit into CursorMaxLen; qed.");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};
 
 		if Historic::<T>::contains_key(&bounded_id) {
-			Self::deposit_event(Event::MigrationSkippedHistoric { index: cursor.index });
-			cursor.advance(System::<T>::block_number());
+			Self::deposit_event(Event::MigrationSkipped { index: cursor.index });
+			cursor.goto_next_migration(System::<T>::block_number());
 			return Some(ControlFlow::Continue(cursor))
 		}
 
@@ -614,12 +644,12 @@ impl<T: Config> Pallet<T> {
 			meter,
 		);
 		let Some((max_steps, next_cursor)) = max_steps.zip(next_cursor) else {
-			defensive!("nth_id returned Some(_). Therefore all other nth_* calls must return Some(_) as well; qed");
+			defensive!("integrity_test ensures that the tuple is valid; qed");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};
 
-		let blocks = System::<T>::block_number().saturating_sub(cursor.started_at);
+		let took = System::<T>::block_number().saturating_sub(cursor.started_at);
 		match next_cursor {
 			Ok(Some(next_cursor)) => {
 				let Ok(bound_next_cursor) = next_cursor.try_into() else {
@@ -628,12 +658,11 @@ impl<T: Config> Pallet<T> {
 					return None
 				};
 
-				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, blocks });
+				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });
 				cursor.inner_cursor = Some(bound_next_cursor);
 
-				// We only progress one step per block.
-				if max_steps.map_or(false, |max| blocks > max.into()) {
-					Self::deposit_event(Event::MigrationFailed { index: cursor.index, blocks });
+				if max_steps.map_or(false, |max| took > max.into()) {
+					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 					Self::upgrade_failed(Some(cursor.index));
 					None
 				} else {
@@ -642,37 +671,38 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 			Ok(None) => {
-				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, blocks });
+				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });
 				Historic::<T>::insert(&bounded_id, ());
-				cursor.advance(System::<T>::block_number());
+				cursor.goto_next_migration(System::<T>::block_number());
 				return Some(ControlFlow::Continue(cursor))
 			},
 			Err(SteppedMigrationError::InsufficientWeight { required }) => {
 				if is_first || required.any_gt(meter.limit()) {
-					Self::deposit_event(Event::MigrationFailed { index: cursor.index, blocks });
+					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 					Self::upgrade_failed(Some(cursor.index));
 					None
 				} else {
-					// Hope that it gets better in the next block.
+					// Retry and hope that there is more weight in the next block.
 					Some(ControlFlow::Break(cursor))
 				}
 			},
 			Err(SteppedMigrationError::InvalidCursor | SteppedMigrationError::Failed) => {
-				Self::deposit_event(Event::MigrationFailed { index: cursor.index, blocks });
+				Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 				Self::upgrade_failed(Some(cursor.index));
 				return None
 			},
 		}
 	}
 
-	/// Fail the current runtime upgrade.
+	/// Fail the current runtime upgrade, caused by `migration`.
 	fn upgrade_failed(migration: Option<u32>) {
 		use FailedUpgradeHandling::*;
 		Self::deposit_event(Event::UpgradeFailed);
 
 		match T::FailedMigrationHandler::failed(migration) {
-			KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
-			ForceUnstuck => Cursor::<T>::kill(),
+			Some(KeepStuck) => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
+			Some(ForceUnstuck) => Cursor::<T>::kill(),
+			None => (),
 		}
 	}
 }

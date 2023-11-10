@@ -34,13 +34,14 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_migrations.
 pub trait WeightInfo {
-	fn on_runtime_upgrade() -> Weight;
+	fn onboard_new_mbms() -> Weight;
 	fn on_init_base() -> Weight;
 	fn on_init_fast_path() -> Weight;
 	fn on_init_loop_base() -> Weight;
 	fn force_set_cursor() -> Weight;
 	fn force_set_active_cursor() -> Weight;
 	fn clear_historic(n: u32,) -> Weight;
+	fn force_onboard_mbms() -> Weight;
 }
 
 /// Weights for pallet_migrations using the Substrate node and recommended hardware.
@@ -57,7 +58,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: MultiBlockMigrations Cursor (r:1 w:0)
 	/// Proof: MultiBlockMigrations Cursor (max_values: Some(1), max_size: Some(10), added: 505, mode: MaxEncodedLen)
-	fn on_runtime_upgrade() -> Weight {
+	fn onboard_new_mbms() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `1495`
@@ -75,6 +76,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(3_463_000, 1495)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn force_onboard_mbms() -> Weight {
+		Weight::zero()
 	}
 	/// Storage: MultiBlockMigrations Cursor (r:1 w:0)
 	/// Proof: MultiBlockMigrations Cursor (max_values: Some(1), max_size: Some(10), added: 505, mode: MaxEncodedLen)
@@ -102,7 +106,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// Storage: MultiBlockMigrations Cursor (r:1 w:0)
 	/// Proof: MultiBlockMigrations Cursor (max_values: Some(1), max_size: Some(10), added: 505, mode: MaxEncodedLen)
-	fn on_runtime_upgrade() -> Weight {
+	fn onboard_new_mbms() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `1495`
@@ -140,6 +144,9 @@ impl WeightInfo for () {
 		// Minimum execution time: 866_000 picoseconds.
 		Weight::from_parts(946_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn force_onboard_mbms() -> Weight {
+		Weight::zero()
 	}
 	fn on_init_fast_path() -> Weight {
 		Weight::zero()

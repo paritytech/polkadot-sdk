@@ -398,6 +398,7 @@ pub trait SteppedMigration {
 	}
 }
 
+/// Error that can occur during a [`SteppedMigration`].
 #[derive(Debug, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
 pub enum SteppedMigrationError {
 	// Transient errors:
@@ -405,7 +406,10 @@ pub enum SteppedMigrationError {
 	///
 	/// Can be resolved by calling with at least `required` weight. Note that calling it with
 	/// exactly `required` weight could cause it to not make any progress.
-	InsufficientWeight { required: Weight },
+	InsufficientWeight {
+		/// Amount of weight required to make progress.
+		required: Weight,
+	},
 	// Permanent errors:
 	/// The migration cannot decode its cursor and therefore not proceed.
 	///
@@ -434,12 +438,14 @@ pub trait FailedMigrationHandler {
 	/// Infallibly handle a failed runtime migration.
 	///
 	/// Gets passed in the optional index of the migration in the batch that caused the failure.
-	fn failed(migration: Option<u32>) -> FailedUpgradeHandling;
+	/// Returning `None` means that no automatic handling should take place and the callee decides
+	/// in the implementation what to do.
+	fn failed(migration: Option<u32>) -> Option<FailedUpgradeHandling>;
 }
 
 impl FailedMigrationHandler for () {
-	fn failed(_migration: Option<u32>) -> FailedUpgradeHandling {
-		FailedUpgradeHandling::KeepStuck
+	fn failed(_migration: Option<u32>) -> Option<FailedUpgradeHandling> {
+		Some(FailedUpgradeHandling::KeepStuck)
 	}
 }
 
@@ -451,7 +457,7 @@ pub enum FailedUpgradeHandling {
 	/// This should be supplemented with additional measures to ensure that the broken chain state
 	/// does not get further messed up by user extrinsics.
 	ForceUnstuck,
-	/// Do nothing and keep blocking extrinsics.
+	/// Set the cursor to `Stuck` and keep blocking extrinsics.
 	KeepStuck,
 }
 

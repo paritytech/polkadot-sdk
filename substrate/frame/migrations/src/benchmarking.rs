@@ -29,12 +29,12 @@ mod benches {
 	use frame_support::traits::Hooks;
 
 	#[benchmark]
-	fn on_runtime_upgrade() {
+	fn onboard_new_mbms() {
 		assert!(!Cursor::<T>::exists());
 
 		#[block]
 		{
-			Pallet::<T>::on_runtime_upgrade();
+			Pallet::<T>::onboard_new_mbms();
 		}
 	}
 
@@ -51,7 +51,6 @@ mod benches {
 
 	#[benchmark]
 	fn on_init_base() {
-		// FAIL-CI
 		Cursor::<T>::set(Some(cursor::<T>()));
 		System::<T>::set_block_number(1u32.into());
 
@@ -82,6 +81,12 @@ mod benches {
 	fn force_set_active_cursor() {
 		#[extrinsic_call]
 		_(RawOrigin::Root, 0, None, None);
+	}
+
+	#[benchmark]
+	fn force_onboard_mbms() {
+		#[extrinsic_call]
+		_(RawOrigin::Root);
 	}
 
 	#[benchmark]

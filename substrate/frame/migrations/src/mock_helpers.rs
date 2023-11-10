@@ -164,11 +164,11 @@ impl MigrationStatusHandler for MockedMigrationStatusHandler {
 /// Records all failed upgrades in `UpgradesFailed`.
 pub struct MockedFailedMigrationHandler;
 impl FailedMigrationHandler for MockedFailedMigrationHandler {
-	fn failed(migration: Option<u32>) -> FailedUpgradeHandling {
+	fn failed(migration: Option<u32>) -> Option<FailedUpgradeHandling> {
 		UpgradesFailed::mutate(|v| v.push(migration));
 		let res = FailedUpgradeResponse::get();
 		log::error!("FailedMigrationHandler failed at: {migration:?}, handling as {res:?}");
-		res
+		Some(res)
 	}
 }
 
