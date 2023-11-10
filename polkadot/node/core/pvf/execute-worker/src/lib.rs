@@ -186,7 +186,8 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				// SAFETY: new process is spawned within a single threaded process
+				// SAFETY: new process is spawned within a single threaded process. This invariant
+				// is enforced by tests.
 				let response = match unsafe { nix::unistd::fork() } {
 					Err(errno) => internal_error_from_errno("fork", errno),
 					Ok(ForkResult::Child) => {

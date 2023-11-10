@@ -208,7 +208,8 @@ impl fmt::Display for WorkerKind {
 // NOTE: The worker version must be passed in so that we accurately get the version of the worker,
 // and not the version that this crate was compiled with.
 //
-// NOTE: This must not spawn any threads due to safety requirements in `event_loop`.
+// NOTE: This must not spawn any threads due to safety requirements in `event_loop` and to avoid
+// errors in [`security::unshare_user_namespace_and_change_root`].
 //
 /// Initializes the worker process, then runs the given event loop, which spawns a new job process
 /// to securely handle each incoming request.
