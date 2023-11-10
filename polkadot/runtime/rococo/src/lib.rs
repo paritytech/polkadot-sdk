@@ -356,34 +356,26 @@ impl OpaqueKeys for OldSessionKeys {
 	type KeyTypeIdProviders =
 		(Grandpa, Babe, (), Initializer, ParaSessionInfo, AuthorityDiscovery, Beefy);
 	fn key_ids() -> &'static [KeyTypeId] {
-		&[<<Grandpa as BoundToRuntimeAppPublic>::Public>::ID,
-        	<<Babe as BoundToRuntimeAppPublic>::Public>::ID,
-                    sp_core::crypto::key_types::IM_ONLINE,
-                    <<Initializer as BoundToRuntimeAppPublic>::Public as
-                        ::sp_runtime::RuntimeAppPublic>::ID,
-                    <<ParaSessionInfo as
-                        ::sp_runtime::BoundToRuntimeAppPublic>::Public as
-                        ::sp_runtime::RuntimeAppPublic>::ID,
-                    <<AuthorityDiscovery as
-                        ::sp_runtime::BoundToRuntimeAppPublic>::Public as
-                        ::sp_runtime::RuntimeAppPublic>::ID,
-                    <<Beefy as ::sp_runtime::BoundToRuntimeAppPublic>::Public as
-                        ::sp_runtime::RuntimeAppPublic>::ID]
+		&[
+			<<Grandpa as BoundToRuntimeAppPublic>::Public>::ID,
+			<<Babe as BoundToRuntimeAppPublic>::Public>::ID,
+			sp_core::crypto::key_types::IM_ONLINE,
+			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID,
+			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID,
+			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID,
+			<<Beefy as BoundToRuntimeAppPublic>::Public>::ID,
+		]
 	}
 	fn get_raw(&self, i: KeyTypeId) -> &[u8] {
 		match i {
-			<<Grandpa as BoundToRuntimeAppPublic>::Public as RuntimeAppPublic>::ID =>
-				self.grandpa.as_ref(),
-			<<Babe as BoundToRuntimeAppPublic>::Public as RuntimeAppPublic>::ID =>
-				self.babe.as_ref(),
-			<<Initializer as BoundToRuntimeAppPublic>::Public as RuntimeAppPublic>::ID =>
-				self.para_validator.as_ref(),
-			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public as RuntimeAppPublic>::ID =>
+			<<Grandpa as BoundToRuntimeAppPublic>::Public>::ID => self.grandpa.as_ref(),
+			<<Babe as BoundToRuntimeAppPublic>::Public>::ID => self.babe.as_ref(),
+			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID => self.para_validator.as_ref(),
+			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID =>
 				self.para_assignment.as_ref(),
-			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public as RuntimeAppPublic>::ID =>
+			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
 				self.authority_discovery.as_ref(),
-			<<Beefy as BoundToRuntimeAppPublic>::Public as RuntimeAppPublic>::ID =>
-				self.beefy.as_ref(),
+			<<Beefy as BoundToRuntimeAppPublic>::Public>::ID => self.beefy.as_ref(),
 			_ => &[],
 		}
 	}
