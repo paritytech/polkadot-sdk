@@ -74,7 +74,7 @@ use crate::{
 };
 
 /// Extension for `Consideration` trait.
-/// Provides the `new_from_exact` method for those types using a `fungible` balance frozen,
+/// Provides a `new_from_exact` method for those types using a `fungible` balance frozen,
 /// This method is useful when a new ticket needs to be created with a precise balance, instead of
 /// deriving it from a footprint.
 pub trait FreezeConsiderationFromLegacy<A, F>: Consideration<A>
@@ -93,7 +93,7 @@ where
 }
 
 /// Extension for `Consideration` trait.
-/// Provides the `new_from_exact` method for those types using a `fungible` balance placed on hold.
+/// Provides a `new_from_exact` method for those types using a `fungible` balance placed on hold.
 /// This method is useful when a new ticket needs to be created with a precise balance, instead of
 /// deriving it from a footprint.
 pub trait HoldConsiderationFromLegacy<A, F>: Consideration<A>
