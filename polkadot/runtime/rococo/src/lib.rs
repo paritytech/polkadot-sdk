@@ -1516,9 +1516,9 @@ pub mod migrations {
 
 	// This is never called; remove together with `RemoveImOnlineOffchainStorageValues`
 	impl From<pallet_im_online::Event<Runtime>> for RuntimeEvent {
-	    fn from(_v: pallet_im_online::Event<Runtime>) -> Self {
-	        unreachable!()
-	    }
+		fn from(_v: pallet_im_online::Event<Runtime>) -> Self {
+			unreachable!()
+		}
 	}
 
 	// This is never called; remove together with `RemoveImOnlineOffchainStorageValues`
@@ -1531,15 +1531,15 @@ pub mod migrations {
 	// Mock config just to access the storage values;
 	// remove together with `RemoveImOnlineOffchainStorageValues`
 	impl pallet_im_online::Config for Runtime {
-	    type AuthorityId = pallet_im_online::sr25519::AuthorityId;
-	    type RuntimeEvent = RuntimeEvent;
-	    type ValidatorSet = Historical;
-	    type NextSessionRotation = Babe;
-	    type ReportUnresponsiveness = Offences;
-	    type UnsignedPriority = ();
-	    type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
-	    type MaxKeys = MaxKeys;
-	    type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+		type AuthorityId = pallet_im_online::sr25519::AuthorityId;
+		type RuntimeEvent = RuntimeEvent;
+		type ValidatorSet = Historical;
+		type NextSessionRotation = Babe;
+		type ReportUnresponsiveness = Offences;
+		type UnsignedPriority = ();
+		type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
+		type MaxKeys = MaxKeys;
+		type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 	}
 
 	// Remove offchain storage values of `im-online` pallet
@@ -1549,12 +1549,12 @@ pub mod migrations {
 			const DB_PREFIX: &[u8] = b"parity/im-online-heartbeat/";
 			let keys_len = pallet_im_online::Pallet::<Runtime>::keys().len() as u32;
 			(0..keys_len).for_each(|idx| {
-		        let key = {
-		            let mut key = DB_PREFIX.to_vec();
-		            key.extend(idx.encode());
-		            key
-		        };
-		        sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
+				let key = {
+					let mut key = DB_PREFIX.to_vec();
+					key.extend(idx.encode());
+					key
+				};
+				sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
 			});
 			Weight::zero()
 		}
