@@ -1387,6 +1387,7 @@ async fn handle_incoming_statement<Context>(
 		None => {
 			// we shouldn't be receiving statements unless we're a validator
 			// this session.
+			gum::info!(target: LOG_TARGET, "statement_distribution: no_local_validator");
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
 		},
@@ -1397,6 +1398,7 @@ async fn handle_incoming_statement<Context>(
 		match per_session.groups.by_validator_index(statement.unchecked_validator_index()) {
 			Some(g) => g,
 			None => {
+				gum::info!(target: LOG_TARGET, "statement_distribution: no group index");
 				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 				return
 			},
@@ -1464,6 +1466,7 @@ async fn handle_incoming_statement<Context>(
 				},
 			}
 		} else {
+			gum::info!(target: LOG_TARGET, "statement_distribution: not a cluster or a grid peer");
 			// Not a cluster or grid peer.
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
@@ -1487,6 +1490,7 @@ async fn handle_incoming_statement<Context>(
 		);
 
 		if let Err(BadAdvertisement) = res {
+			gum::info!(target: LOG_TARGET, "statement_distribution: bad advertisement");
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
 		}
@@ -1586,19 +1590,24 @@ fn handle_cluster_statement(
 ) -> Result<Option<SignedStatement>, Rep> {
 	// additional cluster checks.
 	let should_import = {
-		match cluster_tracker.can_receive(
+		let res = cluster_tracker.can_receive(
 			cluster_sender_index,
 			statement.unchecked_validator_index(),
 			statement.unchecked_payload().clone(),
-		) {
+		);
+		match res {
 			Ok(ClusterAccept::Ok) => true,
 			Ok(ClusterAccept::WithPrejudice) => false,
 			Err(ClusterRejectIncoming::ExcessiveSeconded) => return Err(COST_EXCESSIVE_SECONDED),
-			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =>
-				return Err(COST_UNEXPECTED_STATEMENT),
+			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) => {
+				gum::info!(target: LOG_TARGET, ?res, "statement_distribution: not a cluster or a grid peer");
+
+				return Err(COST_UNEXPECTED_STATEMENT)
+			},
 			Err(ClusterRejectIncoming::NotInGroup) => {
 				// sanity: shouldn't be possible; we already filtered this
 				// out above.
+				gum::info!(target: LOG_TARGET, ?res, "statement_distribution: not a cluster or a grid peer");
 				return Err(COST_UNEXPECTED_STATEMENT)
 			},
 		}
