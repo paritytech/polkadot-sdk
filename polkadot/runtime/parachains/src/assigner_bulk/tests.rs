@@ -84,11 +84,7 @@ fn default_test_assignments() -> Vec<(CoreAssignment, PartsOf57600)> {
 }
 
 fn default_test_schedule() -> Schedule<BlockNumberFor<Test>> {
-	Schedule {
-		assignments: default_test_assignments(),
-		end_hint: None,
-		next_schedule: None,
-	}
+	Schedule { assignments: default_test_assignments(), end_hint: None, next_schedule: None }
 }
 
 #[test]
@@ -115,11 +111,14 @@ fn assign_core_works_with_no_prior_schedule() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.first)), 
+			CoreDescriptors::<Test>::get(core_idx)
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.first)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)), 
+			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 	});
@@ -132,7 +131,8 @@ fn assign_core_works_with_prior_schedule() {
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-		let default_with_next_schedule = Schedule { next_schedule: Some(15u32), ..default_test_schedule() };
+		let default_with_next_schedule =
+			Schedule { next_schedule: Some(15u32), ..default_test_schedule() };
 
 		// Call assign_core twice
 		assert_ok!(BulkAssigner::assign_core(
@@ -161,19 +161,22 @@ fn assign_core_works_with_prior_schedule() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.first)), 
+			CoreDescriptors::<Test>::get(core_idx)
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.first)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)), 
+			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)),
 			Some(BlockNumberFor::<Test>::from(15u32))
 		);
 	});
 }
 
 #[test]
-// Invariants: We assume that CoreSchedules is append only and consumed. In other words new schedules
-// inserted for a core must have a higher block number than all of the already existing
+// Invariants: We assume that CoreSchedules is append only and consumed. In other words new
+// schedules inserted for a core must have a higher block number than all of the already existing
 // schedules.
 fn assign_core_enforces_higher_block_number() {
 	let core_idx = CoreIndex(0);
@@ -207,7 +210,8 @@ fn assign_core_enforces_higher_block_number() {
 			Error::<Test>::DisallowedInsert
 		);
 
-		// Call assign core with block number between already scheduled assignments, expecting an error
+		// Call assign core with block number between already scheduled assignments, expecting an
+		// error
 		assert_noop!(
 			BulkAssigner::assign_core(
 				core_idx,
@@ -268,8 +272,10 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 		let start_4 = 25u32;
 		let start_5 = 30u32;
 
-		let expected_schedule_3 = Schedule { next_schedule: Some(start_4), ..default_test_schedule() };
-		let expected_schedule_4 = Schedule { next_schedule: Some(start_5), ..default_test_schedule() };
+		let expected_schedule_3 =
+			Schedule { next_schedule: Some(start_4), ..default_test_schedule() };
+		let expected_schedule_4 =
+			Schedule { next_schedule: Some(start_5), ..default_test_schedule() };
 		let expected_schedule_5 = default_test_schedule();
 
 		// Call assign_core for each of five schedules
@@ -330,11 +336,14 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.first)), 
+			CoreDescriptors::<Test>::get(core_idx)
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.first)),
 			Some(start_3)
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)), 
+			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)),
 			Some(start_5)
 		);
 	});
@@ -348,17 +357,15 @@ fn ensure_workload_works() {
 		remaining: PartsOf57600::from(57600u16),
 	};
 
-	let expected_descriptor_1: CoreDescriptor<BlockNumberFor<Test>> = CoreDescriptor{
-		queue: None,
-		current_work: None
+	let expected_descriptor_1: CoreDescriptor<BlockNumberFor<Test>> =
+		CoreDescriptor { queue: None, current_work: None };
+	let expected_descriptor_2 = CoreDescriptor {
+		queue: Some(QueueDescriptor {
+			first: BlockNumberFor::<Test>::from(11u32),
+			last: BlockNumberFor::<Test>::from(11u32),
+		}),
+		current_work: None,
 	};
-	let expected_descriptor_2 = CoreDescriptor { 
-			queue: Some(QueueDescriptor {
-				first: BlockNumberFor::<Test>::from(11u32),
-				last: BlockNumberFor::<Test>::from(11u32)
-			}),
-			current_work: None
-		};
 	let expected_descriptor_3 = CoreDescriptor {
 		queue: None,
 		current_work: Some(WorkState {
@@ -366,19 +373,20 @@ fn ensure_workload_works() {
 			end_hint: Some(BlockNumberFor::<Test>::from(15u32)),
 			pos: 0,
 			step: PartsOf57600::from(57600u16),
-		})
+		}),
 	};
 	let expected_descriptor_4 = expected_descriptor_1.clone();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		let mut core_descriptor: CoreDescriptor<BlockNumberFor<Test>> = CoreDescriptor { queue: None, current_work: None };
+		let mut core_descriptor: CoreDescriptor<BlockNumberFor<Test>> =
+			CoreDescriptor { queue: None, current_work: None };
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
 		// Case 1: No new schedule in CoreSchedules for core
 		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, expected_descriptor_1);
 
-		// Case 2: New schedule exists in CoreSchedules for core, but new 
+		// Case 2: New schedule exists in CoreSchedules for core, but new
 		// schedule start is not yet reached.
 		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
@@ -387,20 +395,20 @@ fn ensure_workload_works() {
 			Some(BlockNumberFor::<Test>::from(15u32)),
 		));
 
-		// Propagate changes from storage to Core_Descriptor handle. Normally 
+		// Propagate changes from storage to Core_Descriptor handle. Normally
 		// pop_assignment_for_core would handle this.
 		core_descriptor = CoreDescriptors::<Test>::get(core_idx);
 
 		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, expected_descriptor_2);
 
-		// Case 3: Next schedule exists in CoreSchedules for core. Next starting 
-		// block has been reached. Swaps new WorkState into CoreDescriptors from 
+		// Case 3: Next schedule exists in CoreSchedules for core. Next starting
+		// block has been reached. Swaps new WorkState into CoreDescriptors from
 		// CoreSchedules.
 		BulkAssigner::ensure_workload(11u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, expected_descriptor_3);
 
-		// Case 4: end_hint reached but new schedule start not yet reached. WorkState in 
+		// Case 4: end_hint reached but new schedule start not yet reached. WorkState in
 		// CoreDescriptor is cleared
 		BulkAssigner::ensure_workload(15u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, expected_descriptor_4);
@@ -416,7 +424,8 @@ fn pop_assignment_for_core_works() {
 	let on_demand_assignment = OnDemandAssignment::new(para_id, CoreIndex(0));
 
 	let assignments_pool = vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))];
-	let assignments_task = vec![(CoreAssignment::Task(para_id.into()), PartsOf57600::from(57600u16))];
+	let assignments_task =
+		vec![(CoreAssignment::Task(para_id.into()), PartsOf57600::from(57600u16))];
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Initialize the parathread, wait for it to be ready, then add an
@@ -483,9 +492,9 @@ fn assignment_proportions_in_core_state_work() {
 
 		// Task 1 gets 2/3 core usage, while task 2 gets 1/3
 		let test_assignments = vec![
-				(CoreAssignment::Task(task_1), PartsOf57600::from(57600u16 / 3 * 2)),
-				(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 3)),
-			];
+			(CoreAssignment::Task(task_1), PartsOf57600::from(57600u16 / 3 * 2)),
+			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 3)),
+		];
 
 		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
@@ -502,12 +511,18 @@ fn assignment_proportions_in_core_state_work() {
 			);
 
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx).current_work.as_ref().and_then(|w| Some(w.pos)), 
+				CoreDescriptors::<Test>::get(core_idx)
+					.current_work
+					.as_ref()
+					.and_then(|w| Some(w.pos)),
 				Some(0u16)
 			);
 			// Consumed step should be 1/3 of core parts, leaving 1/3 remaining
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx).current_work.as_ref().and_then(|w| Some(w.assignments[0].1.remaining)),
+				CoreDescriptors::<Test>::get(core_idx)
+					.current_work
+					.as_ref()
+					.and_then(|w| Some(w.assignments[0].1.remaining)),
 				Some(PartsOf57600::from(57600u16 / 3))
 			);
 		}
@@ -520,13 +535,19 @@ fn assignment_proportions_in_core_state_work() {
 			);
 			// Pos should have incremented, as assignment had remaining < step
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx).current_work.as_ref().and_then(|w| Some(w.pos)), 
+				CoreDescriptors::<Test>::get(core_idx)
+					.current_work
+					.as_ref()
+					.and_then(|w| Some(w.pos)),
 				Some(1u16)
 			);
 			// Remaining should have started at 1/3 of core work parts. We then subtract
 			// step (1/3) and add back ratio (2/3), leaving us with 2/3 of core work parts.
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx).current_work.as_ref().and_then(|w| Some(w.assignments[0].1.remaining)),
+				CoreDescriptors::<Test>::get(core_idx)
+					.current_work
+					.as_ref()
+					.and_then(|w| Some(w.assignments[0].1.remaining)),
 				Some(PartsOf57600::from(57600u16 / 3 * 2))
 			);
 		}

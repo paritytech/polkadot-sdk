@@ -35,7 +35,7 @@ use crate::{
 	},
 };
 
-use frame_support::{pallet_prelude::*, defensive};
+use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use primitives::{CoreIndex, Id as ParaId};
@@ -406,20 +406,18 @@ impl<T: Config> Pallet<T> {
 
 		// Check that the total parts between all assignments do not exceed 57600
 		ensure!(
-				assignments
+			assignments
 				.iter()
 				.map(|assignment| assignment.1)
-                .fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) <= PartsOf57600::from(57600u16),
+				.fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) <=
+				PartsOf57600::from(57600u16),
 			Error::<T>::OverScheduled
 		);
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_descriptor| {
 			let new_queue = match core_descriptor.queue {
 				Some(queue) => {
-					ensure!(
-						begin > queue.last,
-						Error::<T>::DisallowedInsert,
-					);
+					ensure!(begin > queue.last, Error::<T>::DisallowedInsert,);
 
 					CoreSchedules::<T>::try_mutate((queue.last, core_idx), |schedule| {
 						if let Some(schedule) = schedule.as_mut() {
@@ -433,16 +431,14 @@ impl<T: Config> Pallet<T> {
 							// to strictly increasing block number. But we check here for safety and
 							// in case the design changes.
 							ensure!(schedule.is_none(), Error::<T>::DuplicateInsert);
-							*schedule = Some(Schedule { assignments, end_hint, next_schedule: None });
+							*schedule =
+								Some(Schedule { assignments, end_hint, next_schedule: None });
 							Ok::<(), DispatchError>(())
 						})?;
 						Ok::<(), DispatchError>(())
 					})?;
 
-					QueueDescriptor {
-						first: queue.first,
-						last: begin,
-					}
+					QueueDescriptor { first: queue.first, last: begin }
 				},
 				None => {
 					// Queue empty, just insert:
@@ -461,12 +457,10 @@ impl<T: Config> Pallet<T> {
 
 // Tests/Invariant:
 // - After `assign_core`, WorkState is `Some`.
-// - next_schedule always points to next item in CoreSchedules. 
-//   (handled by next_schedule_always_points_to_next_work_plan_item)
-// - Test insertion in the middle, beginning and end: Should fail in all cases but the last. 
+// - next_schedule always points to next item in CoreSchedules. (handled by
+//   next_schedule_always_points_to_next_work_plan_item)
+// - Test insertion in the middle, beginning and end: Should fail in all cases but the last.
 //   (handled by assign_core_enforces_higher_block_number)
-// - Test insertion on empty queue. 
-//   (Handled by assign_core_works_with_no_prior_schedule)
-// - Test overwrite vs insert: Overwrite no longer allowed - should fail with error. 
-//   (handled using Error::DuplicateInsert, though earlier errors should prevent this error 
-//    from ever triggering)
+// - Test insertion on empty queue. (Handled by assign_core_works_with_no_prior_schedule)
+// - Test overwrite vs insert: Overwrite no longer allowed - should fail with error. (handled using
+//   Error::DuplicateInsert, though earlier errors should prevent this error from ever triggering)
