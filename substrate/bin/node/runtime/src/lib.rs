@@ -2189,9 +2189,9 @@ type Migrations = (
 	pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
-	pallet_collective::migrations::v5::VersionCheckedMigrateToV5<Runtime, CouncilCollective>,
-	pallet_collective::migrations::v5::VersionCheckedMigrateToV5<Runtime, TechnicalCollective>,
-	pallet_collective::migrations::v5::VersionCheckedMigrateToV5<Runtime, AllianceCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, CouncilCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, TechnicalCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 type EventRecord = frame_system::EventRecord<

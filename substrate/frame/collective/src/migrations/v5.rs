@@ -187,7 +187,7 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for VersionUncheckedMigrateToV5<
 
 /// [`VersionUncheckedMigrateToV5`] wrapped in a [`frame_support::migrations::VersionedMigration`],
 /// ensuring the migration is only performed when on-chain version is 4.
-pub type VersionCheckedMigrateToV5<T, I> = frame_support::migrations::VersionedMigration<
+pub type MigrateToV5<T, I> = frame_support::migrations::VersionedMigration<
 	4,
 	5,
 	VersionUncheckedMigrateToV5<T, I>,

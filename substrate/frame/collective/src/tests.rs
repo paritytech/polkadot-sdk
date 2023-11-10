@@ -1679,7 +1679,7 @@ fn migration_v5() {
 		v5::old::Voting::<Test, ()>::insert(proposal_hash, vote.clone());
 
 		// Run migration.
-		assert_ok!(v5::VersionCheckedMigrateToV5::<Test, ()>::try_on_runtime_upgrade(true));
+		assert_ok!(v5::MigrateToV5::<Test, ()>::try_on_runtime_upgrade(true));
 
 		// Check that the vote is present and bounded
 		assert_eq!(
