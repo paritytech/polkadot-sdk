@@ -18,7 +18,7 @@ use super::{
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue, CENTS,
 };
-use assets_common::matching::{FromSiblingParachain, IsForeignConcreteAsset};
+use assets_common::matching::IsSiblingParachainAsset;
 use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
@@ -402,7 +402,7 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<DotLocation>,
-	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
+	IsSiblingParachainAsset<parachain_info::Pallet<Runtime>>,
 );
 
 pub struct XcmConfig;

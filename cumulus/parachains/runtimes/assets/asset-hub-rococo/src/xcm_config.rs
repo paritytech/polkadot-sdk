@@ -22,7 +22,7 @@ use super::{
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
-	matching::{FromSiblingParachain, IsForeignConcreteAsset},
+	matching::IsSiblingParachainAsset,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -559,7 +559,7 @@ pub type WaivedLocations =
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<TokenLocation>,
-	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
+	IsSiblingParachainAsset<parachain_info::Pallet<Runtime>>,
 );
 
 pub struct XcmConfig;
