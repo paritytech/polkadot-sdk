@@ -148,7 +148,7 @@ impl<T> fungible::Unbalanced<T> for NoCounterpart<T> {
 	}
 	fn set_total_issuance(_: Self::Balance) {}
 }
-impl<T> FunMutate<T> for NoCounterpart<T> {}
+impl<T: Eq> FunMutate<T> for NoCounterpart<T> {}
 impl<T> Convert<Perquintill, u32> for NoCounterpart<T> {
 	fn convert(_: Perquintill) -> u32 {
 		0

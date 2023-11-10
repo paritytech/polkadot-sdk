@@ -44,7 +44,7 @@ execution request:
 We use timeouts for both preparation and execution jobs to limit the amount of
 time they can take. As the time for a job can vary depending on the machine and
 load on the machine, this can potentially lead to disputes where some validators
-successfuly execute a PVF and others don't.
+successfully execute a PVF and others don't.
 
 One dispute mitigation we have in place is a more lenient timeout for
 preparation during execution than during pre-checking. The rationale is that the
@@ -125,6 +125,19 @@ A basic security mechanism is to make sure that any process directly interfacing
 with untrusted code does not have unnecessary access to the file-system. This
 provides some protection against attackers accessing sensitive data or modifying
 data on the host machine.
+
+*Currently this is only supported on Linux.*
+
+<!-- TODO: Uncomment when this has been enabled. -->
+
+<!-- ### Restricting networking -->
+
+<!-- We also disable networking on PVF threads by disabling certain syscalls, such as -->
+<!-- the creation of sockets. This prevents attackers from either downloading -->
+<!-- payloads or communicating sensitive data from the validator's machine to the -->
+<!-- outside world. -->
+
+<!-- *Currently this is only supported on Linux.* -->
 
 ### Clearing env vars
 
