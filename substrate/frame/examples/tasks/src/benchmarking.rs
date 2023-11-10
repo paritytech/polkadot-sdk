@@ -24,14 +24,22 @@ use super::*;
 use crate::Pallet as TasksExample;
 
 use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn add_number_into_total() {}
+	fn add_number_into_total() {
+		Numbers::<T>::insert(0, 1);
 
-	impl_benchmark_test_suite!(TasksExample, crate::tests::new_test_ext(), crate::tests::Test);
+		#[block]
+		{
+			Task::<T>::add_number_into_total(0).unwrap();
+		}
+
+		assert_eq!(Numbers::<T>::get(0), None);
+	}
+
+	impl_benchmark_test_suite!(TasksExample, crate::tests::new_test_ext(), crate::mock::Runtime);
 }

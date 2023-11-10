@@ -30,6 +30,7 @@ frame-benchmarking = { path = "../../benchmarking", default-features = false, op
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

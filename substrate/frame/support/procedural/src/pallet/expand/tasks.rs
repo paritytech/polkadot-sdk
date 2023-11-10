@@ -108,6 +108,12 @@ impl ToTokens for TaskEnumDef {
 	}
 }
 
+#[derive(Parse)]
+pub struct ExpandedTasksDef {
+	pub task_item_impl: ItemImpl,
+	pub task_trait_impl: ItemImpl,
+}
+
 impl ToTokens for TasksDef {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
 		let scrate = &self.scrate;
@@ -122,8 +128,16 @@ impl ToTokens for TasksDef {
 			.collect::<Vec<_>>();
 		let task_indices = self.tasks.iter().map(|task| &task.index_attr.meta.index);
 		let task_conditions = self.tasks.iter().map(|task| &task.condition_attr.meta.expr);
+		let task_weights = self.tasks.iter().map(|task| &task.weight_attr.meta.expr);
 		let task_iters = self.tasks.iter().map(|task| &task.list_attr.meta.expr);
-		let task_fn_blocks = self.tasks.iter().map(|task| &task.item.block);
+
+		let task_fn_impls = self.tasks.iter().map(|task| {
+			let mut task_fn_impl = task.item.clone();
+			task_fn_impl.attrs = vec![];
+			task_fn_impl
+		});
+
+		let task_fn_names = self.tasks.iter().map(|task| &task.item.sig.ident);
 		let task_arg_names = self
 			.tasks
 			.iter()
@@ -147,6 +161,11 @@ impl ToTokens for TasksDef {
 		let sp_std = quote!(#scrate::__private::sp_std);
 		let impl_generics = &self.item_impl.generics;
 		tokens.extend(quote! {
+			impl #impl_generics #enum_use
+			{
+				#(#task_fn_impls)*
+			}
+
 			impl #impl_generics #scrate::traits::Task for #enum_use
 			where
 				T: #scrate::pallet_prelude::TypeInfo,
@@ -175,13 +194,19 @@ impl ToTokens for TasksDef {
 
 				fn run(&self) -> Result<(), #scrate::pallet_prelude::DispatchError> {
 					match self.clone() {
-						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_fn_blocks),*,
+						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => {
+							<#enum_use>::#task_fn_names(#( #task_arg_names, )* )
+						}),*,
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
 
+				#[allow(unused_variables)]
 				fn weight(&self) -> #scrate::pallet_prelude::Weight {
-					#scrate::pallet_prelude::Weight::default()
+					match self.clone() {
+						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_weights),*,
+						Task::__Ignore(_, _) => unreachable!(),
+					}
 				}
 			}
 		});
@@ -190,19 +215,18 @@ impl ToTokens for TasksDef {
 
 pub fn expand_tasks_impl(def: &mut Def) -> TokenStream2 {
 	let Some(tasks) = &mut def.tasks else { return quote!() };
-	let output: ItemImpl = parse_quote!(#tasks);
-	// output.pretty_print();
+	let ExpandedTasksDef { task_item_impl, task_trait_impl } = parse_quote!(#tasks);
 	let Some(content) = &mut def.item.content else { return quote!() };
 	for item in content.1.iter_mut() {
 		let Item::Impl(item_impl) = item else { continue };
 		let Some(trait_) = &item_impl.trait_ else { continue };
 		let Some(last_seg) = trait_.1.segments.last() else { continue };
 		if last_seg.ident == "Task" {
-			*item_impl = output;
+			*item_impl = task_item_impl;
 			break
 		}
 	}
-	quote!()
+	quote!(#task_trait_impl)
 }
 
 #[derive(Parse)]
