@@ -55,6 +55,7 @@ pub trait Callable<T> {
 pub type CallableCallFor<A, R> = <A as Callable<R>>::RuntimeCall;
 
 /// Means to checks if the dispatchable is feeless.
+///
 /// This is automatically implemented for all dispatchables during pallet expansion.
 /// If a call is marked by [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
 /// attribute, the corresponding closure is checked.
