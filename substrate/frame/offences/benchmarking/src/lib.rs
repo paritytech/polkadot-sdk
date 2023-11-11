@@ -41,7 +41,6 @@ use pallet_balances::Config as BalancesConfig;
 use pallet_grandpa::{
 	EquivocationOffence as GrandpaEquivocationOffence, TimeSlot as GrandpaTimeSlot,
 };
-use pallet_im_online::{Config as ImOnlineConfig, Pallet as ImOnline, UnresponsivenessOffence};
 use pallet_offences::{Config as OffencesConfig, Pallet as Offences};
 use pallet_session::{
 	historical::{Config as HistoricalConfig, IdentificationTuple},
@@ -66,7 +65,6 @@ pub trait Config:
 	SessionConfig
 	+ StakingConfig
 	+ OffencesConfig
-	+ ImOnlineConfig
 	+ HistoricalConfig
 	+ BalancesConfig
 	+ IdTupleConvert<Self>
@@ -184,39 +182,6 @@ fn make_offenders<T: Config>(
 	Ok((id_tuples, offenders))
 }
 
-fn make_offenders_im_online<T: Config>(
-	num_offenders: u32,
-	num_nominators: u32,
-) -> Result<(Vec<pallet_im_online::IdentificationTuple<T>>, Vec<Offender<T>>), &'static str> {
-	Staking::<T>::new_session(0);
-
-	let mut offenders = vec![];
-	for i in 0..num_offenders {
-		let offender = create_offender::<T>(i + 1, num_nominators)?;
-		offenders.push(offender);
-	}
-
-	Staking::<T>::start_session(0);
-
-	let id_tuples = offenders
-		.iter()
-		.map(|offender| {
-			<
-				<T as ImOnlineConfig>::ValidatorSet as ValidatorSet<T::AccountId>
-			>::ValidatorIdOf::convert(offender.controller.clone())
-			.expect("failed to get validator id from account id")
-		})
-		.map(|validator_id| {
-			<
-				<T as ImOnlineConfig>::ValidatorSet as ValidatorSetWithIdentification<T::AccountId>
-			>::IdentificationOf::convert(validator_id.clone())
-			.map(|full_id| (validator_id, full_id))
-			.expect("failed to convert validator id to full identification")
-		})
-		.collect::<Vec<pallet_im_online::IdentificationTuple<T>>>();
-	Ok((id_tuples, offenders))
-}
-
 #[cfg(test)]
 fn check_events<
 	T: Config,
@@ -279,39 +244,6 @@ fn check_events<
 }
 
 benchmarks! {
-	report_offence_im_online {
-		let r in 1 .. MAX_REPORTERS;
-		// we skip 1 offender, because in such case there is no slashing
-		let o in 2 .. MAX_OFFENDERS;
-		let n in 0 .. MAX_NOMINATORS.min(MaxNominationsOf::<T>::get());
-
-		// Make r reporters
-		let mut reporters = vec![];
-		for i in 0 .. r {
-			let reporter = account("reporter", i, SEED);
-			reporters.push(reporter);
-		}
-
-		// make sure reporters actually get rewarded
-		Staking::<T>::set_slash_reward_fraction(Perbill::one());
-
-		let (offenders, raw_offenders) = make_offenders_im_online::<T>(o, n)?;
-		let keys =  ImOnline::<T>::keys();
-		let validator_set_count = keys.len() as u32;
-		let offenders_count = offenders.len() as u32;
-		let offence = UnresponsivenessOffence {
-			session_index: 0,
-			validator_set_count,
-			offenders,
-		};
-		let slash_fraction = offence.slash_fraction(offenders_count);
-		assert_eq!(System::<T>::event_count(), 0);
-	}: {
-		let _ = <T as ImOnlineConfig>::ReportUnresponsiveness::report_offence(
-			reporters.clone(),
-			offence
-		);
-	}
 	verify {
 		#[cfg(test)]
 		{
@@ -409,12 +341,12 @@ benchmarks! {
 		Staking::<T>::set_slash_reward_fraction(Perbill::one());
 
 		let (mut offenders, raw_offenders) = make_offenders::<T>(1, n)?;
-		let keys = ImOnline::<T>::keys();
+		let validator_set_count = Session::<T>::validators().len() as u32;
 
 		let offence = GrandpaEquivocationOffence {
 			time_slot: GrandpaTimeSlot { set_id: 0, round: 0 },
 			session_index: 0,
-			validator_set_count: keys.len() as u32,
+			validator_set_count,
 			offender: T::convert(offenders.pop().unwrap()),
 		};
 		assert_eq!(System::<T>::event_count(), 0);
@@ -446,12 +378,12 @@ benchmarks! {
 		Staking::<T>::set_slash_reward_fraction(Perbill::one());
 
 		let (mut offenders, raw_offenders) = make_offenders::<T>(1, n)?;
-		let keys =  ImOnline::<T>::keys();
+		let validator_set_count = Session::<T>::validators().len() as u32;
 
 		let offence = BabeEquivocationOffence {
 			slot: 0u64.into(),
 			session_index: 0,
-			validator_set_count: keys.len() as u32,
+			validator_set_count,
 			offender: T::convert(offenders.pop().unwrap()),
 		};
 		assert_eq!(System::<T>::event_count(), 0);
