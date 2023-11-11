@@ -24,7 +24,8 @@ use crate::{
 	paras::ParaKind,
 	paras_inherent, scheduler,
 	scheduler::common::{
-		AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
+		AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, FixedAssignmentProvider,
+		V0Assignment,
 	},
 	session_info, shared, ParaId,
 };
@@ -464,15 +465,6 @@ pub mod mock_assigner {
 			old
 		}
 
-		// Provides a core count for scheduler tests defaulting to the most common number,
-		// 5, if no explicit count was set.
-		fn session_core_count() -> u32 {
-			match MockCoreCount::<T>::get() {
-				Some(count) => count,
-				None => 5,
-			}
-		}
-
 		// With regards to popping_assignments, the scheduler just needs to be tested under
 		// the following two conditions:
 		// 1. An assignment is provided
@@ -502,6 +494,17 @@ pub mod mock_assigner {
 					max_availability_timeouts: 1,
 					ttl: BlockNumber::from(5u32),
 				},
+			}
+		}
+	}
+
+	// Provides a core count for scheduler tests defaulting to the most common number,
+	// 5, if no explicit count was set.
+	impl<T: Config> FixedAssignmentProvider<BlockNumber> for Pallet<T> {
+		fn session_core_count() -> u32 {
+			match MockCoreCount::<T>::get() {
+				Some(count) => count,
+				None => 5,
 			}
 		}
 	}

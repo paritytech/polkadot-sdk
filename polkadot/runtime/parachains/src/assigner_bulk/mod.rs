@@ -473,16 +473,14 @@ impl<T: Config> Pallet<T> {
 }
 
 // Tests/Invariant:
-// - After `assign_core`, WorkState is `Some`.
 // - next_schedule always points to next item in CoreSchedules. (handled by
 //   next_schedule_always_points_to_next_work_plan_item)
 // - Test insertion in the middle, beginning and end: Should fail in all cases but the last.
-// - Test insertion on empty queue.
-// - Test overwrite vs insert: Overwrite no longer allowed - should fail with error.
+//   (handled by assign_core_enforces_higher_block_number)
+// - Test insertion on empty queue. (handled by assign_core_works_with_no_prior_schedule)
 // - New: Test that assignments are served correctly. E.g. two equal assignments will be served as
-//   ABABAB ... and more importantly have a test that checks that core is shared fairly, even in
-//   case of `ratio` not being divisible by `step` (over multiple rounds). (handled by
-//   assign_core_enforces_higher_block_number)
-// - Test insertion on empty queue. (Handled by assign_core_works_with_no_prior_schedule)
+//   ABABAB (handled by equal_assignments_served_equally)
+// - Have a test that checks that core is shared fairly, even in case of `ratio` not being divisible
+//   by `step` (over multiple rounds). (handled by assignment_proportions_indivisible_by_step_work)
 // - Test overwrite vs insert: Overwrite no longer allowed - should fail with error. (handled using
 //   Error::DuplicateInsert, though earlier errors should prevent this error from ever triggering)
