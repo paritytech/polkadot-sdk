@@ -21,7 +21,7 @@ use crate::{
 	generic::CheckedExtrinsic,
 	traits::{
 		self, Checkable, Extrinsic, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member,
-		SignaturePayload, TransactionExtension,
+		SignaturePayload, TransactionExtension, AdditionalSigned,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -200,7 +200,7 @@ where
 	Call: Encode + Member,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
-	Extra: TransactionExtension,
+	Extra: TransactionExtension + AdditionalSigned,
 	AccountId: Member + MaybeDisplay,
 	Lookup: traits::Lookup<Source = LookupSource, Target = AccountId>,
 {
@@ -353,29 +353,29 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extra: TransactionExt
 /// Note that the payload that we sign to produce unchecked extrinsic signature
 /// is going to be different than the `SignaturePayload` - so the thing the extrinsic
 /// actually contains.
-pub struct SignedPayload<Call, Extra: TransactionExtension>((Call, Extra, Extra::AdditionalSigned));
+pub struct SignedPayload<Call, Extra: TransactionExtension + AdditionalSigned>((Call, Extra, <Extra as AdditionalSigned>::Data));
 
 impl<Call, Extra> SignedPayload<Call, Extra>
 where
 	Call: Encode,
-	Extra: TransactionExtension,
+	Extra: TransactionExtension + AdditionalSigned,
 {
 	/// Create new `SignedPayload`.
 	///
 	/// This function may fail if `additional_signed` of `Extra` is not available.
 	pub fn new(call: Call, extra: Extra) -> Result<Self, TransactionValidityError> {
-		let additional_signed = extra.additional_signed()?;
+		let additional_signed = <Extra as AdditionalSigned>::data(&extra)?;
 		let raw_payload = (call, extra, additional_signed);
 		Ok(Self(raw_payload))
 	}
 
 	/// Create new `SignedPayload` from raw components.
-	pub fn from_raw(call: Call, extra: Extra, additional_signed: Extra::AdditionalSigned) -> Self {
+	pub fn from_raw(call: Call, extra: Extra, additional_signed: <Extra as AdditionalSigned>::Data) -> Self {
 		Self((call, extra, additional_signed))
 	}
 
 	/// Deconstruct the payload into it's components.
-	pub fn deconstruct(self) -> (Call, Extra, Extra::AdditionalSigned) {
+	pub fn deconstruct(self) -> (Call, Extra, <Extra as AdditionalSigned>::Data) {
 		self.0
 	}
 }
@@ -383,7 +383,7 @@ where
 impl<Call, Extra> Encode for SignedPayload<Call, Extra>
 where
 	Call: Encode,
-	Extra: TransactionExtension,
+	Extra: TransactionExtension + AdditionalSigned,
 {
 	/// Get an encoded version of this payload.
 	///
@@ -402,7 +402,7 @@ where
 impl<Call, Extra> EncodeLike for SignedPayload<Call, Extra>
 where
 	Call: Encode,
-	Extra: TransactionExtension,
+	Extra: TransactionExtension + AdditionalSigned,
 {
 }
 
@@ -441,17 +441,17 @@ mod tests {
 	// NOTE: this is demonstration. One can simply use `()` for testing.
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
 	struct TestExtra;
-	impl TransactionExtension for TestExtra {
-		const IDENTIFIER: &'static str = "TestExtra";
-		type AccountId = u64;
-		type Call = ();
-		type AdditionalSigned = ();
-		type Val = ();
-		type Pre = ();
-
-		fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	impl AdditionalSigned for TestExtra {
+		type Data = ();
+		fn data(&self) -> sp_std::result::Result<(), TransactionValidityError> {
 			Ok(())
 		}
+	}
+	impl TransactionExtension for TestExtra {
+		const IDENTIFIER: &'static str = "TestExtra";
+		type Call = ();
+		type Val = ();
+		type Pre = ();
 
 		fn validate(
 			&self,
@@ -604,7 +604,7 @@ mod tests {
 
 	#[test]
 	fn large_bad_prefix_should_work() {
-		let encoded = Compact::<u32>::from(u32::MAX).encode();
+		let encoded = (Compact::<u32>::from(u32::MAX), Preamble::<(), (), ()>::Inherent).encode();
 		assert_eq!(
 			Ex::decode(&mut &encoded[..]),
 			Err(Error::from("Not enough data to fill buffer"))

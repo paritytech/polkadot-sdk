@@ -53,7 +53,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 pub mod transaction_extension;
-pub use transaction_extension::{TransactionExtension, DispatchTransaction, AsTransactionExtension, TransactionExtensionMetadata};
+pub use transaction_extension::{TransactionExtension, DispatchTransaction, AsTransactionExtension, TransactionExtensionMetadata, AdditionalSigned};
 
 /// A lazy value.
 pub trait Lazy<T: ?Sized> {

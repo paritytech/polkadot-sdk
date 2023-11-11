@@ -18,10 +18,22 @@ use sp_std::{self, fmt::Debug, prelude::*};
 
 use super::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, CloneSystemOriginSigner};
 
+/// Any additional data that will go into the signed payload. This may be created dynamically
+/// from the transaction using the `additional_signed` function.
+pub trait AdditionalSigned {
+	/// Any additional data that will go into the signed payload. This may be created dynamically
+	/// from the transaction using the `additional_signed` function.
+	type Data: Encode + StaticTypeInfo;
+
+	/// Construct any additional data that should be in the signed payload of the transaction. Can
+	/// also perform any pre-signature-verification checks and return an error if needed.
+	fn data(&self) -> Result<Self::Data, TransactionValidityError>;
+}
+
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
 pub trait TransactionExtension:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo + AdditionalSigned
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -32,19 +44,11 @@ pub trait TransactionExtension:
 	/// The type which encodes the call to be dispatched.
 	type Call: Dispatchable;
 
-	/// Any additional data that will go into the signed payload. This may be created dynamically
-	/// from the transaction using the `additional_signed` function.
-	type AdditionalSigned: Encode + TypeInfo;
-
 	/// The type that encodes information that can be passed from validate to prepare.
 	type Val;
 
 	/// The type that encodes information that can be passed from prepare to post-dispatch.
 	type Pre;
-
-	/// Construct any additional data that should be in the signed payload of the transaction. Can
-	/// also perform any pre-signature-verification checks and return an error if needed.
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError>;
 
 	/// Validate a transaction for the transaction queue.
 	///
@@ -119,7 +123,7 @@ pub trait TransactionExtension:
 		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
-			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
+			additional_signed: scale_info::meta_type::<<Self as AdditionalSigned>::Data>()
 		}]
 	}
 
@@ -235,13 +239,8 @@ impl<Call: Dispatchable> TransactionExtension for Tuple {
 	for_tuples!( where #( Tuple: TransactionExtension<Call=Call,> )* );
 	type Call = Call;
 	const IDENTIFIER: &'static str = "Use `metadata()`!";
-	for_tuples!( type AdditionalSigned = ( #( Tuple::AdditionalSigned ),* ); );
 	for_tuples!( type Val = ( #( Tuple::Val ),* ); );
 	for_tuples!( type Pre = ( #( Tuple::Pre ),* ); );
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(for_tuples!( ( #( Tuple.additional_signed()? ),* ) ))
-	}
 
 	fn validate(
 		&self,
@@ -294,16 +293,19 @@ impl<Call: Dispatchable> TransactionExtension for Tuple {
 		ids
 	}
 }
+#[impl_for_tuples(1, 12)]
+impl AdditionalSigned for Tuple {
+	for_tuples!( type Data = ( #( Tuple::Data ),* ); );
+	fn data(&self) -> Result<Self::Data, TransactionValidityError> {
+		Ok(for_tuples!( ( #( Tuple.data()? ),* ) ))
+	}
+}
 
 impl TransactionExtension for () {
-	type AdditionalSigned = ();
 	type Call = ();
 	type Val = ();
 	type Pre = ();
 	const IDENTIFIER: &'static str = "UnitTransactionExtension";
-	fn additional_signed(&self) -> Result<(), TransactionValidityError> {
-		Ok(())
-	}
 	fn validate(
 		&self,
 		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
@@ -323,6 +325,13 @@ impl TransactionExtension for () {
 	) -> Result<(), TransactionValidityError> { Ok(()) }
 }
 
+impl AdditionalSigned for () {
+	type Data = ();
+	fn data(&self) -> Result<(), TransactionValidityError> {
+		Ok(())
+	}
+}
+
 /// Adapter to use a `SignedExtension` in the place of a `TransactionExtension`.
 #[derive(TypeInfo, Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 //#[deprecated = "Convert your SignedExtension to a TransactionExtension."]
@@ -334,17 +343,20 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 	}
 }
 
+impl<SE: SignedExtension> AdditionalSigned for AsTransactionExtension<SE> {
+	type Data = SE::AdditionalSigned;
+	fn data(&self) -> Result<Self::Data, TransactionValidityError> {
+		self.0.additional_signed()
+	}
+}
+
 impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> where
 	<SE::Call as Dispatchable>::RuntimeOrigin: CloneSystemOriginSigner<SE::AccountId> + Clone,
 {
-	type AdditionalSigned = SE::AdditionalSigned;
 	type Call = SE::Call;
 	type Val = ();
 	type Pre = SE::Pre;
 	const IDENTIFIER: &'static str = SE::IDENTIFIER;
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		self.0.additional_signed()
-	}
 	fn validate(
 		&self,
 		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
