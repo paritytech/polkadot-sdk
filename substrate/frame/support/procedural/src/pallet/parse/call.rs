@@ -128,7 +128,12 @@ impl syn::parse::Parse for FunctionAttr {
 			syn::parenthesized!(closure_content in content);
 			Ok(FunctionAttr::FeelessIf(
 				closure_content.span(),
-				closure_content.parse::<syn::ExprClosure>()?,
+				closure_content.parse::<syn::ExprClosure>().map_err(|e| {
+					let msg = "Invalid feeless_if attribute: expected a closure";
+					let mut err = syn::Error::new(closure_content.span(), msg);
+					err.combine(e);
+					err
+				})?
 			))
 		} else {
 			Err(lookahead.error())
