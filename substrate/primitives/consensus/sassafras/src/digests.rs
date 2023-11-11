@@ -48,10 +48,10 @@ pub struct SlotClaim {
 /// This is mandatory in the first block of each epoch.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
 pub struct NextEpochDescriptor {
-	/// Authorities list.
-	pub authorities: Vec<AuthorityId>,
 	/// Epoch randomness.
 	pub randomness: Randomness,
+	/// Authorities list.
+	pub authorities: Vec<AuthorityId>,
 	/// Epoch configurable parameters.
 	///
 	/// If not present previous epoch parameters are used.

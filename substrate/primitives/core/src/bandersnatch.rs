@@ -406,10 +406,10 @@ pub mod vrf {
 	///   will contribute to the signature as well.
 	#[derive(Clone)]
 	pub struct VrfSignData {
-		/// VRF inputs to be signed.
-		pub inputs: VrfIosVec<VrfInput>,
 		/// Associated protocol transcript.
 		pub transcript: Transcript,
+		/// VRF inputs to be signed.
+		pub inputs: VrfIosVec<VrfInput>,
 	}
 
 	impl VrfSignData {
@@ -479,10 +479,10 @@ pub mod vrf {
 	/// Refer to [`VrfSignData`] for more details.
 	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct VrfSignature {
-		/// VRF (pre)outputs.
-		pub outputs: VrfIosVec<VrfOutput>,
 		/// Transcript signature.
 		pub signature: Signature,
+		/// VRF (pre)outputs.
+		pub outputs: VrfIosVec<VrfOutput>,
 	}
 
 	#[cfg(feature = "full_crypto")]
@@ -799,10 +799,10 @@ pub mod ring_vrf {
 	/// Ring VRF signature.
 	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct RingVrfSignature {
-		/// VRF (pre)outputs.
-		pub outputs: VrfIosVec<VrfOutput>,
 		/// Ring signature.
 		pub signature: [u8; RING_SIGNATURE_SERIALIZED_SIZE],
+		/// VRF (pre)outputs.
+		pub outputs: VrfIosVec<VrfOutput>,
 	}
 
 	#[cfg(feature = "full_crypto")]
