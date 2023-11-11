@@ -5,7 +5,7 @@ doc:
     description: |
       1. Adds an attribute `#[pallet::feeless_if]` that can be optionally attached to a `pallet::call`.
       2. Adds a signed extension SkipCheckIfFeeless<T: SignedExtension> that wraps a transaction 
-      payment processor to skip payment fess for all such calls.
+      payment processor to potentially skip payment fess for such calls.
 
 migrations:
   db: []
