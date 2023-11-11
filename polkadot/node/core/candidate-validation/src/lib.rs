@@ -61,7 +61,7 @@ use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 use std::{
 	path::PathBuf,
 	sync::Arc,
-	time::{Duration, Instant},
+	time::{Duration, Instant}, pin::Pin,
 };
 
 use async_trait::async_trait;
@@ -135,6 +135,100 @@ impl<Context> CandidateValidationSubsystem {
 	}
 }
 
+fn handle_validation_message<S>(mut sender: S, validation_host: ValidationHost, metrics: Metrics, msg: CandidateValidationMessage) -> Pin<Box<dyn Future<Output = ()> + Send>>
+where S: SubsystemSender<RuntimeApiMessage>
+{
+	match msg {
+		CandidateValidationMessage::ValidateFromChainState {
+			candidate_receipt,
+			pov,
+			executor_params,
+			exec_timeout_kind,
+			response_sender,
+			..
+		} => {
+			// let mut sender = ctx.sender().clone();
+			// let metrics = metrics.clone();
+			// let validation_host = validation_host.clone();
+
+			// let guard = semaphore.acquire_arc().await;
+			async move {
+				// let _guard = guard;
+				let _timer = metrics.time_validate_from_chain_state();
+				let res = validate_from_chain_state(
+					&mut sender,
+					validation_host,
+					candidate_receipt,
+					pov,
+					executor_params,
+					exec_timeout_kind,
+					&metrics,
+				)
+				.await;
+
+				metrics.on_validation_event(&res);
+				let _ = response_sender.send(res);
+			}.boxed()
+		},
+		CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
+			candidate_receipt,
+			pov,
+			executor_params,
+			exec_timeout_kind,
+			response_sender,
+			..
+		} => {
+			// let metrics = metrics.clone();
+			// let validation_host = validation_host.clone();
+
+			// let guard = semaphore.acquire_arc().await;
+			async move {
+				// let _guard = guard;
+				let _timer = metrics.time_validate_from_exhaustive();
+				let res = validate_candidate_exhaustive(
+					validation_host,
+					validation_data,
+					validation_code,
+					candidate_receipt,
+					pov,
+					executor_params,
+					exec_timeout_kind,
+					&metrics,
+				)
+				.await;
+
+				metrics.on_validation_event(&res);
+				let _ = response_sender.send(res);
+			}.boxed()
+		},
+		CandidateValidationMessage::PreCheck {
+			relay_parent,
+			validation_code_hash,
+			response_sender,
+			..
+		} => {
+			// let mut sender = ctx.sender().clone();
+			// let validation_host = validation_host.clone();
+
+			// let guard = semaphore.acquire_arc().await;
+			async move {
+				// let _guard = guard;
+				let precheck_result = precheck_pvf(
+					&mut sender,
+					validation_host,
+					relay_parent,
+					validation_code_hash,
+				)
+				.await;
+
+				let _ = response_sender.send(precheck_result);
+			}.boxed()
+		}
+	}
+}
+
 #[overseer::contextbounds(CandidateValidation, prefix = self::overseer)]
 async fn run<Context>(
 	mut ctx: Context,
@@ -167,95 +261,10 @@ async fn run<Context>(
 					Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_))) => {},
 					Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
-					Ok(FromOrchestra::Communication { msg }) => match msg {
-						CandidateValidationMessage::ValidateFromChainState {
-							candidate_receipt,
-							pov,
-							executor_params,
-							exec_timeout_kind,
-							response_sender,
-							..
-						} => {
-							let mut sender = ctx.sender().clone();
-							let metrics = metrics.clone();
-							let validation_host = validation_host.clone();
-
-							let guard = semaphore.acquire_arc().await;
-							tasks.push(async move {
-								let _guard = guard;
-								let _timer = metrics.time_validate_from_chain_state();
-								let res = validate_from_chain_state(
-									&mut sender,
-									validation_host,
-									candidate_receipt,
-									pov,
-									executor_params,
-									exec_timeout_kind,
-									&metrics,
-								)
-								.await;
-
-								metrics.on_validation_event(&res);
-								let _ = response_sender.send(res);
-							}.boxed());
-						},
-						CandidateValidationMessage::ValidateFromExhaustive {
-							validation_data,
-							validation_code,
-							candidate_receipt,
-							pov,
-							executor_params,
-							exec_timeout_kind,
-							response_sender,
-							..
-						} => {
-							let metrics = metrics.clone();
-							let validation_host = validation_host.clone();
-
-							let guard = semaphore.acquire_arc().await;
-							tasks.push(async move {
-								let _guard = guard;
-								let _timer = metrics.time_validate_from_exhaustive();
-								let res = validate_candidate_exhaustive(
-									validation_host,
-									validation_data,
-									validation_code,
-									candidate_receipt,
-									pov,
-									executor_params,
-									exec_timeout_kind,
-									&metrics,
-								)
-								.await;
-
-								metrics.on_validation_event(&res);
-								let _ = response_sender.send(res);
-							}.boxed());
-						},
-						CandidateValidationMessage::PreCheck {
-							relay_parent,
-							validation_code_hash,
-							response_sender,
-							..
-						} => {
-							let mut sender = ctx.sender().clone();
-							let validation_host = validation_host.clone();
-
-							let guard = semaphore.acquire_arc().await;
-							tasks.push(async move {
-								let _guard = guard;
-								let precheck_result = precheck_pvf(
-									&mut sender,
-									validation_host,
-									relay_parent,
-									validation_code_hash,
-								)
-								.await;
-
-								let _ = response_sender.send(precheck_result);
-							}.boxed());
-						}
-					},
+					Ok(FromOrchestra::Communication { msg }) => { 
+						let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
+						tasks.push(task);
+					}
 					Err(e) => return Err(SubsystemError::from(e))
 				}
 			},
