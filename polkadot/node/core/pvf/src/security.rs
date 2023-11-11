@@ -85,7 +85,7 @@ impl fmt::Display for SecureModeError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use SecureModeError::*;
 		let display = match self {
-			CannotEnableLandlock(err) => format!("Optional: Cannot enable landlock, a Linux 5.13+ kernel security feature: {}", err),
+			CannotEnableLandlock(err) => format!("Cannot enable landlock, a Linux 5.13+ kernel security feature: {}", err),
 			CannotEnableSeccomp(err) => format!("Cannot enable seccomp, a Linux-specific kernel security feature: {}", err),
 			CannotUnshareUserNamespaceAndChangeRoot(err) => format!("Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {}", err),
 		};
@@ -113,7 +113,16 @@ fn print_secure_mode_message(errs: Vec<SecureModeError>) -> bool {
 	}
 
 	let errs_allowed = errs.iter().all(|err| err.is_allowed_in_secure_mode());
-	let errs_string: String = errs.iter().map(|err| format!("\n  - {}", err)).collect();
+	let errs_string: String = errs
+		.iter()
+		.map(|err| {
+			format!(
+				"\n  - {}{}",
+				if err.is_allowed_in_secure_mode() { "Optional: " } else { "" },
+				err
+			)
+		})
+		.collect();
 
 	if errs_allowed {
 		gum::warn!(
