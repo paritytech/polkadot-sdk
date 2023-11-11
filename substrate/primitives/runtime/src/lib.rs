@@ -955,6 +955,7 @@ pub fn print(print: impl traits::Printable) {
 }
 
 /// Utility function to declare string literals backed by an array of length N.
+///
 /// The input can be shorter than N, in that case the end of the array is padded with zeros.
 ///
 /// [`str_array`] is useful when converting strings that end up in the storage as fixed size arrays
