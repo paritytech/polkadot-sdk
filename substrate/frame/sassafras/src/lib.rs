@@ -322,8 +322,8 @@ pub mod pallet {
 
 				// Deposit a log as this is the first block in first epoch.
 				let next_epoch = NextEpochDescriptor {
-					authorities: Self::next_authorities().into_inner(),
 					randomness: Self::next_randomness(),
+					authorities: Self::next_authorities().into_inner(),
 					config: None,
 				};
 				Self::deposit_next_epoch_descriptor_digest(next_epoch);
@@ -357,7 +357,7 @@ pub mod pallet {
 				.expect("Finalization is called after initialization; qed");
 			let randomness = randomness_output
 				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
-			Self::deposit_randomness(&randomness);
+			Self::deposit_slot_randomness(&randomness);
 
 			// Check if we are in the epoch's second half.
 			// If so, start sorting the next epoch tickets.
@@ -668,8 +668,8 @@ impl<T: Config> Pallet<T> {
 		// After we update the current epoch, we signal the *next* epoch change
 		// so that nodes can track changes.
 		let next_epoch = NextEpochDescriptor {
-			authorities: next_authorities.into_inner(),
 			randomness: next_randomness,
+			authorities: next_authorities.into_inner(),
 			config: next_config,
 		};
 		Self::deposit_next_epoch_descriptor_digest(next_epoch);
@@ -695,9 +695,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Call this function on epoch change to enact current epoch randomness.
-	///
-	/// Returns the next epoch randomness.
+	// Call this function on epoch change to enact current epoch randomness.
+	//
+	// Returns the next epoch randomness.
 	fn update_epoch_randomness(next_epoch_index: u64) -> Randomness {
 		let curr_epoch_randomness = NextRandomness::<T>::get();
 		CurrentRandomness::<T>::put(curr_epoch_randomness);
@@ -715,22 +715,23 @@ impl<T: Config> Pallet<T> {
 		next_randomness
 	}
 
+	// Deposit per-slot randomness.
+	fn deposit_slot_randomness(randomness: &Randomness) {
+		let accumulator = RandomnessAccumulator::<T>::get();
+
+		let mut buf = [0; 2 * RANDOMNESS_LENGTH];
+		buf[..RANDOMNESS_LENGTH].copy_from_slice(&accumulator[..]);
+		buf[RANDOMNESS_LENGTH..].copy_from_slice(&randomness[..]);
+
+		let accumulator = hashing::blake2_256(&buf);
+		RandomnessAccumulator::<T>::put(accumulator);
+	}
+
 	// Deposit next epoch descriptor in the block header digest.
 	fn deposit_next_epoch_descriptor_digest(desc: NextEpochDescriptor) {
 		let item = ConsensusLog::NextEpochData(desc);
 		let log = DigestItem::Consensus(SASSAFRAS_ENGINE_ID, item.encode());
 		<frame_system::Pallet<T>>::deposit_log(log)
-	}
-
-	fn deposit_randomness(slot_randomness: &Randomness) {
-		let accumulator = RandomnessAccumulator::<T>::get();
-
-		let mut buf = [0; 2 * RANDOMNESS_LENGTH];
-		buf[..RANDOMNESS_LENGTH].copy_from_slice(&accumulator[..]);
-		buf[RANDOMNESS_LENGTH..].copy_from_slice(&slot_randomness[..]);
-
-		let accumulator = hashing::blake2_256(&buf);
-		RandomnessAccumulator::<T>::put(accumulator);
 	}
 
 	// Initialize authorities on genesis phase.
