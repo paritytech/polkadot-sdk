@@ -658,7 +658,7 @@ where
 					})
 					.unwrap_or_default()
 					.into_iter()
-					.filter(|tx| tx.is_signed().unwrap_or(true));
+					.filter(|tx| !tx.is_inherent());
 
 				let mut resubmitted_to_report = 0;
 

@@ -18,8 +18,8 @@
 //! Primitives for the runtime modules.
 
 use crate::{
-	generic::Digest,
-	scale_info::{MetaType, StaticTypeInfo, TypeInfo},
+	generic::{Digest, Preamble},
+	scale_info::{StaticTypeInfo, TypeInfo},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
@@ -51,6 +51,9 @@ use sp_std::{self, fmt::Debug, prelude::*};
 use std::fmt::Display;
 #[cfg(feature = "std")]
 use std::str::FromStr;
+
+pub mod transaction_extension;
+pub use transaction_extension::{TransactionExtension, DispatchTransaction, AsTransactionExtension, TransactionExtensionMetadata};
 
 /// A lazy value.
 pub trait Lazy<T: ?Sized> {
@@ -1293,16 +1296,32 @@ pub trait Extrinsic: Sized {
 
 	/// Is this `Extrinsic` signed?
 	/// If no information are available about signed/unsigned, `None` should be returned.
+	#[deprecated = "Use `!is_inherent()` instead"]
 	fn is_signed(&self) -> Option<bool> {
-		None
+		Some(!self.is_inherent())
 	}
+
+	/// Is this `Extrinsic` an inherent?
+	/// If no information is available about this, `None` should be returned.
+	fn is_inherent(&self) -> bool;
 
 	/// Create new instance of the extrinsic.
 	///
 	/// Extrinsics can be split into:
-	/// 1. Inherents (no signature; created by validators during block production)
-	/// 2. Unsigned Transactions (no signature; represent "system calls" or other special kinds of
-	/// calls) 3. Signed Transactions (with signature; a regular transactions with known origin)
+	/// 1. Inherents (no signature; created by validators during block production, validated with
+	///    ValidateInherent)
+	/// 2. Transactions (maybe a signature, validated with TransactionExtension)
+	fn from_parts(
+		call: Self::Call,
+		preamble: Preamble<
+			<Self::SignaturePayload as SignaturePayload>::SignatureAddress,
+			<Self::SignaturePayload as SignaturePayload>::Signature,
+			<Self::SignaturePayload as SignaturePayload>::SignatureExtra,
+		>,
+	) -> Self;
+
+	/// TODO
+	#[deprecated = "Use `from_parts` instead"]
 	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
 		None
 	}
@@ -1341,7 +1360,7 @@ pub trait ExtrinsicMetadata {
 	const VERSION: u8;
 
 	/// Signed extensions attached to this `Extrinsic`.
-	type SignedExtensions: SignedExtension;
+	type Extensions: TransactionExtension;
 }
 
 /// Extract the hashing type for a block.
@@ -1444,8 +1463,16 @@ impl Dispatchable for () {
 	}
 }
 
+/// Runtime Origin which includes a System Origin variant whose `AccountId` is the parameter.
+pub trait CloneSystemOriginSigner<AccountId> {
+	/// Extract a copy of the inner value of the SystemOrigin Signed variant, if self has that
+	/// variant.
+	fn clone_system_origin_signer(&self) -> Option<AccountId>;
+}
+
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
+//#[deprecated = "Use `TransactionExtension` instead."]
 pub trait SignedExtension:
 	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
@@ -1502,38 +1529,6 @@ pub trait SignedExtension:
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError>;
 
-	/// Validate an unsigned transaction for the transaction queue.
-	///
-	/// This function can be called frequently by the transaction queue
-	/// to obtain transaction validity against current state.
-	/// It should perform all checks that determine a valid unsigned transaction,
-	/// and quickly eliminate ones that are stale or incorrect.
-	///
-	/// Make sure to perform the same checks in `pre_dispatch_unsigned` function.
-	fn validate_unsigned(
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> TransactionValidity {
-		Ok(ValidTransaction::default())
-	}
-
-	/// Do any pre-flight stuff for a unsigned transaction.
-	///
-	/// Note this function by default delegates to `validate_unsigned`, so that
-	/// all checks performed for the transaction queue are also performed during
-	/// the dispatch phase (applying the extrinsic).
-	///
-	/// If you ever override this function, you need to make sure to always
-	/// perform the same validation as in `validate_unsigned`.
-	fn pre_dispatch_unsigned(
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<(), TransactionValidityError> {
-		Self::validate_unsigned(call, info, len).map(|_| ()).map_err(Into::into)
-	}
-
 	/// Do any post-flight stuff for an extrinsic.
 	///
 	/// If the transaction is signed, then `_pre` will contain the output of `pre_dispatch`,
@@ -1564,27 +1559,49 @@ pub trait SignedExtension:
 	///
 	/// As a [`SignedExtension`] can be a tuple of [`SignedExtension`]s we need to return a `Vec`
 	/// that holds the metadata of each one. Each individual `SignedExtension` must return
-	/// *exactly* one [`SignedExtensionMetadata`].
+	/// *exactly* one [`TransactionExtensionMetadata`].
 	///
 	/// This method provides a default implementation that returns a vec containing a single
-	/// [`SignedExtensionMetadata`].
-	fn metadata() -> Vec<SignedExtensionMetadata> {
-		sp_std::vec![SignedExtensionMetadata {
+	/// [`TransactionExtensionMetadata`].
+	fn metadata() -> Vec<TransactionExtensionMetadata> {
+		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
 			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
 		}]
 	}
-}
 
-/// Information about a [`SignedExtension`] for the runtime metadata.
-pub struct SignedExtensionMetadata {
-	/// The unique identifier of the [`SignedExtension`].
-	pub identifier: &'static str,
-	/// The type of the [`SignedExtension`].
-	pub ty: MetaType,
-	/// The type of the [`SignedExtension`] additional signed data for the payload.
-	pub additional_signed: MetaType,
+	/// Validate an unsigned transaction for the transaction queue.
+	///
+	/// This function can be called frequently by the transaction queue
+	/// to obtain transaction validity against current state.
+	/// It should perform all checks that determine a valid unsigned transaction,
+	/// and quickly eliminate ones that are stale or incorrect.
+	#[deprecated = "Use `ValidateInherent` for inherents or `TransactionExtension` for transactions."]
+	fn validate_unsigned(
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> TransactionValidity {
+		Ok(ValidTransaction::default())
+	}
+
+	/// Do any pre-flight stuff for an unsigned transaction.
+	///
+	/// Note this function by default delegates to `validate_unsigned`, so that
+	/// all checks performed for the transaction queue are also performed during
+	/// the dispatch phase (applying the extrinsic).
+	///
+	/// If you ever override this function, you need not perform the same validation as in
+	/// `validate_unsigned`.
+	#[deprecated = "Use `ValidateInherent` for inherents or `TransactionExtension` for transactions."]
+	fn pre_dispatch_unsigned(
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<(), TransactionValidityError> {
+		Ok(())
+	}
 }
 
 #[impl_for_tuples(1, 12)]
@@ -1628,7 +1645,11 @@ impl<AccountId, Call: Dispatchable> SignedExtension for Tuple {
 		len: usize,
 	) -> TransactionValidity {
 		let valid = ValidTransaction::default();
-		for_tuples!( #( let valid = valid.combine_with(Tuple::validate_unsigned(call, info, len)?); )* );
+		#[allow(deprecated)]
+		for_tuples!( #(
+			#[allow(deprecated)]
+			let valid = valid.combine_with(Tuple::validate_unsigned(call, info, len)?);
+		)* );
 		Ok(valid)
 	}
 
@@ -1637,7 +1658,10 @@ impl<AccountId, Call: Dispatchable> SignedExtension for Tuple {
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
-		for_tuples!( #( Tuple::pre_dispatch_unsigned(call, info, len)?; )* );
+		for_tuples!( #(
+			#[allow(deprecated)]
+			Tuple::pre_dispatch_unsigned(call, info, len)?;
+		)* );
 		Ok(())
 	}
 
@@ -1659,7 +1683,7 @@ impl<AccountId, Call: Dispatchable> SignedExtension for Tuple {
 		Ok(())
 	}
 
-	fn metadata() -> Vec<SignedExtensionMetadata> {
+	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		let mut ids = Vec::new();
 		for_tuples!( #( ids.extend(Tuple::metadata()); )* );
 		ids
@@ -1682,7 +1706,7 @@ impl SignedExtension for () {
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
 	}
 }
 

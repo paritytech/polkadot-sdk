@@ -1456,7 +1456,7 @@ pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 /// I.e. a trait implementation with bound `T: Config`, of trait `ValidateUnsigned` for type
 /// `Pallet<T>`, and some optional where clause.
 ///
-/// NOTE: There is also the `sp_runtime::traits::SignedExtension` trait that can be used to add
+/// NOTE: There is also the `sp_runtime::traits::TransactionExtension` trait that can be used to add
 /// some specific logic for transaction validation.
 ///
 /// ## Macro expansion

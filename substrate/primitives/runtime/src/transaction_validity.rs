@@ -338,7 +338,7 @@ pub struct ValidTransactionBuilder {
 impl ValidTransactionBuilder {
 	/// Set the priority of a transaction.
 	///
-	/// Note that the final priority for `FRAME` is combined from all `SignedExtension`s.
+	/// Note that the final priority for `FRAME` is combined from all `TransactionExtension`s.
 	/// Most likely for unsigned transactions you want the priority to be higher
 	/// than for regular transactions. We recommend exposing a base priority for unsigned
 	/// transactions as a runtime module parameter, so that the runtime can tune inter-module

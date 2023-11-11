@@ -19,11 +19,11 @@
 
 use crate::{
 	codec::{Codec, Decode, Encode, MaxEncodedLen},
-	generic,
+	generic::{self, Preamble},
 	scale_info::TypeInfo,
 	traits::{
 		self, Applyable, BlakeTwo256, Checkable, DispatchInfoOf, Dispatchable, OpaqueKeys,
-		PostDispatchInfoOf, SignaturePayload, SignedExtension, ValidateUnsigned,
+		PostDispatchInfoOf, SignaturePayload, TransactionExtension, ValidateUnsigned, DispatchTransaction,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResultWithInfo, KeyTypeId,
@@ -198,6 +198,8 @@ impl Header {
 	}
 }
 
+// TODO: Remove this type and just use the regular tx types.
+
 /// An opaque extrinsic wrapper type.
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
 pub struct ExtrinsicWrapper<Xt>(Xt);
@@ -206,8 +208,18 @@ impl<Xt> traits::Extrinsic for ExtrinsicWrapper<Xt> {
 	type Call = ();
 	type SignaturePayload = ();
 
-	fn is_signed(&self) -> Option<bool> {
-		None
+	fn is_inherent(&self) -> bool {
+		false
+	}
+	fn from_parts(
+		_call: Self::Call,
+		_preamble: generic::Preamble<
+			<Self::SignaturePayload as SignaturePayload>::SignatureAddress,
+			<Self::SignaturePayload as SignaturePayload>::Signature,
+			<Self::SignaturePayload as SignaturePayload>::SignatureExtra,
+		>,
+	) -> Self {
+		panic!()
 	}
 }
 
@@ -284,13 +296,15 @@ where
 }
 
 /// The signature payload of a `TestXt`.
-type TxSingaturePayload<Extra> = (u64, Extra);
+type TxSignaturePayload<Extra> = (u64, Extra);
 
-impl<Extra: TypeInfo> SignaturePayload for TxSingaturePayload<Extra> {
+impl<Extra: TypeInfo> SignaturePayload for TxSignaturePayload<Extra> {
 	type SignatureAddress = u64;
 	type Signature = ();
 	type SignatureExtra = Extra;
 }
+
+// TODO: Remove this completely - just use the regular tx types.
 
 /// Test transaction, tuple of (sender, call, signed_extra)
 /// with index only used if sender is some.
@@ -299,7 +313,7 @@ impl<Extra: TypeInfo> SignaturePayload for TxSingaturePayload<Extra> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 pub struct TestXt<Call, Extra> {
 	/// Signature of the extrinsic.
-	pub signature: Option<TxSingaturePayload<Extra>>,
+	pub signature: Option<TxSignaturePayload<Extra>>,
 	/// Call of the extrinsic.
 	pub call: Call,
 }
@@ -344,16 +358,34 @@ impl<Call: Codec + Sync + Send, Context, Extra> Checkable<Context> for TestXt<Ca
 	}
 }
 
+// TODO: Remove
 impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
 	for TestXt<Call, Extra>
 {
 	type Call = Call;
-	type SignaturePayload = TxSingaturePayload<Extra>;
+	type SignaturePayload = TxSignaturePayload<Extra>;
 
-	fn is_signed(&self) -> Option<bool> {
-		Some(self.signature.is_some())
+	fn is_inherent(&self) -> bool {
+		!self.signature.is_some()
 	}
 
+	fn from_parts(
+		call: Self::Call,
+		preamble: generic::Preamble<
+			<Self::SignaturePayload as SignaturePayload>::SignatureAddress,
+			<Self::SignaturePayload as SignaturePayload>::Signature,
+			<Self::SignaturePayload as SignaturePayload>::SignatureExtra,
+		>,
+	) -> Self {
+		Self {
+			call,
+			signature: match preamble {
+				Preamble::Signed(address, _, extra) => Some((address, extra)),
+				Preamble::Inherent | Preamble::General(_) => None,
+			},
+		}
+	}
+	
 	fn new(c: Call, sig: Option<Self::SignaturePayload>) -> Option<Self> {
 		Some(TestXt { signature: sig, call: c })
 	}
@@ -362,12 +394,13 @@ impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
 impl<Call, Extra> traits::ExtrinsicMetadata for TestXt<Call, Extra>
 where
 	Call: Codec + Sync + Send,
-	Extra: SignedExtension<AccountId = u64, Call = Call>,
+	Extra: TransactionExtension<Call = Call>,
 {
-	type SignedExtensions = Extra;
+	type Extensions = Extra;
 	const VERSION: u8 = 0u8;
 }
 
+// TODO: remove this in favour of real transactions.
 impl<Origin, Call, Extra> Applyable for TestXt<Call, Extra>
 where
 	Call: 'static
@@ -379,7 +412,7 @@ where
 		+ Codec
 		+ Debug
 		+ Dispatchable<RuntimeOrigin = Origin>,
-	Extra: SignedExtension<AccountId = u64, Call = Call>,
+	Extra: TransactionExtension<Call = Call>,
 	Origin: From<Option<u64>>,
 {
 	type Call = Call;
@@ -392,11 +425,9 @@ where
 		len: usize,
 	) -> TransactionValidity {
 		if let Some((ref id, ref extra)) = self.signature {
-			Extra::validate(extra, id, &self.call, info, len)
+			extra.validate(Some(id.clone()).into(), &self.call, info, len).map(|x| x.0)
 		} else {
-			let valid = Extra::validate_unsigned(&self.call, info, len)?;
-			let unsigned_validation = U::validate_unsigned(source, &self.call)?;
-			Ok(valid.combine_with(unsigned_validation))
+			U::validate_unsigned(source, &self.call)
 		}
 	}
 
@@ -407,15 +438,11 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Self::Call>> {
-		let maybe_who = if let Some((who, extra)) = self.signature {
-			Extra::pre_dispatch(extra, &who, &self.call, info, len)?;
-			Some(who)
+		if let Some((who, extra)) = self.signature {
+			extra.dispatch_transaction(Some(who).into(), self.call, info, len)
 		} else {
-			Extra::pre_dispatch_unsigned(&self.call, info, len)?;
 			U::pre_dispatch(&self.call)?;
-			None
-		};
-
-		Ok(self.call.dispatch(maybe_who.into()))
+			Ok(self.call.dispatch(None.into()))
+		}
 	}
 }

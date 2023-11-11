@@ -52,7 +52,7 @@ pub mod __private {
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
-		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+		traits::{CloneSystemOriginSigner, Dispatchable}, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
@@ -1631,7 +1631,7 @@ pub mod pallet_prelude {
 /// [`ValidateUnsigned`](`pallet_prelude::ValidateUnsigned`) for type `Pallet<T>`, and some
 /// optional where clause.
 ///
-/// NOTE: There is also the [`sp_runtime::traits::SignedExtension`] trait that can be used to
+/// NOTE: There is also the [`sp_runtime::traits::TransactionExtension`] trait that can be used to
 /// add some specific logic for transaction validation.
 ///
 /// Also see [`pallet::validate_unsigned`](`frame_support::pallet_macros::validate_unsigned`)

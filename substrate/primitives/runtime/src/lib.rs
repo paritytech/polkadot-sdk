@@ -944,9 +944,23 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
+// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
 impl traits::Extrinsic for OpaqueExtrinsic {
 	type Call = ();
 	type SignaturePayload = ();
+	fn is_inherent(&self) -> bool {
+		false
+	}
+	fn from_parts(
+		_call: Self::Call,
+		_preamble: generic::Preamble<
+			<Self::SignaturePayload as traits::SignaturePayload>::SignatureAddress,
+			<Self::SignaturePayload as traits::SignaturePayload>::Signature,
+			<Self::SignaturePayload as traits::SignaturePayload>::SignatureExtra,
+		>,
+	) -> Self {
+		panic!()
+	}
 }
 
 /// Print something that implements `Printable` from the runtime.

@@ -937,8 +937,8 @@ fn metadata() {
 	let extrinsic = ExtrinsicMetadata {
 		ty: scale_info::meta_type::<UncheckedExtrinsic>(),
 		version: 4,
-		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+		extensions: vec![TransactionExtensionMetadata {
+			identifier: "UnitTransactionExtension",
 			ty: scale_info::meta_type::<()>(),
 			additional_signed: scale_info::meta_type::<()>(),
 		}],

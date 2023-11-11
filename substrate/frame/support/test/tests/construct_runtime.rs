@@ -31,7 +31,7 @@ use sp_api::RuntimeVersion;
 use sp_core::{sr25519, ConstU64};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, Verify},
+	traits::{BlakeTwo256, Verify, TransactionExtensionMetadata},
 	DispatchError, ModuleError,
 };
 
@@ -814,8 +814,8 @@ fn test_metadata() {
 	let extrinsic = ExtrinsicMetadata {
 		ty: meta_type::<UncheckedExtrinsic>(),
 		version: 4,
-		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+		transaction_extensions: vec![TransactionExtensionMetadata {
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],

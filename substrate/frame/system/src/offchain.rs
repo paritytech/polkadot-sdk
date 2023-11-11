@@ -88,6 +88,7 @@ where
 		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
 		signature: Option<<T::Extrinsic as ExtrinsicT>::SignaturePayload>,
 	) -> Result<(), ()> {
+		// TODO: Use regular transaction API instead.
 		let xt = T::Extrinsic::new(call, signature).ok_or(())?;
 		sp_io::offchain::submit_transaction(xt.encode())
 	}
@@ -471,7 +472,7 @@ pub trait SendTransactionTypes<LocalCall> {
 ///
 /// This trait is meant to be implemented by the runtime and is responsible for constructing
 /// a payload to be signed and contained within the extrinsic.
-/// This will most likely include creation of `SignedExtra` (a set of `SignedExtensions`).
+/// This will most likely include creation of `SignedExtra` (a set of `TransactionExtension`).
 /// Note that the result can be altered by inspecting the `Call` (for instance adjusting
 /// fees, or mortality depending on the `pallet` being called).
 pub trait CreateSignedTransaction<LocalCall>:

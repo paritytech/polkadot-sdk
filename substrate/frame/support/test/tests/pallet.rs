@@ -1810,8 +1810,8 @@ fn metadata() {
 
 	let extrinsic = ExtrinsicMetadata {
 		version: 4,
-		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+		signed_extensions: vec![TransactionExtensionMetadata {
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],
