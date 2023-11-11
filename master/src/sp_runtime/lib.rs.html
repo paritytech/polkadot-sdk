@@ -1124,6 +1124,32 @@
 <a href="#1124" id="1124">1124</a>
 <a href="#1125" id="1125">1125</a>
 <a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2078,6 +2104,32 @@
 <span class="doccomment">/// Print something that implements `Printable` from the runtime.
 </span><span class="kw">pub fn </span>print(print: <span class="kw">impl </span>traits::Printable) {
 	print.print();
+}
+
+<span class="doccomment">/// Utility function to declare string literals backed by an array of length N.
+///
+/// The input can be shorter than N, in that case the end of the array is padded with zeros.
+///
+/// [`str_array`] is useful when converting strings that end up in the storage as fixed size arrays
+/// or in const contexts where static data types have strings that could also end up in the storage.
+///
+/// # Example
+///
+/// ```rust
+/// # use sp_runtime::str_array;
+/// const MY_STR: [u8; 6] = str_array(&quot;data&quot;);
+/// assert_eq!(MY_STR, *b&quot;data\0\0&quot;);
+/// ```
+</span><span class="kw">pub const fn </span>str_array&lt;<span class="kw">const </span>N: usize&gt;(s: <span class="kw-2">&amp;</span>str) -&gt; [u8; N] {
+	<span class="macro">debug_assert!</span>(s.len() &lt;= N, <span class="string">&quot;String literal doesn&#39;t fit in array&quot;</span>);
+	<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+	<span class="kw">let </span><span class="kw-2">mut </span>arr = [<span class="number">0</span>; N];
+	<span class="kw">let </span>s = s.as_bytes();
+	<span class="kw">while </span>i &lt; s.len() {
+		arr[i] = s[i];
+		i += <span class="number">1</span>;
+	}
+	arr
 }
 
 <span class="doccomment">/// Describes on what should happen with a storage transaction.
