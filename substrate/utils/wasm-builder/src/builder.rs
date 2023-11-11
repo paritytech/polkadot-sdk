@@ -202,7 +202,7 @@ fn generate_crate_skip_build_env_name() -> String {
 
 /// Checks if the build of the WASM binary should be skipped.
 fn check_skip_build() -> bool {
-	env::var(crate::SKIP_BUILD_ENV).is_ok() ||
+	env::var(crate::SKIP_BUILD_ENV) == Ok("1".to_string()) ||
 		env::var(generate_crate_skip_build_env_name()).is_ok() ||
 		// If we are running in docs.rs, let's skip building.
 		// https://docs.rs/about/builds#detecting-docsrs

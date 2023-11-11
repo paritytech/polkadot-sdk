@@ -738,7 +738,7 @@ fn build_bloaty_blob(
 		// env variable.
 		.env_remove("CARGO_ENCODED_RUSTFLAGS")
 		// We don't want to call ourselves recursively
-		.env(crate::SKIP_BUILD_ENV, "");
+		.env(crate::SKIP_BUILD_ENV, "1");
 
 	if super::color_output_enabled() {
 		build_cmd.arg("--color=always");
