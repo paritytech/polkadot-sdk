@@ -17,6 +17,7 @@
 
 use super::{helper, InheritedCallWeightAttr};
 use frame_support_procedural_tools::get_doc_literals;
+use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
 use syn::{spanned::Spanned, ExprClosure};
@@ -88,12 +89,13 @@ pub struct CallVariantDef {
 }
 
 /// Attributes for functions in call impl block.
-/// Parse for `#[pallet::weight(expr)]` or `#[pallet::call_index(expr)] or
-/// `#[pallet::feeless_if(expr)]`
 pub enum FunctionAttr {
+	/// Parse for `#[pallet::call_index(expr)]`
 	CallIndex(u8),
+	/// Parse for `#[pallet::weight(expr)]`
 	Weight(syn::Expr),
-	FeelessIf(syn::ExprClosure),
+	/// Parse for `#[pallet::feeless_if(expr)]`
+	FeelessIf(Span, syn::ExprClosure),
 }
 
 impl syn::parse::Parse for FunctionAttr {
@@ -124,7 +126,10 @@ impl syn::parse::Parse for FunctionAttr {
 			content.parse::<keyword::feeless_if>()?;
 			let closure_content;
 			syn::parenthesized!(closure_content in content);
-			Ok(FunctionAttr::FeelessIf(closure_content.parse::<syn::ExprClosure>()?))
+			Ok(FunctionAttr::FeelessIf(
+				closure_content.span(),
+				closure_content.parse::<syn::ExprClosure>()?,
+			))
 		} else {
 			Err(lookahead.error())
 		}
@@ -248,8 +253,8 @@ impl CallDef {
 						FunctionAttr::Weight(_) => {
 							weight_attrs.push(attr);
 						},
-						FunctionAttr::FeelessIf(_) => {
-							feeless_attrs.push(attr);
+						FunctionAttr::FeelessIf(span, _) => {
+							feeless_attrs.push((span, attr));
 						},
 					}
 				}
@@ -341,11 +346,11 @@ impl CallDef {
 
 				if feeless_attrs.len() > 1 {
 					let msg = "Invalid pallet::call, too many feeless_if attributes given";
-					return Err(syn::Error::new(method.sig.span(), msg))
+					return Err(syn::Error::new(feeless_attrs[1].0, msg))
 				}
 				let feeless_check: Option<ExprClosure> =
-					feeless_attrs.pop().map(|attr| match attr {
-						FunctionAttr::FeelessIf(closure) => closure,
+					feeless_attrs.pop().map(|(_, attr)| match attr {
+						FunctionAttr::FeelessIf(_, closure) => closure,
 						_ => unreachable!("checked during creation of the let binding"),
 					});
 

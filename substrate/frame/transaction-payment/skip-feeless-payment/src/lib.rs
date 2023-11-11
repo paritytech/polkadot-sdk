@@ -12,7 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+//
 //! # Skip Feeless Payment Pallet
 //!
 //! This pallet allows runtimes that include it to skip payment of transaction fees for
@@ -20,7 +20,7 @@
 //! frame_support::pallet_prelude::feeless_if`).
 //!
 //! ## Overview
-
+//!
 //! It does this by wrapping an existing [`SignedExtension`] implementation (e.g.
 //! [`pallet-transaction-payment`]) and checking if the dispatchable is feeless before applying the
 //! wrapped extension. If the dispatchable is indeed feeless, the extension is skipped and a custom
@@ -28,7 +28,7 @@
 //!
 //!
 //! ## Integration
-
+//!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
 //! in your `construct_runtime` macro and include this pallet's
 //! [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
