@@ -31,6 +31,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
+pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false}
 rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false}
 westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false}
 polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
@@ -67,6 +68,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-xcm/std",
 	"parachain-info/std",
 	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
@@ -92,6 +94,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

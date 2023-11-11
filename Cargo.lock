@@ -11360,6 +11360,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-xcm",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-primitives",

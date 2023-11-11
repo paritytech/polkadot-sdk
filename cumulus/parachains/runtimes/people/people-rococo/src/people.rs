@@ -22,8 +22,9 @@ use frame_support::{
 	RuntimeDebugNoBound,
 };
 use pallet_identity::{Data, IdentityInformationProvider};
+use parachains_common::impls::ToParentTreasury;
 use scale_info::{build::Variants, Path, Type, TypeInfo};
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
 
 parameter_types! {
@@ -34,6 +35,10 @@ parameter_types! {
 	pub const BasicDeposit: Balance = deposit(1, 17);
 	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
+	pub IdentityPalletAccount: AccountId =
+		parachains_common::polkadot::account::IDENTITY_PALLET_ID.into_account_truncating();
+	pub RelayTreasuryAccount: AccountId =
+		parachains_common::polkadot::account::POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
 }
 
 impl pallet_identity::Config for Runtime {
@@ -45,9 +50,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
 	type MaxRegistrars = ConstU32<20>;
-	// todo: consider teleporting to treasury.
-	type Slashed = ();
-	// todo: configure origins.
+	type Slashed = ToParentTreasury<RelayTreasuryAccount, IdentityPalletAccount, Runtime>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
@@ -128,8 +131,8 @@ pub struct IdentityInfo {
 	/// Stored as UTF-8.
 	pub web: Data,
 
-	/// The Matrix (e.g. for Element) handle held by the controller of the account. Previously, this
-	/// was called `riot`.
+	/// The Matrix (e.g. for Element) handle held by the controller of the account. Previously,
+	/// this was called `riot`.
 	///
 	/// Stored as UTF-8.
 	pub matrix: Data,

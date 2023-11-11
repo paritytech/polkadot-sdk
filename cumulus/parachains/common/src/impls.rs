@@ -18,12 +18,14 @@
 
 use frame_support::traits::{
 	fungibles::{self, Balanced, Credit},
-	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
+	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced, OriginTrait,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
-use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
+use xcm::latest::{
+	AssetId, Fungibility, Fungibility::Fungible, Junction, MultiAsset, MultiLocation, Parent,
+};
 
 /// Type alias to conveniently refer to the `Currency::NegativeImbalance` associated type.
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -115,6 +117,55 @@ impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFr
 		&loc == origin &&
 			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
 			if asset_loc.match_and_split(&loc).is_some())
+	}
+}
+
+/// Type alias to conveniently refer to the `Currency::Balance` associated type.
+pub type BalanceOf<T> =
+	<pallet_balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+/// Implements `OnUnbalanced::on_unbalanced` to teleport slashed assets to relay chain treasury
+/// account.
+pub struct ToParentTreasury<TreasuryAccount, PalletAccount, T>(
+	PhantomData<(TreasuryAccount, PalletAccount, T)>,
+);
+
+impl<TreasuryAccount, PalletAccount, T> OnUnbalanced<NegativeImbalance<T>>
+	for ToParentTreasury<TreasuryAccount, PalletAccount, T>
+where
+	T: pallet_balances::Config + pallet_xcm::Config + frame_system::Config,
+	<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId: From<AccountIdOf<T>>,
+	[u8; 32]: From<<T as frame_system::Config>::AccountId>,
+	TreasuryAccount: Get<AccountIdOf<T>>,
+	PalletAccount: Get<AccountIdOf<T>>,
+	BalanceOf<T>: Into<Fungibility>,
+{
+	fn on_unbalanced(amount: NegativeImbalance<T>) {
+		let amount = match amount.drop_zero() {
+			Ok(..) => return,
+			Err(amount) => amount,
+		};
+		let imbalance = amount.peek();
+		let pallet_acc: AccountIdOf<T> = PalletAccount::get();
+		let treasury_acc: AccountIdOf<T> = TreasuryAccount::get();
+
+		<pallet_balances::Pallet<T>>::resolve_creating(&pallet_acc, amount);
+
+		let result = <pallet_xcm::Pallet<T>>::teleport_assets(
+			<<T as frame_system::Config>::RuntimeOrigin>::signed(pallet_acc.into()),
+			Box::new(Parent.into()),
+			Box::new(
+				Junction::AccountId32 { network: None, id: treasury_acc.into() }
+					.into_location()
+					.into(),
+			),
+			Box::new((Parent, imbalance).into()),
+			0,
+		);
+
+		if let Err(err) = result {
+			log::warn!("Failed to teleport slashed assets: {:?}", err);
+		}
 	}
 }
 

@@ -49,7 +49,7 @@ use fellowship::{
 	migration::import_kusama_fellowship, pallet_fellowship_origins, Fellows,
 	FellowshipCollectiveInstance,
 };
-use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp, ToParentTreasury};
+use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -84,7 +84,7 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::DealWithFees,
+	impls::{DealWithFees, ToParentTreasury},
 	message_queue::*,
 	polkadot::{account::*, consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,

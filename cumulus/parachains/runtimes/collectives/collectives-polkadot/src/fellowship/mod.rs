@@ -20,7 +20,6 @@ pub(crate) mod migration;
 mod origins;
 mod tracks;
 use crate::{
-	impls::ToParentTreasury,
 	weights,
 	xcm_config::{FellowshipAdminBodyId, UsdtAssetHub},
 	AccountId, Balance, Balances, FellowshipReferenda, GovernanceLocation, PolkadotTreasuryAccount,
@@ -37,7 +36,7 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::{polkadot::account, HOURS};
+use parachains_common::{impls::ToParentTreasury, polkadot::account, HOURS};
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{AccountIdConversion, ConstU16, ConvertToValue, Replace, TakeFirst};
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
