@@ -345,7 +345,7 @@ impl CallDef {
 				let docs = get_doc_literals(&method.attrs);
 
 				if feeless_attrs.len() > 1 {
-					let msg = "Invalid pallet::call, too many feeless_if attributes given";
+					let msg = "Invalid pallet::call, there can only be one feeless_if attribute";
 					return Err(syn::Error::new(feeless_attrs[1].0, msg))
 				}
 				let feeless_check: Option<ExprClosure> =
