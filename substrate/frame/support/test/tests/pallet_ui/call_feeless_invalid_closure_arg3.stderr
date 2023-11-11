@@ -1,15 +1,5 @@
-error[E0308]: mismatched types
-  --> tests/pallet_ui/call_feeless_invalid_closure_arg3.rs:32:31
-   |
-31 |         #[pallet::feeless_if(|_: &OriginFor<T>, _s: &u32| -> bool { true })]
-   |                              --------------------------------------------- arguments to this function are incorrect
-32 |         pub fn foo(_: OriginFor<T>, _something: u64) -> DispatchResult { Ok(()) }
-   |                                     ^^^^^^^^^^ expected `&u32`, found `&u64`
-   |
-   = note: expected reference `&u32`
-              found reference `&u64`
-note: closure parameter defined here
+error: Invalid pallet::call, feeless_if closure argument must have a reference to the same type as the dispatchable function argument
   --> tests/pallet_ui/call_feeless_invalid_closure_arg3.rs:31:43
    |
 31 |         #[pallet::feeless_if(|_: &OriginFor<T>, _s: &u32| -> bool { true })]
-   |                                                 ^^^^^^^^
+   |                                                 ^^

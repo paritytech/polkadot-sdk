@@ -133,7 +133,7 @@ impl syn::parse::Parse for FunctionAttr {
 					let mut err = syn::Error::new(closure_content.span(), msg);
 					err.combine(e);
 					err
-				})?
+				})?,
 			))
 		} else {
 			Err(lookahead.error())
@@ -158,28 +158,33 @@ impl syn::parse::Parse for ArgAttrIsCompact {
 	}
 }
 
-/// Check the syntax is `OriginFor<T>`
-pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
-	pub struct CheckDispatchableFirstArg;
+/// Check the syntax is `OriginFor<T>` or `&OriginFor<T>`.
+pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::Result<()> {
+	pub struct CheckDispatchableFirstArg(bool);
 	impl syn::parse::Parse for CheckDispatchableFirstArg {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let is_ref = input.parse::<syn::Token![&]>().is_ok();
 			input.parse::<keyword::OriginFor>()?;
 			input.parse::<syn::Token![<]>()?;
 			input.parse::<keyword::T>()?;
 			input.parse::<syn::Token![>]>()?;
 
-			Ok(Self)
+			Ok(Self(is_ref))
 		}
 	}
 
-	syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream()).map_err(|e| {
-		let msg = "Invalid type: expected `OriginFor<T>`";
-		let mut err = syn::Error::new(ty.span(), msg);
-		err.combine(e);
-		err
-	})?;
-
-	Ok(())
+	let result = syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream());
+	return match result {
+		Ok(CheckDispatchableFirstArg(has_ref)) if is_ref == has_ref => Ok(()),
+		_ => {
+			let msg = if is_ref {
+				"Invalid type: expected `&OriginFor<T>`"
+			} else {
+				"Invalid type: expected `OriginFor<T>`"
+			};
+			return Err(syn::Error::new(ty.span(), msg))
+		},
+	}
 }
 
 impl CallDef {
@@ -235,7 +240,7 @@ impl CallDef {
 						return Err(syn::Error::new(method.sig.span(), msg))
 					},
 					Some(syn::FnArg::Typed(arg)) => {
-						check_dispatchable_first_arg_type(&arg.ty)?;
+						check_dispatchable_first_arg_type(&arg.ty, false)?;
 					},
 				}
 
@@ -364,6 +369,43 @@ impl CallDef {
 						let msg = "Invalid pallet::call, feeless_if closure must have same \
 							number of arguments as the dispatchable function";
 						return Err(syn::Error::new(feeless_check.span(), msg))
+					}
+
+					match feeless_check.inputs.first() {
+						None => {
+							let msg = "Invalid pallet::call, feeless_if closure must have at least origin arg";
+							return Err(syn::Error::new(feeless_check.span(), msg))
+						},
+						Some(syn::Pat::Type(arg)) => {
+							check_dispatchable_first_arg_type(&arg.ty, true)?;
+						},
+						_ => {
+							let msg = "Invalid pallet::call, feeless_if closure first argument must be a typed argument, \
+								e.g. `origin: OriginFor<T>`";
+							return Err(syn::Error::new(feeless_check.span(), msg))
+						},
+					}
+
+					for (feeless_arg, arg) in feeless_check.inputs.iter().skip(1).zip(args.iter()) {
+						let feeless_arg_type =
+							if let syn::Pat::Type(syn::PatType { ty, .. }) = feeless_arg.clone() {
+								if let syn::Type::Reference(pat) = *ty {
+									pat.elem.clone()
+								} else {
+									let msg = "Invalid pallet::call, feeless_if closure argument must be a reference";
+									return Err(syn::Error::new(ty.span(), msg))
+								}
+							} else {
+								let msg = "Invalid pallet::call, feeless_if closure argument must be a type ascription pattern";
+								return Err(syn::Error::new(feeless_arg.span(), msg))
+							};
+
+						if feeless_arg_type != arg.2 {
+							let msg =
+								"Invalid pallet::call, feeless_if closure argument must have \
+								a reference to the same type as the dispatchable function argument";
+							return Err(syn::Error::new(feeless_arg.span(), msg))
+						}
 					}
 
 					let valid_return = match &feeless_check.output {
