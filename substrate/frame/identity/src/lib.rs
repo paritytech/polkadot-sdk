@@ -974,7 +974,6 @@ impl<T: Config> Pallet<T> {
 		target: &T::AccountId,
 	) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
 		// Identity Deposit
-		ensure!(IdentityOf::<T>::contains_key(&target), Error::<T>::NoIdentity);
 		let new_id_deposit = IdentityOf::<T>::try_mutate(
 			&target,
 			|registration| -> Result<BalanceOf<T>, DispatchError> {

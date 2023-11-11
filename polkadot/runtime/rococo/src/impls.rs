@@ -93,14 +93,14 @@ where
 		// check out
 		xcm_config::LocalAssetTransactor::can_check_out(
 			&destination,
-			&roc.inner().first().unwrap(), // <- safe unwrap since we just set `roc`.
+			&roc.inner().first().expect("`roc` was just set and has a `first()`; qed."),
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		)
 		.map_err(|_| pallet_xcm::Error::<Runtime>::InvalidAsset)?;
 		xcm_config::LocalAssetTransactor::check_out(
 			&destination,
-			&roc.inner().first().unwrap(), // <- safe unwrap since we just set `roc`.
+			&roc.inner().first().expect("`roc` was just set and has a `first()`; qed."),
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		);
