@@ -960,6 +960,14 @@ pub fn print(print: impl traits::Printable) {
 ///
 /// [`str_array`] is useful when converting strings that end up in the storage as fixed size arrays
 /// or in const contexts where static data types have strings that could also end up in the storage.
+///
+/// # Example
+///
+/// ```rust
+/// # use sp_runtime::str_array;
+/// const MY_STR: [u8; 6] = str_array("data");
+/// assert_eq!(MY_STR, *b"data\0\0");
+/// ```
 pub const fn str_array<const N: usize>(s: &str) -> [u8; N] {
 	debug_assert!(s.len() <= N, "String literal doesn't fit in array");
 	let mut i = 0;
