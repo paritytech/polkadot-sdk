@@ -1157,7 +1157,7 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Each dispatchable may also be annotated with the `#[pallet::feeless_if($closure)]` attribute,
+/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
 /// which explicitly defines the condition for the dispatchable function to be feeless.
 ///
 /// The arguments for the closure must be the referenced arguments of the dispatchable function.
