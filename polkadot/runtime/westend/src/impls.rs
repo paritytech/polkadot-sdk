@@ -19,9 +19,9 @@ use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
 use parity_scale_codec::{Decode, Encode};
 use primitives::Balance;
-use westend_runtime_constants::currency::*;
 use runtime_common::identity_migrator::OnReapIdentity;
 use sp_std::{marker::PhantomData, prelude::*};
+use westend_runtime_constants::currency::*;
 use xcm::{latest::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 

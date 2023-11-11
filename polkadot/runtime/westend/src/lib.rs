@@ -54,9 +54,9 @@ use primitives::{
 	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
-	assigned_slots, auctions, crowdloan, identity_migrator,
+	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
-	impl_runtime_weights,
+	identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
