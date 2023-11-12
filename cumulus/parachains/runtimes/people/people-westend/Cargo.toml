@@ -85,6 +85,7 @@ std = [
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
+	"enumflags2/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",
