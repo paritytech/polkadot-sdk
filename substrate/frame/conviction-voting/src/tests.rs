@@ -19,6 +19,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::legacy::Conviction;
 use frame_support::{
 	assert_noop, assert_ok, hypothetically, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
@@ -188,11 +189,11 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
-	type VoteLockingPeriod = VoteLockingPeriod;
 	type MaxVotes = ConstU32<3>;
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
 	type Polls = TestPolls;
+	type Conviction = Conviction;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -226,21 +227,21 @@ fn run_to(n: u64) {
 	}
 }
 
-fn aye(amount: u64, conviction: u8) -> AccountVote<u64> {
+fn aye(amount: u64, conviction: u8) -> AccountVote<u64, Conviction> {
 	let vote = Vote { aye: true, conviction: conviction.try_into().unwrap() };
 	AccountVote::Standard { vote, balance: amount }
 }
 
-fn nay(amount: u64, conviction: u8) -> AccountVote<u64> {
+fn nay(amount: u64, conviction: u8) -> AccountVote<u64, Conviction> {
 	let vote = Vote { aye: false, conviction: conviction.try_into().unwrap() };
 	AccountVote::Standard { vote, balance: amount }
 }
 
-fn split(aye: u64, nay: u64) -> AccountVote<u64> {
+fn split(aye: u64, nay: u64) -> AccountVote<u64, Conviction> {
 	AccountVote::Split { aye, nay }
 }
 
-fn split_abstain(aye: u64, nay: u64, abstain: u64) -> AccountVote<u64> {
+fn split_abstain(aye: u64, nay: u64, abstain: u64) -> AccountVote<u64, Conviction> {
 	AccountVote::SplitAbstain { aye, nay, abstain }
 }
 

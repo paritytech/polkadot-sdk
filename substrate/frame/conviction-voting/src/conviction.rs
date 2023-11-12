@@ -28,17 +28,12 @@ pub trait AsLockDuration {
 }
 
 /// Convert a balance with a conviction into votes.
-pub trait AsConvictedVotes {
-	type Balance: Clone;
-	
+pub trait AsConvictedVotes<Balance: Clone> {
 	/// Scale the capital to a number of convicted votes.
-	fn as_votes(&self, capital: Self::Balance) -> Self::Balance;
+	fn as_votes(&self, capital: Balance) -> Balance;
 
-	fn as_delegations(&self, capital: Self::Balance) -> Delegations<Self::Balance> {
-		Delegations {
-			votes: self.as_votes(capital.clone()),
-			capital,
-		}
+	fn as_delegations(&self, capital: Balance) -> Delegations<Balance> {
+		Delegations { votes: self.as_votes(capital.clone()), capital }
 	}
 }
 

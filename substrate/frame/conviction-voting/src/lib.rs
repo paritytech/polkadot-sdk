@@ -27,27 +27,27 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::conviction::{AsConvictedVotes, AsLockDuration};
+use codec::MaxEncodedLen;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
+	pallet_prelude::Member,
 	traits::{
 		fungible, Currency, Get, LockIdentifier, LockableCurrency, PollStatus, Polling,
 		ReservableCurrency, WithdrawReasons,
 	},
+	Parameter,
 };
-use crate::conviction::AsConvictedVotes;
-use crate::conviction::AsLockDuration;
-use frame_support::Parameter;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
+	traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, Perbill,
 };
-use codec::MaxEncodedLen;
-use frame_support::pallet_prelude::Member;
 use sp_std::prelude::*;
 
 mod conviction;
+pub mod legacy;
 mod types;
 mod vote;
 pub mod weights;
@@ -76,12 +76,17 @@ type VotingOf<T, I = ()> = Voting<
 	BlockNumberFor<T>,
 	PollIndexOf<T, I>,
 	<T as Config<I>>::MaxVotes,
-	<T as Config<I>>::Conviction
+	<T as Config<I>>::Conviction,
 >;
 #[allow(dead_code)]
-type DelegatingOf<T, I = ()> =
-	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T>, <T as Config<I>>::Conviction>;
-pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout, <T as Config<I>>::Conviction>;
+type DelegatingOf<T, I = ()> = Delegating<
+	BalanceOf<T, I>,
+	<T as frame_system::Config>::AccountId,
+	BlockNumberFor<T>,
+	<T as Config<I>>::Conviction,
+>;
+pub type TallyOf<T, I = ()> =
+	Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout, <T as Config<I>>::Conviction, BlockNumberFor<T>>;
 pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
 type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 #[cfg(feature = "runtime-benchmarks")]
@@ -135,7 +140,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxVotes: Get<u32>;
 
-		type Conviction: AsLockDuration<Duration=BlockNumberFor<Self>> + AsConvictedVotes<Balance=BalanceOf<Self, I>> + Zero + Copy + Parameter + Member + MaxEncodedLen;
+		type Conviction: Convert<Self::Conviction, BlockNumberFor<Self>>
+			+ Convert<(Self::Conviction, BalanceOf<Self, I>), BalanceOf<Self, I>>
+			+ AsConvictedVotes<BalanceOf<Self, I>>
+			+ Eq
+			+ Default
+			+ Copy
+			+ Parameter
+			+ Member
+			+ MaxEncodedLen;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -217,7 +230,7 @@ pub mod pallet {
 		pub fn vote(
 			origin: OriginFor<T>,
 			#[pallet::compact] poll_index: PollIndexOf<T, I>,
-			vote: AccountVote<BalanceOf<T, I>, T::Conviction>,
+			vote: AccountVote<BalanceOf<T, I>, T::Conviction, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::try_vote(&who, poll_index, vote)
@@ -391,7 +404,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn try_vote(
 		who: &T::AccountId,
 		poll_index: PollIndexOf<T, I>,
-		vote: AccountVote<BalanceOf<T, I>, T::Conviction>,
+		vote: AccountVote<BalanceOf<T, I>, T::Conviction, BlockNumberFor<T>>,
 	) -> DispatchResult {
 		ensure!(
 			vote.balance() <= T::Currency::total_balance(who),
@@ -577,8 +590,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 				}
 
-				let votes =
-					Self::increase_upstream_delegation(&target, &class, conviction.as_delegations(balance));
+				let votes = Self::increase_upstream_delegation(
+					&target,
+					&class,
+					conviction.as_delegations(balance),
+				);
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
@@ -609,13 +625,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							conviction.as_delegations(balance),
 						);
 						let now = frame_system::Pallet::<T>::block_number();
-						let lock_duration = conviction.as_locked_duration().into();
-						prior.accumulate(
-							now.saturating_add(
-								lock_duration,
-							),
-							balance,
-						);
+						let lock_duration = T::Conviction::convert(conviction).into();
+						prior.accumulate(now.saturating_add(lock_duration), balance);
 						voting.set_common(delegations, prior);
 
 						Ok(votes)

@@ -17,7 +17,7 @@
 
 //! The vote datatype.
 
-use crate::{Delegations};
+use crate::{AsLockDuration, Delegations};
 use codec::{Decode, Encode, Input, MaxEncodedLen, Output};
 use frame_support::{pallet_prelude::Get, BoundedVec};
 use scale_info::TypeInfo;
@@ -25,14 +25,16 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	RuntimeDebug,
 };
-use crate::AsLockDuration;
 use sp_std::prelude::*;
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(Copy, Clone, Encode, Decode, TypeInfo, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen)]
-pub struct Vote<Conviction> {
+#[derive(
+	Copy, Clone, Encode, Decode, TypeInfo, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen,
+)]
+pub struct Vote<Conviction, Duration> {
 	pub aye: bool,
 	pub conviction: Conviction,
+	pub _phantom: core::marker::PhantomData<Duration>,
 }
 
 /*impl<Conviction> Encode for Vote<Conviction> {
@@ -71,9 +73,9 @@ impl<Conviction> TypeInfo for Vote<Conviction> {
 
 /// A vote for a referendum of a particular account.
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum AccountVote<Balance, Conviction> {
+pub enum AccountVote<Balance, Conviction, Duration> {
 	/// A standard vote, one-way (approve or reject) with a given amount of conviction.
-	Standard { vote: Vote<Conviction>, balance: Balance },
+	Standard { vote: Vote<Conviction, Duration>, balance: Balance },
 	/// A split vote with balances given for both ways, and with no conviction, useful for
 	/// parachains when voting.
 	Split { aye: Balance, nay: Balance },
@@ -83,21 +85,28 @@ pub enum AccountVote<Balance, Conviction> {
 	SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
 }
 
-impl<Balance: Saturating, Duration, Conviction: AsLockDuration<Duration=Duration> + Zero> AccountVote<Balance, Conviction> {
+impl<
+		Balance: Saturating,
+		Duration,
+		Conviction: sp_runtime::traits::Convert<Conviction, Duration> + Default + Eq,
+	> AccountVote<Balance, Conviction, Duration>
+{
 	/// Returns `Some` of the lock periods that the account is locked for, assuming that the
 	/// referendum passed iff `approved` is `true`.
 	pub fn locked_if(self, approved: bool) -> Option<(Duration, Balance)> {
 		// winning side: can only be removed after the lock period ends.
 		match self {
-			AccountVote::Standard { vote: Vote { conviction, .. }, .. } if conviction.is_zero() => None,
+			AccountVote::Standard { vote: Vote { conviction, .. }, .. }
+				if conviction == Default::default() =>
+				None,
 			AccountVote::Standard { vote, balance } if vote.aye == approved =>
-				Some((vote.conviction.as_locked_duration(), balance)),
+				Some((Conviction::convert(vote.conviction), balance)),
 			_ => None,
 		}
 	}
 }
 
-impl<Balance: Saturating, Conviction> AccountVote<Balance, Conviction> {
+impl<Balance: Saturating, Conviction, BlockNumber> AccountVote<Balance, Conviction, BlockNumber> {
 	/// The total balance involved in this vote.
 	pub fn balance(self) -> Balance {
 		match self {
@@ -179,7 +188,7 @@ where
 	MaxVotes: Get<u32>,
 {
 	/// The current votes of the account.
-	pub votes: BoundedVec<(PollIndex, AccountVote<Balance, Conviction>), MaxVotes>,
+	pub votes: BoundedVec<(PollIndex, AccountVote<Balance, Conviction, BlockNumber>), MaxVotes>,
 	/// The total amount of delegations that this account has received, post-conviction-weighting.
 	pub delegations: Delegations<Balance>,
 	/// Any pre-existing locks from past voting/delegating activity.
@@ -218,7 +227,8 @@ where
 	}
 }
 
-impl<Balance, AccountId, BlockNumber, PollIndex, MaxVotes, Conviction> AsMut<PriorLock<BlockNumber, Balance>>
+impl<Balance, AccountId, BlockNumber, PollIndex, MaxVotes, Conviction>
+	AsMut<PriorLock<BlockNumber, Balance>>
 	for Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes, Conviction>
 where
 	MaxVotes: Get<u32>,
@@ -249,8 +259,10 @@ where
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {
-			Voting::Casting(Casting { votes, prior, .. }) =>
-				votes.iter().map(|i| i.1.clone().balance()).fold(prior.locked(), |a, i| a.max(i)),
+			Voting::Casting(Casting { votes, prior, .. }) => votes
+				.iter()
+				.map(|i| i.1.clone().balance())
+				.fold(prior.locked(), |a, i| a.max(i)),
 			Voting::Delegating(Delegating { balance, prior, .. }) => *balance.max(&prior.locked()),
 		}
 	}
