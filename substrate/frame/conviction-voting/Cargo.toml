@@ -31,6 +31,7 @@ sp-std = { path = "../../primitives/std", default-features = false}
 pallet-balances = { path = "../balances" }
 pallet-scheduler = { path = "../scheduler" }
 sp-core = { path = "../../primitives/core" }
+frame-support = { path = "../support", features = ["experimental"]}
 
 [features]
 default = [ "std" ]

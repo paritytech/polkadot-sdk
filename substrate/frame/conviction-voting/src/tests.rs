@@ -20,7 +20,7 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok, hypothetically, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
 use sp_core::H256;
@@ -181,10 +181,14 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	}
 }
 
+parameter_types! {
+	pub static VoteLockingPeriod: u64 = 3;
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
-	type VoteLockingPeriod = ConstU64<3>;
+	type VoteLockingPeriod = VoteLockingPeriod;
 	type MaxVotes = ConstU32<3>;
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
@@ -393,6 +397,36 @@ fn unsuccessful_conviction_vote_balance_can_be_unlocked() {
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(c), 3));
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), c, 1));
 		assert_eq!(Balances::usable_balance(1), 10);
+	});
+}
+
+#[test]
+fn remote_vote_vote_lock_increase() {
+	new_test_ext().execute_with(|| {
+		let i = 1;
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(i), 3, aye(10, i as u8)));
+		let c = class(3);
+		Polls::set(vec![(3, Completed(3, true))].into_iter().collect());
+
+		// Increasing the period after the `undelegate` is pointless:
+		hypothetically!({
+			assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(i), Some(c), 3));
+			VoteLockingPeriod::set(100);
+
+			run_to(10);
+			assert_ok!(Voting::unlock(RuntimeOrigin::signed(i), c, i));
+			assert_eq!(Balances::usable_balance(i), 10, "balance is locked");
+		});
+
+		// Increasing the period before the `undelegate` extends the lock:
+		hypothetically!({
+			VoteLockingPeriod::set(100);
+			assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(i), Some(c), 3));
+
+			run_to(10);
+			assert_ok!(Voting::unlock(RuntimeOrigin::signed(i), c, i));
+			assert_eq!(Balances::usable_balance(i), 0, "Balance is not unlocked");
+		});
 	});
 }
 
@@ -696,6 +730,35 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 		run_to(7);
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 10);
+	});
+}
+
+/// Checks how an increase in the vote lock period affects the `undelegate` call.
+#[test]
+fn undelegate_vote_lock_increase() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::usable_balance(1), 10);
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 2, Conviction::Locked2x, 5));
+
+		// Increasing the period after the `undelegate` is pointless:
+		hypothetically!({
+			assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 1));
+			VoteLockingPeriod::set(100);
+
+			run_to(10);
+			assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
+			assert_eq!(Balances::usable_balance(1), 10, "Balance was unlocked");
+		});
+
+		// Increasing the period before the `undelegate` extends the lock:
+		hypothetically!({
+			VoteLockingPeriod::set(100);
+			assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 1));
+
+			run_to(10);
+			assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
+			assert_eq!(Balances::usable_balance(1), 5, "Balance was not unlocked");
+		});
 	});
 }
 
