@@ -78,7 +78,7 @@ pub enum PrepareError {
 	ClearWorkerDir(String),
 }
 
-/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
+/// Pre-encoded length-prefixed `PrepareWorkerResult::Err(PrepareError::OutOfMemory)`
 pub const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 impl PrepareError {
@@ -175,7 +175,7 @@ impl fmt::Display for InternalValidationError {
 
 #[test]
 fn pre_encoded_payloads() {
-	let oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
+	let oom_enc = PrepareWorkerResult::Err(PrepareError::OutOfMemory).encode();
 	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
 	oom_payload.extend(oom_enc);
 	assert_eq!(oom_payload, OOM_PAYLOAD);
