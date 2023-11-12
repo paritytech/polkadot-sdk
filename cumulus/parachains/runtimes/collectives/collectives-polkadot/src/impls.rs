@@ -101,6 +101,7 @@ pub mod benchmarks {
 	use frame_support::traits::{
 		fungible,
 		tokens::{Pay, PaymentStatus},
+		Get,
 	};
 	use pallet_ranked_collective::Rank;
 	use parachains_common::{AccountId, Balance};
