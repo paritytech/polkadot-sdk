@@ -95,9 +95,6 @@ impl TypeInfo for IdentityField {
 }
 
 /// Information concerning the identity of the controller of an account.
-///
-/// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
-/// fields in a backwards compatible way through a specialized `Decode` impl.
 #[derive(
 	CloneNoBound,
 	Encode,
