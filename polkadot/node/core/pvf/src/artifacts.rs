@@ -174,6 +174,7 @@ impl ArtifactPathId {
 	}
 }
 
+#[derive(Debug)]
 pub enum ArtifactState {
 	/// The artifact is ready to be used by the executor.
 	///

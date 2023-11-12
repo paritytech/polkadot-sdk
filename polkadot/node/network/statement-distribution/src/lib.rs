@@ -27,7 +27,7 @@ use std::time::Duration;
 
 use polkadot_node_network_protocol::{
 	request_response::{v1 as request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
-	v2 as protocol_v2, Versioned,
+	v2 as protocol_v2, vstaging as protocol_vstaging, Versioned,
 };
 use polkadot_node_primitives::StatementWithPVD;
 use polkadot_node_subsystem::{
@@ -320,6 +320,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					let mode = prospective_parachains_mode(ctx.sender(), activated.hash).await?;
 					if let ProspectiveParachainsMode::Enabled { .. } = mode {
 						v2::handle_active_leaves_update(ctx, state, activated, mode).await?;
+						v2::handle_deactivate_leaves(state, &deactivated);
 					} else if let ProspectiveParachainsMode::Disabled = mode {
 						for deactivated in &deactivated {
 							crate::legacy_v1::handle_deactivate_leaf(legacy_v1_state, *deactivated);
@@ -398,9 +399,12 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 						NetworkBridgeEvent::PeerMessage(_, message) => match message {
 							Versioned::V2(
 								protocol_v2::StatementDistributionMessage::V1Compatibility(_),
+							) |
+							Versioned::VStaging(
+								protocol_vstaging::StatementDistributionMessage::V1Compatibility(_),
 							) => VersionTarget::Legacy,
 							Versioned::V1(_) => VersionTarget::Legacy,
-							Versioned::V2(_) => VersionTarget::Current,
+							Versioned::V2(_) | Versioned::VStaging(_) => VersionTarget::Current,
 						},
 						_ => VersionTarget::Both,
 					};

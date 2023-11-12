@@ -133,7 +133,7 @@ impl ValidatorGroupsBuffer {
 		}
 	}
 
-	/// Note that a validator is no longer interested in a given relay parent.
+	/// Note that a validator is no longer interested in a given candidate.
 	pub fn reset_validator_interest(
 		&mut self,
 		candidate_hash: CandidateHash,

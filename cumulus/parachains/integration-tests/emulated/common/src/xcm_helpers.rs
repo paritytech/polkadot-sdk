@@ -13,15 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Cumulus
 use parachains_common::AccountId;
-use xcm::{
-	prelude::{
-		AccountId32, All, BuyExecution, DepositAsset, MultiAsset, MultiAssets, MultiLocation,
-		OriginKind, RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight, WeightLimit,
-		WithdrawAsset, Xcm, X1,
-	},
-	DoubleEncoded,
-};
+
+// Polkadot
+use xcm::{prelude::*, DoubleEncoded};
 
 /// Helper method to build a XCM with a `Transact` instruction and paying for its execution
 pub fn xcm_transact_paid_execution(

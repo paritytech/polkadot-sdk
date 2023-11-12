@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use codec::Encode;
+use sc_block_builder::BlockBuilderBuilder;
 
 use crate::{construct_extrinsic, Client as TestClient};
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData};
@@ -26,7 +27,6 @@ use cumulus_test_runtime::{
 };
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_primitives::HeadData;
-use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::UsageProvider;
 use sc_consensus::{
 	block_import::{BlockImportParams, ForkChoiceStrategy},
@@ -126,8 +126,13 @@ pub fn create_benchmarking_transfer_extrinsics(
 	src_accounts: &[sr25519::Pair],
 	dst_accounts: &[sr25519::Pair],
 ) -> (usize, Vec<OpaqueExtrinsic>) {
+	let chain = client.usage_info().chain;
 	// Add as many transfer extrinsics as possible into a single block.
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(chain.best_hash)
+		.with_parent_block_number(chain.best_number)
+		.build()
+		.expect("Creates block builder");
 	let mut max_transfer_count = 0;
 	let mut extrinsics = Vec::new();
 	// Every block needs one timestamp extrinsic.
@@ -248,8 +253,13 @@ pub fn set_glutton_parameters(
 		Some(last_nonce),
 	);
 	extrinsics.push(set_storage);
+	let chain = client.usage_info().chain;
 
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(chain.best_hash)
+		.with_parent_block_number(chain.best_number)
+		.build()
+		.unwrap();
 	block_builder.push(extrinsic_set_time(client)).unwrap();
 	block_builder.push(extrinsic_set_validation_data(parent_header)).unwrap();
 	for extrinsic in extrinsics {
