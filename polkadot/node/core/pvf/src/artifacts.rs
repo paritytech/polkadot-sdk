@@ -419,8 +419,9 @@ mod tests {
 	use sp_core::H256;
 	use std::{
 		fs,
+		io::Write,
 		path::{Path, PathBuf},
-		str::FromStr, io::Write,
+		str::FromStr,
 	};
 
 	fn rand_hash(len: usize) -> String {
@@ -449,7 +450,8 @@ mod tests {
 			params_hash: impl AsRef<str>,
 		) -> PathBuf {
 			let mut path = dir.as_ref().to_path_buf();
-			let file_name = format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref(),);
+			let file_name =
+				format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref(),);
 			path.push(file_name);
 			path
 		}
