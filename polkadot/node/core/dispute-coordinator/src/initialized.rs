@@ -43,7 +43,7 @@ use polkadot_node_subsystem_util::runtime::{
 	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
 };
 use polkadot_primitives::{
-	vstaging, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
+	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
 	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
 	ValidatorId, ValidatorIndex,
 };
@@ -385,7 +385,7 @@ impl Initialized {
 		&mut self,
 		ctx: &mut Context,
 		relay_parent: Hash,
-		unapplied_slashes: Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>,
+		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
 	) {
 		for (session_index, candidate_hash, pending) in unapplied_slashes {
 			gum::info!(
@@ -422,11 +422,9 @@ impl Initialized {
 					match res {
 						Ok(Some(key_ownership_proof)) => {
 							key_ownership_proofs.push(key_ownership_proof);
-							let time_slot = vstaging::slashing::DisputesTimeSlot::new(
-								session_index,
-								candidate_hash,
-							);
-							let dispute_proof = vstaging::slashing::DisputeProof {
+							let time_slot =
+								slashing::DisputesTimeSlot::new(session_index, candidate_hash);
+							let dispute_proof = slashing::DisputeProof {
 								time_slot,
 								kind: pending.kind,
 								validator_index: *validator_index,

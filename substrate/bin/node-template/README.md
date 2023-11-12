@@ -7,12 +7,12 @@ in the [Substrate Developer Hub Parachain
 Template](https://github.com/substrate-developer-hub/substrate-parachain-template/)
 repository. The parachain template is generated directly at each Polkadot
 release branch from the [Node Template in
-Substrate](https://github.com/paritytech/substrate/tree/master/bin/node-template)
+Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node-template)
 upstream
 
 It is usually best to use the stand-alone version to start a new project. All
 bugs, suggestions, and feature requests should be made upstream in the
-[Substrate](https://github.com/paritytech/substrate/tree/master/bin/node-template)
+[Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/substrate)
 repository.
 
 ## Getting Started
@@ -186,7 +186,7 @@ template and note the following:
 
 The runtime in this project is constructed using many FRAME pallets that ship
 with [the Substrate
-repository](https://github.com/paritytech/substrate/tree/master/frame) and a
+repository](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame) and a
 template pallet that is [defined in the
 `pallets`](./pallets/template/src/lib.rs) directory.
 
@@ -221,5 +221,5 @@ the correct dependencies, activate direnv `direnv allow`.
 ### Docker
 
 Please follow the [Substrate Docker instructions
-here](https://github.com/paritytech/substrate/blob/master/docker/README.md) to
+here](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/docker/README.md) to
 build the Docker container with the Substrate Node Template binary.

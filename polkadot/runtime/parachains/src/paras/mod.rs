@@ -386,7 +386,16 @@ pub(crate) enum PvfCheckCause<BlockNumber> {
 		///
 		/// See https://github.com/paritytech/polkadot/issues/4601 for detailed explanation.
 		included_at: BlockNumber,
+		/// Whether or not the given para should be sent the `GoAhead` signal.
+		set_go_ahead: SetGoAhead,
 	},
+}
+
+/// Should the `GoAhead` signal be set after a successful check of the new wasm binary?
+#[derive(Debug, Copy, Clone, PartialEq, TypeInfo, Decode, Encode)]
+pub enum SetGoAhead {
+	Yes,
+	No,
 }
 
 impl<BlockNumber> PvfCheckCause<BlockNumber> {
@@ -888,7 +897,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let config = configuration::Pallet::<T>::config();
-			Self::schedule_code_upgrade(para, new_code, relay_parent_number, &config);
+			Self::schedule_code_upgrade(
+				para,
+				new_code,
+				relay_parent_number,
+				&config,
+				SetGoAhead::No,
+			);
 			Self::deposit_event(Event::CodeUpgradeScheduled(para));
 			Ok(())
 		}
@@ -1186,6 +1201,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_code_upgrade_external(
 		id: ParaId,
 		new_code: ValidationCode,
+		set_go_ahead: SetGoAhead,
 	) -> DispatchResult {
 		// Check that we can schedule an upgrade at all.
 		ensure!(Self::can_upgrade_validation_code(id), Error::<T>::CannotUpgradeCode);
@@ -1193,7 +1209,7 @@ impl<T: Config> Pallet<T> {
 		let current_block = frame_system::Pallet::<T>::block_number();
 		// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
 		let upgrade_block = current_block.saturating_add(config.validation_upgrade_delay);
-		Self::schedule_code_upgrade(id, new_code, upgrade_block, &config);
+		Self::schedule_code_upgrade(id, new_code, upgrade_block, &config, set_go_ahead);
 		Self::deposit_event(Event::CodeUpgradeScheduled(id));
 		Ok(())
 	}
@@ -1534,8 +1550,15 @@ impl<T: Config> Pallet<T> {
 				PvfCheckCause::Onboarding(id) => {
 					weight += Self::proceed_with_onboarding(*id, sessions_observed);
 				},
-				PvfCheckCause::Upgrade { id, included_at } => {
-					weight += Self::proceed_with_upgrade(*id, code_hash, now, *included_at, cfg);
+				PvfCheckCause::Upgrade { id, included_at, set_go_ahead } => {
+					weight += Self::proceed_with_upgrade(
+						*id,
+						code_hash,
+						now,
+						*included_at,
+						cfg,
+						*set_go_ahead,
+					);
 				},
 			}
 		}
@@ -1568,6 +1591,7 @@ impl<T: Config> Pallet<T> {
 		now: BlockNumberFor<T>,
 		relay_parent_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
+		set_go_ahead: SetGoAhead,
 	) -> Weight {
 		let mut weight = Weight::zero();
 
@@ -1591,12 +1615,15 @@ impl<T: Config> Pallet<T> {
 		weight += T::DbWeight::get().reads_writes(1, 4);
 		FutureCodeUpgrades::<T>::insert(&id, expected_at);
 
-		UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {
-			let insert_idx = upcoming_upgrades
-				.binary_search_by_key(&expected_at, |&(_, b)| b)
-				.unwrap_or_else(|idx| idx);
-			upcoming_upgrades.insert(insert_idx, (id, expected_at));
-		});
+		// Only set an upcoming upgrade if `GoAhead` signal should be set for the respective para.
+		if set_go_ahead == SetGoAhead::Yes {
+			UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {
+				let insert_idx = upcoming_upgrades
+					.binary_search_by_key(&expected_at, |&(_, b)| b)
+					.unwrap_or_else(|idx| idx);
+				upcoming_upgrades.insert(insert_idx, (id, expected_at));
+			});
+		}
 
 		let expected_at = expected_at.saturated_into();
 		let log = ConsensusLog::ParaScheduleUpgradeCode(id, *code_hash, expected_at);
@@ -1835,6 +1862,7 @@ impl<T: Config> Pallet<T> {
 		new_code: ValidationCode,
 		inclusion_block_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
+		set_go_ahead: SetGoAhead,
 	) -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
 
@@ -1884,7 +1912,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		weight += Self::kick_off_pvf_check(
-			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number },
+			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, set_go_ahead },
 			code_hash,
 			new_code,
 			cfg,

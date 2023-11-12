@@ -49,6 +49,7 @@ use serde::{Deserialize, Serialize};
 	Serialize,
 	Deserialize,
 )]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum NetworkId {
 	/// Network specified by the first 32 bytes of its genesis block.
 	ByGenesis([u8; 32]),
@@ -116,6 +117,7 @@ impl TryFrom<OldNetworkId> for NetworkId {
 	Serialize,
 	Deserialize,
 )]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyId {
 	/// The only body in its context.
 	Unit,
@@ -186,6 +188,7 @@ impl TryFrom<OldBodyId> for BodyId {
 	Serialize,
 	Deserialize,
 )]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyPart {
 	/// The body's declaration, under whatever means it decides.
 	Voice,
@@ -261,6 +264,7 @@ impl TryFrom<OldBodyPart> for BodyPart {
 	Serialize,
 	Deserialize,
 )]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Junction {
 	/// An indexed parachain belonging to and operated by the context.
 	///

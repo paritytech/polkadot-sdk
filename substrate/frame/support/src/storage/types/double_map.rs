@@ -27,26 +27,71 @@ use crate::{
 	StorageHasher, Twox128,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type that allow to store values for `(key1, key2)` couple. Similar to `StorageMap` but allow
-/// to iterate and remove value associated to first key.
+/// A type representing a *double map* in storage. This structure associates a pair of keys with a
+/// value of a specified type stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix())
-/// 		++ Twox128(Prefix::STORAGE_PREFIX)
-/// 		++ Hasher1(encode(key1))
-/// 		++ Hasher2(encode(key2))
+/// A double map with keys `k1` and `k2` can be likened to a
+/// [`StorageMap`](frame_support::storage::types::StorageMap) with a key of type `(k1, k2)`.
+/// However, a double map offers functions specific to each key, enabling partial iteration and
+/// deletion based on one key alone.
+///
+/// Also, conceptually, a double map is a special case of a
+/// [`StorageNMap`](frame_support::storage::types::StorageNMap) using two keys.
+///
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Examples
+///
+/// ### Kitchen-sink
+///
+/// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+/// # 	use frame_support::pallet_prelude::*;
+/// # 	#[pallet::config]
+/// # 	pub trait Config: frame_system::Config {}
+/// # 	#[pallet::pallet]
+/// # 	pub struct Pallet<T>(_);
+///     /// A kitchen-sink StorageDoubleMap, with all possible additional attributes.
+///     #[pallet::storage]
+///     #[pallet::getter(fn foo)]
+///     #[pallet::storage_prefix = "OtherFoo"]
+///     #[pallet::unbounded]
+///     pub type Foo<T> = StorageDoubleMap<
+/// 		_,
+///         Blake2_128Concat,
+///         u8,
+///         Twox64Concat,
+///         u16,
+///         u32,
+///         ValueQuery
+///     >;
+///
+/// 	/// Alternative named syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageDoubleMap<
+///         Hasher1 = Blake2_128Concat,
+///         Key1 = u8,
+///         Hasher2 = Twox64Concat,
+///         Key2 = u16,
+///         Value = u32,
+///         QueryKind = ValueQuery
+///     >;
+/// }
 /// ```
 ///
-/// # Warning
+/// ### Partial Iteration & Removal
 ///
-/// If the key1s (or key2s) are not trusted (e.g. can be set by a user), a cryptographic `hasher`
-/// such as `blake2_128_concat` must be used for Hasher1 (resp. Hasher2). Otherwise, other values
-/// in storage can be compromised.
+/// When `Hasher1` and `Hasher2` implement the
+/// [`ReversibleStorageHasher`](frame_support::ReversibleStorageHasher) trait, the first key `k1`
+/// can be used to partially iterate over keys and values of the double map, and to delete items.
+#[doc = docify::embed!("src/storage/types/double_map.rs", example_double_map_partial_operations)]
 pub struct StorageDoubleMap<
 	Prefix,
 	Hasher1,
@@ -117,12 +162,17 @@ where
 	type Query = QueryKind::Query;
 	type Hasher1 = Hasher1;
 	type Hasher2 = Hasher2;
-	fn module_prefix() -> &'static [u8] {
+	fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
+
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
+	fn prefix_hash() -> [u8; 32] {
+		Prefix::prefix_hash()
+	}
+
 	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
@@ -145,8 +195,8 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn module_prefix() -> &'static [u8] {
-		<Self as crate::storage::generator::StorageDoubleMap<Key1, Key2, Value>>::module_prefix()
+	fn pallet_prefix() -> &'static [u8] {
+		<Self as crate::storage::generator::StorageDoubleMap<Key1, Key2, Value>>::pallet_prefix()
 	}
 	fn storage_prefix() -> &'static [u8] {
 		<Self as crate::storage::generator::StorageDoubleMap<Key1, Key2, Value>>::storage_prefix()
@@ -404,6 +454,31 @@ where
 		Value: StorageDecodeLength,
 	{
 		<Self as crate::storage::StorageDoubleMap<Key1, Key2, Value>>::decode_len(key1, key2)
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	pub fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
+	where
+		KArg1: EncodeLike<Key1>,
+		KArg2: EncodeLike<Key2>,
+		Value: StorageDecodeNonDedupLength,
+	{
+		<Self as crate::storage::StorageDoubleMap<Key1, Key2, Value>>::decode_non_dedup_len(
+			key1, key2,
+		)
 	}
 
 	/// Migrate an item with the given `key1` and `key2` from defunct `OldHasher1` and
@@ -691,7 +766,7 @@ where
 {
 	fn storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::final_prefix().to_vec(),
 			max_values: MaxValues::get(),
@@ -722,7 +797,7 @@ where
 {
 	fn partial_storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::final_prefix().to_vec(),
 			max_values: MaxValues::get(),
@@ -737,6 +812,7 @@ mod test {
 	use crate::{hash::*, storage::types::ValueQuery};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
+	use std::collections::BTreeSet;
 
 	struct Prefix;
 	impl StorageInstance for Prefix {
@@ -966,5 +1042,31 @@ mod test {
 			assert_eq!(A::iter_prefix(4).collect::<Vec<_>>(), vec![]);
 			assert_eq!(A::drain_prefix(4).collect::<Vec<_>>(), vec![]);
 		})
+	}
+
+	#[docify::export]
+	#[test]
+	fn example_double_map_partial_operations() {
+		type FooDoubleMap =
+			StorageDoubleMap<Prefix, Blake2_128Concat, u32, Blake2_128Concat, u32, u32, ValueQuery>;
+
+		TestExternalities::default().execute_with(|| {
+			FooDoubleMap::insert(0, 0, 42);
+			FooDoubleMap::insert(0, 1, 43);
+			FooDoubleMap::insert(1, 0, 314);
+
+			// should be equal to {0,1} (ordering is random)
+			let collected_k2_keys: BTreeSet<_> = FooDoubleMap::iter_key_prefix(0).collect();
+			assert_eq!(collected_k2_keys, [0, 1].iter().copied().collect::<BTreeSet<_>>());
+
+			// should be equal to {42,43} (ordering is random)
+			let collected_k2_values: BTreeSet<_> = FooDoubleMap::iter_prefix_values(0).collect();
+			assert_eq!(collected_k2_values, [42, 43].iter().copied().collect::<BTreeSet<_>>());
+
+			// Remove items from the map using k1 = 0
+			let _ = FooDoubleMap::clear_prefix(0, u32::max_value(), None);
+			// Values associated with (0, _) should have been removed
+			assert_eq!(FooDoubleMap::iter_prefix(0).collect::<Vec<_>>(), vec![]);
+		});
 	}
 }

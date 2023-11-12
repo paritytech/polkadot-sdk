@@ -27,20 +27,20 @@ pub mod consensus {
 
 /// Constants relating to KSM.
 pub mod currency {
-	use kusama_runtime_constants as constants;
 	use polkadot_core_primitives::Balance;
 
 	/// The existential deposit. Set to 1/10 of its parent Relay Chain.
-	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
+	pub const EXISTENTIAL_DEPOSIT: Balance = 1 * CENTS / 10;
 
-	pub const UNITS: Balance = constants::currency::UNITS;
-	pub const CENTS: Balance = constants::currency::CENTS;
-	pub const GRAND: Balance = constants::currency::GRAND;
-	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
+	pub const UNITS: Balance = 1_000_000_000_000;
+	pub const QUID: Balance = UNITS / 30;
+	pub const CENTS: Balance = QUID / 100;
+	pub const GRAND: Balance = QUID * 1_000;
+	pub const MILLICENTS: Balance = CENTS / 1_000;
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
 		// map to 1/100 of what the kusama relay chain charges (v9020)
-		constants::currency::deposit(items, bytes) / 100
+		(items as Balance * 2_000 * CENTS + (bytes as Balance) * 100 * MILLICENTS) / 100
 	}
 }
 

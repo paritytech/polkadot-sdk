@@ -28,9 +28,17 @@ mod tests;
 pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use frame_support::traits::{
-	Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency, OriginTrait,
+use frame_support::{
+	dispatch::GetDispatchInfo,
+	pallet_prelude::*,
+	traits::{
+		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
+		OriginTrait, WithdrawReasons,
+	},
+	PalletId,
 };
+use frame_system::pallet_prelude::{BlockNumberFor, *};
+pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
@@ -41,17 +49,15 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
-use xcm_executor::traits::{ConvertOrigin, Properties};
-
-use frame_support::{
-	dispatch::GetDispatchInfo, pallet_prelude::*, traits::WithdrawReasons, PalletId,
+use xcm_builder::{
+	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
+	SendController, SendControllerWeightInfo,
 };
-use frame_system::pallet_prelude::*;
-pub use pallet::*;
 use xcm_executor::{
 	traits::{
-		CheckSuspension, ClaimAssets, ConvertLocation, DropAssets, MatchesFungible, OnResponse,
-		QueryHandler, QueryResponseStatus, VersionChangeNotifier, WeightBounds,
+		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets, MatchesFungible,
+		OnResponse, Properties, QueryHandler, QueryResponseStatus, VersionChangeNotifier,
+		WeightBounds,
 	},
 	Assets,
 };
@@ -73,6 +79,8 @@ pub trait WeightInfo {
 	fn notify_target_migration_fail() -> Weight;
 	fn migrate_version_notify_targets() -> Weight;
 	fn migrate_and_notify_old_targets() -> Weight;
+	fn new_query() -> Weight;
+	fn take_response() -> Weight;
 }
 
 /// fallback implementation
@@ -141,6 +149,14 @@ impl WeightInfo for TestWeightInfo {
 	fn migrate_and_notify_old_targets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
+
+	fn new_query() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
+
+	fn take_response() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
 }
 
 #[frame_support::pallet]
@@ -203,10 +219,10 @@ pub mod pallet {
 		>;
 
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
-		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as SysConfig>::RuntimeCall>)>;
+		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as SysConfig>::RuntimeCall>;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall>;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -216,7 +232,7 @@ pub mod pallet {
 		type XcmReserveTransferFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
 
 		/// Means of measuring the weight consumed by an XCM message locally.
-		type Weigher: WeightBounds<<Self as SysConfig>::RuntimeCall>;
+		type Weigher: WeightBounds<<Self as Config>::RuntimeCall>;
 
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorMultiLocation>;
@@ -227,7 +243,6 @@ pub mod pallet {
 		/// The runtime `Call` type.
 		type RuntimeCall: Parameter
 			+ GetDispatchInfo
-			+ IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
 				PostInfo = PostDispatchInfo,
@@ -266,6 +281,93 @@ pub mod pallet {
 		/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
 		#[cfg(feature = "runtime-benchmarks")]
 		type ReachableDest: Get<Option<MultiLocation>>;
+	}
+
+	impl<T: Config> ExecuteControllerWeightInfo for Pallet<T> {
+		fn execute() -> Weight {
+			T::WeightInfo::execute()
+		}
+	}
+
+	impl<T: Config> ExecuteController<OriginFor<T>, <T as Config>::RuntimeCall> for Pallet<T> {
+		type WeightInfo = Self;
+		fn execute(
+			origin: OriginFor<T>,
+			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
+			max_weight: Weight,
+		) -> Result<Outcome, DispatchError> {
+			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let value = (origin_location, message);
+			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
+			let (origin_location, message) = value;
+			let outcome = T::XcmExecutor::execute_xcm_in_credit(
+				origin_location,
+				message,
+				hash,
+				max_weight,
+				max_weight,
+			);
+			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+			Ok(outcome)
+		}
+	}
+
+	impl<T: Config> SendControllerWeightInfo for Pallet<T> {
+		fn send() -> Weight {
+			T::WeightInfo::send()
+		}
+	}
+
+	impl<T: Config> SendController<OriginFor<T>> for Pallet<T> {
+		type WeightInfo = Self;
+		fn send(
+			origin: OriginFor<T>,
+			dest: Box<VersionedMultiLocation>,
+			message: Box<VersionedXcm<()>>,
+		) -> Result<XcmHash, DispatchError> {
+			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
+			let interior: Junctions =
+				origin_location.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
+			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
+			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+
+			let message_id =
+				Self::send_xcm(interior, dest, message.clone()).map_err(Error::<T>::from)?;
+			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
+			Self::deposit_event(e);
+			Ok(message_id)
+		}
+	}
+
+	impl<T: Config> QueryControllerWeightInfo for Pallet<T> {
+		fn query() -> Weight {
+			T::WeightInfo::new_query()
+		}
+		fn take_response() -> Weight {
+			T::WeightInfo::take_response()
+		}
+	}
+
+	impl<T: Config> QueryController<OriginFor<T>, BlockNumberFor<T>> for Pallet<T> {
+		type WeightInfo = Self;
+
+		fn query(
+			origin: OriginFor<T>,
+			timeout: BlockNumberFor<T>,
+			match_querier: VersionedMultiLocation,
+		) -> Result<Self::QueryId, DispatchError> {
+			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let query_id = <Self as QueryHandler>::new_query(
+				responder,
+				timeout,
+				MultiLocation::try_from(match_querier)
+					.map_err(|_| Into::<DispatchError>::into(Error::<T>::BadVersion))?,
+			);
+
+			Ok(query_id)
+		}
 	}
 
 	#[pallet::event]
@@ -772,20 +874,13 @@ pub mod pallet {
 			dest: Box<VersionedMultiLocation>,
 			message: Box<VersionedXcm<()>>,
 		) -> DispatchResult {
-			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			let interior: Junctions =
-				origin_location.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
-			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
-			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-
-			let message_id =
-				Self::send_xcm(interior, dest, message.clone()).map_err(Error::<T>::from)?;
-			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
-			Self::deposit_event(e);
+			<Self as SendController<_>>::send(origin, dest, message)?;
 			Ok(())
 		}
 
 		/// Teleport some assets from the local chain to some destination chain.
+		///
+		/// **This function is deprecated: Use `limited_teleport_assets` instead.**
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
@@ -830,11 +925,13 @@ pub mod pallet {
 			assets: Box<VersionedMultiAssets>,
 			fee_asset_item: u32,
 		) -> DispatchResult {
-			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_item, None)
+			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_item, Unlimited)
 		}
 
 		/// Transfer some assets from the local chain to the sovereign account of a destination
 		/// chain and forward a notification XCM.
+		///
+		/// **This function is deprecated: Use `limited_reserve_transfer_assets` instead.**
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
@@ -879,7 +976,7 @@ pub mod pallet {
 				beneficiary,
 				assets,
 				fee_asset_item,
-				None,
+				Unlimited,
 			)
 		}
 
@@ -893,31 +990,16 @@ pub mod pallet {
 		/// execution attempt will be made.
 		///
 		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
-		/// successfully to completion; only that *some* of it was executed.
+		/// successfully to completion; only that it was attempted.
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
 			origin: OriginFor<T>,
-			message: Box<VersionedXcm<<T as SysConfig>::RuntimeCall>>,
+			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let hash = message.using_encoded(sp_io::hashing::blake2_256);
-			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let value = (origin_location, message);
-			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
-			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::execute_xcm_in_credit(
-				origin_location,
-				message,
-				hash,
-				max_weight,
-				max_weight,
-			);
-			let result =
-				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
-			Self::deposit_event(Event::Attempted { outcome });
-			result
+			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
+			Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into())
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
@@ -1055,7 +1137,7 @@ pub mod pallet {
 				beneficiary,
 				assets,
 				fee_asset_item,
-				Some(weight_limit),
+				weight_limit,
 			)
 		}
 
@@ -1109,7 +1191,7 @@ pub mod pallet {
 				beneficiary,
 				assets,
 				fee_asset_item,
-				Some(weight_limit),
+				weight_limit,
 			)
 		}
 
@@ -1142,7 +1224,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<MultiLocation>,
 	) -> Self::QueryId {
-		Self::do_new_query(responder, None, timeout, match_querier).into()
+		Self::do_new_query(responder, None, timeout, match_querier)
 	}
 
 	/// To check the status of the query, use `fn query()` passing the resultant `QueryId`
@@ -1197,7 +1279,7 @@ impl<T: Config> Pallet<T> {
 		beneficiary: Box<VersionedMultiLocation>,
 		assets: Box<VersionedMultiAssets>,
 		fee_asset_item: u32,
-		maybe_weight_limit: Option<WeightLimit>,
+		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
@@ -1218,22 +1300,6 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let assets: MultiAssets = assets.into();
-		let weight_limit = match maybe_weight_limit {
-			Some(weight_limit) => weight_limit,
-			None => {
-				let fees = fees.clone();
-				let mut remote_message = Xcm(vec![
-					ReserveAssetDeposited(assets.clone()),
-					ClearOrigin,
-					BuyExecution { fees, weight_limit: Limited(Weight::zero()) },
-					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-				]);
-				// use local weight for remote message and hope for the best.
-				let remote_weight = T::Weigher::weight(&mut remote_message)
-					.map_err(|()| Error::<T>::UnweighableMessage)?;
-				Limited(remote_weight)
-			},
-		};
 		let xcm = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
@@ -1257,7 +1323,7 @@ impl<T: Config> Pallet<T> {
 		beneficiary: Box<VersionedMultiLocation>,
 		assets: Box<VersionedMultiAssets>,
 		fee_asset_item: u32,
-		maybe_weight_limit: Option<WeightLimit>,
+		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
@@ -1278,22 +1344,6 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let assets: MultiAssets = assets.into();
-		let weight_limit = match maybe_weight_limit {
-			Some(weight_limit) => weight_limit,
-			None => {
-				let fees = fees.clone();
-				let mut remote_message = Xcm(vec![
-					ReceiveTeleportedAsset(assets.clone()),
-					ClearOrigin,
-					BuyExecution { fees, weight_limit: Limited(Weight::zero()) },
-					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-				]);
-				// use local weight for remote message and hope for the best.
-				let remote_weight = T::Weigher::weight(&mut remote_message)
-					.map_err(|()| Error::<T>::UnweighableMessage)?;
-				Limited(remote_weight)
-			},
-		};
 		let xcm = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },

@@ -19,7 +19,7 @@
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
-	match_types, parameter_types,
+	derive_impl, match_types, parameter_types,
 	traits::{Everything, OriginTrait},
 	weights::Weight,
 };
@@ -40,6 +40,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		XcmGenericBenchmarks: generic::{Pallet},
 	}
 );
@@ -79,7 +80,11 @@ impl frame_system::Config for Test {
 /// The benchmarks in this pallet should never need an asset transactor to begin with.
 pub struct NoAssetTransactor;
 impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
-	fn deposit_asset(_: &MultiAsset, _: &MultiLocation, _: &XcmContext) -> Result<(), XcmError> {
+	fn deposit_asset(
+		_: &MultiAsset,
+		_: &MultiLocation,
+		_: Option<&XcmContext>,
+	) -> Result<(), XcmError> {
 		unreachable!();
 	}
 
@@ -133,9 +138,20 @@ impl xcm_executor::Config for XcmConfig {
 	type Aliasers = Aliasers;
 }
 
+parameter_types! {
+	pub const ExistentialDeposit: u64 = 7;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+impl pallet_balances::Config for Test {
+	type ReserveIdentifier = [u8; 8];
+	type AccountStore = System;
+}
+
 impl crate::Config for Test {
 	type XcmConfig = XcmConfig;
 	type AccountIdConverter = AccountIdConverter;
+	type DeliveryHelper = ();
 	fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 		let valid_destination: MultiLocation =
 			Junction::AccountId32 { network: None, id: [0u8; 32] }.into();
@@ -151,6 +167,7 @@ impl crate::Config for Test {
 }
 
 impl generic::Config for Test {
+	type TransactAsset = Balances;
 	type RuntimeCall = RuntimeCall;
 
 	fn worst_case_response() -> (u64, Response) {
@@ -183,7 +200,7 @@ impl generic::Config for Test {
 
 	fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
 		let assets: MultiAsset = (Concrete(Here.into()), 100).into();
-		Ok((Default::default(), Default::default(), assets))
+		Ok((Default::default(), account_id_junction::<Test>(1).into(), assets))
 	}
 
 	fn export_message_origin_and_destination(

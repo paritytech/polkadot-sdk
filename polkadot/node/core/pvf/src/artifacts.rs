@@ -58,6 +58,7 @@
 use crate::host::PrepareResultSender;
 use always_assert::always;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
+use polkadot_node_primitives::NODE_VERSION;
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
@@ -75,6 +76,7 @@ pub struct ArtifactId {
 
 impl ArtifactId {
 	const PREFIX: &'static str = "wasmtime_";
+	const NODE_VERSION_PREFIX: &'static str = "polkadot_v";
 
 	/// Creates a new artifact ID with the given hash.
 	pub fn new(code_hash: ValidationCodeHash, executor_params_hash: ExecutorParamsHash) -> Self {
@@ -92,8 +94,13 @@ impl ArtifactId {
 		use polkadot_core_primitives::Hash;
 		use std::str::FromStr as _;
 
-		let file_name = file_name.strip_prefix(Self::PREFIX)?;
-		let (code_hash_str, executor_params_hash_str) = file_name.split_once('_')?;
+		let file_name =
+			file_name.strip_prefix(Self::PREFIX)?.strip_prefix(Self::NODE_VERSION_PREFIX)?;
+
+		// [ node version | code hash | param hash ]
+		let parts: Vec<&str> = file_name.split('_').collect();
+		let (_node_ver, code_hash_str, executor_params_hash_str) = (parts[0], parts[1], parts[2]);
+
 		let code_hash = Hash::from_str(code_hash_str).ok()?.into();
 		let executor_params_hash =
 			ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
@@ -103,8 +110,14 @@ impl ArtifactId {
 
 	/// Returns the expected path to this artifact given the root of the cache.
 	pub fn path(&self, cache_path: &Path) -> PathBuf {
-		let file_name =
-			format!("{}{:#x}_{:#x}", Self::PREFIX, self.code_hash, self.executor_params_hash);
+		let file_name = format!(
+			"{}{}{}_{:#x}_{:#x}",
+			Self::PREFIX,
+			Self::NODE_VERSION_PREFIX,
+			NODE_VERSION,
+			self.code_hash,
+			self.executor_params_hash
+		);
 		cache_path.join(file_name)
 	}
 }
@@ -128,6 +141,7 @@ impl ArtifactPathId {
 	}
 }
 
+#[derive(Debug)]
 pub enum ArtifactState {
 	/// The artifact is ready to be used by the executor.
 	///
@@ -172,9 +186,10 @@ impl Artifacts {
 	///
 	/// The recognized artifacts will be filled in the table and unrecognized will be removed.
 	pub async fn new(cache_path: &Path) -> Self {
-		// Make sure that the cache path directory and all its parents are created.
-		// First delete the entire cache. Nodes are long-running so this should populate shortly.
+		// First delete the entire cache. This includes artifacts and any leftover worker dirs (see
+		// [`WorkerDir`]). Nodes are long-running so this should populate shortly.
 		let _ = tokio::fs::remove_dir_all(cache_path).await;
+		// Make sure that the cache path directory and all its parents are created.
 		let _ = tokio::fs::create_dir_all(cache_path).await;
 
 		Self { artifacts: HashMap::new() }
@@ -252,20 +267,27 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
-	use super::{ArtifactId, Artifacts};
+	use super::{ArtifactId, Artifacts, NODE_VERSION};
 	use polkadot_primitives::ExecutorParamsHash;
 	use sp_core::H256;
 	use std::{path::Path, str::FromStr};
+
+	fn file_name(code_hash: &str, param_hash: &str) -> String {
+		format!("wasmtime_polkadot_v{}_0x{}_0x{}", NODE_VERSION, code_hash, param_hash)
+	}
 
 	#[test]
 	fn from_file_name() {
 		assert!(ArtifactId::from_file_name("").is_none());
 		assert!(ArtifactId::from_file_name("junk").is_none());
 
+		let file_name = file_name(
+			"0022800000000000000000000000000000000000000000000000000000000000",
+			"0033900000000000000000000000000000000000000000000000000000000000",
+		);
+
 		assert_eq!(
-			ArtifactId::from_file_name(
-				"wasmtime_0x0022800000000000000000000000000000000000000000000000000000000000_0x0033900000000000000000000000000000000000000000000000000000000000"
-			),
+			ArtifactId::from_file_name(&file_name),
 			Some(ArtifactId::new(
 				hex_literal::hex![
 					"0022800000000000000000000000000000000000000000000000000000000000"
@@ -280,22 +302,25 @@ mod tests {
 
 	#[test]
 	fn path() {
-		let path = Path::new("/test");
-		let hash =
-			H256::from_str("1234567890123456789012345678901234567890123456789012345678901234")
-				.unwrap();
+		let dir = Path::new("/test");
+		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
+		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
+		let file_name = file_name(code_hash, params_hash);
+
+		let code_hash = H256::from_str(code_hash).unwrap();
+		let params_hash = H256::from_str(params_hash).unwrap();
 
 		assert_eq!(
-			ArtifactId::new(hash.into(), ExecutorParamsHash::from_hash(hash)).path(path).to_str(),
-			Some(
-				"/test/wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234_0x1234567890123456789012345678901234567890123456789012345678901234"
-			),
+			ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
+				.path(dir)
+				.to_str(),
+			Some(format!("/test/{}", file_name).as_str()),
 		);
 	}
 
 	#[tokio::test]
 	async fn artifacts_removes_cache_on_startup() {
-		let fake_cache_path = crate::worker_intf::tmpfile("test-cache").await.unwrap();
+		let fake_cache_path = crate::worker_intf::tmppath("test-cache").await.unwrap();
 		let fake_artifact_path = {
 			let mut p = fake_cache_path.clone();
 			p.push("wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234");

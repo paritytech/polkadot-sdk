@@ -216,7 +216,7 @@ benchmarks! {
 	}
 
 	ensure_updated {
-		let n in 0..MAX_HASH_UPGRADE_BULK_COUNT;
+		let n in 1..MAX_HASH_UPGRADE_BULK_COUNT;
 
 		let caller = funded_account::<T>();
 		let hashes = (0..n).map(|i| insert_old_unrequested::<T>(i)).collect::<Vec<_>>();

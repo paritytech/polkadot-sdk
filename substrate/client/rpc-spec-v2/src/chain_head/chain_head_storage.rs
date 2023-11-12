@@ -71,8 +71,10 @@ impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE> {
 
 /// Query to iterate over storage.
 struct QueryIter {
-	/// The next key from which the iteration should continue.
-	next_key: StorageKey,
+	/// The key from which the iteration was started.
+	query_key: StorageKey,
+	/// The key after which pagination should resume.
+	pagination_start_key: Option<StorageKey>,
 	/// The type of the query (either value or hash).
 	ty: IterQueryType,
 }
@@ -184,19 +186,26 @@ where
 		hash: Block::Hash,
 		child_key: Option<&ChildInfo>,
 	) -> QueryIterResult {
-		let QueryIter { next_key, ty } = query;
+		let QueryIter { ty, query_key, pagination_start_key } = query;
 
 		let mut keys_iter = if let Some(child_key) = child_key {
-			self.client
-				.child_storage_keys(hash, child_key.to_owned(), Some(&next_key), None)
+			self.client.child_storage_keys(
+				hash,
+				child_key.to_owned(),
+				Some(&query_key),
+				pagination_start_key.as_ref(),
+			)
 		} else {
-			self.client.storage_keys(hash, Some(&next_key), None)
+			self.client.storage_keys(hash, Some(&query_key), pagination_start_key.as_ref())
 		}
 		.map_err(|err| err.to_string())?;
 
 		let mut ret = Vec::with_capacity(self.operation_max_storage_items);
+		let mut next_pagination_key = None;
 		for _ in 0..self.operation_max_storage_items {
 			let Some(key) = keys_iter.next() else { break };
+
+			next_pagination_key = Some(key.clone());
 
 			let result = match ty {
 				IterQueryType::Value => self.query_storage_value(hash, &key, child_key),
@@ -209,7 +218,11 @@ where
 		}
 
 		// Save the next key if any to continue the iteration.
-		let maybe_next_query = keys_iter.next().map(|next_key| QueryIter { next_key, ty });
+		let maybe_next_query = keys_iter.next().map(|_| QueryIter {
+			ty,
+			query_key,
+			pagination_start_key: next_pagination_key,
+		});
 		Ok((ret, maybe_next_query))
 	}
 
@@ -325,12 +338,16 @@ where
 							return
 						},
 					},
-				StorageQueryType::DescendantsValues => self
-					.iter_operations
-					.push_back(QueryIter { next_key: item.key, ty: IterQueryType::Value }),
-				StorageQueryType::DescendantsHashes => self
-					.iter_operations
-					.push_back(QueryIter { next_key: item.key, ty: IterQueryType::Hash }),
+				StorageQueryType::DescendantsValues => self.iter_operations.push_back(QueryIter {
+					query_key: item.key,
+					ty: IterQueryType::Value,
+					pagination_start_key: None,
+				}),
+				StorageQueryType::DescendantsHashes => self.iter_operations.push_back(QueryIter {
+					query_key: item.key,
+					ty: IterQueryType::Hash,
+					pagination_start_key: None,
+				}),
 			};
 		}
 

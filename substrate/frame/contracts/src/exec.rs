@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	debug::{CallSpan, Tracing},
+	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
 	storage::{self, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
@@ -100,7 +100,7 @@ impl<T: Config> Key<T> {
 /// Call or instantiate both called into other contracts and pass through errors happening
 /// in those to the caller. This enum is for the caller to distinguish whether the error
 /// happened during the execution of the callee or in the current execution context.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 pub enum ErrorOrigin {
 	/// Caller error origin.
 	///
@@ -112,7 +112,7 @@ pub enum ErrorOrigin {
 }
 
 /// Error returned by contract execution.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 pub struct ExecError {
 	/// The reason why the execution failed.
 	pub error: DispatchError,
@@ -908,13 +908,16 @@ where
 			// Every non delegate call or instantiate also optionally transfers the balance.
 			self.initial_transfer()?;
 
-			let call_span =
-				T::Debug::new_call_span(executable.code_hash(), entry_point, &input_data);
+			let contract_address = &top_frame!(self).account_id;
 
-			// Call into the Wasm blob.
-			let output = executable
-				.execute(self, &entry_point, input_data)
-				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
+			let call_span = T::Debug::new_call_span(contract_address, entry_point, &input_data);
+
+			let output = T::Debug::intercept_call(contract_address, &entry_point, &input_data)
+				.unwrap_or_else(|| {
+					executable
+						.execute(self, &entry_point, input_data)
+						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
+				})?;
 
 			call_span.after_call(&output);
 

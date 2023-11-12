@@ -29,7 +29,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
-	Perbill, Percent,
+	Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
 use sp_std::prelude::*;
@@ -552,10 +552,10 @@ benchmarks! {
 	}
 
 	payout_stakers_dead_controller {
-		let n in 0 .. T::MaxNominatorRewardedPerValidator::get() as u32;
+		let n in 0 .. T::MaxExposurePageSize::get() as u32;
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
-			T::MaxNominatorRewardedPerValidator::get() as u32,
+			T::MaxExposurePageSize::get() as u32,
 			true,
 			true,
 			RewardDestination::Controller,
@@ -572,7 +572,7 @@ benchmarks! {
 			let balance = T::Currency::free_balance(controller);
 			ensure!(balance.is_zero(), "Controller has balance, but should be dead.");
 		}
-	}: payout_stakers(RawOrigin::Signed(caller), validator, current_era)
+	}: payout_stakers_by_page(RawOrigin::Signed(caller), validator, current_era, 0)
 	verify {
 		let balance_after = T::Currency::free_balance(&validator_controller);
 		ensure!(
@@ -586,10 +586,10 @@ benchmarks! {
 	}
 
 	payout_stakers_alive_staked {
-		let n in 0 .. T::MaxNominatorRewardedPerValidator::get() as u32;
+		let n in 0 .. T::MaxExposurePageSize::get() as u32;
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
-			T::MaxNominatorRewardedPerValidator::get() as u32,
+			T::MaxExposurePageSize::get() as u32,
 			false,
 			true,
 			RewardDestination::Staked,
@@ -684,13 +684,10 @@ benchmarks! {
 		let stash = scenario.origin_stash1;
 
 		add_slashing_spans::<T>(&stash, s);
-		let l = StakingLedger {
-			stash: stash.clone(),
-			active: T::Currency::minimum_balance() - One::one(),
-			total: T::Currency::minimum_balance() - One::one(),
-			unlocking: Default::default(),
-			claimed_rewards: Default::default(),
-		};
+		let l = StakingLedger::<T>::new(
+			stash.clone(),
+			T::Currency::minimum_balance() - One::one(),
+		);
 		Ledger::<T>::insert(&controller, l);
 
 		assert!(Bonded::<T>::contains_key(&stash));
@@ -762,7 +759,7 @@ benchmarks! {
 		let caller: T::AccountId = whitelisted_caller();
 		let origin = RawOrigin::Signed(caller);
 		let calls: Vec<_> = payout_calls_arg.iter().map(|arg|
-			Call::<T>::payout_stakers { validator_stash: arg.0.clone(), era: arg.1 }.encode()
+			Call::<T>::payout_stakers_by_page { validator_stash: arg.0.clone(), era: arg.1, page: 0 }.encode()
 		).collect();
 	}: {
 		for call in calls {
@@ -986,7 +983,7 @@ mod tests {
 
 			let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
 				n,
-				<<Test as Config>::MaxNominatorRewardedPerValidator as Get<_>>::get(),
+				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 				false,
 				false,
 				RewardDestination::Staked,
@@ -998,10 +995,11 @@ mod tests {
 			let current_era = CurrentEra::<Test>::get().unwrap();
 
 			let original_free_balance = Balances::free_balance(&validator_stash);
-			assert_ok!(Staking::payout_stakers(
+			assert_ok!(Staking::payout_stakers_by_page(
 				RuntimeOrigin::signed(1337),
 				validator_stash,
-				current_era
+				current_era,
+				0
 			));
 			let new_free_balance = Balances::free_balance(&validator_stash);
 
@@ -1016,7 +1014,7 @@ mod tests {
 
 			let (validator_stash, _nominators) = create_validator_with_nominators::<Test>(
 				n,
-				<<Test as Config>::MaxNominatorRewardedPerValidator as Get<_>>::get(),
+				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 				false,
 				false,
 				RewardDestination::Staked,
