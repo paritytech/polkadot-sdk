@@ -1287,6 +1287,52 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
+#[frame_support::pallet]
+pub mod im_online_remover {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			if RemoveAtBlock::<T>::get() == None {
+				RemoveAtBlock::<T>::set(Some(n));
+			}
+			Weight::zero()
+		}
+
+		fn offchain_worker(n: BlockNumberFor<T>) {
+			const DB_PREFIX: &[u8] = b"parity/im-online-heartbeat/";
+			if let Some(remove_at) = RemoveAtBlock::<T>::get() {
+				if remove_at == n {
+					let validator_set_size =
+						pallet_session::Pallet::<crate::Runtime>::validators().len() as u32;
+					(0..validator_set_size).for_each(|idx| {
+						let key = {
+							let mut key = DB_PREFIX.to_vec();
+							key.extend(idx.encode());
+							key
+						};
+						// FIXME: `StorageLock` needed?
+						sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
+					});
+				}
+			}
+		}
+	}
+
+	#[pallet::storage]
+	pub(super) type RemoveAtBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+}
+
+impl im_online_remover::Config for Runtime {}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -1403,6 +1449,8 @@ construct_runtime! {
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
 
+		ImOnlineRemover: im_online_remover::{Pallet, Storage} = 100,
+
 		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call} = 250,
 		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>, Config<T>} = 251,
 
@@ -1504,31 +1552,13 @@ pub mod migrations {
 		type PalletName = TipsPalletName;
 	}
 
-	/// Upgrade Session keys to exclude ImOnline key.
+	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 		fn on_runtime_upgrade() -> Weight {
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
 			Perbill::from_percent(50) * BlockWeights::get().max_block
-		}
-	}
-
-	// Remove offchain storage values of `im-online` pallet
-	pub struct RemoveImOnlineOffchainStorageValues;
-	impl frame_support::traits::OnRuntimeUpgrade for RemoveImOnlineOffchainStorageValues {
-		fn on_runtime_upgrade() -> Weight {
-			const DB_PREFIX: &[u8] = b"parity/im-online-heartbeat/";
-			let validator_set_size = pallet_session::Pallet::<Runtime>::validators().len() as u32;
-			(0..validator_set_size).for_each(|idx| {
-				let key = {
-					let mut key = DB_PREFIX.to_vec();
-					key.extend(idx.encode());
-					key
-				};
-				sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
-			});
-			Weight::zero()
 		}
 	}
 
@@ -1562,10 +1592,7 @@ pub mod migrations {
 		// Upgrade `SessionKeys` to exclude `ImOnline`
 		UpgradeSessionKeys,
 
-		// Remove im-online pallet off-chain storage
-		RemoveImOnlineOffchainStorageValues,
-
-		// Remove im-online pallet on-chain storage
+		// Remove `im-online` pallet on-chain storage
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 	);
 }
@@ -1627,6 +1654,7 @@ mod benches {
 		[runtime_parachains::paras_inherent, ParaInherent]
 		[runtime_parachains::paras, Paras]
 		[runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[im_online_remover, ImOnlineRemover]
 		// Substrate
 		[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
