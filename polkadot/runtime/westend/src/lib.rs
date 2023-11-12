@@ -482,11 +482,11 @@ impl Get<u32> for MaybeSignedPhase {
 	fn get() -> u32 {
 		// 1 day = 4 eras -> 1 week = 28 eras. We want to disable signed phase once a week to test
 		// the fallback unsigned phase is able to compute elections on Westend.
-		if Staking::current_era().unwrap_or(1) % 28 == 0 {
-			0
-		} else {
+		// if Staking::current_era().unwrap_or(1) % 28 == 0 {
+		// 	0
+		// } else {
 			SignedPhase::get()
-		}
+		// }
 	}
 }
 

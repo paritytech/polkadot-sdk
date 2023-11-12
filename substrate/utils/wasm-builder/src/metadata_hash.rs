@@ -24,6 +24,8 @@ use sc_executor_wasmtime::{
 use std::path::Path;
 
 pub fn generate_hash(wasm: &Path) -> [u8; 32] {
+	sp_tracing::try_init_simple();
+
 	let wasm = std::fs::read(wasm).expect("Reads wasm");
 
 	let runtime_blob = RuntimeBlob::new(&wasm).unwrap();

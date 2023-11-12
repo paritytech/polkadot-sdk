@@ -30,7 +30,8 @@ sp-io = { path = "../../primitives/io", optional = true }
 frame-metadata = { version = "16.0.0", features = [ "current" ], optional = true }
 codec = { package = "parity-scale-codec", version = "3.1.5", optional = true }
 array-bytes = "6.1"
+sp-tracing = { path = "../../primitives/tracing", optional = true }
 
 [features]
 default = [ "experimental-metadata-hash" ]
-experimental-metadata-hash = [ "metadata-shortener", "sc-executor-wasmtime", "sp-io", "frame-metadata", "codec" ]
+experimental-metadata-hash = [ "metadata-shortener", "sc-executor-wasmtime", "sp-io", "frame-metadata", "codec", "sp-tracing" ]

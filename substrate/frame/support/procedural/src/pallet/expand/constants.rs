@@ -85,6 +85,8 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 		let default_byte_impl = &const_.default_byte_impl;
 
 		quote::quote!({
+			#frame_support::__private::log::debug!(concat!("Fetching constant: ", #ident_str));
+
 			#frame_support::__private::metadata_ir::PalletConstantMetadataIR {
 				name: #ident_str,
 				ty: #frame_support::__private::scale_info::meta_type::<#const_type>(),

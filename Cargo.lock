@@ -18867,6 +18867,7 @@ dependencies = [
  "sc-executor-wasmtime",
  "sp-io",
  "sp-maybe-compressed-blob",
+ "sp-tracing 10.0.0",
  "strum",
  "tempfile",
  "toml 0.7.6",
