@@ -1,0 +1,34 @@
+name: Command Bot
+
+on: 
+  workflow_dispatch:
+    inputs:
+      use_self_hosted:
+        description: 'Use self-hosted runner'
+        required: true
+        default: 'false'
+      image_name:
+        description: 'Docker image to use'
+        required: true
+      script_path:
+        description: 'Path to the command bot script to run'
+        required: true
+
+jobs:
+  build:
+    runs-on: ${{ (github.event.inputs.use_self_hosted == 'true' && 'parity-gha-runner') || 'ubuntu-latest' }}
+    container:
+      image: ${{ github.event.inputs.image_name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run Script
+        run: |
+          echo "Running on ${RUNNER_LABELS}"
+          echo "Using image ${IMAGE_NAME}"
+          bash ${{ github.event.inputs.script_path }}
+        env:
+          RUNNER_LABELS: ${{ runner.labels }}
+          IMAGE_NAME: ${{ github.event.inputs.image_name }}
