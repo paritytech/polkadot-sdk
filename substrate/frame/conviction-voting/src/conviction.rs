@@ -17,115 +17,41 @@
 
 //! The conviction datatype.
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{Bounded, CheckedDiv, CheckedMul, Zero},
-	RuntimeDebug,
-};
-
 use crate::types::Delegations;
 
-/// A value denoting the strength of conviction of a vote.
-#[derive(
-	Encode,
-	Decode,
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub enum Conviction {
-	/// 0.1x votes, unlocked.
-	None,
-	/// 1x votes, locked for an enactment period following a successful vote.
-	Locked1x,
-	/// 2x votes, locked for 2x enactment periods following a successful vote.
-	Locked2x,
-	/// 3x votes, locked for 4x...
-	Locked3x,
-	/// 4x votes, locked for 8x...
-	Locked4x,
-	/// 5x votes, locked for 16x...
-	Locked5x,
-	/// 6x votes, locked for 32x...
-	Locked6x,
+/// Convert a conviction into a lock duration.
+pub trait AsLockDuration {
+	type Duration;
+
+	/// Convert the conviction to a lock duration.
+	fn as_locked_duration(&self) -> Self::Duration;
 }
 
-impl Default for Conviction {
-	fn default() -> Self {
-		Conviction::None
-	}
-}
+/// Convert a balance with a conviction into votes.
+pub trait AsConvictedVotes {
+	type Balance: Clone;
+	
+	/// Scale the capital to a number of convicted votes.
+	fn as_votes(&self, capital: Self::Balance) -> Self::Balance;
 
-impl From<Conviction> for u8 {
-	fn from(c: Conviction) -> u8 {
-		match c {
-			Conviction::None => 0,
-			Conviction::Locked1x => 1,
-			Conviction::Locked2x => 2,
-			Conviction::Locked3x => 3,
-			Conviction::Locked4x => 4,
-			Conviction::Locked5x => 5,
-			Conviction::Locked6x => 6,
+	fn as_delegations(&self, capital: Self::Balance) -> Delegations<Self::Balance> {
+		Delegations {
+			votes: self.as_votes(capital.clone()),
+			capital,
 		}
 	}
 }
 
-impl TryFrom<u8> for Conviction {
-	type Error = ();
-	fn try_from(i: u8) -> Result<Conviction, ()> {
-		Ok(match i {
-			0 => Conviction::None,
-			1 => Conviction::Locked1x,
-			2 => Conviction::Locked2x,
-			3 => Conviction::Locked3x,
-			4 => Conviction::Locked4x,
-			5 => Conviction::Locked5x,
-			6 => Conviction::Locked6x,
-			_ => return Err(()),
-		})
-	}
-}
-
-impl Conviction {
-	/// The amount of time (in number of periods) that our conviction implies a successful voter's
-	/// balance should be locked for.
-	pub fn lock_periods(self) -> u32 {
-		match self {
-			Conviction::None => 0,
-			Conviction::Locked1x => 1,
-			Conviction::Locked2x => 2,
-			Conviction::Locked3x => 4,
-			Conviction::Locked4x => 8,
-			Conviction::Locked5x => 16,
-			Conviction::Locked6x => 32,
-		}
-	}
-
-	/// The votes of a voter of the given `balance` with our conviction.
-	pub fn votes<B: From<u8> + Zero + Copy + CheckedMul + CheckedDiv + Bounded>(
+// FAIL-CI remove TryFrom<u8> from debugging, and copy
+/*pub trait ConvictionTrait: AsLockDuration + AsConvictedVotes + Copy + Zero + Bounded + Clone + PartialEq + TryFrom<u8> + TypeInfo + MaxEncodedLen + Encode + Decode + frame_support::Parameter + frame_support::pallet_prelude::Member {
+	/// Calculate the votes that result from a balance and a conviction.
+	fn votes<B>(
 		self,
 		capital: B,
-	) -> Delegations<B> {
-		let votes = match self {
-			Conviction::None => capital.checked_div(&10u8.into()).unwrap_or_else(Zero::zero),
-			x => capital.checked_mul(&u8::from(x).into()).unwrap_or_else(B::max_value),
-		};
-		Delegations { votes, capital }
+	) -> Delegations<B>
+		where Self: AsConvictedVotes<Balance = B>,
+	{
+		Delegations { votes: self.as_votes(&capital), capital }
 	}
 }
-
-impl Bounded for Conviction {
-	fn min_value() -> Self {
-		Conviction::None
-	}
-	fn max_value() -> Self {
-		Conviction::Locked6x
-	}
-}
+*/

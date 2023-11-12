@@ -29,7 +29,7 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, marker::PhantomData};
 
 use super::*;
-use crate::{AccountVote, Conviction, Vote};
+use crate::{AccountVote, Vote};
 
 /// Info regarding an ongoing referendum.
 #[derive(
@@ -44,7 +44,7 @@ use crate::{AccountVote, Conviction, Vote};
 )]
 #[scale_info(skip_type_params(Total))]
 #[codec(mel_bound(Votes: MaxEncodedLen))]
-pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
+pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total, Conviction> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Votes,
 	/// The number of nay votes, expressed in terms of post-conviction lock-vote.
@@ -52,14 +52,15 @@ pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total
 	/// The basic number of aye votes, expressed pre-conviction.
 	pub support: Votes,
 	/// Dummy.
-	dummy: PhantomData<Total>,
+	dummy: PhantomData<(Total, Conviction)>,
 }
 
 impl<
 		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
 		Total: Get<Votes>,
 		Class,
-	> VoteTally<Votes, Class> for Tally<Votes, Total>
+		Conviction,
+	> VoteTally<Votes, Class> for Tally<Votes, Total, Conviction>
 {
 	fn new(_: Class) -> Self {
 		Self { ayes: Zero::zero(), nays: Zero::zero(), support: Zero::zero(), dummy: PhantomData }
@@ -101,11 +102,12 @@ impl<
 impl<
 		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
 		Total: Get<Votes>,
-	> Tally<Votes, Total>
+		Conviction: AsConvictedVotes<Balance=Votes> + Zero,
+	> Tally<Votes, Total, Conviction>
 {
 	/// Create a new tally.
-	pub fn from_vote(vote: Vote, balance: Votes) -> Self {
-		let Delegations { votes, capital } = vote.conviction.votes(balance);
+	pub fn from_vote(vote: Vote<Conviction>, balance: Votes) -> Self {
+		let Delegations { votes, capital } = vote.conviction.as_delegations(balance);
 		Self {
 			ayes: if vote.aye { votes } else { Zero::zero() },
 			nays: if vote.aye { Zero::zero() } else { votes },
@@ -128,10 +130,10 @@ impl<
 	}
 
 	/// Add an account's vote into the tally.
-	pub fn add(&mut self, vote: AccountVote<Votes>) -> Option<()> {
+	pub fn add(&mut self, vote: AccountVote<Votes, Conviction>) -> Option<()> {
 		match vote {
 			AccountVote::Standard { vote, balance } => {
-				let Delegations { votes, capital } = vote.conviction.votes(balance);
+				let Delegations { votes, capital } = vote.conviction.as_delegations(balance);
 				match vote.aye {
 					true => {
 						self.support = self.support.checked_add(&capital)?;
@@ -141,16 +143,16 @@ impl<
 				}
 			},
 			AccountVote::Split { aye, nay } => {
-				let aye = Conviction::None.votes(aye);
-				let nay = Conviction::None.votes(nay);
+				let aye = Conviction::zero().as_delegations(aye);
+				let nay = Conviction::zero().as_delegations(nay);
 				self.support = self.support.checked_add(&aye.capital)?;
 				self.ayes = self.ayes.checked_add(&aye.votes)?;
 				self.nays = self.nays.checked_add(&nay.votes)?;
 			},
 			AccountVote::SplitAbstain { aye, nay, abstain } => {
-				let aye = Conviction::None.votes(aye);
-				let nay = Conviction::None.votes(nay);
-				let abstain = Conviction::None.votes(abstain);
+				let aye = Conviction::zero().as_delegations(aye);
+				let nay = Conviction::zero().as_delegations(nay);
+				let abstain = Conviction::zero().as_delegations(abstain);
 				self.support =
 					self.support.checked_add(&aye.capital)?.checked_add(&abstain.capital)?;
 				self.ayes = self.ayes.checked_add(&aye.votes)?;
@@ -161,10 +163,10 @@ impl<
 	}
 
 	/// Remove an account's vote from the tally.
-	pub fn remove(&mut self, vote: AccountVote<Votes>) -> Option<()> {
+	pub fn remove(&mut self, vote: AccountVote<Votes, Conviction>) -> Option<()> {
 		match vote {
 			AccountVote::Standard { vote, balance } => {
-				let Delegations { votes, capital } = vote.conviction.votes(balance);
+				let Delegations { votes, capital } = vote.conviction.as_delegations(balance);
 				match vote.aye {
 					true => {
 						self.support = self.support.checked_sub(&capital)?;
@@ -174,16 +176,16 @@ impl<
 				}
 			},
 			AccountVote::Split { aye, nay } => {
-				let aye = Conviction::None.votes(aye);
-				let nay = Conviction::None.votes(nay);
+				let aye = Conviction::zero().as_delegations(aye);
+				let nay = Conviction::zero().as_delegations(nay);
 				self.support = self.support.checked_sub(&aye.capital)?;
 				self.ayes = self.ayes.checked_sub(&aye.votes)?;
 				self.nays = self.nays.checked_sub(&nay.votes)?;
 			},
 			AccountVote::SplitAbstain { aye, nay, abstain } => {
-				let aye = Conviction::None.votes(aye);
-				let nay = Conviction::None.votes(nay);
-				let abstain = Conviction::None.votes(abstain);
+				let aye = Conviction::zero().as_delegations(aye);
+				let nay = Conviction::zero().as_delegations(nay);
+				let abstain = Conviction::zero().as_delegations(abstain);
 				self.support =
 					self.support.checked_sub(&aye.capital)?.checked_sub(&abstain.capital)?;
 				self.ayes = self.ayes.checked_sub(&aye.votes)?;

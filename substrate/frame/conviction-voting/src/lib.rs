@@ -35,11 +35,16 @@ use frame_support::{
 		ReservableCurrency, WithdrawReasons,
 	},
 };
+use crate::conviction::AsConvictedVotes;
+use crate::conviction::AsLockDuration;
+use frame_support::Parameter;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, Perbill,
 };
+use codec::MaxEncodedLen;
+use frame_support::pallet_prelude::Member;
 use sp_std::prelude::*;
 
 mod conviction;
@@ -48,7 +53,6 @@ mod vote;
 pub mod weights;
 
 pub use self::{
-	conviction::Conviction,
 	pallet::*,
 	types::{Delegations, Tally, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting},
@@ -72,11 +76,12 @@ type VotingOf<T, I = ()> = Voting<
 	BlockNumberFor<T>,
 	PollIndexOf<T, I>,
 	<T as Config<I>>::MaxVotes,
+	<T as Config<I>>::Conviction
 >;
 #[allow(dead_code)]
 type DelegatingOf<T, I = ()> =
-	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T>>;
-pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
+	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T>, <T as Config<I>>::Conviction>;
+pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout, <T as Config<I>>::Conviction>;
 pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
 type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 #[cfg(feature = "runtime-benchmarks")]
@@ -130,12 +135,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxVotes: Get<u32>;
 
-		/// The minimum period of vote locking.
-		///
-		/// It should be no shorter than enactment period to ensure that in the case of an approval,
-		/// those successful voters are locked into the consequences that their votes entail.
-		#[pallet::constant]
-		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
+		type Conviction: AsLockDuration<Duration=BlockNumberFor<Self>> + AsConvictedVotes<Balance=BalanceOf<Self, I>> + Zero + Copy + Parameter + Member + MaxEncodedLen;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -217,7 +217,7 @@ pub mod pallet {
 		pub fn vote(
 			origin: OriginFor<T>,
 			#[pallet::compact] poll_index: PollIndexOf<T, I>,
-			vote: AccountVote<BalanceOf<T, I>>,
+			vote: AccountVote<BalanceOf<T, I>, T::Conviction>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::try_vote(&who, poll_index, vote)
@@ -254,7 +254,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			class: ClassOf<T, I>,
 			to: AccountIdLookupOf<T>,
-			conviction: Conviction,
+			conviction: T::Conviction,
 			balance: BalanceOf<T, I>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -391,7 +391,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn try_vote(
 		who: &T::AccountId,
 		poll_index: PollIndexOf<T, I>,
-		vote: AccountVote<BalanceOf<T, I>>,
+		vote: AccountVote<BalanceOf<T, I>, T::Conviction>,
 	) -> DispatchResult {
 		ensure!(
 			vote.balance() <= T::Currency::total_balance(who),
@@ -465,10 +465,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
-						if let Some((lock_periods, balance)) = v.1.locked_if(approved) {
-							let unlock_at = end.saturating_add(
-								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
-							);
+						if let Some((lock_duration, balance)) = v.1.locked_if(approved) {
+							let unlock_at = end.saturating_add(lock_duration);
 							let now = frame_system::Pallet::<T>::block_number();
 							if now < unlock_at {
 								ensure!(
@@ -551,7 +549,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: T::AccountId,
 		class: ClassOf<T, I>,
 		target: T::AccountId,
-		conviction: Conviction,
+		conviction: T::Conviction,
 		balance: BalanceOf<T, I>,
 	) -> Result<u32, DispatchError> {
 		ensure!(who != target, Error::<T, I>::Nonsense);
@@ -580,7 +578,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 
 				let votes =
-					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
+					Self::increase_upstream_delegation(&target, &class, conviction.as_delegations(balance));
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
@@ -608,13 +606,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						let votes = Self::reduce_upstream_delegation(
 							&target,
 							&class,
-							conviction.votes(balance),
+							conviction.as_delegations(balance),
 						);
 						let now = frame_system::Pallet::<T>::block_number();
-						let lock_periods = conviction.lock_periods().into();
+						let lock_duration = conviction.as_locked_duration().into();
 						prior.accumulate(
 							now.saturating_add(
-								T::VoteLockingPeriod::get().saturating_mul(lock_periods),
+								lock_duration,
 							),
 							balance,
 						);
