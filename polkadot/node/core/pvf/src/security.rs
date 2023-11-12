@@ -84,13 +84,11 @@ impl SecureModeError {
 impl fmt::Display for SecureModeError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use SecureModeError::*;
-		let display = match self {
-			CannotEnableLandlock(err) => format!("Cannot enable landlock, a Linux 5.13+ kernel security feature: {}", err),
-			CannotEnableSeccomp(err) => format!("Cannot enable seccomp, a Linux-specific kernel security feature: {}", err),
-			CannotUnshareUserNamespaceAndChangeRoot(err) => format!("Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {}", err),
-		};
-
-		write!(f, "{}", display)
+		match self {
+			CannotEnableLandlock(err) => write!(f, "Cannot enable landlock, a Linux 5.13+ kernel security feature: {err}"),
+			CannotEnableSeccomp(err) => write!(f, "Cannot enable seccomp, a Linux-specific kernel security feature: {err}"),
+			CannotUnshareUserNamespaceAndChangeRoot(err) => write!(f, "Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {err}"),
+		}
 	}
 }
 
