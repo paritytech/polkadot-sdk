@@ -1253,6 +1253,52 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
+#[frame_support::pallet]
+pub mod im_online_remover {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			if RemoveAtBlock::<T>::get() == None {
+				RemoveAtBlock::<T>::set(Some(n));
+			}
+			Weight::zero()
+		}
+
+		fn offchain_worker(n: BlockNumberFor<T>) {
+			const DB_PREFIX: &[u8] = b"parity/im-online-heartbeat/";
+			if let Some(remove_at) = RemoveAtBlock::<T>::get() {
+				if remove_at == n {
+					let validator_set_size =
+						pallet_session::Pallet::<crate::Runtime>::validators().len() as u32;
+					(0..validator_set_size).for_each(|idx| {
+						let key = {
+							let mut key = DB_PREFIX.to_vec();
+							key.extend(idx.encode());
+							key
+						};
+						// FIXME: `StorageLock` needed?
+						sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
+					});
+				}
+			}
+		}
+	}
+
+	#[pallet::storage]
+	pub(super) type RemoveAtBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+}
+
+impl im_online_remover::Config for Runtime {}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -1369,6 +1415,8 @@ construct_runtime! {
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
+
+		ImOnlineRemover: im_online_remover::{Pallet, Storage} = 100,
 
 		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call} = 250,
 		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>, Config<T>} = 251,
@@ -1557,6 +1605,7 @@ mod benches {
 		[runtime_parachains::paras_inherent, ParaInherent]
 		[runtime_parachains::paras, Paras]
 		[runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[im_online_remover, ImOnlineRemover]
 		// Substrate
 		[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
