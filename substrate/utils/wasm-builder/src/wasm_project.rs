@@ -18,7 +18,7 @@
 use crate::{write_file_if_changed, CargoCommandVersioned, OFFLINE};
 
 use build_helper::rerun_if_changed;
-use cargo_metadata::{CargoOpt, DependencyKind, Metadata, MetadataCommand};
+use cargo_metadata::{DependencyKind, Metadata, MetadataCommand};
 use parity_wasm::elements::{deserialize_buffer, Module};
 use std::{
 	borrow::ToOwned,
