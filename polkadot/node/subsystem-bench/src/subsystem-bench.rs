@@ -90,6 +90,10 @@ struct BenchCli {
 	/// The bandwidth of simulated remote peers in KiB
 	pub peer_bandwidth: Option<usize>,
 
+	#[clap(short, long)]
+	/// The bandwidth of our simulated node in KiB
+	pub bandwidth: Option<usize>,
+
 	#[clap(long, value_parser=le_100)]
 	/// Simulated connection error rate [0-100].
 	pub peer_error: Option<usize>,
@@ -124,10 +128,9 @@ impl BenchCli {
 
 		let runtime = new_runtime();
 		let registry = Registry::new();
-		let registry_clone = registry.clone();
 
 		let mut pov_sizes = Vec::new();
-		pov_sizes.append(&mut vec![5 * 1024 * 1024; 200]);
+		pov_sizes.append(&mut vec![10 * 1024 * 1024; 200]);
 
 		let mut test_config = match self.target {
 			BenchmarkTarget::DataAvailabilityRead(options) => match self.network {
@@ -171,13 +174,19 @@ impl BenchCli {
 
 		if let Some(bandwidth) = self.peer_bandwidth {
 			// CLI expects bw in KiB
+			test_config.peer_bandwidth = bandwidth * 1024;
+		}
+
+		if let Some(bandwidth) = self.bandwidth {
+			// CLI expects bw in KiB
 			test_config.bandwidth = bandwidth * 1024;
 		}
 
-		let state = TestState::new(test_config);
-		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
+		let candidate_count = test_config.n_cores * test_config.num_loops;
 
-		let runtime_handle = runtime.handle().clone();
+		let mut state = TestState::new(test_config);
+		state.generate_candidates(candidate_count);
+		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
 
 		println!("{:?}", env.config());
 
@@ -230,9 +239,9 @@ impl BenchCli {
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Info)
-		.try_init();
+		.filter(Some("hyper"), log::LevelFilter::Info)
+		.try_init()
+		.unwrap();
 
 	let cli: BenchCli = BenchCli::parse();
 	cli.launch()?;

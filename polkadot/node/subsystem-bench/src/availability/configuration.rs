@@ -37,6 +37,8 @@ pub struct TestConfiguration {
 	/// The PoV size
 	pub pov_sizes: Vec<usize>,
 	/// The amount of bandiwdth remote validators have.
+	pub peer_bandwidth: usize,
+	/// The amount of bandiwdth our node has.
 	pub bandwidth: usize,
 	/// Optional peer emulation latency
 	pub latency: Option<PeerLatency>,
@@ -55,6 +57,7 @@ impl Default for TestConfiguration {
 			n_cores: 10,
 			pov_sizes: vec![5 * 1024 * 1024],
 			bandwidth: 60 * 1024 * 1024,
+			peer_bandwidth: 60 * 1024 * 1024,
 			latency: None,
 			error: 0,
 			num_loops: 1,
@@ -76,8 +79,8 @@ impl TestConfiguration {
 			n_cores,
 			n_validators,
 			pov_sizes,
-			// HW specs node bandwidth
 			bandwidth: 50 * 1024 * 1024,
+			peer_bandwidth: 50 * 1024 * 1024,
 			// No latency
 			latency: None,
 			error: 0,
@@ -98,6 +101,7 @@ impl TestConfiguration {
 			n_validators,
 			pov_sizes,
 			bandwidth: 50 * 1024 * 1024,
+			peer_bandwidth: 50 * 1024 * 1024,
 			latency: Some(PeerLatency {
 				min_latency: Duration::from_millis(1),
 				max_latency: Duration::from_millis(100),
@@ -120,6 +124,7 @@ impl TestConfiguration {
 			n_validators,
 			pov_sizes,
 			bandwidth: 50 * 1024 * 1024,
+			peer_bandwidth: 50 * 1024 * 1024,
 			latency: Some(PeerLatency {
 				min_latency: Duration::from_millis(10),
 				max_latency: Duration::from_millis(500),

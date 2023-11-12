@@ -13,8 +13,11 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+use itertools::Itertools;
 use std::{
 	collections::HashMap,
+	iter::Cycle,
+	ops::{Div, Sub},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -24,6 +27,8 @@ use futures::{
 	stream::FuturesUnordered,
 	FutureExt, SinkExt, StreamExt,
 };
+use futures_timer::Delay;
+
 use polkadot_node_metrics::metrics::Metrics;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -47,6 +52,8 @@ use polkadot_node_subsystem::{
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, Subsystem,
 };
 use std::net::{Ipv4Addr, SocketAddr};
+
+mod test_env;
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
@@ -119,6 +126,8 @@ pub struct TestEnvironment {
 	state: TestState,
 	// A handle to the network emulator.
 	network: NetworkEmulator,
+	// Configuration/env metrics
+	metrics: TestEnvironmentMetrics,
 }
 
 impl TestEnvironment {
@@ -131,11 +140,13 @@ impl TestEnvironment {
 			task_manager.spawn_handle(),
 			state.config().use_fast_path,
 		);
-
+		let metrics =
+			TestEnvironmentMetrics::new(&registry).expect("Metrics need to be registered");
 		let mut network = NetworkEmulator::new(
 			state.config().n_validators,
-			state.config().bandwidth,
+			state.config().peer_bandwidth,
 			task_manager.spawn_handle(),
+			&registry,
 		);
 
 		// Copy sender for later when we need to inject messages in to the subsystem.
@@ -143,13 +154,31 @@ impl TestEnvironment {
 
 		let task_state = state.clone();
 		let task_network = network.clone();
+		let spawn_handle = task_manager.spawn_handle();
+
+		// Our node rate limiting
+		let mut rx_limiter = RateLimit::new(10, state.config.bandwidth);
+		let (ingress_tx, mut ingress_rx) = tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
+		let our_network_stats = network.peer_stats(0);
+
+		spawn_handle.spawn_blocking("our-node-rx", "test-environment", async move {
+			while let Some(action) = ingress_rx.recv().await {
+				let size = action.size();
+
+				// account for our node receiving the data.
+				our_network_stats.inc_received(size);
+
+				rx_limiter.reap(size).await;
+				action.run().await;
+			}
+		});
 
 		// We need to start a receiver to process messages from the subsystem.
 		// This mocks an overseer and all dependent subsystems
 		task_manager.spawn_handle().spawn_blocking(
 			"test-environment",
 			"test-environment",
-			async move { Self::env_task(virtual_overseer, task_state, task_network).await },
+			async move { Self::env_task(virtual_overseer, task_state, task_network, ingress_tx).await },
 		);
 
 		let registry_clone = registry.clone();
@@ -164,11 +193,15 @@ impl TestEnvironment {
 				.unwrap();
 			});
 
-		TestEnvironment { task_manager, registry, to_subsystem, instance, state, network }
+		TestEnvironment { task_manager, registry, to_subsystem, instance, state, network, metrics }
 	}
 
 	pub fn config(&self) -> &TestConfiguration {
 		self.state.config()
+	}
+
+	pub fn network(&self) -> &NetworkEmulator {
+		&self.network
 	}
 
 	/// Produce a randomized duration between `min` and `max`.
@@ -183,24 +216,51 @@ impl TestEnvironment {
 		}
 	}
 
+	pub fn metrics(&self) -> &TestEnvironmentMetrics {
+		&self.metrics
+	}
+
 	/// Generate a random error based on `probability`.
 	/// `probability` should be a number between 0 and 100.
 	fn random_error(probability: usize) -> bool {
 		Uniform::from(0..=99).sample(&mut thread_rng()) < probability
 	}
 
-	pub fn respond_to_send_request(state: &mut TestState, request: Requests) -> NetworkAction {
+	pub fn request_size(request: &Requests) -> u64 {
+		match request {
+			Requests::ChunkFetchingV1(outgoing_request) =>
+				outgoing_request.payload.encoded_size() as u64,
+			Requests::AvailableDataFetchingV1(outgoing_request) =>
+				outgoing_request.payload.encoded_size() as u64,
+			_ => panic!("received an unexpected request"),
+		}
+	}
+
+	pub fn respond_to_send_request(
+		state: &mut TestState,
+		request: Requests,
+		ingress_tx: tokio::sync::mpsc::UnboundedSender<NetworkAction>,
+	) -> NetworkAction {
 		match request {
 			Requests::ChunkFetchingV1(outgoing_request) => {
 				let validator_index = outgoing_request.payload.index.0 as usize;
-				let chunk: ChunkResponse =
-					state.chunks.get(&outgoing_request.payload.candidate_hash).unwrap()
-						[validator_index]
-						.clone()
-						.into();
-				let size = chunk.encoded_size();
+				let candidate_hash = outgoing_request.payload.candidate_hash;
+
+				let candidate_index = state
+					.candidate_hashes
+					.get(&candidate_hash)
+					.expect("candidate was generated previously; qed");
+				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+
+				let chunk: ChunkResponse = state.chunks.get(*candidate_index as usize).unwrap()
+					[validator_index]
+					.clone()
+					.into();
+				let mut size = chunk.encoded_size();
 
 				let response = if Self::random_error(state.config().error) {
+					// Error will not account to any bandwidth used.
+					size = 0;
 					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
 				} else {
 					Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode())
@@ -211,21 +271,39 @@ impl TestEnvironment {
 				}
 				.boxed();
 
+				let future_wrapper = async move {
+					// Forward the response to the ingress channel of our node.
+					// On receive side we apply our node receiving rate limit.
+					let action = NetworkAction::new(validator_index, future, size, None);
+					ingress_tx.send(action).unwrap();
+				}
+				.boxed();
+
 				NetworkAction::new(
 					validator_index,
-					future,
+					future_wrapper,
 					size,
 					// Generate a random latency based on configuration.
 					Self::random_latency(state.config().latency.as_ref()),
 				)
 			},
 			Requests::AvailableDataFetchingV1(outgoing_request) => {
+				println!("{:?}", outgoing_request);
 				// TODO: do better, by implementing diff authority ids and mapping network actions
 				// to authority id,
 				let validator_index =
 					Uniform::from(0..state.config().n_validators).sample(&mut thread_rng());
+
+				let candidate_hash = outgoing_request.payload.candidate_hash;
+				let candidate_index = state
+					.candidate_hashes
+					.get(&candidate_hash)
+					.expect("candidate was generated previously; qed");
+				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+
 				let available_data =
-					state.candidates.get(&outgoing_request.payload.candidate_hash).unwrap().clone();
+					state.available_data.get(*candidate_index as usize).unwrap().clone();
+
 				let size = available_data.encoded_size();
 
 				let response = if Self::random_error(state.config().error) {
@@ -240,9 +318,17 @@ impl TestEnvironment {
 				}
 				.boxed();
 
+				let future_wrapper = async move {
+					// Forward the response to the ingress channel of our node.
+					// On receive side we apply our node receiving rate limit.
+					let action = NetworkAction::new(validator_index, future, size, None);
+					ingress_tx.send(action).unwrap();
+				}
+				.boxed();
+
 				NetworkAction::new(
 					validator_index,
-					future,
+					future_wrapper,
 					size,
 					// Generate a random latency based on configuration.
 					Self::random_latency(state.config().latency.as_ref()),
@@ -258,11 +344,12 @@ impl TestEnvironment {
 		mut ctx: TestSubsystemContextHandle<AvailabilityRecoveryMessage>,
 		mut state: TestState,
 		mut network: NetworkEmulator,
+		ingress_tx: tokio::sync::mpsc::UnboundedSender<NetworkAction>,
 	) {
 		loop {
 			futures::select! {
 				message = ctx.recv().fuse() => {
-					gum::debug!(target: LOG_TARGET, ?message, "Env task received message");
+					gum::trace!(target: LOG_TARGET, ?message, "Env task received message");
 
 					match message {
 						AllMessages::NetworkBridgeTx(
@@ -272,7 +359,9 @@ impl TestEnvironment {
 							)
 						) => {
 							for request in requests {
-								let action = Self::respond_to_send_request(&mut state, request);
+								network.inc_sent(Self::request_size(&request));
+								let action = Self::respond_to_send_request(&mut state, request, ingress_tx.clone());
+								// Account for our node sending the request over the emulated network.
 								network.submit_peer_action(action.index(), action);
 							}
 						},
@@ -287,7 +376,10 @@ impl TestEnvironment {
 						AllMessages::AvailabilityStore(
 							AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx)
 						) => {
-							let chunk_size = state.chunks.get(&candidate_hash).unwrap()[0].encoded_size();
+							let candidate_index = state.candidate_hashes.get(&candidate_hash).expect("candidate was generated previously; qed");
+							gum::info!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+
+							let chunk_size = state.chunks.get(*candidate_index as usize).unwrap()[0].encoded_size();
 							let _ = tx.send(Some(chunk_size));
 						}
 						AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -345,8 +437,8 @@ impl AvailabilityRecoverySubsystemInstance {
 	) -> (Self, TestSubsystemContextHandle<AvailabilityRecoveryMessage>) {
 		let (context, virtual_overseer) = make_buffered_subsystem_context(
 			spawn_task_handle.clone(),
-			4096 * 4,
-			"availability-recovery",
+			128,
+			"availability-recovery-subsystem",
 		);
 		let (collation_req_receiver, req_cfg) =
 			IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
@@ -378,8 +470,6 @@ impl AvailabilityRecoverySubsystemInstance {
 	}
 }
 
-const TIMEOUT: Duration = Duration::from_millis(300);
-
 // We use this to bail out sending messages to the subsystem if it is overloaded such that
 // the time of flight is breaches 5s.
 // This should eventually be a test parameter.
@@ -387,9 +477,13 @@ const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
 use sp_keyring::Sr25519Keyring;
 
-use crate::availability::network::NetworkAction;
+use crate::availability::network::{ActionFuture, NetworkAction};
 
-use self::{configuration::PeerLatency, network::NetworkEmulator};
+use self::{
+	configuration::PeerLatency,
+	network::{NetworkEmulator, RateLimit},
+	test_env::TestEnvironmentMetrics,
+};
 
 #[derive(Clone)]
 pub struct TestState {
@@ -398,25 +492,28 @@ pub struct TestState {
 	validator_authority_id: Vec<AuthorityDiscoveryId>,
 	// The test node validator index.
 	validator_index: ValidatorIndex,
-	// Per core candidates receipts.
-	candidate_receipts: Vec<CandidateReceipt>,
 	session_index: SessionIndex,
-
+	pov_sizes: Cycle<std::vec::IntoIter<usize>>,
+	// Generated candidate receipts to be used in the test
+	candidates: Cycle<std::vec::IntoIter<CandidateReceipt>>,
+	candidates_generated: usize,
+	// Map from pov size to candidate index
+	pov_size_to_candidate: HashMap<usize, usize>,
+	// Map from generated candidate hashes to candidate index in `available_data`
+	// and `chunks`.
+	candidate_hashes: HashMap<CandidateHash, usize>,
 	persisted_validation_data: PersistedValidationData,
-	/// A per size pov mapping to available data.
-	candidates: HashMap<CandidateHash, AvailableData>,
 
-	chunks: HashMap<CandidateHash, Vec<ErasureChunk>>,
+	candidate_receipts: Vec<CandidateReceipt>,
+	available_data: Vec<AvailableData>,
+	chunks: Vec<Vec<ErasureChunk>>,
+	/// Next candidate index in
 	config: TestConfiguration,
 }
 
 impl TestState {
 	fn config(&self) -> &TestConfiguration {
 		&self.config
-	}
-
-	fn candidate(&self, candidate_index: usize) -> CandidateReceipt {
-		self.candidate_receipts.get(candidate_index).unwrap().clone()
 	}
 
 	async fn respond_none_to_available_data_query(
@@ -455,9 +552,17 @@ impl TestState {
 		send_chunk: impl Fn(usize) -> bool,
 		tx: oneshot::Sender<Vec<ErasureChunk>>,
 	) {
+		gum::info!(target: LOG_TARGET, ?candidate_hash, "respond_to_query_all_request");
+
+		let candidate_index = self
+			.candidate_hashes
+			.get(&candidate_hash)
+			.expect("candidate was generated previously; qed");
+		gum::info!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+
 		let v = self
 			.chunks
-			.get(&candidate_hash)
+			.get(*candidate_index as usize)
 			.unwrap()
 			.iter()
 			.filter(|c| send_chunk(c.index.0 as usize))
@@ -465,6 +570,41 @@ impl TestState {
 			.collect();
 
 		let _ = tx.send(v);
+	}
+
+	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
+		let candidate = self.candidates.next();
+		let candidate_hash = candidate.as_ref().unwrap().hash();
+		gum::trace!(target: LOG_TARGET, "Next candidate selected {:?}", candidate_hash);
+		candidate
+	}
+
+	/// Generate candidates to be used in the test.
+	pub fn generate_candidates(&mut self, count: usize) {
+		gum::info!(target: LOG_TARGET, "Pre-generating {} candidates.", count);
+
+		// Generate all candidates
+		self.candidates = (0..count)
+			.map(|index| {
+				let pov_size = self.pov_sizes.next().expect("This is a cycle; qed");
+				let candidate_index = *self
+					.pov_size_to_candidate
+					.get(&pov_size)
+					.expect("pov_size always exists; qed");
+				let mut candidate_receipt = self.candidate_receipts[candidate_index].clone();
+
+				// Make it unique.
+				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+				// Store the new candidate in the state
+				self.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
+
+				gum::info!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
+
+				candidate_receipt
+			})
+			.collect::<Vec<_>>()
+			.into_iter()
+			.cycle();
 	}
 
 	pub fn new(config: TestConfiguration) -> Self {
@@ -476,9 +616,10 @@ impl TestState {
 		let validator_public = validator_pubkeys(&validators);
 		let validator_authority_id = validator_authority_id(&validators);
 		let validator_index = ValidatorIndex(0);
+		let mut chunks = Vec::new();
+		let mut available_data = Vec::new();
+		let mut candidate_receipts = Vec::new();
 		let mut pov_size_to_candidate = HashMap::new();
-		let mut chunks = HashMap::new();
-		let mut candidates = HashMap::new();
 		let session_index = 10;
 
 		// we use it for all candidates.
@@ -489,59 +630,54 @@ impl TestState {
 			relay_parent_storage_root: Default::default(),
 		};
 
-		// Create initial candidate receipts
-		let mut candidate_receipts = config
-			.pov_sizes
-			.iter()
-			.map(|_index| dummy_candidate_receipt(dummy_hash()))
-			.collect::<Vec<_>>();
+		// For each unique pov we create a candidate receipt.
+		for (index, pov_size) in config.pov_sizes.iter().cloned().unique().enumerate() {
+			gum::info!(target: LOG_TARGET, index, pov_size, "Generating template candidates");
 
-		for (index, pov_size) in config.pov_sizes.iter().enumerate() {
-			let candidate = &mut candidate_receipts[index];
-			// a hack to make candidate unique.
-			candidate.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+			let mut candidate_receipt = dummy_candidate_receipt(dummy_hash());
+			let pov = PoV { block_data: BlockData(vec![index as u8; pov_size]) };
 
-			// We reuse candidates of same size, to speed up the test startup.
-			let (erasure_root, available_data, new_chunks) =
-				pov_size_to_candidate.entry(pov_size).or_insert_with(|| {
-					let pov = PoV { block_data: BlockData(vec![index as u8; *pov_size]) };
+			let new_available_data = AvailableData {
+				validation_data: persisted_validation_data.clone(),
+				pov: Arc::new(pov),
+			};
 
-					let available_data = AvailableData {
-						validation_data: persisted_validation_data.clone(),
-						pov: Arc::new(pov),
-					};
+			let (new_chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
+				validators.len(),
+				&new_available_data,
+				|_, _| {},
+			);
 
-					let (new_chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
-						validators.len(),
-						&available_data,
-						|_, _| {},
-					);
+			candidate_receipt.descriptor.erasure_root = erasure_root;
 
-					candidate.descriptor.erasure_root = erasure_root;
-
-					chunks.insert(candidate.hash(), new_chunks.clone());
-					candidates.insert(candidate.hash(), available_data.clone());
-
-					(erasure_root, available_data, new_chunks)
-				});
-
-			candidate.descriptor.erasure_root = *erasure_root;
-			candidates.insert(candidate.hash(), available_data.clone());
-			chunks.insert(candidate.hash(), new_chunks.clone());
+			chunks.push(new_chunks);
+			available_data.push(new_available_data);
+			pov_size_to_candidate.insert(pov_size, index);
+			candidate_receipts.push(candidate_receipt);
 		}
 
-		Self {
+		let pov_sizes = config.pov_sizes.clone().into_iter().cycle();
+		let mut state = Self {
 			validators,
 			validator_public,
 			validator_authority_id,
 			validator_index,
-			candidate_receipts,
 			session_index,
 			persisted_validation_data,
-			candidates,
+			available_data,
+			candidate_receipts,
 			chunks,
 			config,
-		}
+			pov_size_to_candidate,
+			pov_sizes,
+			candidates_generated: 0,
+			candidate_hashes: HashMap::new(),
+			candidates: Vec::new().into_iter().cycle(),
+		};
+
+		gum::info!(target: LOG_TARGET, "Created test environment.");
+
+		state
 	}
 }
 
@@ -593,12 +729,19 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	let mut batch = FuturesUnordered::new();
 	let mut availability_bytes = 0u128;
 
+	env.metrics().set_n_validators(config.n_validators);
+	env.metrics().set_n_cores(config.n_cores);
+	env.metrics().set_pov_size(config.pov_sizes[0]);
+	let mut completed_count = 0;
+
 	for loop_num in 0..env.config().num_loops {
 		gum::info!(target: LOG_TARGET, loop_num, "Starting loop");
+		env.metrics().set_current_loop(loop_num);
 
+		let loop_start_ts = Instant::now();
 		for candidate_num in 0..config.n_cores as u64 {
-			let candidate = env.state.candidate(candidate_num as usize);
-
+			let candidate =
+				env.state.next_candidate().expect("We always send up to n_cores*num_loops; qed");
 			let (tx, rx) = oneshot::channel();
 			batch.push(rx);
 
@@ -609,32 +752,40 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 				tx,
 			))
 			.await;
-
-			// // TODO: select between futures unordered of rx await and timer to send next request.
-			// if batch.len() >= config.max_parallel_recoveries {
-			// 	for rx in std::mem::take(&mut batch) {
-			// 		let available_data = rx.await.unwrap().unwrap();
-			// 		availability_bytes += available_data.encoded_size() as u128;
-			// 	}
-			// }
 		}
 
+		gum::info!("{} requests pending, {} completed", batch.len(), completed_count);
 		while let Some(completed) = batch.next().await {
 			let available_data = completed.unwrap().unwrap();
 			availability_bytes += available_data.encoded_size() as u128;
 		}
+
+		let block_time_delta =
+			Duration::from_secs(6).saturating_sub(Instant::now().sub(loop_start_ts));
+		gum::info!(target: LOG_TARGET, "Sleeping till end of block {}ms", block_time_delta.as_millis());
+		tokio::time::sleep(block_time_delta).await;
 	}
-	println!("Waiting for subsystem to complete work... {} requests ", batch.len());
 
 	env.send_signal(OverseerSignal::Conclude).await;
 	let duration = start_marker.elapsed().as_millis();
-	let tput = ((availability_bytes) / duration) * 1000;
-	println!("Benchmark completed in {:?}ms", duration);
-	println!("Throughput: {}KiB/s", tput / 1024);
+	let availability_bytes = availability_bytes / 1024;
+	gum::info!("Benchmark completed in {:?}ms", duration);
+	gum::info!("Throughput: {} KiB/block", availability_bytes / env.config().num_loops as u128);
+	gum::info!(
+		"Block time: {} ms",
+		start_marker.elapsed().as_millis() / env.config().num_loops as u128
+	);
 
-	let stats = env.network.stats().await;
-	for (index, stat) in stats.iter().enumerate() {
-		println!("Validator #{} : {:?}", index, stat);
-	}
+	let stats = env.network.stats();
+	gum::info!(
+		"Total received from network: {} MiB",
+		stats
+			.iter()
+			.enumerate()
+			.map(|(index, stats)| stats.tx_bytes_total as u128)
+			.sum::<u128>() /
+			(1024 * 1024)
+	);
+
 	tokio::time::sleep(Duration::from_secs(1)).await;
 }

@@ -13012,6 +13012,7 @@ dependencies = [
  "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "itertools 0.11.0",
  "log",
  "parity-scale-codec",
  "polkadot-availability-recovery",

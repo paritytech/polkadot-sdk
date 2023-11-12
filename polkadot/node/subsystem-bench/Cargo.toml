@@ -45,7 +45,7 @@ sp-application-crypto = { path = "../../../substrate/primitives/application-cryp
 sc-network = { path = "../../../substrate/client/network" }
 sc-service = { path = "../../../substrate/client/service" }
 polkadot-node-metrics = { path = "../metrics" }
-
+itertools = "0.11.0"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }

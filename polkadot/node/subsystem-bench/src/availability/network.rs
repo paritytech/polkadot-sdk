@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc::UnboundedSender;
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
-struct RateLimit {
+pub struct RateLimit {
 	// How often we refill credits in buckets
 	tick_rate: usize,
 	// Total ticks
@@ -142,9 +142,8 @@ impl PeerEmulator {
 		spawn_task_handle
 			.clone()
 			.spawn("peer-emulator", "test-environment", async move {
-				let mut rate_limiter = RateLimit::new(20, bandwidth);
-				let rx_bytes_total = 0;
-				let mut tx_bytes_total = 0u128;
+				// Rate limit peer send.
+				let mut rate_limiter = RateLimit::new(10, bandwidth);
 				loop {
 					let stats_clone = stats.clone();
 					let maybe_action: Option<NetworkAction> = actions_rx.recv().await;
@@ -158,14 +157,12 @@ impl PeerEmulator {
 								async move {
 									tokio::time::sleep(latency).await;
 									action.run().await;
-									stats_clone
-										.tx_bytes_total
-										.fetch_add(size as u64, Ordering::Relaxed);
+									stats_clone.inc_sent(size);
 								},
 							)
 						} else {
 							action.run().await;
-							stats_clone.tx_bytes_total.fetch_add(size as u64, Ordering::Relaxed);
+							stats_clone.inc_sent(size);
 						}
 					} else {
 						break
@@ -195,11 +192,43 @@ pub struct NetworkAction {
 	latency: Option<Duration>,
 }
 
+unsafe impl Send for NetworkAction {}
+
 /// Book keeping of sent and received bytes.
-#[derive(Debug, Default)]
 pub struct PeerEmulatorStats {
-	pub rx_bytes_total: AtomicU64,
-	pub tx_bytes_total: AtomicU64,
+	rx_bytes_total: AtomicU64,
+	tx_bytes_total: AtomicU64,
+	metrics: Metrics,
+	peer_index: usize,
+}
+
+impl PeerEmulatorStats {
+	pub(crate) fn new(peer_index: usize, metrics: Metrics) -> Self {
+		Self {
+			metrics,
+			rx_bytes_total: AtomicU64::from(0),
+			tx_bytes_total: AtomicU64::from(0),
+			peer_index,
+		}
+	}
+
+	pub fn inc_sent(&self, bytes: usize) {
+		self.tx_bytes_total.fetch_add(bytes as u64, Ordering::Relaxed);
+		self.metrics.on_peer_sent(self.peer_index, bytes as u64);
+	}
+
+	pub fn inc_received(&self, bytes: usize) {
+		self.rx_bytes_total.fetch_add(bytes as u64, Ordering::Relaxed);
+		self.metrics.on_peer_received(self.peer_index, bytes as u64);
+	}
+
+	pub fn sent(&self) -> u64 {
+		self.tx_bytes_total.load(Ordering::Relaxed)
+	}
+
+	pub fn received(&self) -> u64 {
+		self.rx_bytes_total.load(Ordering::Relaxed)
+	}
 }
 
 #[derive(Debug, Default)]
@@ -229,21 +258,31 @@ impl NetworkAction {
 // Implements network latency, bandwidth and error.
 #[derive(Clone)]
 pub struct NetworkEmulator {
-	// Per peer network emulation
+	// Per peer network emulation.
 	peers: Vec<PeerEmulator>,
+	// Per peer stats.
 	stats: Vec<Arc<PeerEmulatorStats>>,
+	// Metrics
+	metrics: Metrics,
 }
 
 impl NetworkEmulator {
-	pub fn new(n_peers: usize, bandwidth: usize, spawn_task_handle: SpawnTaskHandle) -> Self {
+	pub fn new(
+		n_peers: usize,
+		bandwidth: usize,
+		spawn_task_handle: SpawnTaskHandle,
+		registry: &Registry,
+	) -> Self {
+		let metrics = Metrics::new(&registry).expect("Metrics always register succesfully");
+
 		let (stats, peers) = (0..n_peers)
-			.map(|_index| {
-				let stats = Arc::new(PeerEmulatorStats::default());
+			.map(|peer_index| {
+				let stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));
 				(stats.clone(), PeerEmulator::new(bandwidth, spawn_task_handle.clone(), stats))
 			})
 			.unzip();
 
-		Self { peers, stats }
+		Self { peers, stats, metrics }
 	}
 
 	pub fn submit_peer_action(&mut self, index: usize, action: NetworkAction) {
@@ -251,15 +290,87 @@ impl NetworkEmulator {
 	}
 
 	// Returns the sent/received stats for all peers.
-	pub async fn stats(&mut self) -> Vec<PeerStats> {
+	pub fn peer_stats(&mut self, peer_index: usize) -> Arc<PeerEmulatorStats> {
+		self.stats[peer_index].clone()
+	}
+
+	// Returns the sent/received stats for all peers.
+	pub fn stats(&mut self) -> Vec<PeerStats> {
 		let r = self
 			.stats
 			.iter()
 			.map(|stats| PeerStats {
-				rx_bytes_total: stats.rx_bytes_total.load(Ordering::Relaxed),
-				tx_bytes_total: stats.tx_bytes_total.load(Ordering::Relaxed),
+				rx_bytes_total: stats.received(),
+				tx_bytes_total: stats.sent(),
 			})
 			.collect::<Vec<_>>();
 		r
+	}
+
+	// Increment bytes sent by our node (the node that contains the subsystem under test)
+	pub fn inc_sent(&self, bytes: u64) {
+		// Our node always is peer 0.
+		self.metrics.on_peer_sent(0, bytes);
+	}
+
+	// Increment bytes received by our node (the node that contains the subsystem under test)
+	pub fn inc_received(&self, bytes: u64) {
+		// Our node always is peer 0.
+		self.metrics.on_peer_received(0, bytes);
+	}
+}
+
+use polkadot_node_subsystem_util::metrics::{
+	self,
+	prometheus::{self, Counter, CounterVec, Histogram, Opts, PrometheusError, Registry},
+};
+
+/// Emulated network metrics.
+#[derive(Clone)]
+pub(crate) struct Metrics {
+	/// Number of bytes sent per peer.
+	peer_total_sent: CounterVec<U64>,
+	/// Number of received sent per peer.
+	peer_total_received: CounterVec<U64>,
+}
+
+impl Metrics {
+	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			peer_total_sent: prometheus::register(
+				CounterVec::new(
+					Opts::new(
+						"subsystem_benchmark_network_peer_total_bytes_sent",
+						"Total number of bytes a peer has sent.",
+					),
+					&["peer"],
+				)?,
+				registry,
+			)?,
+			peer_total_received: prometheus::register(
+				CounterVec::new(
+					Opts::new(
+						"subsystem_benchmark_network_peer_total_bytes_received",
+						"Total number of bytes a peer has received.",
+					),
+					&["peer"],
+				)?,
+				registry,
+			)?,
+		})
+	}
+
+	/// Increment total sent for a peer.
+	pub fn on_peer_sent(&self, peer_index: usize, bytes: u64) {
+		self.peer_total_sent
+			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
+			.inc_by(bytes);
+	}
+
+	/// Increment total receioved for a peer.
+	pub fn on_peer_received(&self, peer_index: usize, bytes: u64) {
+		self.peer_total_received
+			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
+			.inc_by(bytes);
 	}
 }
