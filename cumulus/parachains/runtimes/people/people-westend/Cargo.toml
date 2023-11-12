@@ -4,6 +4,7 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's People parachain runtime"
+license = "Apache-2.0"
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
