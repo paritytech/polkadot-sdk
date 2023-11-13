@@ -55,7 +55,7 @@ where
 	type AccountId = T::AccountId;
 	type Call = T::RuntimeCall;
 	type AdditionalSigned = ();
-	type Pre = u64;
+	type Pre = Option<u64>;
 
 	fn additional_signed(
 		&self,
@@ -71,7 +71,7 @@ where
 		_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-		let proof_size = storage_proof_size();
+		let proof_size = crate::impls::get_storage_size();
 		Ok(proof_size)
 	}
 
@@ -82,12 +82,11 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		if let Some(pre_dispatch_proof_size) = pre {
-			if pre_dispatch_proof_size == 0 {
+		if let Some(Some(pre_dispatch_proof_size)) = pre {
+			let Some(post_dispatch_proof_size) = crate::impls::get_storage_size() else {
+				log::debug!(target: LOG_TARGET, "Proof recording enabled during pre-dispatch, now disabled. This should not happen.");
 				return Ok(())
-			}
-
-			let post_dispatch_proof_size = storage_proof_size();
+			};
 			let benchmarked_weight = info.weight.proof_size();
 			let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 

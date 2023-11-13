@@ -16,6 +16,7 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
+use cumulus_primitives_proof_size_hostfunction::storage_proof_size::storage_proof_size;
 use frame_support::traits::{
 	fungibles::{self, Balanced, Credit},
 	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
@@ -24,6 +25,14 @@ use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
+
+/// Returns the current storage proof size from the host side.
+///
+/// Returns `None` if proof recording is disabled on the host.
+pub fn get_storage_size() -> Option<u64> {
+	let proof_size = storage_proof_size();
+	(proof_size != u64::MAX).then_some(proof_size)
+}
 
 /// Type alias to conveniently refer to the `Currency::NegativeImbalance` associated type.
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
