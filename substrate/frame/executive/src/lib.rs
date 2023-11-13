@@ -322,10 +322,6 @@ where
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
 			e
 		})?;
-		if select.any() {
-			let res = AllPalletsWithSystem::try_decode_entire_state();
-			Self::log_decode_result(res)?;
-		}
 		drop(_guard);
 
 		// do some of the checks that would normally happen in `final_checks`, but perhaps skip
@@ -375,12 +371,6 @@ where
 		// Nothing should modify the state after the migrations ran:
 		let _guard = StorageNoopGuard::default();
 
-		// The state must be decodable:
-		if checks.any() {
-			let res = AllPalletsWithSystem::try_decode_entire_state();
-			Self::log_decode_result(res)?;
-		}
-
 		// Check all storage invariants:
 		if checks.try_state() {
 			AllPalletsWithSystem::try_state(
@@ -392,7 +382,11 @@ where
 		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
 	}
 
-	/// Logs the result of trying to decode the entire state.
+	/// Logs the result of `Tuple::try_decode_entire_state()`.
+	///
+	/// Not currently used anywhere. Will implement once we have a cleaner way to call state checks
+	/// (tracked <https://github.com/paritytech/polkadot-sdk/pull/2263>).
+	#[allow(dead_code)]
 	fn log_decode_result(
 		res: Result<usize, Vec<TryDecodeEntireStorageError>>,
 	) -> Result<(), TryRuntimeError> {
