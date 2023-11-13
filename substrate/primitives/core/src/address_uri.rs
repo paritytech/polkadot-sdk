@@ -82,10 +82,7 @@ impl<'a> AddressUri<'a> {
 				};
 				maybe_pass
 			} else if let Some(mut maybe_hard) = input.strip_prefix("//") {
-				let Some(mut path) = Self::extract_prefix(&mut maybe_hard, &|ch: char| ch != '/')
-				else {
-					return Err(Error::InvalidCharacterInHardPath);
-				};
+				let mut path = Self::extract_prefix(&mut maybe_hard, &|ch: char| ch != '/').ok_or(Error::InvalidCharacterInHardPath)?;
 				assert!(path.len() > 0);
 				// hard path shall contain leading '/', so take it from input.
 				path = &input[1..path.len() + 2];
