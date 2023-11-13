@@ -20,7 +20,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Bounded, CheckedDiv, CheckedMul, Zero},
+	traits::{Bounded, CheckedDiv, CheckedMul, Convert, Zero},
 	RuntimeDebug,
 };
 
@@ -134,11 +134,11 @@ impl Bounded for Conviction {
 
 /* -- END Code copied as is -- */
 
-impl<B: From<u8> + Zero + Copy + CheckedMul + CheckedDiv + Bounded>
-	crate::conviction::AsConvictedVotes<B> for Conviction
+impl<B: From<u8> + Zero + Copy + CheckedMul + CheckedDiv + Bounded> Convert<(Conviction, B), B>
+	for Conviction
 {
-	fn as_votes(&self, capital: B) -> B {
-		match *self {
+	fn convert((conviction, capital): (Self, B)) -> B {
+		match conviction {
 			Conviction::None => capital.checked_div(&10u8.into()).unwrap_or_else(Zero::zero),
 			x => capital.checked_mul(&u8::from(x).into()).unwrap_or_else(B::max_value),
 		}

@@ -18,6 +18,7 @@
 //! The conviction datatype.
 
 use crate::types::Delegations;
+use sp_runtime::traits::Convert;
 
 /// Convert a conviction into a lock duration.
 pub trait AsLockDuration {
@@ -28,13 +29,16 @@ pub trait AsLockDuration {
 }
 
 /// Convert a balance with a conviction into votes.
-pub trait AsConvictedVotes<Balance: Clone> {
-	/// Scale the capital to a number of convicted votes.
-	fn as_votes(&self, capital: Balance) -> Balance;
-
-	fn as_delegations(&self, capital: Balance) -> Delegations<Balance> {
-		Delegations { votes: self.as_votes(capital.clone()), capital }
-	}
+pub(super) fn as_delegations<
+	C: Convert<(Conviction, Balance), Balance>,
+	Conviction,
+	Balance: Clone,
+>(
+	conviction: Conviction,
+	capital: Balance,
+) -> Delegations<Balance> {
+	let votes = C::convert((conviction, capital.clone()));
+	Delegations { votes, capital }
 }
 
 // FAIL-CI remove TryFrom<u8> from debugging, and copy
