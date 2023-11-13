@@ -121,8 +121,8 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize,
-		OnRuntimeUpgrade,
+		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
 	},
 	weights::Weight,
 };
@@ -139,9 +139,15 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[cfg(feature = "try-runtime")]
-use log;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use ::{
+	frame_support::{
+		traits::{TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState},
+		StorageNoopGuard,
+	},
+	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
+	log,
+	sp_runtime::TryRuntimeError,
+};
 
 #[allow(dead_code)]
 const LOG_TARGET: &str = "runtime::executive";
@@ -188,6 +194,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -225,11 +232,13 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
-			+ frame_support::traits::TryState<BlockNumberFor<System>>,
+			+ TryState<BlockNumberFor<System>>
+			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
@@ -308,11 +317,15 @@ where
 		let _guard = frame_support::StorageNoopGuard::default();
 		<AllPalletsWithSystem as frame_support::traits::TryState<
 			BlockNumberFor<System>,
-		>>::try_state(*header.number(), select)
+		>>::try_state(*header.number(), select.clone())
 		.map_err(|e| {
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
 			e
 		})?;
+		if select.any() {
+			let res = AllPalletsWithSystem::try_decode_entire_state();
+			Self::log_decode_result(res)?;
+		}
 		drop(_guard);
 
 		// do some of the checks that would normally happen in `final_checks`, but perhaps skip
@@ -349,39 +362,65 @@ where
 		Ok(frame_system::Pallet::<System>::block_weight().total())
 	}
 
-	/// Execute all `OnRuntimeUpgrade` of this runtime, including the pre and post migration checks.
+	/// Execute all `OnRuntimeUpgrade` of this runtime.
 	///
-	/// Runs the try-state code both before and after the migration function if `checks` is set to
-	/// `true`. Also, if set to `true`, it runs the `pre_upgrade` and `post_upgrade` hooks.
-	pub fn try_runtime_upgrade(
-		checks: frame_try_runtime::UpgradeCheckSelect,
-	) -> Result<Weight, TryRuntimeError> {
-		if checks.try_state() {
-			let _guard = frame_support::StorageNoopGuard::default();
-			<AllPalletsWithSystem as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(
-				frame_system::Pallet::<System>::block_number(),
-				frame_try_runtime::TryStateSelect::All,
-			)?;
-		}
-
-		let weight =
+	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
+	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
+		let before_all_weight =
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
+		let try_on_runtime_upgrade_weight =
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)?;
+		// Nothing should modify the state after the migrations ran:
+		let _guard = StorageNoopGuard::default();
 
+		// The state must be decodable:
+		if checks.any() {
+			let res = AllPalletsWithSystem::try_decode_entire_state();
+			Self::log_decode_result(res)?;
+		}
+
+		// Check all storage invariants:
 		if checks.try_state() {
-			let _guard = frame_support::StorageNoopGuard::default();
-			<AllPalletsWithSystem as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(
+			AllPalletsWithSystem::try_state(
 				frame_system::Pallet::<System>::block_number(),
-				frame_try_runtime::TryStateSelect::All,
+				TryStateSelect::All,
 			)?;
 		}
 
-		Ok(weight)
+		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
+	}
+
+	/// Logs the result of trying to decode the entire state.
+	fn log_decode_result(
+		res: Result<usize, Vec<TryDecodeEntireStorageError>>,
+	) -> Result<(), TryRuntimeError> {
+		match res {
+			Ok(bytes) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"decoded the entire state ({bytes} bytes)",
+				);
+
+				Ok(())
+			},
+			Err(errors) => {
+				log::error!(
+					target: LOG_TARGET,
+					"`try_decode_entire_state` failed with {} errors",
+					errors.len(),
+				);
+
+				for (i, err) in errors.iter().enumerate() {
+					// We log the short version to `error` and then the full debug info to `debug`:
+					log::error!(target: LOG_TARGET, "- {i}. error: {err}");
+					log::debug!(target: LOG_TARGET, "- {i}. error: {err:?}");
+				}
+
+				Err("`try_decode_entire_state` failed".into())
+			},
+		}
 	}
 }
 
@@ -394,6 +433,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -410,7 +450,10 @@ where
 {
 	/// Execute all `OnRuntimeUpgrade` of this runtime, and return the aggregate weight.
 	pub fn execute_on_runtime_upgrade() -> Weight {
+		let before_all_weight =
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 		<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::on_runtime_upgrade()
+			.saturating_add(before_all_weight)
 	}
 
 	/// Start the execution of a particular block.

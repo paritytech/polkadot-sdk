@@ -27,7 +27,7 @@ frame-election-provider-support = { path = "../election-provider-support", defau
 
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
 
-docify = "0.2.5"
+docify = "0.2.6"
 
 [dev-dependencies]
 pallet-staking-reward-curve = { path = "../staking/reward-curve" }

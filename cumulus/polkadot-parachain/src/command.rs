@@ -467,7 +467,9 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+				chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment => {
 					let $partials = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
@@ -650,7 +652,9 @@ macro_rules! construct_async_run {
 							{ $( $code )* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend => {
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+					chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::bridge_hubs::westend::RuntimeApi, _>(
 								&$config,
@@ -976,7 +980,9 @@ pub fn run() -> Result<()> {
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
 							.map(|r| r.0),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend =>
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::bridge_hubs::westend::RuntimeApi,
 								AuraId,
@@ -1194,35 +1200,30 @@ mod tests {
 		cfg_file_path
 	}
 
-	pub type DummyChainSpec<E> =
-		sc_service::GenericChainSpec<rococo_parachain_runtime::RuntimeGenesisConfig, E>;
+	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<(), E>;
 
 	pub fn create_default_with_extensions<E: Extension>(
 		id: &str,
 		extension: E,
 	) -> DummyChainSpec<E> {
-		DummyChainSpec::from_genesis(
-			"Dummy local testnet",
-			id,
-			ChainType::Local,
-			move || {
-				crate::chain_spec::rococo_parachain::testnet_genesis(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					vec![
-						get_from_seed::<rococo_parachain_runtime::AuraId>("Alice"),
-						get_from_seed::<rococo_parachain_runtime::AuraId>("Bob"),
-					],
-					vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
-					1000.into(),
-				)
-			},
-			Vec::new(),
-			None,
-			None,
-			None,
-			None,
+		DummyChainSpec::builder(
+			rococo_parachain_runtime::WASM_BINARY
+				.expect("WASM binary was not built, please build it!"),
 			extension,
 		)
+		.with_name("Dummy local testnet")
+		.with_id(id)
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(crate::chain_spec::rococo_parachain::testnet_genesis(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			vec![
+				get_from_seed::<rococo_parachain_runtime::AuraId>("Alice"),
+				get_from_seed::<rococo_parachain_runtime::AuraId>("Bob"),
+			],
+			vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+			1000.into(),
+		))
+		.build()
 	}
 
 	#[test]

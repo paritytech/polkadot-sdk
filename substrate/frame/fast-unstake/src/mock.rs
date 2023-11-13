@@ -134,7 +134,7 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
 	type HistoryDepth = ConstU32<84>;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = MockElection;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -175,8 +175,6 @@ impl fast_unstake::Config for Runtime {
 	type BatchSize = BatchSize;
 	type WeightInfo = ();
 	type MaxErasToCheckPerBlock = ConstU32<16>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type MaxBackersPerValidator = ConstU32<128>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

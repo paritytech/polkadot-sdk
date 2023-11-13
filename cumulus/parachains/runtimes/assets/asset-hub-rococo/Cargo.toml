@@ -4,6 +4,7 @@ version = "0.9.420"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo variant of Asset Hub parachain runtime"
+license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
@@ -26,6 +27,7 @@ pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-convers
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false}
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false}
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false}
 pallet-nft-fractionalization = { path = "../../../../../substrate/frame/nft-fractionalization", default-features = false}
 pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features = false}
@@ -43,6 +45,7 @@ sp-block-builder = { path = "../../../../../substrate/primitives/block-builder",
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false}
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
+sp-genesis-builder = {  path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
 sp-session = { path = "../../../../../substrate/primitives/session", default-features = false}
@@ -75,16 +78,18 @@ cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-f
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../common", default-features = false }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
 bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
+bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
 bp-asset-hub-wococo = { path = "../../../../../bridges/primitives/chain-asset-hub-wococo", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-wococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false }
+bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils" }
@@ -104,9 +109,11 @@ default = [ "std" ]
 state-trie-version-1 = [ "pallet-state-trie-migration" ]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
+	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -116,6 +123,7 @@ runtime-benchmarks = [
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
@@ -151,6 +159,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
@@ -170,8 +179,10 @@ try-runtime = [
 std = [
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
+	"bp-asset-hub-westend/std",
 	"bp-asset-hub-wococo/std",
 	"bp-bridge-hub-rococo/std",
+	"bp-bridge-hub-westend/std",
 	"bp-bridge-hub-wococo/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
@@ -197,6 +208,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
@@ -224,6 +236,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
@@ -240,3 +253,8 @@ std = [
 ]
 
 experimental = [ "pallet-aura/experimental" ]
+
+# A feature that should be enabled when the runtime should be built for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller like logging for example.
+on-chain-release-build = [ "sp-api/disable-logging" ]
