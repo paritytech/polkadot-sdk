@@ -51,6 +51,7 @@ jobs:
           RUNNER_LABELS: ${{ runner.labels }}
           IMAGE_NAME: ${{ github.event.inputs.image_name }}
           SCRIPTS_PATH: ${{ github.event.inputs.script_path }}
+        shell: bash
         run: |
           VARIABLES_JSON="${{ github.event.inputs.variablesJson }}"
           echo "$VARIABLES_JSON" > .git/variables.json
