@@ -2,7 +2,7 @@
 
 binary="./target/release/node-template"
 
-steps=50
+steps=20
 repeat=3
 
 export RUST_LOG="sassafras=debug"

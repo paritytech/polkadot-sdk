@@ -90,6 +90,9 @@ const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasRandomness";
 // Max length for segments holding unsorted tickets.
 const SEGMENT_MAX_SIZE: u32 = 128;
 
+// Convenience type
+type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAuthorities>;
+
 /// Tickets metadata.
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy)]
 pub struct TicketsMetadata {
@@ -164,14 +167,12 @@ pub mod pallet {
 	/// Current epoch authorities.
 	#[pallet::storage]
 	#[pallet::getter(fn authorities)]
-	pub type Authorities<T: Config> =
-		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
+	pub type Authorities<T: Config> = StorageValue<_, AuthoritiesVec<T>, ValueQuery>;
 
 	/// Next epoch authorities.
 	#[pallet::storage]
 	#[pallet::getter(fn next_authorities)]
-	pub type NextAuthorities<T: Config> =
-		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
+	pub type NextAuthorities<T: Config> = StorageValue<_, AuthoritiesVec<T>, ValueQuery>;
 
 	/// First block slot number.
 	///
@@ -311,7 +312,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(block_num: BlockNumberFor<T>) -> Weight {
 			let claim = <frame_system::Pallet<T>>::digest()
 				.logs
 				.iter()
@@ -323,7 +324,7 @@ pub mod pallet {
 
 			// As the slots may not be zero-based, we need to keep track of what is the
 			// slot used for the first block.
-			if <frame_system::Pallet<T>>::block_number() == One::one() {
+			if frame_system::Pallet::<T>::block_number() == One::one() {
 				GenesisSlot::<T>::put(claim.slot);
 
 				// Deposit a log as this is the first block in first epoch.
@@ -342,10 +343,8 @@ pub mod pallet {
 				.expect("Valid claim must have vrf signature; qed");
 			ClaimTemporaryData::<T>::put(randomness_output);
 
-			// Enact epoch change, if necessary.
-			T::EpochChangeTrigger::trigger::<T>(n);
-
-			T::WeightInfo::on_initialize()
+			T::WeightInfo::on_initialize() +
+				T::EpochChangeTrigger::trigger::<T>(block_num).unwrap_or_default()
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
@@ -555,7 +554,7 @@ impl<T: Config> Pallet<T> {
 	/// Determine whether an epoch change should take place at this block.
 	///
 	/// Assumes that initialization has already taken place.
-	pub fn should_end_epoch(now: BlockNumberFor<T>) -> bool {
+	pub fn should_end_epoch(block_num: BlockNumberFor<T>) -> bool {
 		// The epoch has technically ended during the passage of time between this block and the
 		// last, but we have to "end" the epoch now, since there is no earlier possible block we
 		// could have done it.
@@ -563,7 +562,7 @@ impl<T: Config> Pallet<T> {
 		// The exception is for block 1: the genesis has slot 0, so we treat epoch 0 as having
 		// started at the slot of block 1. We want to use the same randomness and validator set as
 		// signalled in the genesis, so we don't rotate the epoch.
-		now != One::one() && Self::current_slot_index() >= T::EpochLength::get()
+		block_num > One::one() && Self::current_slot_index() >= T::EpochLength::get()
 	}
 
 	/// Current slot index relative to the current epoch.
@@ -573,9 +572,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Slot index with respect to current epoch.
 	fn slot_index(slot: Slot) -> u64 {
-		if *GenesisSlot::<T>::get() == 0 {
-			return 0
-		}
 		slot.checked_sub(Self::current_epoch_start().into()).unwrap_or(u64::MAX)
 	}
 
@@ -587,7 +583,7 @@ impl<T: Config> Pallet<T> {
 		Self::epoch_start(EpochIndex::<T>::get())
 	}
 
-	// Get the spoch's first slot.
+	// Get the epoch's first slot.
 	fn epoch_start(epoch_index: u64) -> Slot {
 		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
 							 if u64 is not enough we should crash for safety; qed.";
@@ -1016,19 +1012,25 @@ impl<T: Config> Pallet<T> {
 
 /// Trigger an epoch change, if any should take place.
 pub trait EpochChangeTrigger {
-	/// Trigger an epoch change, if any should take place. This should be called
-	/// during every block, after initialization is done.
-	fn trigger<T: Config>(now: BlockNumberFor<T>);
+	/// May trigger an epoch change, if any should take place.
+	///
+	/// Returns an optional `Weight` if epoch change has been triggered.
+	///
+	/// This should be called during every block, after initialization is done.
+	fn trigger<T: Config>(_: BlockNumberFor<T>) -> Option<Weight>;
 }
 
 /// An `EpochChangeTrigger` which does nothing.
 ///
 /// In practice this means that the epoch change logic is left to some external component
-/// (e.g. pallet-session)
+/// (e.g. pallet-session).
 pub struct EpochChangeExternalTrigger;
 
 impl EpochChangeTrigger for EpochChangeExternalTrigger {
-	fn trigger<T: Config>(_: BlockNumberFor<T>) {} // nothing - trigger is external.
+	fn trigger<T: Config>(_: BlockNumberFor<T>) -> Option<Weight> {
+		// nothing - trigger is external.
+		None
+	}
 }
 
 /// An `EpochChangeTrigger` which recycle the same authorities set forever.
@@ -1038,12 +1040,15 @@ impl EpochChangeTrigger for EpochChangeExternalTrigger {
 pub struct EpochChangeInternalTrigger;
 
 impl EpochChangeTrigger for EpochChangeInternalTrigger {
-	fn trigger<T: Config>(now: BlockNumberFor<T>) {
-		if <Pallet<T>>::should_end_epoch(now) {
-			let authorities = <Pallet<T>>::authorities();
+	fn trigger<T: Config>(block_num: BlockNumberFor<T>) -> Option<Weight> {
+		if Pallet::<T>::should_end_epoch(block_num) {
+			let authorities = Pallet::<T>::next_authorities();
 			let next_authorities = authorities.clone();
-
-			<Pallet<T>>::enact_epoch_change(authorities, next_authorities);
+			let len = next_authorities.len() as u32;
+			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
+			Some(T::WeightInfo::internal_epoch_change_trigger(len))
+		} else {
+			None
 		}
 	}
 }

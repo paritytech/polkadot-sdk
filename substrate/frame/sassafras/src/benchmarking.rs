@@ -25,51 +25,74 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;
 use frame_system::RawOrigin;
 
+const LOG_TARGET: &str = "sassafras::benchmark";
+
 const TICKETS_DATA: &[u8] = include_bytes!("data/25_tickets_100_auths.bin");
+
+fn make_dummy_vrf_signature() -> VrfSignature {
+	// This leverages our knowledge about serialized vrf signature structure.
+	// Mostly to avoid to import all the bandersnatch primitive just for this test.
+	let buf = [
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xb5, 0x5f, 0x8e, 0xc7, 0x68, 0xf5, 0x05, 0x3f, 0xa9,
+		0x18, 0xca, 0x07, 0x13, 0xc7, 0x4b, 0xa3, 0x9a, 0x97, 0xd3, 0x76, 0x8f, 0x0c, 0xbf, 0x2e,
+		0xd4, 0xf9, 0x3a, 0xae, 0xc1, 0x96, 0x2a, 0x64, 0x80,
+	];
+	VrfSignature::decode(&mut &buf[..]).unwrap()
+}
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
-	const LOG_TARGET: &str = "sassafras::benchmark";
-
 	// For first block (#1) we do some extra operation.
 	// But is a one shot operation, so we don't account for it here.
 	// We use 0, as it will be the path used by all the blocks with n != 1
-	//
-	// TODO: maybe we should perform one bench in case it triggers `enact_epoch_change`?
 	#[benchmark]
 	fn on_initialize() {
 		let block_num = BlockNumberFor::<T>::from(0u32);
 
-		// This leverages our knowledge about serialized vrf signature structure.
-		// Mostly to avoid to import all the bandersnatch primitive just for this test.
-		let buf = [
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xb5, 0x5f, 0x8e, 0xc7,
-			0x68, 0xf5, 0x05, 0x3f, 0xa9, 0x18, 0xca, 0x07, 0x13, 0xc7, 0x4b, 0xa3, 0x9a, 0x97,
-			0xd3, 0x76, 0x8f, 0x0c, 0xbf, 0x2e, 0xd4, 0xf9, 0x3a, 0xae, 0xc1, 0x96, 0x2a, 0x64,
-			0x80,
-		];
-		let vrf_signature = VrfSignature::decode(&mut &buf[..]).unwrap();
-
 		let slot_claim = SlotClaim {
 			authority_idx: 0,
 			slot: Default::default(),
-			vrf_signature,
+			vrf_signature: make_dummy_vrf_signature(),
 			ticket_claim: None,
 		};
 		frame_system::Pallet::<T>::deposit_log((&slot_claim).into());
 
 		#[block]
 		{
-			// According to `Hooks` docs, `on_finalize` Weight should be returned together with
-			// `on_initialize`.
+			// According to `Hooks` docs, `on_finalize` Weight should be bundled together
+			// with `on_initialize`.
 			Pallet::<T>::on_initialize(block_num);
 			Pallet::<T>::on_finalize(block_num)
+		}
+	}
+
+	// Weight for the default internal epoch change trigger.
+	//
+	// This accounts for the worst case where we need to recompute the ring verifier.
+	//
+	// The weight also slightly depends on the number of authorities in the next epoch.
+	#[benchmark]
+	fn internal_epoch_change_trigger(x: Linear<1, 100>) {
+		let authorities_count = x as usize;
+
+		let mut raw_data = TICKETS_DATA;
+		let (authorities, _): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
+			Decode::decode(&mut raw_data).expect("Failed to decode tickets buffer");
+		let next_authorities: Vec<_> = authorities[..authorities_count].to_vec();
+		let next_authorities = WeakBoundedVec::force_from(next_authorities, None);
+		NextAuthorities::<T>::set(next_authorities);
+
+		#[block]
+		{
+			Pallet::<T>::should_end_epoch(BlockNumberFor::<T>::from(3u32));
+			let next_authorities = Pallet::<T>::next_authorities();
+			Pallet::<T>::enact_epoch_change(Default::default(), next_authorities);
 		}
 	}
 
@@ -113,9 +136,6 @@ mod benchmarks {
 	// Construction of ring verifier benchmark
 	#[benchmark]
 	fn load_ring_context() {
-		let ring_ctx = vrf::RingContext::new_testing();
-		RingContext::<T>::set(Some(ring_ctx));
-
 		#[block]
 		{
 			let _ring_ctx = RingContext::<T>::get().unwrap();
@@ -126,9 +146,6 @@ mod benchmarks {
 	#[benchmark]
 	fn update_ring_verifier(x: Linear<1, 100>) {
 		let authorities_count = x as usize;
-
-		let ring_ctx = vrf::RingContext::new_testing();
-		RingContext::<T>::set(Some(ring_ctx));
 
 		let mut raw_data = TICKETS_DATA;
 		let (authorities, _): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
