@@ -11,8 +11,7 @@ lazy_static = "1.4.0"
 libfuzzer-sys = "0.4"
 regex = "1.10.2"
 
-[dependencies.sp-core]
-path = ".."
+sp-core = { path = ".." }
 
 # Prevent this from interfering with workspaces
 [workspace]

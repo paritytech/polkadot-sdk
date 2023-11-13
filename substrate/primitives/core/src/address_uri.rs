@@ -17,8 +17,8 @@
 
 //! Little util for parsing an address URI. Replaces regular expressions.
 
-#[derive(Debug, PartialEq)]
 /// A container for results of parsing the address uri string.
+#[derive(Debug, PartialEq)]
 pub struct AddressUri<'a> {
 	pub ss58: Option<&'a str>,
 	pub paths: Vec<&'a str>,
