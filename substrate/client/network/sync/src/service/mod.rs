@@ -18,6 +18,6 @@
 
 //! `ChainSync`-related service code
 
-pub mod chain_sync;
+pub mod engine;
 pub mod mock;
 pub mod network;
