@@ -87,7 +87,7 @@ check-rust-feature-propagation:
     - .kubernetes-env
     - .common-refs
   script:
-    - cargo install --locked --version 0.13.2 -q -f zepter && zepter --version
+    - cargo install --locked --version 0.13.3 -q -f zepter && zepter --version
     - zepter run check
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
