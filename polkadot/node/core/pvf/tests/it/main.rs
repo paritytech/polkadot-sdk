@@ -20,8 +20,7 @@ use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
 	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareError,
-	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
-	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};

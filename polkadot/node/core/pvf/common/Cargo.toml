@@ -2,6 +2,7 @@
 name = "polkadot-node-core-pvf-common"
 description = "Polkadot crate that contains functionality related to PVFs that is shared by the PVF host and the PVF workers."
 version = "1.0.0"
+build = "build.rs"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

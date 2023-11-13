@@ -58,7 +58,9 @@
 use crate::{host::PrecheckResultSender, LOG_TARGET};
 use always_assert::always;
 use polkadot_core_primitives::Hash;
-use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
+use polkadot_node_core_pvf_common::{
+	error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData, RUNTIME_VERSION,
+};
 use polkadot_node_primitives::NODE_VERSION;
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
@@ -106,9 +108,10 @@ macro_rules! concat_const {
     }}
 }
 
-const RUNTIME_PREFIX: &str = "wasmtime_";
+const RUNTIME_PREFIX: &str = "wasmtime_v";
 const NODE_PREFIX: &str = "polkadot_v";
-const ARTIFACT_PREFIX: &str = concat_const!(RUNTIME_PREFIX, NODE_PREFIX, NODE_VERSION);
+const ARTIFACT_PREFIX: &str =
+	concat_const!(RUNTIME_PREFIX, RUNTIME_VERSION, "_", NODE_PREFIX, NODE_VERSION);
 
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -413,7 +416,7 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
-	use super::{ArtifactId, Artifacts, ARTIFACT_PREFIX, NODE_VERSION};
+	use super::{ArtifactId, Artifacts, ARTIFACT_PREFIX, NODE_VERSION, RUNTIME_VERSION};
 	use polkadot_primitives::ExecutorParamsHash;
 	use rand::Rng;
 	use sp_core::H256;
@@ -431,10 +434,7 @@ mod tests {
 	}
 
 	fn file_name(code_hash: &str, param_hash: &str, checksum: &str) -> String {
-		format!(
-			"wasmtime_polkadot_v{}_0x{}_0x{}_0x{}",
-			NODE_VERSION, code_hash, param_hash, checksum
-		)
+		format!("{}_0x{}_0x{}_0x{}", ARTIFACT_PREFIX, code_hash, param_hash, checksum)
 	}
 
 	fn create_artifact(
@@ -481,7 +481,10 @@ mod tests {
 
 	#[test]
 	fn artifact_prefix() {
-		assert_eq!(ARTIFACT_PREFIX, format!("wasmtime_polkadot_v{}", NODE_VERSION),)
+		assert_eq!(
+			ARTIFACT_PREFIX,
+			format!("wasmtime_v{}_polkadot_v{}", RUNTIME_VERSION, NODE_VERSION)
+		);
 	}
 
 	#[test]
