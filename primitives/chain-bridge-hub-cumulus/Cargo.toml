@@ -1,6 +1,6 @@
 [package]
 name = "bp-bridge-hub-cumulus"
-description = "Primitives of BridgeHubRococo parachain runtime."
+description = "Primitives for BridgeHub parachain runtimes."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
