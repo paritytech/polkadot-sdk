@@ -433,9 +433,9 @@ where
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: ListOrValue<Block::Hash>,
+		hash_or_hashes: ListOrValue<Block::Hash>,
 	) -> RpcResult<()> {
-		let hashes = match hash {
+		let hashes = match hash_or_hashes {
 			ListOrValue::Value(hash) => vec![hash],
 			ListOrValue::List(hashes) => hashes,
 		};

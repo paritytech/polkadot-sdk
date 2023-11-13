@@ -124,7 +124,7 @@ pub trait ChainHeadApi<Hash> {
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: ListOrValue<Hash>,
+		hash_or_hashes: ListOrValue<Hash>,
 	) -> RpcResult<()>;
 
 	/// Resumes a storage fetch started with `chainHead_storage` after it has generated an
