@@ -53,6 +53,18 @@ pub trait Config: frame_system::Config {
 
 	/// Worst case scenario for a holding account in this runtime.
 	fn worst_case_holding(depositable_count: u32) -> MultiAssets;
+
+	/// Returns a valid pallet info for `ExpectPallet` benchmark.
+	///
+	/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
+	fn valid_pallet() -> frame_support::traits::PalletInfoData {
+		frame_support::traits::PalletInfoData {
+			index: 0,
+			name: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::name(),
+			module_name: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::module_name(),
+			crate_version: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::crate_version(),
+		}
+	}
 }
 
 const SEED: u32 = 0;
