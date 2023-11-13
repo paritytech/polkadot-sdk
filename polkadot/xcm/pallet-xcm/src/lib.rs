@@ -318,17 +318,17 @@ pub mod pallet {
 		type WeightInfo = Self;
 		fn send(
 			origin: OriginFor<T>,
-			dest: Box<VersionedMultiLocation>,
+			dest: Box<VersionedLocation>,
 			message: Box<VersionedXcm<()>>,
 		) -> Result<XcmHash, DispatchError> {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
 			let interior: Junctions =
-				origin_location.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
-			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
+				origin_location.clone().try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
+			let dest = Location::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
 			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
 
 			let message_id =
-				Self::send_xcm(interior, dest, message.clone()).map_err(Error::<T>::from)?;
+				Self::send_xcm(interior, dest.clone(), message.clone()).map_err(Error::<T>::from)?;
 			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
 			Self::deposit_event(e);
 			Ok(message_id)
@@ -350,13 +350,13 @@ pub mod pallet {
 		fn query(
 			origin: OriginFor<T>,
 			timeout: BlockNumberFor<T>,
-			match_querier: VersionedMultiLocation,
+			match_querier: VersionedLocation,
 		) -> Result<Self::QueryId, DispatchError> {
 			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let query_id = <Self as QueryHandler>::new_query(
 				responder,
 				timeout,
-				MultiLocation::try_from(match_querier)
+				Location::try_from(match_querier)
 					.map_err(|_| Into::<DispatchError>::into(Error::<T>::BadVersion))?,
 			);
 

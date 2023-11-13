@@ -108,19 +108,16 @@ pub fn era_payout(
 pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]
 	V3 {
-		/// The (relative) location in which the asset ID is meaningful.
 		location: xcm::v3::MultiLocation,
-		/// The asset's ID.
 		asset_id: xcm::v3::AssetId,
 	},
 	#[codec(index = 4)]
 	V4 {
 		location: xcm::v4::Location,
 		asset_id: xcm::v4::AssetId,
-	}
+	},
 }
 
-// TODO: Fix `LocatableAssetId`
 /// Converts the [`VersionedLocatableAsset`] to the [`xcm_builder::LocatableAssetId`].
 pub struct LocatableAssetConverter;
 impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
@@ -130,10 +127,8 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 		asset: VersionedLocatableAsset,
 	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
 		match asset {
-			VersionedLocatableAsset::V3 { location, asset_id } =>
-				Ok(xcm_builder::LocatableAssetId { asset_id: asset_id.try_into().unwrap(), location: location.try_into().unwrap() }),
-			VersionedLocatableAsset::V4 { location, asset_id } =>
-				Ok(xcm_builder::LocatableAssetId { asset_id, location }),
+			VersionedLocatableAsset::V3 { location, asset_id } => Ok(xcm_builder::LocatableAssetId { location: location.try_into().map_err(|_| asset.clone())?, asset_id: asset_id.try_into().map_err(|_| asset.clone())? }),
+			VersionedLocatableAsset::V4 { location, asset_id } => Ok(xcm_builder::LocatableAssetId { location, asset_id }),
 		}
 	}
 }
@@ -170,11 +165,11 @@ pub mod benchmarks {
 	pub struct AssetRateArguments;
 	impl AssetKindFactory<VersionedLocatableAsset> for AssetRateArguments {
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			VersionedLocatableAsset::V3 {
-				location: xcm::v3::MultiLocation::new(0, [xcm::v3::Junction::Parachain(seed)]),
-				asset_id: xcm::v3::MultiLocation::new(
+			VersionedLocatableAsset::V4 {
+				location: xcm::v4::Location::new(0, [xcm::v4::Junction::Parachain(seed)]),
+				asset_id: xcm::v4::Location::new(
 					0,
-					[xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()), xcm::v3::Junction::GeneralIndex(seed.into())],
+					[xcm::v4::Junction::PalletInstance(seed.try_into().unwrap()), xcm::v4::Junction::GeneralIndex(seed.into())],
 				)
 				.into(),
 			}
@@ -192,9 +187,9 @@ pub mod benchmarks {
 			AssetRateArguments::create_asset_kind(seed)
 		}
 		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocation {
-			VersionedLocation::V3(xcm::v3::MultiLocation::new(
+			VersionedLocation::V4(xcm::v4::Location::new(
 				0,
-				[xcm::v3::Junction::AccountId32 { network: None, id: seed }],
+				[xcm::v4::Junction::AccountId32 { network: None, id: seed }],
 			))
 		}
 	}

@@ -191,17 +191,17 @@ benchmarks! {
 	}
 
 	new_query {
-		let responder = MultiLocation::from(Parent);
+		let responder = Location::from(Parent);
 		let timeout = 1u32.into();
-		let match_querier = MultiLocation::from(Here);
+		let match_querier = Location::from(Here);
 	}: {
 		Pallet::<T>::new_query(responder, timeout, match_querier);
 	}
 
 	take_response {
-		let responder = MultiLocation::from(Parent);
+		let responder = Location::from(Parent);
 		let timeout = 1u32.into();
-		let match_querier = MultiLocation::from(Here);
+		let match_querier = Location::from(Here);
 		let query_id = Pallet::<T>::new_query(responder, timeout, match_querier);
 		let infos = (0 .. xcm::v3::MaxPalletsInfo::get()).map(|_| PalletInfo::new(
 			u32::MAX,

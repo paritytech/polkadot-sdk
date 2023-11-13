@@ -39,7 +39,7 @@ pub use polkadot_runtime_parachains::{
 };
 pub use xcm::{
 	prelude::{Location, OriginKind, Outcome, VersionedXcm},
-	v3::Error,
+	v4::Error as XcmError,
 	DoubleEncoded,
 };
 

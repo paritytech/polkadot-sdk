@@ -162,7 +162,7 @@ pub trait QueryHandler {
 }
 
 parameter_types! {
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 }
 
 impl QueryHandler for () {
@@ -175,16 +175,16 @@ impl QueryHandler for () {
 		QueryResponseStatus::NotFound
 	}
 	fn new_query(
-		_responder: impl Into<MultiLocation>,
+		_responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
-		_match_querier: impl Into<MultiLocation>,
+		_match_querier: impl Into<Location>,
 	) -> Self::QueryId {
 		0u64
 	}
 
 	fn report_outcome(
 		_message: &mut Xcm<()>,
-		_responder: impl Into<MultiLocation>,
+		_responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
 	) -> Result<Self::QueryId, Self::Error> {
 		Err(())
