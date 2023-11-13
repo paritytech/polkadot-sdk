@@ -999,6 +999,8 @@
 <a href="#999" id="999">999</a>
 <a href="#1000" id="1000">1000</a>
 <a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1019,7 +1021,7 @@
 </span><span class="kw">use crate</span>::{write_file_if_changed, CargoCommandVersioned, OFFLINE};
 
 <span class="kw">use </span>build_helper::rerun_if_changed;
-<span class="kw">use </span>cargo_metadata::{CargoOpt, Metadata, MetadataCommand};
+<span class="kw">use </span>cargo_metadata::{DependencyKind, Metadata, MetadataCommand};
 <span class="kw">use </span>parity_wasm::elements::{deserialize_buffer, Module};
 <span class="kw">use </span>std::{
 	borrow::ToOwned,
@@ -1090,8 +1092,7 @@
 		cargo_manifest.to_path_buf()
 	};
 
-	<span class="kw">let </span><span class="kw-2">mut </span>crate_metadata_command = create_metadata_command(cargo_manifest);
-	crate_metadata_command.features(CargoOpt::AllFeatures);
+	<span class="kw">let </span>crate_metadata_command = create_metadata_command(cargo_manifest);
 
 	<span class="kw">let </span>crate_metadata = crate_metadata_command
 		.exec()
@@ -1916,6 +1917,11 @@
 	packages.insert(DeduplicatePackage::from(package));
 
 	<span class="kw">while let </span><span class="prelude-val">Some</span>(dependency) = dependencies.pop() {
+		<span class="comment">// Ignore all dev dependencies
+		</span><span class="kw">if </span>dependency.kind == DependencyKind::Development {
+			<span class="kw">continue</span>;
+		}
+
 		<span class="kw">let </span>path_or_git_dep =
 			dependency.source.as_ref().map(|s| s.starts_with(<span class="string">&quot;git+&quot;</span>)).unwrap_or(<span class="bool-val">true</span>);
 
@@ -1968,9 +1974,7 @@
 			</span>p.path() == manifest_path || !p.path().is_dir() || !p.path().join(<span class="string">&quot;Cargo.toml&quot;</span>).exists()
 		})
 		.filter_map(|p| p.ok().map(|p| p.into_path()))
-		.filter(|p| {
-			p.is_dir() || p.extension().map(|e| e == <span class="string">&quot;rs&quot; </span>|| e == <span class="string">&quot;toml&quot;</span>).unwrap_or_default()
-		})
+		.filter(|p| p.extension().map(|e| e == <span class="string">&quot;rs&quot; </span>|| e == <span class="string">&quot;toml&quot;</span>).unwrap_or_default())
 		.for_each(rerun_if_changed);
 }
 
