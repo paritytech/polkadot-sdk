@@ -88,7 +88,7 @@
 ### Domain=1024, Compressed
 
     147716 bytes = ~ 150 KiB
-    
+
 ### Domain=2048, Uncompressed
 
     590324 bytes = ~ 590 KiB
