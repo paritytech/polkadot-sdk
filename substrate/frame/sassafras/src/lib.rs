@@ -172,7 +172,7 @@ pub mod pallet {
 
 	/// First block slot number.
 	///
-	/// As the slots may not be zero-based, we recond the slot value for the fist block.
+	/// As the slots may not be zero-based, we record the slot value for the fist block.
 	/// This allows to always compute relative indices for epochs and slots.
 	#[pallet::storage]
 	#[pallet::getter(fn genesis_slot)]
@@ -235,7 +235,7 @@ pub mod pallet {
 	/// Note that the ticket's index doesn't directly correspond to the slot index within the epoch.
 	/// The assigment is computed dynamically using an *outside-in* strategy.
 	///
-	/// Beaware that entries within this map are never removed, only overwritten.
+	/// Be aware that entries within this map are never removed, only overwritten.
 	/// Last element index should be fetched from the [`TicketsMeta`] value.
 	#[pallet::storage]
 	pub type TicketsIds<T> = StorageMap<_, Identity, (u8, u32), TicketId>;
@@ -320,7 +320,7 @@ pub mod pallet {
 			CurrentSlot::<T>::put(claim.slot);
 
 			// As the slots may not be zero-based, we need to keep track of what is the
-			// slot used fo the first block.
+			// slot used for the first block.
 			if <frame_system::Pallet<T>>::block_number() == One::one() {
 				GenesisSlot::<T>::put(claim.slot);
 
@@ -748,7 +748,7 @@ impl<T: Config> Pallet<T> {
 			if prev_authorities.as_slice() == authorities {
 				return
 			} else {
-				panic!("Authorities already were already initialized");
+				panic!("Authorities were already initialized");
 			}
 		}
 
@@ -860,7 +860,7 @@ impl<T: Config> Pallet<T> {
 		Self::slot_ticket_id(slot).and_then(|id| TicketsData::<T>::get(id).map(|body| (id, body)))
 	}
 
-	// Lexicographically sort the tickets who belongs to the next epoch.
+	// Lexicographically sort the tickets which belong to the next epoch.
 	//
 	// Tickets are fetched from at most `max_segments` segments.
 	//
@@ -883,7 +883,7 @@ impl<T: Config> Pallet<T> {
 		// of allowed tickets.
 		let mut upper_bound = *sorted_candidates.get(max_tickets).unwrap_or(&TicketId::MAX);
 
-		// Consume at most `max_iter` segments.
+		// Consume at most `max_segments` segments.
 		// During the process remove every stale ticket from `TicketsData` storage.
 		for _ in 0..max_segments {
 			unsorted_segments_count -= 1;
