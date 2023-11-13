@@ -91,12 +91,11 @@ impl<'a> AddressUri<'a> {
 			if strip_prefix(&mut input, "///") {
 				pass = Some(extract_prefix(&mut input, &|ch: char| ch != '\n').unwrap_or(""));
 			} else if strip_prefix(&mut input, "//") {
-				let mut path = extract_prefix(&mut input, &|ch: char| ch != '/')
+				let path = extract_prefix(&mut input, &|ch: char| ch != '/')
 					.ok_or(Error::InvalidCharacterInHardPath)?;
 				assert!(path.len() > 0);
 				// hard path shall contain leading '/', so take it from unstripped input.
-				path = &unstripped_input[1..path.len() + 2];
-				paths.push(path);
+				paths.push(&unstripped_input[1..path.len() + 2]);
 			} else if strip_prefix(&mut input, "/") {
 				paths.push(
 					extract_prefix(&mut input, &|ch: char| ch != '/')
