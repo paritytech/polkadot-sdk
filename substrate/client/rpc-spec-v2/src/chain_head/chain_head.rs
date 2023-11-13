@@ -115,7 +115,7 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 	/// Create a new [`ChainHead`].
-	pub fn new<GenesisHash: AsRef<[u8]>>(
+	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		executor: SubscriptionTaskExecutor,
