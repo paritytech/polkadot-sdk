@@ -11009,7 +11009,6 @@ dependencies = [
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
- "sc-client-api",
  "sc-consensus",
  "sc-executor",
  "sc-network",

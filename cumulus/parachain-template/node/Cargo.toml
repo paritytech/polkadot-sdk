@@ -28,7 +28,6 @@ pallet-transaction-payment-rpc = { path = "../../../substrate/frame/transaction-
 sc-basic-authorship = { path = "../../../substrate/client/basic-authorship" }
 sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
 sc-cli = { path = "../../../substrate/client/cli" }
-sc-client-api = { path = "../../../substrate/client/api" }
 sc-offchain = { path = "../../../substrate/client/offchain" }
 sc-consensus = { path = "../../../substrate/client/consensus/common" }
 sc-executor = { path = "../../../substrate/client/executor" }
