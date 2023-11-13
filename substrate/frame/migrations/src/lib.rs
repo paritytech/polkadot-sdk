@@ -607,9 +607,9 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns whether processing should continue or break for this block. The return value means:
 	/// - `None`: The migration process is completely finished.
-	/// - `ControllFlow::Break`: We made *some* progress. Continue in the *next* block with the
+	/// - `ControlFlow::Break`: We made *some* progress. Continue in the *next* block with the
 	///   cursor.
-	/// - `ControllFlow::Continue`: We made *no* progress. Continue in the *current* block with the
+	/// - `ControlFlow::Continue`: We made *no* progress. Continue in the *current* block with the
 	///   given cursor.
 	fn exec_migration(
 		mut cursor: ActiveCursorOf<T>,
