@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  check-publish:
+  claim-crates:
     strategy:
       matrix:
         os: ["ubuntu-latest"]
