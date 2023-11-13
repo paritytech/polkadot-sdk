@@ -196,7 +196,7 @@ fn high_weight_migration_retries_once() {
 		assert_events::<Event<T>>(vec![
 			Event::UpgradeStarted { migrations: 2 },
 			Event::MigrationCompleted { index: 0, took: 1 },
-			// `blocks=1` means that it was retried once.
+			// `took=1` means that it was retried once.
 			Event::MigrationFailed { index: 1, took: 1 },
 			Event::UpgradeFailed,
 		]);
