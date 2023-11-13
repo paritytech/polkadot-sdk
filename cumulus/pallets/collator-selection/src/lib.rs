@@ -719,8 +719,6 @@ pub mod pallet {
 				Error::<T>::ValidatorNotRegistered
 			);
 
-			ensure!(deposit >= Self::candidacy_bond(), Error::<T>::InsufficientBond);
-
 			let length = <CandidateList<T>>::decode_len().unwrap_or_default();
 			// The closure below iterates through all elements of the candidate list to ensure that
 			// the caller isn't already a candidate and to find the target it's trying to replace in
