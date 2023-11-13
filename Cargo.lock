@@ -901,9 +901,11 @@ dependencies = [
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
+ "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "rococo-runtime",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -7225,6 +7227,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
+ "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -8854,6 +8857,7 @@ dependencies = [
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-skip-feeless-payment",
  "parity-scale-codec",
  "sc-block-builder",
  "sc-client-api",
@@ -10797,6 +10801,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-skip-feeless-payment"
+version = "1.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "pallet-society"
 version = "4.0.0-dev"
 dependencies = [
@@ -11170,6 +11186,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
@@ -11617,6 +11634,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "penpal-runtime",
+ "rococo-emulated-chain",
  "serde_json",
  "sp-core",
  "sp-runtime",
@@ -18204,6 +18222,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-im-online",
+ "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "parity-scale-codec",
  "platforms",
@@ -18402,6 +18421,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
+ "scale-info",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
