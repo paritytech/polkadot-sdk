@@ -184,8 +184,11 @@ impl pallet_core_fellowship::Config<AmbassadorCoreInstance> for Runtime {
 	// - the FellowshipAdmin origin (i.e. token holder referendum);
 	// - a vote among all Head Ambassadors.
 	type ParamsOrigin = EitherOfDiverse<
-		EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
-		EnsureHeadAmbassadorsVoice,
+		EnsureRoot<AccountId>,
+		EitherOfDiverse<
+			EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
+			EnsureHeadAmbassadorsVoice,
+		>,
 	>;
 	// Induction (creating a candidate) is by any of:
 	// - Root;
@@ -193,14 +196,17 @@ impl pallet_core_fellowship::Config<AmbassadorCoreInstance> for Runtime {
 	// - a single Head Ambassador;
 	// - a vote among all senior members.
 	type InductOrigin = EitherOfDiverse<
-		EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
+		EnsureRoot<AccountId>,
 		EitherOfDiverse<
-			pallet_ranked_collective::EnsureMember<
-				Runtime,
-				AmbassadorCollectiveInstance,
-				{ ranks::HEAD_AMBASSADOR_TIER_5 },
+			EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
+			EitherOfDiverse<
+				pallet_ranked_collective::EnsureMember<
+					Runtime,
+					AmbassadorCollectiveInstance,
+					{ ranks::HEAD_AMBASSADOR_TIER_5 },
+				>,
+				EnsureAmbassadorsVoiceFrom<ConstU16<{ ranks::SENIOR_AMBASSADOR_TIER_3 }>>,
 			>,
-			EnsureAmbassadorsVoiceFrom<ConstU16<{ ranks::SENIOR_AMBASSADOR_TIER_3 }>>,
 		>,
 	>;
 	type ApproveOrigin = PromoteOrigin;
