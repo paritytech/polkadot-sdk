@@ -2174,6 +2174,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge-hub-rococo-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "asset-test-utils",
+ "bp-messages",
+ "bridge-hub-rococo-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-bridge-messages",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "rococo-westend-system-emulated-network",
+ "staging-xcm",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "bridge-hub-rococo-runtime"
 version = "0.1.0"
 dependencies = [
@@ -2318,6 +2339,27 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
+]
+
+[[package]]
+name = "bridge-hub-westend-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "asset-test-utils",
+ "bp-messages",
+ "bridge-hub-westend-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-bridge-messages",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "rococo-westend-system-emulated-network",
+ "staging-xcm",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -14474,28 +14516,6 @@ dependencies = [
  "emulated-integration-tests-common",
  "penpal-emulated-chain",
  "rococo-emulated-chain",
-]
-
-[[package]]
-name = "rococo-westend-bridge-integration-tests"
-version = "1.0.0"
-dependencies = [
- "asset-test-utils",
- "bp-messages",
- "bridge-hub-rococo-runtime",
- "bridge-hub-westend-runtime",
- "cumulus-pallet-dmp-queue",
- "cumulus-pallet-xcmp-queue",
- "emulated-integration-tests-common",
- "frame-support",
- "pallet-bridge-messages",
- "pallet-message-queue",
- "pallet-xcm",
- "parachains-common",
- "parity-scale-codec",
- "rococo-westend-system-emulated-network",
- "staging-xcm",
- "staging-xcm-executor",
 ]
 
 [[package]]

@@ -13,5 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod bridge_hubs;
-mod send_xcm;
+mod example;
+mod teleport;
