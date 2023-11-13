@@ -753,7 +753,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 	pub fn unpin_blocks(
 		&mut self,
 		sub_id: &str,
-		hashes: Vec<Block::Hash>,
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
 	) -> Result<(), SubscriptionManagementError> {
 		let Some(sub) = self.subs.get_mut(sub_id) else {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
@@ -761,8 +761,8 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 
 		// Ensure that all blocks are part of the subscription before removing individual
 		// blocks.
-		for hash in &hashes {
-			if !sub.contains_block(*hash) {
+		for hash in hashes.clone() {
+			if !sub.contains_block(hash) {
 				return Err(SubscriptionManagementError::BlockHashAbsent);
 			}
 		}
@@ -771,8 +771,8 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		// thinking we borrow `&mut self` twice: once from `self.subs.get_mut` and once from
 		// `self.global_unregister_block`. Although the borrowing is correct, since different
 		// fields of the structure are borrowed, one at a time.
-		for hash in &hashes {
-			sub.unregister_block(*hash);
+		for hash in hashes.clone() {
+			sub.unregister_block(hash);
 		}
 
 		// Block have been removed from the subscription. Remove them from the global tracking.

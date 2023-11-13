@@ -107,7 +107,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 	pub fn unpin_blocks(
 		&self,
 		sub_id: &str,
-		hashes: Vec<Block::Hash>,
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
 	) -> Result<(), SubscriptionManagementError> {
 		let mut inner = self.inner.write();
 		inner.unpin_blocks(sub_id, hashes)
