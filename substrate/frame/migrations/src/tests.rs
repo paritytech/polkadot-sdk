@@ -155,7 +155,7 @@ fn failing_migration_force_unstuck_works() {
 /// A migration that reports not getting enough weight errors if it is the first one to run in that
 /// block.
 #[test]
-fn heigh_weight_migration_singular_fails() {
+fn high_weight_migration_singular_fails() {
 	test_closure(|| {
 		MigrationsStorage::set(vec![(HighWeightAfter(Weight::zero()), 2)]);
 
