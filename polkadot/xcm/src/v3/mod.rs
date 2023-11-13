@@ -243,15 +243,15 @@ parameter_types! {
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct PalletInfo {
 	#[codec(compact)]
-	index: u32,
-	name: BoundedVec<u8, MaxPalletNameLen>,
-	module_name: BoundedVec<u8, MaxPalletNameLen>,
+	pub index: u32,
+	pub name: BoundedVec<u8, MaxPalletNameLen>,
+	pub module_name: BoundedVec<u8, MaxPalletNameLen>,
 	#[codec(compact)]
-	major: u32,
+	pub major: u32,
 	#[codec(compact)]
-	minor: u32,
+	pub minor: u32,
 	#[codec(compact)]
-	patch: u32,
+	pub patch: u32,
 }
 
 impl PalletInfo {

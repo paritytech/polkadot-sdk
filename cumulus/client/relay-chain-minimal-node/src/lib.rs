@@ -171,12 +171,7 @@ async fn new_minimal_relay_chain(
 		);
 	}
 
-	let genesis_hash = relay_chain_rpc_client
-		.block_get_hash(Some(0))
-		.await
-		.expect("Genesis block hash is always available; qed")
-		.unwrap_or_default();
-
+	let genesis_hash = relay_chain_rpc_client.block_get_hash(Some(0)).await?.unwrap_or_default();
 	let peer_set_protocol_names =
 		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
