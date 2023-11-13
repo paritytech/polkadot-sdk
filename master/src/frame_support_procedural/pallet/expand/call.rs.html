@@ -421,6 +421,33 @@
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -664,6 +691,16 @@
 		})
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
+	<span class="kw">let </span>feeless_check = methods.iter().map(|method| <span class="kw-2">&amp;</span>method.feeless_check).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+	<span class="kw">let </span>feeless_check_result =
+		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(feeless_check) = feeless_check {
+				<span class="macro">quote::quote!</span>(#feeless_check(origin, #( #arg_name, )<span class="kw-2">*</span>))
+			} <span class="kw">else </span>{
+				<span class="macro">quote::quote!</span>(<span class="bool-val">false</span>)
+			}
+		});
+
 	<span class="macro">quote::quote_spanned!</span>(span =&gt;
 		<span class="kw">mod </span>warnings {
 			#(
@@ -763,6 +800,23 @@
 								class: __pallet_class,
 								pays_fee: __pallet_pays_fee,
 							}
+						},
+					)*
+					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;__Ignore cannot be used&quot;</span>),
+				}
+			}
+		}
+
+		<span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::dispatch::CheckIfFeeless <span class="kw">for </span>#call_ident&lt;#type_use_gen&gt;
+			#where_clause
+		{
+			<span class="kw">type </span>Origin = #frame_system::pallet_prelude::OriginFor&lt;T&gt;;
+			<span class="attr">#[allow(unused_variables)]
+			</span><span class="kw">fn </span>is_feeless(<span class="kw-2">&amp;</span><span class="self">self</span>, origin: <span class="kw-2">&amp;</span><span class="self">Self</span>::Origin) -&gt; bool {
+				<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+					#(
+						<span class="self">Self</span>::#fn_name { #( #args_name_pattern_ref, )* } =&gt; {
+							#feeless_check_result
 						},
 					)*
 					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;__Ignore cannot be used&quot;</span>),

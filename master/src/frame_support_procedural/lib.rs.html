@@ -1625,6 +1625,36 @@
 <a href="#1625" id="1625">1625</a>
 <a href="#1626" id="1626">1626</a>
 <a href="#1627" id="1627">1627</a>
+<a href="#1628" id="1628">1628</a>
+<a href="#1629" id="1629">1629</a>
+<a href="#1630" id="1630">1630</a>
+<a href="#1631" id="1631">1631</a>
+<a href="#1632" id="1632">1632</a>
+<a href="#1633" id="1633">1633</a>
+<a href="#1634" id="1634">1634</a>
+<a href="#1635" id="1635">1635</a>
+<a href="#1636" id="1636">1636</a>
+<a href="#1637" id="1637">1637</a>
+<a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
+<a href="#1646" id="1646">1646</a>
+<a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2781,6 +2811,36 @@
 /// which returns the dispatchable metadata.
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>call_index(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
+	pallet_macro_stub()
+}
+
+<span class="doccomment">/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
+/// which explicitly defines the condition for the dispatchable to be feeless.
+///
+/// The arguments for the closure must be the referenced arguments of the dispatchable function.
+///
+/// The closure must return `bool`.
+///
+/// ### Example
+/// ```ignore
+/// #[pallet::feeless_if(|_origin: &amp;OriginFor&lt;T&gt;, something: &amp;u32| -&gt; bool {
+/// 		*something == 0
+/// 	})]
+/// pub fn do_something(origin: OriginFor&lt;T&gt;, something: u32) -&gt; DispatchResult {
+///     ....
+/// }
+/// ```
+///
+/// Please note that this only works for signed dispatchables and requires a signed extension
+/// such as `SkipCheckIfFeeless` as defined in `pallet-skip-feeless-payment` to wrap the existing
+/// payment extension. Else, this is completely ignored and the dispatchable is still charged.
+///
+/// ### Macro expansion
+///
+/// The macro implements the `CheckIfFeeless` trait on the dispatchable and calls the corresponding
+/// closure in the implementation.
+</span><span class="attr">#[proc_macro_attribute]
+</span><span class="kw">pub fn </span>feeless_if(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()
 }
 

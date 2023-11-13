@@ -2636,6 +2636,7 @@
 <a href="#2636" id="2636">2636</a>
 <a href="#2637" id="2637">2637</a>
 <a href="#2638" id="2638">2638</a>
+<a href="#2639" id="2639">2639</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4865,9 +4866,10 @@
 </span><span class="kw">pub mod </span>pallet_macros {
 	<span class="kw">pub use </span>frame_support_procedural::{
 		call_index, compact, composite_enum, config, disable_frame_system_supertrait_check, error,
-		event, extra_constants, generate_deposit, generate_store, getter, hooks, import_section,
-		inherent, no_default, no_default_bounds, origin, pallet_section, storage_prefix,
-		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
+		event, extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
+		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
+		whitelist_storage,
 	};
 
 	<span class="doccomment">/// Allows you to define the genesis configuration for the pallet.

@@ -209,6 +209,18 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -330,6 +342,18 @@
 					#(
 						#pallet_attrs
 						#variant_patterns =&gt; call.get_dispatch_info(),
+					)*
+				}
+			}
+		}
+
+		<span class="kw">impl </span>#scrate::dispatch::CheckIfFeeless <span class="kw">for </span>RuntimeCall {
+			<span class="kw">type </span>Origin = #system_path::pallet_prelude::OriginFor&lt;#runtime&gt;;
+			<span class="kw">fn </span>is_feeless(<span class="kw-2">&amp;</span><span class="self">self</span>, origin: <span class="kw-2">&amp;</span><span class="self">Self</span>::Origin) -&gt; bool {
+				<span class="kw">match </span><span class="self">self </span>{
+					#(
+						#pallet_attrs
+						#variant_patterns =&gt; call.is_feeless(origin),
 					)*
 				}
 			}

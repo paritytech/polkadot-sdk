@@ -2867,6 +2867,18 @@
 <a href="#2867" id="2867">2867</a>
 <a href="#2868" id="2868">2868</a>
 <a href="#2869" id="2869">2869</a>
+<a href="#2870" id="2870">2870</a>
+<a href="#2871" id="2871">2871</a>
+<a href="#2872" id="2872">2872</a>
+<a href="#2873" id="2873">2873</a>
+<a href="#2874" id="2874">2874</a>
+<a href="#2875" id="2875">2875</a>
+<a href="#2876" id="2876">2876</a>
+<a href="#2877" id="2877">2877</a>
+<a href="#2878" id="2878">2878</a>
+<a href="#2879" id="2879">2879</a>
+<a href="#2880" id="2880">2880</a>
+<a href="#2881" id="2881">2881</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3436,6 +3448,10 @@
 	<span class="kw">type </span>Fungibles = Assets;
 	<span class="kw">type </span>OnChargeAssetTransaction =
 		pallet_asset_conversion_tx_payment::AssetConversionAdapter&lt;Balances, AssetConversion&gt;;
+}
+
+<span class="kw">impl </span>pallet_skip_feeless_payment::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4263,7 +4279,11 @@
 			frame_system::CheckEra::&lt;Runtime&gt;::from(era),
 			frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
 			frame_system::CheckWeight::&lt;Runtime&gt;::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::&lt;Runtime&gt;::from(tip, <span class="prelude-val">None</span>),
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::&lt;Runtime&gt;::from(
+					tip, <span class="prelude-val">None</span>,
+				),
+			),
 		);
 		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -5003,6 +5023,7 @@
 		Statement: pallet_statement,
 		Broker: pallet_broker,
 		Mixnet: pallet_mixnet,
+		SkipFeelessPayment: pallet_skip_feeless_payment,
 	}
 );
 
@@ -5029,7 +5050,10 @@
 	frame_system::CheckEra&lt;Runtime&gt;,
 	frame_system::CheckNonce&lt;Runtime&gt;,
 	frame_system::CheckWeight&lt;Runtime&gt;,
-	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment&lt;Runtime&gt;,
+	pallet_skip_feeless_payment::SkipCheckIfFeeless&lt;
+		Runtime,
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment&lt;Runtime&gt;,
+	&gt;,
 );
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.

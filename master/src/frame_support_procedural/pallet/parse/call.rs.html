@@ -349,6 +349,105 @@
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -368,9 +467,10 @@
 
 </span><span class="kw">use super</span>::{helper, InheritedCallWeightAttr};
 <span class="kw">use </span>frame_support_procedural_tools::get_doc_literals;
+<span class="kw">use </span>proc_macro2::Span;
 <span class="kw">use </span>quote::ToTokens;
 <span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>syn::spanned::Spanned;
+<span class="kw">use </span>syn::{spanned::Spanned, ExprClosure};
 
 <span class="doccomment">/// List of additional token to be used for parsing.
 </span><span class="kw">mod </span>keyword {
@@ -381,6 +481,7 @@
 	<span class="macro">syn::custom_keyword!</span>(compact);
 	<span class="macro">syn::custom_keyword!</span>(T);
 	<span class="macro">syn::custom_keyword!</span>(pallet);
+	<span class="macro">syn::custom_keyword!</span>(feeless_if);
 }
 
 <span class="doccomment">/// Definition of dispatchables typically `impl&lt;T: Config&gt; Pallet&lt;T&gt; { ... }`
@@ -433,13 +534,18 @@
 	</span><span class="kw">pub </span>docs: Vec&lt;syn::Expr&gt;,
 	<span class="doccomment">/// Attributes annotated at the top of the dispatchable function.
 	</span><span class="kw">pub </span>attrs: Vec&lt;syn::Attribute&gt;,
+	<span class="doccomment">/// The optional `feeless_if` attribute on the `pallet::call`.
+	</span><span class="kw">pub </span>feeless_check: <span class="prelude-ty">Option</span>&lt;syn::ExprClosure&gt;,
 }
 
 <span class="doccomment">/// Attributes for functions in call impl block.
-/// Parse for `#[pallet::weight(expr)]` or `#[pallet::call_index(expr)]
 </span><span class="kw">pub enum </span>FunctionAttr {
-	CallIndex(u8),
-	Weight(syn::Expr),
+	<span class="doccomment">/// Parse for `#[pallet::call_index(expr)]`
+	</span>CallIndex(u8),
+	<span class="doccomment">/// Parse for `#[pallet::weight(expr)]`
+	</span>Weight(syn::Expr),
+	<span class="doccomment">/// Parse for `#[pallet::feeless_if(expr)]`
+	</span>FeelessIf(Span, syn::ExprClosure),
 }
 
 <span class="kw">impl </span>syn::parse::Parse <span class="kw">for </span>FunctionAttr {
@@ -466,6 +572,19 @@
 				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(index.span(), msg))
 			}
 			<span class="prelude-val">Ok</span>(FunctionAttr::CallIndex(index.base10_parse()<span class="question-mark">?</span>))
+		} <span class="kw">else if </span>lookahead.peek(keyword::feeless_if) {
+			content.parse::&lt;keyword::feeless_if&gt;()<span class="question-mark">?</span>;
+			<span class="kw">let </span>closure_content;
+			<span class="macro">syn::parenthesized!</span>(closure_content <span class="kw">in </span>content);
+			<span class="prelude-val">Ok</span>(FunctionAttr::FeelessIf(
+				closure_content.span(),
+				closure_content.parse::&lt;syn::ExprClosure&gt;().map_err(|e| {
+					<span class="kw">let </span>msg = <span class="string">&quot;Invalid feeless_if attribute: expected a closure&quot;</span>;
+					<span class="kw">let </span><span class="kw-2">mut </span>err = syn::Error::new(closure_content.span(), msg);
+					err.combine(e);
+					err
+				})<span class="question-mark">?</span>,
+			))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(lookahead.error())
 		}
@@ -489,28 +608,33 @@
 	}
 }
 
-<span class="doccomment">/// Check the syntax is `OriginFor&lt;T&gt;`
-</span><span class="kw">pub fn </span>check_dispatchable_first_arg_type(ty: <span class="kw-2">&amp;</span>syn::Type) -&gt; syn::Result&lt;()&gt; {
-	<span class="kw">pub struct </span>CheckDispatchableFirstArg;
+<span class="doccomment">/// Check the syntax is `OriginFor&lt;T&gt;` or `&amp;OriginFor&lt;T&gt;`.
+</span><span class="kw">pub fn </span>check_dispatchable_first_arg_type(ty: <span class="kw-2">&amp;</span>syn::Type, is_ref: bool) -&gt; syn::Result&lt;()&gt; {
+	<span class="kw">pub struct </span>CheckDispatchableFirstArg(bool);
 	<span class="kw">impl </span>syn::parse::Parse <span class="kw">for </span>CheckDispatchableFirstArg {
 		<span class="kw">fn </span>parse(input: syn::parse::ParseStream) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+			<span class="kw">let </span>is_ref = input.parse::&lt;<span class="macro">syn::Token!</span>[<span class="kw-2">&amp;</span>]&gt;().is_ok();
 			input.parse::&lt;keyword::OriginFor&gt;()<span class="question-mark">?</span>;
 			input.parse::&lt;<span class="macro">syn::Token!</span>[&lt;]&gt;()<span class="question-mark">?</span>;
 			input.parse::&lt;keyword::T&gt;()<span class="question-mark">?</span>;
 			input.parse::&lt;<span class="macro">syn::Token!</span>[&gt;]&gt;()<span class="question-mark">?</span>;
 
-			<span class="prelude-val">Ok</span>(<span class="self">Self</span>)
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(is_ref))
 		}
 	}
 
-	syn::parse2::&lt;CheckDispatchableFirstArg&gt;(ty.to_token_stream()).map_err(|e| {
-		<span class="kw">let </span>msg = <span class="string">&quot;Invalid type: expected `OriginFor&lt;T&gt;`&quot;</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>err = syn::Error::new(ty.span(), msg);
-		err.combine(e);
-		err
-	})<span class="question-mark">?</span>;
-
-	<span class="prelude-val">Ok</span>(())
+	<span class="kw">let </span>result = syn::parse2::&lt;CheckDispatchableFirstArg&gt;(ty.to_token_stream());
+	<span class="kw">return match </span>result {
+		<span class="prelude-val">Ok</span>(CheckDispatchableFirstArg(has_ref)) <span class="kw">if </span>is_ref == has_ref =&gt; <span class="prelude-val">Ok</span>(()),
+		<span class="kw">_ </span>=&gt; {
+			<span class="kw">let </span>msg = <span class="kw">if </span>is_ref {
+				<span class="string">&quot;Invalid type: expected `&amp;OriginFor&lt;T&gt;`&quot;
+			</span>} <span class="kw">else </span>{
+				<span class="string">&quot;Invalid type: expected `OriginFor&lt;T&gt;`&quot;
+			</span>};
+			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(ty.span(), msg))
+		},
+	}
 }
 
 <span class="kw">impl </span>CallDef {
@@ -566,7 +690,7 @@
 						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(method.sig.span(), msg))
 					},
 					<span class="prelude-val">Some</span>(syn::FnArg::Typed(arg)) =&gt; {
-						check_dispatchable_first_arg_type(<span class="kw-2">&amp;</span>arg.ty)<span class="question-mark">?</span>;
+						check_dispatchable_first_arg_type(<span class="kw-2">&amp;</span>arg.ty, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 					},
 				}
 
@@ -578,16 +702,22 @@
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(method.sig.span(), msg))
 				}
 
-				<span class="kw">let </span>(<span class="kw-2">mut </span>weight_attrs, <span class="kw-2">mut </span>call_idx_attrs): (Vec&lt;FunctionAttr&gt;, Vec&lt;FunctionAttr&gt;) =
-					helper::take_item_pallet_attrs(<span class="kw-2">&amp;mut </span>method.attrs)<span class="question-mark">?</span>.into_iter().partition(
-						|attr| {
-							<span class="kw">if let </span>FunctionAttr::Weight(<span class="kw">_</span>) = attr {
-								<span class="bool-val">true
-							</span>} <span class="kw">else </span>{
-								<span class="bool-val">false
-							</span>}
+				<span class="kw">let </span><span class="kw-2">mut </span>call_idx_attrs = <span class="macro">vec!</span>[];
+				<span class="kw">let </span><span class="kw-2">mut </span>weight_attrs = <span class="macro">vec!</span>[];
+				<span class="kw">let </span><span class="kw-2">mut </span>feeless_attrs = <span class="macro">vec!</span>[];
+				<span class="kw">for </span>attr <span class="kw">in </span>helper::take_item_pallet_attrs(<span class="kw-2">&amp;mut </span>method.attrs)<span class="question-mark">?</span>.into_iter() {
+					<span class="kw">match </span>attr {
+						FunctionAttr::CallIndex(<span class="kw">_</span>) =&gt; {
+							call_idx_attrs.push(attr);
 						},
-					);
+						FunctionAttr::Weight(<span class="kw">_</span>) =&gt; {
+							weight_attrs.push(attr);
+						},
+						FunctionAttr::FeelessIf(span, <span class="kw">_</span>) =&gt; {
+							feeless_attrs.push((span, attr));
+						},
+					}
+				}
 
 				<span class="kw">if </span>weight_attrs.is_empty() &amp;&amp; dev_mode {
 					<span class="comment">// inject a default O(1) weight when dev mode is enabled and no weight has
@@ -674,6 +804,73 @@
 
 				<span class="kw">let </span>docs = get_doc_literals(<span class="kw-2">&amp;</span>method.attrs);
 
+				<span class="kw">if </span>feeless_attrs.len() &gt; <span class="number">1 </span>{
+					<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, there can only be one feeless_if attribute&quot;</span>;
+					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(feeless_attrs[<span class="number">1</span>].<span class="number">0</span>, msg))
+				}
+				<span class="kw">let </span>feeless_check: <span class="prelude-ty">Option</span>&lt;ExprClosure&gt; =
+					feeless_attrs.pop().map(|(<span class="kw">_</span>, attr)| <span class="kw">match </span>attr {
+						FunctionAttr::FeelessIf(<span class="kw">_</span>, closure) =&gt; closure,
+						<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;checked during creation of the let binding&quot;</span>),
+					});
+
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>feeless_check) = feeless_check {
+					<span class="kw">if </span>feeless_check.inputs.len() != args.len() + <span class="number">1 </span>{
+						<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, feeless_if closure must have same \
+							number of arguments as the dispatchable function&quot;</span>;
+						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(feeless_check.span(), msg))
+					}
+
+					<span class="kw">match </span>feeless_check.inputs.first() {
+						<span class="prelude-val">None </span>=&gt; {
+							<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, feeless_if closure must have at least origin arg&quot;</span>;
+							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(feeless_check.span(), msg))
+						},
+						<span class="prelude-val">Some</span>(syn::Pat::Type(arg)) =&gt; {
+							check_dispatchable_first_arg_type(<span class="kw-2">&amp;</span>arg.ty, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+						},
+						<span class="kw">_ </span>=&gt; {
+							<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, feeless_if closure first argument must be a typed argument, \
+								e.g. `origin: OriginFor&lt;T&gt;`&quot;</span>;
+							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(feeless_check.span(), msg))
+						},
+					}
+
+					<span class="kw">for </span>(feeless_arg, arg) <span class="kw">in </span>feeless_check.inputs.iter().skip(<span class="number">1</span>).zip(args.iter()) {
+						<span class="kw">let </span>feeless_arg_type =
+							<span class="kw">if let </span>syn::Pat::Type(syn::PatType { ty, .. }) = feeless_arg.clone() {
+								<span class="kw">if let </span>syn::Type::Reference(pat) = <span class="kw-2">*</span>ty {
+									pat.elem.clone()
+								} <span class="kw">else </span>{
+									<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, feeless_if closure argument must be a reference&quot;</span>;
+									<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(ty.span(), msg))
+								}
+							} <span class="kw">else </span>{
+								<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, feeless_if closure argument must be a type ascription pattern&quot;</span>;
+								<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(feeless_arg.span(), msg))
+							};
+
+						<span class="kw">if </span>feeless_arg_type != arg.<span class="number">2 </span>{
+							<span class="kw">let </span>msg =
+								<span class="string">&quot;Invalid pallet::call, feeless_if closure argument must have \
+								a reference to the same type as the dispatchable function argument&quot;</span>;
+							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(feeless_arg.span(), msg))
+						}
+					}
+
+					<span class="kw">let </span>valid_return = <span class="kw">match </span><span class="kw-2">&amp;</span>feeless_check.output {
+						syn::ReturnType::Type(<span class="kw">_</span>, type_) =&gt; <span class="kw">match </span><span class="kw-2">*</span>(type_.clone()) {
+							syn::Type::Path(syn::TypePath { path, .. }) =&gt; path.is_ident(<span class="string">&quot;bool&quot;</span>),
+							<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+						},
+						<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+					};
+					<span class="kw">if </span>!valid_return {
+						<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, feeless_if closure must return `bool`&quot;</span>;
+						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(feeless_check.output.span(), msg))
+					}
+				}
+
 				methods.push(CallVariantDef {
 					name: method.sig.ident.clone(),
 					weight,
@@ -682,6 +879,7 @@
 					args,
 					docs,
 					attrs: method.attrs.clone(),
+					feeless_check,
 				});
 			} <span class="kw">else </span>{
 				<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::call, only method accepted&quot;</span>;

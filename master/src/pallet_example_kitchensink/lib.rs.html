@@ -328,6 +328,10 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -536,6 +540,10 @@
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(T::WeightInfo::set_foo_benchmark())]
+		</span><span class="doccomment">/// Marks this call as feeless if `new_foo` is zero.
+		</span><span class="attr">#[pallet::feeless_if(|_origin: <span class="kw-2">&amp;</span>OriginFor&lt;T&gt;, new_foo: <span class="kw-2">&amp;</span>u32, _other_compact: <span class="kw-2">&amp;</span>u128| -&gt; bool {
+			<span class="kw-2">*</span>new_foo == <span class="number">0
+		</span>})]
 		</span><span class="kw">pub fn </span>set_foo(
 			<span class="kw">_</span>: OriginFor&lt;T&gt;,
 			new_foo: u32,

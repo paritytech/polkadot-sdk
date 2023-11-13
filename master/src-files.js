@@ -214,6 +214,7 @@ var srcIndex = JSON.parse('{\
 "pallet_scored_pool":["",[],["lib.rs"]],\
 "pallet_session":["",[["historical",[],["mod.rs","offchain.rs","onchain.rs","shared.rs"]],["migrations",[],["mod.rs","v1.rs"]]],["lib.rs","weights.rs"]],\
 "pallet_session_benchmarking":["",[],["lib.rs"]],\
+"pallet_skip_feeless_payment":["",[],["lib.rs"]],\
 "pallet_society":["",[],["lib.rs","migrations.rs","weights.rs"]],\
 "pallet_staking":["",[["pallet",[],["impls.rs","mod.rs"]]],["election_size_tracker.rs","inflation.rs","ledger.rs","lib.rs","migrations.rs","slashing.rs","weights.rs"]],\
 "pallet_staking_reward_curve":["",[],["lib.rs","log.rs"]],\

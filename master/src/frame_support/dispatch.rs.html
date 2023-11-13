@@ -1090,6 +1090,20 @@
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1145,6 +1159,20 @@
 <span class="comment">// dirty hack to work around serde_derive issue
 // https://github.com/rust-lang/rust/issues/51331
 </span><span class="kw">pub type </span>CallableCallFor&lt;A, R&gt; = &lt;A <span class="kw">as </span>Callable&lt;R&gt;&gt;::RuntimeCall;
+
+<span class="doccomment">/// Means to checks if the dispatchable is feeless.
+///
+/// This is automatically implemented for all dispatchables during pallet expansion.
+/// If a call is marked by [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+/// attribute, the corresponding closure is checked.
+</span><span class="kw">pub trait </span>CheckIfFeeless {
+	<span class="doccomment">/// The Origin type of the runtime.
+	</span><span class="kw">type </span>Origin;
+
+	<span class="doccomment">/// Checks if the dispatchable satisfies the feeless condition as defined by
+	/// [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+	</span><span class="kw">fn </span>is_feeless(<span class="kw-2">&amp;</span><span class="self">self</span>, origin: <span class="kw-2">&amp;</span><span class="self">Self</span>::Origin) -&gt; bool;
+}
 
 <span class="doccomment">/// Origin for the System pallet.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
