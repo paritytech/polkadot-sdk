@@ -29,7 +29,6 @@ use frame_support::traits::{Currency, Get};
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
 
 #[cfg(test)]
-use sp_runtime::traits::UniqueSaturatedInto;
 use sp_runtime::{
 	traits::{Convert, Saturating, StaticLookup},
 	Perbill,
@@ -47,7 +46,6 @@ use pallet_session::{
 	Config as SessionConfig, Pallet as Session, SessionManager,
 };
 #[cfg(test)]
-use pallet_staking::Event as StakingEvent;
 use pallet_staking::{
 	Config as StakingConfig, Exposure, IndividualExposure, MaxNominationsOf, Pallet as Staking,
 	RewardDestination, ValidatorPrefs,
@@ -178,67 +176,6 @@ fn make_offenders<T: Config>(
 		})
 		.collect::<Vec<IdentificationTuple<T>>>();
 	Ok((id_tuples, offenders))
-}
-
-#[cfg(test)]
-fn check_events<
-	T: Config,
-	I: Iterator<Item = Item>,
-	Item: sp_std::borrow::Borrow<<T as SystemConfig>::RuntimeEvent> + sp_std::fmt::Debug,
->(
-	expected: I,
-) {
-	let events = System::<T>::events()
-		.into_iter()
-		.map(|frame_system::EventRecord { event, .. }| event)
-		.collect::<Vec<_>>();
-	let expected = expected.collect::<Vec<_>>();
-
-	fn pretty<D: sp_std::fmt::Debug>(header: &str, ev: &[D], offset: usize) {
-		log::info!("{}", header);
-		for (idx, ev) in ev.iter().enumerate() {
-			log::info!("\t[{:04}] {:?}", idx + offset, ev);
-		}
-	}
-	fn print_events<D: sp_std::fmt::Debug, E: sp_std::fmt::Debug>(
-		idx: usize,
-		events: &[D],
-		expected: &[E],
-	) {
-		let window = 10;
-		let start = idx.saturating_sub(window / 2);
-		let end_got = (idx + window / 2).min(events.len());
-		pretty("Got(window):", &events[start..end_got], start);
-		let end_expected = (idx + window / 2).min(expected.len());
-		pretty("Expected(window):", &expected[start..end_expected], start);
-		log::info!("---------------");
-		let start_got = events.len().saturating_sub(window);
-		pretty("Got(end):", &events[start_got..], start_got);
-		let start_expected = expected.len().saturating_sub(window);
-		pretty("Expected(end):", &expected[start_expected..], start_expected);
-	}
-
-	for (idx, (a, b)) in events.iter().zip(expected.iter()).enumerate() {
-		if a != sp_std::borrow::Borrow::borrow(b) {
-			print_events(idx, &events, &expected);
-			log::info!("Mismatch at: {}", idx);
-			log::info!("     Got: {:?}", b);
-			log::info!("Expected: {:?}", a);
-			if events.len() != expected.len() {
-				log::info!(
-					"Mismatching lengths. Got: {}, Expected: {}",
-					events.len(),
-					expected.len()
-				)
-			}
-			panic!("Mismatching events.");
-		}
-	}
-
-	if events.len() != expected.len() {
-		print_events(0, &events, &expected);
-		panic!("Mismatching lengths. Got: {}, Expected: {}", events.len(), expected.len(),)
-	}
 }
 
 benchmarks! {
