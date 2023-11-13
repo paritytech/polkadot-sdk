@@ -1541,7 +1541,7 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
 
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-		
+
 		// Upgrade `SessionKeys` to exclude `ImOnline`
 		UpgradeSessionKeys,
 
