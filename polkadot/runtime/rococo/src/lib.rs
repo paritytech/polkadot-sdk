@@ -1302,8 +1302,7 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 33,
 
 		// Consensus support.
-		// Authorship must be before session in order to note author in the correct session and era
-		// for im-online.
+		// Authorship must be before session in order to note author in the correct session and era.
 		Authorship: pallet_authorship::{Pallet, Storage} = 5,
 		Offences: pallet_offences::{Pallet, Storage, Event} = 7,
 		Historical: session_historical::{Pallet} = 34,
@@ -1504,31 +1503,13 @@ pub mod migrations {
 		type PalletName = TipsPalletName;
 	}
 
-	/// Upgrade Session keys to exclude ImOnline key.
+	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 		fn on_runtime_upgrade() -> Weight {
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
 			Perbill::from_percent(50) * BlockWeights::get().max_block
-		}
-	}
-
-	// Remove offchain storage values of `im-online` pallet
-	pub struct RemoveImOnlineOffchainStorageValues;
-	impl frame_support::traits::OnRuntimeUpgrade for RemoveImOnlineOffchainStorageValues {
-		fn on_runtime_upgrade() -> Weight {
-			const DB_PREFIX: &[u8] = b"parity/im-online-heartbeat/";
-			let validator_set_size = pallet_session::Pallet::<Runtime>::validators().len() as u32;
-			(0..validator_set_size).for_each(|idx| {
-				let key = {
-					let mut key = DB_PREFIX.to_vec();
-					key.extend(idx.encode());
-					key
-				};
-				sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
-			});
-			Weight::zero()
 		}
 	}
 
@@ -1562,10 +1543,7 @@ pub mod migrations {
 		// Upgrade `SessionKeys` to exclude `ImOnline`
 		UpgradeSessionKeys,
 
-		// Remove im-online pallet off-chain storage
-		RemoveImOnlineOffchainStorageValues,
-
-		// Remove im-online pallet on-chain storage
+		// Remove `im-online` pallet on-chain storage
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 	);
 }
