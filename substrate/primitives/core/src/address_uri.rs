@@ -17,6 +17,8 @@
 
 //! Little util for parsing an address URI. Replaces regular expressions.
 
+use sp_std::vec::Vec;
+
 /// A container for results of parsing the address uri string.
 ///
 /// Intended to be equivalent of:
@@ -45,15 +47,16 @@ pub struct AddressUri<'a> {
 
 /// Errors that are possible during parsing the address URI.
 #[allow(missing_docs)]
-#[derive(Debug, thiserror::Error, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Error {
-	#[error("Invalid character in phrase")]
+	#[cfg_attr(feature = "std", error("Invalid character in phrase"))]
 	InvalidCharacterInPhrase,
-	#[error("Invalid character in password")]
+	#[cfg_attr(feature = "std", error("Invalid character in password"))]
 	InvalidCharacterInPass,
-	#[error("Invalid character in hard path")]
+	#[cfg_attr(feature = "std", error("Invalid character in hard path"))]
 	InvalidCharacterInHardPath,
-	#[error("Invalid character in soft path")]
+	#[cfg_attr(feature = "std", error("Invalid character in soft path"))]
 	InvalidCharacterInSoftPath,
 }
 
@@ -86,10 +89,7 @@ impl<'a> AddressUri<'a> {
 		while !input.is_empty() {
 			let unstripped_input = input;
 			if strip_prefix(&mut input, "///") {
-				pass = match extract_prefix(&mut input, &|ch: char| ch != '\n') {
-					Some(pass) => Some(pass),
-					None => Some(""),
-				};
+				pass = Some(extract_prefix(&mut input, &|ch: char| ch != '\n').unwrap_or(""));
 			} else if strip_prefix(&mut input, "//") {
 				let mut path = extract_prefix(&mut input, &|ch: char| ch != '/')
 					.ok_or(Error::InvalidCharacterInHardPath)?;
@@ -190,7 +190,6 @@ mod tests {
 	#[test]
 	fn test05() {
 		check("sdasd//", Err(Error::InvalidCharacterInHardPath));
-		//
 	}
 
 	#[test]

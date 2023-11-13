@@ -42,7 +42,9 @@ pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58Addres
 pub use zeroize::Zeroize;
 
 #[cfg(feature = "std")]
-pub use crate::address_uri::{AddressUri, Error as AddressUriError};
+pub use crate::address_uri::AddressUri;
+#[cfg(any(feature = "std", feature = "full_crypto"))]
+pub use crate::address_uri::Error as AddressUriError;
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str =
@@ -84,7 +86,7 @@ impl<S, T: UncheckedFrom<S>> UncheckedInto<T> for S {
 pub enum SecretStringError {
 	/// The overall format was invalid (e.g. the seed phrase contained symbols).
 	#[cfg_attr(feature = "std", error("Invalid format {0}"))]
-	InvalidFormat(#[from] AddressUriError),
+	InvalidFormat(AddressUriError),
 	/// The seed phrase provided is not a valid BIP39 phrase.
 	#[cfg_attr(feature = "std", error("Invalid phrase"))]
 	InvalidPhrase,
@@ -100,6 +102,12 @@ pub enum SecretStringError {
 	/// The derivation path was invalid (e.g. contains soft junctions when they are not supported).
 	#[cfg_attr(feature = "std", error("Invalid path"))]
 	InvalidPath,
+}
+
+impl From<AddressUriError> for SecretStringError {
+	fn from(e: AddressUriError) -> Self {
+		Self::InvalidFormat(e)
+	}
 }
 
 /// An error when deriving a key.
