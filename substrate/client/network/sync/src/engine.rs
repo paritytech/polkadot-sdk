@@ -1123,7 +1123,7 @@ where
 	}
 
 	fn send_block_request(&mut self, peer_id: PeerId, request: BlockRequest<B>) {
-		if !self.chain_sync.is_peer_known(&peer_id) {
+		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
@@ -1139,7 +1139,7 @@ where
 	}
 
 	fn send_state_request(&mut self, peer_id: PeerId, request: OpaqueStateRequest) {
-		if !self.chain_sync.is_peer_known(&peer_id) {
+		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
@@ -1169,7 +1169,7 @@ where
 	}
 
 	fn send_warp_sync_request(&mut self, peer_id: PeerId, request: WarpProofRequest<B>) {
-		if !self.chain_sync.is_peer_known(&peer_id) {
+		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return

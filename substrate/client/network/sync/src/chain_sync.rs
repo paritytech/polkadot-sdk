@@ -1420,11 +1420,6 @@ where
 			.any(|(_, p)| p.state == PeerSyncState::DownloadingStale(*hash))
 	}
 
-	/// Check if the peer is known to the sync state machine. Used for sanity checks.
-	pub fn is_peer_known(&self, peer_id: &PeerId) -> bool {
-		self.peers.contains_key(peer_id)
-	}
-
 	/// Get the set of downloaded blocks that are ready to be queued for import.
 	fn ready_blocks(&mut self) -> Vec<IncomingBlock<B>> {
 		self.blocks
