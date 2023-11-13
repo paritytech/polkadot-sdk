@@ -30,6 +30,8 @@ pub use bp_messages::LaneId;
 
 // Cumulus
 pub use emulated_integration_tests_common::{
+	accounts::ALICE,
+	impls::Inspect,
 	test_parachain_is_trusted_teleporter,
 	xcm_emulator::{
 		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
@@ -40,16 +42,19 @@ pub use emulated_integration_tests_common::{
 };
 pub use parachains_common::{AccountId, Balance};
 pub use rococo_westend_system_emulated_network::{
+	asset_hub_rococo_emulated_chain::{
+		genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
+	},
+	asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
 	bridge_hub_rococo_emulated_chain::{
 		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 	},
-	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+	rococo_emulated_chain::RococoRelayPallet as RococoPallet,
 	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 	AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
-	BridgeHubRococoPara as BridgeHubRococo, BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
+	AssetHubWestendParaReceiver as AssetHubWestendReceiver, BridgeHubRococoPara as BridgeHubRococo,
 	BridgeHubRococoParaSender as BridgeHubRococoSender, BridgeHubWestendPara as BridgeHubWestend,
-	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-	RococoRelaySender as RococoSender,
+	RococoRelay as Rococo,
 };
 
 pub const ASSET_ID: u32 = 1;

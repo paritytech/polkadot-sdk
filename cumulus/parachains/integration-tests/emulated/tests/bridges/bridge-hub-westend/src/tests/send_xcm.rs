@@ -16,7 +16,7 @@
 use crate::*;
 
 #[test]
-fn example() {
+fn send_xcm_from_westend_relay_to_rococo_asset_hub() {
 	// Init tests variables
 	// XcmPallet send arguments
 	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
