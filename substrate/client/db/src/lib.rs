@@ -1108,6 +1108,8 @@ impl<T: Clone> FrozenForDuration<T> {
 pub struct Backend<Block: BlockT> {
 	storage: Arc<StorageDb<Block>>,
 	offchain_storage: offchain::LocalStorage,
+	storage_updates: RwLock<StorageCollection>,
+	child_storage_updates: RwLock<ChildStorageCollection>,
 	blockchain: BlockchainDb<Block>,
 	canonicalization_delay: u64,
 	import_lock: Arc<RwLock<()>>,
@@ -1230,6 +1232,8 @@ impl<Block: BlockT> Backend<Block> {
 			storage: Arc::new(storage_db),
 			offchain_storage,
 			blockchain,
+			child_storage_updates: Default::default(),
+			storage_updates: Default::default(),
 			canonicalization_delay,
 			import_lock: Default::default(),
 			is_archive: is_archive_pruning,
@@ -1531,6 +1535,9 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			let finalized = if operation.commit_state {
+				*self.storage_updates.write() = operation.storage_updates.clone();
+				*self.child_storage_updates.write() = operation.child_storage_updates.clone();
+
 				let mut changeset: sc_state_db::ChangeSet<Vec<u8>> =
 					sc_state_db::ChangeSet::default();
 				let mut ops: u64 = 0;
@@ -1562,6 +1569,11 @@ impl<Block: BlockT> Backend<Block> {
 						}
 					}
 				}
+
+				// add the storage updates to the changeset
+				changeset.inserted.push(("block/storage_updates".into(), operation.storage_updates.clone().encode()));
+				changeset.inserted.push(("block/child_storage_updates".into(), operation.child_storage_updates.clone().encode()));
+
 				self.state_usage.tally_writes_nodes(ops, bytes);
 				self.state_usage.tally_removed_nodes(removal, bytes_removal);
 
@@ -2446,6 +2458,48 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
+				} else {
+					Err(sp_blockchain::Error::UnknownBlock(format!(
+						"State already discarded for {:?}",
+						hash
+					)))
+				}
+			},
+			Err(e) => Err(e),
+		}
+	}
+
+
+	fn storage_updates_at(&self, hash: Block::Hash) -> ClientResult<(Vec<StorageCollection>, Vec<ChildStorageCollection>)> {
+		// if hash == self.blockchain.meta.read().genesis_hash {
+		// 	if let Some(genesis_state) = &*self.genesis_state.read() {
+		// 		let root = genesis_state.root;
+		// 		let db_state = DbStateBuilder::<Block>::new(genesis_state.clone(), root)
+		// 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
+		// 			.build();
+		// 		return Ok((db_state.storage().storage_updates, db_state.storage().child_storage_updates))
+		// 	}
+		// }
+
+		match self.blockchain.header_metadata(hash) {
+			Ok(ref hdr) => {
+				let hint = || {
+					sc_state_db::NodeDb::get(self.storage.as_ref(), hdr.state_root.as_ref())
+						.unwrap_or(None)
+						.is_some()
+				};
+
+				if let Ok(()) =
+					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
+				{
+					let root = hdr.state_root;
+					// let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
+					// 	.with_optional_cache(
+					// 		self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+					// 	)
+					// 	.build();
+					let state = self.storage.state_db.get("block/storage_updates".into(), &self.storage);
+					//Ok((db_state.storage().storage_updates, db_state.storage().child_storage_updates))
 				} else {
 					Err(sp_blockchain::Error::UnknownBlock(format!(
 						"State already discarded for {:?}",
