@@ -61,7 +61,6 @@ const MAX_PINNED_BLOCKS: usize = 32;
 const MAX_PINNED_SECS: u64 = 60;
 const MAX_OPERATIONS: usize = 16;
 const MAX_PAGINATION_LIMIT: usize = 5;
-const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
 const KEY: &[u8] = b":mock";
 const VALUE: &[u8] = b"hello world";
@@ -111,7 +110,6 @@ async fn setup_api() -> (
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -162,7 +160,6 @@ async fn follow_subscription_produces_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -231,7 +228,6 @@ async fn follow_with_runtime() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -355,7 +351,6 @@ async fn get_genesis() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -569,7 +564,6 @@ async fn call_runtime_without_flag() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1228,7 +1222,6 @@ async fn separate_operation_ids_for_subscriptions() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1316,7 +1309,6 @@ async fn follow_generates_initial_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1472,7 +1464,6 @@ async fn follow_exceeding_pinned_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1549,7 +1540,6 @@ async fn follow_with_unpin() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1655,7 +1645,6 @@ async fn follow_prune_best_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1841,7 +1830,6 @@ async fn follow_forks_pruned_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1993,7 +1981,6 @@ async fn follow_report_multiple_pruned_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2239,7 +2226,6 @@ async fn pin_block_references() {
 		client.clone(),
 		backend.clone(),
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 3,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2374,7 +2360,6 @@ async fn follow_finalized_before_new_block() {
 		client_mock.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2489,7 +2474,6 @@ async fn ensure_operation_limits_works() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2594,7 +2578,6 @@ async fn check_continue_operation() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2777,7 +2760,6 @@ async fn stop_storage_operation() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
