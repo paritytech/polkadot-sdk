@@ -15,40 +15,19 @@
 
 use crate::*;
 
-fn create_wnd_foreign_asset_on_asset_hub_rococo() -> MultiLocation {
-	let sudo_origin = <AssetHubRococo as Chain>::RuntimeOrigin::root();
-	let alice: AccountId = AssetHubRococo::account_id_of(ALICE);
-	let wnd_at_asset_hub_rococo =
-		MultiLocation { parents: 2, interior: X1(GlobalConsensus(NetworkId::Westend)) };
-
-	AssetHubRococo::execute_with(|| {
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::force_create(
-			sudo_origin,
-			wnd_at_asset_hub_rococo,
-			alice.clone().into(),
-			true,
-			ASSET_MIN_BALANCE,
-		));
-		assert!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::asset_exists(
-			wnd_at_asset_hub_rococo
-		));
-		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::ForceCreated {
-					asset_id,
-					..
-				}) => { asset_id: *asset_id == wnd_at_asset_hub_rococo, },
-			]
-		);
-	});
-	wnd_at_asset_hub_rococo
-}
-
 #[test]
 fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
-	let wnd_at_asset_hub_rococo = create_wnd_foreign_asset_on_asset_hub_rococo();
+	let prefund_amount = 10_000_000_000_000u128;
+	let owner: AccountId = AssetHubRococo::account_id_of(ALICE);
+	let wnd_at_asset_hub_rococo =
+		MultiLocation { parents: 2, interior: X1(GlobalConsensus(NetworkId::Westend)) };
+	AssetHubRococo::force_create_foreign_asset(
+		wnd_at_asset_hub_rococo,
+		owner,
+		true,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
 
 	let sender_balance_before =
 		<AssetHubWestend as Chain>::account_data_of(AssetHubWestendSender::get()).free;
@@ -74,7 +53,7 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 	// fund the AHW's SA on BHW for paying bridge transport fees
 	let ahw_as_seen_by_bhw = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let sov_ahw_on_bhw = BridgeHubWestend::sovereign_account_id_of(ahw_as_seen_by_bhw);
-	BridgeHubWestend::fund_accounts(vec![(sov_ahw_on_bhw.into(), 10_000_000_000_000)]);
+	BridgeHubWestend::fund_accounts(vec![(sov_ahw_on_bhw.into(), prefund_amount)]);
 
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(

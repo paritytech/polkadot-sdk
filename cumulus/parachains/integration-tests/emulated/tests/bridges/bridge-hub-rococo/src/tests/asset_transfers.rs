@@ -15,40 +15,19 @@
 
 use crate::*;
 
-fn create_roc_foreign_asset_on_asset_hub_westend() -> MultiLocation {
-	let sudo_origin = <AssetHubWestend as Chain>::RuntimeOrigin::root();
-	let alice: AccountId = AssetHubWestend::account_id_of(ALICE);
-	let roc_at_asset_hub_westend =
-		MultiLocation { parents: 2, interior: X1(GlobalConsensus(NetworkId::Rococo)) };
-
-	AssetHubWestend::execute_with(|| {
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			sudo_origin,
-			roc_at_asset_hub_westend,
-			alice.clone().into(),
-			true,
-			ASSET_MIN_BALANCE,
-		));
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			roc_at_asset_hub_westend
-		));
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::ForceCreated {
-					asset_id,
-					..
-				}) => { asset_id: *asset_id == roc_at_asset_hub_westend, },
-			]
-		);
-	});
-	roc_at_asset_hub_westend
-}
-
 #[test]
 fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
-	let roc_at_asset_hub_westend = create_roc_foreign_asset_on_asset_hub_westend();
+	let prefund_amount = 10_000_000_000_000u128;
+	let owner: AccountId = AssetHubWestend::account_id_of(ALICE);
+	let roc_at_asset_hub_westend =
+		MultiLocation { parents: 2, interior: X1(GlobalConsensus(NetworkId::Rococo)) };
+	AssetHubWestend::force_create_foreign_asset(
+		roc_at_asset_hub_westend,
+		owner,
+		true,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
 
 	let sender_balance_before =
 		<AssetHubRococo as Chain>::account_data_of(AssetHubRococoSender::get()).free;
@@ -74,7 +53,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 	// fund the AHR's SA on BHR for paying bridge transport fees
 	let ahr_as_seen_by_bhr = BridgeHubRococo::sibling_location_of(AssetHubRococo::para_id());
 	let sov_ahr_on_bhr = BridgeHubRococo::sovereign_account_id_of(ahr_as_seen_by_bhr);
-	BridgeHubRococo::fund_accounts(vec![(sov_ahr_on_bhr.into(), 10_000_000_000_000)]);
+	BridgeHubRococo::fund_accounts(vec![(sov_ahr_on_bhr.into(), prefund_amount)]);
 
 	AssetHubRococo::execute_with(|| {
 		assert_ok!(
