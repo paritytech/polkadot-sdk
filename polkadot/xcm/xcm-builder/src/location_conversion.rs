@@ -47,7 +47,7 @@ pub struct DescribeTerminus;
 impl DescribeLocation for DescribeTerminus {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match l.unpack() {
-			(0, []) => Some(Vec::new()),
+			(0, HERE) => Some(Vec::new()),
 			_ => return None,
 		}
 	}

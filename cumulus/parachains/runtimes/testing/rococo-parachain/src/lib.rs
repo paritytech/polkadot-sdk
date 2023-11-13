@@ -418,7 +418,7 @@ parameter_types! {
 pub struct ParentOrParentsUnitPlurality;
 impl Contains<Location> for ParentOrParentsUnitPlurality {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Plurality { id: BodyId::Unit, .. }]))
+		matches!(location.unpack(), (1, HERE) | (1, [Plurality { id: BodyId::Unit, .. }]))
 	}
 }
 
