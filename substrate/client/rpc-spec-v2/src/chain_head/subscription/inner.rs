@@ -767,6 +767,10 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 			}
 		}
 
+		// Note: this needs to be separate from the global mappings to avoid barrow checker
+		// thinking we borrow `&mut self` twice: once from `self.subs.get_mut` and once from
+		// `self.global_unregister_block`. Although the borrowing is correct, since different
+		// fields of the structure are borrowed, one at a time.
 		for hash in &hashes {
 			sub.unregister_block(*hash);
 		}
