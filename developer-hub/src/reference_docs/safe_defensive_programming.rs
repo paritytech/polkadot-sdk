@@ -1,14 +1,16 @@
-//! As our runtime should _never_ panic; this includes carefully handling [`Result`]/[`Option`] types, eliminating the possibility of integer
-//! overflows, converting between number types, or even handling floating point usage with fixed
-//! point arithmetic to mitigate issues that come with floating point calculations.
+//! As our runtime should _never_ panic; this includes carefully handling [`Result`]/[`Option`]
+//! types, eliminating the possibility of integer overflows, converting between number types, or
+//! even handling floating point usage with fixed point arithmetic to mitigate issues that come with
+//! floating point calculations.
 //!
 //!
 //! ## Defensive Programming
 //!
 //! Defensive programming is a design paradigm that enables a particular program to continue
-//! running despite unexpected behavior. Where normally these unforseen circumstances may
+//! running despite unexpected behavior. These unforseen circumstances may
 //! cause the program to stop, (or in the Rust context, `panic!`) defensive practices allow for
-//! these circumstances to be accounted for ahead of time.
+//! these circumstances to be accounted for ahead of time, and for them to be handled in a more
+//! graceful manner.
 //!
 //! The Polkadot SDK is both built to reflect these principles, and to be used accordingly.
 //!
@@ -27,23 +29,59 @@
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
-//! - Many seemingly, simplistic operations, such as arithmetic in the runtime, could present a
-//!   number of issues (see more later in this document).
+//! - Many seemingly, simplistic operations, such as **arithmetic** in the runtime, could present a
+//!   number of issues [(see more later in this document)](#integer-overflow).
 //!
 //! ### General Practices - Examples
 //!
 //! Below are examples of the above concepts in action - it will show what *problematic* code looks
 //! like, versus proper form.
 //!
-//! todo: examples of general defensive practices
+//! The following presents a rather obvious issue - one should always use the default of the type,
+//! or handle the error accordingly:
+#![doc = docify::embed!(
+    "./src/reference_docs/safe_defensive_programming.rs",
+    bad_unwrap
+)]
+//!
+#![doc = docify::embed!(
+    "./src/reference_docs/safe_defensive_programming.rs",
+    good_unwrap
+)]
+//!
+//! Other operations, such as indexing a vector (or a similar scenario like looping and accessing it
+//! in a similar fashion) must also be tread with caution:
+#![doc = docify::embed!(
+    "./src/reference_docs/safe_defensive_programming.rs",
+    bad_collection_retrieval
+)]
+//!
+#![doc = docify::embed!(
+    "./src/reference_docs/safe_defensive_programming.rs",
+    good_collection_retrieval
+)]
+//!
 //!
 //! ### Defensive Traits
 //!
 //! To also aid in debugging and mitigating the above issues, there is a
-//! [`Defensive`](frame::traits::Defensive) trait that can be used to defensively unwrap values. It
-//! panics in tests, but in production, will log an error.  This can be used in place of an
-//! `expect`, and again, only if the developer is sure about the unwrap in the first place.
+//! [`Defensive`](frame::traits::Defensive) trait (and its companions,
+//! [`DefensiveOption`](frame::traits::DefensiveOption),
+//! [`DefensiveResult`](frame::traits::DefensiveResult))that can be used to defensively unwrap
+//! values.  This can be used in place of
+//! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
 //!
+//! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
+//! provide an alternative to 'vanilla' Rust functions:
+//!
+//! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or)
+//! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or)
+//!
+//! The primary difference here is when `debug_assertions` are enabled, that they panic, but in
+//! production/release, they will merely log an error via the logging instance the runtime is using
+//! (i.e., `log::error`).
+//!
+//! This is useful for testing, but also allows for a more failsafe way to mitigate panics.
 //!
 //! ## Integer Overflow
 //!
@@ -513,5 +551,32 @@ mod tests {
 		assert_eq!(multiplication, FixedU64::from_float(3.2));
 		assert_eq!(division, FixedU64::from_float(1.25));
 		assert_eq!(subtraction, FixedU64::from_float(0.4));
+	}
+	#[docify::export]
+	fn bad_unwrap() {
+		let some_result: Result<u32, &str> = Ok(10);
+		assert_eq!(some_result.unwrap(), 10);
+	}
+
+	#[docify::export]
+	fn good_unwrap() {
+		let some_result: Result<u32, &str> = Err("Error");
+		assert_eq!(some_result.unwrap_or_default(), 0);
+		assert_eq!(some_result.unwrap_or(10), 10);
+	}
+
+	#[docify::export]
+	fn bad_collection_retrieval() {
+		let my_list = vec![1, 2, 3, 4, 5];
+		// THIS PANICS!
+		// Indexing on heap allocated values, i.e., vec, can be unsafe!
+		assert_eq!(my_list[5], 6)
+	}
+
+	#[docify::export]
+	fn good_collection_retrieval() {
+		let my_list = vec![1, 2, 3, 4, 5];
+		// Rust includes `.get`, returning Option<T> - so lets use that:
+		assert_eq!(my_list.get(5), None)
 	}
 }
