@@ -413,8 +413,9 @@ benchmarks! {
 			executor.set_holding(expected_assets_in_holding.into());
 		}
 
+		let valid_pallet = T::valid_pallet();
 		let instruction = Instruction::QueryPallet {
-			module_name: b"frame_system".to_vec(),
+			module_name: valid_pallet.module_name.as_bytes().to_vec(),
 			response_info: QueryResponseInfo { destination, query_id, max_weight },
 		};
 		let xcm = Xcm(vec![instruction]);
