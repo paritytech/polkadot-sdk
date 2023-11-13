@@ -96,10 +96,10 @@ pub mod ecdsa_bls377 {
 			<Self as PairT>::Signature::unchecked_from(raw)
 		}
 
-		/// Hashes the `message` with the specified `MsgHasher` and then verifies whether the resulting
-		/// hash was signed by the provided ECDSA public key. It does not affect the behavior of the
-		/// BLS12-377 component. It verifies whether the BLS12-377 signature was hashed and signed
-		/// according to IETF standard
+		/// Hashes the `message` with the specified `MsgHasher` and then verifies whether the
+		/// resulting hash was signed by the provided ECDSA public key. It does not affect the
+		/// behavior of the BLS12-377 component. It verifies whether the BLS12-377 signature was
+		/// hashed and signed according to IETF standard
 		pub fn verify_with_hasher<MsgHasher: crate::Hasher>(
 			sig: &Signature,
 			message: &[u8],
