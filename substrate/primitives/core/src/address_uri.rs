@@ -65,6 +65,15 @@ fn extract_prefix<'a>(input: &mut &'a str, is_allowed: &dyn Fn(char) -> bool) ->
 	prefix
 }
 
+fn strip_prefix(input: &mut &str, prefix: &str) -> bool {
+	if let Some(stripped_input) = input.strip_prefix(prefix) {
+		*input = stripped_input;
+		true
+	} else {
+		false
+	}
+}
+
 impl<'a> AddressUri<'a> {
 	/// Parses the given string.
 	pub fn parse(mut input: &'a str) -> Result<Self, Error> {
@@ -75,26 +84,24 @@ impl<'a> AddressUri<'a> {
 		let mut pass = None;
 		let mut paths = Vec::new();
 		while !input.is_empty() {
-			input = if let Some(mut maybe_pass) = input.strip_prefix("///") {
-				pass = match extract_prefix(&mut maybe_pass, &|ch: char| ch != '\n') {
+			let prefixed_input = input;
+			if strip_prefix(&mut input, "///") {
+				pass = match extract_prefix(&mut input, &|ch: char| ch != '\n') {
 					Some(pass) => Some(pass),
 					None => Some(""),
 				};
-				maybe_pass
-			} else if let Some(mut maybe_hard) = input.strip_prefix("//") {
-				let mut path = extract_prefix(&mut maybe_hard, &|ch: char| ch != '/')
+			} else if strip_prefix(&mut input, "//") {
+				let mut path = extract_prefix(&mut input, &|ch: char| ch != '/')
 					.ok_or(Error::InvalidCharacterInHardPath)?;
 				assert!(path.len() > 0);
 				// hard path shall contain leading '/', so take it from input.
-				path = &input[1..path.len() + 2];
+				path = &prefixed_input[1..path.len() + 2];
 				paths.push(path);
-				maybe_hard
-			} else if let Some(mut maybe_soft) = input.strip_prefix("/") {
+			} else if strip_prefix(&mut input, "/") {
 				paths.push(
-					extract_prefix(&mut maybe_soft, &|ch: char| ch != '/')
+					extract_prefix(&mut input, &|ch: char| ch != '/')
 						.ok_or(Error::InvalidCharacterInSoftPath)?,
 				);
-				maybe_soft
 			} else {
 				return if pass.is_some() {
 					Err(Error::InvalidCharacterInPass)
