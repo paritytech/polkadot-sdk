@@ -103,7 +103,8 @@ pub use self::{
 	},
 };
 pub use sp_runtime::{
-	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
+	self, ensure, fail, print, runtime_print, traits::Printable, ConsensusEngineId,
+	MAX_MODULE_ERROR_ENCODED_SIZE,
 };
 
 use codec::{Decode, Encode};
@@ -469,30 +470,6 @@ macro_rules! ord_parameter_types {
 	}
 }
 
-/// Print out a formatted message.
-///
-/// # Example
-///
-/// ```
-/// frame_support::runtime_print!("my value is {}", 3);
-/// ```
-#[macro_export]
-macro_rules! runtime_print {
-	($($arg:tt)+) => {
-		{
-			use core::fmt::Write;
-			let mut w = $crate::__private::sp_std::Writer::default();
-			let _ = core::write!(&mut w, $($arg)+);
-			$crate::__private::sp_io::misc::print_utf8(&w.inner())
-		}
-	}
-}
-
-/// Print out the debuggable type.
-pub fn debug(data: &impl sp_std::fmt::Debug) {
-	runtime_print!("{:?}", data);
-}
-
 #[doc(inline)]
 pub use frame_support_procedural::{
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
@@ -647,28 +624,6 @@ pub use frame_support_procedural::require_transactional;
 /// const Version: CrateVersion = crate_to_crate_version!();
 /// ```
 pub use frame_support_procedural::crate_to_crate_version;
-
-/// Return Err of the expression: `return Err($expression);`.
-///
-/// Used as `fail!(expression)`.
-#[macro_export]
-macro_rules! fail {
-	( $y:expr ) => {{
-		return Err($y.into())
-	}};
-}
-
-/// Evaluate `$x:expr` and if not true return `Err($y:expr)`.
-///
-/// Used as `ensure!(expression_to_ensure, expression_to_return_on_false)`.
-#[macro_export]
-macro_rules! ensure {
-	( $x:expr, $y:expr $(,)? ) => {{
-		if !$x {
-			$crate::fail!($y);
-		}
-	}};
-}
 
 /// Evaluate an expression, assert it returns an expected `Err` value and that
 /// runtime storage has not been mutated (i.e. expression is a no-operation).

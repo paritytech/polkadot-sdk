@@ -83,6 +83,7 @@ use sp_std::alloc::format;
 pub mod curve;
 pub mod generic;
 pub mod legacy;
+mod macros;
 mod multiaddress;
 pub mod offchain;
 pub mod runtime_logger;
@@ -93,6 +94,9 @@ pub mod traits;
 pub mod transaction_validity;
 
 pub use crate::runtime_string::*;
+
+// Re-export macros
+pub use macros::*;
 
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
@@ -952,6 +956,11 @@ impl traits::Extrinsic for OpaqueExtrinsic {
 /// Print something that implements `Printable` from the runtime.
 pub fn print(print: impl traits::Printable) {
 	print.print();
+}
+
+/// Print out the debuggable type.
+pub fn debug(data: &impl sp_std::fmt::Debug) {
+	runtime_print!("{:?}", data);
 }
 
 /// Utility function to declare string literals backed by an array of length N.
