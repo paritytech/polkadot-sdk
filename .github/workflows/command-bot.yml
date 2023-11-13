@@ -55,10 +55,12 @@ jobs:
         run: |
           VARIABLES_JSON="${{ github.event.inputs.variablesJson }}"
           echo "$VARIABLES_JSON" > .git/variables.json
-          cat .git/variables.json
+          
+          echo "${{ github.event.inputs.variablesJson }}" | base64 -d > .git/variables.json
           while IFS="=" read -r key value; do
-            echo "::set-env name=$key::$value"
+            echo "$key=$value" >> $GITHUB_ENV
           done < <(jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" .git/variables.json)
+          
           echo "Running on ${RUNNER_LABELS}"
           echo "Using image ${IMAGE_NAME}"
           echo "Scripts path: ${{ env.SCRIPTS_PATH }}"
