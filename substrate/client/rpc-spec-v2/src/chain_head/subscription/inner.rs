@@ -755,38 +755,26 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		sub_id: &str,
 		hashes: Vec<Block::Hash>,
 	) -> Result<(), SubscriptionManagementError> {
-		// Check if the subscription ID is valid or not.
-		if self.subs.get(sub_id).is_none() {
-			return Err(SubscriptionManagementError::SubscriptionAbsent)
-		};
-
-		// Ensure that all blocks are part of the subscription.
 		{
-			let sub = self.subs.get(sub_id).expect("Subscription ID is present from above; qed");
+			let Some(sub) = self.subs.get_mut(sub_id) else {
+				return Err(SubscriptionManagementError::SubscriptionAbsent)
+			};
 
+			// Ensure that all blocks are part of the subscription before removing individual
+			// blocks.
 			for hash in &hashes {
 				if !sub.contains_block(*hash) {
 					return Err(SubscriptionManagementError::BlockHashAbsent);
 				}
 			}
+
+			for hash in &hashes {
+				sub.unregister_block(*hash);
+			}
 		}
 
+		// Block have been removed from the subscription. Remove them from the global tracking.
 		for hash in hashes {
-			// Get a short-lived `&mut SubscriptionState` to avoid borrowing self twice.
-			//  - once from `self.subs`
-			//  - once from `self.global_unregister_block()`.
-			//
-			// Borrowing `self.sub` and `self.global_unregister_block` is again safe because they
-			// operate on different fields, but the compiler is not capable of introspecting at that
-			// level, not even with `#[inline(always)]` on `global_unregister_block`.
-			//
-			// This is safe because we already checked that the subscription ID is valid and we
-			// operate under a lock.
-			let sub =
-				self.subs.get_mut(sub_id).expect("Subscription ID is present from above; qed");
-
-			// Block was checked above for presence.
-			sub.unregister_block(hash);
 			self.global_unregister_block(hash);
 		}
 
