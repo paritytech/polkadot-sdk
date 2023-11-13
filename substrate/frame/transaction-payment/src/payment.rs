@@ -153,6 +153,7 @@ pub struct CurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
 ///
 /// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: `fee` and
 /// then `tip`.
+#[allow(deprecated)]
 impl<T, C, OU> OnChargeTransaction<T> for CurrencyAdapter<C, OU>
 where
 	T: Config,
