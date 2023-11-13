@@ -30,6 +30,8 @@ pub use self::inner::OperationState;
 pub use error::SubscriptionManagementError;
 pub use inner::{BlockGuard, InsertedSubscriptionData};
 
+use super::HashOrHashes;
+
 /// Manage block pinning / unpinning for subscription IDs.
 pub struct SubscriptionManagement<Block: BlockT, BE: Backend<Block>> {
 	/// Manage subscription by mapping the subscription ID
@@ -106,7 +108,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 	pub fn unpin_block(
 		&self,
 		sub_id: &str,
-		hash: Block::Hash,
+		hash: HashOrHashes<Block::Hash>,
 	) -> Result<(), SubscriptionManagementError> {
 		let mut inner = self.inner.write();
 		inner.unpin_block(sub_id, hash)

@@ -27,7 +27,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use crate::chain_head::{subscription::SubscriptionManagementError, FollowEvent};
+use crate::chain_head::{subscription::SubscriptionManagementError, FollowEvent, HashOrHashes};
 
 /// The queue size after which the `sc_utils::mpsc::tracing_unbounded` would produce warnings.
 const QUEUE_SIZE_WARNING: usize = 512;
@@ -753,19 +753,48 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 	pub fn unpin_block(
 		&mut self,
 		sub_id: &str,
-		hash: Block::Hash,
+		hash: HashOrHashes<Block::Hash>,
 	) -> Result<(), SubscriptionManagementError> {
-		let Some(sub) = self.subs.get_mut(sub_id) else {
+		// Check if the subscription ID is valid or not.
+		if self.subs.get(sub_id).is_none() {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
 		};
 
-		// Check that unpin was not called before and the block was pinned
-		// for this subscription.
-		if !sub.unregister_block(hash) {
-			return Err(SubscriptionManagementError::BlockHashAbsent)
+		let hashes = match hash {
+			HashOrHashes::Hash(hash) => vec![hash],
+			HashOrHashes::List(hashes) => hashes,
+		};
+
+		// Ensure that all blocks are part of the subscription.
+		{
+			let sub = self.subs.get(sub_id).expect("Subscription ID is present from above; qed");
+
+			for hash in &hashes {
+				if !sub.contains_block(*hash) {
+					return Err(SubscriptionManagementError::BlockHashAbsent);
+				}
+			}
 		}
 
-		self.global_unregister_block(hash);
+		for hash in hashes {
+			// Get a short-lived `&mut SubscriptionState` to avoid borrowing self twice.
+			//  - once from `self.subs`
+			//  - once from `self.global_unregister_block()`.
+			//
+			// Borrowing `self.sub` and `self.global_unregister_block` is again safe because they
+			// operate on different fields, but the compiler is not capable of introspecting at that
+			// level, not even with `#[inline(always)]` on `global_unregister_block`.
+			//
+			// This is safe because we already checked that the subscription ID is valid and we
+			// operate under a lock.
+			let sub =
+				self.subs.get_mut(sub_id).expect("Subscription ID is present from above; qed");
+
+			// Block was checked above for presence.
+			sub.unregister_block(hash);
+			self.global_unregister_block(hash);
+		}
+
 		Ok(())
 	}
 

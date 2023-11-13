@@ -43,9 +43,20 @@ pub use event::{
 	RuntimeVersionEvent,
 };
 
+use serde::{Deserialize, Serialize};
 use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
 
 /// Util function to print the results of `chianHead` as hex string
 pub(crate) fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
 	format!("0x{:?}", HexDisplay::from(data))
+}
+
+/// A parameter type that can be either a single hash or a list of hashes.
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum HashOrHashes<Hash> {
+	/// Single hash.
+	Hash(Hash),
+	/// List of hashes.
+	List(Vec<Hash>),
 }

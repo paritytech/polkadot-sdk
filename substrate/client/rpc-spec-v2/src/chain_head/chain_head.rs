@@ -21,6 +21,7 @@
 use super::{
 	chain_head_storage::ChainHeadStorage,
 	event::{MethodResponseStarted, OperationBodyDone, OperationCallDone},
+	HashOrHashes,
 };
 use crate::{
 	chain_head::{
@@ -432,7 +433,7 @@ where
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: Block::Hash,
+		hash: HashOrHashes<Block::Hash>,
 	) -> RpcResult<()> {
 		match self.subscriptions.unpin_block(&follow_subscription, hash) {
 			Ok(()) => Ok(()),

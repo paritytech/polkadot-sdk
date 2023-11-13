@@ -22,6 +22,8 @@
 use crate::chain_head::event::{FollowEvent, MethodResponse, StorageQuery};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
+use super::HashOrHashes;
+
 #[rpc(client, server)]
 pub trait ChainHeadApi<Hash> {
 	/// Track the state of the head of the chain: the finalized, non-finalized, and best blocks.
@@ -118,7 +120,11 @@ pub trait ChainHeadApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "chainHead_unstable_unpin", blocking)]
-	fn chain_head_unstable_unpin(&self, follow_subscription: String, hash: Hash) -> RpcResult<()>;
+	fn chain_head_unstable_unpin(
+		&self,
+		follow_subscription: String,
+		hash: HashOrHashes<Hash>,
+	) -> RpcResult<()>;
 
 	/// Resumes a storage fetch started with `chainHead_storage` after it has generated an
 	/// `operationWaitingForContinue` event.
