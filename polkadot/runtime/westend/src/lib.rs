@@ -1568,6 +1568,7 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
+		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		frame_support::migrations::RemovePallet<
 			ImOnlinePalletName,
 			<Runtime as frame_system::Config>::DbWeight,
