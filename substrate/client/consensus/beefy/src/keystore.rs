@@ -180,9 +180,7 @@ where
 			ecdsa_bls377::CRYPTO_ID => store
 				.ecdsa_bls377_public_keys(BEEFY_KEY_TYPE)
 				.drain(..)
-				.map(|pk| 
-					AuthorityId::try_from(pk.as_ref())
-				)
+				.map(|pk| AuthorityId::try_from(pk.as_ref()))
 				.collect::<Result<Vec<_>, _>>()
 				.or_else(|_| {
 					Err(error::Error::Keystore(
