@@ -38,10 +38,24 @@
 //! 2. [`CandidateList`]: these are *candidates to the collation task* and may or may not be elected
 //!    as a final collator.
 //!
-//! The current implementation resolves congestion of [`CandidateList`] through a simple election
-//! mechanism. Initially candidates register by placing the minimum bond, up until the maximum
-//! number of allowed candidates is reached. Then, if an account wants to register as a candidate,
-//! they have to replace an existing one by placing a greater deposit.
+//! The current implementation resolves congestion of [`CandidateList`] through a simple auction
+//! mechanism. Candidates bid for the collator slots and at the end of the session, the auction ends
+//! and the top candidates are selected to become collators. The number of selected candidates is
+//! determined by the value of `DesiredCandidates`.
+//!
+//! Before the list reaches full capacity, candidates can register by placing the minimum bond
+//! through `register_as_candidate`. Then, if an account wants to participate in the collator slot
+//! auction, they have to replace an existing candidate by placing a greater deposit through
+//! `take_candidate_slot`. Existing candidates can increase their bids through `update_bond`.
+//!
+//! At any point, an account can take the place of another account in the candidate list if they put
+//! up a greater deposit than the target. While new joiners would like to deposit as little as
+//! possible to participate in the auction, the replacement threat incentivizes candidates to bid as
+//! close to their budget as possible in order to avoid being replaced.
+//!
+//! Candidates which are not on "winning" slots in the list can also decrease their deposits through
+//! `update_bond`, but candidates who are on top slots and try to decrease their deposits will fail
+//! in order to enforce auction mechanics and have meaningful bids.
 //!
 //! Candidates will not be allowed to get kicked or `leave_intent` if the total number of collators
 //! would fall below `MinEligibleCollators`. This is to ensure that some collators will always
@@ -62,8 +76,8 @@
 //!
 //! To initiate rewards, an ED needs to be transferred to the pot address.
 //!
-//! Note: Eventually the Pot distribution may be modified as discussed in
-//! [this issue](https://github.com/paritytech/statemint/issues/21#issuecomment-810481073).
+//! Note: Eventually the Pot distribution may be modified as discussed in [this
+//! issue](https://github.com/paritytech/statemint/issues/21#issuecomment-810481073).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
