@@ -38,13 +38,14 @@
   tags:
     - zombienet-polkadot-integration-test
 
-zombienet-substrate-0000-block-building:
-  extends:
-    - .zombienet-substrate-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/0000-block-building"
-      --test="block-building.zndsl"
+# Skip this one until PolkadotJS includes `SkipCheckIfFeeless` extension
+# zombienet-substrate-0000-block-building:
+#   extends:
+#     - .zombienet-substrate-common
+#   script:
+#     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+#       --local-dir="${LOCAL_DIR}/0000-block-building"
+#       --test="block-building.zndsl"
 
 zombienet-substrate-0001-basic-warp-sync:
   extends:
