@@ -23,7 +23,7 @@ use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
-	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT, IdentityLookup},
+	traits::{Block as BlockT, Header as HeaderT},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 	},
@@ -31,6 +31,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
+	derive_impl,
 	assert_err, assert_ok,
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
@@ -301,35 +302,17 @@ parameter_types! {
 		write: 100,
 	};
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<u64>;
 	type Block = TestBlock;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type Version = RuntimeVersion;
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
-	type SingleBlockMigrations = ();
-	type MultiBlockMigrator = ();
-	type PreInherents = ();
-	type PostInherents = ();
-	type PostTransactions = ();
 }
 
 type Balance = u64;
