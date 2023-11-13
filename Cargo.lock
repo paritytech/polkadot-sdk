@@ -12462,6 +12462,7 @@ dependencies = [
  "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
+ "polkadot-node-subsystem",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "procfs",
