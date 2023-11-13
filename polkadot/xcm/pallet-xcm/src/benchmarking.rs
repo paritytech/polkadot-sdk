@@ -274,14 +274,14 @@ benchmarks! {
 		let timeout = 1u32.into();
 		let match_querier = MultiLocation::from(Here);
 	}: {
-		Pallet::<T>::new_query(responder, timeout, match_querier);
+		crate::Pallet::<T>::new_query(responder, timeout, match_querier);
 	}
 
 	take_response {
 		let responder = MultiLocation::from(Parent);
 		let timeout = 1u32.into();
 		let match_querier = MultiLocation::from(Here);
-		let query_id = Pallet::<T>::new_query(responder, timeout, match_querier);
+		let query_id = crate::Pallet::<T>::new_query(responder, timeout, match_querier);
 		let infos = (0 .. xcm::v3::MaxPalletsInfo::get()).map(|_| PalletInfo::new(
 			u32::MAX,
 			(0..xcm::v3::MaxPalletNameLen::get()).map(|_| 97u8).collect::<Vec<_>>().try_into().unwrap(),
@@ -290,10 +290,10 @@ benchmarks! {
 			u32::MAX,
 			u32::MAX,
 		).unwrap()).collect::<Vec<_>>();
-		Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
+		crate::Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
 
 	}: {
-		<Pallet::<T> as QueryHandler>::take_response(query_id);
+		<crate::Pallet::<T> as QueryHandler>::take_response(query_id);
 	}
 
 	impl_benchmark_test_suite!(
