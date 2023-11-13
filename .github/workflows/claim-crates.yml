@@ -7,10 +7,7 @@ on:
 
 jobs:
   claim-crates:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest"]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
 
@@ -22,7 +19,7 @@ jobs:
       - name: install parity-publish
         run: cargo install parity-publish
 
-      - name: parity-publish claim:
+      - name: parity-publish claim
         env:
           PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATESIO_PUBLISH_CLAIM_TOKEN }}
         run: parity-publish claim
