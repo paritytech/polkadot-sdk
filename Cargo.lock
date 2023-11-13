@@ -7197,6 +7197,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
+ "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -8826,6 +8827,7 @@ dependencies = [
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-skip-feeless-payment",
  "parity-scale-codec",
  "sc-block-builder",
  "sc-client-api",
@@ -9674,6 +9676,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
+ "pallet-contracts-fixtures",
  "pallet-contracts-primitives",
  "pallet-contracts-proc-macro",
  "pallet-insecure-randomness-collective-flip",
@@ -9695,6 +9698,15 @@ dependencies = [
  "sp-std 8.0.0",
  "wasm-instrument 0.4.0",
  "wasmi",
+ "wat",
+]
+
+[[package]]
+name = "pallet-contracts-fixtures"
+version = "1.0.0"
+dependencies = [
+ "frame-system",
+ "sp-runtime",
  "wat",
 ]
 
@@ -10755,6 +10767,18 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-session",
+ "sp-std 8.0.0",
+]
+
+[[package]]
+name = "pallet-skip-feeless-payment"
+version = "1.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
  "sp-std 8.0.0",
 ]
 
@@ -12518,10 +12542,10 @@ dependencies = [
  "sc-executor-common",
  "sc-executor-wasmtime",
  "sp-maybe-compressed-blob",
+ "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tracing-gum",
- "tracking-allocator",
 ]
 
 [[package]]
@@ -18166,6 +18190,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-im-online",
+ "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "parity-scale-codec",
  "platforms",
@@ -18300,6 +18325,10 @@ dependencies = [
  "sp-runtime",
  "sp-std 8.0.0",
 ]
+
+[[package]]
+name = "staging-tracking-allocator"
+version = "1.0.0"
 
 [[package]]
 name = "staging-xcm"
@@ -19594,10 +19623,6 @@ dependencies = [
  "tracing-log",
  "tracing-serde",
 ]
-
-[[package]]
-name = "tracking-allocator"
-version = "1.0.0"
 
 [[package]]
 name = "trie-bench"
