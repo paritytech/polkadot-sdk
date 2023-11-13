@@ -1053,11 +1053,11 @@ mod tests {
 		assert_eq!(block.has_runtime(), true);
 
 		let invalid_id = "abc-invalid".to_string();
-		let err = subs.unpin_block(&invalid_id, hash).unwrap_err();
+		let err = subs.unpin_blocks(&invalid_id, vec![hash]).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::SubscriptionAbsent);
 
 		// Unpin the block.
-		subs.unpin_block(&id, hash).unwrap();
+		subs.unpin_blocks(&id, vec![hash]).unwrap();
 		let err = subs.lock_block(&id, hash, 1).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::BlockHashAbsent);
 	}
@@ -1101,13 +1101,13 @@ mod tests {
 		// Ensure the block propagated to the subscription.
 		subs.subs.get(&id_second).unwrap().blocks.get(&hash).unwrap();
 
-		subs.unpin_block(&id, hash).unwrap();
+		subs.unpin_blocks(&id, vec![hash]).unwrap();
 		assert_eq!(*subs.global_blocks.get(&hash).unwrap(), 1);
 		// Cannot unpin a block twice for the same subscription.
-		let err = subs.unpin_block(&id, hash).unwrap_err();
+		let err = subs.unpin_blocks(&id, vec![hash]).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::BlockHashAbsent);
 
-		subs.unpin_block(&id_second, hash).unwrap();
+		subs.unpin_blocks(&id_second, vec![hash]).unwrap();
 		// Block unregistered from the memory.
 		assert!(subs.global_blocks.get(&hash).is_none());
 	}
