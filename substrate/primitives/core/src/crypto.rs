@@ -42,7 +42,7 @@ pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58Addres
 pub use zeroize::Zeroize;
 
 #[cfg(feature = "std")]
-use crate::address_uri::AddressUri;
+pub use crate::address_uri::{AddressUri, Error as AddressUriError};
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str =
@@ -83,8 +83,8 @@ impl<S, T: UncheckedFrom<S>> UncheckedInto<T> for S {
 #[cfg(feature = "full_crypto")]
 pub enum SecretStringError {
 	/// The overall format was invalid (e.g. the seed phrase contained symbols).
-	#[cfg_attr(feature = "std", error("Invalid format"))]
-	InvalidFormat,
+	#[cfg_attr(feature = "std", error("Invalid format {0}"))]
+	InvalidFormat(#[from] AddressUriError),
 	/// The seed phrase provided is not a valid BIP39 phrase.
 	#[cfg_attr(feature = "std", error("Invalid phrase"))]
 	InvalidPhrase,
@@ -236,6 +236,10 @@ pub enum PublicError {
 	InvalidPath,
 	#[cfg_attr(feature = "std", error("Disallowed SS58 Address Format for this datatype."))]
 	FormatNotAllowed,
+	#[cfg_attr(feature = "std", error("Password not allowed."))]
+	PasswordNotAllowed,
+	#[cfg_attr(feature = "std", error("Incorrect URI syntax {0}."))]
+	MalformedUri(#[from] AddressUriError),
 }
 
 #[cfg(feature = "std")]
@@ -418,11 +422,11 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 #[cfg(feature = "std")]
 impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
-		let cap = AddressUri::parse(s).ok_or(PublicError::InvalidFormat)?;
+		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::InvalidFormat);
+			return Err(PublicError::PasswordNotAllowed);
 		}
-		let s = cap.ss58.unwrap_or(DEV_ADDRESS);
+		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
 			let d = array_bytes::hex2bytes(stripped).map_err(|_| PublicError::InvalidFormat)?;
 			Self::from_slice(&d).map_err(|()| PublicError::BadLength)?
@@ -438,11 +442,11 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	}
 
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
-		let cap = AddressUri::parse(s).ok_or(PublicError::InvalidFormat)?;
+		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::InvalidFormat);
+			return Err(PublicError::PasswordNotAllowed);
 		}
-		let (addr, v) = Self::from_ss58check_with_version(cap.ss58.unwrap_or(DEV_ADDRESS))?;
+		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
 		if cap.paths.is_empty() {
 			Ok((addr, v))
 		} else {
@@ -811,8 +815,8 @@ impl sp_std::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let cap = AddressUri::parse(s).ok_or(SecretStringError::InvalidFormat)?;
-		let phrase = cap.ss58.unwrap_or(DEV_PHRASE);
+		let cap = AddressUri::parse(s)?;
+		let phrase = cap.phrase.unwrap_or(DEV_PHRASE);
 
 		Ok(Self {
 			phrase: SecretString::from_str(phrase).expect("Returns infallible error; qed"),
