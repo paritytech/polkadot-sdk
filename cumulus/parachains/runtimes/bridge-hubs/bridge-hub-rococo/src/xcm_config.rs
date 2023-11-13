@@ -16,12 +16,11 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use crate::bridge_common_config::{
-	BridgeGrandpaWestendInstance,
-	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
+	BridgeGrandpaWestendInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -60,7 +59,6 @@ use xcm_executor::{
 };
 
 parameter_types! {
-	pub storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
 	pub const TokenLocation: MultiLocation = MultiLocation::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub RelayNetwork: NetworkId = NetworkId::Rococo;
@@ -155,8 +153,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
 					k.eq(&DeliveryRewardInBalance::key()) |
-						k.eq(&RequiredStakeForStakeAndSlash::key()) |
-						k.eq(&Flavor::key())
+						k.eq(&RequiredStakeForStakeAndSlash::key())
 				}) =>
 				return true,
 			_ => (),
@@ -285,9 +282,7 @@ impl xcm_executor::Config for XcmConfig {
 			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter = (
-		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
-	);
+	type MessageExporter = (crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;

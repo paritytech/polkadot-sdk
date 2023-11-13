@@ -2218,10 +2218,8 @@ version = "0.1.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
- "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
- "bp-bridge-hub-wococo",
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
@@ -2230,7 +2228,6 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
- "bp-wococo",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
  "cumulus-pallet-aura-ext",

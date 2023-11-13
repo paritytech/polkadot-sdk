@@ -32,7 +32,6 @@ pub mod bridge_to_westend_config;
 mod weights;
 pub mod xcm_config;
 
-use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -107,9 +106,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
-	(
-		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
-	),
+	(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -1126,9 +1123,7 @@ mod tests {
 				frame_system::CheckWeight::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
-				(
-					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-				),
+				(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),)
 			);
 
 			// for BridgeHubRococo
@@ -1140,7 +1135,7 @@ mod tests {
 					System::block_hash(BlockNumber::zero()),
 					10,
 					10,
-					(((), ())),
+					(((), ()), ((), ())),
 				);
 				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
 				assert_eq!(
