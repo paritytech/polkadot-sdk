@@ -29,12 +29,11 @@ use crate::{
 use always_assert::never;
 use futures::{
 	channel::{mpsc, oneshot},
-	join, Future, FutureExt, SinkExt, StreamExt,
+	Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	pvf::PvfPrepData,
-	SecurityStatus,
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
@@ -208,21 +207,7 @@ pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Fu
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Run checks for supported security features once per host startup. Warn here if not enabled.
-	let security_status = {
-		// TODO: add check that syslog is available and that seccomp violations are logged?
-		let (can_enable_landlock, can_enable_seccomp, can_unshare_user_namespace_and_change_root) = join!(
-			security::check_landlock(&config.prepare_worker_program_path),
-			security::check_seccomp(&config.prepare_worker_program_path),
-			security::check_can_unshare_user_namespace_and_change_root(
-				&config.prepare_worker_program_path
-			)
-		);
-		SecurityStatus {
-			can_enable_landlock,
-			can_enable_seccomp,
-			can_unshare_user_namespace_and_change_root,
-		}
-	};
+	let security_status = security::check_security_status(&config).await;
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
 
