@@ -22,32 +22,8 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use sp_runtime::{traits::Dispatchable, TransactionOutcome};
-
-/// Do something hypothetically by rolling back any changes afterwards.
-///
-/// Returns the original result of the closure.
-macro_rules! hypothetically {
-	( $e:expr ) => {
-		frame_support::storage::transactional::with_transaction(
-			|| -> TransactionOutcome<Result<_, sp_runtime::DispatchError>> {
-				sp_runtime::TransactionOutcome::Rollback(Ok($e))
-			},
-		)
-		.expect("Always returning Ok; qed")
-	};
-}
-
-/// Assert something to be [*hypothetically*] `Ok` without actually committing it.
-///
-/// Reverts any storage changes made by the closure.
-macro_rules! hypothetically_ok {
-	($e:expr $(, $args:expr)* $(,)?) => {
-		let result = hypothetically!($e);
-		assert_ok!(result $(, $args)*);
-	};
-}
+use frame_support::{assert_err, assert_noop, assert_ok, hypothetically_ok, traits::Currency};
+use sp_runtime::traits::Dispatchable;
 
 #[test]
 fn fails_to_filter_calls_to_safe_mode_pallet() {
