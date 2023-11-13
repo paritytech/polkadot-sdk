@@ -259,7 +259,7 @@ impl TransactAsset for TestAssetTransactor {
 		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
-		add_asset(*who, what.clone());
+		add_asset(who.clone(), what.clone());
 		Ok(())
 	}
 

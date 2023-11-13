@@ -37,7 +37,7 @@ fn universal_origin_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::InvalidLocation));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::InvalidLocation });
 
 	let message = Xcm(vec![
 		UniversalOrigin(GlobalConsensus(Kusama)),
@@ -51,7 +51,7 @@ fn universal_origin_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(20, 20), XcmError::NotWithdrawable));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::NotWithdrawable });
 
 	add_asset((Ancestor(2), GlobalConsensus(Kusama)), (Parent, 100));
 	let message = Xcm(vec![
@@ -66,7 +66,7 @@ fn universal_origin_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(20, 20) });
 	assert_eq!(asset_list((Ancestor(2), GlobalConsensus(Kusama))), vec![]);
 }
 
@@ -94,7 +94,7 @@ fn export_message_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 	let uni_src = (ByGenesis([0; 32]), Parachain(42), Parachain(1)).into();
 	assert_eq!(
 		exported_xcm(),
@@ -122,7 +122,7 @@ fn unpaid_execution_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::BadOrigin));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::BadOrigin });
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(2),
 		message.clone(),
@@ -130,7 +130,7 @@ fn unpaid_execution_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 
 	let message = Xcm(vec![UnpaidExecution {
 		weight_limit: Limited(Weight::from_parts(10, 10)),
@@ -143,5 +143,5 @@ fn unpaid_execution_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 }

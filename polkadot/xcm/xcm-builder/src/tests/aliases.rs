@@ -74,7 +74,7 @@ fn alias_origin_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NoPermission));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NoPermission });
 
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1), AccountId32 { network: None, id: [0; 32] }),
@@ -83,5 +83,5 @@ fn alias_origin_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 }

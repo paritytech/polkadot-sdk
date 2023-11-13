@@ -119,7 +119,7 @@ fn test_asset_xcm_trader() {
 			// Lets pay with: asset_amount_needed + asset_amount_extra
 			let asset_amount_extra = 100_u128;
 			let asset: Asset =
-				(asset_location, asset_amount_needed + asset_amount_extra).into();
+				(asset_location.clone(), asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
@@ -191,7 +191,7 @@ fn test_asset_xcm_trader_with_refund() {
 			// lets calculate amount needed
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
-			let asset: Asset = (asset_location, amount_bought).into();
+			let asset: Asset = (asset_location.clone(), amount_bought).into();
 
 			// Make sure buy_weight does not return an error
 			assert_ok!(trader.buy_weight(bought, asset.clone().into(), &ctx));
@@ -321,7 +321,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 
 			// We know we will have to buy at least ED, so lets make sure first it will
 			// fail with a payment of less than ED
-			let asset: Asset = (asset_location, amount_bought).into();
+			let asset: Asset = (asset_location.clone(), amount_bought).into();
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
 
 			// Now lets buy ED at least
@@ -424,7 +424,7 @@ fn test_assets_balances_api_works() {
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
@@ -461,7 +461,7 @@ fn test_assets_balances_api_works() {
 			let foreign_asset_minimum_asset_balance = 3333333_u128;
 			assert_ok!(ForeignAssets::force_create(
 				RuntimeHelper::root_origin(),
-				foreign_asset_id_location,
+				foreign_asset_id_location.clone(),
 				AccountId::from(SOME_ASSET_ADMIN).into(),
 				false,
 				foreign_asset_minimum_asset_balance
@@ -470,7 +470,7 @@ fn test_assets_balances_api_works() {
 			// We first mint enough asset for the account to exist for assets
 			assert_ok!(ForeignAssets::mint(
 				RuntimeHelper::origin_of(AccountId::from(SOME_ASSET_ADMIN)),
-				foreign_asset_id_location,
+				foreign_asset_id_location.clone(),
 				AccountId::from(ALICE).into(),
 				6 * foreign_asset_minimum_asset_balance
 			));
@@ -481,7 +481,7 @@ fn test_assets_balances_api_works() {
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
@@ -752,12 +752,12 @@ mod asset_hub_rococo_tests {
 			AccountId::from([73; 32]),
 			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
 			// receiving WNDs
-			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Westend)) }, 1000000000000, 1_000_000_000),
+			(Location::new(2, [GlobalConsensus(Westend)]), 1000000000000, 1_000_000_000),
 			bridging_to_asset_hub_westend,
 			(
-				X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)),
+				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into(),
 				GlobalConsensus(Westend),
-				X1(Parachain(1000))
+				[Parachain(1000)].into()
 			)
 		)
 	}

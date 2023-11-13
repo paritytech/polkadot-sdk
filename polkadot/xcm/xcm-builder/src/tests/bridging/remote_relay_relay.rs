@@ -90,7 +90,7 @@ fn sending_to_bridged_chain_works() {
 					},
 				],
 			),
-			outcome: Outcome::Complete(test_weight(2)),
+			outcome: Outcome::Complete { used: test_weight(2) },
 			paid: false,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);
@@ -141,7 +141,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 					},
 				],
 			),
-			outcome: Outcome::Complete(test_weight(2)),
+			outcome: Outcome::Complete { used: test_weight(2) },
 			paid: false,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);

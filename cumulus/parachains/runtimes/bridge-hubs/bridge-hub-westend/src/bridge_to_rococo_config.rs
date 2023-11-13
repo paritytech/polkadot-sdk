@@ -341,7 +341,7 @@ mod tests {
 			BridgeWestendToRococoMessagesPalletInstance::get(),
 			[PalletInstance(
 				bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX
-			)].into()
+			)]
 		);
 	}
 }

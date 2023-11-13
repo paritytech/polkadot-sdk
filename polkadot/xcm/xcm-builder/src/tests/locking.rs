@@ -37,7 +37,7 @@ fn lock_roundtrip_should_work() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(40, 40)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(40, 40) });
 	assert_eq!(asset_list((3u64,)), vec![(Parent, 990u128).into()]);
 
 	let expected_msg = Xcm::<()>(vec![NoteUnlockable {
@@ -66,7 +66,7 @@ fn lock_roundtrip_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn auto_fee_paying_should_work() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(20, 20) });
 	assert_eq!(asset_list((3u64,)), vec![(Parent, 990u128).into()]);
 }
 
@@ -104,7 +104,7 @@ fn lock_should_fail_correctly() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::LockError));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::LockError });
 	assert_eq!(sent_xcm(), vec![]);
 	assert_eq!(take_lock_trace(), vec![]);
 
@@ -122,7 +122,7 @@ fn lock_should_fail_correctly() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NotHoldingFees));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NotHoldingFees });
 	assert_eq!(sent_xcm(), vec![]);
 	assert_eq!(take_lock_trace(), vec![]);
 }
@@ -149,7 +149,7 @@ fn remote_unlock_roundtrip_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 	assert_eq!(
 		take_lock_trace(),
 		vec![Note {
@@ -170,7 +170,7 @@ fn remote_unlock_roundtrip_should_work() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(40, 40)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(40, 40) });
 	assert_eq!(asset_list((3u64,)), vec![(Parent, 990u128).into()]);
 
 	let expected_msg = Xcm::<()>(vec![UnlockAsset {
@@ -206,7 +206,7 @@ fn remote_unlock_should_fail_correctly() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::LockError));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::LockError });
 	assert_eq!(sent_xcm(), vec![]);
 	assert_eq!(take_lock_trace(), vec![]);
 
@@ -221,7 +221,7 @@ fn remote_unlock_should_fail_correctly() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 	let _discard = take_lock_trace();
 
 	// We want to unlock 100 of the native parent tokens which were locked for us on parachain.
@@ -234,7 +234,7 @@ fn remote_unlock_should_fail_correctly() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NotHoldingFees));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NotHoldingFees });
 
 	assert_eq!(sent_xcm(), vec![]);
 	assert_eq!(take_lock_trace(), vec![]);

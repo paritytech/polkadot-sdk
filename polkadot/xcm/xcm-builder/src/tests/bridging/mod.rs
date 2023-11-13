@@ -221,9 +221,9 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		let entry = LogEntry { local, remote, id, message, outcome: outcome.clone(), paid: false };
 		RoutingLog::mutate(|l| l.push(entry));
 		match outcome {
-			Outcome::Complete(..) => Ok(id),
-			Outcome::Incomplete(..) => Err(Transport("Error executing")),
-			Outcome::Error(..) => Err(Transport("Unable to execute")),
+			Outcome::Complete { .. } => Ok(id),
+			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
+			Outcome::Error { .. } => Err(Transport("Unable to execute")),
 		}
 	}
 }
@@ -271,9 +271,9 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		let entry = LogEntry { local, remote, id, message, outcome: outcome.clone(), paid: true };
 		RoutingLog::mutate(|l| l.push(entry));
 		match outcome {
-			Outcome::Complete(..) => Ok(id),
-			Outcome::Incomplete(..) => Err(Transport("Error executing")),
-			Outcome::Error(..) => Err(Transport("Unable to execute")),
+			Outcome::Complete { .. } => Ok(id),
+			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
+			Outcome::Error { .. } => Err(Transport("Unable to execute")),
 		}
 	}
 }

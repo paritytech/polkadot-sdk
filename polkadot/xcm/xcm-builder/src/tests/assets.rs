@@ -35,7 +35,7 @@ fn exchange_asset_should_work() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(40, 40)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(40, 40) });
 	assert_eq!(asset_list(Parent), vec![(Here, 100u128).into(), (Parent, 950u128).into()]);
 	assert_eq!(exchange_assets(), vec![(Parent, 50u128).into()].into());
 }
@@ -59,7 +59,7 @@ fn exchange_asset_without_maximal_should_work() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(40, 40)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(40, 40) });
 	assert_eq!(asset_list(Parent), vec![(Here, 50u128).into(), (Parent, 950u128).into()]);
 	assert_eq!(exchange_assets(), vec![(Here, 50u128).into(), (Parent, 50u128).into()].into());
 }
@@ -83,7 +83,7 @@ fn exchange_asset_should_fail_when_no_deal_possible() {
 	let mut hash = fake_message_hash(&message);
 	let r =
 		XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(40, 40), XcmError::NoDeal));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(40, 40), error: XcmError::NoDeal });
 	assert_eq!(asset_list(Parent), vec![(Parent, 1000u128).into()]);
 	assert_eq!(exchange_assets(), vec![(Here, 100u128).into()].into());
 }
@@ -103,7 +103,7 @@ fn paying_reserve_deposit_should_work() {
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(50, 50);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message, &mut hash, weight_limit, Weight::zero());
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(30, 30)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(30, 30) });
 	assert_eq!(asset_list(Here), vec![(Parent, 40u128).into()]);
 }
 
@@ -126,7 +126,7 @@ fn transfer_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 	assert_eq!(
 		asset_list(AccountIndex64 { index: 3, network: None }),
 		vec![(Here, 100u128).into()]
@@ -161,7 +161,7 @@ fn reserve_transfer_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let expected_msg = Xcm::<()>(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
@@ -193,7 +193,7 @@ fn burn_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(30, 30)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(30, 30) });
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
 	assert_eq!(sent_xcm(), vec![]);
 
@@ -211,7 +211,7 @@ fn burn_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(30, 30)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(30, 30) });
 	assert_eq!(asset_list(Parachain(1)), vec![]);
 	assert_eq!(sent_xcm(), vec![]);
 }
@@ -239,7 +239,7 @@ fn basic_asset_trap_should_work() {
 		Weight::from_parts(20, 20),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(25, 25)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(25, 25) });
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![]);
 
@@ -260,7 +260,7 @@ fn basic_asset_trap_should_work() {
 		Weight::from_parts(20, 20),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::UnknownClaim));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::UnknownClaim });
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![]);
 	assert_eq!(old_trapped_assets, TrappedAssets::get());
@@ -282,7 +282,7 @@ fn basic_asset_trap_should_work() {
 		Weight::from_parts(20, 20),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::UnknownClaim));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::UnknownClaim });
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![]);
 	assert_eq!(old_trapped_assets, TrappedAssets::get());
@@ -304,7 +304,7 @@ fn basic_asset_trap_should_work() {
 		Weight::from_parts(20, 20),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::UnknownClaim));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::UnknownClaim });
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![]);
 	assert_eq!(old_trapped_assets, TrappedAssets::get());
@@ -324,7 +324,7 @@ fn basic_asset_trap_should_work() {
 		Weight::from_parts(20, 20),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(20, 20) });
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
 	assert_eq!(
 		asset_list(AccountIndex64 { index: 3, network: None }),
@@ -347,7 +347,7 @@ fn basic_asset_trap_should_work() {
 		Weight::from_parts(20, 20),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::UnknownClaim));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::UnknownClaim });
 }
 
 #[test]
@@ -384,7 +384,7 @@ fn max_assets_limit_should_work() {
 		Weight::from_parts(100, 100),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(85, 85)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(85, 85) });
 
 	// Attempt to withdraw 9 different assets will fail.
 	let message = Xcm(vec![
@@ -406,7 +406,7 @@ fn max_assets_limit_should_work() {
 		Weight::from_parts(100, 100),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(95, 95), XcmError::HoldingWouldOverflow));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(95, 95), error: XcmError::HoldingWouldOverflow });
 
 	// Attempt to withdraw 4 different assets and then the same 4 and then a different 4 will
 	// succeed.
@@ -432,7 +432,7 @@ fn max_assets_limit_should_work() {
 		Weight::from_parts(200, 200),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(125, 125)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(125, 125) });
 
 	// Attempt to withdraw 4 different assets and then a different 4 and then the same 4 will fail.
 	let message = Xcm(vec![
@@ -457,7 +457,7 @@ fn max_assets_limit_should_work() {
 		Weight::from_parts(200, 200),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(95, 95), XcmError::HoldingWouldOverflow));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(95, 95), error: XcmError::HoldingWouldOverflow });
 
 	// Attempt to withdraw 4 different assets and then a different 4 and then the same 4 will fail.
 	let message = Xcm(vec![
@@ -481,5 +481,5 @@ fn max_assets_limit_should_work() {
 		Weight::from_parts(200, 200),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(25, 25), XcmError::HoldingWouldOverflow));
+	assert_eq!(r, Outcome::Incomplete { used: Weight::from_parts(25, 25), error: XcmError::HoldingWouldOverflow });
 }

@@ -45,11 +45,9 @@ use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
 use xcm::{
 	latest::prelude::{Assets as XcmAssets, *},
-	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry, WeightTrader},
-	XcmExecutor,
 };
 
 const ALICE: [u8; 32] = [1u8; 32];
@@ -707,7 +705,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_works() {
 			AccountId::from([73; 32]),
 			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
 			// receiving ROCs
-			(Location::new(2, interior: [GlobalConsensus(Rococo)].into()), 1000000000000, 1_000_000_000),
+			(Location::new(2, [GlobalConsensus(Rococo)]), 1000000000000, 1_000_000_000),
 			bridging_to_asset_hub_rococo,
 			(
 				[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),

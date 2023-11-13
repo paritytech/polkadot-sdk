@@ -51,7 +51,7 @@ fn system_para_sets_relay_xcm_supported_version() {
 		<AssetHubWestend as Chain>::RuntimeCall::PolkadotXcm(pallet_xcm::Call::<
 			<AssetHubWestend as Chain>::Runtime,
 		>::force_xcm_version {
-			location: bx!(parent_location),
+			location: bx!(parent_location.clone()),
 			version: XCM_V3,
 		})
 		.encode()

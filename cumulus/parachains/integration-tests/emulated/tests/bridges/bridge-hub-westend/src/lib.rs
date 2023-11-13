@@ -19,7 +19,7 @@ pub use frame_support::assert_ok;
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+	v4::{Error, NetworkId::Rococo as RococoId},
 };
 
 // Bridges

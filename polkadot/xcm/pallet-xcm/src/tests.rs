@@ -96,7 +96,7 @@ fn report_outcome_notify_works() {
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::zero(),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_events(2),
 			vec![
@@ -163,7 +163,7 @@ fn report_outcome_works() {
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::zero(),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::ResponseReady {
@@ -212,7 +212,7 @@ fn custom_querier_works() {
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::InvalidQuerier {
@@ -238,7 +238,7 @@ fn custom_querier_works() {
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::InvalidQuerier {
@@ -264,7 +264,7 @@ fn custom_querier_works() {
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::zero(),
 		);
-		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
+		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
 		assert_eq!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::ResponseReady {
@@ -389,7 +389,7 @@ fn teleport_assets_works() {
 		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -434,7 +434,7 @@ fn limited_teleport_assets_works() {
 		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -477,7 +477,7 @@ fn unlimited_teleport_assets_works() {
 		);
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -526,7 +526,7 @@ fn reserve_transfer_assets_works() {
 		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -562,7 +562,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 		// check event
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 
 		// XCM_FEES_NOT_WAIVED_USER_ACCOUNT spent amount
@@ -594,7 +594,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -644,7 +644,7 @@ fn limited_reserve_transfer_assets_works() {
 		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -692,7 +692,7 @@ fn unlimited_reserve_transfer_assets_works() {
 		);
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -724,7 +724,7 @@ fn execute_withdraw_to_deposit_works() {
 		assert_eq!(Balances::total_balance(&BOB), SEND_AMOUNT);
 		assert_eq!(
 			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete { used: weight } })
 		);
 	});
 }
@@ -764,7 +764,7 @@ fn trapped_assets_can_be_claimed() {
 					assets: vma
 				}),
 				RuntimeEvent::XcmPallet(crate::Event::Attempted {
-					outcome: Outcome::Complete(BaseXcmWeight::get() * 5)
+					outcome: Outcome::Complete { used: BaseXcmWeight::get() * 5 }
 				}),
 			]
 		);
@@ -799,7 +799,7 @@ fn trapped_assets_can_be_claimed() {
 			]))),
 			weight
 		));
-		let outcome = Outcome::Incomplete(BaseXcmWeight::get(), XcmError::UnknownClaim);
+		let outcome = Outcome::Incomplete { used: BaseXcmWeight::get(), error: XcmError::UnknownClaim };
 		assert_eq!(last_event(), RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome }));
 	});
 }
@@ -963,7 +963,7 @@ fn subscription_side_works() {
 			Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]);
 		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight, Weight::zero());
-		assert_eq!(r, Outcome::Complete(weight));
+		assert_eq!(r, Outcome::Complete { used: weight });
 
 		let instr = QueryResponse {
 			query_id: 0,
@@ -1098,7 +1098,7 @@ fn subscriber_side_subscription_works() {
 		]);
 		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight, Weight::zero());
-		assert_eq!(r, Outcome::Complete(weight));
+		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(take_sent_xcm(), vec![]);
 
 		// This message cannot be sent to a v2 remote.
@@ -1116,7 +1116,7 @@ fn subscriber_side_subscription_works() {
 		]);
 		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight, Weight::zero());
-		assert_eq!(r, Outcome::Complete(weight));
+		assert_eq!(r, Outcome::Complete { used: weight });
 
 		// This message can now be sent to remote as it's v2.
 		assert_eq!(
@@ -1179,7 +1179,7 @@ fn auto_subscription_works() {
 		]);
 		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote_v4.clone(), message, &mut hash, weight, Weight::zero());
-		assert_eq!(r, Outcome::Complete(weight));
+		assert_eq!(r, Outcome::Complete { used: weight });
 
 		// V2 messages can be sent to remote_v4 under XCM v4.
 		assert_eq!(
@@ -1215,7 +1215,7 @@ fn auto_subscription_works() {
 		]);
 		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote_v2.clone(), message, &mut hash, weight, Weight::zero());
-		assert_eq!(r, Outcome::Complete(weight));
+		assert_eq!(r, Outcome::Complete { used: weight });
 
 		// v4 messages cannot be sent to remote_v2...
 		assert_eq!(

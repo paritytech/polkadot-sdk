@@ -16,7 +16,7 @@
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, match_types, parameter_types,
+	construct_runtime, parameter_types,
 	traits::{ConstU32, Everything, EverythingBut, Nothing, Contains},
 	weights::Weight,
 };

@@ -215,52 +215,6 @@ impl From<SendError> for Error {
 
 pub type Result = result::Result<(), Error>;
 
-/*
-TODO: XCMv4
-/// Outcome of an XCM execution.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum Outcome {
-	/// Execution completed successfully; given weight was used.
-	Complete { used: Weight },
-	/// Execution started, but did not complete successfully due to the given error; given weight
-	/// was used.
-	Incomplete { used: Weight, error: Error },
-	/// Execution did not start due to the given error.
-	Error { error: Error },
-}
-
-impl Outcome {
-	pub fn ensure_complete(self) -> Result {
-		match self {
-			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, .. } => Err(error),
-			Outcome::Error { error, .. } => Err(error),
-		}
-	}
-	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
-		match self {
-			Outcome::Complete { used, .. } => Ok(used),
-			Outcome::Incomplete { used, .. } => Ok(used),
-			Outcome::Error { error, .. } => Err(error),
-		}
-	}
-	/// How much weight was used by the XCM execution attempt.
-	pub fn weight_used(&self) -> Weight {
-		match self {
-			Outcome::Complete { used, .. } => *used,
-			Outcome::Incomplete { used, .. } => *used,
-			Outcome::Error { .. } => Weight::zero(),
-		}
-	}
-}
-
-impl From<Error> for Outcome {
-	fn from(error: Error) -> Self {
-		Self::Error { error, maybe_id: None }
-	}
-}
-*/
-
 /// Outcome of an XCM execution.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]

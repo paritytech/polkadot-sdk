@@ -200,7 +200,7 @@ mod tests {
 
 		for (location, assets, expected_result) in test_data {
 			assert_eq!(
-				Filter::contains(&(location, assets.clone())),
+				Filter::contains(&(location.clone(), assets.clone())),
 				expected_result,
 				"expected_result: {expected_result} not matched for (location, assets): ({:?}, {:?})!", location, assets,
 			)

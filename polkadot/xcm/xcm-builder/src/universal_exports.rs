@@ -618,12 +618,12 @@ mod tests {
 			];
 		}
 
-		let test_data: Vec<(NetworkId, Location, Option<Location, Option<Asset>>)> = vec![
+		let test_data: Vec<(NetworkId, InteriorLocation, Option<(Location, Option<Asset>)>)> = vec![
 			(NetworkA::get(), [Parachain(1000)].into(), Some((BridgeToALocation::get(), None))),
-			(NetworkA::get(), [Parachain(1000), GeneralIndex(1)], None),
+			(NetworkA::get(), [Parachain(1000), GeneralIndex(1)].into(), None),
 			(
 				NetworkA::get(),
-				[Parachain(2000)],
+				[Parachain(2000)].into(),
 				Some((BridgeToALocation::get(), Some(PaymentForNetworkAAndParachain2000::get()))),
 			),
 			(NetworkA::get(), [Parachain(2000), GeneralIndex(1)].into(), None),

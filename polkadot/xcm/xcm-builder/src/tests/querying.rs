@@ -37,7 +37,7 @@ fn pallet_query_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let expected_msg = Xcm::<()>(vec![QueryResponse {
 		query_id: 1,
@@ -70,7 +70,7 @@ fn pallet_query_with_results_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let expected_msg = Xcm::<()>(vec![QueryResponse {
 		query_id: 1,
@@ -113,10 +113,10 @@ fn prepaid_result_of_query_should_get_free_execution() {
 
 	// First time the response gets through since we're expecting it...
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message.clone(), &mut hash, weight_limit, Weight::zero());
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 	assert_eq!(response(query_id).unwrap(), the_response);
 
 	// Second time it doesn't, since we're not.
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message.clone(), &mut hash, weight_limit, Weight::zero());
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 }

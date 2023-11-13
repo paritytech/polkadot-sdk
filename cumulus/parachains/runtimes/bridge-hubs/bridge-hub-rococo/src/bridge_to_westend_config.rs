@@ -312,11 +312,13 @@ mod tests {
 			PriorityBoostPerMessage,
 		>(FEE_BOOST_PER_MESSAGE);
 
+		let expected: InteriorLocation = [PalletInstance(
+			bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX
+		)].into();
+
 		assert_eq!(
 			BridgeRococoToWestendMessagesPalletInstance::get(),
-			[PalletInstance(
-				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX
-			)].into()
+			expected,
 		);
 	}
 }

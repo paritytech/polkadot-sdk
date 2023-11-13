@@ -30,7 +30,7 @@ fn example() {
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
 			network: RococoId,
-			destination: X1(Parachain(AssetHubWestend::para_id().into())),
+			destination: [Parachain(AssetHubWestend::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
 	]));
