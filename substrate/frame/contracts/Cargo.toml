@@ -54,6 +54,7 @@ assert_matches = "1"
 env_logger = "0.9"
 pretty_assertions = "1"
 wat = "1"
+pallet-contracts-fixtures = { path = "./fixtures" }
 
 # Substrate Dependencies
 pallet-balances = { path = "../balances" }
@@ -73,6 +74,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances?/std",
+	"pallet-contracts-fixtures/std",
 	"pallet-contracts-primitives/std",
 	"pallet-contracts-proc-macro/full",
 	"pallet-insecure-randomness-collective-flip/std",

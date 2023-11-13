@@ -14,7 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive","max-encoded-len"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.188", optional = true,  default-features = false, features = ["derive", "alloc"] }
 bounded-collections = { version = "0.1.8", default-features = false }
@@ -25,7 +25,7 @@ hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { version = "0.5.0", default-features = false, optional = true }
 rand = { version = "0.8.5", features = ["small_rng"],  optional = true }
 substrate-bip39 = { version = "0.4.4", optional = true }
-tiny-bip39 = { version = "1.0.0", optional = true }
+bip39 = { version = "2.0.0", default-features = false }
 regex = { version = "1.6.0", optional = true }
 zeroize = { version = "1.4.3", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
@@ -42,6 +42,7 @@ thiserror = { version = "1.0.48", optional = true }
 tracing = { version = "0.1.29", optional = true }
 bitflags = "1.3"
 paste = "1.0.7"
+itertools = { version = "0.10.3", optional = true }
 
 # full crypto
 array-bytes = { version = "6.1", optional = true }
@@ -57,11 +58,11 @@ sp-runtime-interface = { path = "../runtime-interface", default-features = false
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true}
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "4b09416", default-features = false, optional = true }
+bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "cbc342e", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"
-serde_json = "1.0"
+serde_json = "1.0.108"
 sp-core-hashing-proc-macro = { path = "hashing/proc-macro" }
 
 [[bench]]
@@ -75,7 +76,9 @@ bench = false
 default = [ "std" ]
 std = [
 	"array-bytes",
-	"bandersnatch_vrfs/getrandom",
+	"bandersnatch_vrfs?/std",
+	"bip39/rand",
+	"bip39/std",
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
@@ -88,6 +91,7 @@ std = [
 	"hash-db/std",
 	"hash256-std-hasher/std",
 	"impl-serde/std",
+	"itertools",
 	"lazy_static",
 	"libsecp256k1/std",
 	"log/std",
@@ -114,7 +118,6 @@ std = [
 	"ss58-registry/std",
 	"substrate-bip39",
 	"thiserror",
-	"tiny-bip39",
 	"tracing",
 	"w3f-bls?/std",
 	"zeroize/alloc",

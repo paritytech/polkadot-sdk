@@ -163,7 +163,7 @@ pub trait SetCode<T: Config> {
 
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
-		<Pallet<T>>::update_code_in_storage(&code)?;
+		<Pallet<T>>::update_code_in_storage(&code);
 		Ok(())
 	}
 }
@@ -242,6 +242,53 @@ pub mod pallet {
 			type PalletInfo = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
+			type OnSetCode = ();
+		}
+
+		/// Default configurations of this pallet in a solo-chain environment.
+		///
+		/// ## Considerations:
+		///
+		/// By default, this type makes the following choices:
+		///
+		/// * Use a normal 32 byte account id, with a [`DefaultConfig::Lookup`] that implies no
+		///   'account-indexing' pallet is being used.
+		/// * Given that we don't know anything about the existence of a currency system in scope,
+		///   an [`DefaultConfig::AccountData`] is chosen that has no addition data. Overwrite this
+		///   if you use `pallet-balances` or similar.
+		/// * Make sure to overwrite [`DefaultConfig::Version`].
+		/// * 2s block time, and a default 5mb block size is used.
+		#[cfg(feature = "experimental")]
+		pub struct SolochainDefaultConfig;
+
+		#[cfg(feature = "experimental")]
+		#[frame_support::register_default_impl(SolochainDefaultConfig)]
+		impl DefaultConfig for SolochainDefaultConfig {
+			type Nonce = u32;
+			type Hash = sp_core::hash::H256;
+			type Hashing = sp_runtime::traits::BlakeTwo256;
+			type AccountId = sp_runtime::AccountId32;
+			type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
+			type MaxConsumers = frame_support::traits::ConstU32<128>;
+			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+			type OnNewAccount = ();
+			type OnKilledAccount = ();
+			type SystemWeightInfo = ();
+			type SS58Prefix = ();
+			type Version = ();
+			type BlockWeights = ();
+			type BlockLength = ();
+			type DbWeight = ();
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeOrigin = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+			#[inject_runtime_type]
+			type PalletInfo = ();
+			type BaseCallFilter = frame_support::traits::Everything;
+			type BlockHashCount = frame_support::traits::ConstU32<256>;
 			type OnSetCode = ();
 		}
 	}
@@ -677,8 +724,6 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		#[serde(with = "sp_core::bytes")]
-		pub code: Vec<u8>,
 		#[serde(skip)]
 		pub _config: sp_std::marker::PhantomData<T>,
 	}
@@ -692,7 +737,6 @@ pub mod pallet {
 			<UpgradedToU32RefCount<T>>::put(true);
 			<UpgradedToTripleRefCount<T>>::put(true);
 
-			sp_io::storage::set(well_known_keys::CODE, &self.code);
 			sp_io::storage::set(well_known_keys::EXTRINSIC_INDEX, &0u32.encode());
 		}
 	}
@@ -1059,11 +1103,10 @@ impl<T: Config> Pallet<T> {
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
-	pub fn update_code_in_storage(code: &[u8]) -> DispatchResult {
+	pub fn update_code_in_storage(code: &[u8]) {
 		storage::unhashed::put_raw(well_known_keys::CODE, code);
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
-		Ok(())
 	}
 
 	/// Increment the reference counter on an account.
@@ -1817,4 +1860,11 @@ pub mod pallet_prelude {
 
 	/// Type alias for the `BlockNumber` associated type of system config.
 	pub type BlockNumberFor<T> = <HeaderFor<T> as sp_runtime::traits::Header>::Number;
+
+	/// Type alias for the `Extrinsic` associated type of system config.
+	pub type ExtrinsicFor<T> =
+		<<T as crate::Config>::Block as sp_runtime::traits::Block>::Extrinsic;
+
+	/// Type alias for the `RuntimeCall` associated type of system config.
+	pub type RuntimeCallFor<T> = <T as crate::Config>::RuntimeCall;
 }
