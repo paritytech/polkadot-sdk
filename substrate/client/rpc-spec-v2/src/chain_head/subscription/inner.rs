@@ -755,22 +755,20 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		sub_id: &str,
 		hashes: Vec<Block::Hash>,
 	) -> Result<(), SubscriptionManagementError> {
-		{
-			let Some(sub) = self.subs.get_mut(sub_id) else {
-				return Err(SubscriptionManagementError::SubscriptionAbsent)
-			};
+		let Some(sub) = self.subs.get_mut(sub_id) else {
+			return Err(SubscriptionManagementError::SubscriptionAbsent)
+		};
 
-			// Ensure that all blocks are part of the subscription before removing individual
-			// blocks.
-			for hash in &hashes {
-				if !sub.contains_block(*hash) {
-					return Err(SubscriptionManagementError::BlockHashAbsent);
-				}
+		// Ensure that all blocks are part of the subscription before removing individual
+		// blocks.
+		for hash in &hashes {
+			if !sub.contains_block(*hash) {
+				return Err(SubscriptionManagementError::BlockHashAbsent);
 			}
+		}
 
-			for hash in &hashes {
-				sub.unregister_block(*hash);
-			}
+		for hash in &hashes {
+			sub.unregister_block(*hash);
 		}
 
 		// Block have been removed from the subscription. Remove them from the global tracking.
