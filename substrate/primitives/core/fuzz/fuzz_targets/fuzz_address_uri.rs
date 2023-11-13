@@ -33,11 +33,11 @@ lazy_static::lazy_static! {
 fuzz_target!(|input: &str| {
 	let regex_result = SECRET_PHRASE_REGEX.captures(input);
 	let manual_result = AddressUri::parse(input);
-	assert_eq!(regex_result.is_some(), manual_result.is_some());
-	if let (Some(regex_result), Some(manual_result)) = (regex_result, manual_result) {
-		assert_eq!(regex_result.name("phrase").map(|ss58| ss58.as_str()), manual_result.ss58);
+	assert_eq!(regex_result.is_some(), manual_result.is_ok());
+	if let (Some(regex_result), Ok(manual_result)) = (regex_result, manual_result) {
+		assert_eq!(regex_result.name("phrase").map(|p| p.as_str()), manual_result.phrase);
 
-		let mut manual_paths = manual_result
+		let manual_paths = manual_result
 			.paths
 			.iter()
 			.map(|s| "/".to_string() + s)
@@ -45,6 +45,6 @@ fuzz_target!(|input: &str| {
 			.join("");
 
 		assert_eq!(regex_result.name("path").unwrap().as_str().to_string(), manual_paths);
-		assert_eq!(regex_result.name("password").map(|ss58| ss58.as_str()), manual_result.pass);
+		assert_eq!(regex_result.name("password").map(|pass| pass.as_str()), manual_result.pass);
 	}
 });
