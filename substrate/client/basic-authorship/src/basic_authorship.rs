@@ -325,7 +325,7 @@ where
 		let end_reason = match mode {
 			ExtrinsicInclusionMode::AllExtrinsics =>
 				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
-			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::ExtrinsicsForbidden,
+			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
