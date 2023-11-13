@@ -21,8 +21,7 @@
 //! API trait of the chain head.
 use crate::chain_head::event::{FollowEvent, MethodResponse, StorageQuery};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-
-use super::HashOrHashes;
+use sp_rpc::list::ListOrValue;
 
 #[rpc(client, server)]
 pub trait ChainHeadApi<Hash> {
@@ -125,7 +124,7 @@ pub trait ChainHeadApi<Hash> {
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: HashOrHashes<Hash>,
+		hash: ListOrValue<Hash>,
 	) -> RpcResult<()>;
 
 	/// Resumes a storage fetch started with `chainHead_storage` after it has generated an

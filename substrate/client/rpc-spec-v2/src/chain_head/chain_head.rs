@@ -21,7 +21,6 @@
 use super::{
 	chain_head_storage::ChainHeadStorage,
 	event::{MethodResponseStarted, OperationBodyDone, OperationCallDone},
-	HashOrHashes,
 };
 use crate::{
 	chain_head::{
@@ -49,6 +48,7 @@ use sc_client_api::{
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
+use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -433,11 +433,11 @@ where
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: HashOrHashes<Block::Hash>,
+		hash: ListOrValue<Block::Hash>,
 	) -> RpcResult<()> {
 		let hashes = match hash {
-			HashOrHashes::Hash(hash) => vec![hash],
-			HashOrHashes::List(hashes) => hashes,
+			ListOrValue::Value(hash) => vec![hash],
+			ListOrValue::List(hashes) => hashes,
 		};
 
 		match self.subscriptions.unpin_blocks(&follow_subscription, hashes) {
