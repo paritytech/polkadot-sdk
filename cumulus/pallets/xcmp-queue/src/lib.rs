@@ -393,7 +393,6 @@ impl Default for QueueConfigData {
 	fn default() -> Self {
 		// NOTE that these default values are only used on genesis. They should give a rough idea of
 		// what to set these values to, but is in no way a requirement.
-		#![allow(deprecated)]
 		Self {
 			drop_threshold: 48,    // 64KiB * 48 = 3MiB
 			suspend_threshold: 32, // 64KiB * 32 = 2MiB

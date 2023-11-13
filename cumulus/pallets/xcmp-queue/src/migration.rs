@@ -60,7 +60,7 @@ mod v1 {
 	}
 }
 
-mod v2 {
+pub mod v2 {
 	use super::*;
 
 	#[frame_support::storage_alias]
@@ -71,22 +71,17 @@ mod v2 {
 		pub suspend_threshold: u32,
 		pub drop_threshold: u32,
 		pub resume_threshold: u32,
-		#[deprecated(note = "Will be removed")]
 		pub threshold_weight: Weight,
-		#[deprecated(note = "Will be removed")]
 		pub weight_restrict_decay: Weight,
-		#[deprecated(note = "Will be removed")]
 		pub xcmp_max_individual_weight: Weight,
 	}
 
 	impl Default for QueueConfigData {
 		fn default() -> Self {
-			#![allow(deprecated)]
 			Self {
-				drop_threshold: 48,    // 64KiB * 48 = 3MiB
-				suspend_threshold: 32, // 64KiB * 32 = 2MiB
-				resume_threshold: 8,   // 64KiB * 8 = 512KiB
-				// unused:
+				suspend_threshold: 2,
+				drop_threshold: 5,
+				resume_threshold: 1,
 				threshold_weight: Weight::from_parts(100_000, 0),
 				weight_restrict_decay: Weight::from_parts(2, 0),
 				xcmp_max_individual_weight: Weight::from_parts(
@@ -274,15 +269,22 @@ pub mod v4 {
 	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV4<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
-				use sp_std::cmp::max;
+				let pre_default = v2::QueueConfigData::default();
+				// If the previous values are the default ones, let's replace them with the new
+				// default.
+				if pre.suspend_threshold == pre_default.suspend_threshold &&
+					pre.drop_threshold == pre_default.drop_threshold &&
+					pre.resume_threshold == pre_default.resume_threshold
+				{
+					return QueueConfigData::default()
+				}
 
-				let default = QueueConfigData::default();
-				let post = QueueConfigData {
-					suspend_threshold: max(pre.suspend_threshold, default.suspend_threshold),
-					drop_threshold: max(pre.drop_threshold, default.drop_threshold),
-					resume_threshold: max(pre.resume_threshold, default.resume_threshold),
-				};
-				post
+				// If the previous values are not the default ones, let's leave them as they are.
+				QueueConfigData {
+					suspend_threshold: pre.suspend_threshold,
+					drop_threshold: pre.drop_threshold,
+					resume_threshold: pre.resume_threshold,
+				}
 			};
 
 			if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
@@ -309,7 +311,7 @@ pub mod v4 {
 	>;
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "try-runtime", test))]
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
@@ -335,7 +337,10 @@ mod tests {
 				&v1.encode(),
 			);
 
+			let bytes = v2::MigrationToV2::<Test>::pre_upgrade();
+			assert!(bytes.is_ok());
 			v2::MigrationToV2::<Test>::on_runtime_upgrade();
+			assert!(v2::MigrationToV2::<Test>::post_upgrade(bytes.unwrap()).is_ok());
 
 			let v2 = v2::QueueConfig::<Test>::get();
 
@@ -367,7 +372,10 @@ mod tests {
 				&v2.encode(),
 			);
 
+			let bytes = v4::MigrationToV4::<Test>::pre_upgrade();
+			assert!(bytes.is_ok());
 			v4::MigrationToV4::<Test>::on_runtime_upgrade();
+			assert!(v4::MigrationToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
 
 			let v4 = QueueConfig::<Test>::get();
 
@@ -393,7 +401,10 @@ mod tests {
 				&v2.encode(),
 			);
 
+			let bytes = v4::MigrationToV4::<Test>::pre_upgrade();
+			assert!(bytes.is_ok());
 			v4::MigrationToV4::<Test>::on_runtime_upgrade();
+			assert!(v4::MigrationToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
 
 			let v4 = QueueConfig::<Test>::get();
 
