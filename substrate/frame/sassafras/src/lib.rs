@@ -583,13 +583,12 @@ impl<T: Config> Pallet<T> {
 		Self::epoch_start(EpochIndex::<T>::get())
 	}
 
-	// Get the epoch's first slot.
+	/// Get the epoch's first slot.
 	fn epoch_start(epoch_index: u64) -> Slot {
 		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
 							 if u64 is not enough we should crash for safety; qed.";
 
 		let epoch_start = epoch_index.checked_mul(T::EpochLength::get()).expect(PROOF);
-
 		epoch_start.checked_add(*GenesisSlot::<T>::get()).expect(PROOF).into()
 	}
 
@@ -805,7 +804,12 @@ impl<T: Config> Pallet<T> {
 	/// Returns `None` if, according to the sorting strategy, there is no ticket associated to the
 	/// specified slot-index (happend if a ticket falls in the middle of an epoch and n > k),
 	/// or if the slot falls beyond the next epoch.
+	///
+	/// Before importing the first block this returns `None`.
 	pub fn slot_ticket_id(slot: Slot) -> Option<TicketId> {
+		if frame_system::Pallet::<T>::block_number() < One::one() {
+			return None
+		}
 		let epoch_idx = EpochIndex::<T>::get();
 		let epoch_len = T::EpochLength::get();
 		let mut slot_idx = Self::slot_index(slot);

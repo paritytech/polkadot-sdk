@@ -68,17 +68,18 @@ fn slot_ticket_id_outside_in_fetch() {
 			unsorted_tickets_count: 0,
 		});
 
-		// Before initializing `GenesisSlot` value the pallet always return the first slot.
+		// Before importing the first block the pallet always return `None`
 		// This is a kind of special hardcoded case that should never happen in practice
 		// as the first thing the pallet does is to initialize the genesis slot.
 
-		assert_eq!(Sassafras::slot_ticket_id(0.into()), Some(curr_tickets[1]));
-		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 0), Some(curr_tickets[1]));
-		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 1), Some(curr_tickets[1]));
-		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 100), Some(curr_tickets[1]));
+		assert_eq!(Sassafras::slot_ticket_id(0.into()), None);
+		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 0), None);
+		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 1), None);
+		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 100), None);
 
 		// Initialize genesis slot..
 		GenesisSlot::<Test>::set(genesis_slot);
+		frame_system::Pallet::<Test>::set_block_number(One::one());
 
 		// Try to fetch a ticket for a slot before current epoch.
 		assert_eq!(Sassafras::slot_ticket_id(0.into()), None);
