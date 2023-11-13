@@ -238,6 +238,7 @@ pub enum PublicError {
 	FormatNotAllowed,
 	#[cfg_attr(feature = "std", error("Password not allowed."))]
 	PasswordNotAllowed,
+	#[cfg(feature = "std")]
 	#[cfg_attr(feature = "std", error("Incorrect URI syntax {0}."))]
 	MalformedUri(#[from] AddressUriError),
 }
