@@ -471,6 +471,8 @@ impl ExtBuilder {
 				(31, self.balance_factor * 2000),
 				(41, self.balance_factor * 2000),
 				(51, self.balance_factor * 2000),
+				(201, self.balance_factor * 2000),
+				(202, self.balance_factor * 2000),
 				// optional nominator
 				(100, self.balance_factor * 2000),
 				(101, self.balance_factor * 2000),
@@ -498,8 +500,10 @@ impl ExtBuilder {
 				(31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
 				// an idle validator
 				(41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
-			];
-			// optionally add a nominator
+				(51, 51, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(201, 201, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(202, 202, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+			]; // optionally add a nominator
 			if self.nominate {
 				stakers.push((
 					101,
