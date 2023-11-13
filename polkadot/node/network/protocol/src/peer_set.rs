@@ -118,8 +118,15 @@ impl PeerSet {
 	/// Networking layer relies on `get_main_version()` being the version
 	/// of the main protocol name reported by [`PeerSetProtocolNames::get_main_name()`].
 	pub fn get_main_version(self) -> ProtocolVersion {
+		#[cfg(not(feature = "network-protocol-staging"))]
 		match self {
 			PeerSet::Validation => ValidationVersion::V2.into(),
+			PeerSet::Collation => CollationVersion::V2.into(),
+		}
+
+		#[cfg(feature = "network-protocol-staging")]
+		match self {
+			PeerSet::Validation => ValidationVersion::VStaging.into(),
 			PeerSet::Collation => CollationVersion::V2.into(),
 		}
 	}
@@ -147,6 +154,8 @@ impl PeerSet {
 					Some("validation/1")
 				} else if version == ValidationVersion::V2.into() {
 					Some("validation/2")
+				} else if version == ValidationVersion::VStaging.into() {
+					Some("validation/3")
 				} else {
 					None
 				},
@@ -218,6 +227,9 @@ pub enum ValidationVersion {
 	V1 = 1,
 	/// The second version.
 	V2 = 2,
+	/// The staging version to gather changes
+	/// that before the release become v3.
+	VStaging = 3,
 }
 
 /// Supported collation protocol versions. Only versions defined here must be used in the codebase.

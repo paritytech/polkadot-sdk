@@ -48,7 +48,7 @@ sp_api::decl_runtime_apis! {
 
 		fn system_attribute(
 			collection: CollectionId,
-			item: ItemId,
+			item: Option<ItemId>,
 			key: Vec<u8>,
 		) -> Option<Vec<u8>>;
 

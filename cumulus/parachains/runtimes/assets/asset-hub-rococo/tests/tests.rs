@@ -29,14 +29,16 @@ pub use asset_hub_rococo_runtime::{
 	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeFlavor, SessionKeys, System, ToRococoXcmRouterInstance,
-	ToWococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
+	ToWestendXcmRouterInstance, ToWococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
-use asset_test_utils::{CollatorSessionKey, CollatorSessionKeys, ExtBuilder};
+use asset_test_utils::{
+	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder,
+};
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, Contains},
+	traits::fungibles::InspectEnumerable,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
@@ -642,11 +644,43 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	})
 );
 
+fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
+	bridging_configuration: fn() -> TestBridgingConfig,
+) {
+	asset_test_utils::test_cases_over_bridge::limited_reserve_transfer_assets_for_native_asset_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		bridging_configuration,
+		WeightLimit::Unlimited,
+		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
+		Some(xcm_config::TreasuryAccount::get()),
+	)
+}
+
 mod asset_hub_rococo_tests {
 	use super::*;
 
-	fn bridging_to_asset_hub_wococo() -> asset_test_utils::test_cases_over_bridge::TestBridgingConfig
-	{
+	fn bridging_to_asset_hub_wococo() -> TestBridgingConfig {
 		asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
 			bridged_network: bridging::to_wococo::WococoNetwork::get(),
 			local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
@@ -655,34 +689,26 @@ mod asset_hub_rococo_tests {
 		}
 	}
 
+	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
+		asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
+			bridged_network: bridging::to_westend::WestendNetwork::get(),
+			local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
+			local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
+			bridged_target_location: bridging::to_westend::AssetHubWestend::get(),
+		}
+	}
+
 	#[test]
-	fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works() {
-		asset_test_utils::test_cases_over_bridge::limited_reserve_transfer_assets_for_native_asset_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			ParachainSystem,
-			XcmpQueue,
-			LocationToAccountId,
-		>(
-			collator_session_keys(),
-			ExistentialDeposit::get(),
-			AccountId::from(ALICE),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-					_ => None,
-				}
-			}),
+	fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_wococo_works() {
+		limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 			bridging_to_asset_hub_wococo,
-			WeightLimit::Unlimited,
-			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
+		)
+	}
+
+	#[test]
+	fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_westend_works() {
+		limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
+			bridging_to_asset_hub_westend,
 		)
 	}
 
@@ -712,34 +738,41 @@ mod asset_hub_rococo_tests {
 	}
 
 	#[test]
-	fn report_bridge_status_from_xcm_bridge_router_works() {
+	fn receive_reserve_asset_deposited_wnd_from_asset_hub_westend_works() {
+		const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
+		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
+			Runtime,
+			AllPalletsWithoutSystem,
+			XcmConfig,
+			LocationToAccountId,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
+			ExistentialDeposit::get(),
+			AccountId::from([73; 32]),
+			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
+			// receiving WNDs
+			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Westend)) }, 1000000000000, 1_000_000_000),
+			bridging_to_asset_hub_westend,
+			(
+				X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)),
+				GlobalConsensus(Westend),
+				X1(Parachain(1000))
+			)
+		)
+	}
+
+	#[test]
+	fn report_bridge_status_from_xcm_bridge_router_for_wococo_works() {
 		asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
 			Runtime,
 			AllPalletsWithoutSystem,
 			XcmConfig,
-			ParachainSystem,
-			XcmpQueue,
 			LocationToAccountId,
 			ToWococoXcmRouterInstance,
 		>(
 			collator_session_keys(),
-			ExistentialDeposit::get(),
-			AccountId::from(ALICE),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-					_ => None,
-				}
-			}),
 			bridging_to_asset_hub_wococo,
-			WeightLimit::Unlimited,
-			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 			|| {
 				sp_std::vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -782,6 +815,58 @@ mod asset_hub_rococo_tests {
 	}
 
 	#[test]
+	fn report_bridge_status_from_xcm_bridge_router_for_westend_works() {
+		asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+			Runtime,
+			AllPalletsWithoutSystem,
+			XcmConfig,
+			LocationToAccountId,
+			ToWestendXcmRouterInstance,
+		>(
+			collator_session_keys(),
+			bridging_to_asset_hub_westend,
+			|| {
+				sp_std::vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						require_weight_at_most:
+							bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+						call: bp_asset_hub_rococo::Call::ToWestendXcmRouter(
+							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+								bridge_id: Default::default(),
+								is_congested: true,
+							}
+						)
+						.encode()
+						.into(),
+					}
+				]
+				.into()
+			},
+			|| {
+				sp_std::vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						require_weight_at_most:
+							bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+						call: bp_asset_hub_rococo::Call::ToWestendXcmRouter(
+							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+								bridge_id: Default::default(),
+								is_congested: false,
+							}
+						)
+						.encode()
+						.into(),
+					}
+				]
+				.into()
+			},
+		)
+	}
+
+	#[test]
 	fn test_report_bridge_status_call_compatibility() {
 		// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
 		assert_eq!(
@@ -799,14 +884,43 @@ mod asset_hub_rococo_tests {
 				}
 			)
 			.encode()
-		)
+		);
+		assert_eq!(
+			RuntimeCall::ToWestendXcmRouter(
+				pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+					bridge_id: Default::default(),
+					is_congested: true,
+				}
+			)
+			.encode(),
+			bp_asset_hub_rococo::Call::ToWestendXcmRouter(
+				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+					bridge_id: Default::default(),
+					is_congested: true,
+				}
+			)
+			.encode()
+		);
 	}
 
 	#[test]
-	fn check_sane_weight_report_bridge_status() {
+	fn check_sane_weight_report_bridge_status_for_wococo() {
+		use pallet_xcm_bridge_hub_router::WeightInfo;
+		let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance>>::WeightInfo::report_bridge_status();
+		let max_weight = bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
+		assert!(
+			actual.all_lte(max_weight),
+			"max_weight: {:?} should be adjusted to actual {:?}",
+			max_weight,
+			actual
+		);
+	}
+
+	#[test]
+	fn check_sane_weight_report_bridge_status_for_westend() {
 		use pallet_xcm_bridge_hub_router::WeightInfo;
 		let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
-			ToWococoXcmRouterInstance,
+			ToWestendXcmRouterInstance,
 		>>::WeightInfo::report_bridge_status();
 		let max_weight = bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
 		assert!(
@@ -821,9 +935,8 @@ mod asset_hub_rococo_tests {
 mod asset_hub_wococo_tests {
 	use super::*;
 
-	fn bridging_to_asset_hub_rococo() -> asset_test_utils::test_cases_over_bridge::TestBridgingConfig
-	{
-		asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
+	fn bridging_to_asset_hub_rococo() -> TestBridgingConfig {
+		TestBridgingConfig {
 			bridged_network: bridging::to_rococo::RococoNetwork::get(),
 			local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
 			local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
@@ -854,40 +967,15 @@ mod asset_hub_wococo_tests {
 		assert_eq!(flavor, xcm_config::Flavor::get());
 	}
 
-	fn with_wococo_flavor_bridging_to_asset_hub_rococo(
-	) -> asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
+	fn with_wococo_flavor_bridging_to_asset_hub_rococo() -> TestBridgingConfig {
 		set_wococo_flavor();
 		bridging_to_asset_hub_rococo()
 	}
 
 	#[test]
-	fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works() {
-		asset_test_utils::test_cases_over_bridge::limited_reserve_transfer_assets_for_native_asset_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			ParachainSystem,
-			XcmpQueue,
-			LocationToAccountId,
-		>(
-			collator_session_keys(),
-			ExistentialDeposit::get(),
-			AccountId::from(ALICE),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-					_ => None,
-				}
-			}),
+	fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() {
+		limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 			with_wococo_flavor_bridging_to_asset_hub_rococo,
-			WeightLimit::Unlimited,
-			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 		)
 	}
 
@@ -922,29 +1010,11 @@ mod asset_hub_wococo_tests {
 			Runtime,
 			AllPalletsWithoutSystem,
 			XcmConfig,
-			ParachainSystem,
-			XcmpQueue,
 			LocationToAccountId,
 			ToRococoXcmRouterInstance,
 		>(
 			collator_session_keys(),
-			ExistentialDeposit::get(),
-			AccountId::from(ALICE),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-					_ => None,
-				}
-			}),
 			with_wococo_flavor_bridging_to_asset_hub_rococo,
-			WeightLimit::Unlimited,
-			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 			|| {
 				sp_std::vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -1021,113 +1091,6 @@ mod asset_hub_wococo_tests {
 			actual
 		);
 	}
-}
-
-/// Tests expected configuration of isolated `pallet_xcm::Config::XcmReserveTransferFilter`.
-#[test]
-fn xcm_reserve_transfer_filter_works() {
-	// prepare assets
-	let only_native_assets = || vec![MultiAsset::from((TokenLocation::get(), 1000))];
-	let only_trust_backed_assets = || {
-		vec![MultiAsset::from((
-			AssetIdForTrustBackedAssetsConvert::convert_back(&12345).unwrap(),
-			2000,
-		))]
-	};
-	let only_sibling_foreign_assets =
-		|| vec![MultiAsset::from((MultiLocation::new(1, X1(Parachain(12345))), 3000))];
-	let only_different_global_consensus_foreign_assets = || {
-		vec![MultiAsset::from((
-			MultiLocation::new(2, X2(GlobalConsensus(Wococo), Parachain(12345))),
-			4000,
-		))]
-	};
-
-	// prepare destinations
-	let relaychain = MultiLocation::parent();
-	let sibling_parachain = MultiLocation::new(1, X1(Parachain(54321)));
-	let different_global_consensus_parachain_other_than_asset_hub_wococo =
-		MultiLocation::new(2, X2(GlobalConsensus(Kusama), Parachain(12345)));
-	let bridged_asset_hub_wococo = bridging::to_wococo::AssetHubWococo::get();
-	let bridged_asset_hub_rococo = bridging::to_rococo::AssetHubRococo::get();
-
-	// prepare expected test data sets: (destination, assets, expected_result)
-	let test_data = vec![
-		(relaychain, only_native_assets(), true),
-		(relaychain, only_trust_backed_assets(), true),
-		(relaychain, only_sibling_foreign_assets(), true),
-		(relaychain, only_different_global_consensus_foreign_assets(), true),
-		(sibling_parachain, only_native_assets(), true),
-		(sibling_parachain, only_trust_backed_assets(), true),
-		(sibling_parachain, only_sibling_foreign_assets(), true),
-		(sibling_parachain, only_different_global_consensus_foreign_assets(), true),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_native_assets(),
-			false,
-		),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_trust_backed_assets(),
-			false,
-		),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_sibling_foreign_assets(),
-			false,
-		),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_different_global_consensus_foreign_assets(),
-			false,
-		),
-	];
-
-	let additional_test_data_for_rococo_flavor = vec![
-		(bridged_asset_hub_wococo, only_native_assets(), true),
-		(bridged_asset_hub_wococo, only_trust_backed_assets(), false),
-		(bridged_asset_hub_wococo, only_sibling_foreign_assets(), false),
-		(bridged_asset_hub_wococo, only_different_global_consensus_foreign_assets(), false),
-	];
-	let additional_test_data_for_wococo_flavor = vec![
-		(bridged_asset_hub_rococo, only_native_assets(), true),
-		(bridged_asset_hub_rococo, only_trust_backed_assets(), false),
-		(bridged_asset_hub_rococo, only_sibling_foreign_assets(), false),
-		(bridged_asset_hub_rococo, only_different_global_consensus_foreign_assets(), false),
-	];
-
-	// lets test filter with test data
-	ExtBuilder::<Runtime>::default()
-		.with_collators(collator_session_keys().collators())
-		.with_session_keys(collator_session_keys().session_keys())
-		.with_tracing()
-		.build()
-		.execute_with(|| {
-			type XcmReserveTransferFilter =
-				<Runtime as pallet_xcm::Config>::XcmReserveTransferFilter;
-
-			fn do_test(data: Vec<(MultiLocation, Vec<MultiAsset>, bool)>) {
-				for (dest, assets, expected_result) in data {
-					assert_eq!(
-						expected_result,
-						XcmReserveTransferFilter::contains(&(dest, assets.clone())),
-						"expected_result: {} for dest: {:?} and assets: {:?}",
-						expected_result,
-						dest,
-						assets
-					);
-				}
-			}
-
-			// check for Rococo flavor
-			do_test(test_data.clone());
-			do_test(additional_test_data_for_rococo_flavor);
-
-			// check for Wococo flavor
-			asset_hub_wococo_tests::set_wococo_flavor();
-			do_test(test_data);
-			do_test(additional_test_data_for_wococo_flavor);
-		})
 }
 
 #[test]
