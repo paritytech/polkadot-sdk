@@ -80,6 +80,15 @@ use scale_info::TypeInfo;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::format;
 
+/// Private exports that are being used by macros.
+///
+/// The exports are not stable and should not be relied on.
+#[doc(hidden)]
+pub mod __private {
+	pub use sp_io;
+	pub use sp_std;
+}
+
 pub mod curve;
 pub mod generic;
 pub mod legacy;

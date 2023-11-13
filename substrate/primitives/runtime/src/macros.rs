@@ -44,7 +44,7 @@ macro_rules! ensure {
 /// # Example
 ///
 /// ```
-/// frame_support::runtime_print!("my value is {}", 3);
+/// sp_runtime::runtime_print!("my value is {}", 3);
 /// ```
 #[macro_export]
 macro_rules! runtime_print {
@@ -57,3 +57,106 @@ macro_rules! runtime_print {
 		}
 	}
 }
+
+/// Derive [`Clone`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use sp_runtime::CloneNoBound;
+/// trait Config {
+/// 		type C: Clone;
+/// }
+///
+/// // Foo implements [`Clone`] because `C` bounds [`Clone`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Clone`].
+/// #[derive(CloneNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use sp_runtime_procedural::CloneNoBound;
+
+/// Derive [`Eq`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use sp_runtime::{EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: Eq;
+/// }
+///
+/// // Foo implements [`Eq`] because `C` bounds [`Eq`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Eq`].
+/// #[derive(PartialEqNoBound, EqNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use sp_runtime_procedural::EqNoBound;
+
+/// Derive [`PartialEq`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use sp_runtime::PartialEqNoBound;
+/// trait Config {
+/// 		type C: PartialEq;
+/// }
+///
+/// // Foo implements [`PartialEq`] because `C` bounds [`PartialEq`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialEq`].
+/// #[derive(PartialEqNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use sp_runtime_procedural::PartialEqNoBound;
+
+/// Derive [`Debug`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use sp_runtime::DebugNoBound;
+/// # use core::fmt::Debug;
+/// trait Config {
+/// 		type C: Debug;
+/// }
+///
+/// // Foo implements [`Debug`] because `C` bounds [`Debug`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Debug`].
+/// #[derive(DebugNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use sp_runtime_procedural::DebugNoBound;
+
+/// Derive [`Default`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use sp_runtime::DefaultNoBound;
+/// # use core::default::Default;
+/// trait Config {
+/// 	type C: Default;
+/// }
+///
+/// // Foo implements [`Default`] because `C` bounds [`Default`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Default`].
+/// #[derive(DefaultNoBound)]
+/// struct Foo<T: Config> {
+/// 	c: T::C,
+/// }
+///
+/// // Also works with enums, by specifying the default with #[default]:
+/// #[derive(DefaultNoBound)]
+/// enum Bar<T: Config> {
+/// 	// Bar will implement Default as long as all of the types within Baz also implement default.
+/// 	#[default]
+/// 	Baz(T::C),
+/// 	Quxx,
+/// }
+/// ```
+pub use sp_runtime_procedural::DefaultNoBound;
+
+pub use sp_runtime_procedural::RuntimeDebugNoBound;

@@ -17866,6 +17866,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
+ "sp-runtime-procedural",
  "sp-state-machine",
  "sp-std 8.0.0",
  "sp-tracing 10.0.0",
@@ -17974,6 +17975,15 @@ dependencies = [
  "sp-io",
  "sp-runtime-interface 17.0.0",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "sp-runtime-procedural"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
 ]
 
 [[package]]
