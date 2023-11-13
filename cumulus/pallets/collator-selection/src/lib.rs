@@ -681,7 +681,7 @@ pub mod pallet {
 						.unwrap_or_else(|| candidates.len());
 					candidates
 						.try_insert(new_pos, info)
-						.expect("candidate count previously decremented; qed");
+						.map_err(|_| Error::<T>::InsertToCandidateListFailed)?;
 
 					Ok(candidate_count)
 				})?;
