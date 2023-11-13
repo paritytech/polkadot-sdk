@@ -435,7 +435,12 @@ where
 		follow_subscription: String,
 		hash: HashOrHashes<Block::Hash>,
 	) -> RpcResult<()> {
-		match self.subscriptions.unpin_block(&follow_subscription, hash) {
+		let hashes = match hash {
+			HashOrHashes::Hash(hash) => vec![hash],
+			HashOrHashes::List(hashes) => hashes,
+		};
+
+		match self.subscriptions.unpin_blocks(&follow_subscription, hashes) {
 			Ok(()) => Ok(()),
 			Err(SubscriptionManagementError::SubscriptionAbsent) => {
 				// Invalid invalid subscription ID.

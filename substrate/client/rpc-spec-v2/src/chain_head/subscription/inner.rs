@@ -27,7 +27,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use crate::chain_head::{subscription::SubscriptionManagementError, FollowEvent, HashOrHashes};
+use crate::chain_head::{subscription::SubscriptionManagementError, FollowEvent};
 
 /// The queue size after which the `sc_utils::mpsc::tracing_unbounded` would produce warnings.
 const QUEUE_SIZE_WARNING: usize = 512;
@@ -750,19 +750,14 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		}
 	}
 
-	pub fn unpin_block(
+	pub fn unpin_blocks(
 		&mut self,
 		sub_id: &str,
-		hash: HashOrHashes<Block::Hash>,
+		hashes: Vec<Block::Hash>,
 	) -> Result<(), SubscriptionManagementError> {
 		// Check if the subscription ID is valid or not.
 		if self.subs.get(sub_id).is_none() {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
-		};
-
-		let hashes = match hash {
-			HashOrHashes::Hash(hash) => vec![hash],
-			HashOrHashes::List(hashes) => hashes,
 		};
 
 		// Ensure that all blocks are part of the subscription.

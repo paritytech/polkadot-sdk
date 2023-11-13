@@ -111,10 +111,12 @@ pub trait ChainHeadApi<Hash> {
 		call_parameters: String,
 	) -> RpcResult<MethodResponse>;
 
-	/// Unpin a block reported by the `follow` method.
+	/// Unpin a block or multiple blocks reported by the `follow` method.
 	///
 	/// Ongoing operations that require the provided block
 	/// will continue normally.
+	///
+	/// When this method returns an error, it is guaranteed that no blocks have been unpinned.
 	///
 	/// # Unstable
 	///
