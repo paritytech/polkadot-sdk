@@ -1398,15 +1398,6 @@
 <a href="#1398" id="1398">1398</a>
 <a href="#1399" id="1399">1399</a>
 <a href="#1400" id="1400">1400</a>
-<a href="#1401" id="1401">1401</a>
-<a href="#1402" id="1402">1402</a>
-<a href="#1403" id="1403">1403</a>
-<a href="#1404" id="1404">1404</a>
-<a href="#1405" id="1405">1405</a>
-<a href="#1406" id="1406">1406</a>
-<a href="#1407" id="1407">1407</a>
-<a href="#1408" id="1408">1408</a>
-<a href="#1409" id="1409">1409</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1434,10 +1425,7 @@
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
-	chain_sync::{
-		BlockRequestAction, ChainSync, ImportBlocksAction, ImportJustificationsAction,
-		OnBlockResponse, OnStateResponse,
-	},
+	chain_sync::{ChainSync, ChainSyncAction},
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
 	service::{
@@ -1467,7 +1455,7 @@
 <span class="kw">use </span>tokio::time::{Interval, MissedTickBehavior};
 
 <span class="kw">use </span>sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
-<span class="kw">use </span>sc_consensus::import_queue::ImportQueueService;
+<span class="kw">use </span>sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 <span class="kw">use </span>sc_network::{
 	config::{
 		FullNetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
@@ -1483,8 +1471,11 @@
 };
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, HeaderMetadata};
-<span class="kw">use </span>sp_consensus::block_validation::BlockAnnounceValidator;
-<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header, NumberFor, Zero};
+<span class="kw">use </span>sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
+<span class="kw">use </span>sp_runtime::{
+	traits::{Block <span class="kw">as </span>BlockT, Header, NumberFor, Zero},
+	Justifications,
+};
 
 <span class="kw">use </span>std::{
 	collections::{HashMap, HashSet},
@@ -2122,9 +2113,65 @@
 			<span class="self">self</span>.is_major_syncing
 				.store(<span class="self">self</span>.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
 
+			<span class="comment">// Process actions requested by `ChainSync` during `select!`.
+			</span><span class="self">self</span>.process_chain_sync_actions();
+
 			<span class="comment">// Send outbound requests on `ChanSync`&#39;s behalf.
 			</span><span class="self">self</span>.send_chain_sync_requests();
 		}
+	}
+
+	<span class="kw">fn </span>process_chain_sync_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="self">self</span>.chain_sync.take_actions().for_each(|action| <span class="kw">match </span>action {
+			ChainSyncAction::SendBlockRequest { peer_id, request } =&gt; {
+				<span class="comment">// Sending block request implies dropping obsolete pending response as we are not
+				// interested in it anymore (see [`ChainSyncAction::SendBlockRequest`]).
+				// Furthermore, only one request at a time is allowed to any peer.
+				</span><span class="kw">let </span>removed = <span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+				<span class="self">self</span>.send_block_request(peer_id, request.clone());
+
+				<span class="macro">trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {} with {:?}, stale response removed: {}.&quot;</span>,
+					peer_id,
+					request,
+					removed,
+				)
+			},
+			ChainSyncAction::CancelBlockRequest { peer_id } =&gt; {
+				<span class="kw">let </span>removed = <span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Processed {action:?}., response removed: {removed}.&quot;</span>);
+			},
+			ChainSyncAction::DropPeer(BadPeer(peer_id, rep)) =&gt; {
+				<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+				<span class="self">self</span>.network_service
+					.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
+				<span class="self">self</span>.network_service.report_peer(peer_id, rep);
+
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Processed {action:?}.&quot;</span>);
+			},
+			ChainSyncAction::ImportBlocks { origin, blocks } =&gt; {
+				<span class="kw">let </span>count = blocks.len();
+				<span class="self">self</span>.import_blocks(origin, blocks);
+
+				<span class="macro">trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Processed `ChainSyncAction::ImportBlocks` with {count} blocks.&quot;</span>,
+				);
+			},
+			ChainSyncAction::ImportJustifications { peer_id, hash, number, justifications } =&gt; {
+				<span class="self">self</span>.import_justifications(peer_id, hash, number, justifications);
+
+				<span class="macro">trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Processed `ChainSyncAction::ImportJustifications` from peer {} for block {} ({}).&quot;</span>,
+					peer_id,
+					hash,
+					number,
+				)
+			},
+		});
 	}
 
 	<span class="kw">fn </span>perform_periodic_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -2175,28 +2222,7 @@
 			ToServiceCommand::ClearJustificationRequests =&gt;
 				<span class="self">self</span>.chain_sync.clear_justification_requests(),
 			ToServiceCommand::BlocksProcessed(imported, count, results) =&gt; {
-				<span class="kw">for </span>result <span class="kw">in </span><span class="self">self</span>.chain_sync.on_blocks_processed(imported, count, results) {
-					<span class="kw">match </span>result {
-						<span class="prelude-val">Ok</span>(action) =&gt; <span class="kw">match </span>action {
-							BlockRequestAction::SendRequest { peer_id, request } =&gt; {
-								<span class="comment">// drop obsolete pending response first
-								</span><span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
-								<span class="self">self</span>.send_block_request(peer_id, request);
-							},
-							BlockRequestAction::RemoveStale { peer_id } =&gt; {
-								<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
-							},
-						},
-						<span class="prelude-val">Err</span>(BadPeer(peer_id, repu)) =&gt; {
-							<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
-							<span class="self">self</span>.network_service.disconnect_peer(
-								peer_id,
-								<span class="self">self</span>.block_announce_protocol_name.clone(),
-							);
-							<span class="self">self</span>.network_service.report_peer(peer_id, repu)
-						},
-					}
-				}
+				<span class="self">self</span>.chain_sync.on_blocks_processed(imported, count, results);
 			},
 			ToServiceCommand::JustificationImported(peer_id, hash, number, success) =&gt; {
 				<span class="self">self</span>.chain_sync.on_justification_import(hash, number, success);
@@ -2349,9 +2375,7 @@
 				}
 			}
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(import_blocks_action) = <span class="self">self</span>.chain_sync.peer_disconnected(<span class="kw-2">&amp;</span>peer_id) {
-				<span class="self">self</span>.import_blocks(import_blocks_action)
-			}
+			<span class="self">self</span>.chain_sync.peer_disconnected(<span class="kw-2">&amp;</span>peer_id);
 
 			<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
 			<span class="self">self</span>.event_streams.retain(|stream| {
@@ -2462,17 +2486,7 @@
 			inbound,
 		};
 
-		<span class="kw">let </span>req = <span class="kw">if </span>peer.info.roles.is_full() {
-			<span class="kw">match </span><span class="self">self</span>.chain_sync.new_peer(peer_id, peer.info.best_hash, peer.info.best_number) {
-				<span class="prelude-val">Ok</span>(req) =&gt; req,
-				<span class="prelude-val">Err</span>(BadPeer(id, repu)) =&gt; {
-					<span class="self">self</span>.network_service.report_peer(id, repu);
-					<span class="kw">return </span><span class="prelude-val">Err</span>(())
-				},
-			}
-		} <span class="kw">else </span>{
-			<span class="prelude-val">None
-		</span>};
+		<span class="self">self</span>.chain_sync.new_peer(peer_id, peer.info.best_hash, peer.info.best_number);
 
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Connected {peer_id}&quot;</span>);
 
@@ -2482,10 +2496,6 @@
 			<span class="self">self</span>.default_peers_set_no_slot_connected_peers.insert(peer_id);
 		} <span class="kw">else if </span>inbound &amp;&amp; status.roles.is_full() {
 			<span class="self">self</span>.num_in_peers += <span class="number">1</span>;
-		}
-
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(req) = req {
-			<span class="self">self</span>.send_block_request(peer_id, req);
 		}
 
 		<span class="self">self</span>.event_streams
@@ -2611,22 +2621,7 @@
 				PeerRequest::Block(req) =&gt; {
 					<span class="kw">match </span><span class="self">self</span>.block_downloader.block_response_into_blocks(<span class="kw-2">&amp;</span>req, resp) {
 						<span class="prelude-val">Ok</span>(blocks) =&gt; {
-							<span class="kw">match </span><span class="self">self</span>.chain_sync.on_block_response(peer_id, req, blocks) {
-								OnBlockResponse::SendBlockRequest { peer_id, request } =&gt;
-									<span class="self">self</span>.send_block_request(peer_id, request),
-								OnBlockResponse::ImportBlocks(import_blocks_action) =&gt;
-									<span class="self">self</span>.import_blocks(import_blocks_action),
-								OnBlockResponse::ImportJustifications(action) =&gt;
-									<span class="self">self</span>.import_justifications(action),
-								OnBlockResponse::Nothing =&gt; {},
-								OnBlockResponse::DisconnectPeer(BadPeer(peer_id, rep)) =&gt; {
-									<span class="self">self</span>.network_service.disconnect_peer(
-										peer_id,
-										<span class="self">self</span>.block_announce_protocol_name.clone(),
-									);
-									<span class="self">self</span>.network_service.report_peer(peer_id, rep);
-								},
-							}
+							<span class="self">self</span>.chain_sync.on_block_response(peer_id, req, blocks);
 						},
 						<span class="prelude-val">Err</span>(BlockResponseError::DecodeFailed(e)) =&gt; {
 							<span class="macro">debug!</span>(
@@ -2671,27 +2666,10 @@
 						</span>},
 					};
 
-					<span class="kw">match </span><span class="self">self</span>.chain_sync.on_state_response(peer_id, response) {
-						OnStateResponse::ImportBlocks(import_blocks_action) =&gt;
-							<span class="self">self</span>.import_blocks(import_blocks_action),
-						OnStateResponse::DisconnectPeer(BadPeer(peer_id, rep)) =&gt; {
-							<span class="self">self</span>.network_service.disconnect_peer(
-								peer_id,
-								<span class="self">self</span>.block_announce_protocol_name.clone(),
-							);
-							<span class="self">self</span>.network_service.report_peer(peer_id, rep);
-						},
-						OnStateResponse::Nothing =&gt; {},
-					}
+					<span class="self">self</span>.chain_sync.on_state_response(peer_id, response);
 				},
 				PeerRequest::WarpProof =&gt; {
-					<span class="kw">if let </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep)) =
-						<span class="self">self</span>.chain_sync.on_warp_sync_response(<span class="kw-2">&amp;</span>peer_id, EncodedProof(resp))
-					{
-						<span class="self">self</span>.network_service
-							.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
-						<span class="self">self</span>.network_service.report_peer(peer_id, rep);
-					}
+					<span class="self">self</span>.chain_sync.on_warp_sync_response(<span class="kw-2">&amp;</span>peer_id, EncodedProof(resp));
 				},
 			},
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
@@ -2797,7 +2775,7 @@
 	}
 
 	<span class="doccomment">/// Import blocks.
-	</span><span class="kw">fn </span>import_blocks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ImportBlocksAction { origin, blocks }: ImportBlocksAction&lt;B&gt;) {
+	</span><span class="kw">fn </span>import_blocks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, origin: BlockOrigin, blocks: Vec&lt;IncomingBlock&lt;B&gt;&gt;) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics.import_queue_blocks_submitted.inc();
 		}
@@ -2806,12 +2784,16 @@
 	}
 
 	<span class="doccomment">/// Import justifications.
-	</span><span class="kw">fn </span>import_justifications(<span class="kw-2">&amp;mut </span><span class="self">self</span>, action: ImportJustificationsAction&lt;B&gt;) {
+	</span><span class="kw">fn </span>import_justifications(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer_id: PeerId,
+		hash: B::Hash,
+		number: NumberFor&lt;B&gt;,
+		justifications: Justifications,
+	) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics.import_queue_justifications_submitted.inc();
 		}
-
-		<span class="kw">let </span>ImportJustificationsAction { peer_id, hash, number, justifications } = action;
 
 		<span class="self">self</span>.import_queue.import_justifications(peer_id, hash, number, justifications);
 	}
