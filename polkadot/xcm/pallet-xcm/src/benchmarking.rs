@@ -190,6 +190,33 @@ benchmarks! {
 		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
 
+	new_query {
+		let responder = MultiLocation::from(Parent);
+		let timeout = 1u32.into();
+		let match_querier = MultiLocation::from(Here);
+	}: {
+		Pallet::<T>::new_query(responder, timeout, match_querier);
+	}
+
+	take_response {
+		let responder = MultiLocation::from(Parent);
+		let timeout = 1u32.into();
+		let match_querier = MultiLocation::from(Here);
+		let query_id = Pallet::<T>::new_query(responder, timeout, match_querier);
+		let infos = (0 .. xcm::v3::MaxPalletsInfo::get()).map(|_| PalletInfo::new(
+			u32::MAX,
+			(0..xcm::v3::MaxPalletNameLen::get()).map(|_| 97u8).collect::<Vec<_>>().try_into().unwrap(),
+			(0..xcm::v3::MaxPalletNameLen::get()).map(|_| 97u8).collect::<Vec<_>>().try_into().unwrap(),
+			u32::MAX,
+			u32::MAX,
+			u32::MAX,
+		).unwrap()).collect::<Vec<_>>();
+		Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
+
+	}: {
+		<Pallet::<T> as QueryHandler>::take_response(query_id);
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext_with_balances(Vec::new()),
