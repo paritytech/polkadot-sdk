@@ -18,7 +18,7 @@
 
 pub use crate::{
 	host::{EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME},
-	worker_intf::{spawn_with_program_path, SpawnErr},
+	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
 use crate::get_worker_version;
@@ -36,7 +36,7 @@ pub fn validate_candidate(
 	code: &[u8],
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-	use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
+	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 	use polkadot_node_core_pvf_execute_worker::execute_artifact;
 
 	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)

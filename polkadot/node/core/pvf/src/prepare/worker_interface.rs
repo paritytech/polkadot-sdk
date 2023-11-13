@@ -19,7 +19,7 @@
 use crate::{
 	metrics::Metrics,
 	security,
-	worker_intf::{
+	worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
 		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 	},
