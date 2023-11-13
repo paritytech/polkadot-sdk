@@ -53,6 +53,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::{EventRecord, Phase};
+use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_primitives::CodeUploadReturnValue;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
@@ -553,29 +554,6 @@ impl ExtBuilder {
 		});
 		ext
 	}
-}
-
-/// Load a given wasm module represented by a .wat file and returns a wasm binary contents along
-/// with it's hash.
-///
-/// The fixture files are located under the `fixtures/` directory.
-fn compile_module<T>(fixture_name: &str) -> wat::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
-where
-	T: frame_system::Config,
-{
-	let fixture_path = [
-		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR")
-			.as_deref()
-			.unwrap_or("substrate/frame/contracts"),
-		"/fixtures/",
-		fixture_name,
-		".wat",
-	]
-	.concat();
-	let wasm_binary = wat::parse_file(fixture_path)?;
-	let code_hash = T::Hashing::hash(&wasm_binary);
-	Ok((wasm_binary, code_hash))
 }
 
 fn initialize_block(number: u64) {
