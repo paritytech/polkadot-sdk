@@ -43,12 +43,7 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
-	type OnSetCode = ();
 	type MultiBlockMigrator = Migrations;
 }
 

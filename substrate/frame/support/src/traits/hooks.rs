@@ -75,8 +75,8 @@ impl PostTransactions for Tuple {
 	}
 }
 
-/// Periodically executes logic. Is not guaranteed to run within a specific timeframe and should only
-/// be used on logic that has no deadline.
+/// Periodically executes logic. Is not guaranteed to run within a specific timeframe and should
+/// only be used on logic that has no deadline.
 pub trait OnPoll<BlockNumber> {
 	/// Code to execute every now and then at the beginning of the block after inherent application.
 	///

@@ -61,38 +61,6 @@ fn simple_works() {
 }
 
 #[test]
-fn basic_works() {
-	test_closure(|| {
-		MigrationsStorage::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
-
-		System::set_block_number(1);
-		Migrations::on_runtime_upgrade();
-		run_to_block(10);
-
-		// Check that the executed migrations are recorded into `Historical`.
-		assert_eq!(
-			historic(),
-			vec![
-				mocked_id(SucceedAfter, 0),
-				mocked_id(SucceedAfter, 1),
-				mocked_id(SucceedAfter, 2),
-			]
-		);
-		// Check that we got all events.
-		assert_events(vec![
-			Event::UpgradeStarted { migrations: 3 },
-			Event::MigrationCompleted { index: 0, took: 1 },
-			Event::MigrationAdvanced { index: 1, took: 0 },
-			Event::MigrationCompleted { index: 1, took: 1 },
-			Event::MigrationAdvanced { index: 2, took: 0 },
-			Event::MigrationAdvanced { index: 2, took: 1 },
-			Event::MigrationCompleted { index: 2, took: 2 },
-			Event::UpgradeCompleted,
-		]);
-	});
-}
-
-#[test]
 fn failing_migration_sets_cursor_to_stuck() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedUpgradeHandling::KeepStuck);

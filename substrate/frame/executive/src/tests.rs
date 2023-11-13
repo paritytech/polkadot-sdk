@@ -31,12 +31,11 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	derive_impl,
-	assert_err, assert_ok,
+	assert_err, assert_ok, derive_impl,
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
+	traits::{fungible, ConstU8, Currency},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgradeInfo};
@@ -316,21 +315,11 @@ impl frame_system::Config for Runtime {
 }
 
 type Balance = u64;
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
-	type MaxHolds = ConstU32<1>;
 }
 
 parameter_types! {
