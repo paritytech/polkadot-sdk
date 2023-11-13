@@ -1,6 +1,6 @@
 name: Command Bot
 
-on: 
+on:
   workflow_dispatch:
     inputs:
       use_self_hosted:
@@ -13,22 +13,42 @@ on:
       script_path:
         description: 'Path to the command bot script to run'
         required: true
+      scripts_branch:
+        description: 'Branch to checkout scripts from'
+        default: 'main'
+
+env:
+  PIPELINE_SCRIPTS_DIR: ${{ github.workspace }}/command-bot-scripts
+  PIPELINE_SCRIPTS_REF: ${{ github.event.inputs.scripts_branch }}
+  ARTIFACTS_DIR: ${{ github.workspace }}/.git/.artifacts
 
 jobs:
-  build:
+  command_bot_job:
     runs-on: ${{ (github.event.inputs.use_self_hosted == 'true' && 'parity-gha-runner') || 'ubuntu-latest' }}
     container:
       image: ${{ github.event.inputs.image_name }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout scripts
+        uses: actions/checkout@v3
+        with:
+          repository: paritytech/command-bot-scripts
+          ref: ${{ env.PIPELINE_SCRIPTS_REF }}
+          path: ${{ env.PIPELINE_SCRIPTS_DIR }}
 
       - name: Run Script
-        run: |
-          echo "Running on ${RUNNER_LABELS}"
-          echo "Using image ${IMAGE_NAME}"
-          bash ${{ github.event.inputs.script_path }}
         env:
           RUNNER_LABELS: ${{ runner.labels }}
           IMAGE_NAME: ${{ github.event.inputs.image_name }}
+          SCRIPTS_PATH: ${{ github.event.inputs.script_path }}
+        run: |
+          echo "Running on ${RUNNER_LABELS}"
+          echo "Using image ${IMAGE_NAME}"
+          echo "Scripts path: ${{ env.SCRIPTS_PATH }}"
+          bash ${{ github.event.inputs.script_path }}
+          
