@@ -687,8 +687,8 @@ fn submit_tickets_with_ring_proof_check_works() {
 			TicketsMeta::<Test>::get(),
 			TicketsMetadata { unsorted_tickets_count: 10, tickets_count: [0, 0] },
 		);
-		assert_eq!(NextTicketsSegments::<Test>::get(0).len(), 10);
-		assert_eq!(NextTicketsSegments::<Test>::get(1).len(), 0);
+		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 10);
+		assert_eq!(UnsortedSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);
 	})

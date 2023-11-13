@@ -250,11 +250,15 @@ pub mod pallet {
 	/// received via the `submit_tickets` extrinsic.
 	///
 	/// Each segment has max length [`SEGMENT_MAX_SIZE`].
-	///
-	/// Special `u32::MAX` key is reserved for the most recently sorted segment.
 	#[pallet::storage]
-	pub type NextTicketsSegments<T: Config> =
+	pub type UnsortedSegments<T: Config> =
 		StorageMap<_, Identity, u32, BoundedVec<TicketId, ConstU32<SEGMENT_MAX_SIZE>>, ValueQuery>;
+
+	/// The most recently set of tickets which are candidates to become the next
+	/// epoch tickets.
+	#[pallet::storage]
+	pub type SortedCandidates<T> =
+		StorageValue<_, BoundedVec<TicketId, MaxTicketsFor<T>>, ValueQuery>;
 
 	/// Parameters used to construct the epoch's ring verifier.
 	///
@@ -861,61 +865,65 @@ impl<T: Config> Pallet<T> {
 	// Tickets are fetched from at most `max_segments` segments.
 	//
 	// The resulting sorted vector is optionally truncated to contain at most `MaxTickets`
-	// entries. If all the segments were consumed then the sorted vector is saved as the
-	// next epoch tickets, else it is saved to be used by next calls to this function.
+	// entries. If all the unsorted segments are consumed then the sorted vector is
+	// saved as the next epoch tickets, else it is saved to be used by next calls to
+	// this function.
 	pub(crate) fn sort_tickets(max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
-		let mut segments_count = metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
-		let max_segments = max_segments.min(segments_count);
+		let mut unsorted_segments_count =
+			metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
+		let max_segments = max_segments.min(unsorted_segments_count);
 		let max_tickets = MaxTicketsFor::<T>::get() as usize;
 
-		// Fetch the sorted result (if any).
-		let mut sorted_segment = NextTicketsSegments::<T>::take(u32::MAX).into_inner();
+		// Fetch the sorted candidates (if any).
+		let mut sorted_candidates = SortedCandidates::<T>::take().into_inner();
 
 		let mut require_sort = max_segments != 0;
 
 		// There is an upper bound to check only if we already sorted the max number
 		// of allowed tickets.
-		let mut upper_bound = *sorted_segment.get(max_tickets).unwrap_or(&TicketId::MAX);
+		let mut upper_bound = *sorted_candidates.get(max_tickets).unwrap_or(&TicketId::MAX);
 
 		// Consume at most `max_iter` segments.
 		// During the process remove every stale ticket from `TicketsData` storage.
 		for _ in 0..max_segments {
-			segments_count -= 1;
-			let segment = NextTicketsSegments::<T>::take(segments_count);
+			unsorted_segments_count -= 1;
+			let segment = UnsortedSegments::<T>::take(unsorted_segments_count);
 			metadata.unsorted_tickets_count -= segment.len() as u32;
 
-			// Merge only elements below the current sorted segment sup.
-			segment.iter().for_each(|id| {
-				if id < &upper_bound {
-					sorted_segment.push(*id);
+			// Push only ids with value below the current sorted segment max value.
+			segment.into_iter().for_each(|id| {
+				if id < upper_bound {
+					sorted_candidates.push(id);
 				} else {
 					TicketsData::<T>::remove(id);
 				}
 			});
 
-			if sorted_segment.len() > max_tickets {
+			if sorted_candidates.len() > max_tickets {
 				// Sort, truncate good tickets, cleanup storage.
 				require_sort = false;
-				sorted_segment.sort_unstable();
-				sorted_segment[max_tickets..].iter().for_each(|id| TicketsData::<T>::remove(id));
-				sorted_segment.truncate(max_tickets);
-				upper_bound = sorted_segment[max_tickets - 1];
+				sorted_candidates.sort_unstable();
+				sorted_candidates[max_tickets..]
+					.iter()
+					.for_each(|id| TicketsData::<T>::remove(id));
+				sorted_candidates.truncate(max_tickets);
+				upper_bound = sorted_candidates[max_tickets - 1];
 			}
 		}
 
 		if require_sort {
-			sorted_segment.sort_unstable();
+			sorted_candidates.sort_unstable();
 		}
 
 		if metadata.unsorted_tickets_count == 0 {
 			// Sorting is over, write to next epoch map.
-			sorted_segment.iter().enumerate().for_each(|(i, id)| {
+			sorted_candidates.iter().enumerate().for_each(|(i, id)| {
 				TicketsIds::<T>::insert((epoch_tag, i as u32), id);
 			});
-			metadata.tickets_count[epoch_tag as usize] = sorted_segment.len() as u32;
+			metadata.tickets_count[epoch_tag as usize] = sorted_candidates.len() as u32;
 		} else {
 			// Keep the partial result for next calls.
-			NextTicketsSegments::<T>::insert(u32::MAX, BoundedVec::truncate_from(sorted_segment));
+			SortedCandidates::<T>::set(BoundedVec::truncate_from(sorted_candidates));
 		}
 	}
 
@@ -932,10 +940,10 @@ impl<T: Config> Pallet<T> {
 			let rem = metadata.unsorted_tickets_count % SEGMENT_MAX_SIZE;
 			let todo = tickets.len().min((SEGMENT_MAX_SIZE - rem) as usize);
 
-			let mut segment = NextTicketsSegments::<T>::get(segment_idx).into_inner();
+			let mut segment = UnsortedSegments::<T>::get(segment_idx).into_inner();
 			segment.extend_from_slice(&tickets[..todo]);
 			let segment = BoundedVec::truncate_from(segment);
-			NextTicketsSegments::<T>::insert(segment_idx, segment);
+			UnsortedSegments::<T>::insert(segment_idx, segment);
 
 			metadata.unsorted_tickets_count += todo as u32;
 			segment_idx += 1;
@@ -970,15 +978,17 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		// Remove all outstanding tickets segments.
+		// Remove all unsorted tickets segments.
 		let segments_count = tickets_metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
 		(0..segments_count).into_iter().for_each(|i| {
-			NextTicketsSegments::<T>::remove(i);
+			UnsortedSegments::<T>::remove(i);
 		});
-		NextTicketsSegments::<T>::remove(u32::MAX);
+
+		// Reset sorted candidates
+		SortedCandidates::<T>::kill();
 
 		// Reset tickets metadata
-		TicketsMeta::<T>::set(Default::default());
+		TicketsMeta::<T>::kill();
 	}
 
 	/// Submit next epoch validator tickets via an unsigned extrinsic constructed with a call to

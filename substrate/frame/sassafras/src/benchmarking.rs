@@ -130,7 +130,7 @@ mod benchmarks {
 				})
 				.collect();
 			let segment = BoundedVec::truncate_from(segment);
-			NextTicketsSegments::<T>::insert(chunk_id as u32, segment);
+			UnsortedSegments::<T>::insert(chunk_id as u32, segment);
 		}
 
 		// Update metadata
