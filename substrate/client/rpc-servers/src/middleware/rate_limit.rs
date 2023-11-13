@@ -1,6 +1,6 @@
 use jsonrpsee::{
 	core::async_trait,
-	server::middleware::rpc::{RpcServiceT, TransportProtocol},
+	server::middleware::rpc::RpcServiceT,
 	types::{ErrorObject, Request},
 	MethodResponse,
 };
@@ -87,7 +87,7 @@ impl<'a, S> RpcServiceT<'a> for RateLimit<S>
 where
 	S: Send + Sync + RpcServiceT<'a>,
 {
-	async fn call(&self, req: Request<'a>, t: TransportProtocol) -> MethodResponse {
+	async fn call(&self, req: Request<'a>) -> MethodResponse {
 		let now = Instant::now();
 
 		let is_denied = {
@@ -126,7 +126,7 @@ where
 				),
 			)
 		} else {
-			self.service.call(req, t).await
+			self.service.call(req).await
 		}
 	}
 }

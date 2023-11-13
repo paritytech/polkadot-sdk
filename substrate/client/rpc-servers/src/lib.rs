@@ -95,7 +95,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		max_payload_out_mb,
 		max_connections,
 		max_subs_per_conn,
-		mut metrics,
+		metrics,
 		message_buffer_capacity,
 		id_provider,
 		tokio_handle,
@@ -106,18 +106,12 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
-	let metrics = metrics.take().map(|m| MetricsLayer::new(m));
-	let rate_limit =
-		rate_limit.map(|r| RateLimitLayer::new(r as u64, std::time::Duration::from_secs(60)));
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
 		// Proxy `GET /health` requests to internal `system_health` method.
 		.layer(ProxyGetRequestLayer::new("/health", "system_health")?)
 		.layer(try_into_cors(cors)?);
-
-	let metrics2 = metrics.clone();
-	let rpc_middleware = RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics2);
 
 	let mut builder = jsonrpsee::server::Server::builder()
 		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
@@ -127,7 +121,6 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.ping_interval(PingConfig::WithoutInactivityCheck(Duration::from_secs(30)))
 		.unwrap()
 		.set_http_middleware(http_middleware)
-		.set_rpc_middleware(rpc_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
 		.custom_tokio_runtime(tokio_handle);
 
@@ -159,8 +152,18 @@ pub async fn start_server<M: Send + Sync + 'static>(
 
 			Ok::<_, Infallible>(service_fn(move |req| {
 				let metrics = metrics.clone();
+				let svc_builder = svc_builder.clone();
 				let is_websocket = ws::is_upgrade_request(&req);
-				let mut svc = svc_builder.build(methods.clone(), stop_handle.clone());
+				let transport_label = if is_websocket { "ws" } else { "http" };
+
+				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
+				let rate_limit = rate_limit
+					.map(|r| RateLimitLayer::new(r as u64, std::time::Duration::from_secs(60)));
+				let rpc_middleware =
+					RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
+				let mut svc = svc_builder
+					.set_rpc_middleware(rpc_middleware)
+					.build(methods.clone(), stop_handle.clone());
 
 				async move {
 					if is_websocket {

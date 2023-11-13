@@ -4,12 +4,9 @@ use prometheus_endpoint::{
 };
 
 use jsonrpsee::{
-	core::async_trait,
-	server::middleware::rpc::{RpcServiceT, TransportProtocol},
-	types::Request,
-	MethodResponse,
+	core::async_trait, server::middleware::rpc::RpcServiceT, types::Request, MethodResponse,
 };
-use std::{sync::Arc, time::Instant};
+use std::time::Instant;
 
 /// Histogram time buckets in microseconds.
 const HISTOGRAM_BUCKETS: [f64; 11] = [
@@ -127,20 +124,23 @@ impl RpcMetrics {
 
 /// ..
 #[derive(Clone)]
-pub struct MetricsLayer(Arc<RpcMetrics>);
+pub struct MetricsLayer {
+	inner: RpcMetrics,
+	transport_label: &'static str,
+}
 
 impl MetricsLayer {
 	/// ..
-	pub fn new(metrics: RpcMetrics) -> Self {
-		Self(Arc::new(metrics))
+	pub fn new(metrics: RpcMetrics, transport_label: &'static str) -> Self {
+		Self { inner: metrics, transport_label }
 	}
 
 	pub(crate) fn ws_connect(&self) {
-		self.0.ws_connect();
+		self.inner.ws_connect();
 	}
 
 	pub(crate) fn ws_disconnect(&self, now: Instant) {
-		self.0.ws_disconnect(now)
+		self.inner.ws_disconnect(now)
 	}
 }
 
@@ -148,7 +148,7 @@ impl<S> tower::Layer<S> for MetricsLayer {
 	type Service = Metrics<S>;
 
 	fn layer(&self, inner: S) -> Self::Service {
-		Metrics::new(inner, self.0.clone())
+		Metrics::new(inner, self.inner.clone(), self.transport_label)
 	}
 }
 
@@ -156,13 +156,14 @@ impl<S> tower::Layer<S> for MetricsLayer {
 #[derive(Clone)]
 pub struct Metrics<S> {
 	service: S,
-	metrics: Arc<RpcMetrics>,
+	metrics: RpcMetrics,
+	transport_label: &'static str,
 }
 
 impl<S> Metrics<S> {
 	/// Create a new metrics middleware.
-	pub fn new(service: S, metrics: Arc<RpcMetrics>) -> Metrics<S> {
-		Metrics { service, metrics }
+	pub fn new(service: S, metrics: RpcMetrics, transport_label: &'static str) -> Metrics<S> {
+		Metrics { service, metrics, transport_label }
 	}
 }
 
@@ -171,43 +172,42 @@ impl<'a, S> RpcServiceT<'a> for Metrics<S>
 where
 	S: Send + Sync + RpcServiceT<'a>,
 {
-	async fn call(&self, req: Request<'a>, t: TransportProtocol) -> MethodResponse {
+	async fn call(&self, req: Request<'a>) -> MethodResponse {
 		let now = Instant::now();
-		let transport_label = transport_label_str(t);
 
 		log::trace!(
 			target: "rpc_metrics",
 			"[{}] on_call name={} params={:?}",
-			transport_label,
+			self.transport_label,
 			req.method_name(),
 			req.params(),
 		);
 		self.metrics
 			.calls_started
-			.with_label_values(&[transport_label, req.method_name()])
+			.with_label_values(&[self.transport_label, req.method_name()])
 			.inc();
 
-		let rp = self.service.call(req.clone(), t).await;
+		let rp = self.service.call(req.clone()).await;
 
-		log::trace!(target: "rpc_metrics", "[{}] on_response started_at={:?}", transport_label, now);
-		log::trace!(target: "rpc_metrics::extra", "[{}] result={:?}", transport_label, rp);
+		log::trace!(target: "rpc_metrics", "[{}] on_response started_at={:?}", self.transport_label, now);
+		log::trace!(target: "rpc_metrics::extra", "[{}] result={:?}", self.transport_label, rp);
 
 		let micros = now.elapsed().as_micros();
 		log::debug!(
 			target: "rpc_metrics",
 			"[{}] {} call took {} μs",
-			transport_label,
+			self.transport_label,
 			req.method_name(),
 			micros,
 		);
 		self.metrics
 			.calls_time
-			.with_label_values(&[transport_label, req.method_name()])
+			.with_label_values(&[self.transport_label, req.method_name()])
 			.observe(micros as _);
 		self.metrics
 			.calls_finished
 			.with_label_values(&[
-				transport_label,
+				self.transport_label,
 				req.method_name(),
 				// the label "is_error", so `success` should be regarded as false
 				// and vice-versa to be registrered correctly.
@@ -215,12 +215,5 @@ where
 			])
 			.inc();
 		rp
-	}
-}
-
-fn transport_label_str(t: TransportProtocol) -> &'static str {
-	match t {
-		TransportProtocol::Http => "http",
-		TransportProtocol::WebSocket => "ws",
 	}
 }
