@@ -28,7 +28,7 @@ use futures::Future;
 use jsonrpsee::{
 	core::{error::Error, server::rpc_module::Subscription as RpcSubscription},
 	rpc_params,
-	types::{error::CallError, EmptyServerParams as EmptyParams},
+	types::error::CallError,
 	RpcModule,
 };
 use sc_block_builder::BlockBuilderBuilder;
@@ -339,30 +339,6 @@ async fn follow_with_runtime() {
 		with_runtime: false,
 	});
 	assert_eq!(event, expected);
-}
-
-#[tokio::test]
-async fn get_genesis() {
-	let builder = TestClientBuilder::new();
-	let backend = builder.backend();
-	let client = Arc::new(builder.build());
-
-	let api = ChainHead::new(
-		client.clone(),
-		backend,
-		Arc::new(TaskExecutor::default()),
-		ChainHeadConfig {
-			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
-			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
-			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-		},
-	)
-	.into_rpc();
-
-	let genesis: String =
-		api.call("chainHead_unstable_genesisHash", EmptyParams::new()).await.unwrap();
-	assert_eq!(genesis, hex_string(&CHAIN_GENESIS));
 }
 
 #[tokio::test]
