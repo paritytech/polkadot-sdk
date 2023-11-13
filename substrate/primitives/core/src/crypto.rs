@@ -104,6 +104,7 @@ pub enum SecretStringError {
 	InvalidPath,
 }
 
+#[cfg(any(feature = "std", feature = "full_crypto"))]
 impl From<AddressUriError> for SecretStringError {
 	fn from(e: AddressUriError) -> Self {
 		Self::InvalidFormat(e)
