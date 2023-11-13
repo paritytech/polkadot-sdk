@@ -20,7 +20,7 @@ use super::{
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use crate::bridge_common_config::{
-	BridgeGrandpaRococoInstance, BridgeGrandpaWestendInstance, BridgeGrandpaWococoInstance,
+	BridgeGrandpaWestendInstance,
 	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 };
 use bp_messages::LaneId;
@@ -63,28 +63,13 @@ parameter_types! {
 	pub storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
 	pub const TokenLocation: MultiLocation = MultiLocation::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
+	pub RelayNetwork: NetworkId = NetworkId::Rococo;
 	pub UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
-}
-
-/// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
-pub struct RelayNetwork;
-impl Get<Option<NetworkId>> for RelayNetwork {
-	fn get() -> Option<NetworkId> {
-		Some(Self::get())
-	}
-}
-impl Get<NetworkId> for RelayNetwork {
-	fn get() -> NetworkId {
-		match Flavor::get() {
-			RuntimeFlavor::Rococo => NetworkId::Rococo,
-			RuntimeFlavor::Wococo => NetworkId::Wococo,
-		}
-	}
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -199,17 +184,9 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
 				RuntimeCall::MessageQueue(..) |
-				RuntimeCall::BridgeRococoGrandpa(pallet_bridge_grandpa::Call::<
-					Runtime,
-					BridgeGrandpaRococoInstance,
-				>::initialize { .. }) |
 				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaWestendInstance,
-				>::initialize { .. }) |
-				RuntimeCall::BridgeWococoGrandpa(pallet_bridge_grandpa::Call::<
-					Runtime,
-					BridgeGrandpaWococoInstance,
 				>::initialize { .. })
 		)
 	}
@@ -300,32 +277,16 @@ impl xcm_executor::Config for XcmConfig {
 		(
 			XcmExportFeeToRelayerRewardAccounts<
 				Self::AssetTransactor,
-				crate::bridge_to_wococo_config::WococoGlobalConsensusNetwork,
-				crate::bridge_to_wococo_config::AssetHubWococoParaId,
-				crate::bridge_to_wococo_config::BridgeHubWococoChainId,
-				crate::bridge_to_wococo_config::AssetHubRococoToAssetHubWococoMessagesLane,
-			>,
-			XcmExportFeeToRelayerRewardAccounts<
-				Self::AssetTransactor,
 				crate::bridge_to_westend_config::WestendGlobalConsensusNetwork,
 				crate::bridge_to_westend_config::AssetHubWestendParaId,
 				crate::bridge_to_westend_config::BridgeHubWestendChainId,
 				crate::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
-			>,
-			XcmExportFeeToRelayerRewardAccounts<
-				Self::AssetTransactor,
-				crate::bridge_to_rococo_config::RococoGlobalConsensusNetwork,
-				crate::bridge_to_rococo_config::AssetHubRococoParaId,
-				crate::bridge_to_rococo_config::BridgeHubRococoChainId,
-				crate::bridge_to_rococo_config::AssetHubWococoToAssetHubRococoMessagesLane,
 			>,
 			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 		),
 	>;
 	type MessageExporter = (
 		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
-		crate::bridge_to_wococo_config::ToBridgeHubWococoHaulBlobExporter,
-		crate::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
 	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
