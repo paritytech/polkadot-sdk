@@ -3,7 +3,7 @@
 **Parameters**:
 
 - `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
-- `hash`: String or array of strings containing the hexadecimal-encoded hash of the header of the block to unpin.
+- `hash_or_hashes`: String or array of strings containing the hexadecimal-encoded hash of the header of the block to unpin.
 
 **Return value**: *null*
 
