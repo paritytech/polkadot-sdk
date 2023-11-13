@@ -41,12 +41,18 @@ jobs:
           ref: ${{ env.PIPELINE_SCRIPTS_REF }}
           path: ${{ env.PIPELINE_SCRIPTS_DIR }}
 
+        # Rest of your steps
       - name: Run Script
         env:
           RUNNER_LABELS: ${{ runner.labels }}
           IMAGE_NAME: ${{ github.event.inputs.image_name }}
           SCRIPTS_PATH: ${{ github.event.inputs.script_path }}
         run: |
+          VARIABLES_JSON="${{ github.event.inputs.variablesJson }}"
+          echo "$VARIABLES_JSON" > .git/variables.json
+          while IFS="=" read -r key value; do
+            echo "::set-env name=$key::$value"
+          done < <(jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" .git/variables.json)
           echo "Running on ${RUNNER_LABELS}"
           echo "Using image ${IMAGE_NAME}"
           echo "Scripts path: ${{ env.SCRIPTS_PATH }}"
