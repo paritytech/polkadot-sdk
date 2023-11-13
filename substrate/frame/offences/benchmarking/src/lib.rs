@@ -28,7 +28,6 @@ use frame_benchmarking::v1::{account, benchmarks};
 use frame_support::traits::{Currency, Get};
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
 
-#[cfg(test)]
 use sp_runtime::{
 	traits::{Convert, Saturating, StaticLookup},
 	Perbill,
@@ -45,7 +44,6 @@ use pallet_session::{
 	historical::{Config as HistoricalConfig, IdentificationTuple},
 	Config as SessionConfig, Pallet as Session, SessionManager,
 };
-#[cfg(test)]
 use pallet_staking::{
 	Config as StakingConfig, Exposure, IndividualExposure, MaxNominationsOf, Pallet as Staking,
 	RewardDestination, ValidatorPrefs,
