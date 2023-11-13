@@ -217,10 +217,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
-		/// The fraction of the validator set that is safe to be offending.
-		/// After the threshold is reached a new era will be forced.
-		type OffendingValidatorsThreshold: Get<Perbill>;
-
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
 		///
@@ -1875,4 +1871,10 @@ pub mod pallet {
 /// Check that list is sorted and has no duplicates.
 fn is_sorted_and_unique(list: &[u32]) -> bool {
 	list.windows(2).all(|w| w[0] < w[1])
+}
+
+/// Disabling threshold calculated from the total number of validators in the active set. When
+/// reached no more validators will be disabled.
+pub fn disabling_threshold(validators_len: usize) -> usize {
+	validators_len.saturating_sub(1) / 3
 }

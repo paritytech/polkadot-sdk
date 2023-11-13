@@ -778,14 +778,6 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::ForceEra { mode });
 	}
 
-	/// Ensures that at the end of the current session there will be a new era.
-	pub(crate) fn ensure_new_era() {
-		match ForceEra::<T>::get() {
-			Forcing::ForceAlways | Forcing::ForceNew => (),
-			_ => Self::set_force_era(Forcing::ForceNew),
-		}
-	}
-
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn add_era_stakers(
 		current_era: EraIndex,

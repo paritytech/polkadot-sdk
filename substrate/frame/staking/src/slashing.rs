@@ -50,14 +50,14 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra,
-	OffendingValidators, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
-	ValidatorSlashInEra,
+	pallet::disabling_threshold, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf,
+	NominatorSlashInEra, OffendingValidators, Pallet, Perbill, SessionInterface, SpanSlash,
+	UnappliedSlash, ValidatorSlashInEra,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
+	traits::{Currency, Defensive, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -334,17 +334,14 @@ fn add_offending_validator<T: Config>(stash: &T::AccountId) {
 
 		if let Err(index) = offending.binary_search_by_key(&validator_index_u32, |index| *index) {
 			// this is a new offending validator
-			offending.insert(index, validator_index_u32);
 
-			let offending_threshold =
-				T::OffendingValidatorsThreshold::get() * validators.len() as u32;
-
-			// TODO - don't do this
-			if offending.len() >= offending_threshold as usize {
-				// force a new era, to select a new validator set
-				<Pallet<T>>::ensure_new_era()
+			// we don't want to disable too many validators otherwise we will break consensus
+			if offending.len() + 1 > disabling_threshold(validators.len()) as usize {
+				return
 			}
 
+			// Add the validator to `OffendingValidators` and disable it
+			offending.insert(index, validator_index_u32);
 			T::SessionInterface::disable_validator(validator_index_u32);
 		}
 	});

@@ -237,7 +237,6 @@ parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
 	pub const BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(40);
 	pub HistoryDepth: u32 = 84;
 }
 
@@ -269,7 +268,6 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = ();
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<256>;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = BagsList;
@@ -817,9 +815,7 @@ pub(crate) fn add_slash(who: &AccountId) {
 // Slashes enough validators to cross the `Staking::OffendingValidatorsThreshold`.
 pub(crate) fn slash_through_offending_threshold() {
 	let validators = Session::validators();
-	let mut remaining_slashes =
-		<Runtime as pallet_staking::Config>::OffendingValidatorsThreshold::get() *
-			validators.len() as u32;
+	let mut remaining_slashes = pallet_staking::disabling_threshold(validators.len());
 
 	for v in validators.into_iter() {
 		if remaining_slashes != 0 {
