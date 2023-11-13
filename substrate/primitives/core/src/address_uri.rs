@@ -165,7 +165,6 @@ mod tests {
 			"sdasd///asda",
 			Ok(AddressUri { phrase: Some("sdasd"), pass: Some("asda"), paths: vec![] }),
 		);
-		//
 	}
 
 	#[test]
