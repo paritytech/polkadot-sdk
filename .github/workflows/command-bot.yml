@@ -55,6 +55,7 @@ jobs:
         run: |
           VARIABLES_JSON="${{ github.event.inputs.variablesJson }}"
           echo "$VARIABLES_JSON" > .git/variables.json
+          cat .git/variables.json
           while IFS="=" read -r key value; do
             echo "::set-env name=$key::$value"
           done < <(jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" .git/variables.json)
