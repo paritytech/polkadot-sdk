@@ -7224,6 +7224,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
+ "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -8853,6 +8854,7 @@ dependencies = [
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-skip-feeless-payment",
  "parity-scale-codec",
  "sc-block-builder",
  "sc-client-api",
@@ -10792,6 +10794,18 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-session",
+ "sp-std 8.0.0",
+]
+
+[[package]]
+name = "pallet-skip-feeless-payment"
+version = "1.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
  "sp-std 8.0.0",
 ]
 
@@ -18204,6 +18218,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-im-online",
+ "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "parity-scale-codec",
  "platforms",
