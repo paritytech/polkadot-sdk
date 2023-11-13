@@ -212,6 +212,15 @@
 //! Saturating calculations can be used if one is very sure that something won't overflow, but wants
 //! to avoid introducing the notion of any potential-panic or wrapping behavior.
 //!
+//! There is also a series of defensive alternatives via
+//! [`DefensiveSaturating`](frame::traits::DefensiveSaturating), which introduces the same behavior
+//! of the [`Defensive`](frame::traits::Defensive) trait, only with saturating, mathematical
+//! operations:
+#![doc = docify::embed!(
+    "./src/reference_docs/safe_defensive_programming.rs",
+    saturated_defensive_example
+)]
+//!
 //! ### Mathematical Operations in Substrate Development - Further Context
 //!
 //! As a recap, we covered the following concepts:
@@ -413,11 +422,13 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn naive_add(x: u8, y: u8) -> u8 {
 		x + y
 	}
 
 	#[docify::export]
+	#[test]
 	fn checked_add_example() {
 		// This is valid, as 20 is perfectly within the bounds of u32.
 		let add = (10u32).checked_add(10);
@@ -425,6 +436,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn checked_add_handle_error_example() {
 		// This is invalid - we are adding something to the max of u32::MAX, which would overflow.
 		// Luckily, checked_add just marks this as None!
@@ -433,6 +445,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn increase_balance(account: Address, amount: u64) -> Result<(), BlockchainError> {
 		// Get a user's current balance
 		let balance = Runtime::get_balance(account)?;
@@ -446,6 +459,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn increase_balance_match(account: Address, amount: u64) -> Result<(), BlockchainError> {
 		// Get a user's current balance
 		let balance = Runtime::get_balance(account)?;
@@ -461,6 +475,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn increase_balance_result(account: Address, amount: u64) -> Result<(), BlockchainError> {
 		// Get a user's current balance
 		let balance = Runtime::get_balance(account)?;
@@ -471,6 +486,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn saturated_add_example() {
 		// Saturating add simply saturates
 		// to the numeric bound of that type if it overflows.
@@ -478,12 +494,14 @@ mod tests {
 		assert_eq!(add, u32::MAX)
 	}
 	#[docify::export]
+	#[test]
 	fn percent_mult() {
 		let percent = Percent::from_rational(5u32, 100u32); // aka, 5%
 		let five_percent_of_100 = percent * 100u32; // 5% of 100 is 5.
 		assert_eq!(five_percent_of_100, 5)
 	}
 	#[docify::export]
+	#[test]
 	fn perbill_example() {
 		let p = Perbill::from_percent(80);
 		// 800000000 bil, or a representative of 0.800000000.
@@ -492,12 +510,14 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn percent_example() {
 		let percent = Percent::from_rational(190u32, 400u32);
 		assert_eq!(percent.deconstruct(), 47);
 	}
 
 	#[docify::export]
+	#[test]
 	fn fixed_u64_block_computation_example() {
 		// Cores available per block
 		let supply = 10u128;
@@ -525,6 +545,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn fixed_u64() {
 		// The difference between this and perthings is perthings operates within the relam of [0,
 		// 1] In cases where we need > 1, we can used fixed types such as FixedU64
@@ -538,6 +559,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn fixed_u64_operation_example() {
 		let rational_1 = FixedU64::from_rational(10, 5); // "200%" aka 2.
 		let rational_2 = FixedU64::from_rational(8, 5); // "160%" aka 1.6.
@@ -553,12 +575,14 @@ mod tests {
 		assert_eq!(subtraction, FixedU64::from_float(0.4));
 	}
 	#[docify::export]
+	#[test]
 	fn bad_unwrap() {
 		let some_result: Result<u32, &str> = Ok(10);
 		assert_eq!(some_result.unwrap(), 10);
 	}
 
 	#[docify::export]
+	#[test]
 	fn good_unwrap() {
 		let some_result: Result<u32, &str> = Err("Error");
 		assert_eq!(some_result.unwrap_or_default(), 0);
@@ -566,6 +590,7 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn bad_collection_retrieval() {
 		let my_list = vec![1, 2, 3, 4, 5];
 		// THIS PANICS!
@@ -574,9 +599,17 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
 	fn good_collection_retrieval() {
 		let my_list = vec![1, 2, 3, 4, 5];
 		// Rust includes `.get`, returning Option<T> - so lets use that:
 		assert_eq!(my_list.get(5), None)
+	}
+	#[docify::export]
+	#[test]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
+	fn saturated_defensive_example() {
+		let saturated_defensive = u32::MAX.defensive_saturating_add(10);
+		assert_eq!(saturated_defensive, u32::MAX);
 	}
 }
