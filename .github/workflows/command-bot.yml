@@ -16,6 +16,10 @@ on:
       scripts_branch:
         description: 'Branch to checkout scripts from'
         default: 'main'
+      variablesJson:
+        description: 'Variables to pass to the script'
+        required: true
+        default: '{}'
 
 env:
   PIPELINE_SCRIPTS_DIR: ${{ github.workspace }}/command-bot-scripts
