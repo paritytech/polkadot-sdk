@@ -116,6 +116,14 @@ pub async fn start_work(
 ) -> Outcome {
 	let IdleWorker { stream, pid, worker_dir } = worker;
 
+	gum::debug!(
+		target: LOG_TARGET,
+		worker_pid = %pid,
+		?worker_dir,
+		"starting prepare for {:?}",
+		pvf,
+	);
+
 	with_worker_dir_setup(
 		worker_dir,
 		stream,
@@ -148,7 +156,7 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_result)) => {
+				Ok(Ok(prepare_worker_result)) => {
 					// Check if any syscall violations occurred during the job. For now this is only
 					// informative, as we are not enforcing the seccomp policy yet.
 					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
@@ -164,7 +172,7 @@ pub async fn start_work(
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
-						prepare_result,
+						prepare_worker_result,
 						pid,
 						tmp_artifact_file,
 						&pvf,

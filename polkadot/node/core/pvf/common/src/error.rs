@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::prepare::{PrepareStats, PrepareSuccess, PrepareWorkerSuccess};
+use crate::prepare::{PrepareSuccess, PrepareWorkerSuccess};
 use parity_scale_codec::{Decode, Encode};
 use std::fmt;
 
@@ -28,7 +28,7 @@ pub type PrepareResult = Result<PrepareSuccess, PrepareError>;
 
 /// Result of prechecking PVF performed by the validation host. Contains stats about the preparation
 /// if successful.
-pub type PrecheckResult = Result<PrepareStats, PrepareError>;
+pub type PrecheckResult = Result<(), PrepareError>;
 
 /// An error that occurred during the prepare part of the PVF pipeline.
 // Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD` below)

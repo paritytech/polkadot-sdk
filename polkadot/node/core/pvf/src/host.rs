@@ -458,9 +458,9 @@ async fn handle_precheck_pvf(
 
 	if let Some(state) = artifacts.artifact_state_mut(&artifact_id) {
 		match state {
-			ArtifactState::Prepared { last_time_needed, prepare_stats, .. } => {
+			ArtifactState::Prepared { last_time_needed, .. } => {
 				*last_time_needed = SystemTime::now();
-				let _ = result_sender.send(Ok(prepare_stats.clone()));
+				let _ = result_sender.send(Ok(()));
 			},
 			ArtifactState::Preparing { waiting_for_response, num_failures: _ } =>
 				waiting_for_response.push(result_sender),
@@ -714,7 +714,7 @@ async fn handle_prepare_done(
 		state
 	{
 		for result_sender in waiting_for_response.drain(..) {
-			let result = result.clone().map(|success| success.stats);
+			let result = result.clone().map(|_| ());
 			let _ = result_sender.send(result);
 		}
 		num_failures
@@ -891,6 +891,7 @@ pub(crate) mod tests {
 		error::PrepareError,
 		prepare::{PrepareStats, PrepareSuccess},
 	};
+	use sp_core::hexdisplay::AsBytesRef;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -915,18 +916,8 @@ pub(crate) mod tests {
 	}
 
 	fn artifact_path(discriminator: u32) -> PathBuf {
-		fn to_bytes(mut n: u32) -> Vec<u8> {
-			let mut bytes = vec![0; 4];
-			let mut i = 0;
-			while n > 0 {
-				bytes[i] = (n & 0xff) as u8;
-				n >>= 8;
-				i += 1;
-			}
-			bytes
-		}
-
-		let checksum = blake3::hash(&to_bytes(discriminator));
+		let pvf = PvfPrepData::from_discriminator(discriminator);
+		let checksum = blake3::hash(pvf.code().as_bytes_ref());
 		artifact_id(discriminator)
 			.path(&PathBuf::from(std::env::temp_dir()), checksum.to_hex().as_str())
 			.to_owned()
