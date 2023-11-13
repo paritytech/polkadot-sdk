@@ -84,7 +84,7 @@ impl<'a> AddressUri<'a> {
 		let mut pass = None;
 		let mut paths = Vec::new();
 		while !input.is_empty() {
-			let prefixed_input = input;
+			let unstripped_input = input;
 			if strip_prefix(&mut input, "///") {
 				pass = match extract_prefix(&mut input, &|ch: char| ch != '\n') {
 					Some(pass) => Some(pass),
@@ -94,8 +94,8 @@ impl<'a> AddressUri<'a> {
 				let mut path = extract_prefix(&mut input, &|ch: char| ch != '/')
 					.ok_or(Error::InvalidCharacterInHardPath)?;
 				assert!(path.len() > 0);
-				// hard path shall contain leading '/', so take it from input.
-				path = &prefixed_input[1..path.len() + 2];
+				// hard path shall contain leading '/', so take it from unstripped input.
+				path = &unstripped_input[1..path.len() + 2];
 				paths.push(path);
 			} else if strip_prefix(&mut input, "/") {
 				paths.push(
