@@ -990,7 +990,7 @@ impl KnownBackedCandidate {
 			})
 			.filter(|(_, k)| {
 				count_locals = count_locals + 1;
-				k.local_knowledge.as_ref().map_or(false, |r| {
+				k.remote_knowledge.as_ref().map_or(false, |r| {
 					count_contains = count_contains + 1;
 					!r.contains(originator_index_in_group, statement_kind)
 				})
