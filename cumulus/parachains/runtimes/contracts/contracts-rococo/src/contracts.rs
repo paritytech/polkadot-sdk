@@ -22,7 +22,6 @@ use frame_support::{
 	traits::{ConstBool, ConstU32, Nothing},
 };
 use pallet_contracts::{
-	migration::{v12, v13, v14, v15},
 	weights::SubstrateWeight,
 	Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
 };
@@ -70,12 +69,7 @@ impl Config for Runtime {
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type MaxDelegateDependencies = ConstU32<32>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Migrations = (
-		v12::Migration<Runtime, Balances>,
-		v13::Migration<Runtime>,
-		v14::Migration<Runtime, Balances>,
-		v15::Migration<Runtime>,
-	);
+	type Migrations = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Debug = ();
 	type Environment = ();
