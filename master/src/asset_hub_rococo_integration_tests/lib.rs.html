@@ -102,6 +102,9 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -165,18 +168,20 @@
 </span><span class="kw">pub const </span>ASSETS_PALLET_ID: u8 = <span class="number">50</span>;
 
 <span class="kw">pub type </span>RelayToSystemParaTest = Test&lt;Rococo, AssetHubRococo&gt;;
+<span class="kw">pub type </span>RelayToParaTest = Test&lt;Rococo, PenpalA&gt;;
 <span class="kw">pub type </span>SystemParaToRelayTest = Test&lt;AssetHubRococo, Rococo&gt;;
 <span class="kw">pub type </span>SystemParaToParaTest = Test&lt;AssetHubRococo, PenpalA&gt;;
+<span class="kw">pub type </span>ParaToSystemParaTest = Test&lt;PenpalA, AssetHubRococo&gt;;
 
-<span class="doccomment">/// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
-</span><span class="kw">pub fn </span>relay_test_args(amount: Balance) -&gt; TestArgs {
+<span class="doccomment">/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
+</span><span class="kw">pub fn </span>relay_test_args(
+	dest: MultiLocation,
+	beneficiary_id: AccountId32,
+	amount: Balance,
+) -&gt; TestArgs {
 	TestArgs {
-		dest: Rococo::child_location_of(AssetHubRococo::para_id()),
-		beneficiary: AccountId32Junction {
-			network: <span class="prelude-val">None</span>,
-			id: AssetHubRococoReceiver::get().into(),
-		}
-		.into(),
+		dest,
+		beneficiary: AccountId32Junction { network: <span class="prelude-val">None</span>, id: beneficiary_id.into() }.into(),
 		amount,
 		assets: (Here, amount).into(),
 		asset_id: <span class="prelude-val">None</span>,
@@ -185,13 +190,14 @@
 	}
 }
 
-<span class="doccomment">/// Returns a `TestArgs` instance to de used for the System Parachain accross integraton tests
-</span><span class="kw">pub fn </span>system_para_test_args(
+<span class="doccomment">/// Returns a `TestArgs` instance to be used by parachains across integration tests
+</span><span class="kw">pub fn </span>para_test_args(
 	dest: MultiLocation,
 	beneficiary_id: AccountId32,
 	amount: Balance,
 	assets: MultiAssets,
 	asset_id: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+	fee_asset_item: u32,
 ) -&gt; TestArgs {
 	TestArgs {
 		dest,
@@ -199,7 +205,7 @@
 		amount,
 		assets,
 		asset_id,
-		fee_asset_item: <span class="number">0</span>,
+		fee_asset_item,
 		weight_limit: WeightLimit::Unlimited,
 	}
 }

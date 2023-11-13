@@ -154,13 +154,6 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -290,11 +283,6 @@
 	<span class="kw">type </span>Aliasers = Nothing;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; = <span class="prelude-val">Some</span>(xcm::latest::Junctions::Here.into());
-}
-
 <span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span><span class="kw">crate</span>::Runtime {
 	<span class="comment">// The config types here are entirely configurable, since the only one that is sorely needed
 	// is `XcmExecutor`, which will be used in unit tests located in xcm-executor.
@@ -320,8 +308,6 @@
 	<span class="kw">type </span>MaxRemoteLockConsumers = frame_support::traits::ConstU32&lt;<span class="number">0</span>&gt;;
 	<span class="kw">type </span>RemoteLockConsumerIdentifier = ();
 	<span class="kw">type </span>WeightInfo = pallet_xcm::TestWeightInfo;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">type </span>ReachableDest = ReachableDest;
 	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;<span class="kw">crate</span>::AccountId&gt;;
 }
 </code></pre></div></section></main></body></html>

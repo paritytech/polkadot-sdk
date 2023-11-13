@@ -596,50 +596,6 @@
 <a href="#596" id="596">596</a>
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -658,7 +614,7 @@
 </span><span class="doccomment">//! Module contains predefined test-case scenarios for `Runtime` with various assets transferred
 //! over a bridge.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::assert_matches_reserve_asset_deposited_instructions;
+</span><span class="kw">use crate</span>::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>cumulus_primitives_core::XcmpMessageSource;
 <span class="kw">use </span>frame_support::{
@@ -674,10 +630,7 @@
 <span class="kw">use </span>sp_runtime::{traits::StaticLookup, Saturating};
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedMultiAssets};
 <span class="kw">use </span>xcm_builder::{CreateMatcher, MatchXcm};
-<span class="kw">use </span>xcm_executor::{
-	traits::{ConvertLocation, TransactAsset},
-	XcmExecutor,
-};
+<span class="kw">use </span>xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 <span class="kw">pub struct </span>TestBridgingConfig {
 	<span class="kw">pub </span>bridged_network: NetworkId,
@@ -771,8 +724,13 @@
 				<span class="kw-2">&amp;</span>alice,
 			);
 
-			<span class="comment">// drip ED to account
-			</span><span class="kw">let </span>alice_account_init_balance = existential_deposit + balance_to_transfer.into();
+			<span class="comment">// we calculate exact delivery fees _after_ sending the message by weighing the sent
+			// xcm, and this delivery fee varies for different runtimes, so just add enough buffer,
+			// then verify the arithmetics check out on final balance.
+			</span><span class="kw">let </span>delivery_fees_buffer = <span class="number">8_000_000_000_000u128</span>;
+			<span class="comment">// drip ED + transfer_amount + delivery_fees_buffer to Alice account
+			</span><span class="kw">let </span>alice_account_init_balance =
+				existential_deposit + balance_to_transfer.into() + delivery_fees_buffer.into();
 			<span class="kw">let _ </span>= &lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::deposit_creating(
 				<span class="kw-2">&amp;</span>alice_account,
 				alice_account_init_balance,
@@ -825,56 +783,6 @@
 
 			<span class="kw">let </span>expected_beneficiary = target_destination_account;
 
-			<span class="comment">// Make sure sender has enough funds for paying delivery fees
-			</span><span class="kw">let </span>handling_delivery_fees = {
-				<span class="comment">// Probable XCM with `ReserveAssetDeposited`.
-				</span><span class="kw">let </span><span class="kw-2">mut </span>expected_reserve_asset_deposited_message = Xcm(<span class="macro">vec!</span>[
-					ReserveAssetDeposited(MultiAssets::from(expected_assets.clone())),
-					ClearOrigin,
-					BuyExecution {
-						fees: MultiAsset {
-							id: Concrete(Default::default()),
-							fun: Fungible(balance_to_transfer),
-						},
-						weight_limit: Unlimited,
-					},
-					DepositAsset { assets: Wild(AllCounted(<span class="number">1</span>)), beneficiary: expected_beneficiary },
-					SetTopic([
-						<span class="number">220</span>, <span class="number">188</span>, <span class="number">144</span>, <span class="number">32</span>, <span class="number">213</span>, <span class="number">83</span>, <span class="number">111</span>, <span class="number">175</span>, <span class="number">44</span>, <span class="number">210</span>, <span class="number">111</span>, <span class="number">19</span>, <span class="number">90</span>, <span class="number">165</span>, <span class="number">191</span>, <span class="number">112</span>,
-						<span class="number">140</span>, <span class="number">247</span>, <span class="number">192</span>, <span class="number">124</span>, <span class="number">42</span>, <span class="number">17</span>, <span class="number">153</span>, <span class="number">141</span>, <span class="number">114</span>, <span class="number">34</span>, <span class="number">189</span>, <span class="number">20</span>, <span class="number">83</span>, <span class="number">69</span>, <span class="number">237</span>, <span class="number">173</span>,
-					]),
-				]);
-				assert_matches_reserve_asset_deposited_instructions(
-					<span class="kw-2">&amp;mut </span>expected_reserve_asset_deposited_message,
-					<span class="kw-2">&amp;</span>expected_assets,
-					<span class="kw-2">&amp;</span>expected_beneficiary,
-				);
-
-				<span class="comment">// Call `SendXcm::validate` to get delivery fees.
-				</span><span class="kw">let </span>(<span class="kw">_</span>, delivery_fees): (<span class="kw">_</span>, MultiAssets) = XcmConfig::XcmSender::validate(
-					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(target_location_from_different_consensus),
-					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(expected_reserve_asset_deposited_message),
-				)
-				.expect(<span class="string">&quot;validate passes&quot;</span>);
-				<span class="comment">// Drip delivery fee to Alice account.
-				</span><span class="kw">let </span><span class="kw-2">mut </span>delivery_fees_added = <span class="bool-val">false</span>;
-				<span class="kw">for </span>delivery_fee <span class="kw">in </span>delivery_fees.inner() {
-					<span class="macro">assert_ok!</span>(&lt;XcmConfig::AssetTransactor <span class="kw">as </span>TransactAsset&gt;::deposit_asset(
-						<span class="kw-2">&amp;</span>delivery_fee,
-						<span class="kw-2">&amp;</span>MultiLocation {
-							parents: <span class="number">0</span>,
-							interior: X1(AccountId32 {
-								network: <span class="prelude-val">None</span>,
-								id: alice_account.clone().into(),
-							}),
-						},
-						<span class="prelude-val">None</span>,
-					));
-					delivery_fees_added = <span class="bool-val">true</span>;
-				}
-				delivery_fees_added
-			};
-
 			<span class="comment">// do pallet_xcm call reserve transfer
 			</span><span class="macro">assert_ok!</span>(&lt;pallet_xcm::Pallet&lt;Runtime&gt;&gt;::limited_reserve_transfer_assets(
 				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(alice_account.clone()),
@@ -917,7 +825,8 @@
 
 			<span class="comment">// check sent XCM ExportMessage to BridgeHub
 
-			// 1. check paid or unpaid
+			</span><span class="kw">let </span><span class="kw-2">mut </span>delivery_fees = <span class="number">0</span>;
+			<span class="comment">// 1. check paid or unpaid
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(expected_fee_asset_id) = maybe_paid_export_message {
 				xcm_sent
 					.<span class="number">0
@@ -957,6 +866,10 @@
 							.split_global()
 							.expect(<span class="string">&quot;split works&quot;</span>);
 					<span class="macro">assert_eq!</span>(destination, <span class="kw-2">&amp;</span>target_location_junctions_without_global_consensus);
+					<span class="comment">// Call `SendXcm::validate` to get delivery fees.
+					</span>delivery_fees = get_fungible_delivery_fees::&lt;
+						&lt;XcmConfig <span class="kw">as </span>xcm_executor::Config&gt;::XcmSender,
+					&gt;(target_location_from_different_consensus, inner_xcm.clone());
 					assert_matches_reserve_asset_deposited_instructions(
 						inner_xcm,
 						<span class="kw-2">&amp;</span>expected_assets,
@@ -972,8 +885,8 @@
 			</span><span class="macro">assert_eq!</span>(
 				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>alice_account),
 				alice_account_init_balance
-					.saturating_sub(existential_deposit)
 					.saturating_sub(balance_to_transfer.into())
+					.saturating_sub(delivery_fees.into())
 			);
 
 			<span class="comment">// check reserve account increased by balance_to_transfer
@@ -983,14 +896,13 @@
 			);
 
 			<span class="comment">// check dedicated account increased by delivery fees (if configured)
-			</span><span class="kw">if </span>handling_delivery_fees {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(delivery_fees_account) = delivery_fees_account {
-					<span class="kw">let </span>delivery_fees_account_balance_after =
-						&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>delivery_fees_account);
-					<span class="macro">assert!</span>(
-						delivery_fees_account_balance_after &gt; delivery_fees_account_balance_before
-					);
-				}
+			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(delivery_fees_account) = delivery_fees_account {
+				<span class="kw">let </span>delivery_fees_account_balance_after =
+					&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>delivery_fees_account);
+				<span class="macro">assert!</span>(
+					delivery_fees_account_balance_after - delivery_fees.into() &gt;=
+						delivery_fees_account_balance_before
+				);
 			}
 		})
 }

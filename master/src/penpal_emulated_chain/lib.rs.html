@@ -63,6 +63,12 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -86,8 +92,10 @@
 
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
-	impl_assert_events_helpers_for_parachain, xcm_emulator::decl_test_parachains,
+	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
+	impl_assets_helpers_for_parachain, xcm_emulator::decl_test_parachains,
 };
+<span class="kw">use </span>rococo_emulated_chain::Rococo;
 
 <span class="comment">// Penpal Parachain declaration
 </span><span class="macro">decl_test_parachains! </span>{
@@ -105,6 +113,7 @@
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			Balances: penpal_runtime::Balances,
 		}
 	},
 	<span class="kw">pub struct </span>PenpalB {
@@ -121,11 +130,14 @@
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			Balances: penpal_runtime::Balances,
 		}
 	},
 }
 
 <span class="comment">// Penpal implementation
-</span><span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalA);
-<span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalB);
+</span><span class="macro">impl_accounts_helpers_for_parachain!</span>(PenpalA);
+<span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalA, Rococo);
+<span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalA, <span class="bool-val">true</span>);
+<span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalB, <span class="bool-val">true</span>);
 </code></pre></div></section></main></body></html>

@@ -72,7 +72,7 @@
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_system_parachain, xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_parachain, xcm_emulator::decl_test_parachains,
 };
 <span class="kw">use </span>wococo_emulated_chain::Wococo;
 
@@ -102,6 +102,6 @@
 
 <span class="comment">// AssetHubWococo implementation
 </span><span class="macro">impl_accounts_helpers_for_parachain!</span>(AssetHubWococo);
-<span class="macro">impl_assert_events_helpers_for_parachain!</span>(AssetHubWococo);
-<span class="macro">impl_assets_helpers_for_system_parachain!</span>(AssetHubWococo, Wococo);
+<span class="macro">impl_assert_events_helpers_for_parachain!</span>(AssetHubWococo, <span class="bool-val">false</span>);
+<span class="macro">impl_assets_helpers_for_parachain!</span>(AssetHubWococo, Wococo);
 </code></pre></div></section></main></body></html>

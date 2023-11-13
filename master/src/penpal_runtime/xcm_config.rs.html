@@ -327,32 +327,6 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -393,6 +367,7 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_asset_tx_payment::HandleCredit;
+<span class="kw">use </span>pallet_assets::Instance1;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::impls::ToAuthor;
@@ -403,9 +378,10 @@
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry,
 	EnsureXcmOrigin, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -481,6 +457,9 @@
 	<span class="comment">// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
 	// recognized.
 	</span>SiblingParachainAsNative&lt;cumulus_pallet_xcm::Origin, RuntimeOrigin&gt;,
+	<span class="comment">// Superuser converter for the Relay-chain (Parent) location. This will allow it to issue a
+	// transaction from the Root origin.
+	</span>ParentAsSuperuser&lt;RuntimeOrigin&gt;,
 	<span class="comment">// Native signed account converter; this just converts an `AccountId32` origin into a normal
 	// `RuntimeOrigin::Signed` origin of the same 32-byte value.
 	</span>SignedAccountId32AsNative&lt;RelayNetwork, RuntimeOrigin&gt;,
@@ -537,14 +516,25 @@
 <span class="doccomment">/// Type alias to conveniently refer to `frame_system`&#39;s `Config::AccountId`.
 </span><span class="kw">pub type </span>AccountIdOf&lt;R&gt; = &lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId;
 
-<span class="doccomment">/// Asset filter that allows all assets from a certain location.
+<span class="doccomment">/// Asset filter that allows all assets from a certain location matching asset id.
 </span><span class="kw">pub struct </span>AssetsFrom&lt;T&gt;(PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Get&lt;MultiLocation&gt;&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt; <span class="kw">for </span>AssetsFrom&lt;T&gt; {
 	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
 		<span class="kw">let </span>loc = T::get();
 		<span class="kw-2">&amp;</span>loc == origin &amp;&amp;
 			<span class="macro">matches!</span>(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
-			<span class="kw">if </span>asset_loc.match_and_split(<span class="kw-2">&amp;</span>loc).is_some())
+			<span class="kw">if </span>asset_loc.starts_with(<span class="kw-2">&amp;</span>loc))
+	}
+}
+
+<span class="doccomment">/// Asset filter that allows native/relay asset if coming from a certain location.
+</span><span class="kw">pub struct </span>NativeAssetFrom&lt;T&gt;(PhantomData&lt;T&gt;);
+<span class="kw">impl</span>&lt;T: Get&lt;MultiLocation&gt;&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt; <span class="kw">for </span>NativeAssetFrom&lt;T&gt; {
+	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+		<span class="kw">let </span>loc = T::get();
+		<span class="kw-2">&amp;</span>loc == origin &amp;&amp;
+			<span class="macro">matches!</span>(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+			<span class="kw">if </span><span class="kw-2">*</span>asset_loc == MultiLocation::from(Parent))
 	}
 }
 
@@ -563,54 +553,17 @@
 <span class="doccomment">/// A `HandleCredit` implementation that naively transfers the fees to the block author.
 /// Will drop and burn the assets in case the transfer fails.
 </span><span class="kw">pub struct </span>AssetsToBlockAuthor&lt;R&gt;(PhantomData&lt;R&gt;);
-<span class="kw">impl</span>&lt;R&gt; HandleCredit&lt;AccountIdOf&lt;R&gt;, pallet_assets::Pallet&lt;R&gt;&gt; <span class="kw">for </span>AssetsToBlockAuthor&lt;R&gt;
+<span class="kw">impl</span>&lt;R&gt; HandleCredit&lt;AccountIdOf&lt;R&gt;, pallet_assets::Pallet&lt;R, Instance1&gt;&gt; <span class="kw">for </span>AssetsToBlockAuthor&lt;R&gt;
 <span class="kw">where
-	</span>R: pallet_authorship::Config + pallet_assets::Config,
+	</span>R: pallet_authorship::Config + pallet_assets::Config&lt;Instance1&gt;,
 	AccountIdOf&lt;R&gt;: From&lt;polkadot_primitives::AccountId&gt; + Into&lt;polkadot_primitives::AccountId&gt;,
 {
-	<span class="kw">fn </span>handle_credit(credit: Credit&lt;AccountIdOf&lt;R&gt;, pallet_assets::Pallet&lt;R&gt;&gt;) {
+	<span class="kw">fn </span>handle_credit(credit: Credit&lt;AccountIdOf&lt;R&gt;, pallet_assets::Pallet&lt;R, Instance1&gt;&gt;) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(author) = pallet_authorship::Pallet::&lt;R&gt;::author() {
 			<span class="comment">// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-			</span><span class="kw">let _ </span>= pallet_assets::Pallet::&lt;R&gt;::resolve(<span class="kw-2">&amp;</span>author, credit);
+			</span><span class="kw">let _ </span>= pallet_assets::Pallet::&lt;R, Instance1&gt;::resolve(<span class="kw-2">&amp;</span>author, credit);
 		}
 	}
-}
-
-<span class="kw">pub trait </span>Reserve {
-	<span class="doccomment">/// Returns assets reserve location.
-	</span><span class="kw">fn </span>reserve(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;;
-}
-
-<span class="comment">// Takes the chain part of a MultiAsset
-</span><span class="kw">impl </span>Reserve <span class="kw">for </span>MultiAsset {
-	<span class="kw">fn </span>reserve(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
-		<span class="kw">if let </span>AssetId::Concrete(location) = <span class="self">self</span>.id {
-			<span class="kw">let </span>first_interior = location.first_interior();
-			<span class="kw">let </span>parents = location.parent_count();
-			<span class="kw">match </span>(parents, first_interior) {
-				(<span class="number">0</span>, <span class="prelude-val">Some</span>(Parachain(id))) =&gt; <span class="prelude-val">Some</span>(MultiLocation::new(<span class="number">0</span>, X1(Parachain(<span class="kw-2">*</span>id)))),
-				(<span class="number">1</span>, <span class="prelude-val">Some</span>(Parachain(id))) =&gt; <span class="prelude-val">Some</span>(MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="kw-2">*</span>id)))),
-				(<span class="number">1</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(MultiLocation::parent()),
-				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-			}
-		} <span class="kw">else </span>{
-			<span class="prelude-val">None
-		</span>}
-	}
-}
-
-<span class="doccomment">/// A `FilterAssetLocation` implementation. Filters multi native assets whose
-/// reserve is same with `origin`.
-</span><span class="kw">pub struct </span>MultiNativeAsset;
-<span class="kw">impl </span>ContainsPair&lt;MultiAsset, MultiLocation&gt; <span class="kw">for </span>MultiNativeAsset {
-	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>reserve) = asset.reserve() {
-			<span class="kw">if </span>reserve == origin {
-				<span class="kw">return </span><span class="bool-val">true
-			</span>}
-		}
-		<span class="bool-val">false
-	</span>}
 }
 
 <span class="macro">parameter_types! </span>{
@@ -623,7 +576,8 @@
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
-<span class="kw">pub type </span>Reserves = (NativeAsset, AssetsFrom&lt;SystemAssetHubLocation&gt;);
+<span class="kw">pub type </span>Reserves =
+	(NativeAsset, AssetsFrom&lt;SystemAssetHubLocation&gt;, NativeAssetFrom&lt;SystemAssetHubLocation&gt;);
 
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
@@ -632,7 +586,8 @@
 	<span class="comment">// How to withdraw and deposit an asset.
 	</span><span class="kw">type </span>AssetTransactor = AssetTransactors;
 	<span class="kw">type </span>OriginConverter = XcmOriginToTransactDispatchOrigin;
-	<span class="kw">type </span>IsReserve = MultiNativeAsset; <span class="comment">// TODO: maybe needed to be replaced by Reserves
+	<span class="kw">type </span>IsReserve = Reserves;
+	<span class="comment">// no teleport trust established with other chains
 	</span><span class="kw">type </span>IsTeleporter = NativeAsset;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
@@ -667,11 +622,6 @@
 	</span>XcmpQueue,
 )&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; = <span class="prelude-val">Some</span>(Parent.into());
-}
-
 <span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>SendXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
@@ -697,8 +647,6 @@
 	<span class="kw">type </span>SovereignAccountOf = LocationToAccountId;
 	<span class="kw">type </span>MaxLockers = ConstU32&lt;<span class="number">8</span>&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_xcm::TestWeightInfo;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">type </span>ReachableDest = ReachableDest;
 	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>MaxRemoteLockConsumers = ConstU32&lt;<span class="number">0</span>&gt;;
 	<span class="kw">type </span>RemoteLockConsumerIdentifier = ();

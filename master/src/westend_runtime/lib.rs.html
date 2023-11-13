@@ -2401,6 +2401,32 @@
 <a href="#2401" id="2401">2401</a>
 <a href="#2402" id="2402">2402</a>
 <a href="#2403" id="2403">2403</a>
+<a href="#2404" id="2404">2404</a>
+<a href="#2405" id="2405">2405</a>
+<a href="#2406" id="2406">2406</a>
+<a href="#2407" id="2407">2407</a>
+<a href="#2408" id="2408">2408</a>
+<a href="#2409" id="2409">2409</a>
+<a href="#2410" id="2410">2410</a>
+<a href="#2411" id="2411">2411</a>
+<a href="#2412" id="2412">2412</a>
+<a href="#2413" id="2413">2413</a>
+<a href="#2414" id="2414">2414</a>
+<a href="#2415" id="2415">2415</a>
+<a href="#2416" id="2416">2416</a>
+<a href="#2417" id="2417">2417</a>
+<a href="#2418" id="2418">2418</a>
+<a href="#2419" id="2419">2419</a>
+<a href="#2420" id="2420">2420</a>
+<a href="#2421" id="2421">2421</a>
+<a href="#2422" id="2422">2422</a>
+<a href="#2423" id="2423">2423</a>
+<a href="#2424" id="2424">2424</a>
+<a href="#2425" id="2425">2425</a>
+<a href="#2426" id="2426">2426</a>
+<a href="#2427" id="2427">2427</a>
+<a href="#2428" id="2428">2428</a>
+<a href="#2429" id="2429">2429</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4029,7 +4055,7 @@
 		[pallet_whitelist, Whitelist]
 		[pallet_asset_rate, AssetRate]
 		<span class="comment">// XCM
-		</span>[pallet_xcm, XcmPallet]
+		</span>[pallet_xcm, PalletXcmExtrinsiscsBenchmark::&lt;Runtime&gt;]
 		<span class="comment">// NOTE: Make sure you point to the individual modules below.
 		</span>[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
@@ -4548,6 +4574,7 @@
 			<span class="kw">use </span>pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
 			<span class="kw">use </span>pallet_offences_benchmarking::Pallet <span class="kw">as </span>OffencesBench;
 			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>ElectionProviderBench;
+			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsiscsBenchmark;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
 			<span class="kw">use </span>pallet_nomination_pools_benchmarking::Pallet <span class="kw">as </span>NominationPoolsBench;
 
@@ -4575,12 +4602,37 @@
 			</span><span class="kw">use </span>pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
 			<span class="kw">use </span>pallet_offences_benchmarking::Pallet <span class="kw">as </span>OffencesBench;
 			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>ElectionProviderBench;
+			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsiscsBenchmark;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
 			<span class="kw">use </span>pallet_nomination_pools_benchmarking::Pallet <span class="kw">as </span>NominationPoolsBench;
 
 			<span class="kw">impl </span>pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
 			<span class="kw">impl </span>pallet_offences_benchmarking::Config <span class="kw">for </span>Runtime {}
 			<span class="kw">impl </span>pallet_election_provider_support_benchmarking::Config <span class="kw">for </span>Runtime {}
+			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
+				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
+					<span class="prelude-val">Some</span>(<span class="kw">crate</span>::xcm_config::AssetHub::get())
+				}
+
+				<span class="kw">fn </span>teleportable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAsset, MultiLocation)&gt; {
+					<span class="comment">// Relay/native token can be teleported to/from AH.
+					</span><span class="prelude-val">Some</span>((
+						MultiAsset { fun: Fungible(EXISTENTIAL_DEPOSIT), id: Concrete(Here.into()) },
+						<span class="kw">crate</span>::xcm_config::AssetHub::get(),
+					))
+				}
+
+				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAsset, MultiLocation)&gt; {
+					<span class="comment">// Relay can reserve transfer native token to some random parachain.
+					</span><span class="prelude-val">Some</span>((
+						MultiAsset {
+							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							id: Concrete(Here.into())
+						},
+						<span class="kw">crate</span>::Junction::Parachain(<span class="number">43211234</span>).into(),
+					))
+				}
+			}
 			<span class="kw">impl </span>frame_system_benchmarking::Config <span class="kw">for </span>Runtime {}
 			<span class="kw">impl </span>pallet_nomination_pools_benchmarking::Config <span class="kw">for </span>Runtime {}
 			<span class="kw">impl </span>runtime_parachains::disputes::slashing::benchmarking::Config <span class="kw">for </span>Runtime {}

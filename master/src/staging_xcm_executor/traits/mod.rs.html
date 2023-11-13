@@ -56,6 +56,8 @@
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -78,10 +80,12 @@
 <span class="kw">pub use </span>conversion::{CallDispatcher, ConvertLocation, ConvertOrigin, WithOriginFilter};
 <span class="kw">mod </span>drop_assets;
 <span class="kw">pub use </span>drop_assets::{ClaimAssets, DropAssets};
-<span class="kw">mod </span>asset_lock;
-<span class="kw">pub use </span>asset_lock::{AssetLock, Enact, LockError};
 <span class="kw">mod </span>asset_exchange;
 <span class="kw">pub use </span>asset_exchange::AssetExchange;
+<span class="kw">mod </span>asset_lock;
+<span class="kw">pub use </span>asset_lock::{AssetLock, Enact, LockError};
+<span class="kw">mod </span>asset_transfer;
+<span class="kw">pub use </span>asset_transfer::{Error <span class="kw">as </span>AssetTransferError, TransferType, XcmAssetTransfers};
 <span class="kw">mod </span>export;
 <span class="kw">pub use </span>export::{export_xcm, validate_export, ExportXcm};
 <span class="kw">mod </span>fee_manager;

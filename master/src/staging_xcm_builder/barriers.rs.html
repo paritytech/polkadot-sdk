@@ -441,6 +441,11 @@
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
 <a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -524,10 +529,15 @@
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| <span class="kw">match </span>inst {
-				ReceiveTeleportedAsset(..) | ReserveAssetDeposited(..) =&gt; <span class="prelude-val">Ok</span>(()),
-				WithdrawAsset(<span class="kw-2">ref </span>assets) <span class="kw">if </span>assets.len() &lt;= MAX_ASSETS_FOR_BUY_EXECUTION =&gt; <span class="prelude-val">Ok</span>(()),
-				ClaimAsset { <span class="kw-2">ref </span>assets, .. } <span class="kw">if </span>assets.len() &lt;= MAX_ASSETS_FOR_BUY_EXECUTION =&gt;
-					<span class="prelude-val">Ok</span>(()),
+				ReceiveTeleportedAsset(<span class="kw-2">ref </span>assets) |
+				ReserveAssetDeposited(<span class="kw-2">ref </span>assets) |
+				WithdrawAsset(<span class="kw-2">ref </span>assets) |
+				ClaimAsset { <span class="kw-2">ref </span>assets, .. } =&gt;
+					<span class="kw">if </span>assets.len() &lt;= MAX_ASSETS_FOR_BUY_EXECUTION {
+						<span class="prelude-val">Ok</span>(())
+					} <span class="kw">else </span>{
+						<span class="prelude-val">Err</span>(ProcessMessageError::BadFormat)
+					},
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ProcessMessageError::BadFormat),
 			})<span class="question-mark">?
 			</span>.skip_inst_while(|inst| <span class="macro">matches!</span>(inst, ClearOrigin))<span class="question-mark">?

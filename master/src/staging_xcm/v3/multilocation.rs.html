@@ -708,6 +708,72 @@
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
 <a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1154,6 +1220,21 @@
 			}
 		}
 	}
+
+	<span class="doccomment">/// Return the MultiLocation subsection identifying the chain that `self` points to.
+	</span><span class="kw">pub fn </span>chain_location(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MultiLocation {
+		<span class="kw">let </span><span class="kw-2">mut </span>clone = <span class="kw-2">*</span><span class="self">self</span>;
+		<span class="comment">// start popping junctions until we reach chain identifier
+		</span><span class="kw">while let </span><span class="prelude-val">Some</span>(j) = clone.last() {
+			<span class="kw">if </span><span class="macro">matches!</span>(j, Junction::Parachain(<span class="kw">_</span>) | Junction::GlobalConsensus(<span class="kw">_</span>)) {
+				<span class="comment">// return chain subsection
+				</span><span class="kw">return </span>clone
+			} <span class="kw">else </span>{
+				(clone, <span class="kw">_</span>) = clone.split_last_interior();
+			}
+		}
+		MultiLocation::new(clone.parents, Junctions::Here)
+	}
 }
 
 <span class="kw">impl </span>TryFrom&lt;OldMultiLocation&gt; <span class="kw">for </span>MultiLocation {
@@ -1382,6 +1463,57 @@
 
 		<span class="macro">assert_eq!</span>(iter.next(), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(iter.next_back(), <span class="prelude-val">None</span>);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>chain_location_works() {
+		<span class="comment">// Relay-chain or parachain context pointing to local resource,
+		</span><span class="kw">let </span>relay_to_local = MultiLocation::new(<span class="number">0</span>, (PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)));
+		<span class="macro">assert_eq!</span>(relay_to_local.chain_location(), MultiLocation::here());
+
+		<span class="comment">// Relay-chain context pointing to child parachain,
+		</span><span class="kw">let </span>relay_to_child =
+			MultiLocation::new(<span class="number">0</span>, (Parachain(<span class="number">42</span>), PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)));
+		<span class="kw">let </span>expected = MultiLocation::new(<span class="number">0</span>, Parachain(<span class="number">42</span>));
+		<span class="macro">assert_eq!</span>(relay_to_child.chain_location(), expected);
+
+		<span class="comment">// Relay-chain context pointing to different consensus relay,
+		</span><span class="kw">let </span>relay_to_remote_relay =
+			MultiLocation::new(<span class="number">1</span>, (GlobalConsensus(Kusama), PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)));
+		<span class="kw">let </span>expected = MultiLocation::new(<span class="number">1</span>, GlobalConsensus(Kusama));
+		<span class="macro">assert_eq!</span>(relay_to_remote_relay.chain_location(), expected);
+
+		<span class="comment">// Relay-chain context pointing to different consensus parachain,
+		</span><span class="kw">let </span>relay_to_remote_para = MultiLocation::new(
+			<span class="number">1</span>,
+			(GlobalConsensus(Kusama), Parachain(<span class="number">42</span>), PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)),
+		);
+		<span class="kw">let </span>expected = MultiLocation::new(<span class="number">1</span>, (GlobalConsensus(Kusama), Parachain(<span class="number">42</span>)));
+		<span class="macro">assert_eq!</span>(relay_to_remote_para.chain_location(), expected);
+
+		<span class="comment">// Parachain context pointing to relay chain,
+		</span><span class="kw">let </span>para_to_relay = MultiLocation::new(<span class="number">1</span>, (PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)));
+		<span class="macro">assert_eq!</span>(para_to_relay.chain_location(), MultiLocation::parent());
+
+		<span class="comment">// Parachain context pointing to sibling parachain,
+		</span><span class="kw">let </span>para_to_sibling =
+			MultiLocation::new(<span class="number">1</span>, (Parachain(<span class="number">42</span>), PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)));
+		<span class="kw">let </span>expected = MultiLocation::new(<span class="number">1</span>, Parachain(<span class="number">42</span>));
+		<span class="macro">assert_eq!</span>(para_to_sibling.chain_location(), expected);
+
+		<span class="comment">// Parachain context pointing to different consensus relay,
+		</span><span class="kw">let </span>para_to_remote_relay =
+			MultiLocation::new(<span class="number">2</span>, (GlobalConsensus(Kusama), PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)));
+		<span class="kw">let </span>expected = MultiLocation::new(<span class="number">2</span>, GlobalConsensus(Kusama));
+		<span class="macro">assert_eq!</span>(para_to_remote_relay.chain_location(), expected);
+
+		<span class="comment">// Parachain context pointing to different consensus parachain,
+		</span><span class="kw">let </span>para_to_remote_para = MultiLocation::new(
+			<span class="number">2</span>,
+			(GlobalConsensus(Kusama), Parachain(<span class="number">42</span>), PalletInstance(<span class="number">42</span>), GeneralIndex(<span class="number">42</span>)),
+		);
+		<span class="kw">let </span>expected = MultiLocation::new(<span class="number">2</span>, (GlobalConsensus(Kusama), Parachain(<span class="number">42</span>)));
+		<span class="macro">assert_eq!</span>(para_to_remote_para.chain_location(), expected);
 	}
 
 	<span class="attr">#[test]

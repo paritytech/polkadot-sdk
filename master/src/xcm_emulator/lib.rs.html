@@ -3000,9 +3000,9 @@
 /// These arguments can be easily reused and shared between the assertion functions
 /// and dispatchable functions, which are also stored in `Test`.
 /// `Origin` corresponds to the chain where the XCM interaction starts with an initial execution.
-/// `Destination` corresponds to the last chain where an effect of the intial execution is expected
-/// happen. `Hops` refer all the ordered intermediary chains an initial XCM execution can provoke
-/// some effect.
+/// `Destination` corresponds to the last chain where an effect of the initial execution is expected
+/// to happen. `Hops` refer to all the ordered intermediary chains an initial XCM execution can
+/// provoke some effect on.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Test&lt;Origin, Destination, Hops = (), Args = TestArgs&gt;
 <span class="kw">where
@@ -3056,7 +3056,7 @@
 		<span class="kw">let </span>chain_name = std::any::type_name::&lt;Hop&gt;();
 		<span class="self">self</span>.hops_assertion.insert(chain_name.to_string(), assertion);
 	}
-	<span class="doccomment">/// Stores an assertion in a particular Chain
+	<span class="doccomment">/// Stores a dispatchable in a particular Chain
 	</span><span class="kw">pub fn </span>set_dispatchable&lt;Hop&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dispatchable: <span class="kw">fn</span>(<span class="self">Self</span>) -&gt; DispatchResult) {
 		<span class="kw">let </span>chain_name = std::any::type_name::&lt;Hop&gt;();
 		<span class="self">self</span>.hops_dispatchable.insert(chain_name.to_string(), dispatchable);

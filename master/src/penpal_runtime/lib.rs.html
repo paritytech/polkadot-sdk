@@ -870,6 +870,11 @@
 <a href="#870" id="870">870</a>
 <a href="#871" id="871">871</a>
 <a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1306,7 +1311,7 @@
 // pub type AssetsForceOrigin =
 // 	EnsureOneOf&lt;EnsureRoot&lt;AccountId&gt;, EnsureXcm&lt;IsMajorityOfBody&lt;KsmLocation, ExecutiveBody&gt;&gt;&gt;;
 
-</span><span class="kw">impl </span>pallet_assets::Config <span class="kw">for </span>Runtime {
+</span><span class="kw">impl </span>pallet_assets::Config&lt;pallet_assets::Instance1&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>AssetId = AssetId;
@@ -1449,7 +1454,12 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Fungibles = Assets;
 	<span class="kw">type </span>OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter&lt;
-		pallet_assets::BalanceToAssetBalance&lt;Balances, Runtime, ConvertInto&gt;,
+		pallet_assets::BalanceToAssetBalance&lt;
+			Balances,
+			Runtime,
+			ConvertInto,
+			pallet_assets::Instance1,
+		&gt;,
 		AssetsToBlockAuthor&lt;Runtime&gt;,
 	&gt;;
 }
@@ -1491,7 +1501,7 @@
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">34</span>,
 
 		<span class="comment">// The main stage.
-		</span>Assets: pallet_assets::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">50</span>,
+		</span>Assets: pallet_assets::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">50</span>,
 
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">255</span>,
 	}
