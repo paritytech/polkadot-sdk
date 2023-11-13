@@ -95,14 +95,13 @@ impl<
 
 /// [`VersionUncheckedMigrateToV2`] wrapped in a [`frame_support::migrations::VersionedMigration`],
 /// ensuring the migration is only performed when on-chain version is 0.
-pub type VersionCheckedMigrateToV2<T, I, PastPayouts> =
-	frame_support::migrations::VersionedMigration<
-		0,
-		2,
-		VersionUncheckedMigrateToV2<T, I, PastPayouts>,
-		crate::pallet::Pallet<T, I>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMigration<
+	0,
+	2,
+	VersionUncheckedMigrateToV2<T, I, PastPayouts>,
+	crate::pallet::Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 pub(crate) mod old {
 	use super::*;
