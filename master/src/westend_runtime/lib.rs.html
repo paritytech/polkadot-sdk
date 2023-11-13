@@ -2400,6 +2400,7 @@
 <a href="#2400" id="2400">2400</a>
 <a href="#2401" id="2401">2401</a>
 <a href="#2402" id="2402">2402</a>
+<a href="#2403" id="2403">2403</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3960,6 +3961,7 @@
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6&lt;Runtime&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7&lt;Runtime&gt;,
+		pallet_grandpa::migrations::MigrateV4ToV5&lt;Runtime&gt;,
 	);
 }
 

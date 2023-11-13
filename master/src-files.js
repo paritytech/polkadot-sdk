@@ -174,7 +174,7 @@ var srcIndex = JSON.parse('{\
 "pallet_examples":["",[],["lib.rs"]],\
 "pallet_fast_unstake":["",[],["lib.rs","migrations.rs","types.rs","weights.rs"]],\
 "pallet_glutton":["",[],["lib.rs","weights.rs"]],\
-"pallet_grandpa":["",[["migrations",[],["v4.rs"]]],["default_weights.rs","equivocation.rs","lib.rs","migrations.rs"]],\
+"pallet_grandpa":["",[["migrations",[],["v4.rs","v5.rs"]]],["default_weights.rs","equivocation.rs","lib.rs","migrations.rs"]],\
 "pallet_identity":["",[],["legacy.rs","lib.rs","types.rs","weights.rs"]],\
 "pallet_im_online":["",[],["lib.rs","migration.rs","weights.rs"]],\
 "pallet_indices":["",[],["lib.rs","weights.rs"]],\

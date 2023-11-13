@@ -533,67 +533,6 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -615,13 +554,10 @@
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">extern crate </span>alloc;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::Serialize;
 
-<span class="kw">use </span>codec::{Codec, Decode, Encode, Input};
+<span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_keystore::KeystorePtr;
@@ -629,7 +565,7 @@
 	traits::{Header <span class="kw">as </span>HeaderT, NumberFor},
 	ConsensusEngineId, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{borrow::Cow, vec::Vec};
+<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// The log target to be used by client code.
 </span><span class="kw">pub const </span>CLIENT_LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;grandpa&quot;</span>;
@@ -657,10 +593,6 @@
 
 <span class="doccomment">/// The `ConsensusEngineId` of GRANDPA.
 </span><span class="kw">pub const </span>GRANDPA_ENGINE_ID: ConsensusEngineId = <span class="kw-2">*</span><span class="string">b&quot;FRNK&quot;</span>;
-
-<span class="doccomment">/// The storage key for the current set of weighted Grandpa authorities.
-/// The value stored is an encoded VersionedAuthorityList.
-</span><span class="kw">pub const </span>GRANDPA_AUTHORITIES_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:grandpa_authorities&quot;</span>;
 
 <span class="doccomment">/// The weight of an authority.
 </span><span class="kw">pub type </span>AuthorityWeight = u64;
@@ -1058,60 +990,6 @@
 		.ok()<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Some</span>(grandpa::SignedMessage { message, signature, id: public })
-}
-
-<span class="doccomment">/// WASM function call to check for pending changes.
-</span><span class="kw">pub const </span>PENDING_CHANGE_CALL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;grandpa_pending_change&quot;</span>;
-<span class="doccomment">/// WASM function call to get current GRANDPA authorities.
-</span><span class="kw">pub const </span>AUTHORITIES_CALL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;grandpa_authorities&quot;</span>;
-
-<span class="doccomment">/// The current version of the stored AuthorityList type. The encoding version MUST be updated any
-/// time the AuthorityList type changes.
-</span><span class="kw">const </span>AUTHORITIES_VERSION: u8 = <span class="number">1</span>;
-
-<span class="doccomment">/// An AuthorityList that is encoded with a version specifier. The encoding version is updated any
-/// time the AuthorityList type changes. This ensures that encodings of different versions of an
-/// AuthorityList are differentiable. Attempting to decode an authority list with an unknown
-/// version will fail.
-</span><span class="attr">#[derive(Default)]
-</span><span class="kw">pub struct </span>VersionedAuthorityList&lt;<span class="lifetime">&#39;a</span>&gt;(Cow&lt;<span class="lifetime">&#39;a</span>, AuthorityList&gt;);
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;AuthorityList&gt; <span class="kw">for </span>VersionedAuthorityList&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>from(authorities: AuthorityList) -&gt; <span class="self">Self </span>{
-		VersionedAuthorityList(Cow::Owned(authorities))
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AuthorityList&gt; <span class="kw">for </span>VersionedAuthorityList&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>from(authorities: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AuthorityList) -&gt; <span class="self">Self </span>{
-		VersionedAuthorityList(Cow::Borrowed(authorities))
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Into&lt;AuthorityList&gt; <span class="kw">for </span>VersionedAuthorityList&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>into(<span class="self">self</span>) -&gt; AuthorityList {
-		<span class="self">self</span>.<span class="number">0</span>.into_owned()
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Encode <span class="kw">for </span>VersionedAuthorityList&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>size_hint(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-		(AUTHORITIES_VERSION, <span class="self">self</span>.<span class="number">0</span>.as_ref()).size_hint()
-	}
-
-	<span class="kw">fn </span>using_encoded&lt;R, F: FnOnce(<span class="kw-2">&amp;</span>[u8]) -&gt; R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; R {
-		(AUTHORITIES_VERSION, <span class="self">self</span>.<span class="number">0</span>.as_ref()).using_encoded(f)
-	}
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Decode <span class="kw">for </span>VersionedAuthorityList&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>decode&lt;I: Input&gt;(value: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-		<span class="kw">let </span>(version, authorities): (u8, AuthorityList) = Decode::decode(value)<span class="question-mark">?</span>;
-		<span class="kw">if </span>version != AUTHORITIES_VERSION {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;unknown Grandpa authorities version&quot;</span>.into())
-		}
-		<span class="prelude-val">Ok</span>(authorities.into())
-	}
 }
 
 <span class="doccomment">/// An opaque type used to represent the key ownership proof at the runtime API

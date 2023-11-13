@@ -2252,6 +2252,8 @@
 <a href="#2252" id="2252">2252</a>
 <a href="#2253" id="2253">2253</a>
 <a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3751,6 +3753,8 @@
 		frame_support::migrations::RemovePallet&lt;PhragmenElectionPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
 		frame_support::migrations::RemovePallet&lt;TechnicalMembershipPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
 		frame_support::migrations::RemovePallet&lt;TipsPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+
+		pallet_grandpa::migrations::MigrateV4ToV5&lt;Runtime&gt;,
 	);
 }
 

@@ -621,6 +621,9 @@
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -653,14 +656,13 @@
 
 </span><span class="comment">// Re-export since this is necessary for `impl_apis` in runtime.
 </span><span class="kw">pub use </span>sp_consensus_grandpa::{
-	<span class="self">self </span><span class="kw">as </span>fg_primitives, AuthorityId, AuthorityList, AuthorityWeight, VersionedAuthorityList,
+	<span class="self">self </span><span class="kw">as </span>fg_primitives, AuthorityId, AuthorityList, AuthorityWeight,
 };
 
-<span class="kw">use </span>codec::{<span class="self">self </span><span class="kw">as </span>codec, Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	pallet_prelude::Get,
-	storage,
 	traits::OneSessionHandler,
 	weights::Weight,
 	WeakBoundedVec,
@@ -668,8 +670,8 @@
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_consensus_grandpa::{
-	ConsensusLog, EquivocationProof, ScheduledChange, SetId, GRANDPA_AUTHORITIES_KEY,
-	GRANDPA_ENGINE_ID, RUNTIME_LOG_TARGET <span class="kw">as </span>LOG_TARGET,
+	ConsensusLog, EquivocationProof, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
+	RUNTIME_LOG_TARGET <span class="kw">as </span>LOG_TARGET,
 };
 <span class="kw">use </span>sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult};
 <span class="kw">use </span>sp_session::{GetSessionNumber, GetValidatorCount};
@@ -698,7 +700,7 @@
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// The current storage version.
-	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">4</span>);
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">5</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -768,7 +770,7 @@
 
 				<span class="comment">// enact the change if we&#39;ve reached the enacting block
 				</span><span class="kw">if </span>block_number == pending_change.scheduled_at + pending_change.delay {
-					<span class="self">Self</span>::set_grandpa_authorities(<span class="kw-2">&amp;</span>pending_change.next_authorities);
+					Authorities::&lt;T&gt;::put(<span class="kw-2">&amp;</span>pending_change.next_authorities);
 					<span class="self">Self</span>::deposit_event(Event::NewAuthorities {
 						authority_set: pending_change.next_authorities.into_inner(),
 					});
@@ -965,6 +967,11 @@
 	#[pallet::getter(<span class="kw">fn </span>session_for_set)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>SetIdSession&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, SetId, SessionIndex&gt;;
 
+	<span class="doccomment">/// The current list of authorities.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Authorities&lt;T: Config&gt; =
+		StorageValue&lt;<span class="kw">_</span>, BoundedAuthorityList&lt;T::MaxAuthorities&gt;, ValueQuery&gt;;
+
 	<span class="attr">#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
@@ -977,7 +984,7 @@
 	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			CurrentSetId::&lt;T&gt;::put(SetId::default());
-			Pallet::&lt;T&gt;::initialize(<span class="kw-2">&amp;</span><span class="self">self</span>.authorities)
+			Pallet::&lt;T&gt;::initialize(<span class="self">self</span>.authorities.clone())
 		}
 	}
 
@@ -1051,12 +1058,7 @@
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Get the current set of authorities, along with their respective weights.
 	</span><span class="kw">pub fn </span>grandpa_authorities() -&gt; AuthorityList {
-		storage::unhashed::get_or_default::&lt;VersionedAuthorityList&gt;(GRANDPA_AUTHORITIES_KEY).into()
-	}
-
-	<span class="doccomment">/// Set the current set of authorities, along with their respective weights.
-	</span><span class="kw">fn </span>set_grandpa_authorities(authorities: <span class="kw-2">&amp;</span>AuthorityList) {
-		storage::unhashed::put(GRANDPA_AUTHORITIES_KEY, <span class="kw-2">&amp;</span>VersionedAuthorityList::from(authorities));
+		Authorities::&lt;T&gt;::get().into_inner()
 	}
 
 	<span class="doccomment">/// Schedule GRANDPA to pause starting in the given number of blocks.
@@ -1145,10 +1147,14 @@
 
 	<span class="comment">// Perform module initialization, abstracted so that it can be called either through genesis
 	// config builder or through `on_genesis_session`.
-	</span><span class="kw">fn </span>initialize(authorities: <span class="kw-2">&amp;</span>AuthorityList) {
+	</span><span class="kw">fn </span>initialize(authorities: AuthorityList) {
 		<span class="kw">if </span>!authorities.is_empty() {
 			<span class="macro">assert!</span>(<span class="self">Self</span>::grandpa_authorities().is_empty(), <span class="string">&quot;Authorities are already initialized!&quot;</span>);
-			<span class="self">Self</span>::set_grandpa_authorities(authorities);
+			Authorities::&lt;T&gt;::put(
+				<span class="kw-2">&amp;</span>BoundedAuthorityList::&lt;T::MaxAuthorities&gt;::try_from(authorities).expect(
+					<span class="string">&quot;Grandpa: `Config::MaxAuthorities` is smaller than the number of genesis authorities!&quot;</span>,
+				),
+			);
 		}
 
 		<span class="comment">// NOTE: initialize first session of first set. this is necessary for
@@ -1191,7 +1197,7 @@
 		</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId, AuthorityId)&gt;,
 	{
 		<span class="kw">let </span>authorities = validators.map(|(<span class="kw">_</span>, k)| (k, <span class="number">1</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-		<span class="self">Self</span>::initialize(<span class="kw-2">&amp;</span>authorities);
+		<span class="self">Self</span>::initialize(authorities);
 	}
 
 	<span class="kw">fn </span>on_new_session&lt;<span class="lifetime">&#39;a</span>, I: <span class="lifetime">&#39;a</span>&gt;(changed: bool, validators: I, _queued_validators: I)
