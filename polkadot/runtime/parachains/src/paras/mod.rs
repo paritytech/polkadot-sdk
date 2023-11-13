@@ -750,7 +750,7 @@ pub mod pallet {
 	pub(super) type FutureCodeHash<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
-	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
+	/// This is used by the relay-chain to communicate to a parachain a go-ahead within the upgrade
 	/// procedure.
 	///
 	/// This value is absent when there are no upgrades scheduled or during the time the relay chain

@@ -43,6 +43,8 @@ use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	RuntimeDebug,
 };
+use xcm::opaque::lts::{Junction::Parachain, MultiLocation, Parent};
+use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
@@ -141,6 +143,8 @@ pub mod pallet {
 		/// The deposit to be paid per byte stored on chain.
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
+
+		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
@@ -411,9 +415,23 @@ pub mod pallet {
 			para: ParaId,
 			new_code: ValidationCode,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
-			Ok(())
+			Self::ensure_root_para_or_owner(origin.clone(), para)?;
+
+			let fee_payer = if let Ok(caller) = ensure_signed(origin.clone()) {
+				let para_info = Paras::<T>::get(para).ok_or(Error::<T>::NotRegistered)?;
+				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
+				ensure!(para_info.manager == caller, Error::<T>::NotOwner);
+
+				Some(caller)
+			} else if let Ok(_) = ensure_root(origin) {
+				None
+			} else {
+				let location: MultiLocation = (Parent, Parachain(para.into())).into();
+				let sovereign_account = T::SovereignAccountOf::convert_location(&location).unwrap();
+				Some(sovereign_account)
+			};
+
+			Self::do_schedule_code_upgrade(para, new_code, fee_payer)
 		}
 
 		/// Set the parachain's current head.
@@ -640,6 +658,41 @@ impl<T: Config> Pallet<T> {
 		PendingSwap::<T>::remove(id);
 		Self::deposit_event(Event::<T>::Deregistered { para_id: id });
 		Ok(())
+	}
+
+	fn do_schedule_code_upgrade(
+		para: ParaId,
+		new_code: ValidationCode,
+		fee_payer: Option<T::AccountId>,
+	) -> DispatchResult {
+		if let Some(payer) = fee_payer {
+			ensure!(paras::Pallet::<T>::para_head(para).is_some(), Error::<T>::NotRegistered);
+			let head = paras::Pallet::<T>::para_head(para)
+				.expect("Ensured that the head is existant above; qed");
+
+			let per_byte_fee = T::DataDepositPerByte::get();
+			let new_deposit = T::ParaDeposit::get()
+				.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
+				.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
+
+			let current_deposit = Paras::<T>::get(para)
+				.expect("Para info must be stored if head data for this parachain exists; qed")
+				.deposit;
+
+			if current_deposit > new_deposit {
+				// In case the existing deposit exceeds the required amount (due to changes in the
+				// pallet's configuration), any excess deposit will be removed.
+				let rebate = current_deposit.saturating_sub(new_deposit);
+				<T as Config>::Currency::unreserve(&payer, rebate);
+			} else {
+				// An additional deposit is required to cover for the new validation code which has
+				// a greater size compared to the old one.
+				let excess = new_deposit.saturating_sub(current_deposit);
+				<T as Config>::Currency::reserve(&payer, excess)?;
+			}
+		}
+
+		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
 	}
 
 	/// Verifies the onboarding data is valid for a para.
