@@ -51,7 +51,7 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use bounded_collections::BoundedBTreeSet;
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
@@ -105,7 +105,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -352,14 +351,14 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum OutboundState {
 	Ok,
 	Suspended,
 }
 
 /// Struct containing detailed information about the outbound channel.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct OutboundChannelDetails {
 	/// The `ParaId` of the parachain that this channel is connected with.
@@ -396,7 +395,7 @@ impl OutboundChannelDetails {
 	}
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct QueueConfigData {
 	/// The number of pages which must be in the queue for the other side to be told to suspend
 	/// their sending.
