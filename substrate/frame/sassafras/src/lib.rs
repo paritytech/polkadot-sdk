@@ -95,10 +95,13 @@ const SEGMENT_MAX_SIZE: u32 = 128;
 pub struct TicketsMetadata {
 	/// Number of outstanding next epoch tickets requiring to be sorted.
 	///
-	/// These tickets are held in segments containing at most `SEGMENT_MAX_SIZE` items.
+	/// These tickets are held by the [`UnsortedSegments`] storage map in segments
+	/// containing at most `SEGMENT_MAX_SIZE` items.
 	pub unsorted_tickets_count: u32,
 
-	/// Number of tickets available into the tickets buffers for current and next epoch.
+	/// Number of tickets available for current and next epoch.
+	///
+	/// These tickets are held by the [`TicketsIds`] storage map.
 	///
 	/// The array entry to be used for the current epoch is computed as epoch index modulo 2.
 	pub tickets_count: [u32; 2],
@@ -308,8 +311,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Block initialization.
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let claim = <frame_system::Pallet<T>>::digest()
 				.logs
 				.iter()
@@ -337,17 +339,16 @@ pub mod pallet {
 				.vrf_signature
 				.outputs
 				.get(0)
-				.expect("Presence should have been already checked by the client; qed");
+				.expect("Valid claim must have vrf signature; qed");
 			ClaimTemporaryData::<T>::put(randomness_output);
 
 			// Enact epoch change, if necessary.
-			T::EpochChangeTrigger::trigger::<T>(now);
+			T::EpochChangeTrigger::trigger::<T>(n);
 
-			Weight::zero()
+			T::WeightInfo::on_initialize()
 		}
 
-		/// Block finalization.
-		fn on_finalize(_now: BlockNumberFor<T>) {
+		fn on_finalize(_: BlockNumberFor<T>) {
 			// At the end of the block, we can safely include the current slot randomness
 			// to the randomness accumulator. If we've determined that this block was the
 			// first in a new epoch, the changeover logic has already occurred at this point
@@ -822,7 +823,7 @@ impl<T: Config> Pallet<T> {
 			};
 			debug!(
 				target: LOG_TARGET,
-				">>>>>>>> SLOT-IDX {} -> TICKET-IDX {}",
+				"slot-idx {} <-> ticket-idx {}",
 				slot_idx,
 				ticket_idx
 			);
@@ -881,7 +882,7 @@ impl<T: Config> Pallet<T> {
 
 		// There is an upper bound to check only if we already sorted the max number
 		// of allowed tickets.
-		let mut upper_bound = *sorted_candidates.get(max_tickets).unwrap_or(&TicketId::MAX);
+		let mut upper_bound = *sorted_candidates.get(max_tickets - 1).unwrap_or(&TicketId::MAX);
 
 		// Consume at most `max_segments` segments.
 		// During the process remove every stale ticket from `TicketsData` storage.
@@ -890,7 +891,9 @@ impl<T: Config> Pallet<T> {
 			let segment = UnsortedSegments::<T>::take(unsorted_segments_count);
 			metadata.unsorted_tickets_count -= segment.len() as u32;
 
-			// Push only ids with value below the current sorted segment max value.
+			// Push only ids with a value less than the current `upper_bound`.
+			// As ticket ids follow a uniform random distribution we expect to
+			// drop more or less half of the segment tickets here.
 			segment.into_iter().for_each(|id| {
 				if id < upper_bound {
 					sorted_candidates.push(id);
