@@ -11,13 +11,8 @@ explanation of the terminology.
 
 ## Running basic tests
 
-The first step is to build the worker binaries:
-
-```sh
-SKIP_WASM_BUILD=1 cargo build --bin polkadot-execute-worker --bin polkadot-prepare-worker
-```
-
-and then to run `cargo test` in the `pvf/` directory.
+Running `cargo test` in the `pvf/` directory will run integration tests. Note
+that some tests run only under Linux.
 
 ## Observing Logs
 
