@@ -27,7 +27,7 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage_legacy, get_from_seed, get_host_config, validators,
+	accounts, build_genesis_storage, get_from_seed, get_host_config, validators,
 };
 use parachains_common::Balance;
 use westend_runtime_constants::currency::UNITS as WND;
@@ -105,5 +105,5 @@ pub fn genesis() -> Storage {
 		..Default::default()
 	};
 
-	build_genesis_storage_legacy(&genesis_config, westend_runtime::WASM_BINARY.unwrap())
+	build_genesis_storage(&genesis_config, westend_runtime::WASM_BINARY.unwrap())
 }

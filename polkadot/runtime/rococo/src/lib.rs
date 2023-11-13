@@ -131,6 +131,14 @@ impl_runtime_weights!(rococo_runtime_constants);
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+/// Provides the `WASM_BINARY` build with `fast-runtime` feature enabled.
+///
+/// This is for example useful for local test chains.
+#[cfg(feature = "std")]
+pub mod fast_runtime_binary {
+	include!(concat!(env!("OUT_DIR"), "/fast_runtime_binary.rs"));
+}
+
 /// Runtime version (Rococo).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -1464,14 +1472,14 @@ pub mod migrations {
 
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
-		pallet_society::migrations::VersionCheckedMigrateToV2<Runtime, (), ()>,
+		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
 		pallet_im_online::migration::v1::Migration<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
-		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
+		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
+		paras_registrar::migration::MigrateToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
 

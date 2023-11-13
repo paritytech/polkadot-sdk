@@ -22,6 +22,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
 
 # marked optional, used in benchmarking
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -31,7 +32,6 @@ pallet-balances = { path = "../../../substrate/frame/balances", default-features
 pallet-assets = { path = "../../../substrate/frame/assets" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 polkadot-parachain-primitives = { path = "../../parachain" }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 
 [features]
 default = [ "std" ]
@@ -49,6 +49,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
