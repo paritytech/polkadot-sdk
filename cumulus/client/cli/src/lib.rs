@@ -22,12 +22,12 @@ use std::{
 	fs,
 	io::{self, Write},
 	net::SocketAddr,
-	path::PathBuf,
+	path::PathBuf, sync::Arc,
 };
 
 use codec::Encode;
-use sc_chain_spec::{ChainSpec, BuildGenesisBlock};
-use sc_client_api::ExecutorProvider;
+use sc_chain_spec::{ChainSpec};
+use sc_client_api::{HeaderBackend};
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
@@ -147,24 +147,19 @@ pub struct ExportGenesisStateCommand {
 
 impl ExportGenesisStateCommand {
 	/// Run the export-genesis-state command
-	pub fn run<Block: BlockT, Builder: BuildGenesisBlock<Block>>(
-		&self,
-		chain_spec: &dyn ChainSpec,
-		client: &impl ExecutorProvider<Block>,
-		genesis_block_builder: Builder,
-	) -> sc_cli::Result<()> {
-		let state_version = sc_chain_spec::resolve_state_version_from_wasm(
-			&chain_spec.build_storage()?,
-			client.executor(),
-		)?;
+	pub fn run<B, C>(&self, client: Arc<C>) -> sc_cli::Result<()>
+	where
+		B: BlockT,
+		C: HeaderBackend<B> + 'static,
+	{
+		let genesis_hash = client.hash(Zero::zero())?.expect("Not sure what this option means.");
+		let genesis_header = client.header(genesis_hash)?.expect("again with the option.");
 
-		// let block: Block = generate_genesis_block(chain_spec, state_version)?;
-		let block: Block = genesis_block_builder.build_genesis_block()?.0;
-		let raw_header = block.header().encode();
+		let raw_header = genesis_header.encode();
 		let output_buf = if self.raw {
 			raw_header
 		} else {
-			format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
+			format!("0x{:?}", HexDisplay::from(&genesis_header.encode())).into_bytes()
 		};
 
 		if let Some(output) = &self.output {
