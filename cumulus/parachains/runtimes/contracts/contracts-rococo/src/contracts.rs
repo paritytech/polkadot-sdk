@@ -22,8 +22,7 @@ use frame_support::{
 	traits::{ConstBool, ConstU32, Nothing},
 };
 use pallet_contracts::{
-	weights::SubstrateWeight,
-	Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
+	weights::SubstrateWeight, Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
 };
 use sp_runtime::Perbill;
 
