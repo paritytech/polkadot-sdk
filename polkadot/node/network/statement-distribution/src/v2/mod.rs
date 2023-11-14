@@ -1423,6 +1423,8 @@ async fn handle_incoming_statement<Context>(
 			},
 		};
 
+	gum::info!(target: LOG_TARGET, ?peer, ?candidate_hash, ?validator_index, "statement_distribution: handle incoming");
+
 	let mut prints = String::new();
 	let cluster_sender_index = {
 		// This block of code only returns `Some` when both the originator and
