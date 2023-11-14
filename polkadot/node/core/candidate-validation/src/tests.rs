@@ -500,7 +500,7 @@ fn perform_basic_checks_on_valid_candidate(
 	pov: &PoV,
 	validation_code: &ValidationCode,
 	validation_data: &PersistedValidationData,
-	head_data_hash: Hash
+	head_data_hash: Hash,
 ) -> CandidateDescriptor {
 	let descriptor = make_valid_candidate_descriptor(
 		ParaId::from(1_u32),
@@ -532,7 +532,12 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = perform_basic_checks_on_valid_candidate(&pov, &validation_code, &validation_data, head_data.hash());
+	let descriptor = perform_basic_checks_on_valid_candidate(
+		&pov,
+		&validation_code,
+		&validation_data,
+		head_data.hash(),
+	);
 
 	let validation_result = WasmValidationResult {
 		head_data,
@@ -586,7 +591,12 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = perform_basic_checks_on_valid_candidate(&pov, &validation_code, &validation_data, dummy_hash());
+	let descriptor = perform_basic_checks_on_valid_candidate(
+		&pov,
+		&validation_code,
+		&validation_data,
+		dummy_hash(),
+	);
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
@@ -614,8 +624,10 @@ fn candidate_validation_retry_internal_errors() {
 		PvfExecKind::Approval,
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
-			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			// Throw an AJD error, we should still retry again.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(
+				"baz"into(),
+			))),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
 		],
@@ -1219,7 +1231,7 @@ fn precheck_properly_classifies_outcomes() {
 
 	inner(Err(PrepareError::Prevalidation("foo".to_owned())), PreCheckOutcome::Invalid);
 	inner(Err(PrepareError::Preparation("bar".to_owned())), PreCheckOutcome::Invalid);
-	inner(Err(PrepareError::Panic("baz".to_owned())), PreCheckOutcome::Invalid);
+	inner(Err(PrepareError::JobError("baz".to_owned())), PreCheckOutcome::Invalid);
 
 	inner(Err(PrepareError::TimedOut), PreCheckOutcome::Failed);
 	inner(Err(PrepareError::IoErr("fizz".to_owned())), PreCheckOutcome::Failed);
