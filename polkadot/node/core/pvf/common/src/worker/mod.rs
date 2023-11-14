@@ -93,12 +93,12 @@ macro_rules! decl_worker_main {
 				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
+					let cache_path_tempdir = std::path::Path::new(&args[2]);
+					#[cfg(target_os = "linux")]
 					let status = if let Err(err) = security::unshare_user_namespace_and_change_root(
 						$crate::worker::WorkerKind::CheckPivotRoot,
 						worker_pid,
-						// We're not accessing any files, so we can try to pivot_root in the temp
-						// dir without conflicts with other processes.
-						&std::env::temp_dir(),
+						&cache_path_tempdir,
 					) {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
