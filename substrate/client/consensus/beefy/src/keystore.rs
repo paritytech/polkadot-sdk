@@ -17,7 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, RuntimeAppPublic};
-use sp_core::keccak_256;
 use sp_keystore::KeystorePtr;
 
 use log::warn;
@@ -74,7 +73,7 @@ impl BeefyKeystore {
 	pub fn sign(&self, public: &Public, message: &[u8]) -> Result<Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		let msg = keccak_256(message);
+		let msg = sp_crypto_hashing::keccak_256(message);
 		let public = public.as_ref();
 
 		let sig = store

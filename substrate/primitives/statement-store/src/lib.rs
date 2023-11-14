@@ -87,7 +87,7 @@ mod ecdsa {
 /// Returns blake2-256 hash for the encoded statement.
 #[cfg(feature = "std")]
 pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
-	sp_core::hashing::blake2_256(data)
+	sp_crypto_hashing::blake2_256(data)
 }
 
 /// Statement proof.

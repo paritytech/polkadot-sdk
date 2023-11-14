@@ -19,7 +19,7 @@
 
 use crate::{ecdsa_crypto, Commitment, EquivocationProof, Payload, ValidatorSetId, VoteMessage};
 use codec::Encode;
-use sp_core::{ecdsa, keccak_256, Pair};
+use sp_core::{ecdsa, Pair};
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 
@@ -41,7 +41,7 @@ impl Keyring {
 	/// Sign `msg`.
 	pub fn sign(self, msg: &[u8]) -> ecdsa_crypto::Signature {
 		// todo: use custom signature hashing type
-		let msg = keccak_256(msg);
+		let msg = sp_crypto_hashing::keccak_256(msg);
 		ecdsa::Pair::from(self).sign_prehashed(&msg).into()
 	}
 
