@@ -880,6 +880,12 @@
 <a href="#880" id="880">880</a>
 <a href="#881" id="881">881</a>
 <a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1524,14 +1530,19 @@
 		},
 		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout)) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedError(e))) =&gt;
+		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedInvalid(e))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
 		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				<span class="string">&quot;ambiguous worker death&quot;</span>.to_string(),
 			))),
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(err))) =&gt;
+		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(err))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+
+		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(err))) =&gt;
+			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(<span class="macro">format!</span>(
+				<span class="string">&quot;ambiguous job death: {err}&quot;
+			</span>)))),
 		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) =&gt; {
 			<span class="comment">// In principle if preparation of the `WASM` fails, the current candidate can not be the
 			// reason for that. So we can&#39;t say whether it is invalid or not. In addition, with
@@ -1623,9 +1634,9 @@
 		};
 
 		<span class="comment">// Allow limited retries for each kind of error.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>num_internal_retries_left = <span class="number">1</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>num_awd_retries_left = <span class="number">1</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>num_panic_retries_left = <span class="number">1</span>;
+		</span><span class="kw">let </span><span class="kw-2">mut </span>num_death_retries_left = <span class="number">1</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>num_job_error_retries_left = <span class="number">1</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>num_internal_retries_left = <span class="number">1</span>;
 		<span class="kw">loop </span>{
 			<span class="comment">// Stop retrying if we exceeded the timeout.
 			</span><span class="kw">if </span>total_time_start.elapsed() + retry_delay &gt; exec_timeout {
@@ -1634,11 +1645,12 @@
 
 			<span class="kw">match </span>validation_result {
 				<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(
-					WasmInvalidCandidate::AmbiguousWorkerDeath,
-				)) <span class="kw">if </span>num_awd_retries_left &gt; <span class="number">0 </span>=&gt; num_awd_retries_left -= <span class="number">1</span>,
-				<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(<span class="kw">_</span>)))
-					<span class="kw">if </span>num_panic_retries_left &gt; <span class="number">0 </span>=&gt;
-					num_panic_retries_left -= <span class="number">1</span>,
+					WasmInvalidCandidate::AmbiguousWorkerDeath |
+					WasmInvalidCandidate::AmbiguousJobDeath(<span class="kw">_</span>),
+				)) <span class="kw">if </span>num_death_retries_left &gt; <span class="number">0 </span>=&gt; num_death_retries_left -= <span class="number">1</span>,
+				<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(<span class="kw">_</span>)))
+					<span class="kw">if </span>num_job_error_retries_left &gt; <span class="number">0 </span>=&gt;
+					num_job_error_retries_left -= <span class="number">1</span>,
 				<span class="prelude-val">Err</span>(ValidationError::InternalError(<span class="kw">_</span>)) <span class="kw">if </span>num_internal_retries_left &gt; <span class="number">0 </span>=&gt;
 					num_internal_retries_left -= <span class="number">1</span>,
 				<span class="kw">_ </span>=&gt; <span class="kw">break</span>,

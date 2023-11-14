@@ -352,16 +352,6 @@
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -443,7 +433,7 @@
 	</span>CreateTmpFileErr { worker: IdleWorker, err: String },
 	<span class="doccomment">/// The response from the worker is received, but the tmp file cannot be renamed (moved) to the
 	/// final destination location.
-	</span>RenameTmpFileErr {
+	</span>RenameTmpFile {
 		worker: IdleWorker,
 		result: PrepareResult,
 		err: String,
@@ -464,6 +454,10 @@
 	</span>IoErr(String),
 	<span class="doccomment">/// The worker ran out of memory and is aborting. The worker should be ripped.
 	</span>OutOfMemory,
+	<span class="doccomment">/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	///
+	/// The worker might still be usable, but we kill it just in case.
+	</span>JobDied(String),
 }
 
 <span class="doccomment">/// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -551,21 +545,6 @@
 						<span class="string">&quot;failed to recv a prepare response: {:?}&quot;</span>,
 						err,
 					);
-
-					<span class="comment">// The worker died. Check if it was due to a seccomp violation.
-					//
-					// NOTE: Log, but don&#39;t change the outcome. Not all validators may have auditing
-					// enabled, so we don&#39;t want attackers to abuse a non-deterministic outcome.
-					</span><span class="kw">for </span>syscall <span class="kw">in </span>security::check_seccomp_violations_for_worker(audit_log_file, pid).<span class="kw">await </span>{
-						<span class="macro">gum::error!</span>(
-							target: LOG_TARGET,
-							worker_pid = %pid,
-							%syscall,
-							<span class="question-mark">?</span>pvf,
-							<span class="string">&quot;A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!&quot;
-						</span>);
-					}
-
 					Outcome::IoErr(err.to_string())
 				},
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
@@ -600,6 +579,7 @@
 		<span class="prelude-val">Ok</span>(result) =&gt; result,
 		<span class="comment">// Timed out on the child. This should already be logged by the child.
 		</span><span class="prelude-val">Err</span>(PrepareError::TimedOut) =&gt; <span class="kw">return </span>Outcome::TimedOut,
+		<span class="prelude-val">Err</span>(PrepareError::JobDied(err)) =&gt; <span class="kw">return </span>Outcome::JobDied(err),
 		<span class="prelude-val">Err</span>(PrepareError::OutOfMemory) =&gt; <span class="kw">return </span>Outcome::OutOfMemory,
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>Outcome::Concluded { worker, result },
 	};
@@ -636,7 +616,7 @@
 				artifact_path.display(),
 				err,
 			);
-			Outcome::RenameTmpFileErr {
+			Outcome::RenameTmpFile {
 				worker,
 				result,
 				err: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err),

@@ -58,6 +58,45 @@
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -88,9 +127,9 @@
 	</span><span class="kw">pub </span>executor_params: ExecutorParams,
 }
 
-<span class="doccomment">/// The response from an execution job on the worker.
+<span class="doccomment">/// The response from the execution worker.
 </span><span class="attr">#[derive(Debug, Encode, Decode)]
-</span><span class="kw">pub enum </span>Response {
+</span><span class="kw">pub enum </span>WorkerResponse {
 	<span class="doccomment">/// The job completed successfully.
 	</span><span class="prelude-val">Ok </span>{
 		<span class="doccomment">/// The result of parachain validation.
@@ -101,14 +140,38 @@
 	<span class="doccomment">/// The candidate is invalid.
 	</span>InvalidCandidate(String),
 	<span class="doccomment">/// The job timed out.
-	</span>TimedOut,
-	<span class="doccomment">/// An unexpected panic has occurred in the execution worker.
-	</span>Panic(String),
+	</span>JobTimedOut,
+	<span class="doccomment">/// The job process has died. We must kill the worker just in case.
+	///
+	/// We cannot treat this as an internal error because malicious code may have killed the job.
+	/// We still retry it, because in the non-malicious case it is likely spurious.
+	</span>JobDied(String),
+	<span class="doccomment">/// An unexpected error occurred in the job process, e.g. failing to spawn a thread, panic,
+	/// etc.
+	///
+	/// Because malicious code can cause a job error, we must not treat it as an internal error. We
+	/// still retry it, because in the non-malicious case it is likely spurious.
+	</span>JobError(String),
+
 	<span class="doccomment">/// Some internal error occurred.
 	</span>InternalError(InternalValidationError),
 }
 
-<span class="kw">impl </span>Response {
+<span class="doccomment">/// The result of a job on the execution worker.
+</span><span class="kw">pub type </span>JobResult = <span class="prelude-ty">Result</span>&lt;JobResponse, JobError&gt;;
+
+<span class="doccomment">/// The successful response from a job on the execution worker.
+</span><span class="attr">#[derive(Debug, Encode, Decode)]
+</span><span class="kw">pub enum </span>JobResponse {
+	<span class="prelude-val">Ok </span>{
+		<span class="doccomment">/// The result of parachain validation.
+		</span>result_descriptor: ValidationResult,
+	},
+	<span class="doccomment">/// The candidate is invalid.
+	</span>InvalidCandidate(String),
+}
+
+<span class="kw">impl </span>JobResponse {
 	<span class="doccomment">/// Creates an invalid response from a context `ctx` and a message `msg` (which can be empty).
 	</span><span class="kw">pub fn </span>format_invalid(ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, msg: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
 		<span class="kw">if </span>msg.is_empty() {
@@ -117,5 +180,20 @@
 			<span class="self">Self</span>::InvalidCandidate(<span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, ctx, msg))
 		}
 	}
+}
+
+<span class="doccomment">/// An unexpected error occurred in the execution job process. Because this comes from the job,
+/// which executes untrusted code, this error must likewise be treated as untrusted. That is, we
+/// cannot raise an internal error based on this.
+</span><span class="attr">#[derive(thiserror::Error, Debug, Encode, Decode)]
+</span><span class="kw">pub enum </span>JobError {
+	<span class="attr">#[error(<span class="string">&quot;The job timed out&quot;</span>)]
+	</span>TimedOut,
+	<span class="attr">#[error(<span class="string">&quot;An unexpected panic has occurred in the execution job: {0}&quot;</span>)]
+	</span>Panic(String),
+	<span class="attr">#[error(<span class="string">&quot;Could not spawn the requested thread: {0}&quot;</span>)]
+	</span>CouldNotSpawnThread(String),
+	<span class="attr">#[error(<span class="string">&quot;An error occurred in the CPU time monitor thread: {0}&quot;</span>)]
+	</span>CpuTimeMonitorThread(String),
 }
 </code></pre></div></section></main></body></html>

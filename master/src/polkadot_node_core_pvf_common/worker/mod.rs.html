@@ -664,6 +664,12 @@
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -871,9 +877,15 @@
 	}
 }
 
-<span class="comment">// The worker version must be passed in so that we accurately get the version of the worker, and not
-// the version that this crate was compiled with.
-</span><span class="kw">pub fn </span>worker_event_loop&lt;F&gt;(
+<span class="comment">// NOTE: The worker version must be passed in so that we accurately get the version of the worker,
+// and not the version that this crate was compiled with.
+//
+// NOTE: This must not spawn any threads due to safety requirements in `event_loop` and to avoid
+// errors in [`security::unshare_user_namespace_and_change_root`].
+//
+</span><span class="doccomment">/// Initializes the worker process, then runs the given event loop, which spawns a new job process
+/// to securely handle each incoming request.
+</span><span class="kw">pub fn </span>run_worker&lt;F&gt;(
 	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_mut))] </span><span class="kw-2">mut </span>worker_dir_path: PathBuf,

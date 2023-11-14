@@ -315,6 +315,15 @@
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -347,7 +356,7 @@
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, Response},
+	execute::{Handshake, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
@@ -405,19 +414,26 @@
 	/// a trap. Errors related to the preparation process are not expected to be encountered by the
 	/// execution workers.
 	</span>InvalidCandidate { err: String, idle_worker: IdleWorker },
+	<span class="doccomment">/// The execution time exceeded the hard limit. The worker is terminated.
+	</span>HardTimeout,
+	<span class="doccomment">/// An I/O error happened during communication with the worker. This may mean that the worker
+	/// process already died. The token is not returned in any case.
+	</span>WorkerIntfErr,
+	<span class="doccomment">/// The job process has died. We must kill the worker just in case.
+	///
+	/// We cannot treat this as an internal error because malicious code may have caused this.
+	</span>JobDied { err: String },
+	<span class="doccomment">/// An unexpected error occurred in the job process.
+	///
+	/// Because malicious code can cause a job error, we must not treat it as an internal error.
+	</span>JobError { err: String },
+
 	<span class="doccomment">/// An internal error happened during the validation. Such an error is most likely related to
 	/// some transient glitch.
 	///
 	/// Should only ever be used for errors independent of the candidate and PVF. Therefore it may
 	/// be a problem with the worker, so we terminate it.
 	</span>InternalError { err: InternalValidationError },
-	<span class="doccomment">/// The execution time exceeded the hard limit. The worker is terminated.
-	</span>HardTimeout,
-	<span class="doccomment">/// An I/O error happened during communication with the worker. This may mean that the worker
-	/// process already died. The token is not returned in any case.
-	</span>IoErr,
-	<span class="doccomment">/// An unexpected panic has occurred in the execution worker.
-	</span>Panic { err: String },
 }
 
 <span class="doccomment">/// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -454,7 +470,7 @@
 				<span class="question-mark">?</span>error,
 				<span class="string">&quot;failed to send an execute request&quot;</span>,
 			);
-			<span class="kw">return </span>Outcome::IoErr
+			<span class="kw">return </span>Outcome::WorkerIntfErr
 		}
 
 		<span class="comment">// We use a generous timeout here. This is in addition to the one in the child process, in
@@ -490,7 +506,7 @@
 							</span>);
 						}
 
-						<span class="kw">return </span>Outcome::IoErr
+						<span class="kw">return </span>Outcome::WorkerIntfErr
 					},
 					<span class="prelude-val">Ok</span>(response) =&gt; {
 						<span class="comment">// Check if any syscall violations occurred during the job. For now this is
@@ -506,7 +522,7 @@
 							</span>);
 						}
 
-						<span class="kw">if let </span>Response::Ok{duration, ..} = response {
+						<span class="kw">if let </span>WorkerResponse::Ok{duration, ..} = response {
 							<span class="kw">if </span>duration &gt; execution_timeout {
 								<span class="comment">// The job didn&#39;t complete within the timeout.
 								</span><span class="macro">gum::warn!</span>(
@@ -518,7 +534,7 @@
 								);
 
 								<span class="comment">// Return a timeout error.
-								</span><span class="kw">return </span>Outcome::HardTimeout;
+								</span><span class="kw">return </span>Outcome::HardTimeout
 							}
 						}
 
@@ -533,23 +549,25 @@
 					validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
 					<span class="string">&quot;execution worker exceeded lenient timeout for execution, child worker likely stalled&quot;</span>,
 				);
-				Response::TimedOut
+				WorkerResponse::JobTimedOut
 			},
 		};
 
 		<span class="kw">match </span>response {
-			Response::Ok { result_descriptor, duration } =&gt; Outcome::Ok {
+			WorkerResponse::Ok { result_descriptor, duration } =&gt; Outcome::Ok {
 				result_descriptor,
 				duration,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
-			Response::InvalidCandidate(err) =&gt; Outcome::InvalidCandidate {
+			WorkerResponse::InvalidCandidate(err) =&gt; Outcome::InvalidCandidate {
 				err,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
-			Response::TimedOut =&gt; Outcome::HardTimeout,
-			Response::Panic(err) =&gt; Outcome::Panic { err },
-			Response::InternalError(err) =&gt; Outcome::InternalError { err },
+			WorkerResponse::JobTimedOut =&gt; Outcome::HardTimeout,
+			WorkerResponse::JobDied(err) =&gt; Outcome::JobDied { err },
+			WorkerResponse::JobError(err) =&gt; Outcome::JobError { err },
+
+			WorkerResponse::InternalError(err) =&gt; Outcome::InternalError { err },
 		}
 	})
 	.<span class="kw">await
@@ -623,9 +641,9 @@
 	framed_send(stream, <span class="kw-2">&amp;</span>execution_timeout.encode()).<span class="kw">await
 </span>}
 
-<span class="kw">async fn </span>recv_response(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;Response&gt; {
+<span class="kw">async fn </span>recv_response(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;WorkerResponse&gt; {
 	<span class="kw">let </span>response_bytes = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
-	Response::decode(<span class="kw-2">&amp;mut &amp;</span>response_bytes[..]).map_err(|e| {
+	WorkerResponse::decode(<span class="kw-2">&amp;mut </span>response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			<span class="macro">format!</span>(<span class="string">&quot;execute pvf recv_response: decode error: {:?}&quot;</span>, e),

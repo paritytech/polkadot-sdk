@@ -529,6 +529,13 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -873,20 +880,27 @@
 		},
 		Outcome::InvalidCandidate { err, idle_worker } =&gt; (
 			<span class="prelude-val">Some</span>(idle_worker),
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedError(err))),
+			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedInvalid(err))),
 			<span class="prelude-val">None</span>,
 		),
 		Outcome::InternalError { err } =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::InternalError(err)), <span class="prelude-val">None</span>),
-		Outcome::HardTimeout =&gt;
+		<span class="comment">// Either the worker or the job timed out. Kill the worker in either case. Treated as
+		// definitely-invalid, because if we timed out, there&#39;s no time left for a retry.
+		</span>Outcome::HardTimeout =&gt;
 			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), <span class="prelude-val">None</span>),
 		<span class="comment">// &quot;Maybe invalid&quot; errors (will retry).
-		</span>Outcome::IoErr =&gt; (
+		</span>Outcome::WorkerIntfErr =&gt; (
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)),
 			<span class="prelude-val">None</span>,
 		),
-		Outcome::Panic { err } =&gt;
-			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::Panic(err))), <span class="prelude-val">None</span>),
+		Outcome::JobDied { err } =&gt; (
+			<span class="prelude-val">None</span>,
+			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err))),
+			<span class="prelude-val">None</span>,
+		),
+		Outcome::JobError { err } =&gt;
+			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::JobError(err))), <span class="prelude-val">None</span>),
 	};
 
 	queue.metrics.execute_finished();

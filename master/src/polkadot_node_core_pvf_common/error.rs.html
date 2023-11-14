@@ -171,7 +171,6 @@
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -209,9 +208,9 @@
 	<span class="doccomment">/// Instantiation of the WASM module instance failed.
 	</span><span class="attr">#[codec(index = <span class="number">2</span>)]
 	</span>RuntimeConstruction(String),
-	<span class="doccomment">/// An unexpected panic has occurred in the preparation worker.
+	<span class="doccomment">/// An unexpected error has occurred in the preparation job.
 	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
-	</span>Panic(String),
+	</span>JobError(String),
 	<span class="doccomment">/// Failed to prepare the PVF due to the time limit.
 	</span><span class="attr">#[codec(index = <span class="number">4</span>)]
 	</span>TimedOut,
@@ -222,12 +221,12 @@
 	<span class="doccomment">/// The temporary file for the artifact could not be created at the given cache path. This
 	/// state is reported by the validation host (not by the worker).
 	</span><span class="attr">#[codec(index = <span class="number">6</span>)]
-	</span>CreateTmpFileErr(String),
+	</span>CreateTmpFile(String),
 	<span class="doccomment">/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
 	</span><span class="attr">#[codec(index = <span class="number">7</span>)]
-	</span>RenameTmpFileErr {
+	</span>RenameTmpFile {
 		err: String,
 		<span class="comment">// Unfortunately `PathBuf` doesn&#39;t implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option&lt;String&gt;`.
@@ -242,10 +241,13 @@
 	/// reported by the validation host (not by the worker).
 	</span><span class="attr">#[codec(index = <span class="number">9</span>)]
 	</span>ClearWorkerDir(String),
+	<span class="doccomment">/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	</span>JobDied(String),
+	<span class="attr">#[codec(index = <span class="number">10</span>)]
+	</span><span class="doccomment">/// Some error occurred when interfacing with the kernel.
+	</span><span class="attr">#[codec(index = <span class="number">11</span>)]
+	</span>Kernel(String),
 }
-
-<span class="doccomment">/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
-</span><span class="kw">pub const </span>OOM_PAYLOAD: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08&quot;</span>;
 
 <span class="kw">impl </span>PrepareError {
 	<span class="doccomment">/// Returns whether this is a deterministic error, i.e. one that should trigger reliably. Those
@@ -257,12 +259,15 @@
 	</span><span class="kw">pub fn </span>is_deterministic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="kw">use </span>PrepareError::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
-			Prevalidation(<span class="kw">_</span>) | Preparation(<span class="kw">_</span>) | Panic(<span class="kw">_</span>) | OutOfMemory =&gt; <span class="bool-val">true</span>,
-			TimedOut |
+			Prevalidation(<span class="kw">_</span>) | Preparation(<span class="kw">_</span>) | JobError(<span class="kw">_</span>) | OutOfMemory =&gt; <span class="bool-val">true</span>,
 			IoErr(<span class="kw">_</span>) |
-			CreateTmpFileErr(<span class="kw">_</span>) |
-			RenameTmpFileErr { .. } |
-			ClearWorkerDir(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+			JobDied(<span class="kw">_</span>) |
+			CreateTmpFile(<span class="kw">_</span>) |
+			RenameTmpFile { .. } |
+			ClearWorkerDir(<span class="kw">_</span>) |
+			Kernel(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+			<span class="comment">// Can occur due to issues with the PVF, but also due to factors like local load.
+			</span>TimedOut =&gt; <span class="bool-val">false</span>,
 			<span class="comment">// Can occur due to issues with the PVF, but also due to local errors.
 			</span>RuntimeConstruction(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
 		}
@@ -276,14 +281,16 @@
 			Prevalidation(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prevalidation: {}&quot;</span>, err),
 			Preparation(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;preparation: {}&quot;</span>, err),
 			RuntimeConstruction(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;runtime construction: {}&quot;</span>, err),
-			Panic(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;panic: {}&quot;</span>, err),
+			JobError(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;panic: {}&quot;</span>, err),
 			TimedOut =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: timeout&quot;</span>),
 			IoErr(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: io error while receiving response: {}&quot;</span>, err),
-			CreateTmpFileErr(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: error creating tmp file: {}&quot;</span>, err),
-			RenameTmpFileErr { err, src, dest } =&gt;
+			JobDied(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: prepare job died: {}&quot;</span>, err),
+			CreateTmpFile(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: error creating tmp file: {}&quot;</span>, err),
+			RenameTmpFile { err, src, dest } =&gt;
 				<span class="macro">write!</span>(f, <span class="string">&quot;prepare: error renaming tmp file ({:?} -&gt; {:?}): {}&quot;</span>, src, dest, err),
 			OutOfMemory =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: out of memory&quot;</span>),
 			ClearWorkerDir(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: error clearing worker cache: {}&quot;</span>, err),
+			Kernel(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: error interfacing with the kernel: {}&quot;</span>, err),
 		}
 	}
 }
@@ -307,9 +314,9 @@
 		// conversion to `Option&lt;String&gt;`.
 		</span>path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	},
-	<span class="doccomment">/// An error occurred in the CPU time monitor thread. Should be totally unrelated to
-	/// validation.
-	</span>CpuTimeMonitorThread(String),
+	<span class="doccomment">/// Some error occurred when interfacing with the kernel.
+	</span>Kernel(String),
+
 	<span class="doccomment">/// Some non-deterministic preparation error occurred.
 	</span>NonDeterministicPrepareError(PrepareError),
 }
@@ -332,18 +339,9 @@
 				<span class="string">&quot;validation: host could not clear the worker cache ({:?}) after a job: {}&quot;</span>,
 				path, err
 			),
-			CpuTimeMonitorThread(err) =&gt;
-				<span class="macro">write!</span>(f, <span class="string">&quot;validation: an error occurred in the CPU time monitor thread: {}&quot;</span>, err),
+			Kernel(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;validation: error interfacing with the kernel: {}&quot;</span>, err),
 			NonDeterministicPrepareError(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;validation: prepare: {}&quot;</span>, err),
 		}
 	}
-}
-
-<span class="attr">#[test]
-</span><span class="kw">fn </span>pre_encoded_payloads() {
-	<span class="kw">let </span>oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
-	<span class="kw">let </span><span class="kw-2">mut </span>oom_payload = oom_enc.len().to_le_bytes().to_vec();
-	oom_payload.extend(oom_enc);
-	<span class="macro">assert_eq!</span>(oom_payload, OOM_PAYLOAD);
 }
 </code></pre></div></section></main></body></html>
