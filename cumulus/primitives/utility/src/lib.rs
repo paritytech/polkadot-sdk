@@ -37,6 +37,9 @@ use xcm::{latest::prelude::*, WrapVersion};
 use xcm_builder::TakeRevenue;
 use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
 
+#[cfg(test)]
+mod tests;
+
 /// Xcm router which recognises the `Parent` destination and handles it by sending the message into
 /// the given UMP `UpwardMessageSender` implementation. Thus this essentially adapts an
 /// `UpwardMessageSender` trait impl into a `SendXcm` trait impl.
@@ -302,7 +305,7 @@ pub trait ChargeWeightInFungibles<AccountId, Assets: fungibles::Inspect<AccountI
 /// ### Parameters:
 /// - `Target`: the asset into which the user's payment will be exchanged using `SwapCredit`.
 /// - `SwapCredit`: mechanism used for the exchange of the user's payment asset into the `Target`.
-/// - `WeightToFee`: weight to fee calculator.
+/// - `WeightToFee`: weight to the `Target` asset fee calculator.
 /// - `Fungibles`: registry of fungible assets.
 /// - `FungiblesAssetMatcher`: utility for mapping [`MultiAsset`] to `Fungibles::AssetId` and
 ///   `Fungibles::Balance`.
@@ -517,17 +520,9 @@ impl<
 }
 
 #[cfg(test)]
-mod tests {
+mod test_xcm_router {
 	use super::*;
 	use cumulus_primitives_core::UpwardMessage;
-	use frame_support::{
-		assert_ok,
-		traits::tokens::{
-			DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence,
-		},
-	};
-	use sp_runtime::DispatchError;
-	use xcm_executor::{traits::Error, Assets};
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
@@ -623,6 +618,18 @@ mod tests {
 			)>(dest.into(), message)
 		);
 	}
+}
+#[cfg(test)]
+mod test_trader {
+	use super::*;
+	use frame_support::{
+		assert_ok,
+		traits::tokens::{
+			DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence,
+		},
+	};
+	use sp_runtime::DispatchError;
+	use xcm_executor::{traits::Error, Assets};
 
 	#[test]
 	fn take_first_asset_trader_buy_weight_called_twice_throws_error() {
