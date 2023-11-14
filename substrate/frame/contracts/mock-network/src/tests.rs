@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
-	parachain::{self, Runtime, RuntimeOrigin},
+	parachain::{self, Runtime},
 	parachain_account_sovereign_account_id,
 	primitives::{AccountId, CENTS},
-	relay_chain, MockNet, ParaA, ParachainBalances, ParachainPalletXcm, Relay, ALICE, BOB,
+	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB,
 	INITIAL_BALANCE,
 };
 use assert_matches::assert_matches;
@@ -29,7 +29,6 @@ use frame_support::{
 	pallet_prelude::Weight,
 	traits::{fungibles::Mutate, Currency},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_balances::{BalanceLock, Reasons};
 use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_fixtures::compile_module;
