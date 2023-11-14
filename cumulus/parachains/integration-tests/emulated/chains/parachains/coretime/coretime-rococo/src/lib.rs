@@ -13,15 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//pub mod genesis;
+pub mod genesis;
 
 // Substrate
 use frame_support::traits::OnInitialize;
+use rococo_emulated_chain::Rococo;
 
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_system_parachain, xcm_emulator::decl_test_parachains,
 };
 
 // BridgeHubRococo Parachain declaration
@@ -47,3 +48,4 @@ decl_test_parachains! {
 // BridgeHubRococo implementation
 impl_accounts_helpers_for_parachain!(CoretimeRococo);
 impl_assert_events_helpers_for_parachain!(CoretimeRococo);
+impl_assets_helpers_for_system_parachain!(CoretimeRococo, Rococo);
