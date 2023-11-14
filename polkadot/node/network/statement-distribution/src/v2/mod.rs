@@ -963,7 +963,7 @@ async fn send_pending_grid_messages<Context>(
 				);
 
 				if res.is_some() {
-					grid_tracker.sent_direct_statement(
+					grid_tracker.sent_or_received_direct_statement(
 						groups,
 						originator,
 						peer_validator_id,
@@ -1246,7 +1246,7 @@ async fn circulate_statement<Context>(
 			},
 			DirectTargetKind::Grid => {
 				statement_to_peers.push(peer_id);
-				local_validator.grid_tracker.sent_direct_statement(
+				local_validator.grid_tracker.sent_or_received_direct_statement(
 					&per_session.groups,
 					originator,
 					target,
@@ -1688,7 +1688,7 @@ fn handle_grid_statement(
 		Err(_) => return Err(COST_INVALID_SIGNATURE),
 	};
 
-	grid_tracker.received_direct_statement(
+	grid_tracker.sent_or_received_direct_statement(
 		&per_session.groups,
 		checked_statement.validator_index(),
 		grid_sender_index,
@@ -2261,7 +2261,7 @@ fn post_acknowledgement_statement_messages(
 	for statement in
 		statement_store.group_statements(groups, group_index, candidate_hash, &sending_filter)
 	{
-		grid_tracker.sent_direct_statement(
+		grid_tracker.sent_or_received_direct_statement(
 			groups,
 			statement.validator_index(),
 			recipient,
@@ -3064,7 +3064,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 				statement.unchecked_payload().clone(),
 			);
 		} else {
-			local_validator.grid_tracker.sent_direct_statement(
+			local_validator.grid_tracker.sent_or_received_direct_statement(
 				&per_session.groups,
 				statement.unchecked_validator_index(),
 				validator_id,
