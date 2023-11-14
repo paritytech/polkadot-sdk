@@ -75,10 +75,15 @@ pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
 
 	/// Add relay guards if required.
 	async fn start_relay_guards(
-		_target_client: &Client<Self::TargetChain>,
-		_transaction_params: &TransactionParams<AccountKeyPairOf<Self::TargetChain>>,
-		_enable_version_guard: bool,
+		target_client: &Client<Self::TargetChain>,
+		enable_version_guard: bool,
 	) -> relay_substrate_client::Result<()> {
+		if enable_version_guard {
+			relay_substrate_client::guard::abort_on_spec_version_change(
+				target_client.clone(),
+				target_client.simple_runtime_version().await?.spec_version,
+			);
+		}
 		Ok(())
 	}
 }

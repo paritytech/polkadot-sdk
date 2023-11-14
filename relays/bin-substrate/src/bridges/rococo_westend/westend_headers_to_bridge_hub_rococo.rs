@@ -21,12 +21,10 @@ use crate::cli::bridge::{
 };
 
 use async_trait::async_trait;
-use relay_substrate_client::{AccountKeyPairOf, Client};
 use substrate_relay_helper::{
 	equivocation::SubstrateEquivocationDetectionPipeline,
 	finality::SubstrateFinalitySyncPipeline,
 	finality_base::{engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalityPipeline},
-	TransactionParams,
 };
 
 /// Description of Westend -> Rococo finalized headers bridge.
@@ -58,20 +56,6 @@ impl SubstrateFinalityPipeline for WestendFinalityToBridgeHubRococo {
 #[async_trait]
 impl SubstrateFinalitySyncPipeline for WestendFinalityToBridgeHubRococo {
 	type SubmitFinalityProofCallBuilder = SubmitFinalityProofCallBuilder;
-
-	async fn start_relay_guards(
-		target_client: &Client<Self::TargetChain>,
-		_transaction_params: &TransactionParams<AccountKeyPairOf<Self::TargetChain>>,
-		enable_version_guard: bool,
-	) -> relay_substrate_client::Result<()> {
-		if enable_version_guard {
-			relay_substrate_client::guard::abort_on_spec_version_change(
-				target_client.clone(),
-				target_client.simple_runtime_version().await?.spec_version,
-			);
-		}
-		Ok(())
-	}
 }
 
 #[async_trait]

@@ -66,6 +66,20 @@ pub trait SubstrateEquivocationDetectionPipeline:
 {
 	/// How the `report_equivocation` call is built ?
 	type ReportEquivocationCallBuilder: ReportEquivocationCallBuilder<Self>;
+
+	/// Add relay guards if required.
+	async fn start_relay_guards(
+		source_client: &Client<Self::SourceChain>,
+		enable_version_guard: bool,
+	) -> relay_substrate_client::Result<()> {
+		if enable_version_guard {
+			relay_substrate_client::guard::abort_on_spec_version_change(
+				source_client.clone(),
+				source_client.simple_runtime_version().await?.spec_version,
+			);
+		}
+		Ok(())
+	}
 }
 
 type FinalityProoffOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<

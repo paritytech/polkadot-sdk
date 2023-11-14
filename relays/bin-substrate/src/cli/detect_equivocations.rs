@@ -37,7 +37,7 @@ use async_trait::async_trait;
 use relay_substrate_client::ChainWithTransactions;
 use structopt::StructOpt;
 use strum::{EnumString, EnumVariantNames, VariantNames};
-use substrate_relay_helper::equivocation;
+use substrate_relay_helper::{equivocation, equivocation::SubstrateEquivocationDetectionPipeline};
 
 /// Start equivocation detection loop.
 #[derive(StructOpt)]
@@ -73,8 +73,15 @@ where
 	Self::Source: ChainWithTransactions,
 {
 	async fn start(data: DetectEquivocations) -> anyhow::Result<()> {
+		let source_client = data.source.into_client::<Self::Source>().await?;
+		Self::Equivocation::start_relay_guards(
+			&source_client,
+			source_client.can_start_version_guard(),
+		)
+		.await?;
+
 		equivocation::run::<Self::Equivocation>(
-			data.source.into_client::<Self::Source>().await?,
+			source_client,
 			data.target.into_client::<Self::Target>().await?,
 			data.source_sign.transaction_params::<Self::Source>()?,
 			data.prometheus_params.into_metrics_params()?,

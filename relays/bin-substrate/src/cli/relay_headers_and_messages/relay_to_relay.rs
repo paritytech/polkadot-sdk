@@ -156,13 +156,11 @@ where
 
 		<L2R as RelayToRelayHeadersCliBridge>::Finality::start_relay_guards(
 			&self.common.right.client,
-			&self.left_to_right_transaction_params,
 			self.common.right.client.can_start_version_guard(),
 		)
 		.await?;
 		<R2L as RelayToRelayHeadersCliBridge>::Finality::start_relay_guards(
 			&self.common.left.client,
-			&self.right_to_left_transaction_params,
 			self.common.left.client.can_start_version_guard(),
 		)
 		.await?;
