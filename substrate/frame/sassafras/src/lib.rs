@@ -962,19 +962,12 @@ impl<T: Config> Pallet<T> {
 	fn reset_tickets_data() {
 		let tickets_metadata = TicketsMeta::<T>::get();
 
-		// Remove even-epoch data.
-		let tickets_count = tickets_metadata.tickets_count[0];
-		for idx in 0..tickets_count {
-			if let Some(id) = TicketsIds::<T>::get((0, idx)) {
-				TicketsData::<T>::remove(id);
-			}
-		}
-
-		// Remove odd-epoch data.
-		let tickets_count = tickets_metadata.tickets_count[1];
-		for idx in 0..tickets_count {
-			if let Some(id) = TicketsIds::<T>::get((1, idx)) {
-				TicketsData::<T>::remove(id);
+		// Remove even/odd-epoch data.
+		for epoch_tag in 0..=1 {
+			for idx in 0..tickets_metadata.tickets_count[epoch_tag] {
+				if let Some(id) = TicketsIds::<T>::get((epoch_tag as u8, idx)) {
+					TicketsData::<T>::remove(id);
+				}
 			}
 		}
 
