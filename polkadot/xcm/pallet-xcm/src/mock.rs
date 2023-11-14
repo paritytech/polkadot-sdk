@@ -17,7 +17,9 @@
 use codec::Encode;
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{ConstU32, Everything, EverythingBut, Nothing, Contains},
+	traits::{
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Equals, Everything, EverythingBut, Nothing, Contains
+	},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -32,11 +34,15 @@ use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, SignedAccountId32AsNative, SignedToAccountId32,
+	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
+	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription, IsConcrete,
+	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{
+	traits::{Identity, JustTry},
+	XcmExecutor,
+};
 
 use crate::{self as pallet_xcm, TestWeightInfo};
 
@@ -134,6 +140,7 @@ construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Assets: pallet_assets::{Pallet, Call, Storage, Config<T>, Event<T>},
 		ParasOrigin: origin::{Pallet, Origin},
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>},
 		TestNotifier: pallet_test_notifier::{Pallet, Call, Event<T>},
@@ -176,13 +183,13 @@ impl SendXcm for TestSendXcmErrX8 {
 	type Ticket = (Location, Xcm<()>);
 	fn validate(
 		dest: &mut Option<Location>,
-		msg: &mut Option<Xcm<()>>,
+		_: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>)> {
-		let (dest, msg) = (dest.take().unwrap(), msg.take().unwrap());
-		if dest.len() == 8 {
+		if dest.as_ref().unwrap().len() == 8 {
+			dest.take();
 			Err(SendError::Transport("Destination location full"))
 		} else {
-			Ok(((dest, msg), Assets::new()))
+			Err(SendError::NotApplicable)
 		}
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
@@ -277,18 +284,135 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ConstU32<0>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
+pub struct XcmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> Location {
+		Location::new(1, [Parachain(id)])
+	}
+}
+
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type AssetId = Location;
+	type AssetIdParameter = Location;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type AssetDeposit = ConstU128<1>;
+	type AssetAccountDeposit = ConstU128<10>;
+	type MetadataDepositBase = ConstU128<1>;
+	type MetadataDepositPerByte = ConstU128<1>;
+	type ApprovalDeposit = ConstU128<1>;
+	type StringLimit = ConstU32<50>;
+	type Freezer = ();
+	type WeightInfo = ();
+	type CallbackHandle = ();
+	type Extra = ();
+	type RemoveItemsLimit = ConstU32<5>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = XcmBenchmarkHelper;
+}
+
+// This child parachain is a system parachain trusted to teleport native token.
+pub const SOME_SYSTEM_PARA: u32 = 1001;
+
+// This child parachain acts as trusted reserve for its assets in tests.
+// USDT allowed to teleport to/from here.
+pub const FOREIGN_ASSET_RESERVE_PARA_ID: u32 = 2001;
+// Inner junction of reserve asset on `FOREIGN_ASSET_RESERVE_PARA_ID`.
+pub const FOREIGN_ASSET_INNER_JUNCTION: Junction = GeneralIndex(1234567);
+
+// This child parachain acts as trusted reserve for say.. USDC that can be used for fees.
+pub const USDC_RESERVE_PARA_ID: u32 = 2002;
+// Inner junction of reserve asset on `USDC_RESERVE_PARA_ID`.
+pub const USDC_INNER_JUNCTION: Junction = PalletInstance(42);
+
+// This child parachain is a trusted teleporter for say.. USDT (T from Teleport :)).
+// We'll use USDT in tests that teleport fees.
+pub const USDT_PARA_ID: u32 = 2003;
+
+// This child parachain is not configured as trusted reserve or teleport location for any assets.
+pub const OTHER_PARA_ID: u32 = 2009;
+
 parameter_types! {
 	pub const RelayLocation: Location = Here.into_location();
+	pub const NativeAsset: Asset = Asset {
+		fun: Fungible(10),
+		id: AssetId(Here.into_location()),
+	};
+	pub const SystemParachainLocation: Location = Location::new(
+		0,
+		[Parachain(SOME_SYSTEM_PARA)]
+	);
+	pub const ForeignReserveLocation: Location = Location::new(
+		0,
+		[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID)]
+	);
+	pub const ForeignAsset: Asset = Asset {
+		fun: Fungible(10),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION],
+		)),
+	};
+	pub const UsdcReserveLocation: Location = Location::new(
+		0,
+		[Parachain(USDC_RESERVE_PARA_ID)]
+	);
+	pub const Usdc: Asset = Asset {
+		fun: Fungible(10),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(USDC_RESERVE_PARA_ID), USDC_INNER_JUNCTION],
+		)),
+	};
+	pub const UsdtTeleportLocation: Location = Location::new(
+		0,
+		[Parachain(USDT_PARA_ID)]
+	);
+	pub const Usdt: Asset = Asset {
+		fun: Fungible(10),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(USDT_PARA_ID)],
+		)),
+	};
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
+	pub CheckingAccount: AccountId = XcmPallet::check_account();
 }
 
-pub type SovereignAccountOf =
-	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<AnyNetwork, AccountId>);
+pub type SovereignAccountOf = (
+	ChildParachainConvertsVia<ParaId, AccountId>,
+	AccountId32Aliases<AnyNetwork, AccountId>,
+	HashedDescription<AccountId, DescribeAllTerminal>,
+);
 
-pub type LocalAssetTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>;
+pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
+	Location,
+	Balance,
+	// Excludes relay/parent chain currency
+	EverythingBut<(Equals<RelayLocation>,)>,
+	Identity,
+	JustTry,
+>;
+
+pub type AssetTransactors = (
+	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>,
+	FungiblesAdapter<
+		Assets,
+		ForeignAssetsConvertedConcreteId,
+		SovereignAccountOf,
+		AccountId,
+		NoChecking,
+		CheckingAccount,
+	>,
+);
 
 type LocalOriginConverter = (
 	SovereignSignedViaLocation<SovereignAccountOf, RuntimeOrigin>,
@@ -300,7 +424,12 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
-	pub TrustedAssets: (AssetFilter, Location) = (All.into(), Here.into());
+	pub TrustedLocal: (AssetFilter, Location) = (All.into(), Here.into());
+	pub TrustedSystemPara: (AssetFilter, Location) = (NativeAsset::get().into(), SystemParachainLocation::get());
+	pub TrustedUsdt: (AssetFilter, Location) = (Usdt::get().into(), UsdtTeleportLocation::get());
+	pub TeleportUsdtToForeign: (AssetFilter, Location) = (Usdt::get().into(), ForeignReserveLocation::get());
+	pub TrustedForeign: (AssetFilter, Location) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
+	pub TrustedUsdc: (AssetFilter, Location) = (Usdc::get().into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub XcmFeesTargetAccount: AccountId = AccountId::new([167u8; 32]);
@@ -322,14 +451,21 @@ pub type Barrier = (
 	AllowSubscriptionsFrom<Everything>,
 );
 
+pub type XcmRouter = (TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = (TestPaidForPara3000SendXcm, TestSendXcm);
-	type AssetTransactor = LocalAssetTransactor;
+	type XcmSender = XcmRouter;
+	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
-	type IsReserve = ();
-	type IsTeleporter = Case<TrustedAssets>;
+	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
+	type IsTeleporter = (
+		Case<TrustedLocal>,
+		Case<TrustedSystemPara>,
+		Case<TrustedUsdt>,
+		Case<TeleportUsdtToForeign>,
+	);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
@@ -359,15 +495,10 @@ parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<Location> = Some(Parachain(1000).into());
-}
-
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	type XcmRouter = (TestSendXcmErrX8, TestPaidForPara3000SendXcm, TestSendXcm);
+	type XcmRouter = XcmRouter;
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -379,6 +510,7 @@ impl pallet_xcm::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = AdvertisedXcmVersion;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type TrustedLockers = ();
 	type SovereignAccountOf = AccountId32Aliases<(), AccountId32>;
 	type Currency = Balances;
@@ -387,9 +519,6 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
 impl origin::Config for Test {}
@@ -398,6 +527,24 @@ impl pallet_test_notifier::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl super::benchmarking::Config for Test {
+	fn reachable_dest() -> Option<Location> {
+		Some(Parachain(1000).into())
+	}
+
+	fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
+		Some((NativeAsset::get(), SystemParachainLocation::get()))
+	}
+
+	fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
+		Some((
+			Asset { fun: Fungible(10), id: AssetId(Here.into_location()) },
+			Parachain(OTHER_PARA_ID).into(),
+		))
+	}
 }
 
 pub(crate) fn last_event() -> RuntimeEvent {
@@ -413,9 +560,12 @@ pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
-pub(crate) fn buy_limited_execution<C>(fees: impl Into<Asset>, weight: Weight) -> Instruction<C> {
+pub(crate) fn buy_limited_execution<C>(
+	fees: impl Into<Asset>,
+	weight_limit: WeightLimit,
+) -> Instruction<C> {
 	use xcm::latest::prelude::*;
-	BuyExecution { fees: fees.into(), weight_limit: Limited(weight) }
+	BuyExecution { fees: fees.into(), weight_limit }
 }
 
 pub(crate) fn new_test_ext_with_balances(

@@ -38,6 +38,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_asset_tx_payment::HandleCredit;
+use pallet_assets::Instance1;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
@@ -48,9 +49,10 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry,
 	EnsureXcmOrigin, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -126,6 +128,9 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
 	// recognized.
 	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
+	// Superuser converter for the Relay-chain (Parent) location. This will allow it to issue a
+	// transaction from the Root origin.
+	ParentAsSuperuser<RuntimeOrigin>,
 	// Native signed account converter; this just converts an `AccountId32` origin into a normal
 	// `RuntimeOrigin::Signed` origin of the same 32-byte value.
 	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
@@ -186,14 +191,14 @@ pub type Barrier = TrailingSetTopicAsId<
 /// Type alias to conveniently refer to `frame_system`'s `Config::AccountId`.
 pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 
-/// Asset filter that allows all assets from a certain location.
+/// Asset filter that allows all assets from a certain location matching asset id.
 pub struct AssetsFrom<T>(PhantomData<T>);
 impl<T: Get<Location>> ContainsPair<Asset, Location> for AssetsFrom<T> {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = T::get();
 		&loc == origin &&
 			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
-			if asset_loc.match_and_split(&loc).is_some())
+			if asset_loc.starts_with(&loc))
 	}
 }
 
@@ -212,48 +217,16 @@ where
 /// A `HandleCredit` implementation that naively transfers the fees to the block author.
 /// Will drop and burn the assets in case the transfer fails.
 pub struct AssetsToBlockAuthor<R>(PhantomData<R>);
-impl<R> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R>> for AssetsToBlockAuthor<R>
+impl<R> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R, Instance1>> for AssetsToBlockAuthor<R>
 where
-	R: pallet_authorship::Config + pallet_assets::Config,
+	R: pallet_authorship::Config + pallet_assets::Config<Instance1>,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
-	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R>>) {
+	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R, Instance1>>) {
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-			let _ = pallet_assets::Pallet::<R>::resolve(&author, credit);
+			let _ = pallet_assets::Pallet::<R, Instance1>::resolve(&author, credit);
 		}
-	}
-}
-
-pub trait Reserve {
-	/// Returns assets reserve location.
-	fn reserve(&self) -> Option<Location>;
-}
-
-// Takes the chain part of a Asset
-impl Reserve for Asset {
-	fn reserve(&self) -> Option<Location> {
-		let location = &self.id.0;
-		match location.unpack() {
-			(0, [Parachain(id), ..]) => Some(Location::new(0, [Parachain(*id)])),
-			(1, [Parachain(id), ..]) => Some(Location::new(1, [Parachain(*id)])),
-			(1, _) => Some(Location::parent()),
-			_ => None,
-		}
-	}
-}
-
-/// A `FilterAssetLocation` implementation. Filters multi native assets whose
-/// reserve is same with `origin`.
-pub struct MultiNativeAsset;
-impl ContainsPair<Asset, Location> for MultiNativeAsset {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
-		if let Some(ref reserve) = asset.reserve() {
-			if reserve == origin {
-				return true
-			}
-		}
-		false
 	}
 }
 
@@ -267,7 +240,8 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
-pub type Reserves = (NativeAsset, AssetsFrom<SystemAssetHubLocation>);
+pub type Reserves =
+	(NativeAsset, AssetsFrom<SystemAssetHubLocation>, NativeAssetFrom<SystemAssetHubLocation>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -276,7 +250,8 @@ impl xcm_executor::Config for XcmConfig {
 	// How to withdraw and deposit an asset.
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	type IsReserve = MultiNativeAsset; // TODO: maybe needed to be replaced by Reserves
+	type IsReserve = Reserves;
+	// no teleport trust established with other chains
 	type IsTeleporter = NativeAsset;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -311,11 +286,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	XcmpQueue,
 )>;
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<Location> = Some(Parent.into());
-}
-
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -341,8 +311,6 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();

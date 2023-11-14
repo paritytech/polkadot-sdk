@@ -118,12 +118,6 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 			_ => None,
 		}
 	}),
-	Box::new(|runtime_event_encoded: Vec<u8>| {
-		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-			Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-			_ => None,
-		}
-	}),
 	bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID
 );
 
