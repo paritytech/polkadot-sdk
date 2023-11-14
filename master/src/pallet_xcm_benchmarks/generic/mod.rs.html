@@ -96,6 +96,18 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -189,6 +201,18 @@
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		</span><span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation), BenchmarkError&gt;;
+
+		<span class="doccomment">/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
+		///
+		/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
+		</span><span class="kw">fn </span>valid_pallet() -&gt; frame_support::traits::PalletInfoData {
+			frame_support::traits::PalletInfoData {
+				index: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::index(),
+				name: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::name(),
+				module_name: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::module_name(),
+				crate_version: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::crate_version(),
+			}
+		}
 	}
 
 	<span class="attr">#[pallet::pallet]
