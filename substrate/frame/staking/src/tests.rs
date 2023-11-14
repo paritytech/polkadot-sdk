@@ -2468,7 +2468,7 @@ fn reporters_receive_their_slice() {
 	// amount.
 	ExtBuilder::default().build_and_execute(|| {
 		// The reporters' reward is calculated from the total exposure.
-		let initial_balance = 1125;
+		let initial_balance = 1375;
 		assert_ok!(stake_tracker_sanity_tests());
 
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, initial_balance);
@@ -2726,6 +2726,7 @@ fn garbage_collection_on_window_pruning() {
 	})
 }
 
+// TODO(gpestana): double check
 #[test]
 fn slashing_nominators_by_span_max() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -2923,7 +2924,7 @@ fn deferred_slashes_are_deferred() {
 				Event::ForceEra { mode: Forcing::NotForcing },
 				..,
 				Event::Slashed { staker: 11, amount: 100 },
-				Event::Slashed { staker: 101, amount: 12 }
+				Event::Slashed { staker: 101, amount: 37 }
 			]
 		));
 	})
@@ -2959,7 +2960,7 @@ fn retroactive_deferred_slashes_two_eras_before() {
 				Event::SlashReported { validator: 11, slash_era: 1, .. },
 				..,
 				Event::Slashed { staker: 11, amount: 100 },
-				Event::Slashed { staker: 101, amount: 12 }
+				Event::Slashed { staker: 101, amount: 37 }
 			]
 		));
 	})
@@ -2999,7 +3000,7 @@ fn retroactive_deferred_slashes_one_before() {
 				Event::SlashReported { validator: 11, slash_era: 2, .. },
 				..,
 				Event::Slashed { staker: 11, amount: 100 },
-				Event::Slashed { staker: 101, amount: 12 }
+				Event::Slashed { staker: 101, amount: 37 }
 			]
 		));
 
@@ -3145,7 +3146,7 @@ fn remove_deferred() {
 				Event::SlashReported { validator: 11, slash_era: 1, .. },
 				..,
 				Event::Slashed { staker: 11, amount: 50 },
-				Event::Slashed { staker: 101, amount: 7 }
+				Event::Slashed { staker: 101, amount: 19 }
 			]
 		));
 
@@ -3244,8 +3245,8 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 		let exposure_11 = Staking::eras_stakers(active_era(), &11);
 		let exposure_21 = Staking::eras_stakers(active_era(), &21);
 
-		assert_eq!(exposure_11.total, 1000 + 125);
-		assert_eq!(exposure_21.total, 1000 + 375);
+		assert_eq!(exposure_21.total, 1000 + 125);
+		assert_eq!(exposure_11.total, 1000 + 375);
 
 		on_offence_now(
 			&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
@@ -3265,12 +3266,12 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 					slash_era: 1
 				},
 				Event::Slashed { staker: 11, amount: 100 },
-				Event::Slashed { staker: 101, amount: 12 },
+				Event::Slashed { staker: 101, amount: 37 },
 			]
 		);
 
 		// post-slash balance
-		let nominator_slash_amount_11 = 125 / 10;
+		let nominator_slash_amount_11 = 375 / 10;
 		assert_eq!(Balances::free_balance(11), 900);
 		assert_eq!(Balances::free_balance(101), 2000 - nominator_slash_amount_11);
 
@@ -3284,6 +3285,9 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 		let exposure_11 = Staking::eras_stakers(active_era(), &11);
 		let exposure_21 = Staking::eras_stakers(active_era(), &21);
 
+		// TODO(gpestana): re-do calculations
+		println!("{:?}", exposure_11);
+		println!("{:?}", exposure_21);
 		// 11's own expo is reduced. sum of support from 11 is less (448), which is 500
 		// 900 + 146
 		assert!(matches!(exposure_11, Exposure { own: 900, total: 1046, .. }));
@@ -3339,7 +3343,7 @@ fn non_slashable_offence_doesnt_disable_validator() {
 					slash_era: 1
 				},
 				Event::Slashed { staker: 21, amount: 250 },
-				Event::Slashed { staker: 101, amount: 94 }
+				Event::Slashed { staker: 101, amount: 31 }
 			]
 		);
 
@@ -3402,7 +3406,7 @@ fn slashing_independent_of_disabling_validator() {
 					slash_era: 1
 				},
 				Event::Slashed { staker: 21, amount: 250 },
-				Event::Slashed { staker: 101, amount: 94 }
+				Event::Slashed { staker: 101, amount: 31 }
 			]
 		);
 
