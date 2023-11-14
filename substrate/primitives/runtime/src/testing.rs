@@ -22,8 +22,8 @@ use crate::{
 	generic::{self, Preamble},
 	scale_info::TypeInfo,
 	traits::{
-		self, Applyable, BlakeTwo256, Checkable, DispatchInfoOf, Dispatchable, OpaqueKeys,
-		PostDispatchInfoOf, SignaturePayload, TransactionExtension, ValidateUnsigned, DispatchTransaction,
+		self, Applyable, BlakeTwo256, Checkable, DispatchInfoOf, DispatchTransaction, Dispatchable,
+		OpaqueKeys, PostDispatchInfoOf, SignaturePayload, TransactionExtension, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResultWithInfo, KeyTypeId,
@@ -385,7 +385,7 @@ impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
 			},
 		}
 	}
-	
+
 	fn new(c: Call, sig: Option<Self::SignaturePayload>) -> Option<Self> {
 		Some(TestXt { signature: sig, call: c })
 	}

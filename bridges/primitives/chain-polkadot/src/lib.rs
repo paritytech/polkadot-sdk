@@ -57,7 +57,7 @@ impl ChainWithGrandpa for Polkadot {
 }
 
 /// The SignedExtension used by Polkadot.
-pub type SignedExtension = SuffixedCommonSignedExtension<PrevalidateAttests>;
+pub type SignedExtension = SuffixedCommonTransactionExtension<PrevalidateAttests>;
 
 /// Name of the parachains pallet in the Polkadot runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";

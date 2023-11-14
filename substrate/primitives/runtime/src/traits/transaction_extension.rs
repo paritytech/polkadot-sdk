@@ -2,11 +2,10 @@
 
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo, TypeInfo},
-	transaction_validity::{
-		TransactionValidity, TransactionValidityError,
-		ValidTransaction, InvalidTransaction,
-	},
 	traits::SignedExtension,
+	transaction_validity::{
+		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
 	DispatchResult,
 };
 use codec::{Codec, Decode, Encode};
@@ -16,7 +15,7 @@ use sp_core::{self, RuntimeDebug};
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 
-use super::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, CloneSystemOriginSigner};
+use super::{CloneSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf};
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
@@ -60,7 +59,7 @@ pub trait TransactionExtension:
 		len: usize,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError
+		TransactionValidityError,
 	>;
 
 	/// Do any pre-flight stuff for a transaction after validation.
@@ -109,9 +108,9 @@ pub trait TransactionExtension:
 
 	/// Returns the metadata for this extension.
 	///
-	/// As a [`TransactionExtension`] can be a tuple of [`TransactionExtension`]s we need to return a `Vec`
-	/// that holds the metadata of each one. Each individual `TransactionExtension` must return
-	/// *exactly* one [`TransactionExtensionMetadata`].
+	/// As a [`TransactionExtension`] can be a tuple of [`TransactionExtension`]s we need to return
+	/// a `Vec` that holds the metadata of each one. Each individual `TransactionExtension` must
+	/// return *exactly* one [`TransactionExtensionMetadata`].
 	///
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`TransactionExtensionMetadata`].
@@ -251,7 +250,7 @@ impl<Call: Dispatchable> TransactionExtension for Tuple {
 		len: usize,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError
+		TransactionValidityError,
 	> {
 		let mut aggregated_valid = ValidTransaction::default();
 		let mut aggregated_origin = origin;
@@ -310,7 +309,10 @@ impl TransactionExtension for () {
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-	) -> Result<(ValidTransaction, (), <Self::Call as Dispatchable>::RuntimeOrigin), TransactionValidityError> {
+	) -> Result<
+		(ValidTransaction, (), <Self::Call as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
 		Ok((ValidTransaction::default(), (), origin))
 	}
 	fn prepare(
@@ -320,7 +322,9 @@ impl TransactionExtension for () {
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-	) -> Result<(), TransactionValidityError> { Ok(()) }
+	) -> Result<(), TransactionValidityError> {
+		Ok(())
+	}
 }
 
 /// Adapter to use a `SignedExtension` in the place of a `TransactionExtension`.
@@ -334,7 +338,8 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 	}
 }
 
-impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> where
+impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE>
+where
 	<SE::Call as Dispatchable>::RuntimeOrigin: CloneSystemOriginSigner<SE::AccountId> + Clone,
 {
 	type AdditionalSigned = SE::AdditionalSigned;
@@ -351,7 +356,10 @@ impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> wh
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
-	) -> Result<(ValidTransaction, (), <Self::Call as Dispatchable>::RuntimeOrigin), TransactionValidityError> {
+	) -> Result<
+		(ValidTransaction, (), <Self::Call as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
 		let who = origin.clone_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		Ok((self.0.validate(&who, call, info, len)?, (), origin))
 	}

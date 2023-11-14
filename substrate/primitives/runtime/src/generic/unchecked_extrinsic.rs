@@ -68,7 +68,8 @@ pub enum Preamble<Address, Signature, Extra> {
 	General(Extra),
 }
 
-impl<Address, Signature, Extra> fmt::Debug for Preamble<Address, Signature, Extra> where
+impl<Address, Signature, Extra> fmt::Debug for Preamble<Address, Signature, Extra>
+where
 	Address: fmt::Debug,
 	Extra: TransactionExtension,
 {
@@ -166,8 +167,12 @@ impl<Address, Call, Signature, Extra: TransactionExtension>
 
 // TODO: We can get rid of this trait and just use UncheckedExtrinsic directly.
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extra: TransactionExtension + TypeInfo>
-	Extrinsic for UncheckedExtrinsic<Address, Call, Signature, Extra>
+impl<
+		Address: TypeInfo,
+		Call: TypeInfo,
+		Signature: TypeInfo,
+		Extra: TransactionExtension + TypeInfo,
+	> Extrinsic for UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
 	type Call = Call;
 
@@ -177,10 +182,7 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extra: TransactionE
 		matches!(self.preamble, Preamble::Inherent)
 	}
 
-	fn from_parts(
-		function: Self::Call,
-		preamble: Preamble<Address, Signature, Extra>,
-	) -> Self {
+	fn from_parts(function: Self::Call, preamble: Preamble<Address, Signature, Extra>) -> Self {
 		Self { preamble, function }
 	}
 
@@ -221,10 +223,8 @@ where
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
 			},
-			Preamble::Inherent => CheckedExtrinsic {
-				format: ExtrinsicFormat::Inherent,
-				function: self.function,
-			},
+			Preamble::Inherent =>
+				CheckedExtrinsic { format: ExtrinsicFormat::Inherent, function: self.function },
 		})
 	}
 
@@ -242,10 +242,8 @@ where
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
 			},
-			Preamble::Inherent => CheckedExtrinsic {
-				format: ExtrinsicFormat::Inherent,
-				function: self.function,
-			},
+			Preamble::Inherent =>
+				CheckedExtrinsic { format: ExtrinsicFormat::Inherent, function: self.function },
 		})
 	}
 }
@@ -460,8 +458,12 @@ mod tests {
 			info: &DispatchInfoOf<Self::Call>,
 			len: usize,
 		) -> Result<
-			(crate::transaction_validity::ValidTransaction, Self::Val, <Self::Call as traits::Dispatchable>::RuntimeOrigin),
-			TransactionValidityError
+			(
+				crate::transaction_validity::ValidTransaction,
+				Self::Val,
+				<Self::Call as traits::Dispatchable>::RuntimeOrigin,
+			),
+			TransactionValidityError,
 		> {
 			Ok((Default::default(), (), who))
 		}
@@ -579,7 +581,10 @@ mod tests {
 		assert!(!ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::Signed(TEST_ACCOUNT, TestExtra), function: vec![0u8; 0] }),
+			Ok(CEx {
+				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, TestExtra),
+				function: vec![0u8; 0]
+			}),
 		);
 	}
 

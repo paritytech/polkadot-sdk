@@ -21,8 +21,8 @@ use bp_runtime::{
 	self,
 	extensions::{
 		ChargeTransactionPayment, CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce,
-		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericSignedExtension,
-		SignedExtensionSchema,
+		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericTransactionExtension,
+		TransactionExtensionSchema,
 	},
 	Chain, EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
 };
@@ -293,11 +293,11 @@ pub type CommonSignedExtra = (
 );
 
 /// Extra signed extension data that starts with `CommonSignedExtra`.
-pub type SuffixedCommonSignedExtension<Suffix> =
-	GenericSignedExtension<(CommonSignedExtra, Suffix)>;
+pub type SuffixedCommonTransactionExtension<Suffix> =
+	GenericTransactionExtension<(CommonSignedExtra, Suffix)>;
 
-/// Helper trait to define some extra methods on `SuffixedCommonSignedExtension`.
-pub trait SuffixedCommonSignedExtensionExt<Suffix: SignedExtensionSchema> {
+/// Helper trait to define some extra methods on `SuffixedCommonTransactionExtension`.
+pub trait SuffixedCommonTransactionExtensionExt<Suffix: TransactionExtensionSchema> {
 	/// Create signed extension from its components.
 	fn from_params(
 		spec_version: u32,
@@ -316,9 +316,10 @@ pub trait SuffixedCommonSignedExtensionExt<Suffix: SignedExtensionSchema> {
 	fn tip(&self) -> Balance;
 }
 
-impl<Suffix> SuffixedCommonSignedExtensionExt<Suffix> for SuffixedCommonSignedExtension<Suffix>
+impl<Suffix> SuffixedCommonTransactionExtensionExt<Suffix>
+	for SuffixedCommonTransactionExtension<Suffix>
 where
-	Suffix: SignedExtensionSchema,
+	Suffix: TransactionExtensionSchema,
 {
 	fn from_params(
 		spec_version: u32,
@@ -329,7 +330,7 @@ where
 		tip: Balance,
 		extra: (Suffix::Payload, Suffix::AdditionalSigned),
 	) -> Self {
-		GenericSignedExtension::new(
+		GenericTransactionExtension::new(
 			(
 				(
 					(),              // non-zero sender
@@ -371,7 +372,7 @@ where
 }
 
 /// Signed extension that is used by most chains.
-pub type CommonSignedExtension = SuffixedCommonSignedExtension<()>;
+pub type CommonSignedExtension = SuffixedCommonTransactionExtension<()>;
 
 #[cfg(test)]
 mod tests {

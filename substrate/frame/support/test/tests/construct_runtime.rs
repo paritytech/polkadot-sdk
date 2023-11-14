@@ -31,7 +31,7 @@ use sp_api::RuntimeVersion;
 use sp_core::{sr25519, ConstU64};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, Verify, TransactionExtensionMetadata},
+	traits::{BlakeTwo256, TransactionExtensionMetadata, Verify},
 	DispatchError, ModuleError,
 };
 
