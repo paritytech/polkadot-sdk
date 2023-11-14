@@ -14,40 +14,23 @@
 // limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
-
-// Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod people;
 mod weights;
 pub mod xcm_config;
 
-mod people;
-
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
-	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
-};
-
-use sp_std::prelude::*;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
-
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse, EverythingBut,
+		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -57,21 +40,6 @@ use frame_system::{
 	EnsureRoot,
 };
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{
-	FellowshipLocation, GovernanceLocation, PriceForSiblingParachainDelivery, XcmConfig,
-	XcmOriginToTransactDispatchOrigin,
-};
-
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-
-// Polkadot imports
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
@@ -79,8 +47,29 @@ use parachains_common::{
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-// XCM Imports
+use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use sp_api::impl_runtime_apis;
+pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
+use sp_runtime::{
+	create_runtime_str, generic, impl_opaque_keys,
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult,
+};
+pub use sp_runtime::{MultiAddress, Perbill, Permill};
+use sp_std::prelude::*;
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
+use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::latest::prelude::BodyId;
+use xcm_config::{
+	FellowshipLocation, GovernanceLocation, PriceForSiblingParachainDelivery, XcmConfig,
+	XcmOriginToTransactDispatchOrigin,
+};
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -172,51 +161,35 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-// Configure FRAME pallets to include in runtime.
+pub struct IdentityCalls;
+impl Contains<RuntimeCall> for IdentityCalls {
+	fn contains(c: &RuntimeCall) -> bool {
+		matches!(c, RuntimeCall::Identity(_))
+	}
+}
 
 impl frame_system::Config for Runtime {
-	/// The identifier used to distinguish between accounts.
+	type BaseCallFilter = EverythingBut<IdentityCalls>;
 	type AccountId = AccountId;
-	/// The aggregated dispatch type that is available for extrinsics.
 	type RuntimeCall = RuntimeCall;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
-	/// The nonce type for storing how many extrinsics an account has signed.
 	type Nonce = Nonce;
-	/// The type for hashing blocks and tries.
 	type Hash = Hash;
-	/// The hashing algorithm used.
 	type Hashing = BlakeTwo256;
-	/// The block type.
 	type Block = Block;
-	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	/// The ubiquitous origin type.
 	type RuntimeOrigin = RuntimeOrigin;
-	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
-	/// Runtime version.
 	type Version = Version;
-	/// Converts a module to an index of this module in the runtime.
 	type PalletInfo = PalletInfo;
-	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
-	/// What to do if a new account is created.
 	type OnNewAccount = ();
-	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
-	/// The weight of database operations that the runtime can invoke.
 	type DbWeight = RocksDbWeight;
-	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = Everything;
-	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
-	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
-	/// The maximum length of a block (in bytes).
 	type BlockLength = RuntimeBlockLength;
 	type SS58Prefix = SS58Prefix;
-	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = ConstU32<16>;
 }
@@ -463,6 +436,9 @@ construct_runtime!(
 
 		// The main stage.
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 50,
+
+		// To migrate deposits
+		// IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
 	}
 );
 
@@ -698,11 +674,11 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::{PriceForParentDelivery, WndRelayLocation};
+			use xcm_config::{PriceForParentDelivery, RelayLocation};
 
 			parameter_types! {
 				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
-					WndRelayLocation::get(),
+					RelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
 			}
@@ -716,13 +692,13 @@ impl_runtime_apis! {
 					PriceForParentDelivery,
 				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-					Ok(WndRelayLocation::get())
+					Ok(RelayLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
 					// just concrete assets according to relay chain.
 					let assets: Vec<MultiAsset> = vec![
 						MultiAsset {
-							id: Concrete(WndRelayLocation::get()),
+							id: Concrete(RelayLocation::get()),
 							fun: Fungible(1_000_000 * UNITS),
 						}
 					];
@@ -732,8 +708,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
-					WndRelayLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(WndRelayLocation::get()) },
+					RelayLocation::get(),
+					MultiAsset { fun: Fungible(UNITS), id: Concrete(RelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
@@ -748,7 +724,7 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> MultiAsset {
 					MultiAsset {
-						id: Concrete(WndRelayLocation::get()),
+						id: Concrete(RelayLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -771,16 +747,16 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
-					Ok((WndRelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((RelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
-					Ok(WndRelayLocation::get())
+					Ok(RelayLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-					let origin = WndRelayLocation::get();
-					let assets: MultiAssets = (Concrete(WndRelayLocation::get()), 1_000 * UNITS).into();
+					let origin = RelayLocation::get();
+					let assets: MultiAssets = (Concrete(RelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}

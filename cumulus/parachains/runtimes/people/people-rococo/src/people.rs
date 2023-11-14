@@ -22,7 +22,7 @@ use frame_support::{
 };
 use pallet_identity::{Data, IdentityInformationProvider};
 use parachains_common::impls::ToParentTreasury;
-use scale_info::{build::Variants, Path, Type, TypeInfo};
+use scale_info::TypeInfo;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
 
@@ -71,26 +71,6 @@ pub enum IdentityField {
 	Twitter,
 	GitHub,
 	Discord,
-}
-
-impl TypeInfo for IdentityField {
-	type Identity = Self;
-
-	fn type_info() -> scale_info::Type {
-		Type::builder().path(Path::new("IdentityField", module_path!())).variant(
-			Variants::new()
-				.variant("Display", |v| v.index(0))
-				.variant("Legal", |v| v.index(1))
-				.variant("Web", |v| v.index(2))
-				.variant("Matrix", |v| v.index(3))
-				.variant("Email", |v| v.index(4))
-				.variant("PgpFingerprint", |v| v.index(5))
-				.variant("Image", |v| v.index(6))
-				.variant("Twitter", |v| v.index(7))
-				.variant("GitHub", |v| v.index(8))
-				.variant("Discord", |v| v.index(9)),
-		)
-	}
 }
 
 /// Information concerning the identity of the controller of an account.

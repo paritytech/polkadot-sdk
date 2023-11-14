@@ -24,7 +24,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
+use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
 use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -38,7 +38,7 @@ use xcm_builder::{
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub const WndRelayLocation: MultiLocation = MultiLocation::parent();
+	pub const RelayLocation: MultiLocation = MultiLocation::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
@@ -48,7 +48,7 @@ parameter_types! {
 	pub FellowshipLocation: MultiLocation = MultiLocation::new(1, Parachain(1001));
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 	/// The asset ID for the asset that we use to pay for message delivery fees. Just WND.
-	pub FeeAssetId: AssetId = Concrete(WndRelayLocation::get());
+	pub FeeAssetId: AssetId = Concrete(RelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -84,7 +84,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<WndRelayLocation>,
+	IsConcrete<RelayLocation>,
 	// Do a simple punn to convert an `AccountId32` `MultiLocation` into a native chain
 	// `AccountId`:
 	LocationToAccountId,
@@ -170,7 +170,8 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						pallet_collator_selection::Call::remove_invulnerable { .. },
 				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::MessageQueue(..)
+				RuntimeCall::MessageQueue(..) |
+				RuntimeCall::Identity(..)
 		)
 	}
 }
@@ -207,11 +208,11 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = CurrencyTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// People does not recognize a reserve location for any asset. Users must teleport DOT
+	// People does not recognize a reserve location for any asset. Users must teleport WND
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	/// Only allow teleportation of DOT.
-	type IsTeleporter = ConcreteNativeAssetFrom<WndRelayLocation>;
+	/// Only allow teleportation of WND amonst the system.
+	type IsTeleporter = ConcreteAssetFromSystem<RelayLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -220,7 +221,7 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader =
-		UsingComponents<WeightToFee, WndRelayLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToStakingPot<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;

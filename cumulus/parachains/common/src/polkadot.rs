@@ -30,7 +30,7 @@ pub mod account {
 	pub const AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/amref");
 	/// Identity pallet ID.
 	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
-	pub const IDENTITY_PALLET_ID: PalletId = PalletId(*b"identity");
+	pub const IDENTITY_PALLET_ID: PalletId = PalletId(*b"py/ident");
 }
 
 /// Consensus-related.
