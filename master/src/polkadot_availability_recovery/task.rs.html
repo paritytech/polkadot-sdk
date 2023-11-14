@@ -828,6 +828,36 @@
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -850,7 +880,7 @@
 
 </span><span class="kw">use crate</span>::{
 	futures_undead::FuturesUndead, is_chunk_valid, is_unavailable, metrics::Metrics, ErasureTask,
-	LOG_TARGET,
+	PostRecoveryCheck, LOG_TARGET,
 };
 <span class="kw">use </span>futures::{channel::oneshot, SinkExt};
 <span class="attr">#[cfg(not(test))]
@@ -925,6 +955,12 @@
 
 	<span class="doccomment">/// Do not request data from availability-store. Useful for collators.
 	</span><span class="kw">pub </span>bypass_availability_store: bool,
+
+	<span class="doccomment">/// The type of check to perform after available data was recovered.
+	</span><span class="kw">pub </span>post_recovery_check: PostRecoveryCheck,
+
+	<span class="doccomment">/// The blake2-256 hash of the PoV.
+	</span><span class="kw">pub </span>pov_hash: Hash,
 }
 
 <span class="doccomment">/// Intermediate/common data that must be passed between `RecoveryStrategy`s belonging to the
@@ -1331,39 +1367,48 @@
 
 			<span class="kw">match </span>response.<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(req_res::v1::AvailableDataFetchingResponse::AvailableData(data)) =&gt; {
-					<span class="kw">let </span>(reencode_tx, reencode_rx) = oneshot::channel();
-					<span class="self">self</span>.params
-						.erasure_task_tx
-						.send(ErasureTask::Reencode(
-							common_params.n_validators,
-							common_params.erasure_root,
-							data,
-							reencode_tx,
-						))
-						.<span class="kw">await
-						</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?</span>;
+					<span class="kw">let </span>maybe_data = <span class="kw">match </span>common_params.post_recovery_check {
+						PostRecoveryCheck::Reencode =&gt; {
+							<span class="kw">let </span>(reencode_tx, reencode_rx) = oneshot::channel();
+							<span class="self">self</span>.params
+								.erasure_task_tx
+								.send(ErasureTask::Reencode(
+									common_params.n_validators,
+									common_params.erasure_root,
+									data,
+									reencode_tx,
+								))
+								.<span class="kw">await
+								</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?</span>;
 
-					<span class="kw">let </span>reencode_response =
-						reencode_rx.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?</span>;
+							reencode_rx.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?
+						</span>},
+						PostRecoveryCheck::PovHash =&gt;
+							(data.pov.hash() == common_params.pov_hash).then_some(data),
+					};
 
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(data) = reencode_response {
-						<span class="macro">gum::trace!</span>(
-							target: LOG_TARGET,
-							candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
-							<span class="string">&quot;Received full data&quot;</span>,
-						);
+					<span class="kw">match </span>maybe_data {
+						<span class="prelude-val">Some</span>(data) =&gt; {
+							<span class="macro">gum::trace!</span>(
+								target: LOG_TARGET,
+								candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
+								<span class="string">&quot;Received full data&quot;</span>,
+							);
 
-						<span class="kw">return </span><span class="prelude-val">Ok</span>(data)
-					} <span class="kw">else </span>{
-						<span class="macro">gum::debug!</span>(
-							target: LOG_TARGET,
-							candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
-							<span class="question-mark">?</span>validator_index,
-							<span class="string">&quot;Invalid data response&quot;</span>,
-						);
+							<span class="kw">return </span><span class="prelude-val">Ok</span>(data)
+						},
+						<span class="prelude-val">None </span>=&gt; {
+							<span class="macro">gum::debug!</span>(
+								target: LOG_TARGET,
+								candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
+								<span class="question-mark">?</span>validator_index,
+								<span class="string">&quot;Invalid data response&quot;</span>,
+							);
 
-						<span class="comment">// it doesn&#39;t help to report the peer with req/res.
-					</span>}
+							<span class="comment">// it doesn&#39;t help to report the peer with req/res.
+							// we&#39;ll try the next backer.
+						</span>},
+					};
 				},
 				<span class="prelude-val">Ok</span>(req_res::v1::AvailableDataFetchingResponse::NoSuchData) =&gt; {},
 				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">gum::debug!</span>(
@@ -1477,22 +1522,43 @@
 
 		<span class="kw">match </span>available_data_response {
 			<span class="prelude-val">Ok</span>(data) =&gt; {
-				<span class="comment">// Send request to re-encode the chunks and check merkle root.
-				</span><span class="kw">let </span>(reencode_tx, reencode_rx) = oneshot::channel();
-				<span class="self">self</span>.erasure_task_tx
-					.send(ErasureTask::Reencode(
-						common_params.n_validators,
-						common_params.erasure_root,
-						data,
-						reencode_tx,
-					))
-					.<span class="kw">await
-					</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?</span>;
+				<span class="kw">let </span>maybe_data = <span class="kw">match </span>common_params.post_recovery_check {
+					PostRecoveryCheck::Reencode =&gt; {
+						<span class="comment">// Send request to re-encode the chunks and check merkle root.
+						</span><span class="kw">let </span>(reencode_tx, reencode_rx) = oneshot::channel();
+						<span class="self">self</span>.erasure_task_tx
+							.send(ErasureTask::Reencode(
+								common_params.n_validators,
+								common_params.erasure_root,
+								data,
+								reencode_tx,
+							))
+							.<span class="kw">await
+							</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>reencode_response =
-					reencode_rx.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?</span>;
+						reencode_rx.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)<span class="question-mark">?</span>.or_else(|| {
+							<span class="macro">gum::trace!</span>(
+								target: LOG_TARGET,
+								candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
+								erasure_root = <span class="question-mark">?</span>common_params.erasure_root,
+								<span class="string">&quot;Data recovery error - root mismatch&quot;</span>,
+							);
+							<span class="prelude-val">None
+						</span>})
+					},
+					PostRecoveryCheck::PovHash =&gt;
+						(data.pov.hash() == common_params.pov_hash).then_some(data).or_else(|| {
+							<span class="macro">gum::trace!</span>(
+								target: LOG_TARGET,
+								candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
+								pov_hash = <span class="question-mark">?</span>common_params.pov_hash,
+								<span class="string">&quot;Data recovery error - PoV hash mismatch&quot;</span>,
+							);
+							<span class="prelude-val">None
+						</span>}),
+				};
 
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(data) = reencode_response {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(data) = maybe_data {
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
@@ -1503,12 +1569,6 @@
 					<span class="prelude-val">Ok</span>(data)
 				} <span class="kw">else </span>{
 					recovery_duration.map(|rd| rd.stop_and_discard());
-					<span class="macro">gum::trace!</span>(
-						target: LOG_TARGET,
-						candidate_hash = <span class="question-mark">?</span>common_params.candidate_hash,
-						erasure_root = <span class="question-mark">?</span>common_params.erasure_root,
-						<span class="string">&quot;Data recovery error - root mismatch&quot;</span>,
-					);
 
 					<span class="prelude-val">Err</span>(RecoveryError::Invalid)
 				}

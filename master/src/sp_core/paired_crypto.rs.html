@@ -664,6 +664,76 @@
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -705,7 +775,13 @@
 <span class="doccomment">/// ECDSA and BLS12-377 paired crypto scheme
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 </span><span class="kw">pub mod </span>ecdsa_bls377 {
-	<span class="kw">use crate</span>::{bls377, crypto::CryptoTypeId, ecdsa};
+	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	</span><span class="kw">use </span><span class="kw">crate</span>::Hasher;
+	<span class="kw">use crate</span>::{
+		bls377,
+		crypto::{CryptoTypeId, Pair <span class="kw">as </span>PairT, UncheckedFrom},
+		ecdsa,
+	};
 
 	<span class="doccomment">/// An identifier used to match public keys against BLS12-377 keys
 	</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;ecb7&quot;</span>);
@@ -736,6 +812,60 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">impl </span><span class="kw">super</span>::CryptoType <span class="kw">for </span>Pair {
 		<span class="kw">type </span>Pair = Pair;
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	</span><span class="kw">impl </span>Pair {
+		<span class="doccomment">/// Hashes the `message` with the specified [`Hasher`] before signing sith the ECDSA secret
+		/// component.
+		///
+		/// The hasher does not affect the BLS12-377 component. This generates BLS12-377 Signature
+		/// according to IETF standard.
+		</span><span class="kw">pub fn </span>sign_with_hasher&lt;H&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature
+		<span class="kw">where
+			</span>H: Hasher,
+			H::Out: Into&lt;[u8; <span class="number">32</span>]&gt;,
+		{
+			<span class="kw">let </span>msg_hash = H::hash(message).into();
+
+			<span class="kw">let </span><span class="kw-2">mut </span>raw: [u8; SIGNATURE_LEN] = [<span class="number">0u8</span>; SIGNATURE_LEN];
+			raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE]
+				.copy_from_slice(<span class="self">self</span>.left.sign_prehashed(<span class="kw-2">&amp;</span>msg_hash).as_ref());
+			raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..]
+				.copy_from_slice(<span class="self">self</span>.right.sign(message).as_ref());
+			&lt;<span class="self">Self </span><span class="kw">as </span>PairT&gt;::Signature::unchecked_from(raw)
+		}
+
+		<span class="doccomment">/// Hashes the `message` with the specified [`Hasher`] before verifying with the ECDSA
+		/// public component.
+		///
+		/// The hasher does not affect the the BLS12-377 component. This verifies whether the
+		/// BLS12-377 signature was hashed and signed according to IETF standard
+		</span><span class="kw">pub fn </span>verify_with_hasher&lt;H&gt;(sig: <span class="kw-2">&amp;</span>Signature, message: <span class="kw-2">&amp;</span>[u8], public: <span class="kw-2">&amp;</span>Public) -&gt; bool
+		<span class="kw">where
+			</span>H: Hasher,
+			H::Out: Into&lt;[u8; <span class="number">32</span>]&gt;,
+		{
+			<span class="kw">let </span>msg_hash = H::hash(message).into();
+
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(left_pub) = public.<span class="number">0</span>[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() <span class="kw">else </span>{
+				<span class="kw">return </span><span class="bool-val">false
+			</span>};
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(left_sig) = sig.<span class="number">0</span>[<span class="number">0</span>..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() <span class="kw">else </span>{
+				<span class="kw">return </span><span class="bool-val">false
+			</span>};
+			<span class="kw">if </span>!ecdsa::Pair::verify_prehashed(<span class="kw-2">&amp;</span>left_sig, <span class="kw-2">&amp;</span>msg_hash, <span class="kw-2">&amp;</span>left_pub) {
+				<span class="kw">return </span><span class="bool-val">false
+			</span>}
+
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(right_pub) = public.<span class="number">0</span>[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() <span class="kw">else </span>{
+				<span class="kw">return </span><span class="bool-val">false
+			</span>};
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(right_sig) = sig.<span class="number">0</span>[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() <span class="kw">else </span>{
+				<span class="kw">return </span><span class="bool-val">false
+			</span>};
+			bls377::Pair::verify(<span class="kw-2">&amp;</span>right_sig, message.as_ref(), <span class="kw-2">&amp;</span>right_pub)
+		}
 	}
 }
 
@@ -1121,12 +1251,12 @@
 </span><span class="attr">#[cfg(all(test, feature = <span class="string">&quot;bls-experimental&quot;</span>))]
 </span><span class="kw">mod </span>test {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::crypto::DEV_PHRASE;
+	<span class="kw">use crate</span>::{crypto::DEV_PHRASE, KeccakHasher};
 	<span class="kw">use </span>ecdsa_bls377::{Pair, Signature};
 
 	<span class="kw">use crate</span>::{bls377, ecdsa};
-	<span class="attr">#[test]
 
+	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_length_of_paired_ecdsa_and_bls377_public_key_and_signature_is_correct() {
 		<span class="macro">assert_eq!</span>(
 			&lt;Pair <span class="kw">as </span>PairT&gt;::Public::LEN,
@@ -1281,6 +1411,16 @@
 		<span class="macro">println!</span>(<span class="string">&quot;Correct: {}&quot;</span>, s);
 		<span class="kw">let </span>cmp = Public::from_ss58check(<span class="kw-2">&amp;</span>s).unwrap();
 		<span class="macro">assert_eq!</span>(cmp, public);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>sign_and_verify_with_hasher_works() {
+		<span class="kw">let </span>pair =
+			Pair::from_seed(<span class="kw-2">&amp;</span>(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>.as_slice().try_into().unwrap()));
+		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>signature = pair.sign_with_hasher::&lt;KeccakHasher&gt;(<span class="kw-2">&amp;</span>message[..]);
+
+		<span class="macro">assert!</span>(Pair::verify_with_hasher::&lt;KeccakHasher&gt;(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>pair.public()));
 	}
 
 	<span class="attr">#[test]

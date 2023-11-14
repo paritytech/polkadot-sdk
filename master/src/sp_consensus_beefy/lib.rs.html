@@ -517,6 +517,18 @@
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -652,7 +664,7 @@
 		</span>&lt;MsgHash <span class="kw">as </span>Hash&gt;::Output: Into&lt;[u8; <span class="number">32</span>]&gt;,
 	{
 		<span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeAppPublic&gt;::Signature, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
-			<span class="comment">// `w3f-bls` library uses IETF hashing standard and as such does not exposes
+			<span class="comment">// `w3f-bls` library uses IETF hashing standard and as such does not expose
 			// a choice of hash to field function.
 			// We are directly calling into the library to avoid introducing new host call.
 			// and because BeefyAuthorityId::verify is being called in the runtime so we don&#39;t have
@@ -676,7 +688,7 @@
 </span><span class="kw">pub mod </span>ecdsa_bls_crypto {
 	<span class="kw">use super</span>::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	<span class="kw">use </span>sp_application_crypto::{app_crypto, ecdsa_bls377};
-	<span class="kw">use </span>sp_core::{crypto::Wraps, ecdsa_bls377::Pair <span class="kw">as </span>EcdsaBlsPair, Pair <span class="kw">as _</span>};
+	<span class="kw">use </span>sp_core::{crypto::Wraps, ecdsa_bls377::Pair <span class="kw">as </span>EcdsaBlsPair};
 
 	<span class="macro">app_crypto!</span>(ecdsa_bls377, KEY_TYPE);
 
@@ -686,17 +698,24 @@
 	<span class="doccomment">/// Signature for a BEEFY authority using (ECDSA,BLS) as its crypto.
 	</span><span class="kw">pub type </span>AuthoritySignature = Signature;
 
-	<span class="kw">impl</span>&lt;MsgHash: Hash&gt; BeefyAuthorityId&lt;MsgHash&gt; <span class="kw">for </span>AuthorityId
+	<span class="kw">impl</span>&lt;H&gt; BeefyAuthorityId&lt;H&gt; <span class="kw">for </span>AuthorityId
 	<span class="kw">where
-		</span>&lt;MsgHash <span class="kw">as </span>Hash&gt;::Output: Into&lt;[u8; <span class="number">32</span>]&gt;,
+		</span>H: Hash,
+		H::Output: Into&lt;[u8; <span class="number">32</span>]&gt;,
 	{
 		<span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeAppPublic&gt;::Signature, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
-			<span class="comment">// `w3f-bls` library uses IETF hashing standard and as such does not exposes
-			// a choice of hash to field function.
-			// We are directly calling into the library to avoid introducing new host call.
-			// and because BeefyAuthorityId::verify is being called in the runtime so we don&#39;t have
-
-			</span>EcdsaBlsPair::verify(signature.as_inner_ref(), msg, <span class="self">self</span>.as_inner_ref())
+			<span class="comment">// We can not simply call
+			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
+			// because that invokes ECDSA default verification which perfoms Blake2b hash
+			// which we don&#39;t want. This is because ECDSA signatures are meant to be verified
+			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
+			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)
+			// for comparison.
+			</span>EcdsaBlsPair::verify_with_hasher::&lt;H&gt;(
+				signature.as_inner_ref(),
+				msg,
+				<span class="self">self</span>.as_inner_ref(),
+			)
 		}
 	}
 }
@@ -776,6 +795,7 @@
 ///
 /// A vote message is a direct vote created by a BEEFY node on every voting round
 /// and is gossiped to its peers.
+</span><span class="comment">// TODO: Remove `Signature` generic type, instead get it from `Id::Signature`.
 </span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 </span><span class="kw">pub struct </span>VoteMessage&lt;Number, Id, Signature&gt; {
 	<span class="doccomment">/// Commit to information extracted from a finalized block
@@ -1026,10 +1046,14 @@
 		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-message&quot;</span>[..];
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa_bls_crypto::Pair::generate();
 
-		<span class="kw">let </span>signature: ecdsa_bls_crypto::Signature = pair.as_inner_ref().sign(<span class="kw-2">&amp;</span>msg).into();
+		<span class="kw">let </span>signature: ecdsa_bls_crypto::Signature =
+			pair.as_inner_ref().sign_with_hasher::&lt;Keccak256&gt;(<span class="kw-2">&amp;</span>msg).into();
 
 		<span class="comment">// Verification works if same hashing function is used when signing and verifying.
 		</span><span class="macro">assert!</span>(BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>signature, msg));
+
+		<span class="comment">// Verification doesn&#39;t work if we verify function provided by pair_crypto implementation
+		</span><span class="macro">assert!</span>(!ecdsa_bls_crypto::Pair::verify(<span class="kw-2">&amp;</span>signature, msg, <span class="kw-2">&amp;</span>pair.public()));
 
 		<span class="comment">// Other public key doesn&#39;t work
 		</span><span class="kw">let </span>(other_pair, <span class="kw">_</span>) = ecdsa_bls_crypto::Pair::generate();

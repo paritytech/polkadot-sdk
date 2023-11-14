@@ -827,6 +827,33 @@
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -934,6 +961,17 @@
 	</span>req_receiver: IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
 	<span class="doccomment">/// Metrics for this subsystem.
 	</span>metrics: Metrics,
+	<span class="doccomment">/// The type of check to perform after available data was recovered.
+	</span>post_recovery_check: PostRecoveryCheck,
+}
+
+<span class="attr">#[derive(Clone, PartialEq, Debug)]
+</span><span class="doccomment">/// The type of check to perform after available data was recovered.
+</span><span class="kw">pub enum </span>PostRecoveryCheck {
+	<span class="doccomment">/// Reencode the data and check erasure root. For validators.
+	</span>Reencode,
+	<span class="doccomment">/// Only check the pov hash. For collators only.
+	</span>PovHash,
 }
 
 <span class="doccomment">/// Expensive erasure coding computations that we want to run on a blocking thread.
@@ -1173,6 +1211,7 @@
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	recovery_strategies: VecDeque&lt;Box&lt;<span class="kw">dyn </span>RecoveryStrategy&lt;&lt;Context <span class="kw">as </span>SubsystemContext&gt;::Sender&gt;&gt;&gt;,
 	bypass_availability_store: bool,
+	post_recovery_check: PostRecoveryCheck,
 ) -&gt; error::Result&lt;()&gt; {
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 	<span class="kw">let </span>params = RecoveryParams {
@@ -1183,6 +1222,8 @@
 		erasure_root: receipt.descriptor.erasure_root,
 		metrics: metrics.clone(),
 		bypass_availability_store,
+		post_recovery_check,
+		pov_hash: receipt.descriptor.pov_hash,
 	};
 
 	<span class="kw">let </span>recovery_task = RecoveryTask::new(ctx.sender().clone(), params, recovery_strategies);
@@ -1219,6 +1260,7 @@
 	erasure_task_tx: futures::channel::mpsc::Sender&lt;ErasureTask&gt;,
 	recovery_strategy_kind: RecoveryStrategyKind,
 	bypass_availability_store: bool,
+	post_recovery_check: PostRecoveryCheck,
 ) -&gt; error::Result&lt;()&gt; {
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
@@ -1315,6 +1357,7 @@
 				metrics,
 				recovery_strategies,
 				bypass_availability_store,
+				post_recovery_check,
 			)
 			.<span class="kw">await
 		</span>},
@@ -1356,15 +1399,17 @@
 
 <span class="attr">#[overseer::contextbounds(AvailabilityRecovery, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">impl </span>AvailabilityRecoverySubsystem {
-	<span class="doccomment">/// Create a new instance of `AvailabilityRecoverySubsystem` which never requests the
-	/// `AvailabilityStoreSubsystem` subsystem.
-	</span><span class="kw">pub fn </span>with_availability_store_skip(
+	<span class="doccomment">/// Create a new instance of `AvailabilityRecoverySubsystem` suitable for collator nodes,
+	/// which never requests the `AvailabilityStoreSubsystem` subsystem and only checks the POV hash
+	/// instead of reencoding the available data.
+	</span><span class="kw">pub fn </span>for_collator(
 		req_receiver: IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
 		metrics: Metrics,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
 			bypass_availability_store: <span class="bool-val">true</span>,
+			post_recovery_check: PostRecoveryCheck::PovHash,
 			req_receiver,
 			metrics,
 		}
@@ -1379,6 +1424,7 @@
 		<span class="self">Self </span>{
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstAlways,
 			bypass_availability_store: <span class="bool-val">false</span>,
+			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
 		}
@@ -1392,6 +1438,7 @@
 		<span class="self">Self </span>{
 			recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways,
 			bypass_availability_store: <span class="bool-val">false</span>,
+			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
 		}
@@ -1406,6 +1453,7 @@
 		<span class="self">Self </span>{
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
 			bypass_availability_store: <span class="bool-val">false</span>,
+			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
 		}
@@ -1413,8 +1461,13 @@
 
 	<span class="kw">async fn </span>run&lt;Context&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>ctx: Context) -&gt; SubsystemResult&lt;()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>state = State::default();
-		<span class="kw">let </span><span class="self">Self </span>{ <span class="kw-2">mut </span>req_receiver, metrics, recovery_strategy_kind, bypass_availability_store } =
-			<span class="self">self</span>;
+		<span class="kw">let </span><span class="self">Self </span>{
+			<span class="kw-2">mut </span>req_receiver,
+			metrics,
+			recovery_strategy_kind,
+			bypass_availability_store,
+			post_recovery_check,
+		} = <span class="self">self</span>;
 
 		<span class="kw">let </span>(erasure_task_tx, erasure_task_rx) = futures::channel::mpsc::channel(<span class="number">16</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>erasure_task_rx = erasure_task_rx.fuse();
@@ -1504,7 +1557,8 @@
 										<span class="kw-2">&amp;</span>metrics,
 										erasure_task_tx.clone(),
 										recovery_strategy_kind.clone(),
-										bypass_availability_store
+										bypass_availability_store,
+										post_recovery_check.clone()
 									).<span class="kw">await </span>{
 										<span class="macro">gum::warn!</span>(
 											target: LOG_TARGET,

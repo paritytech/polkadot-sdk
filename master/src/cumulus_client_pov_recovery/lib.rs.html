@@ -649,12 +649,6 @@
 <a href="#649" id="649">649</a>
 <a href="#650" id="650">650</a>
 <a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -708,7 +702,7 @@
 <span class="kw">use </span>sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor};
 
-<span class="kw">use </span>polkadot_node_primitives::{AvailableData, POV_BOMB_LIMIT};
+<span class="kw">use </span>polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 <span class="kw">use </span>polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 <span class="kw">use </span>polkadot_overseer::Handle <span class="kw">as </span>OverseerHandle;
 <span class="kw">use </span>polkadot_primitives::{
@@ -1003,15 +997,11 @@
 	}
 
 	<span class="doccomment">/// Handle a recovered candidate.
-	</span><span class="kw">async fn </span>handle_candidate_recovered(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		block_hash: Block::Hash,
-		available_data: <span class="prelude-ty">Option</span>&lt;AvailableData&gt;,
-	) {
-		<span class="kw">let </span>available_data = <span class="kw">match </span>available_data {
-			<span class="prelude-val">Some</span>(data) =&gt; {
+	</span><span class="kw">async fn </span>handle_candidate_recovered(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_hash: Block::Hash, pov: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PoV&gt;) {
+		<span class="kw">let </span>pov = <span class="kw">match </span>pov {
+			<span class="prelude-val">Some</span>(pov) =&gt; {
 				<span class="self">self</span>.candidates_in_retry.remove(<span class="kw-2">&amp;</span>block_hash);
-				data
+				pov
 			},
 			<span class="prelude-val">None </span>=&gt;
 				<span class="kw">if </span><span class="self">self</span>.candidates_in_retry.insert(block_hash) {
@@ -1030,18 +1020,16 @@
 				</span>},
 		};
 
-		<span class="kw">let </span>raw_block_data = <span class="kw">match </span>sp_maybe_compressed_blob::decompress(
-			<span class="kw-2">&amp;</span>available_data.pov.block_data.<span class="number">0</span>,
-			POV_BOMB_LIMIT,
-		) {
-			<span class="prelude-val">Ok</span>(r) =&gt; r,
-			<span class="prelude-val">Err</span>(error) =&gt; {
-				<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Failed to decompress PoV&quot;</span>);
+		<span class="kw">let </span>raw_block_data =
+			<span class="kw">match </span>sp_maybe_compressed_blob::decompress(<span class="kw-2">&amp;</span>pov.block_data.<span class="number">0</span>, POV_BOMB_LIMIT) {
+				<span class="prelude-val">Ok</span>(r) =&gt; r,
+				<span class="prelude-val">Err</span>(error) =&gt; {
+					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Failed to decompress PoV&quot;</span>);
 
-				<span class="self">self</span>.reset_candidate(block_hash);
-				<span class="kw">return
-			</span>},
-		};
+					<span class="self">self</span>.reset_candidate(block_hash);
+					<span class="kw">return
+				</span>},
+			};
 
 		<span class="kw">let </span>block_data = <span class="kw">match </span>ParachainBlockData::&lt;Block&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_block_data[..]) {
 			<span class="prelude-val">Ok</span>(d) =&gt; d,
@@ -1252,10 +1240,10 @@
 				next_to_recover = <span class="self">self</span>.candidate_recovery_queue.next_recovery().fuse() =&gt; {
 						<span class="self">self</span>.recover_candidate(next_to_recover).<span class="kw">await</span>;
 				},
-				(block_hash, available_data) =
+				(block_hash, pov) =
 					<span class="self">self</span>.active_candidate_recovery.wait_for_recovery().fuse() =&gt;
 				{
-					<span class="self">self</span>.handle_candidate_recovered(block_hash, available_data).<span class="kw">await</span>;
+					<span class="self">self</span>.handle_candidate_recovered(block_hash, pov.as_deref()).<span class="kw">await</span>;
 				},
 			}
 		}

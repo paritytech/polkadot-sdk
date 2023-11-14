@@ -104,7 +104,6 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -123,12 +122,12 @@
 
 </span><span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
-<span class="kw">use </span>polkadot_node_primitives::AvailableData;
+<span class="kw">use </span>polkadot_node_primitives::PoV;
 <span class="kw">use </span>polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 
 <span class="kw">use </span>futures::{channel::oneshot, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 
-<span class="kw">use </span>std::{collections::HashSet, pin::Pin};
+<span class="kw">use </span>std::{collections::HashSet, pin::Pin, sync::Arc};
 
 <span class="kw">use </span><span class="kw">crate</span>::RecoveryHandle;
 
@@ -137,9 +136,8 @@
 /// This handles the candidate recovery and tracks the activate recoveries.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ActiveCandidateRecovery&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// The recoveries that are currently being executed.
-	</span>recoveries: FuturesUnordered&lt;
-		Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = (Block::Hash, <span class="prelude-ty">Option</span>&lt;AvailableData&gt;)&gt; + Send&gt;&gt;,
-	&gt;,
+	</span>recoveries:
+		FuturesUnordered&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = (Block::Hash, <span class="prelude-ty">Option</span>&lt;Arc&lt;PoV&gt;&gt;)&gt; + Send&gt;&gt;&gt;,
 	<span class="doccomment">/// The block hashes of the candidates currently being recovered.
 	</span>candidates: HashSet&lt;Block::Hash&gt;,
 	recovery_handle: Box&lt;<span class="kw">dyn </span>RecoveryHandle&gt;,
@@ -175,7 +173,7 @@
 		<span class="self">self</span>.recoveries.push(
 			<span class="kw">async move </span>{
 				<span class="kw">match </span>rx.<span class="kw">await </span>{
-					<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(res)) =&gt; (block_hash, <span class="prelude-val">Some</span>(res)),
+					<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(res)) =&gt; (block_hash, <span class="prelude-val">Some</span>(res.pov)),
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(error)) =&gt; {
 						<span class="macro">tracing::debug!</span>(
 							target: <span class="kw">crate</span>::LOG_TARGET,
@@ -200,8 +198,8 @@
 
 	<span class="doccomment">/// Waits for the next recovery.
 	///
-	/// If the returned [`AvailableData`] is `None`, it means that the recovery failed.
-	</span><span class="kw">pub async fn </span>wait_for_recovery(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (Block::Hash, <span class="prelude-ty">Option</span>&lt;AvailableData&gt;) {
+	/// If the returned [`PoV`] is `None`, it means that the recovery failed.
+	</span><span class="kw">pub async fn </span>wait_for_recovery(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (Block::Hash, <span class="prelude-ty">Option</span>&lt;Arc&lt;PoV&gt;&gt;) {
 		<span class="kw">loop </span>{
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(res) = <span class="self">self</span>.recoveries.next().<span class="kw">await </span>{
 				<span class="self">self</span>.candidates.remove(<span class="kw-2">&amp;</span>res.<span class="number">0</span>);

@@ -366,7 +366,7 @@
 	<span class="kw">let </span>network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)<span class="question-mark">?</span>;
 	<span class="kw">let </span>builder = Overseer::builder()
 		.availability_distribution(DummySubsystem)
-		.availability_recovery(AvailabilityRecoverySubsystem::with_availability_store_skip(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			available_data_req_receiver,
 			Metrics::register(registry)<span class="question-mark">?</span>,
 		))
