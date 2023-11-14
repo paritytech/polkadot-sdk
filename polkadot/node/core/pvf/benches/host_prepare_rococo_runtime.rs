@@ -47,7 +47,7 @@ impl TestHost {
 			execute_worker_path,
 		);
 		f(&mut config);
-		let (host, task) = start(config, Metrics::default()).await;
+		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = handle.spawn(task);
 		Self { host: Mutex::new(host) }
 	}

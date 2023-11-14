@@ -17,9 +17,10 @@
 
 use super::{helper, InheritedCallWeightAttr};
 use frame_support_procedural_tools::get_doc_literals;
+use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, ExprClosure};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -30,6 +31,7 @@ mod keyword {
 	syn::custom_keyword!(compact);
 	syn::custom_keyword!(T);
 	syn::custom_keyword!(pallet);
+	syn::custom_keyword!(feeless_if);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -82,13 +84,18 @@ pub struct CallVariantDef {
 	pub docs: Vec<syn::Expr>,
 	/// Attributes annotated at the top of the dispatchable function.
 	pub attrs: Vec<syn::Attribute>,
+	/// The optional `feeless_if` attribute on the `pallet::call`.
+	pub feeless_check: Option<syn::ExprClosure>,
 }
 
 /// Attributes for functions in call impl block.
-/// Parse for `#[pallet::weight(expr)]` or `#[pallet::call_index(expr)]
 pub enum FunctionAttr {
+	/// Parse for `#[pallet::call_index(expr)]`
 	CallIndex(u8),
+	/// Parse for `#[pallet::weight(expr)]`
 	Weight(syn::Expr),
+	/// Parse for `#[pallet::feeless_if(expr)]`
+	FeelessIf(Span, syn::ExprClosure),
 }
 
 impl syn::parse::Parse for FunctionAttr {
@@ -115,6 +122,19 @@ impl syn::parse::Parse for FunctionAttr {
 				return Err(syn::Error::new(index.span(), msg))
 			}
 			Ok(FunctionAttr::CallIndex(index.base10_parse()?))
+		} else if lookahead.peek(keyword::feeless_if) {
+			content.parse::<keyword::feeless_if>()?;
+			let closure_content;
+			syn::parenthesized!(closure_content in content);
+			Ok(FunctionAttr::FeelessIf(
+				closure_content.span(),
+				closure_content.parse::<syn::ExprClosure>().map_err(|e| {
+					let msg = "Invalid feeless_if attribute: expected a closure";
+					let mut err = syn::Error::new(closure_content.span(), msg);
+					err.combine(e);
+					err
+				})?,
+			))
 		} else {
 			Err(lookahead.error())
 		}
@@ -138,28 +158,33 @@ impl syn::parse::Parse for ArgAttrIsCompact {
 	}
 }
 
-/// Check the syntax is `OriginFor<T>`
-pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
-	pub struct CheckDispatchableFirstArg;
+/// Check the syntax is `OriginFor<T>` or `&OriginFor<T>`.
+pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::Result<()> {
+	pub struct CheckDispatchableFirstArg(bool);
 	impl syn::parse::Parse for CheckDispatchableFirstArg {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let is_ref = input.parse::<syn::Token![&]>().is_ok();
 			input.parse::<keyword::OriginFor>()?;
 			input.parse::<syn::Token![<]>()?;
 			input.parse::<keyword::T>()?;
 			input.parse::<syn::Token![>]>()?;
 
-			Ok(Self)
+			Ok(Self(is_ref))
 		}
 	}
 
-	syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream()).map_err(|e| {
-		let msg = "Invalid type: expected `OriginFor<T>`";
-		let mut err = syn::Error::new(ty.span(), msg);
-		err.combine(e);
-		err
-	})?;
-
-	Ok(())
+	let result = syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream());
+	return match result {
+		Ok(CheckDispatchableFirstArg(has_ref)) if is_ref == has_ref => Ok(()),
+		_ => {
+			let msg = if is_ref {
+				"Invalid type: expected `&OriginFor<T>`"
+			} else {
+				"Invalid type: expected `OriginFor<T>`"
+			};
+			return Err(syn::Error::new(ty.span(), msg))
+		},
+	}
 }
 
 impl CallDef {
@@ -215,7 +240,7 @@ impl CallDef {
 						return Err(syn::Error::new(method.sig.span(), msg))
 					},
 					Some(syn::FnArg::Typed(arg)) => {
-						check_dispatchable_first_arg_type(&arg.ty)?;
+						check_dispatchable_first_arg_type(&arg.ty, false)?;
 					},
 				}
 
@@ -227,16 +252,22 @@ impl CallDef {
 					return Err(syn::Error::new(method.sig.span(), msg))
 				}
 
-				let (mut weight_attrs, mut call_idx_attrs): (Vec<FunctionAttr>, Vec<FunctionAttr>) =
-					helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter().partition(
-						|attr| {
-							if let FunctionAttr::Weight(_) = attr {
-								true
-							} else {
-								false
-							}
+				let mut call_idx_attrs = vec![];
+				let mut weight_attrs = vec![];
+				let mut feeless_attrs = vec![];
+				for attr in helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter() {
+					match attr {
+						FunctionAttr::CallIndex(_) => {
+							call_idx_attrs.push(attr);
 						},
-					);
+						FunctionAttr::Weight(_) => {
+							weight_attrs.push(attr);
+						},
+						FunctionAttr::FeelessIf(span, _) => {
+							feeless_attrs.push((span, attr));
+						},
+					}
+				}
 
 				if weight_attrs.is_empty() && dev_mode {
 					// inject a default O(1) weight when dev mode is enabled and no weight has
@@ -323,6 +354,73 @@ impl CallDef {
 
 				let docs = get_doc_literals(&method.attrs);
 
+				if feeless_attrs.len() > 1 {
+					let msg = "Invalid pallet::call, there can only be one feeless_if attribute";
+					return Err(syn::Error::new(feeless_attrs[1].0, msg))
+				}
+				let feeless_check: Option<ExprClosure> =
+					feeless_attrs.pop().map(|(_, attr)| match attr {
+						FunctionAttr::FeelessIf(_, closure) => closure,
+						_ => unreachable!("checked during creation of the let binding"),
+					});
+
+				if let Some(ref feeless_check) = feeless_check {
+					if feeless_check.inputs.len() != args.len() + 1 {
+						let msg = "Invalid pallet::call, feeless_if closure must have same \
+							number of arguments as the dispatchable function";
+						return Err(syn::Error::new(feeless_check.span(), msg))
+					}
+
+					match feeless_check.inputs.first() {
+						None => {
+							let msg = "Invalid pallet::call, feeless_if closure must have at least origin arg";
+							return Err(syn::Error::new(feeless_check.span(), msg))
+						},
+						Some(syn::Pat::Type(arg)) => {
+							check_dispatchable_first_arg_type(&arg.ty, true)?;
+						},
+						_ => {
+							let msg = "Invalid pallet::call, feeless_if closure first argument must be a typed argument, \
+								e.g. `origin: OriginFor<T>`";
+							return Err(syn::Error::new(feeless_check.span(), msg))
+						},
+					}
+
+					for (feeless_arg, arg) in feeless_check.inputs.iter().skip(1).zip(args.iter()) {
+						let feeless_arg_type =
+							if let syn::Pat::Type(syn::PatType { ty, .. }) = feeless_arg.clone() {
+								if let syn::Type::Reference(pat) = *ty {
+									pat.elem.clone()
+								} else {
+									let msg = "Invalid pallet::call, feeless_if closure argument must be a reference";
+									return Err(syn::Error::new(ty.span(), msg))
+								}
+							} else {
+								let msg = "Invalid pallet::call, feeless_if closure argument must be a type ascription pattern";
+								return Err(syn::Error::new(feeless_arg.span(), msg))
+							};
+
+						if feeless_arg_type != arg.2 {
+							let msg =
+								"Invalid pallet::call, feeless_if closure argument must have \
+								a reference to the same type as the dispatchable function argument";
+							return Err(syn::Error::new(feeless_arg.span(), msg))
+						}
+					}
+
+					let valid_return = match &feeless_check.output {
+						syn::ReturnType::Type(_, type_) => match *(type_.clone()) {
+							syn::Type::Path(syn::TypePath { path, .. }) => path.is_ident("bool"),
+							_ => false,
+						},
+						_ => false,
+					};
+					if !valid_return {
+						let msg = "Invalid pallet::call, feeless_if closure must return `bool`";
+						return Err(syn::Error::new(feeless_check.output.span(), msg))
+					}
+				}
+
 				methods.push(CallVariantDef {
 					name: method.sig.ident.clone(),
 					weight,
@@ -331,6 +429,7 @@ impl CallDef {
 					args,
 					docs,
 					attrs: method.attrs.clone(),
+					feeless_check,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";
