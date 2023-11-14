@@ -172,41 +172,41 @@ impl ExportGenesisStateCommand {
 	}
 }
 
-/// Generate the genesis block from a given ChainSpec.
-pub fn generate_genesis_block<Block: BlockT>(
-	chain_spec: &dyn ChainSpec,
-	genesis_state_version: StateVersion,
-) -> Result<Block, String> {
-	let storage = chain_spec.build_storage()?;
+// /// Generate the genesis block from a given ChainSpec.
+// pub fn generate_genesis_block<Block: BlockT>(
+// 	chain_spec: &dyn ChainSpec,
+// 	genesis_state_version: StateVersion,
+// ) -> Result<Block, String> {
+// 	let storage = chain_spec.build_storage()?;
 
-	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
-		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-			child_content.data.clone().into_iter().collect(),
-			genesis_state_version,
-		);
-		(sk.clone(), state_root.encode())
-	});
-	let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-		storage.top.clone().into_iter().chain(child_roots).collect(),
-		genesis_state_version,
-	);
+// 	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
+// 		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+// 			child_content.data.clone().into_iter().collect(),
+// 			genesis_state_version,
+// 		);
+// 		(sk.clone(), state_root.encode())
+// 	});
+// 	let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+// 		storage.top.clone().into_iter().chain(child_roots).collect(),
+// 		genesis_state_version,
+// 	);
 
-	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
-		Vec::new(),
-		genesis_state_version,
-	);
+// 	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+// 		Vec::new(),
+// 		genesis_state_version,
+// 	);
 
-	Ok(Block::new(
-		<<Block as BlockT>::Header as HeaderT>::new(
-			Zero::zero(),
-			extrinsics_root,
-			state_root,
-			Default::default(),
-			Default::default(),
-		),
-		Default::default(),
-	))
-}
+// 	Ok(Block::new(
+// 		<<Block as BlockT>::Header as HeaderT>::new(
+// 			Zero::zero(),
+// 			extrinsics_root,
+// 			state_root,
+// 			Default::default(),
+// 			Default::default(),
+// 		),
+// 		Default::default(),
+// 	))
+// }
 
 impl sc_cli::CliConfiguration for ExportGenesisStateCommand {
 	fn shared_params(&self) -> &sc_cli::SharedParams {
