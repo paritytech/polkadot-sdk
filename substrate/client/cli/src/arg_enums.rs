@@ -225,7 +225,7 @@ pub enum OffchainWorkerEnabled {
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
 #[value(rename_all = "kebab-case")]
 pub enum SyncMode {
-	/// Full sync. Download end verify all blocks.
+	/// Full sync. Download and verify all blocks.
 	Full,
 	/// Download blocks without executing them. Download latest state with proofs.
 	Fast,
