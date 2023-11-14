@@ -518,24 +518,6 @@ macro_rules! construct_partials {
 				$code
 			},
 			Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
-				chain_spec::coretime::CoretimeRuntimeType::Polkadot |
-				chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
-				chain_spec::coretime::CoretimeRuntimeType::PolkadotDevelopment => {
-					let $partials = new_partial::<chain_spec::coretime::polkadot::RuntimeApi, _>(
-						&$config,
-						crate::service::aura_build_import_queue::<_, AuraId>,
-					)?;
-					$code
-				},
-				chain_spec::coretime::CoretimeRuntimeType::Kusama |
-				chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
-				chain_spec::coretime::CoretimeRuntimeType::KusamaDevelopment => {
-					let $partials = new_partial::<chain_spec::coretime::kusama::RuntimeApi, _>(
-						&$config,
-						crate::service::aura_build_import_queue::<_, AuraId>,
-					)?;
-					$code
-				},
 				chain_spec::coretime::CoretimeRuntimeType::Westend => {
 					let $partials = new_partial::<chain_spec::coretime::westend::RuntimeApi, _>(
 						&$config,
@@ -744,32 +726,6 @@ macro_rules! construct_async_run {
 			},
 			Runtime::Coretime(coretime_runtime_type) => {
 				match coretime_runtime_type {
-					chain_spec::coretime::CoretimeRuntimeType::Polkadot |
-					chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
-					chain_spec::coretime::CoretimeRuntimeType::PolkadotDevelopment => {
-						runner.async_run(|$config| {
-							let $components = new_partial::<chain_spec::coretime::polkadot::RuntimeApi, _>(
-								&$config,
-								crate::service::aura_build_import_queue::<_, AuraId>,
-							)?;
-
-							let task_manager = $components.task_manager;
-							{ $( $code )* }.map(|v| (v, task_manager))
-						})
-					},
-					chain_spec::coretime::CoretimeRuntimeType::Kusama |
-					chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
-					chain_spec::coretime::CoretimeRuntimeType::KusamaDevelopment => {
-						runner.async_run(|$config| {
-							let $components = new_partial::<chain_spec::coretime::kusama::RuntimeApi, _>(
-								&$config,
-								crate::service::aura_build_import_queue::<_, AuraId>,
-							)?;
-
-							let task_manager = $components.task_manager;
-							{ $( $code )* }.map(|v| (v, task_manager))
-						})
-					},
 					chain_spec::coretime::CoretimeRuntimeType::Rococo => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::coretime::rococo::RuntimeApi, _>(
@@ -1114,24 +1070,6 @@ pub fn run() -> Result<()> {
 					.map_err(Into::into),
 
 					Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
-						chain_spec::coretime::CoretimeRuntimeType::Polkadot |
-						chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
-						chain_spec::coretime::CoretimeRuntimeType::PolkadotDevelopment =>
-							crate::service::start_generic_aura_node::<
-								chain_spec::coretime::polkadot::RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-								.await
-								.map(|r| r.0),
-						chain_spec::coretime::CoretimeRuntimeType::Kusama |
-						chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
-						chain_spec::coretime::CoretimeRuntimeType::KusamaDevelopment =>
-							crate::service::start_generic_aura_node::<
-								chain_spec::coretime::kusama::RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
 						chain_spec::coretime::CoretimeRuntimeType::Rococo =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::coretime::rococo::RuntimeApi,

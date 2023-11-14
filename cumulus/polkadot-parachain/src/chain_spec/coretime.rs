@@ -22,16 +22,7 @@ use std::{path::PathBuf, str::FromStr};
 /// Collects all supported Coretime configurations.
 #[derive(Debug, PartialEq)]
 pub enum CoretimeRuntimeType {
-	Kusama,
-	KusamaLocal,
-	KusamaDevelopment, // used by benchmarks
-
-	Polkadot,
-	PolkadotLocal,
-	PolkadotDevelopment, // used by benchmarks
-
 	Rococo,
-
 	Westend,
 }
 
@@ -40,12 +31,6 @@ impl FromStr for CoretimeRuntimeType {
 
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
-			polkadot::CORETIME_POLKADOT => Ok(CoretimeRuntimeType::Polkadot),
-			polkadot::CORETIME_POLKADOT_LOCAL => Ok(CoretimeRuntimeType::PolkadotLocal),
-			polkadot::CORETIME_POLKADOT_DEVELOPMENT => Ok(CoretimeRuntimeType::PolkadotDevelopment),
-			kusama::CORETIME_KUSAMA => Ok(CoretimeRuntimeType::Kusama),
-			kusama::CORETIME_KUSAMA_LOCAL => Ok(CoretimeRuntimeType::KusamaLocal),
-			kusama::CORETIME_KUSAMA_DEVELOPMENT => Ok(CoretimeRuntimeType::KusamaDevelopment),
 			rococo::CORETIME_ROCOCO => Ok(CoretimeRuntimeType::Rococo),
 			westend::CORETIME_WESTEND => Ok(CoretimeRuntimeType::Westend),
 			_ => Err(format!("Value '{}' is not configured yet", value)),
@@ -58,14 +43,6 @@ impl CoretimeRuntimeType {
 
 	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			CoretimeRuntimeType::Polkadot |
-			CoretimeRuntimeType::PolkadotLocal |
-			CoretimeRuntimeType::PolkadotDevelopment =>
-				Ok(Box::new(polkadot::CoretimeChainSpec::from_json_file(path)?)),
-			CoretimeRuntimeType::Kusama |
-			CoretimeRuntimeType::KusamaLocal |
-			CoretimeRuntimeType::KusamaDevelopment =>
-				Ok(Box::new(kusama::CoretimeChainSpec::from_json_file(path)?)),
 			CoretimeRuntimeType::Rococo =>
 				Ok(Box::new(rococo::CoretimeChainSpec::from_json_file(path)?)),
 			CoretimeRuntimeType::Westend =>

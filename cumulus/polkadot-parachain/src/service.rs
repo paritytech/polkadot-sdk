@@ -201,30 +201,6 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 	}
 }
 
-/// Native `CoretimePolkadot` executor instance.
-pub struct CoretimePolkadotRuntimeExecutor;
-impl sc_executor::NativeExecutionDispatch for CoretimePolkadotRuntimeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		coretime_polkadot_runtime::api::dispatch(method, data)
-	}
-	fn native_version() -> sc_executor::NativeVersion {
-		coretime_polkadot_runtime::native_version()
-	}
-}
-
-/// Native `CoretimeKusama` executor instance.
-pub struct CoretimeKusamaRuntimeExecutor;
-impl sc_executor::NativeExecutionDispatch for CoretimeKusamaRuntimeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		coretime_kusama_runtime::api::dispatch(method, data)
-	}
-	fn native_version() -> sc_executor::NativeVersion {
-		coretime_kusama_runtime::native_version()
-	}
-}
-
 /// Native `CoretimeRococo` executor instance.
 pub struct CoretimeRococoRuntimeExecutor;
 impl sc_executor::NativeExecutionDispatch for CoretimeRococoRuntimeExecutor {
