@@ -2692,8 +2692,11 @@ pub mod env {
 	///
 	/// # Parameters
 	///
-	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::VersionedXcm`] is placed.
+	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::prelude::VersionedXcm`] is
+	///   placed.
 	/// - `msg_len`: the length of the message in bytes.
+	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::prelude::Outcome`]
+	///   message id is placed.
 	///
 	/// # Return Value
 	///
@@ -2742,9 +2745,9 @@ pub mod env {
 	///
 	/// # Parameters
 	///
-	/// - `dest_ptr`: the pointer into the linear memory where the [`xcm::VersionedMultiLocation`]
-	///   is placed.
-	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::VersionedMessage`] is
+	/// - `dest_ptr`: the pointer into the linear memory where the
+	///   [`xcm::prelude::VersionedMultiLocation`] is placed.
+	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::prelude::VersionedXcm`] is
 	///   placed.
 	/// - `msg_len`: the length of the message in bytes.
 	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::v3::XcmHash`] message id
