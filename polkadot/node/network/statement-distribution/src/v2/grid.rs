@@ -623,6 +623,8 @@ impl GridTracker {
 		if let Some((_, c_h, kind, in_group)) =
 			extract_statement_and_group_info(groups, originator, statement).0
 		{
+			gum::info!(target: LOG_TARGET, validator_index = ?originator, candidate_hash = ?c_h, ?counterparty, "Sent direct statement");
+
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
 				known.sent_direct_statement(counterparty, in_group, kind);
 
@@ -643,6 +645,8 @@ impl GridTracker {
 		if let Some((_, c_h, kind, in_group)) =
 			extract_statement_and_group_info(groups, originator, statement).0
 		{
+			gum::info!(target: LOG_TARGET, validator_index = ?originator, candidate_hash = ?c_h, ?counterparty, "Received direct statement");
+
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
 				known.received_direct_statement(counterparty, in_group, kind);
 
@@ -1032,7 +1036,7 @@ impl KnownBackedCandidate {
 				})
 				.filter(|(_, k)| {
 					count_locals = count_locals + 1;
-					k.local_knowledge.as_ref().map_or(false, |r| {
+					k.remote_knowledge.as_ref().map_or(false, |r| {
 						count_contains = count_contains + 1;
 						r.contains(originator_index_in_group, statement_kind)
 					})
