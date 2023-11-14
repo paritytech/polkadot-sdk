@@ -759,12 +759,12 @@
 				},
 				<span class="string">&quot;--check-can-unshare-user-namespace-and-change-root&quot; </span>=&gt; {
 					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+					</span><span class="kw">let </span>cache_path_tempdir = std::path::Path::new(<span class="kw-2">&amp;</span>args[<span class="number">2</span>]);
+					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::unshare_user_namespace_and_change_root(
 						<span class="macro-nonterminal">$crate::worker::WorkerKind::CheckPivotRoot</span>,
 						worker_pid,
-						<span class="comment">// We&#39;re not accessing any files, so we can try to pivot_root in the temp
-						// dir without conflicts with other processes.
-						</span><span class="kw-2">&amp;</span>std::env::temp_dir(),
+						<span class="kw-2">&amp;</span>cache_path_tempdir,
 					) {
 						<span class="comment">// Write the error to stderr, log it on the host-side.
 						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);

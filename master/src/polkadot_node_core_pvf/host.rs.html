@@ -1709,6 +1709,10 @@
 <a href="#1709" id="1709">1709</a>
 <a href="#1710" id="1710">1710</a>
 <a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1746,6 +1750,7 @@
 	error::{PrepareError, PrepareResult},
 	pvf::PvfPrepData,
 };
+<span class="kw">use </span>polkadot_node_subsystem::SubsystemResult;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
 <span class="kw">use </span>std::{
 	collections::HashMap,
@@ -1914,7 +1919,10 @@
 /// The future should not return normally but if it does then that indicates an unrecoverable error.
 /// In that case all pending requests will be canceled, dropping the result senders and new ones
 /// will be rejected.
-</span><span class="kw">pub async fn </span>start(config: Config, metrics: Metrics) -&gt; (ValidationHost, <span class="kw">impl </span>Future&lt;Output = ()&gt;) {
+</span><span class="kw">pub async fn </span>start(
+	config: Config,
+	metrics: Metrics,
+) -&gt; SubsystemResult&lt;(ValidationHost, <span class="kw">impl </span>Future&lt;Output = ()&gt;)&gt; {
 	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>config, <span class="string">&quot;starting PVF validation host&quot;</span>);
 
 	<span class="comment">// Run checks for supported security features once per host startup. Warn here if not enabled.
@@ -1984,7 +1992,7 @@
 		};
 	};
 
-	(validation_host, task)
+	<span class="prelude-val">Ok</span>((validation_host, task))
 }
 
 <span class="doccomment">/// A mapping from an artifact ID which is in preparation state to the list of pending execution
