@@ -45,6 +45,13 @@ enum IdentityMigratorCalls<AccountId: Encode> {
 /// information on a parachain, sends the deposit there, and then updates it.
 pub struct ToParachainIdentityReaper<Runtime, AccountId>(PhantomData<(Runtime, AccountId)>);
 impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
+	/// Calculate the balance needed on the remote chain based on the `IdentityInfo` and `Subs` on
+	/// this chain. The total includes:
+	///
+	/// - Identity basic deposit
+	/// - `IdentityInfo` byte deposit
+	/// - Sub accounts deposit
+	/// - 2x existential deposit (1 for account existence, 1 such that the user can transact)
 	fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
 		// Remote deposit constants. Parachain uses `deposit / 100`
 		// Source:
