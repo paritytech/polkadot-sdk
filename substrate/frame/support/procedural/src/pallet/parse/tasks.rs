@@ -200,6 +200,7 @@ pub struct TaskDef {
 	pub weight_attr: TaskWeightAttr,
 	pub normal_attrs: Vec<Attribute>,
 	pub item: ImplItemFn,
+	pub arg_names: Vec<Ident>,
 }
 
 impl syn::parse::Parse for TaskDef {
@@ -308,12 +309,32 @@ impl syn::parse::Parse for TaskDef {
 			))
 		}
 
+		let mut arg_names = vec![];
+		for input in item.sig.inputs.iter() {
+			match input {
+				// Todo: This should be checked in the parsing stage.
+				syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
+					syn::Pat::Ident(ident) => arg_names.push(ident.ident.clone()),
+					_ => return Err(Error::new(input.span(), "unexpected pattern type")),
+				},
+				_ => return Err(Error::new(input.span(), "unexpected function argument type")),
+			}
+		}
+
 		let index_attr = index_attr.try_into().expect("we check the type above; QED");
 		let condition_attr = condition_attr.try_into().expect("we check the type above; QED");
 		let list_attr = list_attr.try_into().expect("we check the type above; QED");
 		let weight_attr = weight_attr.try_into().expect("we check the type above; QED");
 
-		Ok(TaskDef { index_attr, condition_attr, list_attr, weight_attr, normal_attrs, item })
+		Ok(TaskDef {
+			index_attr,
+			condition_attr,
+			list_attr,
+			weight_attr,
+			normal_attrs,
+			item,
+			arg_names,
+		})
 	}
 }
 

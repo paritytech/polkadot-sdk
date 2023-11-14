@@ -138,25 +138,7 @@ impl ToTokens for TasksDef {
 		});
 
 		let task_fn_names = self.tasks.iter().map(|task| &task.item.sig.ident);
-		let task_arg_names = self
-			.tasks
-			.iter()
-			.map(|task| {
-				task.item
-					.sig
-					.inputs
-					.iter()
-					.map(|input| match input {
-						// Todo: This should be checked in the parsing stage.
-						syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
-							syn::Pat::Ident(ident) => quote!(#ident),
-							_ => panic!("unexpected pattern type"),
-						},
-						_ => panic!("unexpected function argument type"),
-					})
-					.collect::<Vec<_>>()
-			})
-			.collect::<Vec<_>>();
+		let task_arg_names = self.tasks.iter().map(|task| &task.arg_names).collect::<Vec<_>>();
 
 		let sp_std = quote!(#scrate::__private::sp_std);
 		let impl_generics = &self.item_impl.generics;
