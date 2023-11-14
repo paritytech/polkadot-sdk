@@ -72,4 +72,5 @@ impl Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Debug = ();
 	type Environment = ();
+	type Xcm = pallet_xcm::Pallet<Self>;
 }
