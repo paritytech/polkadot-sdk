@@ -47,7 +47,8 @@ pub use xcm::{
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
-	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler,
+	relay_chain::HrmpChannelId, DmpMessageHandler, Junction, Junctions, NetworkId, ParaId,
+	XcmpMessageHandler,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
@@ -392,6 +393,23 @@ macro_rules! impl_accounts_helpers_for_parachain {
 							));
 						}
 					});
+				}
+
+				/// Return local sovereign account of `para_id` on other `network_id`
+				pub fn sovereign_account_of_parachain_on_other_global_consensus(
+					network_id: $crate::impls::NetworkId,
+					para_id: $crate::impls::ParaId,
+				) -> $crate::impls::AccountId {
+					let remote_location = $crate::impls::MultiLocation {
+						parents: 2,
+						interior: $crate::impls::Junctions::X2(
+							$crate::impls::Junction::GlobalConsensus(network_id),
+							$crate::impls::Junction::Parachain(para_id.into()),
+						),
+					};
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						Self::sovereign_account_id_of(remote_location)
+					})
 				}
 			}
 		}

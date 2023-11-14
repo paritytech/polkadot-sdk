@@ -92,7 +92,13 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		ASSET_MIN_BALANCE,
 		vec![],
 	);
+	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
+		NetworkId::Westend,
+		AssetHubWestend::para_id(),
+	);
 
+	let rocs_in_reserve_on_ahr_before =
+		<AssetHubRococo as Chain>::account_data_of(sov_ahw_on_ahr.clone()).free;
 	let sender_rocs_before =
 		<AssetHubRococo as Chain>::account_data_of(AssetHubRococoSender::get()).free;
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
@@ -126,11 +132,15 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(roc_at_asset_hub_westend, &AssetHubWestendReceiver::get())
 	});
+	let rocs_in_reserve_on_ahr_after =
+		<AssetHubRococo as Chain>::account_data_of(sov_ahw_on_ahr.clone()).free;
 
 	// Sender's balance is reduced
 	assert!(sender_rocs_before > sender_rocs_after);
 	// Receiver's balance is increased
 	assert!(receiver_rocs_after > receiver_rocs_before);
+	// Reserve balance is reduced by sent amount
+	assert_eq!(rocs_in_reserve_on_ahr_after, rocs_in_reserve_on_ahr_before + amount);
 }
 
 #[test]
@@ -148,18 +158,15 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	);
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve
-	let ahr_as_seen_by_ahw = MultiLocation {
-		parents: 2,
-		interior: X2(
-			GlobalConsensus(NetworkId::Rococo),
-			Parachain(AssetHubRococo::para_id().into()),
-		),
-	};
-	let sov_ahr_on_ahw = AssetHubWestend::execute_with(|| {
-		AssetHubWestend::sovereign_account_id_of(ahr_as_seen_by_ahw)
-	});
+	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
+		NetworkId::Rococo,
+		AssetHubRococo::para_id(),
+	);
 	AssetHubWestend::fund_accounts(vec![(sov_ahr_on_ahw.clone(), prefund_amount)]);
 
+	let wnds_in_reserve_on_ahw_before =
+		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
+	assert_eq!(wnds_in_reserve_on_ahw_before, prefund_amount);
 	let sender_wnds_before = AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(wnd_at_asset_hub_rococo, &AssetHubRococoSender::get())
@@ -200,9 +207,13 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	});
 	let receiver_wnds_after =
 		<AssetHubWestend as Chain>::account_data_of(AssetHubWestendReceiver::get()).free;
+	let wnds_in_reserve_on_ahw_after =
+		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw).free;
 
 	// Sender's balance is reduced
 	assert!(sender_wnds_before > sender_wnds_after);
 	// Receiver's balance is increased
 	assert!(receiver_wnds_after > receiver_wnds_before);
+	// Reserve balance is reduced by sent amount
+	assert_eq!(wnds_in_reserve_on_ahw_after, wnds_in_reserve_on_ahw_before - amount_to_send);
 }
