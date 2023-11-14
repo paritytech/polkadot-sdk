@@ -166,6 +166,7 @@ where
 
 			let parent_hash = parent_header.hash();
 
+			println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaaaaaaaaaa");
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
 				continue
 			}
