@@ -23,7 +23,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
@@ -143,6 +143,12 @@ pub mod pallet {
 		/// The deposit to be paid per byte stored on chain.
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
+
+		#[pallet::constant]
+		type UpgradeFee: Get<BalanceOf<Self>>;
+
+		#[pallet::constant]
+		type FeeReceiver: Get<Self::AccountId>;
 
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
@@ -684,12 +690,19 @@ impl<T: Config> Pallet<T> {
 				// pallet's configuration), any excess deposit will be removed.
 				let rebate = current_deposit.saturating_sub(new_deposit);
 				<T as Config>::Currency::unreserve(&payer, rebate);
-			} else {
+			} else if current_deposit < new_deposit {
 				// An additional deposit is required to cover for the new validation code which has
 				// a greater size compared to the old one.
 				let excess = new_deposit.saturating_sub(current_deposit);
 				<T as Config>::Currency::reserve(&payer, excess)?;
 			}
+
+			<T as Config>::Currency::transfer(
+				&payer,
+				&T::FeeReceiver::get(),
+				T::UpgradeFee::get(),
+				ExistenceRequirement::KeepAlive,
+			)?;
 		}
 
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
