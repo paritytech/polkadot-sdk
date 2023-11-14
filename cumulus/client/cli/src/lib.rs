@@ -26,7 +26,7 @@ use std::{
 };
 
 use codec::Encode;
-use sc_chain_spec::ChainSpec;
+use sc_chain_spec::{ChainSpec, BuildGenesisBlock};
 use sc_client_api::ExecutorProvider;
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
@@ -147,17 +147,19 @@ pub struct ExportGenesisStateCommand {
 
 impl ExportGenesisStateCommand {
 	/// Run the export-genesis-state command
-	pub fn run<Block: BlockT>(
+	pub fn run<Block: BlockT, Builder: BuildGenesisBlock<Block>>(
 		&self,
 		chain_spec: &dyn ChainSpec,
 		client: &impl ExecutorProvider<Block>,
+		genesis_block_builder: Builder,
 	) -> sc_cli::Result<()> {
 		let state_version = sc_chain_spec::resolve_state_version_from_wasm(
 			&chain_spec.build_storage()?,
 			client.executor(),
 		)?;
 
-		let block: Block = generate_genesis_block(chain_spec, state_version)?;
+		// let block: Block = generate_genesis_block(chain_spec, state_version)?;
+		let block: Block = genesis_block_builder.build_genesis_block()?.0;
 		let raw_header = block.header().encode();
 		let output_buf = if self.raw {
 			raw_header
