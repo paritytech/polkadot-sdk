@@ -218,7 +218,39 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
+	impl<T: Config> Pallet<T> {
+		/// Builds a schedule from the given assignments and places it in `CoreSchedules`.
+		/// This schedule will eventually enter the active `WorkState` for its core at its 
+		/// `begin` block number.
+		///
+		/// Parameters:
+		/// - `origin`: The sender of the call.
+		/// - `core_idx`: The core to be assigned
+		/// - `begin`: The block number at which to begin these assignments
+		/// - `assignments`: The various tasks over which to split a cores work, and their
+		///    proportions.
+		/// - `end_hint`: When to cease work for this set of assignments
+		///
+		/// Errors:
+		/// - `AssignmentsEmpty`
+		/// - `OverScheduled`: Assignments together exceeded 57600
+		/// - `DisallowedInsert`: Assign_core is only allowed to append new assignments at 
+		///    the end of already existing ones.
+		/// - `DuplicateInsert`
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
+		pub fn assign_core(
+			origin: OriginFor<T>,
+			core_idx: CoreIndex,
+			begin: BlockNumberFor<T>,
+			assignments: Vec<(CoreAssignment, PartsOf57600)>,
+			end_hint: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			//TODO: Find the desired origin if not root
+			ensure_root(origin)?;
+			Pallet::<T>::do_assign_core(core_idx, begin, assignments, end_hint)
+		}
+	}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -412,12 +444,12 @@ impl<T: Config> Pallet<T> {
 	/// The problem is that insertion complexity then depends on the size of the existing queue,
 	/// which makes determining weights hard and could lead to issues like overweight blocks (at
 	/// least in theory).
-	pub fn assign_core(
+	pub fn do_assign_core(
 		core_idx: CoreIndex,
 		begin: BlockNumberFor<T>,
 		assignments: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<BlockNumberFor<T>>,
-	) -> Result<(), DispatchError> {
+	) -> DispatchResult {
 		// There should be at least one assignment
 		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
 

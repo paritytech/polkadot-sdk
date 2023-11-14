@@ -70,10 +70,10 @@ mod benchmarks {
 		let para_id = ParaId::from(111u32);
 		init_parathread::<T>(para_id);
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		let assignment = Assignment::new(para_id);
+		let order = EnqueuedOrder::new(para_id);
 
 		for _ in 0..s {
-			Pallet::<T>::add_on_demand_assignment(assignment.clone(), QueuePushDirection::Back)
+			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back)
 				.unwrap();
 		}
 
@@ -88,10 +88,10 @@ mod benchmarks {
 		let para_id = ParaId::from(111u32);
 		init_parathread::<T>(para_id);
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		let assignment = Assignment::new(para_id);
+		let order = EnqueuedOrder::new(para_id);
 
 		for _ in 0..s {
-			Pallet::<T>::add_on_demand_assignment(assignment.clone(), QueuePushDirection::Back)
+			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back)
 				.unwrap();
 		}
 
