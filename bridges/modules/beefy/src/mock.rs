@@ -24,12 +24,11 @@ use crate::{
 use bp_beefy::{BeefyValidatorSignatureOf, ChainWithBeefy, Commitment, MmrDataOrHash};
 use bp_runtime::{BasicOperatingMode, Chain};
 use codec::Encode;
-use frame_support::{construct_runtime, parameter_types, traits::ConstU64, weights::Weight};
+use frame_support::{construct_runtime, derive_impl, weights::Weight};
 use sp_core::{sr25519::Signature, Pair};
 use sp_runtime::{
 	testing::{Header, H256},
-	traits::{BlakeTwo256, Hash, IdentityLookup},
-	Perbill,
+	traits::{BlakeTwo256, Hash},
 };
 
 pub use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Pair as BeefyPair};
@@ -67,36 +66,9 @@ construct_runtime! {
 	}
 }
 
-parameter_types! {
-	pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
-}
-
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for TestRuntime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
 	type Block = Block;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = TestAccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = ();
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type DbWeight = ();
-	type BlockWeights = ();
-	type BlockLength = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl beefy::Config for TestRuntime {
