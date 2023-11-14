@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{worker_intf::tmppath_in, Config, SecurityStatus, LOG_TARGET};
+use crate::{Config, SecurityStatus, LOG_TARGET};
 use futures::join;
-use std::{fmt, io, path::Path};
+use std::{fmt, path::Path};
 use tokio::{
 	fs::{File, OpenOptions},
 	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
@@ -27,18 +27,19 @@ const SECURE_MODE_ANNOUNCEMENT: &'static str =
      \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode";
 
 /// Run checks for supported security features.
-pub async fn check_security_status(config: &Config) -> io::Result<SecurityStatus> {
+///
+/// # Return
+///
+/// Returns the set of security features that we were able to enable. If an error occurs while
+/// enabling a security feature we set the corresponding status to `false`.
+pub async fn check_security_status(config: &Config) -> SecurityStatus {
 	let Config { prepare_worker_program_path, cache_path, .. } = config;
 
 	// TODO: add check that syslog is available and that seccomp violations are logged?
-	let cache_dir_tempdir = tmppath_in("check-can-unshare", &cache_path).await?;
 	let (landlock, seccomp, change_root) = join!(
 		check_landlock(prepare_worker_program_path),
 		check_seccomp(prepare_worker_program_path),
-		check_can_unshare_user_namespace_and_change_root(
-			prepare_worker_program_path,
-			&cache_dir_tempdir
-		)
+		check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path, cache_path)
 	);
 
 	let security_status = SecurityStatus {
@@ -60,7 +61,7 @@ pub async fn check_security_status(config: &Config) -> io::Result<SecurityStatus
 		);
 	}
 
-	Ok(security_status)
+	security_status
 }
 
 type SecureModeResult = std::result::Result<(), SecureModeError>;
@@ -153,10 +154,19 @@ fn print_secure_mode_message(errs: Vec<SecureModeError>) -> bool {
 async fn check_can_unshare_user_namespace_and_change_root(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] cache_dir_tempdir: &Path,
+	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] cache_path: &Path,
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
+			let cache_dir_tempdir =
+				crate::worker_intf::tmppath_in("check-can-unshare", cache_path)
+				.await
+				.map_err(
+					|err|
+					SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+						format!("could not create a temporary directory in {:?}: {}", cache_path, err)
+					)
+				)?;
 			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-unshare-user-namespace-and-change-root")
 				.arg(cache_dir_tempdir)

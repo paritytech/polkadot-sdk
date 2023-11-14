@@ -211,7 +211,7 @@ pub async fn start(
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Run checks for supported security features once per host startup. Warn here if not enabled.
-	let security_status = security::check_security_status(&config).await?;
+	let security_status = security::check_security_status(&config).await;
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
 
