@@ -19,12 +19,13 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 frame-support = { path = "../../support", default-features = false}
 frame-system = { path = "../../system", default-features = false}
 
+sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+
 polkadot-runtime-common = { path = "../../../../polkadot/runtime/common", default-features = false}
 
 [dev-dependencies]
 sp-io = { path = "../../../primitives/io"}
 sp-core = { path = "../../../primitives/core"}
-sp-runtime = { path = "../../../primitives/runtime"}
 sp-std = { path = "../../../primitives/std"}
 
 polkadot-primitives = { path = "../../../../polkadot/primitives", default-features = false}
@@ -38,6 +39,7 @@ std = [
 	"scale-info/std",
 	"frame-support/std",
 	"frame-system/std",
+	"sp-runtime/std",
     "polkadot-runtime-common/std",
 ]
 runtime-benchmarks = [

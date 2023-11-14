@@ -16,7 +16,7 @@ const ALICE: u64 = 2;
 fn reserve() {
 	new_test_ext().execute_with(|| {
 		// Mock the internal call done to T::Currency::reserve() inside of
-		// MyPaller:make_reserve() checking the expected inputs and returining a successfull
+		// MyPallet:make_reserve() checking the expected inputs and returning a successfull
 		// value.
 		MockCurrency::mock_reserve(|account_id, amount| {
 			assert_eq!(account_id, &ALICE);

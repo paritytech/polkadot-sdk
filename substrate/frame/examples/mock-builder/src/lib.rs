@@ -21,6 +21,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use polkadot_runtime_common::traits::Auctioneer;
+	use sp_runtime::traits::Saturating;
 
 	type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 	type BalanceOf<T> =
@@ -81,7 +82,8 @@ pub mod pallet {
 
 			// Check time
 			let now = T::Time::now();
-			let ready_at = T::WaitingTime::get() + LastDeposit::<T>::get(who).unwrap_or(now);
+			let last = LastDeposit::<T>::get(who).unwrap_or(now);
+			let ready_at = T::WaitingTime::get().saturating_add(last);
 			ensure!(now >= ready_at, Error::<T>::NotEnoughWaiting);
 
 			let block = frame_system::Pallet::<T>::block_number();
