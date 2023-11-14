@@ -61,15 +61,6 @@ pub use sp_runtime::paste;
 /// Use this when something must be shared among all instances.
 pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
 
-/// Rialto chain id.
-pub const RIALTO_CHAIN_ID: ChainId = *b"rlto";
-
-/// RialtoParachain chain id.
-pub const RIALTO_PARACHAIN_CHAIN_ID: ChainId = *b"rlpa";
-
-/// Millau chain id.
-pub const MILLAU_CHAIN_ID: ChainId = *b"mlau";
-
 /// Polkadot chain id.
 pub const POLKADOT_CHAIN_ID: ChainId = *b"pdot";
 
@@ -275,18 +266,6 @@ pub fn storage_map_final_key<H: StorageHasher>(
 	final_key.extend_from_slice(key_hashed.as_ref());
 
 	StorageKey(final_key)
-}
-
-/// This is how a storage key of storage parameter (`parameter_types! { storage Param: bool = false;
-/// }`) is computed.
-///
-/// Copied from `frame_support::parameter_types` macro.
-pub fn storage_parameter_key(parameter_name: &str) -> StorageKey {
-	let mut buffer = Vec::with_capacity(1 + parameter_name.len() + 1);
-	buffer.push(b':');
-	buffer.extend_from_slice(parameter_name.as_bytes());
-	buffer.push(b':');
-	StorageKey(sp_io::hashing::twox_128(&buffer).to_vec())
 }
 
 /// This is how a storage key of storage value is computed.
@@ -573,14 +552,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	#[test]
-	fn storage_parameter_key_works() {
-		assert_eq!(
-			storage_parameter_key("MillauToRialtoConversionRate"),
-			StorageKey(hex_literal::hex!("58942375551bb0af1682f72786b59d04").to_vec()),
-		);
-	}
 
 	#[test]
 	fn storage_value_key_works() {
