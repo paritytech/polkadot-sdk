@@ -2844,9 +2844,10 @@ pub mod env {
 	///
 	/// # Parameters
 	///
-	/// - `query_id_ptr`: the pointer into the linear memory where the query id is placed.
-	/// - `output_ptr`: the pointer into the linear memory where the response is placed.
-	/// - `output_len_ptr`: the pointer into the linear memory where the response length is placed.
+	/// - `query_id_ptr`: the pointer into the linear memory where the
+	///   [`xcm_builder::QueryHandler::QueryId`] is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the response
+	///   [`xcm_builder::QueryResponseStatus`] is placed.
 	///
 	/// # Return Value
 	///
