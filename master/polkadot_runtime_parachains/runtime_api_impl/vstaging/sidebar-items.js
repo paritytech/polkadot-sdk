@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["disabled_validators"]};
+window.SIDEBAR_ITEMS = {"fn":["disabled_validators","node_features"]};

@@ -1156,6 +1156,11 @@
 <a href="#1156" id="1156">1156</a>
 <a href="#1157" id="1157">1157</a>
 <a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1200,12 +1205,12 @@
 	ValidationResult,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	async_backing, slashing, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent,
-	CandidateHash, CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt,
-	CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	async_backing, slashing, vstaging::NodeFeatures, AuthorityDiscoveryId, BackedCandidate,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
@@ -1876,6 +1881,8 @@
 	///
 	/// If it&#39;s not supported by the Runtime, the async backing is said to be disabled.
 	</span>AsyncBackingParams(RuntimeApiSender&lt;async_backing::AsyncBackingParams&gt;),
+	<span class="doccomment">/// Get the node features.
+	</span>NodeFeatures(SessionIndex, RuntimeApiSender&lt;NodeFeatures&gt;),
 }
 
 <span class="kw">impl </span>RuntimeApiRequest {
@@ -1904,6 +1911,9 @@
 
 	<span class="doccomment">/// `DisabledValidators`
 	</span><span class="kw">pub const </span>DISABLED_VALIDATORS_RUNTIME_REQUIREMENT: u32 = <span class="number">8</span>;
+
+	<span class="doccomment">/// `Node features`
+	</span><span class="kw">pub const </span>NODE_FEATURES_RUNTIME_REQUIREMENT: u32 = <span class="number">9</span>;
 }
 
 <span class="doccomment">/// A message to the Runtime API subsystem.

@@ -512,6 +512,16 @@
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -530,12 +540,12 @@
 
 </span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, Block, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, Id, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, runtime_api::ParachainHost, slashing, vstaging, Block, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
 <span class="kw">use </span>sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
@@ -771,8 +781,14 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;, ApiError&gt;;
 
 	<span class="comment">// === v8 ===
+
 	</span><span class="doccomment">/// Gets the disabled validators at a specific block height
 	</span><span class="kw">async fn </span>disabled_validators(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ValidatorIndex&gt;, ApiError&gt;;
+
+	<span class="comment">// === v9 ===
+
+	</span><span class="doccomment">/// Get the node features.
+	</span><span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;vstaging::NodeFeatures, ApiError&gt;;
 }
 
 <span class="doccomment">/// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -1020,6 +1036,10 @@
 		at: Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;async_backing::AsyncBackingParams, ApiError&gt; {
 		<span class="self">self</span>.client.runtime_api().async_backing_params(at)
+	}
+
+	<span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;vstaging::NodeFeatures, ApiError&gt; {
+		<span class="self">self</span>.client.runtime_api().node_features(at)
 	}
 
 	<span class="kw">async fn </span>disabled_validators(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ValidatorIndex&gt;, ApiError&gt; {

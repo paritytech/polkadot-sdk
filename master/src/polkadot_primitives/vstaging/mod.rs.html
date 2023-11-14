@@ -17,6 +17,11 @@
 <a href="#17" id="17">17</a>
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -36,4 +41,9 @@
 </span><span class="doccomment">//! Staging Primitives.
 
 </span><span class="comment">// Put any primitives used by staging APIs functions here
-</span></code></pre></div></section></main></body></html>
+
+</span><span class="kw">use </span>bitvec::vec::BitVec;
+
+<span class="doccomment">/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+</span><span class="kw">pub type </span>NodeFeatures = BitVec&lt;u8, bitvec::order::Lsb0&gt;;
+</code></pre></div></section></main></body></html>

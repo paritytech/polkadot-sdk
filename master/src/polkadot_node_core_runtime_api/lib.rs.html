@@ -593,6 +593,27 @@
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
 <a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -768,6 +789,8 @@
 				.cache_para_backing_state((relay_parent, para_id), constraints),
 			AsyncBackingParams(relay_parent, params) =&gt;
 				<span class="self">self</span>.requests_cache.cache_async_backing_params(relay_parent, params),
+			NodeFeatures(session_index, params) =&gt;
+				<span class="self">self</span>.requests_cache.cache_node_features(session_index, params),
 		}
 	}
 
@@ -908,6 +931,15 @@
 					<span class="prelude-val">Some</span>(Request::MinimumBackingVotes(index, sender))
 				}
 			},
+			Request::NodeFeatures(index, sender) =&gt; {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = <span class="self">self</span>.requests_cache.node_features(index) {
+					<span class="self">self</span>.metrics.on_cached_request();
+					<span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(value.clone()));
+					<span class="prelude-val">None
+				</span>} <span class="kw">else </span>{
+					<span class="prelude-val">Some</span>(Request::NodeFeatures(index, sender))
+				}
+			},
 		}
 	}
 
@@ -1003,6 +1035,9 @@
 
 	<span class="macro">macro_rules! </span>query {
 		(<span class="macro-nonterminal">$req_variant</span>:ident, <span class="macro-nonterminal">$api_name</span>:ident ($(<span class="macro-nonterminal">$param</span>:expr),<span class="kw-2">*</span>), ver = <span class="macro-nonterminal">$version</span>:expr, <span class="macro-nonterminal">$sender</span>:expr) =&gt; {{
+			<span class="macro">query!</span>(<span class="macro-nonterminal">$req_variant</span>, <span class="macro-nonterminal">$api_name</span>($(<span class="macro-nonterminal">$param</span>),<span class="kw-2">*</span>), ver = <span class="macro-nonterminal">$version</span>, <span class="macro-nonterminal">$sender</span>, result = ( relay_parent $(, <span class="macro-nonterminal">$param </span>)* ) )
+		}};
+		(<span class="macro-nonterminal">$req_variant</span>:ident, <span class="macro-nonterminal">$api_name</span>:ident ($(<span class="macro-nonterminal">$param</span>:expr),<span class="kw-2">*</span>), ver = <span class="macro-nonterminal">$version</span>:expr, <span class="macro-nonterminal">$sender</span>:expr, result = ( $(<span class="macro-nonterminal">$results</span>:expr),* ) ) =&gt; {{
 			<span class="kw">let </span>sender = <span class="macro-nonterminal">$sender</span>;
 			<span class="kw">let </span>version: u32 = <span class="macro-nonterminal">$version</span>;	<span class="comment">// enforce type for the version expression
 			</span><span class="kw">let </span>runtime_version = client.api_version_parachain_host(relay_parent).<span class="kw">await
@@ -1036,7 +1071,7 @@
 			metrics.on_request(res.is_ok());
 			<span class="kw">let _ </span>= sender.send(res.clone());
 
-			res.ok().map(|res| RequestResult::<span class="macro-nonterminal">$req_variant</span>(relay_parent, $( <span class="macro-nonterminal">$param</span>, )* res))
+			res.ok().map(|res| RequestResult::<span class="macro-nonterminal">$req_variant</span>($( <span class="macro-nonterminal">$results</span>, )* res))
 		}}
 	}
 
@@ -1186,6 +1221,13 @@
 				sender
 			)
 		},
+		Request::NodeFeatures(index, sender) =&gt; <span class="macro">query!</span>(
+			NodeFeatures,
+			node_features(),
+			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
 	}
 }
 </code></pre></div></section></main></body></html>

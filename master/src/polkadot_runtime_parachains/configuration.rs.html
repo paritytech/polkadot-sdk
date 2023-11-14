@@ -1386,6 +1386,31 @@
 <a href="#1386" id="1386">1386</a>
 <a href="#1387" id="1387">1387</a>
 <a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1414,8 +1439,8 @@
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 <span class="kw">use </span>primitives::{
-	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
-	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
+	SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, Perbill};
@@ -1649,6 +1674,8 @@
 	<span class="doccomment">/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	</span><span class="kw">pub </span>minimum_backing_votes: u32,
+	<span class="doccomment">/// Node features enablement.
+	</span><span class="kw">pub </span>node_features: NodeFeatures,
 }
 
 <span class="kw">impl</span>&lt;BlockNumber: Default + From&lt;u32&gt;&gt; Default <span class="kw">for </span>HostConfiguration&lt;BlockNumber&gt; {
@@ -1700,6 +1727,7 @@
 			on_demand_target_queue_utilization: Perbill::from_percent(<span class="number">25</span>),
 			on_demand_ttl: <span class="number">5u32</span>.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
+			node_features: NodeFeatures::EMPTY,
 		}
 	}
 }
@@ -1851,6 +1879,7 @@
 	<span class="kw">fn </span>set_hrmp_open_request_ttl() -&gt; Weight;
 	<span class="kw">fn </span>set_config_with_executor_params() -&gt; Weight;
 	<span class="kw">fn </span>set_config_with_perbill() -&gt; Weight;
+	<span class="kw">fn </span>set_node_feature() -&gt; Weight;
 }
 
 <span class="kw">pub struct </span>TestWeightInfo;
@@ -1876,6 +1905,9 @@
 	<span class="kw">fn </span>set_config_with_perbill() -&gt; Weight {
 		Weight::MAX
 	}
+	<span class="kw">fn </span>set_node_feature() -&gt; Weight {
+		Weight::MAX
+	}
 }
 
 <span class="attr">#[frame_support::pallet]
@@ -1884,18 +1916,19 @@
 
 	<span class="doccomment">/// The current storage version.
 	///
-	/// v0-v1: &lt;https://github.com/paritytech/polkadot/pull/3575&gt;
-	/// v1-v2: &lt;https://github.com/paritytech/polkadot/pull/4420&gt;
-	/// v2-v3: &lt;https://github.com/paritytech/polkadot/pull/6091&gt;
-	/// v3-v4: &lt;https://github.com/paritytech/polkadot/pull/6345&gt;
-	/// v4-v5: &lt;https://github.com/paritytech/polkadot/pull/6937&gt;
-	///      + &lt;https://github.com/paritytech/polkadot/pull/6961&gt;
-	///      + &lt;https://github.com/paritytech/polkadot/pull/6934&gt;
-	/// v5-v6: &lt;https://github.com/paritytech/polkadot/pull/6271&gt; (remove UMP dispatch queue)
-	/// v6-v7: &lt;https://github.com/paritytech/polkadot/pull/7396&gt;
-	/// v7-v8: &lt;https://github.com/paritytech/polkadot/pull/6969&gt;
-	/// v8-v9: &lt;https://github.com/paritytech/polkadot/pull/7577&gt;
-	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">9</span>);
+	/// v0-v1:  &lt;https://github.com/paritytech/polkadot/pull/3575&gt;
+	/// v1-v2:  &lt;https://github.com/paritytech/polkadot/pull/4420&gt;
+	/// v2-v3:  &lt;https://github.com/paritytech/polkadot/pull/6091&gt;
+	/// v3-v4:  &lt;https://github.com/paritytech/polkadot/pull/6345&gt;
+	/// v4-v5:  &lt;https://github.com/paritytech/polkadot/pull/6937&gt;
+	///       + &lt;https://github.com/paritytech/polkadot/pull/6961&gt;
+	///       + &lt;https://github.com/paritytech/polkadot/pull/6934&gt;
+	/// v5-v6:  &lt;https://github.com/paritytech/polkadot/pull/6271&gt; (remove UMP dispatch queue)
+	/// v6-v7:  &lt;https://github.com/paritytech/polkadot/pull/7396&gt;
+	/// v7-v8:  &lt;https://github.com/paritytech/polkadot/pull/6969&gt;
+	/// v8-v9:  &lt;https://github.com/paritytech/polkadot/pull/7577&gt;
+	/// v9-v10: &lt;https://github.com/paritytech/polkadot-sdk/pull/2177&gt;
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">10</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -2581,6 +2614,23 @@
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
 				config.minimum_backing_votes = new;
+			})
+		}
+		<span class="doccomment">/// Set/Unset a node feature.
+		</span><span class="attr">#[pallet::call_index(<span class="number">53</span>)]
+		#[pallet::weight((
+			T::WeightInfo::set_node_feature(),
+			DispatchClass::Operational
+		))]
+		</span><span class="kw">pub fn </span>set_node_feature(origin: OriginFor&lt;T&gt;, index: u8, value: bool) -&gt; DispatchResult {
+			ensure_root(origin)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::schedule_config_update(|config| {
+				<span class="kw">let </span>index = usize::from(index);
+				<span class="kw">if </span>config.node_features.len() &lt;= index {
+					config.node_features.resize(index + <span class="number">1</span>, <span class="bool-val">false</span>);
+				}
+				config.node_features.set(index, value);
 			})
 		}
 	}
