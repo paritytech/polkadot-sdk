@@ -270,7 +270,7 @@ cd <polkadot-sdk-git-repo-dir>
 
 ### Send messages - transfer asset over bridge (ROCs/WNDs)
 
-Do (asset) transfers:
+Do reserve-backed transfers:
 ```
 cd <polkadot-sdk-git-repo-dir>
 
@@ -290,6 +290,20 @@ cd <polkadot-sdk-git-repo-dir>
 	- BridgeHubWestend (see `bridgeRococoMessages.MessagesReceived`, `xcmpQueue.XcmpMessageSent`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8945#/explorer
 	- AssetHubWestend (see `foreignAssets.Issued`, `xcmpQueue.Success`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9010#/explorer
 	- BridgeHubRocococ (see `bridgeWestendMessages.MessagesDelivered`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
+
+Do reserve withdraw transfers: (when previous is finished)
+```
+cd <polkadot-sdk-git-repo-dir>
+
+# wrappedWNDs from Rococo's Asset Hub to Westend's.
+./cumulus/scripts/bridges_rococo_westend.sh withdraw-reserve-assets-from-asset-hub-rococo-local
+```
+```
+cd <polkadot-sdk-git-repo-dir>
+
+# wrappedROCs from Westend's Asset Hub to Rococo's.
+./cumulus/scripts/bridges_rococo_westend.sh withdraw-reserve-assets-from-asset-hub-westend-local
+```
 
 ### Claim relayer's rewards on BridgeHubRococo and BridgeHubWestend
 
