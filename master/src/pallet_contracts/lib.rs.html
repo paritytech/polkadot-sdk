@@ -1718,6 +1718,16 @@
 <a href="#1718" id="1718">1718</a>
 <a href="#1719" id="1719">1719</a>
 <a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2123,6 +2133,14 @@
 		/// its type appears in the metadata. Only valid value is `()`.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>Environment: Get&lt;Environment&lt;<span class="self">Self</span>&gt;&gt;;
+
+		<span class="doccomment">/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
+		/// execute XCM programs.
+		</span><span class="kw">type </span>Xcm: xcm_builder::Controller&lt;
+			OriginFor&lt;<span class="self">Self</span>&gt;,
+			&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeCall,
+			BlockNumberFor&lt;<span class="self">Self</span>&gt;,
+		&gt;;
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -2724,6 +2742,8 @@
 		/// in this error. Note that this usually  shouldn&#39;t happen as deploying such contracts
 		/// is rejected.
 		</span>NoChainExtension,
+		<span class="doccomment">/// Failed to decode the XCM program.
+		</span>XCMDecodeFailed,
 		<span class="doccomment">/// A contract with the same AccountId already exists.
 		</span>DuplicateContract,
 		<span class="doccomment">/// A contract self destructed in its constructor.
