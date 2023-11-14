@@ -2746,8 +2746,8 @@ pub mod env {
 	///
 	/// - `dest_ptr`: the pointer into the linear memory where the [`xcm::VersionedMultiLocation`]
 	///   is placed.
-	/// - `call_ptr`: the pointer into the linear memory where the message is placed.
-	/// - `call_len`: the length of the message in bytes.
+	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::VersionedMessage`] is placed.
+	/// - `msg_len`: the length of the message in bytes.
 	/// - `output_ptr`: the pointer into the linear memory where the message id is placed.
 	///
 	/// # Return Value
@@ -2759,18 +2759,18 @@ pub mod env {
 		ctx: _,
 		memory: _,
 		dest_ptr: u32,
-		call_ptr: u32,
-		call_len: u32,
+		msg_ptr: u32,
+		msg_len: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		use xcm::{VersionedMultiLocation, VersionedXcm};
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
-		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
 
 		let message: VersionedXcm<()> =
-			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
+			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
 		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
