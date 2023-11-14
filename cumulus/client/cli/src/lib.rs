@@ -153,7 +153,12 @@ impl ExportGenesisStateCommand {
 		C: HeaderBackend<B> + 'static,
 	{
 		let genesis_hash = client.hash(Zero::zero())?.expect("Not sure what this option means.");
+		println!("🤵🤵🤵🤵🤵🤵🤵 In Command. Genesis Hash is {:?}", genesis_hash);
 		let genesis_header = client.header(genesis_hash)?.expect("again with the option.");
+		
+		//TODO querying the ful lblock is not necessary for the command itself, it is just for debugging purposes.
+		let genesis_block = client.block(genesis_hash)?.unwrap();
+		println!("🤵🤵🤵🤵🤵🤵🤵 In Command. Genesis Hash is {:#?}", genesis_block);
 
 		let raw_header = genesis_header.encode();
 		let output_buf = if self.raw {
