@@ -492,7 +492,7 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_tickets { tickets } = call {
+			let Call::submit_tickets { tickets } = call else { return InvalidTransaction::Call.into() };
 				// Discard tickets not coming from the local node or that are not
 				// yet included in a block
 				debug!(
@@ -518,7 +518,7 @@ pub mod pallet {
 					// where the submitter doesn't pay if the tickets are good?
 					warn!(
 						target: LOG_TARGET,
-						"Rejecting unsigned transaction from external sources.",
+						"Rejecting unsigned `submit_tickets` transaction from an external source",
 					);
 					return InvalidTransaction::BadSigner.into()
 				}
@@ -908,7 +908,7 @@ impl<T: Config> Pallet<T> {
 				sorted_candidates.sort_unstable();
 				sorted_candidates[max_tickets..]
 					.iter()
-					.for_each(|id| TicketsData::<T>::remove(id));
+					.for_each(TicketsData::<T>::remove);
 				sorted_candidates.truncate(max_tickets);
 				upper_bound = sorted_candidates[max_tickets - 1];
 			}
@@ -983,9 +983,7 @@ impl<T: Config> Pallet<T> {
 
 		// Remove all unsorted tickets segments.
 		let segments_count = tickets_metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
-		(0..segments_count).into_iter().for_each(|i| {
-			UnsortedSegments::<T>::remove(i);
-		});
+		(0..segments_count).for_each(UnsortedSegments::<T>::remove);
 
 		// Reset sorted candidates
 		SortedCandidates::<T>::kill();
