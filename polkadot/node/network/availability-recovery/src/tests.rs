@@ -531,6 +531,7 @@ impl Default for TestState {
 
 		candidate.descriptor.erasure_root = erasure_root;
 		candidate.descriptor.relay_parent = Hash::repeat_byte(10);
+		candidate.descriptor.pov_hash = Hash::repeat_byte(3);
 
 		Self {
 			validators,
@@ -1048,6 +1049,62 @@ fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bo
 	});
 }
 
+#[test]
+fn invalid_pov_hash_leads_to_invalid_error() {
+	let mut test_state = TestState::default();
+
+	let subsystem =
+		AvailabilityRecoverySubsystem::for_collator(request_receiver(), Metrics::new_dummy());
+
+	test_harness(subsystem, |mut virtual_overseer| async move {
+		let pov = PoV { block_data: BlockData(vec![69; 64]) };
+
+		test_state.candidate.descriptor.pov_hash = pov.hash();
+
+		let candidate_hash = test_state.candidate.hash();
+
+		overseer_signal(
+			&mut virtual_overseer,
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				test_state.current,
+				1,
+			))),
+		)
+		.await;
+
+		let (tx, rx) = oneshot::channel();
+
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				None,
+				None,
+				tx,
+			),
+		)
+		.await;
+
+		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+
+		test_state
+			.test_chunk_requests(
+				candidate_hash,
+				&mut virtual_overseer,
+				test_state.threshold(),
+				|_| Has::Yes,
+				false,
+			)
+			.await;
+
+		assert_eq!(rx.await.unwrap().unwrap_err(), RecoveryError::Invalid);
+		virtual_overseer
+	});
+}
+
 #[rstest]
 #[case(Some(1))]
 #[case(None)]
@@ -1111,11 +1168,11 @@ fn fast_path_backing_group_recovers(#[case] relay_parent_block_number: Option<Bl
 #[case(false, false)]
 fn recovers_from_only_chunks_if_pov_large(
 	#[case] systematic_recovery: bool,
-	#[case] skip_availability_store: bool,
+	#[case] for_collator: bool,
 ) {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 
-	let (subsystem, threshold) = match (systematic_recovery, skip_availability_store) {
+	let (subsystem, threshold) = match (systematic_recovery, for_collator) {
 		(true, false) => (
 			AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
 				request_receiver(),
@@ -1130,13 +1187,16 @@ fn recovers_from_only_chunks_if_pov_large(
 			),
 			test_state.threshold(),
 		),
-		(false, true) => (
-			AvailabilityRecoverySubsystem::with_availability_store_skip(
-				request_receiver(),
-				Metrics::new_dummy(),
-			),
-			test_state.threshold(),
-		),
+		(false, true) => {
+			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
+			(
+				AvailabilityRecoverySubsystem::for_collator(
+					request_receiver(),
+					Metrics::new_dummy(),
+				),
+				test_state.threshold(),
+			)
+		},
 		(_, _) => unreachable!(),
 	};
 
@@ -1179,7 +1239,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			}
 		);
 
-		if !skip_availability_store {
+		if !for_collator {
 			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 		}
@@ -1228,7 +1288,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			}
 		);
 
-		if !skip_availability_store {
+		if !for_collator {
 			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 		}
@@ -1243,7 +1303,7 @@ fn recovers_from_only_chunks_if_pov_large(
 					systematic_recovery,
 				)
 				.await;
-			if !skip_availability_store {
+			if !for_collator {
 				test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 			}
 		}
@@ -1269,11 +1329,11 @@ fn recovers_from_only_chunks_if_pov_large(
 #[case(false, false)]
 fn fast_path_backing_group_recovers_if_pov_small(
 	#[case] systematic_recovery: bool,
-	#[case] skip_availability_store: bool,
+	#[case] for_collator: bool,
 ) {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 
-	let subsystem = match (systematic_recovery, skip_availability_store) {
+	let subsystem = match (systematic_recovery, for_collator) {
 		(true, false) => AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
 			request_receiver(),
 			Metrics::new_dummy(),
@@ -1283,10 +1343,10 @@ fn fast_path_backing_group_recovers_if_pov_small(
 			request_receiver(),
 			Metrics::new_dummy(),
 		),
-		(false, true) => AvailabilityRecoverySubsystem::with_availability_store_skip(
-			request_receiver(),
-			Metrics::new_dummy(),
-		),
+		(false, true) => {
+			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
+			AvailabilityRecoverySubsystem::for_collator(request_receiver(), Metrics::new_dummy())
+		},
 		(_, _) => unreachable!(),
 	};
 
@@ -1334,7 +1394,7 @@ fn fast_path_backing_group_recovers_if_pov_small(
 			}
 		);
 
-		if !skip_availability_store {
+		if !for_collator {
 			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		}
 
