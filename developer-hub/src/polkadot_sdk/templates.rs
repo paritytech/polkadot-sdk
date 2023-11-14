@@ -8,10 +8,10 @@
 //!   moderate amount of features. It can act as a great starting point for those who want to learn
 //!   Substrate/FRAME and want to have a template that is already doing something.
 //! - [`substrate-minimal-template`]: Same as the above, but it contains the least amount of code in
-//!   both the client and runtime. It is a great starting point for those who want to deeply learn
+//!   both the node and runtime. It is a great starting point for those who want to deeply learn
 //!   Substrate and FRAME.
 //! - classic [`cumulus-parachain-template`], which is the de-facto parachain template shipped with
-//!   cumulus. It is the parachain-enabled version of [`substrate-node-template`].
+//!   Cumulus. It is the parachain-enabled version of [`substrate-node-template`].
 //!
 //! ### External Templates
 //!

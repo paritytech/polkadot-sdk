@@ -1,7 +1,7 @@
 //! # State Transition Function
 //!
-//! This document briefly explains how in the context of substrate based blockchains, we view the
-//! blockchain as **decentralized state transition function**.
+//! This document briefly explains how in the context of Substrate-based blockchains, we view the
+//! blockchain as a **decentralized state transition function**.
 //!
 //! Recall that a blockchain's main purpose is to help a permissionless set of entities to agree on
 //! a shared data-set, and how it evolves. This is called the **State**, also referred to as

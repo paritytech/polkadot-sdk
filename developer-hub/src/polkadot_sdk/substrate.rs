@@ -23,14 +23,17 @@
 //! 3. Lastly, the final blockchain system created with the above properties needs to be
 //!    upgradeable. In order to achieve this, Substrate is designed as a meta-protocol, whereby the
 //!    application logic of the blockchain (called "Runtime") is encoded as a WASM blob, and is
-//!    stored in the state. The rest of the system (called "Client") acts as the executor of the
-//!    WASM blob.
+//!    stored in the state. The rest of the system (called "node") acts as the executor of the WASM
+//!    blob.
 //!
 //! In essence, the meta-protocol of all Substrate based chains is the "Runtime as WASM blob"
 //! accord. This enables the Runtime to become inherently upgradeable, crucially without forks. The
 //! upgrade is merely a matter of the WASM blob being changed in the state, which is, in principle,
 //! same as updating an account's balance. Learn more about this in detail in
 //! [`crate::reference_docs::wasm_meta_protocol`].
+//!
+//! > A great analogy for substrate is the following: Substrate node is a gaming console, and a WASM
+//! > runtime, possibly created with FRAME is the game being inserted into the console.
 //!
 //! [`frame`], Substrate's default runtime development library, takes the above safety practices
 //! even further by embracing a declarative programming model whereby correctness is enhanced and
@@ -41,39 +44,38 @@
 //!
 //! Substrate offers different options at the spectrum of technical freedom <-> development ease.
 //!
-//! * The easiest way to use Substrate is to use tap into one of the templates (some o which listed
-//!   at [`crate::polkadot_sdk::templates`]) and only tweak the parameters of the runtime or client.
-//!   This allows you to launch a blockchain in minutes, but is limited in technical freedom.
+//! * The easiest way to use Substrate is to use one of the templates (some o which listed at
+//!   [`crate::polkadot_sdk::templates`]) and only tweak the parameters of the runtime or node. This
+//!   allows you to launch a blockchain in minutes, but is limited in technical freedom.
 //! * Next, most developers wish to develop their custom runtime modules, for which the de-facto way
 //! is [`frame`](crate::polkadot_sdk::frame_runtime).
-//! * Finally, Substrate is fully highly configurable at the client side as well, but this is the
-//!   most technically demanding.
+//! * Finally, Substrate is highly configurable at the node side as well, but this is the most
+//!   technically demanding.
 //!
 //! > A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
-//! > client-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
+//! > node-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_dev.mmd")]
 //!
 //! ## Structure
 //!
-//! Substrate is a massive cargo workspace with hundreds of crates, therefore it is useful to know
-//! how to navigate its crates.
+//! Substrate contains a large number of crates, therefore it is useful to have an overview of what
+//! they are, and how they are organized. In broad terms, these crates are divided into three
+//! categories:
 //!
-//! In broad terms, it is divided into three categories:
-//!
-//! * `sc-*` (short for *substrate-client*) crates, located under `./client` folder. These are all
-//!   the client crates. Notable examples are crates such as [`sc_network`], various consensus
-//!   crates, [`sc_rpc_api`] and [`sc_client_db`], all of which are expected to reside in the client
-//!   side.
+//! * `sc-*` (short for *Substrate-client*) crates, located under `./client` folder. These are all
+//!   the crates that lead to the node software. Notable examples [`sc_network`], various consensus
+//!   crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are expected to
+//!   reside in the node side.
 //! * `sp-*` (short for *substrate-primitives*) crates, located under `./primitives` folder. These
-//!   are the traits that glue the client and runtime together, but are not opinionated about what
+//!   are crates that facilitate both the node and the runtime, but are not opinionated about what
 //!   framework is using for building the runtime. Notable examples are [`sp_api`] and [`sp_io`],
-//!   which form the communication bridge between the client and runtime.
+//!   which form the communication bridge between the node and runtime.
 //! * `pallet-*` and `frame-*` crates, located under `./frame` folder. These are the crates related
 //!   to FRAME. See [`frame`] for more information.
 //!
-//! ### Wasm Build
+//! ### WASM Build
 //!
-//! Many of the Substrate crates, such as entire `sp-*`, need to compile to both Wasm (when a Wasm
+//! Many of the Substrate crates, such as entire `sp-*`, need to compile to both WASM (when a WASM
 //! runtime is being generated) and native (for example, when testing). To achieve this, Substrate
 //! follows the convention of the Rust community, and uses a `feature = "std"` to signify that a
 //!  crate is being built with the standard library, and is built for native. Otherwise, it is built
@@ -83,18 +85,18 @@
 //! in any Substrate-based runtime.
 //!
 //! Substrate-based runtimes use [`substrate_wasm_builder`] in their `build.rs` to automatically
-//! build their Wasm files as a part of normal build commandsOnce built, the wasm file is placed in
-//! `./target/{debug|release}/wbuild/{runtime_name}.wasm`.
+//! build their WASM files as a part of normal build command (e.g. `cargo build`). Once built, the
+//! wasm file is placed in `./target/{debug|release}/wbuild/{runtime_name}.wasm`.
 //!
 //! ### Binaries
 //!
 //! Multiple binaries are shipped with substrate, the most important of which are located in the
 //! [`./bin`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin) folder.
 //!
-//! * [`node_cli`] is an extensive substrate node that contains the superset of all runtime and
-//!   client side features. The corresponding runtime, called [`kitchensink_runtime`] contains all
-//!   of the modules that are provided with `FRAME`. This node and runtime is only used for testing
-//!   and demonstration.
+//! * [`node_cli`] is an extensive substrate node that contains the superset of all runtime and node
+//!   side features. The corresponding runtime, called [`kitchensink_runtime`] contains all of the
+//!   modules that are provided with `FRAME`. This node and runtime is only used for testing and
+//!   demonstration.
 //!     * [`chain_spec_builder`]: Utility to build more detailed chain-specs for the aforementioned
 //!       node. Other projects typically contain a `build-spec` subcommand that does the same.
 //! * [`node_template`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node-template):
@@ -105,21 +107,21 @@
 //! ### Anatomy of a Binary Crate
 //!
 //! From the above, [`node_cli`]/[`kitchensink_runtime`] and `node-template` are essentially
-//! blueprints of a substrate-based project, as the name of the latter is implying. Each
-//! substrate-based project typically contains the following:
+//! blueprints of a Substrate-based project, as the name of the latter is implying. Each
+//! Substrate-based project typically contains the following:
 //!
 //! * Under `./runtime`, a `./runtime/src/lib.rs` which is the top level runtime amalgamator file.
 //!   This file typically contains the [`frame::runtime::prelude::construct_runtime`] and
 //!   [`frame::runtime::prelude::impl_runtime_apis`] macro calls, which is the final definition of a
 //!   runtime.
 //!
-//! * Under `./node`, a `main.rs`, which is the point, and a `./service.rs`, which contains all the
-//!   client side components. Skimming this file yields an overview of the networking, database,
-//!   consensus and similar client side components.
+//! * Under `./node`, a `main.rs`, which is the starting point, and a `./service.rs`, which contains
+//!   all the node side components. Skimming this file yields an overview of the networking,
+//!   database, consensus and similar node side components.
 //!
 //! > The above two are conventions, not rules.
 //!
-//! > See <https://github.com/paritytech/polkadot-sdk/issues/5> for an update on how the client side
+//! > See <https://github.com/paritytech/polkadot-sdk/issues/5> for an update on how the node side
 //! > components are being amalgamated.
 //!
 //! ## Parachain?
@@ -128,8 +130,8 @@
 //! through which Polkadot can be utilized is by building "parachains", blockchains that are
 //! connected to Polkadot's shared security.
 //!
-//! To build a parachain, one could use [`crate::polkadot_sdk::cumulus`], the library on top of
-//! Substrate, empowering any substrate-based chain to be a Polkadot parachain.
+//! To build a parachain, one could use [Cumulus](crate::polkadot_sdk::cumulus), the library on
+//! top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?
 //!

@@ -49,7 +49,7 @@ pub mod __private {
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
-	pub use sp_io::{self, storage::root as storage_root};
+	pub use sp_io::{self, hashing, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
@@ -2229,9 +2229,10 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, error, event,
-		extra_constants, generate_deposit, generate_store, getter, hooks, import_section, inherent,
-		no_default, no_default_bounds, origin, pallet_section, storage_prefix, storage_version,
-		type_value, unbounded, validate_unsigned, weight, whitelist_storage,
+		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
+		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
+		whitelist_storage,
 	};
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
@@ -2243,8 +2244,7 @@ pub mod pallet_macros {
 	/// A **dispatchable** is a common term in FRAME, referring to process of constructing a
 	/// function, and dispatching it with the correct inputs. This is commonly used with
 	/// extrinsics, for example "an extrinsic has been dispatched". See
-	/// [`sp_runtime::traits::Dispatchable`] and
-	/// [`crate::traits::UnfilteredDispatchable`].
+	/// [`sp_runtime::traits::Dispatchable`] and [`crate::traits::UnfilteredDispatchable`].
 	///
 	/// ## Call Enum
 	///
@@ -2300,7 +2300,7 @@ pub mod pallet_macros {
 	/// #    TestExternalities::new_empty().execute_with(|| {
 	///     let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(10).into();
 	///     // calling into a dispatchable from within the runtime is simply a function call.
-	/// 	    let _ = custom_pallet::Pallet::<Runtime>::some_dispatchable(origin.clone(), 10);
+	///         let _ = custom_pallet::Pallet::<Runtime>::some_dispatchable(origin.clone(), 10);
 	///
 	///     // calling into a dispatchable from the outer world involves constructing the bytes of
 	///     let call = custom_pallet::Call::<Runtime>::some_dispatchable { input: 10 };
@@ -2314,7 +2314,7 @@ pub mod pallet_macros {
 	///     // referring to the second variant of `enum Call`.
 	///     let call = custom_pallet::Call::<Runtime>::other { input: 10 };
 	///     assert_eq!(call.encode(), vec![1u8, 10, 0, 0, 0, 0, 0, 0, 0]);
-	/// 	#    });
+	///     #    });
 	/// }
 	/// ```
 	///
@@ -2328,7 +2328,7 @@ pub mod pallet_macros {
 	/// - The return type is always [`crate::dispatch::DispatchResult`] (or
 	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
 	///
-	/// **WARNING**: modifying dispatchables, changing their order (ie. using [`call_index`]),
+	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
 	/// removing some, etc., must be done with care. This will change the encoding of the , and
 	/// the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration might be
 	/// needed. This is why the use of `call_index` is mandatory by default in FRAME.
@@ -2359,7 +2359,7 @@ pub mod pallet_macros {
 	///
 	/// A common example of `compact` is for numeric values that are often times far far away
 	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
-	/// balance of an individual account is often times way less then what the numeric type
+	/// balance of an individual account is oftentimes way less than what the numeric type
 	/// allows. In all such cases, using `compact` is sensible.
 	///
 	/// ```

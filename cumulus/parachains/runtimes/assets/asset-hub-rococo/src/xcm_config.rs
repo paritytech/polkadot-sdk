@@ -283,6 +283,9 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| k.eq(&bridging::XcmBridgeHubRouterByteFee::key())) ||
+					items
+						.iter()
+						.all(|(k, _)| k.eq(&bridging::XcmBridgeHubRouterBaseFee::key())) ||
 					items.iter().all(|(k, _)| k.eq(&Flavor::key())) =>
 				return true,
 			_ => (),
@@ -664,11 +667,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	ToRococoXcmRouter,
 )>;
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-}
-
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// We want to disallow users sending (arbitrary) XCMs from this chain.
@@ -698,8 +696,6 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
@@ -760,6 +756,25 @@ pub mod bridging {
 
 	// common/shared parameters for Wococo/Rococo
 	parameter_types! {
+		/// Base price of every byte of the Rococo -> Westend message. Can be adjusted via
+		/// governance `set_storage` call.
+		///
+		/// Default value is our estimation of the:
+		///
+		/// 1) an approximate cost of XCM execution (`ExportMessage` and surroundings) at Rococo bridge hub;
+		///
+		/// 2) the approximate cost of Rococo -> Westend message delivery transaction on Westend Bridge Hub,
+		///    converted into ROCs using 1:1 conversion rate;
+		///
+		/// 3) the approximate cost of Rococo -> Westend message confirmation transaction on Rococo Bridge Hub.
+		pub storage XcmBridgeHubRouterBaseFee: Balance =
+			bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get()
+				.saturating_add(bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get())
+				.saturating_add(bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get());
+		/// Price of every byte of the Rococo -> Westend message. Can be adjusted via
+		/// governance `set_storage` call.
+		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
+
 		pub SiblingBridgeHubParaId: u32 = match Flavor::get() {
 			RuntimeFlavor::Rococo => bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			RuntimeFlavor::Wococo => bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
@@ -768,8 +783,6 @@ pub mod bridging {
 		/// Router expects payment with this `AssetId`.
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
-		/// Price per byte - can be adjusted via governance `set_storage` call.
-		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
 
 		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
 			sp_std::vec::Vec::new().into_iter()
@@ -814,7 +827,7 @@ pub mod bridging {
 					// base delivery fee to local `BridgeHub`
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
-						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
+						XcmBridgeHubRouterBaseFee::get(),
 					).into())
 				)
 			];
@@ -890,7 +903,7 @@ pub mod bridging {
 					// base delivery fee to local `BridgeHub`
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
-						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
+						XcmBridgeHubRouterBaseFee::get(),
 					).into())
 				)
 			];
@@ -966,7 +979,7 @@ pub mod bridging {
 					// base delivery fee to local `BridgeHub`
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
-						bp_asset_hub_wococo::BridgeHubWococoBaseFeeInWocs::get(),
+						XcmBridgeHubRouterBaseFee::get(),
 					).into())
 				)
 			];

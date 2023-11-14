@@ -724,8 +724,6 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		#[serde(with = "sp_core::bytes")]
-		pub code: Vec<u8>,
 		#[serde(skip)]
 		pub _config: sp_std::marker::PhantomData<T>,
 	}
@@ -739,7 +737,6 @@ pub mod pallet {
 			<UpgradedToU32RefCount<T>>::put(true);
 			<UpgradedToTripleRefCount<T>>::put(true);
 
-			sp_io::storage::set(well_known_keys::CODE, &self.code);
 			sp_io::storage::set(well_known_keys::EXTRINSIC_INDEX, &0u32.encode());
 		}
 	}

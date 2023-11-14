@@ -12,9 +12,10 @@
 //!
 //! We suggest the following reading sequence:
 //!
-//! - Start by learning about the structure of the [`polkadot_sdk`] and its context.
-//! - Then, head over the [`tutorial`] to get more hand-on practice.
-//! - Whilst reading the tutorial, you might find back-links to [`reference_docs`].
+//! - Start by learning about the the [`polkadot_sdk`], its structure and context.
+//! - Then, head over the [`guides`]. This modules contains in-depth guides about the most important
+//!   user-journeys of the Polkadot SDK.
+//! - Whilst reading the guides, you might find back-links to [crate::`reference_docs`].
 //! - Finally, <https://paritytech.github.io> is the parent website of this crate that contains the
 //!   list of further tools related to the Polkadot SDK.
 //!
@@ -31,12 +32,12 @@
 /// how one can contribute to it.
 pub mod meta_contributing;
 
+/// In-depth guides about the most common components of the Polkadot SDK. They are slightly more
+/// high level and broad than reference docs.
+pub mod guides;
 /// An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
 /// the tools that are provided as a part of it, and to gain a high level understanding of each.
 pub mod polkadot_sdk;
 /// Reference documents covering in-depth topics across the Polkadot SDK. It is suggested to read
-/// these on-demand, while you are going through the [`tutorial`] or other content.
+/// these on-demand, while you are going through the [`guides`] or other content.
 pub mod reference_docs;
-/// The main polkadot-sdk tutorial, targeted toward those who wish to build parachains FRAME and
-/// Cumulus.
-pub mod tutorial;

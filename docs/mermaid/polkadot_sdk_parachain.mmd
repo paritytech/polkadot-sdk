@@ -1,11 +1,11 @@
 flowchart LR
 	subgraph Parachain[A Polkadot Parachain]
-		ParachainClient[Parachain Client]
+		ParachainNode[Parachain Node]
 		ParachainRuntime[Parachain Runtime]
 	end
 
     FRAME -.-> ParachainRuntime
-    Substrate[Substrate Client Libraries] -.-> ParachainClient
+    Substrate[Substrate Node Libraries] -.-> ParachainNoe
 
-    CumulusC[Cumulus Client Libraries] -.-> ParachainClient
+    CumulusC[Cumulus Node Libraries] -.-> ParachainNode
     CumulusR[Cumulus Runtime Libraries] -.-> ParachainRuntime

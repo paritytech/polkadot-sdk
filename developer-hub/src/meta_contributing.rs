@@ -45,10 +45,10 @@
 //!
 //! 1. 🔺 Ground Up: Information should be layed out in the most ground-up fashion. The lowest level
 //!    (i.e. "ground") is Rust-docs. The highest level (i.e. "up") is "outside of this crate". In
-//!    between lies [`reference_docs`] and [`tutorial`], from low to high. The point of this
-//!    principle is to document as much of the information as possible in the lower level media, as
-//!    it is easier to maintain and more reachable. Then, use excessive linking to back-link when
-//!    writing in a more high level.
+//!    between lies [`reference_docs`] and [`guides`], from low to high. The point of this principle
+//!    is to document as much of the information as possible in the lower level media, as it is
+//!    easier to maintain and more reachable. Then, use excessive linking to back-link when writing
+//!    in a more high level.
 //!
 //! > A prime example of this, the details of the FRAME storage APIs should NOT be explained in a
 //! > high level tutorial. They should be explained in the rust-doc of the corresponding type or
@@ -100,10 +100,10 @@
 //! ```
 //!
 //! * Before even getting started, what is with all of this `<T: Config>`? We link to
-//! [`reference_docs::trait_based_programming`].
+//! [`crate::reference_docs::trait_based_programming`].
 //! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
-//! explained in [`reference_docs::frame_composite_enums`]. Build on top of this!
-//! * Then, what is `origin`? Just an account id? [`reference_docs::frame_origin`].
+//! explained in [`crate::reference_docs::frame_composite_enums`]. Build on top of this!
+//! * Then, what is `origin`? Just an account id? [`crate::reference_docs::frame_origin`].
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
 //! * Why is `"SomeStaticString"` a valid error? Because there is implementation for it that you can
@@ -132,3 +132,15 @@
 //! [workspace-level `docify`](https://github.com/sam0x17/docify/issues/22). For now, we accept this
 //! compromise, but in the long term, we should work towards finding a way to maintain different
 //! revisions of this crate.
+//!
+//! ## How to Build
+//!
+//! To build this crate properly, with with right HTML headers injected, run:
+//!
+//! ```no_compile
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/developer-hub/headers/toc.html" cargo doc -p developer-hub
+//! ```
+//!
+//! adding `--no-deps` would speed up the process while development. If even faster build time for
+//! docs is needed, you can temporarily remove most of the substrate/cumulus dependencies that are
+//! only used for linking purposes.

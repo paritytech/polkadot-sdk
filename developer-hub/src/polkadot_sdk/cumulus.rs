@@ -1,7 +1,7 @@
 //! # Cumulus
 //!
-//! Substrate provides a framework through which a blockchain node and runtime can easily be
-//! created. Cumulus aims to extend the same approach to creation of Polkadot parachains.
+//! Substrate provides a framework ([FRAME]) through which a blockchain node and runtime can easily
+//! be created. Cumulus aims to extend the same approach to creation of Polkadot parachains.
 //!
 //! > Cumulus clouds are shaped sort of like dots; together they form a system that is intricate,
 //! > beautiful and functional.
@@ -14,7 +14,8 @@
 //!
 //! #### Cumulus Pallets
 //!
-//! A parachain runtime should use a number of pallets that are provided by Cumulus. Notably:
+//! A parachain runtime should use a number of pallets that are provided by Cumulus and Substrate.
+//! Notably:
 //!
 //! - [`frame-system`](frame::prelude::frame_system), like all FRAME-based runtimes.
 //! - [`cumulus_pallet_parachain_system`]
@@ -27,7 +28,7 @@
 //! - [`pallet_timestamp`]
 //! - [`pallet_aura`]
 //! - [`cumulus_pallet_aura_ext`]
-// #![doc = docify::embed!("./src/lib.rs", consensus_pallets)]
+#![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", consensus_pallets)]
 //!
 //!
 //! Finally, a separate macro, similar to
@@ -36,10 +37,6 @@
 //! parachain validation function (PVF). Without this API, the relay chain is unable to validate
 //! blocks produced by our parachain.
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", validate_block)]
-//!
-//! ## Example: Running a node
-//!
-//! TODO
 //!
 //! ---
 //!
@@ -86,9 +83,8 @@ mod tests {
 				type OnSystemEvent = ();
 				type SelfParaId = parachain_info::Pallet<Runtime>;
 				type OutboundXcmpMessageSource = ();
-				type DmpMessageHandler = ();
-				type ReservedDmpWeight = ();
 				type XcmpMessageHandler = ();
+				type ReservedDmpWeight = ();
 				type ReservedXcmpWeight = ();
 				type CheckAssociatedRelayNumber =
 					cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
@@ -98,6 +94,8 @@ mod tests {
 					1,
 					1,
 				>;
+				type WeightInfo = ();
+				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 			}
 
 			impl parachain_info::Config for Runtime {}

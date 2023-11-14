@@ -13,6 +13,8 @@ on:
 
 jobs:
   trigger-review-bot:
+    # (It is not a draft) && (it is not a review || it is an approving review)
+    if: ${{ github.event.pull_request.draft != true && (github.event_name != 'pull_request_review' || (github.event.review && github.event.review.state == 'APPROVED')) }}
     runs-on: ubuntu-latest
     name: trigger review bot
     steps:

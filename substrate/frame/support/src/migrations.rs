@@ -51,7 +51,7 @@ use sp_std::marker::PhantomData;
 /// 	// OnRuntimeUpgrade implementation...
 /// }
 ///
-/// pub type VersionCheckedMigrateV5ToV6<T, I> =
+/// pub type MigrateV5ToV6<T, I> =
 /// 	VersionedMigration<
 /// 		5,
 /// 		6,
@@ -63,7 +63,7 @@ use sp_std::marker::PhantomData;
 /// // Migrations tuple to pass to the Executive pallet:
 /// pub type Migrations = (
 /// 	// other migrations...
-/// 	VersionCheckedMigrateV5ToV6<T, ()>,
+/// 	MigrateV5ToV6<T, ()>,
 /// 	// other migrations...
 /// );
 /// ```
@@ -119,7 +119,7 @@ impl<
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			log::info!(
-				"🚚 Pallet {:?} migrating storage version from {:?} to {:?}.",
+				"🚚 Pallet {:?} VersionedMigration migrating storage version from {:?} to {:?}.",
 				Pallet::name(),
 				FROM,
 				TO
@@ -134,7 +134,7 @@ impl<
 			weight.saturating_add(DbWeight::get().reads_writes(1, 1))
 		} else {
 			log::warn!(
-				"🚚 Pallet {:?} migration {}->{} can be removed; on-chain is already at {:?}.",
+				"🚚 Pallet {:?} VersionedMigration migration {}->{} can be removed; on-chain is already at {:?}.",
 				Pallet::name(),
 				FROM,
 				TO,

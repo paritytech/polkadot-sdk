@@ -73,3 +73,18 @@ pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 44;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_westend);
 decl_bridge_messages_runtime_apis!(bridge_hub_westend);
+
+frame_support::parameter_types! {
+	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
+	/// BridgeHub.
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 488662666666;
+
+	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
+	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 1925196628010;
+
+	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
+	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 1848016628010;
+}
