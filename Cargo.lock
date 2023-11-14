@@ -1120,22 +1120,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "asset-hub-wococo-emulated-chain"
-version = "0.0.0"
-dependencies = [
- "asset-hub-rococo-emulated-chain",
- "asset-hub-rococo-runtime",
- "cumulus-primitives-core",
- "emulated-integration-tests-common",
- "frame-support",
- "parachains-common",
- "serde_json",
- "sp-core",
- "sp-runtime",
- "wococo-emulated-chain",
-]
-
-[[package]]
 name = "asset-test-utils"
 version = "1.0.0"
 dependencies = [
@@ -2202,12 +2186,14 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-assets",
+ "pallet-balances",
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "rococo-wococo-system-emulated-network",
+ "rococo-westend-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -2370,14 +2356,16 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-assets",
+ "pallet-balances",
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "rococo-westend-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -2461,21 +2449,6 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "westend-runtime-constants",
-]
-
-[[package]]
-name = "bridge-hub-wococo-emulated-chain"
-version = "0.0.0"
-dependencies = [
- "bridge-hub-rococo-emulated-chain",
- "bridge-hub-rococo-runtime",
- "cumulus-primitives-core",
- "emulated-integration-tests-common",
- "frame-support",
- "parachains-common",
- "serde_json",
- "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
@@ -12484,6 +12457,7 @@ dependencies = [
  "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
+ "polkadot-node-subsystem",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "procfs",
@@ -14591,16 +14565,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "rococo-wococo-system-emulated-network"
+name = "rococo-westend-system-emulated-network"
 version = "0.0.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
- "asset-hub-wococo-emulated-chain",
+ "asset-hub-westend-emulated-chain",
  "bridge-hub-rococo-emulated-chain",
- "bridge-hub-wococo-emulated-chain",
+ "bridge-hub-westend-emulated-chain",
  "emulated-integration-tests-common",
  "rococo-emulated-chain",
- "wococo-emulated-chain",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -16038,6 +16012,7 @@ dependencies = [
  "sp-consensus",
  "sp-core",
  "sp-maybe-compressed-blob",
+ "sp-rpc",
  "sp-runtime",
  "sp-version",
  "substrate-test-runtime",
@@ -21251,37 +21226,6 @@ checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "wococo-emulated-chain"
-version = "0.0.0"
-dependencies = [
- "emulated-integration-tests-common",
- "pallet-im-online",
- "parachains-common",
- "polkadot-primitives",
- "rococo-emulated-chain",
- "rococo-runtime",
- "rococo-runtime-constants",
- "sc-consensus-grandpa",
- "serde_json",
- "sp-authority-discovery",
- "sp-consensus-babe",
- "sp-consensus-beefy",
- "sp-core",
- "sp-runtime",
-]
-
-[[package]]
-name = "wococo-system-emulated-network"
-version = "0.0.0"
-dependencies = [
- "asset-hub-wococo-emulated-chain",
- "bridge-hub-wococo-emulated-chain",
- "emulated-integration-tests-common",
- "penpal-emulated-chain",
- "wococo-emulated-chain",
 ]
 
 [[package]]

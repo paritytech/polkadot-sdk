@@ -22,7 +22,7 @@ use frame_support::traits::OnInitialize;
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 use rococo_emulated_chain::Rococo;
 

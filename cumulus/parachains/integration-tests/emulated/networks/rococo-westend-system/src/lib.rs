@@ -14,23 +14,23 @@
 // limitations under the License.
 
 pub use asset_hub_rococo_emulated_chain;
-pub use asset_hub_wococo_emulated_chain;
+pub use asset_hub_westend_emulated_chain;
 pub use bridge_hub_rococo_emulated_chain;
-pub use bridge_hub_wococo_emulated_chain;
+pub use bridge_hub_westend_emulated_chain;
 pub use rococo_emulated_chain;
-pub use wococo_emulated_chain;
+pub use westend_emulated_chain;
 
 use asset_hub_rococo_emulated_chain::AssetHubRococo;
-use asset_hub_wococo_emulated_chain::AssetHubWococo;
+use asset_hub_westend_emulated_chain::AssetHubWestend;
 use bridge_hub_rococo_emulated_chain::BridgeHubRococo;
-use bridge_hub_wococo_emulated_chain::BridgeHubWococo;
+use bridge_hub_westend_emulated_chain::BridgeHubWestend;
 use rococo_emulated_chain::Rococo;
-use wococo_emulated_chain::Wococo;
+use westend_emulated_chain::Westend;
 
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts::{ALICE, BOB},
-	impls::{BridgeHubMessageHandler, BridgeMessagesInstance2},
+	impls::{BridgeHubMessageHandler, BridgeMessagesInstance1, BridgeMessagesInstance3},
 	xcm_emulator::{
 		decl_test_bridges, decl_test_networks, decl_test_sender_receiver_accounts_parameter_types,
 		Chain,
@@ -44,51 +44,53 @@ decl_test_networks! {
 			AssetHubRococo,
 			BridgeHubRococo,
 		],
-		bridge = RococoWococoMockBridge
+		bridge = RococoWestendMockBridge
 
 	},
-	pub struct WococoMockNet {
-		relay_chain = Wococo,
+	pub struct WestendMockNet {
+		relay_chain = Westend,
 		parachains = vec![
-			AssetHubWococo,
-			BridgeHubWococo,
+			AssetHubWestend,
+			BridgeHubWestend,
 		],
-		bridge = WococoRococoMockBridge
+		bridge = WestendRococoMockBridge
 	},
 }
 
 decl_test_bridges! {
-	pub struct RococoWococoMockBridge {
+	pub struct RococoWestendMockBridge {
 		source = BridgeHubRococoPara,
-		target = BridgeHubWococoPara,
-		handler = RococoWococoMessageHandler
+		target = BridgeHubWestendPara,
+		handler = RococoWestendMessageHandler
 	},
-	pub struct WococoRococoMockBridge {
-		source = BridgeHubWococoPara,
+	pub struct WestendRococoMockBridge {
+		source = BridgeHubWestendPara,
 		target = BridgeHubRococoPara,
-		handler = WococoRococoMessageHandler
+		handler = WestendRococoMessageHandler
 	}
 }
 
 type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
-type BridgeHubWococoRuntime = <BridgeHubWococoPara as Chain>::Runtime;
+type BridgeHubWestendRuntime = <BridgeHubWestendPara as Chain>::Runtime;
 
-pub type RococoWococoMessageHandler = BridgeHubMessageHandler<
+pub type RococoWestendMessageHandler = BridgeHubMessageHandler<
 	BridgeHubRococoRuntime,
-	BridgeHubWococoRuntime,
-	BridgeMessagesInstance2,
+	BridgeMessagesInstance3,
+	BridgeHubWestendRuntime,
+	BridgeMessagesInstance1,
 >;
-pub type WococoRococoMessageHandler = BridgeHubMessageHandler<
-	BridgeHubWococoRuntime,
+pub type WestendRococoMessageHandler = BridgeHubMessageHandler<
+	BridgeHubWestendRuntime,
+	BridgeMessagesInstance1,
 	BridgeHubRococoRuntime,
-	BridgeMessagesInstance2,
+	BridgeMessagesInstance3,
 >;
 
 decl_test_sender_receiver_accounts_parameter_types! {
 	RococoRelay { sender: ALICE, receiver: BOB },
 	AssetHubRococoPara { sender: ALICE, receiver: BOB },
 	BridgeHubRococoPara { sender: ALICE, receiver: BOB },
-	WococoRelay { sender: ALICE, receiver: BOB },
-	AssetHubWococoPara { sender: ALICE, receiver: BOB },
-	BridgeHubWococoPara { sender: ALICE, receiver: BOB }
+	WestendRelay { sender: ALICE, receiver: BOB },
+	AssetHubWestendPara { sender: ALICE, receiver: BOB },
+	BridgeHubWestendPara { sender: ALICE, receiver: BOB }
 }
