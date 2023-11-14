@@ -2051,6 +2051,13 @@ where
 
 		std::mem::take(&mut self.actions).into_iter()
 	}
+
+	/// A version of `actions()` that doesn't schedule extra requests. For testing only.
+	#[cfg(test)]
+	#[must_use]
+	fn take_actions(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> {
+		std::mem::take(&mut self.actions).into_iter()
+	}
 }
 
 // This is purely during a backwards compatible transitionary period and should be removed
