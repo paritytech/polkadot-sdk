@@ -1687,6 +1687,78 @@
 <a href="#1687" id="1687">1687</a>
 <a href="#1688" id="1688">1688</a>
 <a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
+<a href="#1716" id="1716">1716</a>
+<a href="#1717" id="1717">1717</a>
+<a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
+<a href="#1738" id="1738">1738</a>
+<a href="#1739" id="1739">1739</a>
+<a href="#1740" id="1740">1740</a>
+<a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1743,7 +1815,7 @@
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 <span class="kw">use </span>pallet_asset_conversion_tx_payment::AssetConversionAdapter;
-<span class="kw">use </span>pallet_nfts::PalletFeatures;
+<span class="kw">use </span>pallet_nfts::{DestroyWitness, PalletFeatures};
 <span class="kw">use </span>pallet_xcm::EnsureXcm;
 <span class="kw">pub use </span>parachains_common <span class="kw">as </span>common;
 <span class="kw">use </span>parachains_common::{
@@ -1758,7 +1830,9 @@
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT, Verify},
+	traits::{
+		AccountIdConversion, AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT, Saturating, Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
@@ -2633,7 +2707,78 @@
 	</span>pallet_multisig::migrations::v1::MigrateToV1&lt;Runtime&gt;,
 	<span class="comment">// unreleased
 	</span>InitStorageVersions,
+	<span class="comment">// unreleased
+	</span>DeleteUndecodableStorage,
 );
+
+<span class="doccomment">/// Asset Hub Westend has some undecodable storage, delete it.
+/// See &lt;https://github.com/paritytech/polkadot-sdk/issues/2241&gt; for more info.
+///
+/// First we remove the bad Hold, then the bad NFT collection.
+</span><span class="kw">pub struct </span>DeleteUndecodableStorage;
+
+<span class="kw">impl </span>frame_support::traits::OnRuntimeUpgrade <span class="kw">for </span>DeleteUndecodableStorage {
+	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
+		<span class="kw">use </span>sp_core::crypto::Ss58Codec;
+
+		<span class="kw">let </span><span class="kw-2">mut </span>writes = <span class="number">0</span>;
+
+		<span class="comment">// Remove Holds for account with undecodable hold
+		// Westend doesn&#39;t have any HoldReasons implemented yet, so it&#39;s safe to just blanket remove
+		// any for this account.
+		</span><span class="kw">match </span>AccountId::from_ss58check(<span class="string">&quot;5GCCJthVSwNXRpbeg44gysJUx9vzjdGdfWhioeM7gCg6VyXf&quot;</span>) {
+			<span class="prelude-val">Ok</span>(a) =&gt; {
+				<span class="macro">log::info!</span>(<span class="string">&quot;Removing holds for account with bad hold&quot;</span>);
+				pallet_balances::Holds::&lt;Runtime, ()&gt;::remove(a);
+				writes.saturating_inc();
+			},
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+				<span class="macro">log::error!</span>(<span class="string">&quot;CleanupUndecodableStorage: Somehow failed to convert valid SS58 address into an AccountId!&quot;</span>);
+			},
+		};
+
+		<span class="comment">// Destroy undecodable NFT item 1
+		</span>writes.saturating_inc();
+		<span class="kw">match </span>pallet_nfts::Pallet::&lt;Runtime, ()&gt;::do_burn(<span class="number">3</span>, <span class="number">1</span>, |<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())) {
+			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+				<span class="macro">log::info!</span>(<span class="string">&quot;Destroyed undecodable NFT item 1&quot;</span>);
+			},
+			<span class="prelude-val">Err</span>(e) =&gt; {
+				<span class="macro">log::error!</span>(<span class="string">&quot;Failed to destroy undecodable NFT item: {:?}&quot;</span>, e);
+				<span class="kw">return </span>&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">0</span>, writes)
+			},
+		}
+
+		<span class="comment">// Destroy undecodable NFT item 2
+		</span>writes.saturating_inc();
+		<span class="kw">match </span>pallet_nfts::Pallet::&lt;Runtime, ()&gt;::do_burn(<span class="number">3</span>, <span class="number">2</span>, |<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())) {
+			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+				<span class="macro">log::info!</span>(<span class="string">&quot;Destroyed undecodable NFT item 2&quot;</span>);
+			},
+			<span class="prelude-val">Err</span>(e) =&gt; {
+				<span class="macro">log::error!</span>(<span class="string">&quot;Failed to destroy undecodable NFT item: {:?}&quot;</span>, e);
+				<span class="kw">return </span>&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">0</span>, writes)
+			},
+		}
+
+		<span class="comment">// Finally, we can destroy the collection
+		</span>writes.saturating_inc();
+		<span class="kw">match </span>pallet_nfts::Pallet::&lt;Runtime, ()&gt;::do_destroy_collection(
+			<span class="number">3</span>,
+			DestroyWitness { attributes: <span class="number">0</span>, item_metadatas: <span class="number">1</span>, item_configs: <span class="number">0 </span>},
+			<span class="prelude-val">None</span>,
+		) {
+			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+				<span class="macro">log::info!</span>(<span class="string">&quot;Destroyed undecodable NFT collection&quot;</span>);
+			},
+			<span class="prelude-val">Err</span>(e) =&gt; {
+				<span class="macro">log::error!</span>(<span class="string">&quot;Failed to destroy undecodable NFT collection: {:?}&quot;</span>, e);
+			},
+		};
+
+		&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">0</span>, writes)
+	}
+}
 
 <span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.
 ///
@@ -2646,7 +2791,6 @@
 <span class="kw">impl </span>frame_support::traits::OnRuntimeUpgrade <span class="kw">for </span>InitStorageVersions {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 		<span class="kw">use </span>frame_support::traits::{GetStorageVersion, StorageVersion};
-		<span class="kw">use </span>sp_runtime::traits::Saturating;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>writes = <span class="number">0</span>;
 
