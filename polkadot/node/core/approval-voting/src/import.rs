@@ -232,8 +232,7 @@ async fn imported_block_info<Context>(
 					?block_hash,
 					?authority,
 					babe_slot = ?slot,
-					babe_epoch = ?babe_epoch.epoch_index,
-					babe_randomness = ?babe_epoch.randomness,
+					?babe_epoch,
 					"Computing VRF randomness",
 				);
 
