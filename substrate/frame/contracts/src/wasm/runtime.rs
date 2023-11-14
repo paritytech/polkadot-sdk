@@ -2746,9 +2746,11 @@ pub mod env {
 	///
 	/// - `dest_ptr`: the pointer into the linear memory where the [`xcm::VersionedMultiLocation`]
 	///   is placed.
-	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::VersionedMessage`] is placed.
+	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::VersionedMessage`] is
+	///   placed.
 	/// - `msg_len`: the length of the message in bytes.
-	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::v3::XcmHash`] message id is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::v3::XcmHash`] message id
+	///   is placed.
 	///
 	/// # Return Value
 	///
@@ -2796,7 +2798,8 @@ pub mod env {
 	///
 	/// - `timeout_ptr`: the pointer into the linear memory where the timeout is placed.
 	/// - `match_querier_ptr`: the pointer into the linear memory where the match_querier is placed.
-	/// - `output_ptr`: the pointer into the linear memory where the query id is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the
+	///   [`xcm_builder::QueryHandler::QueryId`] is placed.
 	///
 	/// # Return Value
 	///
