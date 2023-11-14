@@ -26,24 +26,24 @@ use emulated_integration_tests_common::{
 
 // BridgeHubRococo Parachain declaration
 decl_test_parachains! {
-	pub struct BridgeHubRococo {
+	pub struct CoretimeRococo {
 		genesis = genesis::genesis(),
 		on_init = {
-			bridge_hub_rococo_runtime::AuraExt::on_initialize(1);
+			coretime_rococo_runtime::AuraExt::on_initialize(1);
 		},
-		runtime = bridge_hub_rococo_runtime,
+		runtime = coretime_rococo_runtime,
 		core = {
-			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
+			XcmpMessageHandler: coretime_rococo_runtime::XcmpQueue,
+			LocationToAccountId: coretime_rococo_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: coretime_rococo_runtime::ParachainInfo,
 		},
 		pallets = {
-			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
-			Balances: bridge_hub_rococo_runtime::Balances,
+			PolkadotXcm: coretime_rococo_runtime::PolkadotXcm,
+			Balances: coretime_rococo_runtime::Balances,
 		}
 	},
 }
 
 // BridgeHubRococo implementation
-impl_accounts_helpers_for_parachain!(BridgeHubRococo);
-impl_assert_events_helpers_for_parachain!(BridgeHubRococo);
+impl_accounts_helpers_for_parachain!(CoretimeRococo);
+impl_assert_events_helpers_for_parachain!(CoretimeRococo);
