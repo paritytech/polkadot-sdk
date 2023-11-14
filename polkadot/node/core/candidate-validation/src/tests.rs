@@ -695,11 +695,13 @@ fn candidate_validation_retry_panic_errors() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
-			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
+			// Throw an AJD error, we should still retry again.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(
+				"baz".into(),
+			))),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
 		]),
 		validation_data,
 		validation_code,
@@ -1216,7 +1218,7 @@ fn precheck_properly_classifies_outcomes() {
 
 	inner(Err(PrepareError::Prevalidation("foo".to_owned())), PreCheckOutcome::Invalid);
 	inner(Err(PrepareError::Preparation("bar".to_owned())), PreCheckOutcome::Invalid);
-	inner(Err(PrepareError::Panic("baz".to_owned())), PreCheckOutcome::Invalid);
+	inner(Err(PrepareError::JobError("baz".to_owned())), PreCheckOutcome::Invalid);
 
 	inner(Err(PrepareError::TimedOut), PreCheckOutcome::Failed);
 	inner(Err(PrepareError::IoErr("fizz".to_owned())), PreCheckOutcome::Failed);
