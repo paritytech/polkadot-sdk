@@ -4,7 +4,7 @@
 //! abundantly used within [`frame`] and is therefore paramount important for a smooth transition
 //! into it.
 //!
-//! The rest of this document assumes familiarity with the 
+//! The rest of this document assumes familiarity with the
 //! [Rust book's Advanced Traits](https://doc.rust-lang.org/book/ch19-03-advanced-traits.html)
 //! section.
 //! Moreover, we use the [`frame::traits::Get`].

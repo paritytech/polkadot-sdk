@@ -11,8 +11,7 @@
 //!     - [Runtimes](https://github.com/polkadot-fellows/runtimes)
 //!     - [RFCs](https://github.com/polkadot-fellows/rfcs)
 //! - [Polkadot Specs](spec.polkadot.network)
-//! - [The Polkadot Parachain Host Implementers'
-//!   Guide](https://paritytech.github.io/polkadot-sdk/book/)
+//! - [The Polkadot Parachain Host Implementers' Guide](https://paritytech.github.io/polkadot-sdk/book/)
 //! - [Whitepaper](https://www.polkadot.network/whitepaper/)
 //!
 //! ## Alternative Node Implementations 🌈
@@ -80,5 +79,3 @@
 //! Some of the RFCs that do alter Polkadot as a platform and have already passed are as follows:
 //!
 //! RFC#1: Agile-coretime. TODO
-//!
-//!
