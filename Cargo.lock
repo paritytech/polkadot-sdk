@@ -11992,6 +11992,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-keyring",
+ "sp-tracing 10.0.0",
  "thiserror",
  "tracing-gum",
 ]

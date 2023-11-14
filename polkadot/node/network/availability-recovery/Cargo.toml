@@ -31,6 +31,7 @@ futures-timer = "3.0.2"
 log = "0.4.17"
 rstest = "0.18.2"
 
+sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }

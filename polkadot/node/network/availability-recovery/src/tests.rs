@@ -63,10 +63,7 @@ fn test_harness<Fut: Future<Output = VirtualOverseer>>(
 	subsystem: AvailabilityRecoverySubsystem,
 	test: impl FnOnce(VirtualOverseer) -> Fut,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_availability_recovery"), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 
@@ -159,6 +156,7 @@ struct TestState {
 	validators: Vec<Sr25519Keyring>,
 	validator_public: IndexedVec<ValidatorIndex, ValidatorId>,
 	validator_authority_id: Vec<AuthorityDiscoveryId>,
+	validator_groups: IndexedVec<GroupIndex, Vec<ValidatorIndex>>,
 	current: Hash,
 	candidate: CandidateReceipt,
 	session_index: SessionIndex,
@@ -199,8 +197,7 @@ impl TestState {
 				tx.send(Ok(Some(SessionInfo {
 					validators: self.validator_public.clone(),
 					discovery_keys: self.validator_authority_id.clone(),
-					// all validators in the same group.
-					validator_groups: IndexedVec::<GroupIndex,Vec<ValidatorIndex>>::from(vec![(0..self.validators.len()).map(|i| ValidatorIndex(i as _)).collect()]),
+					validator_groups: self.validator_groups.clone(),
 					assignment_keys: vec![],
 					n_cores: 0,
 					zeroth_delay_tranche_width: 0,
@@ -328,7 +325,7 @@ impl TestState {
 		candidate_hash: CandidateHash,
 		virtual_overseer: &mut VirtualOverseer,
 		n: usize,
-		who_has: impl Fn(usize) -> Has,
+		mut who_has: impl FnMut(usize) -> Has,
 		systematic_recovery: bool,
 	) -> Vec<oneshot::Sender<std::result::Result<Vec<u8>, RequestFailure>>> {
 		// arbitrary order.
@@ -386,9 +383,11 @@ impl TestState {
 		candidate_hash: CandidateHash,
 		virtual_overseer: &mut VirtualOverseer,
 		who_has: impl Fn(usize) -> Has,
+		group_index: GroupIndex,
 	) -> Vec<oneshot::Sender<std::result::Result<Vec<u8>, RequestFailure>>> {
 		let mut senders = Vec::new();
-		for _ in 0..self.validators.len() {
+		let expected_validators = self.validator_groups.get(group_index).unwrap();
+		for _ in 0..expected_validators.len() {
 			// Receive a request for the full `AvailableData`.
 			assert_matches!(
 				overseer_recv(virtual_overseer).await,
@@ -408,6 +407,7 @@ impl TestState {
 								.iter()
 								.position(|a| Recipient::Authority(a.clone()) == req.peer)
 								.unwrap();
+							assert!(expected_validators.contains(&ValidatorIndex(validator_index as u32)));
 
 							let available_data = match who_has(validator_index) {
 								Has::No => Ok(None),
@@ -486,6 +486,11 @@ impl Default for TestState {
 
 		let validator_public = validator_pubkeys(&validators);
 		let validator_authority_id = validator_authority_id(&validators);
+		let validator_groups = vec![
+			vec![1.into(), 0.into(), 3.into(), 4.into()],
+			vec![5.into(), 6.into()],
+			vec![2.into()],
+		];
 
 		let current = Hash::repeat_byte(1);
 
@@ -537,6 +542,10 @@ impl Default for TestState {
 			validators,
 			validator_public,
 			validator_authority_id,
+			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::try_from(
+				validator_groups,
+			)
+			.unwrap(),
 			current,
 			candidate,
 			session_index,
@@ -592,7 +601,6 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 		.await;
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
-		// It's not requesting the block number here.
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
 		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
 
@@ -752,7 +760,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				new_candidate.clone(),
 				test_state.session_index,
-				Some(GroupIndex(0)),
+				Some(GroupIndex(1)),
 				None,
 				tx,
 			),
@@ -770,28 +778,40 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 				.test_chunk_requests(
 					new_candidate.hash(),
 					&mut virtual_overseer,
-					threshold,
+					threshold * SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT as usize,
 					|_| Has::No,
 					systematic_recovery,
 				)
 				.await;
 			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+			// Even if the recovery is systematic, we'll always fall back to regular recovery, so
+			// keep this around.
+			test_state
+				.test_chunk_requests(
+					new_candidate.hash(),
+					&mut virtual_overseer,
+					test_state.impossibility_threshold() - threshold,
+					|_| Has::No,
+					false,
+				)
+				.await;
+
+			// A request times out with `Unavailable` error.
+			assert_eq!(rx.await.unwrap().unwrap_err(), RecoveryError::Unavailable);
+		} else {
+			test_state
+				.test_chunk_requests(
+					new_candidate.hash(),
+					&mut virtual_overseer,
+					test_state.impossibility_threshold(),
+					|_| Has::No,
+					false,
+				)
+				.await;
+
+			// A request times out with `Unavailable` error.
+			assert_eq!(rx.await.unwrap().unwrap_err(), RecoveryError::Unavailable);
 		}
-
-		// Even if the recovery is systematic, we'll always fall back to regular recovery, so keep
-		// this around.
-		test_state
-			.test_chunk_requests(
-				new_candidate.hash(),
-				&mut virtual_overseer,
-				test_state.impossibility_threshold(),
-				|_| Has::No,
-				false,
-			)
-			.await;
-
-		// A request times out with `Unavailable` error.
-		assert_eq!(rx.await.unwrap().unwrap_err(), RecoveryError::Unavailable);
 		virtual_overseer
 	});
 }
@@ -1153,7 +1173,7 @@ fn fast_path_backing_group_recovers(#[case] relay_parent_block_number: Option<Bl
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has)
+			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
 			.await;
 
 		// Recovered data should match the original one.
@@ -1269,7 +1289,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				new_candidate.clone(),
 				test_state.session_index,
-				Some(GroupIndex(0)),
+				Some(GroupIndex(1)),
 				None,
 				tx,
 			),
@@ -1298,7 +1318,7 @@ fn recovers_from_only_chunks_if_pov_large(
 				.test_chunk_requests(
 					new_candidate.hash(),
 					&mut virtual_overseer,
-					test_state.systematic_threshold(),
+					test_state.systematic_threshold() * SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT as usize,
 					|_| Has::No,
 					systematic_recovery,
 				)
@@ -1306,16 +1326,27 @@ fn recovers_from_only_chunks_if_pov_large(
 			if !for_collator {
 				test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 			}
+			// Even if the recovery is systematic, we'll always fall back to regular recovery.
+			test_state
+				.test_chunk_requests(
+					new_candidate.hash(),
+					&mut virtual_overseer,
+					test_state.impossibility_threshold() - threshold,
+					|_| Has::No,
+					false,
+				)
+				.await;
+		} else {
+			test_state
+				.test_chunk_requests(
+					new_candidate.hash(),
+					&mut virtual_overseer,
+					test_state.impossibility_threshold(),
+					|_| Has::No,
+					false,
+				)
+				.await;
 		}
-		test_state
-			.test_chunk_requests(
-				new_candidate.hash(),
-				&mut virtual_overseer,
-				test_state.impossibility_threshold(),
-				|_| Has::No,
-				false,
-			)
-			.await;
 
 		// A request times out with `Unavailable` error.
 		assert_eq!(rx.await.unwrap().unwrap_err(), RecoveryError::Unavailable);
@@ -1399,7 +1430,7 @@ fn fast_path_backing_group_recovers_if_pov_small(
 		}
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has)
+			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
 			.await;
 
 		// Recovered data should match the original one.
@@ -1467,7 +1498,7 @@ fn no_answers_in_fast_path_causes_chunk_requests(#[case] systematic_recovery: bo
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has)
+			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
 			.await;
 
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
@@ -1577,7 +1608,7 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				test_state.candidate.clone(),
 				test_state.session_index,
-				Some(GroupIndex(0)),
+				None,
 				None,
 				tx,
 			),
@@ -1751,7 +1782,7 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				test_state.candidate.clone(),
 				test_state.session_index,
-				Some(GroupIndex(0)),
+				None,
 				None,
 				tx,
 			),
@@ -1918,7 +1949,7 @@ fn returns_early_if_present_in_the_subsystem_cache() {
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has)
+			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
 			.await;
 
 		// Recovered data should match the original one.
@@ -2444,6 +2475,91 @@ fn block_number_not_requested_if_provided(#[case] systematic_recovery: bool) {
 				threshold,
 				|_| Has::Yes,
 				systematic_recovery,
+			)
+			.await;
+
+		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
+		virtual_overseer
+	});
+}
+
+#[test]
+fn systematic_recovery_retries_from_backers() {
+	let test_state = TestState::default();
+	let subsystem = AvailabilityRecoverySubsystem::with_systematic_chunks(
+		request_receiver(),
+		Metrics::new_dummy(),
+	);
+
+	test_harness(subsystem, |mut virtual_overseer| async move {
+		overseer_signal(
+			&mut virtual_overseer,
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				test_state.current,
+				1,
+			))),
+		)
+		.await;
+
+		let (tx, rx) = oneshot::channel();
+		let group_index = GroupIndex(2);
+		let group_size = test_state.validator_groups.get(group_index).unwrap().len();
+
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				Some(group_index),
+				None,
+				tx,
+			),
+		)
+		.await;
+
+		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+
+		let mut cnt = 0;
+
+		test_state
+			.test_chunk_requests(
+				test_state.candidate.hash(),
+				&mut virtual_overseer,
+				test_state.systematic_threshold(),
+				|_| {
+					let res = if cnt < group_size { Has::timeout() } else { Has::Yes };
+					cnt += 1;
+					res
+				},
+				true,
+			)
+			.await;
+
+		// Exhaust retries.
+		for _ in 0..(SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT - 1) {
+			test_state
+				.test_chunk_requests(
+					test_state.candidate.hash(),
+					&mut virtual_overseer,
+					group_size,
+					|_| Has::No,
+					true,
+				)
+				.await;
+		}
+
+		// Now, final chance is to try from a backer.
+		test_state
+			.test_chunk_requests(
+				test_state.candidate.hash(),
+				&mut virtual_overseer,
+				group_size,
+				|_| Has::Yes,
+				true,
 			)
 			.await;
 

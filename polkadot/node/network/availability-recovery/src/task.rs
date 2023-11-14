@@ -358,6 +358,9 @@ impl State {
 			ValidatorIndex,
 			Result<Option<ErasureChunk>, RequestError>,
 		)>,
+		// If supplied, these validators will be used as a backup for requesting chunks. They
+		// should hold all chunks. Each of them will only be used to query one chunk.
+		backup_validators: &mut Vec<ValidatorIndex>,
 		// Function that returns `true` when this strategy can conclude. Either if we got enough
 		// chunks or if it's impossible.
 		can_conclude: impl Fn(
@@ -385,6 +388,8 @@ impl State {
 
 			let (chunk_index, validator_index, request_result) = res;
 
+			let mut is_error = false;
+
 			match request_result {
 				Ok(Some(chunk)) =>
 					if is_chunk_valid(params, &chunk) {
@@ -403,6 +408,7 @@ impl State {
 						// Record that we got an invalid chunk so that subsequent strategies don't
 						// try requesting this again.
 						self.record_error_fatal(chunk_index, validator_index);
+						is_error = true;
 					},
 				Ok(None) => {
 					metrics.on_chunk_request_no_such_chunk(strategy_type);
@@ -417,6 +423,7 @@ impl State {
 					// Record that the validator did not have this chunk so that subsequent
 					// strategies don't try requesting this again.
 					self.record_error_fatal(chunk_index, validator_index);
+					is_error = true;
 				},
 				Err(err) => {
 					error_count += 1;
@@ -429,6 +436,8 @@ impl State {
 						?validator_index,
 						"Failure requesting chunk",
 					);
+
+					is_error = true;
 
 					match err {
 						RequestError::InvalidResponse(_) => {
@@ -456,25 +465,40 @@ impl State {
 								metrics.on_chunk_request_error(strategy_type);
 							}
 
-							self.record_error_non_fatal(chunk_index, validator_index);
 							// Record that we got a non-fatal error so that this or subsequent
 							// strategies will retry requesting this only a limited number of times.
-							if self.can_retry_request(chunk_index, validator_index, retry_threshold)
-							{
-								validators.push_front((chunk_index, validator_index));
-							}
+							self.record_error_non_fatal(chunk_index, validator_index);
 						},
 						RequestError::Canceled(_) => {
 							metrics.on_chunk_request_error(strategy_type);
 
+							// Record that we got a non-fatal error so that this or subsequent
+							// strategies will retry requesting this only a limited number of times.
 							self.record_error_non_fatal(chunk_index, validator_index);
-							if self.can_retry_request(chunk_index, validator_index, retry_threshold)
-							{
-								validators.push_front((chunk_index, validator_index));
-							}
 						},
 					}
 				},
+			}
+
+			if is_error && !self.received_chunks.contains_key(&chunk_index) {
+				// First, see if we can retry the request.
+				if self.can_retry_request(chunk_index, validator_index, retry_threshold) {
+					validators.push_front((chunk_index, validator_index));
+				} else {
+					// Otherwise, try requesting from a backer as a backup, if we've not already
+					// requested the same chunk from it.
+
+					let position = backup_validators
+						.iter()
+						.position(|v| !self.recorded_errors.contains_key(&(chunk_index, *v)));
+					if let Some(position) = position {
+						let backer = backup_validators.swap_remove(position);
+						validators.push_front((chunk_index, backer));
+						println!("There");
+					} else {
+						println!("here");
+					}
+				}
 			}
 
 			if can_conclude(
@@ -485,6 +509,7 @@ impl State {
 			) {
 				gum::debug!(
 					target: LOG_TARGET,
+					validators_len = validators.len(),
 					candidate_hash = ?params.candidate_hash,
 					received_chunks_count = ?self.chunk_count(),
 					requested_chunks_count = ?requesting_chunks.len(),
@@ -760,6 +785,8 @@ pub struct FetchSystematicChunks {
 	threshold: usize,
 	/// Validators that hold the systematic chunks.
 	validators: VecDeque<(ChunkIndex, ValidatorIndex)>,
+	/// Backers. to be used as a backup.
+	backers: Vec<ValidatorIndex>,
 	/// Collection of in-flight requests.
 	requesting_chunks:
 		FuturesUndead<(ChunkIndex, ValidatorIndex, Result<Option<ErasureChunk>, RequestError>)>,
@@ -771,6 +798,8 @@ pub struct FetchSystematicChunks {
 pub struct FetchSystematicChunksParams {
 	/// Validators that hold the systematic chunks.
 	pub validators: VecDeque<(ChunkIndex, ValidatorIndex)>,
+	/// Validators in the backing group, to be used as a backup for requesting systematic chunks.
+	pub backers: Vec<ValidatorIndex>,
 	/// Channel to the erasure task handler.
 	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
@@ -781,6 +810,7 @@ impl FetchSystematicChunks {
 		Self {
 			threshold: params.validators.len(),
 			validators: params.validators,
+			backers: params.backers,
 			requesting_chunks: FuturesUndead::new(),
 			erasure_task_tx: params.erasure_task_tx,
 		}
@@ -1019,6 +1049,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
 					&mut validators_queue,
 					&mut self.requesting_chunks,
+					&mut self.backers,
 					|unrequested_validators,
 					 in_flight_reqs,
 					 // Don't use this chunk count, as it may contain non-systematic chunks.
@@ -1306,6 +1337,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					REGULAR_CHUNKS_REQ_RETRY_LIMIT,
 					&mut validators_queue,
 					&mut self.requesting_chunks,
+					&mut vec![],
 					|unrequested_validators, in_flight_reqs, chunk_count, _success_responses| {
 						chunk_count >= common_params.threshold ||
 							Self::is_unavailable(
@@ -1684,6 +1716,7 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
+							&mut vec![],
 							|_, _, _, _| false,
 						)
 						.await;
@@ -1739,6 +1772,7 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
+							&mut vec![],
 							|_, _, _, _| false,
 						)
 						.await;
@@ -1768,6 +1802,7 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
+							&mut vec![],
 							|_, _, _, _| false,
 						)
 						.await;
@@ -1789,12 +1824,119 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
+							&mut vec![],
 							|_, _, _, _| true,
 						)
 						.await;
 					assert_eq!(total_responses, 0);
 					assert_eq!(error_count, 0);
 					assert_eq!(state.chunk_count(), 2);
+
+					assert_eq!(validators, expected_validators);
+				},
+			);
+		}
+
+		// Complex scenario with backups in the backing group.
+		{
+			let mut params = params.clone();
+			let chunks = params.create_chunks();
+			let mut state = State::new();
+			let mut ongoing_reqs = FuturesUndead::new();
+			ongoing_reqs
+				.push(future::ready((0.into(), 0.into(), Ok(Some(chunks[0].clone())))).boxed());
+			ongoing_reqs.soft_cancel();
+			ongoing_reqs
+				.push(future::ready((1.into(), 1.into(), Ok(Some(chunks[1].clone())))).boxed());
+			ongoing_reqs.push(future::ready((2.into(), 2.into(), Ok(None))).boxed());
+			ongoing_reqs.push(
+				future::ready((
+					3.into(),
+					3.into(),
+					Err(RequestError::from(DecodingError::from("err"))),
+				))
+				.boxed(),
+			);
+			ongoing_reqs.push(
+				future::ready((
+					4.into(),
+					4.into(),
+					Err(RequestError::NetworkError(RequestFailure::NotConnected)),
+				))
+				.boxed(),
+			);
+
+			let mut validators =
+				(5..=params.n_validators as u32).map(|i| (i.into(), i.into())).collect();
+			let mut backup_backers = vec![
+				2.into(),
+				0.into(),
+				4.into(),
+				3.into(),
+				(params.n_validators as u32 + 1).into(),
+				(params.n_validators as u32 + 2).into(),
+			];
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|_| async move {
+					let (total_responses, error_count) = state
+						.wait_for_chunks(
+							"regular",
+							&params,
+							retry_threshold,
+							&mut validators,
+							&mut ongoing_reqs,
+							&mut backup_backers,
+							|_, _, _, _| false,
+						)
+						.await;
+					assert_eq!(total_responses, 5);
+					assert_eq!(error_count, 3);
+					assert_eq!(state.chunk_count(), 2);
+
+					let mut expected_validators: VecDeque<_> =
+						(5..=params.n_validators as u32).map(|i| (i.into(), i.into())).collect();
+					// We picked a backer as a backup for chunks 2 and 3.
+					expected_validators.push_front((2.into(), 0.into()));
+					expected_validators.push_front((3.into(), 2.into()));
+					expected_validators.push_front((4.into(), 4.into()));
+
+					assert_eq!(validators, expected_validators);
+
+					// This time we'll go over the recoverable error threshold for chunk 4.
+					ongoing_reqs.push(
+						future::ready((
+							4.into(),
+							4.into(),
+							Err(RequestError::NetworkError(RequestFailure::NotConnected)),
+						))
+						.boxed(),
+					);
+
+					validators.pop_front();
+
+					let (total_responses, error_count) = state
+						.wait_for_chunks(
+							"regular",
+							&params,
+							retry_threshold,
+							&mut validators,
+							&mut ongoing_reqs,
+							&mut backup_backers,
+							|_, _, _, _| false,
+						)
+						.await;
+					assert_eq!(total_responses, 1);
+					assert_eq!(error_count, 1);
+					assert_eq!(state.chunk_count(), 2);
+
+					expected_validators.pop_front();
+					expected_validators
+						.push_front((4.into(), (params.n_validators as u32 + 1).into()));
 
 					assert_eq!(validators, expected_validators);
 				},

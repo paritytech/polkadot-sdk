@@ -451,6 +451,7 @@ async fn handle_recover<Context>(
 				})
 				.collect();
 
+			let mut backer_group = None;
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
 			> = VecDeque::with_capacity(2);
@@ -505,6 +506,8 @@ async fn handle_recover<Context>(
 						),
 						_ => {},
 					};
+
+					backer_group = Some(backing_validators);
 				}
 			}
 
@@ -531,6 +534,7 @@ async fn handle_recover<Context>(
 				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
 					FetchSystematicChunksParams {
 						validators,
+						backers: backer_group.map(|v| v.to_vec()).unwrap_or_else(|| vec![]),
 						erasure_task_tx: erasure_task_tx.clone(),
 					},
 				)));
