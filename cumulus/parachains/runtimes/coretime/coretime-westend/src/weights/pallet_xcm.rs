@@ -284,6 +284,30 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
-	fn new_query() -> cumulus_primitives_core::Weight { todo!() }
-	fn take_response() -> cumulus_primitives_core::Weight { todo!() }
+	/// Storage: `PolkadotXcm::QueryCounter` (r:1 w:1)
+	/// Proof: `PolkadotXcm::QueryCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `PolkadotXcm::Queries` (r:0 w:1)
+	/// Proof: `PolkadotXcm::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn new_query() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `69`
+		//  Estimated: `1554`
+		// Minimum execution time: 4_512_000 picoseconds.
+		Weight::from_parts(4_671_000, 0)
+			.saturating_add(Weight::from_parts(0, 1554))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	/// Storage: `PolkadotXcm::Queries` (r:1 w:1)
+	/// Proof: `PolkadotXcm::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn take_response() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `7706`
+		//  Estimated: `11171`
+		// Minimum execution time: 26_473_000 picoseconds.
+		Weight::from_parts(26_960_000, 0)
+			.saturating_add(Weight::from_parts(0, 11171))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
