@@ -34,9 +34,6 @@ pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum Call {
-	/// `ToWococoXcmRouter` bridge pallet.
-	#[codec(index = 43)]
-	ToWococoXcmRouter(XcmBridgeHubRouterCall),
 	/// `ToWestendXcmRouter` bridge pallet.
 	#[codec(index = 45)]
 	ToWestendXcmRouter(XcmBridgeHubRouterCall),
