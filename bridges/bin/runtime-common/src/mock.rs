@@ -14,12 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A mock runtime for testing different stuff in the crate. We've been using Millau
-//! runtime for that before, but it has two drawbacks:
-//!
-//! - circular dependencies between this crate and Millau runtime;
-//!
-//! - we can't use (e.g. as git subtree or by copying) this crate in repo without Millau.
+//! A mock runtime for testing different stuff in the crate.
 
 #![cfg(test)]
 
