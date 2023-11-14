@@ -1,6 +1,6 @@
 //! # Polkadot Developer Hub Guides
 //!
-//! This crate contains a collection of tutorials that are foundational to the developers of
+//! This crate contains a collection of guides that are foundational to the developers of
 //! Polkadot SDK. They common user-journeys that are traversed in the Polkadot ecosystem.
 
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
