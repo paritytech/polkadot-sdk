@@ -613,7 +613,7 @@ impl GridTracker {
 
 	/// Note that a direct statement about a given candidate was sent to or
 	/// received from the given validator.
-	pub fn sent_or_received_direct_statement(
+	pub fn sent_direct_statement(
 		&mut self,
 		groups: &Groups,
 		originator: ValidatorIndex,
@@ -624,7 +624,27 @@ impl GridTracker {
 			extract_statement_and_group_info(groups, originator, statement).0
 		{
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
-				known.sent_or_received_direct_statement(counterparty, in_group, kind);
+				known.sent_direct_statement(counterparty, in_group, kind);
+
+				if let Some(pending) = self.pending_statements.get_mut(&counterparty) {
+					pending.remove(&(originator, statement.clone()));
+				}
+			}
+		}
+	}
+
+	pub fn received_direct_statement(
+		&mut self,
+		groups: &Groups,
+		originator: ValidatorIndex,
+		counterparty: ValidatorIndex,
+		statement: &CompactStatement,
+	) {
+		if let Some((_, c_h, kind, in_group)) =
+			extract_statement_and_group_info(groups, originator, statement).0
+		{
+			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
+				known.received_direct_statement(counterparty, in_group, kind);
 
 				if let Some(pending) = self.pending_statements.get_mut(&counterparty) {
 					pending.remove(&(originator, statement.clone()));
@@ -1063,7 +1083,34 @@ impl KnownBackedCandidate {
 		really_fresh
 	}
 
-	fn sent_or_received_direct_statement(
+	// fn sent_or_received_direct_statement(
+	// 	&mut self,
+	// 	validator: ValidatorIndex,
+	// 	statement_index_in_group: usize,
+	// 	statement_kind: StatementKind,
+	// ) {
+	// 	if let Some(k) = self.mutual_knowledge.get_mut(&validator) {
+	// 		if let (Some(r), Some(l)) = (k.remote_knowledge.as_mut(), k.local_knowledge.as_mut()) {
+	// 			r.set(statement_index_in_group, statement_kind);
+	// 			l.set(statement_index_in_group, statement_kind);
+	// 		}
+	// 	}
+	// }
+
+	fn sent_direct_statement(
+		&mut self,
+		validator: ValidatorIndex,
+		statement_index_in_group: usize,
+		statement_kind: StatementKind,
+	) {
+		if let Some(k) = self.mutual_knowledge.get_mut(&validator) {
+			if let Some(local_knowledge) = k.local_knowledge.as_mut() {
+				local_knowledge.set(statement_index_in_group, statement_kind);
+			}
+		}
+	}
+
+	fn received_direct_statement(
 		&mut self,
 		validator: ValidatorIndex,
 		statement_index_in_group: usize,
