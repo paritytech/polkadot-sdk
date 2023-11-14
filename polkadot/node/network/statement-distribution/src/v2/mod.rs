@@ -1393,7 +1393,7 @@ async fn handle_incoming_statement<Context>(
 		},
 		Some(l) => l,
 	};
-
+	let candidate_hash = *(statement.unchecked_payload().candidate_hash());
 	let originator_group =
 		match per_session.groups.by_validator_index(statement.unchecked_validator_index()) {
 			Some(g) => g,
@@ -1499,7 +1499,7 @@ async fn handle_incoming_statement<Context>(
 				.map(|(i, _)| i)
 				.next();
 
-			gum::info!(target: LOG_TARGET, ?peer, ?prints, ?occupied_index, ids = ?peer_state.discovery_ids, "statement_distribution: not a cluster or a grid peer");
+			gum::info!(target: LOG_TARGET, ?peer, ?candidate_hash, ?prints, ?occupied_index, ids = ?peer_state.discovery_ids, "statement_distribution: not a cluster or a grid peer");
 			// Not a cluster or grid peer.
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
