@@ -3083,6 +3083,79 @@
 <a href="#3083" id="3083">3083</a>
 <a href="#3084" id="3084">3084</a>
 <a href="#3085" id="3085">3085</a>
+<a href="#3086" id="3086">3086</a>
+<a href="#3087" id="3087">3087</a>
+<a href="#3088" id="3088">3088</a>
+<a href="#3089" id="3089">3089</a>
+<a href="#3090" id="3090">3090</a>
+<a href="#3091" id="3091">3091</a>
+<a href="#3092" id="3092">3092</a>
+<a href="#3093" id="3093">3093</a>
+<a href="#3094" id="3094">3094</a>
+<a href="#3095" id="3095">3095</a>
+<a href="#3096" id="3096">3096</a>
+<a href="#3097" id="3097">3097</a>
+<a href="#3098" id="3098">3098</a>
+<a href="#3099" id="3099">3099</a>
+<a href="#3100" id="3100">3100</a>
+<a href="#3101" id="3101">3101</a>
+<a href="#3102" id="3102">3102</a>
+<a href="#3103" id="3103">3103</a>
+<a href="#3104" id="3104">3104</a>
+<a href="#3105" id="3105">3105</a>
+<a href="#3106" id="3106">3106</a>
+<a href="#3107" id="3107">3107</a>
+<a href="#3108" id="3108">3108</a>
+<a href="#3109" id="3109">3109</a>
+<a href="#3110" id="3110">3110</a>
+<a href="#3111" id="3111">3111</a>
+<a href="#3112" id="3112">3112</a>
+<a href="#3113" id="3113">3113</a>
+<a href="#3114" id="3114">3114</a>
+<a href="#3115" id="3115">3115</a>
+<a href="#3116" id="3116">3116</a>
+<a href="#3117" id="3117">3117</a>
+<a href="#3118" id="3118">3118</a>
+<a href="#3119" id="3119">3119</a>
+<a href="#3120" id="3120">3120</a>
+<a href="#3121" id="3121">3121</a>
+<a href="#3122" id="3122">3122</a>
+<a href="#3123" id="3123">3123</a>
+<a href="#3124" id="3124">3124</a>
+<a href="#3125" id="3125">3125</a>
+<a href="#3126" id="3126">3126</a>
+<a href="#3127" id="3127">3127</a>
+<a href="#3128" id="3128">3128</a>
+<a href="#3129" id="3129">3129</a>
+<a href="#3130" id="3130">3130</a>
+<a href="#3131" id="3131">3131</a>
+<a href="#3132" id="3132">3132</a>
+<a href="#3133" id="3133">3133</a>
+<a href="#3134" id="3134">3134</a>
+<a href="#3135" id="3135">3135</a>
+<a href="#3136" id="3136">3136</a>
+<a href="#3137" id="3137">3137</a>
+<a href="#3138" id="3138">3138</a>
+<a href="#3139" id="3139">3139</a>
+<a href="#3140" id="3140">3140</a>
+<a href="#3141" id="3141">3141</a>
+<a href="#3142" id="3142">3142</a>
+<a href="#3143" id="3143">3143</a>
+<a href="#3144" id="3144">3144</a>
+<a href="#3145" id="3145">3145</a>
+<a href="#3146" id="3146">3146</a>
+<a href="#3147" id="3147">3147</a>
+<a href="#3148" id="3148">3148</a>
+<a href="#3149" id="3149">3149</a>
+<a href="#3150" id="3150">3150</a>
+<a href="#3151" id="3151">3151</a>
+<a href="#3152" id="3152">3152</a>
+<a href="#3153" id="3153">3153</a>
+<a href="#3154" id="3154">3154</a>
+<a href="#3155" id="3155">3155</a>
+<a href="#3156" id="3156">3156</a>
+<a href="#3157" id="3157">3157</a>
+<a href="#3158" id="3158">3158</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3227,8 +3300,27 @@
 	session: SessionIndex,
 }
 
+<span class="kw">impl </span>PerRelayParentState {
+	<span class="kw">fn </span>active_validator_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ActiveValidatorState&gt; {
+		<span class="self">self</span>.local_validator.as_ref().and_then(|local| local.active.as_ref())
+	}
+
+	<span class="kw">fn </span>active_validator_state_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>ActiveValidatorState&gt; {
+		<span class="self">self</span>.local_validator.as_mut().and_then(|local| local.active.as_mut())
+	}
+}
+
 <span class="comment">// per-relay-parent local validator state.
 </span><span class="kw">struct </span>LocalValidatorState {
+	<span class="comment">// the grid-level communication at this relay-parent.
+	</span>grid_tracker: GridTracker,
+	<span class="comment">// additional fields in case local node is an active validator.
+	</span>active: <span class="prelude-ty">Option</span>&lt;ActiveValidatorState&gt;,
+	<span class="comment">// local index actually exists in case node is inactive validator, however,
+	// it&#39;s not needed outside of `build_session_topology`, where it&#39;s known.
+</span>}
+
+<span class="kw">struct </span>ActiveValidatorState {
 	<span class="comment">// The index of the validator.
 	</span>index: ValidatorIndex,
 	<span class="comment">// our validator group
@@ -3237,8 +3329,14 @@
 	</span>assignment: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 	<span class="comment">// the &#39;direct-in-group&#39; communication at this relay-parent.
 	</span>cluster_tracker: ClusterTracker,
-	<span class="comment">// the grid-level communication at this relay-parent.
-	</span>grid_tracker: GridTracker,
+}
+
+<span class="attr">#[derive(Debug, Copy, Clone)]
+</span><span class="kw">enum </span>LocalValidatorIndex {
+	<span class="comment">// Local node is an active validator.
+	</span>Active(ValidatorIndex),
+	<span class="comment">// Local node is not in active validator set.
+	</span>Inactive,
 }
 
 <span class="attr">#[derive(Debug)]
@@ -3249,7 +3347,7 @@
 	<span class="comment">// is only `None` in the time between seeing a session and
 	// getting the topology from the gossip-support subsystem
 	</span>grid_view: <span class="prelude-ty">Option</span>&lt;grid::SessionTopologyView&gt;,
-	local_validator: <span class="prelude-ty">Option</span>&lt;ValidatorIndex&gt;,
+	local_validator: <span class="prelude-ty">Option</span>&lt;LocalValidatorIndex&gt;,
 }
 
 <span class="kw">impl </span>PerSessionState {
@@ -3263,15 +3361,10 @@
 		<span class="kw">let </span>local_validator = polkadot_node_subsystem_util::signing_key_and_index(
 			session_info.validators.iter(),
 			keystore,
-		);
+		)
+		.map(|(<span class="kw">_</span>, index)| LocalValidatorIndex::Active(index));
 
-		PerSessionState {
-			session_info,
-			groups,
-			authority_lookup,
-			grid_view: <span class="prelude-val">None</span>,
-			local_validator: local_validator.map(|(_key, index)| index),
-		}
+		PerSessionState { session_info, groups, authority_lookup, grid_view: <span class="prelude-val">None</span>, local_validator }
 	}
 
 	<span class="kw">fn </span>supply_topology(
@@ -3289,6 +3382,16 @@
 		);
 
 		<span class="self">self</span>.grid_view = <span class="prelude-val">Some</span>(grid_view);
+		<span class="kw">if </span>local_index.is_some() {
+			<span class="self">self</span>.local_validator.get_or_insert(LocalValidatorIndex::Inactive);
+		}
+	}
+
+	<span class="doccomment">/// Returns `true` if local is neither active or inactive validator node.
+	///
+	/// `false` is also returned if session topology is not known yet.
+	</span><span class="kw">fn </span>is_not_validator(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="self">self</span>.grid_view.is_some() &amp;&amp; <span class="self">self</span>.local_validator.is_none()
 	}
 }
 
@@ -3639,13 +3742,17 @@
 			.expect(<span class="string">&quot;either existed or just inserted; qed&quot;</span>);
 
 		<span class="kw">let </span>local_validator = per_session.local_validator.and_then(|v| {
-			find_local_validator_state(
-				v,
-				<span class="kw-2">&amp;</span>per_session.groups,
-				<span class="kw-2">&amp;</span>availability_cores,
-				<span class="kw-2">&amp;</span>group_rotation_info,
-				seconding_limit,
-			)
+			<span class="kw">if let </span>LocalValidatorIndex::Active(idx) = v {
+				find_active_validator_state(
+					idx,
+					<span class="kw-2">&amp;</span>per_session.groups,
+					<span class="kw-2">&amp;</span>availability_cores,
+					<span class="kw-2">&amp;</span>group_rotation_info,
+					seconding_limit,
+				)
+			} <span class="kw">else </span>{
+				<span class="prelude-val">Some</span>(LocalValidatorState { grid_tracker: GridTracker::default(), active: <span class="prelude-val">None </span>})
+			}
 		});
 
 		state.per_relay_parent.insert(
@@ -3692,7 +3799,7 @@
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">fn </span>find_local_validator_state(
+<span class="kw">fn </span>find_active_validator_state(
 	validator_index: ValidatorIndex,
 	groups: <span class="kw-2">&amp;</span>Groups,
 	availability_cores: <span class="kw-2">&amp;</span>[CoreState],
@@ -3713,11 +3820,13 @@
 	<span class="kw">let </span>group_validators = groups.get(our_group)<span class="question-mark">?</span>.to_owned();
 
 	<span class="prelude-val">Some</span>(LocalValidatorState {
-		index: validator_index,
-		group: our_group,
-		assignment: para,
-		cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
-			.expect(<span class="string">&quot;group is non-empty because we are in it; qed&quot;</span>),
+		active: <span class="prelude-val">Some</span>(ActiveValidatorState {
+			index: validator_index,
+			group: our_group,
+			assignment: para,
+			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
+				.expect(<span class="string">&quot;group is non-empty because we are in it; qed&quot;</span>),
+		}),
 		grid_tracker: GridTracker::default(),
 	})
 }
@@ -3810,13 +3919,17 @@
 	<span class="kw">for </span>validator_id <span class="kw">in </span>find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 		per_session_state.authority_lookup.get(a)
 	}) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(local_validator_state) = relay_parent_state.local_validator.as_mut() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = relay_parent_state
+			.local_validator
+			.as_mut()
+			.and_then(|local| local.active.as_mut())
+		{
 			send_pending_cluster_statements(
 				ctx,
 				relay_parent,
 				<span class="kw-2">&amp;</span>(peer, peer_data.protocol_version),
 				validator_id,
-				<span class="kw-2">&amp;mut </span>local_validator_state.cluster_tracker,
+				<span class="kw-2">&amp;mut </span>active.cluster_tracker,
 				<span class="kw-2">&amp;</span>state.candidates,
 				<span class="kw-2">&amp;</span>relay_parent_state.statement_store,
 			)
@@ -4094,7 +4207,7 @@
 	};
 
 	<span class="kw">let </span>(local_index, local_assignment, local_group) =
-		<span class="kw">match </span>per_relay_parent.local_validator.as_ref() {
+		<span class="kw">match </span>per_relay_parent.active_validator_state() {
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(JfyiError::InvalidShare),
 			<span class="prelude-val">Some</span>(l) =&gt; (l.index, l.assignment, l.group),
 		};
@@ -4171,7 +4284,7 @@
 		}
 
 		{
-			<span class="kw">let </span>l = per_relay_parent.local_validator.as_mut().expect(<span class="string">&quot;checked above; qed&quot;</span>);
+			<span class="kw">let </span>l = per_relay_parent.active_validator_state_mut().expect(<span class="string">&quot;checked above; qed&quot;</span>);
 			l.cluster_tracker.note_issued(local_index, compact_statement.payload().clone());
 		}
 
@@ -4258,31 +4371,41 @@
 
 		<span class="comment">// We&#39;re not meant to circulate statements in the cluster until we have the confirmed
 		// candidate.
-		</span><span class="kw">let </span>cluster_relevant = <span class="prelude-val">Some</span>(local_validator.group) == statement_group;
-		<span class="kw">let </span>cluster_targets = <span class="kw">if </span>is_confirmed &amp;&amp; cluster_relevant {
-			<span class="prelude-val">Some</span>(
-				local_validator
-					.cluster_tracker
-					.targets()
-					.iter()
-					.filter(|&amp;&amp;v| {
-						local_validator
+		//
+		// Cluster is only relevant if local node is an active validator.
+		</span><span class="kw">let </span>(cluster_relevant, cluster_targets, all_cluster_targets) = local_validator
+			.active
+			.as_mut()
+			.map(|active| {
+				<span class="kw">let </span>cluster_relevant = <span class="prelude-val">Some</span>(active.group) == statement_group;
+				<span class="kw">let </span>cluster_targets = <span class="kw">if </span>is_confirmed &amp;&amp; cluster_relevant {
+					<span class="prelude-val">Some</span>(
+						active
 							.cluster_tracker
-							.can_send(v, originator, compact_statement.clone())
-							.is_ok()
-					})
-					.filter(|<span class="kw-2">&amp;</span>v| v != <span class="kw-2">&amp;</span>local_validator.index)
-					.map(|v| (<span class="kw-2">*</span>v, DirectTargetKind::Cluster)),
-			)
-		} <span class="kw">else </span>{
-			<span class="prelude-val">None
-		</span>};
+							.targets()
+							.iter()
+							.filter(|&amp;&amp;v| {
+								active
+									.cluster_tracker
+									.can_send(v, originator, compact_statement.clone())
+									.is_ok()
+							})
+							.filter(|<span class="kw-2">&amp;</span>v| v != <span class="kw-2">&amp;</span>active.index)
+							.map(|v| (<span class="kw-2">*</span>v, DirectTargetKind::Cluster)),
+					)
+				} <span class="kw">else </span>{
+					<span class="prelude-val">None
+				</span>};
+				<span class="kw">let </span>all_cluster_targets = active.cluster_tracker.targets();
+				(cluster_relevant, cluster_targets, all_cluster_targets)
+			})
+			.unwrap_or((<span class="bool-val">false</span>, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>[]));
 
 		<span class="kw">let </span>grid_targets = local_validator
 			.grid_tracker
 			.direct_statement_targets(<span class="kw-2">&amp;</span>per_session.groups, originator, <span class="kw-2">&amp;</span>compact_statement)
 			.into_iter()
-			.filter(|v| !cluster_relevant || !local_validator.cluster_tracker.targets().contains(v))
+			.filter(|v| !cluster_relevant || !all_cluster_targets.contains(v))
 			.map(|v| (v, DirectTargetKind::Grid));
 
 		<span class="kw">let </span>targets = cluster_targets
@@ -4314,18 +4437,17 @@
 
 		<span class="kw">match </span>kind {
 			DirectTargetKind::Cluster =&gt; {
+				<span class="kw">let </span>active = local_validator
+					.active
+					.as_mut()
+					.expect(<span class="string">&quot;cluster target means local is active validator; qed&quot;</span>);
+
 				<span class="comment">// At this point, all peers in the cluster should &#39;know&#39;
 				// the candidate, so we don&#39;t expect for this to fail.
-				</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(()) = local_validator.cluster_tracker.can_send(
-					target,
-					originator,
-					compact_statement.clone(),
-				) {
-					local_validator.cluster_tracker.note_sent(
-						target,
-						originator,
-						compact_statement.clone(),
-					);
+				</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(()) =
+					active.cluster_tracker.can_send(target, originator, compact_statement.clone())
+				{
+					active.cluster_tracker.note_sent(target, originator, compact_statement.clone());
 					statement_to_peers.push(peer_id);
 				}
 			},
@@ -4472,7 +4594,9 @@
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="comment">// we shouldn&#39;t be receiving statements unless we&#39;re a validator
 			// this session.
-			</span>modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
+			</span><span class="kw">if </span>per_session.is_not_validator() {
+				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
+			}
 			<span class="kw">return
 		</span>},
 		<span class="prelude-val">Some</span>(l) =&gt; l,
@@ -4487,73 +4611,81 @@
 			</span>},
 		};
 
-	<span class="kw">let </span>cluster_sender_index = {
+	<span class="kw">let </span>(active, cluster_sender_index) = {
 		<span class="comment">// This block of code only returns `Some` when both the originator and
 		// the sending peer are in the cluster.
+		</span><span class="kw">let </span>active = local_validator.active.as_mut();
 
-		</span><span class="kw">let </span>allowed_senders = local_validator
-			.cluster_tracker
-			.senders_for_originator(statement.unchecked_validator_index());
+		<span class="kw">let </span>allowed_senders = active
+			.as_ref()
+			.map(|active| {
+				active
+					.cluster_tracker
+					.senders_for_originator(statement.unchecked_validator_index())
+			})
+			.unwrap_or_default();
 
-		allowed_senders
+		<span class="kw">let </span>idx = allowed_senders
 			.iter()
 			.filter_map(|i| session_info.discovery_keys.get(i.<span class="number">0 </span><span class="kw">as </span>usize).map(|ad| (<span class="kw-2">*</span>i, ad)))
 			.filter(|(<span class="kw">_</span>, ad)| peer_state.is_authority(ad))
 			.map(|(i, <span class="kw">_</span>)| i)
-			.next()
+			.next();
+		(active, idx)
 	};
 
-	<span class="kw">let </span>checked_statement = <span class="kw">if let </span><span class="prelude-val">Some</span>(cluster_sender_index) = cluster_sender_index {
-		<span class="kw">match </span>handle_cluster_statement(
-			relay_parent,
-			<span class="kw-2">&amp;mut </span>local_validator.cluster_tracker,
-			per_relay_parent.session,
-			<span class="kw-2">&amp;</span>per_session.session_info,
-			statement,
-			cluster_sender_index,
-		) {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(s)) =&gt; s,
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return</span>,
-			<span class="prelude-val">Err</span>(rep) =&gt; {
-				modify_reputation(reputation, ctx.sender(), peer, rep).<span class="kw">await</span>;
-				<span class="kw">return
-			</span>},
-		}
-	} <span class="kw">else </span>{
-		<span class="kw">let </span>grid_sender_index = local_validator
-			.grid_tracker
-			.direct_statement_providers(
-				<span class="kw-2">&amp;</span>per_session.groups,
-				statement.unchecked_validator_index(),
-				statement.unchecked_payload(),
-			)
-			.into_iter()
-			.filter_map(|i| session_info.discovery_keys.get(i.<span class="number">0 </span><span class="kw">as </span>usize).map(|ad| (i, ad)))
-			.filter(|(<span class="kw">_</span>, ad)| peer_state.is_authority(ad))
-			.map(|(i, <span class="kw">_</span>)| i)
-			.next();
-
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(grid_sender_index) = grid_sender_index {
-			<span class="kw">match </span>handle_grid_statement(
+	<span class="kw">let </span>checked_statement =
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((active, cluster_sender_index)) = active.zip(cluster_sender_index) {
+			<span class="kw">match </span>handle_cluster_statement(
 				relay_parent,
-				<span class="kw-2">&amp;mut </span>local_validator.grid_tracker,
+				<span class="kw-2">&amp;mut </span>active.cluster_tracker,
 				per_relay_parent.session,
-				<span class="kw-2">&amp;</span>per_session,
+				<span class="kw-2">&amp;</span>per_session.session_info,
 				statement,
-				grid_sender_index,
+				cluster_sender_index,
 			) {
-				<span class="prelude-val">Ok</span>(s) =&gt; s,
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(s)) =&gt; s,
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return</span>,
 				<span class="prelude-val">Err</span>(rep) =&gt; {
 					modify_reputation(reputation, ctx.sender(), peer, rep).<span class="kw">await</span>;
 					<span class="kw">return
 				</span>},
 			}
 		} <span class="kw">else </span>{
-			<span class="comment">// Not a cluster or grid peer.
-			</span>modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
-			<span class="kw">return
-		</span>}
-	};
+			<span class="kw">let </span>grid_sender_index = local_validator
+				.grid_tracker
+				.direct_statement_providers(
+					<span class="kw-2">&amp;</span>per_session.groups,
+					statement.unchecked_validator_index(),
+					statement.unchecked_payload(),
+				)
+				.into_iter()
+				.filter_map(|i| session_info.discovery_keys.get(i.<span class="number">0 </span><span class="kw">as </span>usize).map(|ad| (i, ad)))
+				.filter(|(<span class="kw">_</span>, ad)| peer_state.is_authority(ad))
+				.map(|(i, <span class="kw">_</span>)| i)
+				.next();
+
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(grid_sender_index) = grid_sender_index {
+				<span class="kw">match </span>handle_grid_statement(
+					relay_parent,
+					<span class="kw-2">&amp;mut </span>local_validator.grid_tracker,
+					per_relay_parent.session,
+					<span class="kw-2">&amp;</span>per_session,
+					statement,
+					grid_sender_index,
+				) {
+					<span class="prelude-val">Ok</span>(s) =&gt; s,
+					<span class="prelude-val">Err</span>(rep) =&gt; {
+						modify_reputation(reputation, ctx.sender(), peer, rep).<span class="kw">await</span>;
+						<span class="kw">return
+					</span>},
+				}
+			} <span class="kw">else </span>{
+				<span class="comment">// Not a cluster or grid peer.
+				</span>modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
+				<span class="kw">return
+			</span>}
+		};
 
 	<span class="kw">let </span>statement = checked_statement.payload().clone();
 	<span class="kw">let </span>originator_index = checked_statement.validator_index();
@@ -4621,7 +4753,7 @@
 			local_validator.grid_tracker.learned_fresh_statement(
 				<span class="kw-2">&amp;</span>per_session.groups,
 				session_topology,
-				local_validator.index,
+				originator_index,
 				<span class="kw-2">&amp;</span>statement,
 			);
 		}
@@ -4919,7 +5051,7 @@
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
-			local_validator = <span class="question-mark">?</span>local_validator.index,
+			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = manifest_peers_v2.len(),
 			<span class="string">&quot;Sending manifest to v2 peers&quot;
 		</span>);
@@ -4938,7 +5070,7 @@
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
-			local_validator = <span class="question-mark">?</span>local_validator.index,
+			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = manifest_peers_vstaging.len(),
 			<span class="string">&quot;Sending manifest to vstaging peers&quot;
 		</span>);
@@ -4959,7 +5091,7 @@
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
-			local_validator = <span class="question-mark">?</span>local_validator.index,
+			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = ack_peers_v2.len(),
 			<span class="string">&quot;Sending acknowledgement to v2 peers&quot;
 		</span>);
@@ -4978,7 +5110,7 @@
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
-			local_validator = <span class="question-mark">?</span>local_validator.index,
+			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = ack_peers_vstaging.len(),
 			<span class="string">&quot;Sending acknowledgement to vstaging peers&quot;
 		</span>);
@@ -5171,13 +5303,15 @@
 
 	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
 		<span class="prelude-val">None </span>=&gt; {
-			modify_reputation(
-				reputation,
-				ctx.sender(),
-				peer,
-				COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
-			)
-			.<span class="kw">await</span>;
+			<span class="kw">if </span>per_session.is_not_validator() {
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
+				)
+				.<span class="kw">await</span>;
+			}
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>},
 		<span class="prelude-val">Some</span>(x) =&gt; x,
@@ -5273,7 +5407,7 @@
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
 			from = <span class="question-mark">?</span>sender_index,
-			local_index = <span class="question-mark">?</span>local_validator.index,
+			local_index = <span class="question-mark">?</span>per_session.local_validator,
 			<span class="question-mark">?</span>manifest_kind,
 			<span class="string">&quot;immediate ack, known candidate&quot;
 		</span>);
@@ -5678,7 +5812,7 @@
 		<span class="prelude-val">Some</span>(s) =&gt; s,
 	};
 
-	<span class="kw">let </span>local_group = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
+	<span class="kw">let </span>local_group = <span class="kw">match </span>relay_parent_state.active_validator_state_mut() {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
 		<span class="prelude-val">Some</span>(v) =&gt; v.group,
 	};
@@ -5765,11 +5899,10 @@
 		}) {
 			<span class="comment">// For cluster members, they haven&#39;t advertised any statements in particular,
 			// but have surely sent us some.
-			</span><span class="kw">if </span>local_validator
-				.cluster_tracker
-				.knows_candidate(validator_id, identifier.candidate_hash)
-			{
-				<span class="kw">return </span><span class="prelude-val">Some</span>(StatementFilter::blank(local_validator.cluster_tracker.targets().len()))
+			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(active) = local_validator.active.as_ref() {
+				<span class="kw">if </span>active.cluster_tracker.knows_candidate(validator_id, identifier.candidate_hash) {
+					<span class="kw">return </span><span class="prelude-val">Some</span>(StatementFilter::blank(active.cluster_tracker.targets().len()))
+				}
 			}
 
 			<span class="kw">let </span>filter = local_validator
@@ -5800,7 +5933,11 @@
 		}
 
 		<span class="comment">// don&#39;t require a backing threshold for cluster candidates.
-		</span><span class="kw">let </span>require_backing = relay_parent_state.local_validator.as_ref()<span class="question-mark">?</span>.group != group_index;
+		</span><span class="kw">let </span>local_validator = relay_parent_state.local_validator.as_ref()<span class="question-mark">?</span>;
+		<span class="kw">let </span>require_backing = local_validator
+			.active
+			.as_ref()
+			.map_or(<span class="bool-val">true</span>, |active| active.group != group_index);
 
 		<span class="prelude-val">Some</span>(RequestProperties {
 			unwanted_mask,
@@ -6058,7 +6195,11 @@
 		<span class="kw">for </span>v <span class="kw">in </span>find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 			per_session.authority_lookup.get(a)
 		}) {
-			<span class="kw">if </span>local_validator.cluster_tracker.can_request(v, <span class="kw-2">*</span>candidate_hash) {
+			<span class="kw">if </span>local_validator
+				.active
+				.as_ref()
+				.map_or(<span class="bool-val">false</span>, |active| active.cluster_tracker.can_request(v, <span class="kw-2">*</span>candidate_hash))
+			{
 				validator_id = <span class="prelude-val">Some</span>(v);
 				is_cluster = <span class="bool-val">true</span>;
 				<span class="kw">break
@@ -6100,11 +6241,16 @@
 	<span class="comment">// Update bookkeeping about which statements peers have received.
 	</span><span class="kw">for </span>statement <span class="kw">in </span><span class="kw-2">&amp;</span>statements {
 		<span class="kw">if </span>is_cluster {
-			local_validator.cluster_tracker.note_sent(
-				validator_id,
-				statement.unchecked_validator_index(),
-				statement.unchecked_payload().clone(),
-			);
+			local_validator
+				.active
+				.as_mut()
+				.expect(<span class="string">&quot;cluster peer means local is active validator; qed&quot;</span>)
+				.cluster_tracker
+				.note_sent(
+					validator_id,
+					statement.unchecked_validator_index(),
+					statement.unchecked_payload().clone(),
+				);
 		} <span class="kw">else </span>{
 			local_validator.grid_tracker.sent_or_received_direct_statement(
 				<span class="kw-2">&amp;</span>per_session.groups,
