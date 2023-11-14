@@ -45,18 +45,20 @@ enum IdentityMigratorCalls<AccountId: Encode> {
 /// information on a parachain, sends the deposit there, and then updates it.
 pub struct ToParachainIdentityReaper<Runtime, AccountId>(PhantomData<(Runtime, AccountId)>);
 impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
-	/// Calculate the balance needed on the remote chain based on the `IdentityInfo` and `Subs` on
-	/// this chain. The total includes:
-	///
-	/// - Identity basic deposit
-	/// - `IdentityInfo` byte deposit
-	/// - Sub accounts deposit
-	/// - 2x existential deposit (1 for account existence, 1 such that the user can transact)
 	fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
-		// remote deposit constants
-		let para_basic_deposit = 1000 * CENTS / 100;
-		let para_byte_deposit = MILLICENTS;
-		let para_sub_account_deposit = 200 * CENTS / 100;
+		// Remote deposit constants. Parachain uses `deposit / 100`
+		// Source:
+		// https://github.com/paritytech/polkadot-sdk/blob/a146918/cumulus/parachains/common/src/westend.rs#L28
+		//
+		// Parachain Deposit Configuration:
+		//
+		// pub const BasicDeposit: Balance = deposit(1, 17);
+		// pub const ByteDeposit: Balance = deposit(0, 1);
+		// pub const SubAccountDeposit: Balance = deposit(1, 53);
+		// pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
+		let para_basic_deposit = deposit(1, 17) / 100;
+		let para_byte_deposit = deposit(0, 1) / 100;
+		let para_sub_account_deposit = deposit(1, 53) / 100;
 		let para_existential_deposit = EXISTENTIAL_DEPOSIT / 10;
 
 		// pallet deposits
