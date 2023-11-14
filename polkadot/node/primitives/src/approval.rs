@@ -536,6 +536,7 @@ mod test {
 	#[test]
 	fn test_kagome_vrf() {
 		use parity_scale_codec::Decode as _;
+		use sp_application_crypto::{ByteArray as _, Wraps as _, sp_core::crypto::VrfPublic as _};
 
 		let data = "0x0301000000cffde21000000000ee5d1e3c744c86836bd2b74f63b1c1ebbfcbb4b4991620ec5b768b9fcaec1b5c7b57ba0d7dbaf0c47964c49452ddff29f79356be4f9914646cf943b2a7764f02c0664d7ad081ee50500844c1fe783cdeae4ea829f888f7add890247f8ac8ba04";
 		let data = hex::decode(&data[2..]).unwrap();
@@ -543,12 +544,15 @@ mod test {
 		let sig = pre_digest.vrf_signature().unwrap();
 		assert_eq!(pre_digest.authority_index(), 1);
 
-		// let randomness = "0x950be62c56a9b1d6487608777fe7e3966f67f5449e65102ec5174847fcfb9013";
-		let randomness = "0x4cd06ed03c0d2c818d100bbcca1b10344a229e2e22dc5c9180d99297a956500e";
+		let randomness = "0x950be62c56a9b1d6487608777fe7e3966f67f5449e65102ec5174847fcfb9013";
 		let randomness = hex::decode(&randomness[2..]).unwrap();
 		let randomness = randomness.try_into().unwrap();
+		let expected_randomness = [149, 11, 230, 44, 86, 169, 177, 214, 72, 118, 8, 119, 127, 231, 227, 150, 111, 103, 245, 68, 158, 101, 16, 46, 197, 23, 72, 71, 252, 251, 144, 19];
+		assert_eq!(randomness, expected_randomness);
 
 		let slot = pre_digest.slot();
+		let expected_slot = sp_consensus_babe::Slot::from(283311567_u64);
+		assert_eq!(slot, expected_slot);
 
 		let author = "0x6a91dff8d85ae634ad2ff7da25e2bf15045168aa4ec230abf052bee55f683f13";
 		let author = hex::decode(&author[2..]).unwrap();
@@ -558,6 +562,13 @@ mod test {
 		let pubkey = schnorrkel::PublicKey::from_bytes(author.as_slice()).unwrap();
 
 		let transcript = sp_consensus_babe::make_vrf_transcript(&randomness, slot, epoch_index);
+
+		{
+			// what BABE verifies
+			let authority_id = sp_consensus_babe::AuthorityId::from_slice(&author).unwrap();
+			let data = sp_consensus_babe::make_vrf_sign_data(&randomness, slot, epoch_index);
+			assert!(authority_id.as_inner_ref().vrf_verify(&data, &sig));
+		}
 
 		let inout = sig.output.0.attach_input_hash(&pubkey, transcript.0).unwrap();
 
