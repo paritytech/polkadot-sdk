@@ -46,14 +46,14 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
 	type BridgedChain = bp_westend::Westend;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_westend_finality::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }
 
 /// Add parachain bridge pallet to track Westend BridgeHub parachain
 pub type BridgeParachainWestendInstance = pallet_bridge_parachains::Instance3;
 impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_within_westend::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
 	type ParasPalletName = WestendBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
