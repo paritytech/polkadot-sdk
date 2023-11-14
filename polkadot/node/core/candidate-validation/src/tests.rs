@@ -496,23 +496,20 @@ fn candidate_validation_bad_return_is_invalid() {
 	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::Timeout));
 }
 
-// Test that we vote valid if we get `AmbiguousWorkerDeath`, retry, and then succeed.
-#[test]
-fn candidate_validation_one_ambiguous_error_is_valid() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let head_data = HeadData(vec![1, 1, 1]);
-	let validation_code = ValidationCode(vec![2; 16]);
-
+fn perform_basic_checks_on_valid_candidate(
+	pov: &PoV,
+	validation_code: &ValidationCode,
+	validation_data: &PersistedValidationData,
+	head_data_hash: Hash
+) -> CandidateDescriptor {
 	let descriptor = make_valid_candidate_descriptor(
 		ParaId::from(1_u32),
 		dummy_hash(),
 		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
+		head_data_hash,
+		head_data_hash,
 		Sr25519Keyring::Alice,
 	);
 
@@ -523,6 +520,19 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		&validation_code.hash(),
 	);
 	assert!(check.is_ok());
+	descriptor
+}
+
+// Test that we vote valid if we get `AmbiguousWorkerDeath`, retry, and then succeed.
+#[test]
+fn candidate_validation_one_ambiguous_error_is_valid() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	let descriptor = perform_basic_checks_on_valid_candidate(&pov, &validation_code, &validation_data, head_data.hash());
 
 	let validation_result = WasmValidationResult {
 		head_data,
@@ -576,24 +586,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		dummy_hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
-		&pov,
-		&validation_code.hash(),
-	);
-	assert!(check.is_ok());
+	let descriptor = perform_basic_checks_on_valid_candidate(&pov, &validation_code, &validation_data, dummy_hash());
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
