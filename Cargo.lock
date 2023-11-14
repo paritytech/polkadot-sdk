@@ -901,9 +901,11 @@ dependencies = [
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
+ "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "rococo-runtime",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -1115,22 +1117,6 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "westend-runtime-constants",
-]
-
-[[package]]
-name = "asset-hub-wococo-emulated-chain"
-version = "0.0.0"
-dependencies = [
- "asset-hub-rococo-emulated-chain",
- "asset-hub-rococo-runtime",
- "cumulus-primitives-core",
- "emulated-integration-tests-common",
- "frame-support",
- "parachains-common",
- "serde_json",
- "sp-core",
- "sp-runtime",
- "wococo-emulated-chain",
 ]
 
 [[package]]
@@ -2200,12 +2186,14 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-assets",
+ "pallet-balances",
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "rococo-wococo-system-emulated-network",
+ "rococo-westend-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -2368,14 +2356,16 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-assets",
+ "pallet-balances",
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "rococo-westend-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -2459,21 +2449,6 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "westend-runtime-constants",
-]
-
-[[package]]
-name = "bridge-hub-wococo-emulated-chain"
-version = "0.0.0"
-dependencies = [
- "bridge-hub-rococo-emulated-chain",
- "bridge-hub-rococo-runtime",
- "cumulus-primitives-core",
- "emulated-integration-tests-common",
- "frame-support",
- "parachains-common",
- "serde_json",
- "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
@@ -11306,6 +11281,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
@@ -11753,6 +11729,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "penpal-runtime",
+ "rococo-emulated-chain",
  "serde_json",
  "sp-core",
  "sp-runtime",
@@ -14699,16 +14676,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "rococo-wococo-system-emulated-network"
+name = "rococo-westend-system-emulated-network"
 version = "0.0.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
- "asset-hub-wococo-emulated-chain",
+ "asset-hub-westend-emulated-chain",
  "bridge-hub-rococo-emulated-chain",
- "bridge-hub-wococo-emulated-chain",
+ "bridge-hub-westend-emulated-chain",
  "emulated-integration-tests-common",
  "rococo-emulated-chain",
- "wococo-emulated-chain",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -18541,6 +18518,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
+ "scale-info",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -21354,37 +21332,6 @@ checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "wococo-emulated-chain"
-version = "0.0.0"
-dependencies = [
- "emulated-integration-tests-common",
- "pallet-im-online",
- "parachains-common",
- "polkadot-primitives",
- "rococo-emulated-chain",
- "rococo-runtime",
- "rococo-runtime-constants",
- "sc-consensus-grandpa",
- "serde_json",
- "sp-authority-discovery",
- "sp-consensus-babe",
- "sp-consensus-beefy",
- "sp-core",
- "sp-runtime",
-]
-
-[[package]]
-name = "wococo-system-emulated-network"
-version = "0.0.0"
-dependencies = [
- "asset-hub-wococo-emulated-chain",
- "bridge-hub-wococo-emulated-chain",
- "emulated-integration-tests-common",
- "penpal-emulated-chain",
- "wococo-emulated-chain",
 ]
 
 [[package]]
