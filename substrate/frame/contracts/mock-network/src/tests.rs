@@ -35,11 +35,9 @@ use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_primitives::Code;
 use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
-use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 
 type ParachainContracts = pallet_contracts::Pallet<parachain::Runtime>;
-type QueryId = <pallet_xcm::Pallet<parachain::Runtime> as QueryHandler>::QueryId;
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
 fn instantiate_test_contract(name: &str) -> AccountId {
