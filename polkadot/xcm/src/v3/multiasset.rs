@@ -689,12 +689,16 @@ impl MultiAssets {
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
+	///
+	/// This will also re-sort the inner assets to preserve ordering guarantees.
 	pub fn reanchor(
 		&mut self,
 		target: &MultiLocation,
 		context: InteriorMultiLocation,
 	) -> Result<(), ()> {
-		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))
+		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))?;
+		self.0.sort();
+		Ok(())
 	}
 
 	/// Return a reference to an item at a specific index or `None` if it doesn't exist.
@@ -983,6 +987,42 @@ mod tests {
 		let mixed_bad = vec![(Here, *b"bad!").into(), (Here, 10).into()];
 		let r = MultiAssets::from_sorted_and_deduplicated(mixed_bad);
 		assert!(r.is_err());
+	}
+
+	#[test]
+	fn reanchor_preserves_sorting() {
+		use super::*;
+		use alloc::vec;
+
+		let reanchor_context = X1(Parachain(2000));
+		let dest = MultiLocation::new(1, Here);
+
+		let asset_1: MultiAsset =
+			(MultiLocation::new(0, X2(PalletInstance(50), GeneralIndex(1))), 10).into();
+		let mut asset_1_reanchored = asset_1.clone();
+		assert!(asset_1_reanchored.reanchor(&dest, reanchor_context).is_ok());
+		assert_eq!(
+			asset_1_reanchored,
+			(MultiLocation::new(0, X3(Parachain(2000), PalletInstance(50), GeneralIndex(1))), 10)
+				.into()
+		);
+
+		let asset_2: MultiAsset = (MultiLocation::new(1, Here), 10).into();
+		let mut asset_2_reanchored = asset_2.clone();
+		assert!(asset_2_reanchored.reanchor(&dest, reanchor_context).is_ok());
+		assert_eq!(asset_2_reanchored, (MultiLocation::new(0, Here), 10).into());
+
+		let asset_3: MultiAsset = (MultiLocation::new(1, X1(Parachain(1000))), 10).into();
+		let mut asset_3_reanchored = asset_3.clone();
+		assert!(asset_3_reanchored.reanchor(&dest, reanchor_context).is_ok());
+		assert_eq!(asset_3_reanchored, (MultiLocation::new(0, X1(Parachain(1000))), 10).into());
+
+		let mut assets: MultiAssets =
+			vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
+		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
+
+		assert!(assets.reanchor(&dest, reanchor_context).is_ok());
+		assert_eq!(assets, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
 	}
 
 	#[test]

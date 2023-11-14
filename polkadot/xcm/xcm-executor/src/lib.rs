@@ -33,6 +33,7 @@ use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	XcmAssetTransfers,
 };
 
 mod assets;
@@ -248,10 +249,16 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			for asset in fees.inner() {
 				Config::AssetTransactor::withdraw_asset(&asset, &origin, None)?;
 			}
-			Config::FeeManager::handle_fee(fees, None);
+			Config::FeeManager::handle_fee(fees, None, FeeReason::ChargeFees);
 		}
 		Ok(())
 	}
+}
+
+impl<Config: config::Config> XcmAssetTransfers for XcmExecutor<Config> {
+	type IsReserve = Config::IsReserve;
+	type IsTeleporter = Config::IsTeleporter;
+	type AssetTransactor = Config::AssetTransactor;
 }
 
 #[derive(Debug)]
@@ -918,7 +925,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				)?;
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					self.take_fee(fee, FeeReason::Export(network))?;
+					self.take_fee(fee, FeeReason::Export { network, destination })?;
 					let _ = Config::MessageExporter::deliver(ticket).defensive_proof(
 						"`deliver` called immediately after `validate_export`; \
 						`take_fee` does not affect the validity of the ticket; qed",
@@ -1060,7 +1067,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		} else {
 			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
 		};
-		Config::FeeManager::handle_fee(paid, Some(&self.context));
+		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
 	}
 
