@@ -30,7 +30,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = westend_runtime,
 		core = {
-			SovereignAccountOf: westend_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
+			SovereignAccountOf: westend_runtime::xcm_config::LocationConverter,
 		},
 		pallets = {
 			XcmPallet: westend_runtime::XcmPallet,

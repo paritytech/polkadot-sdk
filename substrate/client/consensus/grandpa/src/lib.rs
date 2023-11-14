@@ -471,9 +471,6 @@ where
 	Client: ExecutorProvider<Block, Executor = E> + HeaderBackend<Block>,
 {
 	fn get(&self) -> Result<AuthorityList, ClientError> {
-		// This implementation uses the Grandpa runtime API instead of reading directly from the
-		// `GRANDPA_AUTHORITIES_KEY` as the data may have been migrated since the genesis block of
-		// the chain, whereas the runtime API is backwards compatible.
 		self.executor()
 			.call(
 				self.expect_block_hash_from_id(&BlockId::Number(Zero::zero()))?,

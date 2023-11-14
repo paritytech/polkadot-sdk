@@ -18,7 +18,9 @@
 
 #![warn(missing_docs)]
 
-use crate::{futures_undead::FuturesUndead, metrics::Metrics, ErasureTask, LOG_TARGET};
+use crate::{
+	futures_undead::FuturesUndead, metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET,
+};
 use futures::{channel::oneshot, SinkExt};
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
@@ -146,6 +148,12 @@ pub struct RecoveryParams {
 
 	/// Do not request data from availability-store. Useful for collators.
 	pub bypass_availability_store: bool,
+
+	/// The type of check to perform after available data was recovered.
+	pub post_recovery_check: PostRecoveryCheck,
+
+	/// The blake2-256 hash of the PoV.
+	pub pov_hash: Hash,
 }
 
 /// Utility type used for recording the result of requesting a chunk from a validator.
@@ -669,42 +677,51 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				Ok(req_res::v1::AvailableDataFetchingResponse::AvailableData(data)) => {
 					let recovery_duration =
 						common_params.metrics.time_erasure_recovery(strategy_type);
-					let (reencode_tx, reencode_rx) = oneshot::channel();
-					self.params
-						.erasure_task_tx
-						.send(ErasureTask::Reencode(
-							common_params.n_validators,
-							common_params.erasure_root,
-							data,
-							reencode_tx,
-						))
-						.await
-						.map_err(|_| RecoveryError::ChannelClosed)?;
+					let maybe_data = match common_params.post_recovery_check {
+						PostRecoveryCheck::Reencode => {
+							let (reencode_tx, reencode_rx) = oneshot::channel();
+							self.params
+								.erasure_task_tx
+								.send(ErasureTask::Reencode(
+									common_params.n_validators,
+									common_params.erasure_root,
+									data,
+									reencode_tx,
+								))
+								.await
+								.map_err(|_| RecoveryError::ChannelClosed)?;
 
-					let reencode_response =
-						reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
+							reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?
+						},
+						PostRecoveryCheck::PovHash =>
+							(data.pov.hash() == common_params.pov_hash).then_some(data),
+					};
 
-					if let Some(data) = reencode_response {
-						gum::trace!(
-							target: LOG_TARGET,
-							candidate_hash = ?common_params.candidate_hash,
-							"Received full data",
-						);
+					match maybe_data {
+						Some(data) => {
+							gum::trace!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								"Received full data",
+							);
 
-						common_params.metrics.on_full_request_succeeded();
-						return Ok(data)
-					} else {
-						common_params.metrics.on_full_request_invalid();
-						recovery_duration.map(|rd| rd.stop_and_discard());
+							common_params.metrics.on_full_request_succeeded();
+							return Ok(data)
+						},
+						None => {
+							common_params.metrics.on_full_request_invalid();
+							recovery_duration.map(|rd| rd.stop_and_discard());
 
-						gum::debug!(
-							target: LOG_TARGET,
-							candidate_hash = ?common_params.candidate_hash,
-							?validator_index,
-							"Invalid data response",
-						);
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								?validator_index,
+								"Invalid data response",
+							);
 
-						// it doesn't help to report the peer with req/res.
+							// it doesn't help to report the peer with req/res.
+							// we'll try the next backer.
+						},
 					}
 				},
 				Ok(req_res::v1::AvailableDataFetchingResponse::NoSuchData) => {
@@ -1125,22 +1142,43 @@ impl FetchChunks {
 
 		match available_data_response {
 			Ok(data) => {
-				// Send request to re-encode the chunks and check merkle root.
-				let (reencode_tx, reencode_rx) = oneshot::channel();
-				self.erasure_task_tx
-					.send(ErasureTask::Reencode(
-						common_params.n_validators,
-						common_params.erasure_root,
-						data,
-						reencode_tx,
-					))
-					.await
-					.map_err(|_| RecoveryError::ChannelClosed)?;
+				let maybe_data = match common_params.post_recovery_check {
+					PostRecoveryCheck::Reencode => {
+						// Send request to re-encode the chunks and check merkle root.
+						let (reencode_tx, reencode_rx) = oneshot::channel();
+						self.erasure_task_tx
+							.send(ErasureTask::Reencode(
+								common_params.n_validators,
+								common_params.erasure_root,
+								data,
+								reencode_tx,
+							))
+							.await
+							.map_err(|_| RecoveryError::ChannelClosed)?;
 
-				let reencode_response =
-					reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
+						reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?.or_else(|| {
+							gum::trace!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								erasure_root = ?common_params.erasure_root,
+								"Data recovery error - root mismatch",
+							);
+							None
+						})
+					},
+					PostRecoveryCheck::PovHash =>
+						(data.pov.hash() == common_params.pov_hash).then_some(data).or_else(|| {
+							gum::trace!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								pov_hash = ?common_params.pov_hash,
+								"Data recovery error - PoV hash mismatch",
+							);
+							None
+						}),
+				};
 
-				if let Some(data) = reencode_response {
+				if let Some(data) = maybe_data {
 					gum::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?common_params.candidate_hash,
@@ -1151,12 +1189,6 @@ impl FetchChunks {
 					Ok(data)
 				} else {
 					recovery_duration.map(|rd| rd.stop_and_discard());
-					gum::trace!(
-						target: LOG_TARGET,
-						candidate_hash = ?common_params.candidate_hash,
-						erasure_root = ?common_params.erasure_root,
-						"Data recovery error - root mismatch",
-					);
 
 					Err(RecoveryError::Invalid)
 				}
@@ -1331,19 +1363,23 @@ mod tests {
 				erasure_root: dummy_hash(),
 				metrics: Metrics::new_dummy(),
 				bypass_availability_store: false,
+				post_recovery_check: PostRecoveryCheck::Reencode,
+				pov_hash: dummy_hash(),
 			}
 		}
 	}
 
 	impl RecoveryParams {
 		fn create_chunks(&mut self) -> Vec<ErasureChunk> {
+			let available_data = dummy_available_data();
 			let (chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
 				self.n_validators,
-				&dummy_available_data(),
+				&available_data,
 				|_, _| {},
 			);
 
 			self.erasure_root = erasure_root;
+			self.pov_hash = available_data.pov.hash();
 
 			chunks
 		}
