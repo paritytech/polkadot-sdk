@@ -8,7 +8,6 @@ var srcIndex = JSON.parse('{\
 "asset_hub_westend_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "asset_hub_westend_integration_tests":["",[],["lib.rs"]],\
 "asset_hub_westend_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_dmp_queue.rs","cumulus_pallet_parachain_system.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","pallet_xcm_bridge_hub_router.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
-"asset_hub_wococo_emulated_chain":["",[],["lib.rs"]],\
 "asset_test_utils":["",[],["lib.rs","test_cases.rs","test_cases_over_bridge.rs","xcm_helpers.rs"]],\
 "assets_common":["",[],["foreign_creators.rs","fungible_conversion.rs","lib.rs","local_and_foreign_assets.rs","matching.rs","runtime_api.rs"]],\
 "bags_list":["",[],["main.rs"]],\
@@ -48,7 +47,6 @@ var srcIndex = JSON.parse('{\
 "bridge_hub_westend_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "bridge_hub_westend_integration_tests":["",[],["lib.rs"]],\
 "bridge_hub_westend_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_dmp_queue.rs","cumulus_pallet_parachain_system.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_balances.rs","pallet_bridge_grandpa.rs","pallet_bridge_messages.rs","pallet_bridge_parachains.rs","pallet_bridge_relayers.rs","pallet_collator_selection.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["bridge_common_config.rs","bridge_to_rococo_config.rs","lib.rs","xcm_config.rs"]],\
-"bridge_hub_wococo_emulated_chain":["",[],["lib.rs"]],\
 "bridge_runtime_common":["",[],["lib.rs","messages.rs","messages_api.rs","messages_call_ext.rs","messages_generation.rs","messages_xcm_extension.rs","priority_calculator.rs","refund_relayer_extension.rs"]],\
 "call":["",[],["call.rs"]],\
 "chain_spec_builder":["",[],["main.rs"]],\
@@ -314,7 +312,7 @@ var srcIndex = JSON.parse('{\
 "rococo_runtime":["",[["governance",[],["fellowship.rs","mod.rs","origins.rs","tracks.rs"]],["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["frame_system.rs","mod.rs","pallet_asset_rate.rs","pallet_balances.rs","pallet_balances_nis_counterpart_balances.rs","pallet_bounties.rs","pallet_child_bounties.rs","pallet_conviction_voting.rs","pallet_identity.rs","pallet_im_online.rs","pallet_indices.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_nis.rs","pallet_preimage.rs","pallet_proxy.rs","pallet_ranked_collective.rs","pallet_referenda_fellowship_referenda.rs","pallet_referenda_referenda.rs","pallet_scheduler.rs","pallet_session.rs","pallet_sudo.rs","pallet_timestamp.rs","pallet_treasury.rs","pallet_utility.rs","pallet_vesting.rs","pallet_whitelist.rs","pallet_xcm.rs","runtime_common_assigned_slots.rs","runtime_common_auctions.rs","runtime_common_claims.rs","runtime_common_crowdloan.rs","runtime_common_paras_registrar.rs","runtime_common_slots.rs","runtime_parachains_assigner_on_demand.rs","runtime_parachains_configuration.rs","runtime_parachains_disputes.rs","runtime_parachains_hrmp.rs","runtime_parachains_inclusion.rs","runtime_parachains_initializer.rs","runtime_parachains_paras.rs","runtime_parachains_paras_inherent.rs"]]],["lib.rs","validator_manager.rs","xcm_config.rs"]],\
 "rococo_runtime_constants":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs"]],\
 "rococo_system_emulated_network":["",[],["lib.rs"]],\
-"rococo_wococo_system_emulated_network":["",[],["lib.rs"]],\
+"rococo_westend_system_emulated_network":["",[],["lib.rs"]],\
 "round_trip":["",[],["round_trip.rs"]],\
 "sc_allocator":["",[],["error.rs","freeing_bump.rs","lib.rs"]],\
 "sc_authority_discovery":["",[["worker",[],["addr_cache.rs"]]],["error.rs","interval.rs","lib.rs","service.rs","worker.rs"]],\
@@ -475,8 +473,6 @@ var srcIndex = JSON.parse('{\
 "westend_runtime":["",[["governance",[],["mod.rs","origins.rs","tracks.rs"]],["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["frame_election_provider_support.rs","frame_system.rs","mod.rs","pallet_asset_rate.rs","pallet_bags_list.rs","pallet_balances.rs","pallet_conviction_voting.rs","pallet_election_provider_multi_phase.rs","pallet_fast_unstake.rs","pallet_identity.rs","pallet_im_online.rs","pallet_indices.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_nomination_pools.rs","pallet_preimage.rs","pallet_proxy.rs","pallet_referenda_fellowship_referenda.rs","pallet_referenda_referenda.rs","pallet_scheduler.rs","pallet_session.rs","pallet_staking.rs","pallet_sudo.rs","pallet_timestamp.rs","pallet_treasury.rs","pallet_utility.rs","pallet_vesting.rs","pallet_whitelist.rs","pallet_xcm.rs","runtime_common_assigned_slots.rs","runtime_common_auctions.rs","runtime_common_crowdloan.rs","runtime_common_paras_registrar.rs","runtime_common_slots.rs","runtime_parachains_configuration.rs","runtime_parachains_disputes.rs","runtime_parachains_disputes_slashing.rs","runtime_parachains_hrmp.rs","runtime_parachains_inclusion.rs","runtime_parachains_initializer.rs","runtime_parachains_paras.rs","runtime_parachains_paras_inherent.rs"]]],["bag_thresholds.rs","lib.rs","xcm_config.rs"]],\
 "westend_runtime_constants":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs"]],\
 "westend_system_emulated_network":["",[],["lib.rs"]],\
-"wococo_emulated_chain":["",[],["lib.rs"]],\
-"wococo_system_emulated_network":["",[],["lib.rs"]],\
 "xcm_emulator":["",[],["lib.rs"]],\
 "xcm_executor_integration_tests":["",[],["lib.rs"]],\
 "xcm_fuzzer":["",[],["fuzz.rs","parachain.rs","relay_chain.rs"]],\
