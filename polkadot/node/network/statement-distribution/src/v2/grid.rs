@@ -2287,7 +2287,12 @@ mod tests {
 		);
 
 		tracker.learned_fresh_statement(&groups, &session_topology, validator_index, &statement);
-		tracker.received_direct_statement(&groups, validator_index, counterparty, &statement);
+		tracker.sent_or_received_direct_statement(
+			&groups,
+			validator_index,
+			counterparty,
+			&statement,
+		);
 
 		// There should be no pending statements now (for the counterparty).
 		assert_eq!(
