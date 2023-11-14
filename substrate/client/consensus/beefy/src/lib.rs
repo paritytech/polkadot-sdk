@@ -32,6 +32,7 @@ use crate::{
 	round::Rounds,
 	worker::PersistedState,
 };
+use codec::Encode;
 use futures::{stream::Fuse, StreamExt};
 use log::{debug, error, info};
 use parking_lot::Mutex;
@@ -376,6 +377,7 @@ where
 			// Overwrite persisted data with newly provided `min_block_delta`.
 			state.set_min_block_delta(min_block_delta);
 			info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
+			error!(target: LOG_TARGET, "🥩 raw BEEFY voter state from db: {:?}.", state.encode());
 			Some(Ok(state))
 		})
 		// No valid voter-state persisted, re-initialize from pallet genesis.

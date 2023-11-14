@@ -112,10 +112,10 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 	}
 
 	fn request_from_peer(&mut self, peer: PeerId, req_info: RequestInfo<B>) {
-		debug!(
-			target: BEEFY_SYNC_LOG_TARGET,
-			"🥩 requesting justif #{:?} from peer {:?}", req_info.block, peer,
-		);
+		// debug!(
+		// 	target: BEEFY_SYNC_LOG_TARGET,
+		// 	"🥩 requesting justif #{:?} from peer {:?}", req_info.block, peer,
+		// );
 
 		let payload = JustificationRequest::<B> { begin: req_info.block }.encode();
 
@@ -184,13 +184,13 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 				Error::ResponseError
 			})?
 			.map_err(|e| {
-				debug!(
-					target: BEEFY_SYNC_LOG_TARGET,
-					"🥩 for on demand justification #{:?}, peer {:?} error: {:?}",
-					req_info.block,
-					peer,
-					e
-				);
+				// debug!(
+				// 	target: BEEFY_SYNC_LOG_TARGET,
+				// 	"🥩 for on demand justification #{:?}, peer {:?} error: {:?}",
+				// 	req_info.block,
+				// 	peer,
+				// 	e
+				// );
 				match e {
 					RequestFailure::Refused => {
 						metric_inc!(self, beefy_on_demand_justification_peer_refused);
