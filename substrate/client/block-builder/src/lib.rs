@@ -262,7 +262,7 @@ where
 		})
 	}
 
-	/// Called after inherents but before extrinsics have been applied.
+	/// Called after inherents but before transactions have been applied.
 	pub fn last_inherent(&self) -> Result<(), Error> {
 		if self.version >= 7 {
 			self.api.last_inherent(self.parent_hash).map_err(Into::into)
