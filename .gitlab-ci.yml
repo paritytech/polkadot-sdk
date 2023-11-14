@@ -136,6 +136,7 @@ default:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/ # i.e. v1.0, v2.1rc1
 
 .test-pr-refs:
@@ -152,6 +153,7 @@ default:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/ # i.e. v1.0, v2.1rc1
 
 .test-refs-no-trigger:
@@ -162,6 +164,7 @@ default:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/ # i.e. v1.0, v2.1rc1
     - if: $CI_COMMIT_REF_NAME =~ /^ci-release-.*$/
 
@@ -172,6 +175,7 @@ default:
     - if: $CI_PIPELINE_SOURCE == "web"
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
 
 .publish-refs:
   rules:
@@ -192,6 +196,7 @@ default:
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/ # i.e. v1.0, v2.1rc1
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
 
 .zombienet-refs:
   extends: .build-refs
