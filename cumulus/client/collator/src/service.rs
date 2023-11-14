@@ -152,6 +152,7 @@ where
 						block_hash = ?hash,
 						"Could not find the header of the genesis block in the database!",
 					);
+					println!("🤵🤵🤵🤵🤵🤵🤵 Could not find the header of the genesis block in the database!");
 				} else {
 					tracing::debug!(
 						target: LOG_TARGET,
