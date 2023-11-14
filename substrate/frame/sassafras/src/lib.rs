@@ -18,20 +18,20 @@
 //! Extension module for Sassafras consensus.
 //!
 //! Sassafras is a constant-time block production protocol that aims to ensure that
-//! there is exactly one block produced with constant time intervals rather multiple
-//! or none.
+//! there is exactly one block produced with constant time intervals rather than 
+//! multiple or none.
 //!
 //! We run a lottery to distribute block production slots in an epoch and to fix the
-//! order validators produce blocks by the beginning of an epoch.
+//! order validators produce blocks in, by the beginning of an epoch.
 //!
-//! Each validator signs the same VRF input and publish the output onchain. This
+//! Each validator signs the same VRF input and publishes the output on-chain. This
 //! value is their lottery ticket that can be validated against their public key.
 //!
 //! We want to keep lottery winners secret, i.e. do not publish their public keys.
-//! At the begin of the epoch all the validators tickets are published but not their
+//! At the beginning of the epoch all the validators tickets are published but not their
 //! public keys.
 //!
-//! A valid tickets are validated when an honest validator reclaims it on block
+//! A valid tickets is validated when an honest validator reclaims it on block
 //! production.
 //!
 //! To prevent submission of fake tickets, resulting in empty slots, the validator
