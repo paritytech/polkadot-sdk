@@ -74,14 +74,6 @@ pub trait ChainHeadApi<Hash> {
 		hash: Hash,
 	) -> RpcResult<Option<String>>;
 
-	/// Get the chain's genesis hash.
-	///
-	/// # Unstable
-	///
-	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_genesisHash", blocking)]
-	fn chain_head_unstable_genesis_hash(&self) -> RpcResult<String>;
-
 	/// Returns storage entries at a specific block's state.
 	///
 	/// # Unstable
