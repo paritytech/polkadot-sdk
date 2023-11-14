@@ -30,7 +30,7 @@ use crate::{
 	schema::v1::{StateRequest, StateResponse},
 	service::{
 		self,
-		engine::{SyncingService, ToServiceCommand},
+		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
