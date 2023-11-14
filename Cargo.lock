@@ -3268,6 +3268,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "coretime-rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "coretime-rococo-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "rococo-emulated-chain",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "coretime-rococo-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "asset-test-utils",
+ "coretime-rococo-runtime",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "rococo-runtime",
+ "rococo-system-emulated-network",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "coretime-rococo-runtime"
 version = "1.0.0"
 dependencies = [
