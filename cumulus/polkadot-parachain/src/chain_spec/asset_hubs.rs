@@ -32,7 +32,6 @@ pub type AssetHubWestendChainSpec =
 	sc_service::GenericChainSpec<asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
 pub type AssetHubRococoChainSpec =
 	sc_service::GenericChainSpec<asset_hub_rococo_runtime::RuntimeGenesisConfig, Extensions>;
-pub type AssetHubWococoChainSpec = AssetHubRococoChainSpec;
 
 const ASSET_HUB_POLKADOT_ED: AssetHubBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
@@ -579,19 +578,6 @@ pub fn asset_hub_rococo_development_config() -> AssetHubRococoChainSpec {
 	)
 }
 
-pub fn asset_hub_wococo_development_config() -> AssetHubWococoChainSpec {
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 42.into());
-	properties.insert("tokenSymbol".into(), "WOC".into());
-	properties.insert("tokenDecimals".into(), 12.into());
-	asset_hub_rococo_like_development_config(
-		properties,
-		"Wococo Asset Hub Development",
-		"asset-hub-wococo-dev",
-		1000,
-	)
-}
-
 fn asset_hub_rococo_like_development_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
@@ -632,19 +618,6 @@ pub fn asset_hub_rococo_local_config() -> AssetHubRococoChainSpec {
 		properties,
 		"Rococo Asset Hub Local",
 		"asset-hub-rococo-local",
-		1000,
-	)
-}
-
-pub fn asset_hub_wococo_local_config() -> AssetHubWococoChainSpec {
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 42.into());
-	properties.insert("tokenSymbol".into(), "WOC".into());
-	properties.insert("tokenDecimals".into(), 12.into());
-	asset_hub_rococo_like_local_config(
-		properties,
-		"Wococo Asset Hub Local",
-		"asset-hub-wococo-local",
 		1000,
 	)
 }
@@ -731,54 +704,6 @@ pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
 			(
 				hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f").into(),
 				hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
-					.unchecked_into(),
-			),
-		],
-		Vec::new(),
-		para_id.into(),
-	))
-	.with_properties(properties)
-	.build()
-}
-
-pub fn asset_hub_wococo_genesis_config() -> AssetHubWococoChainSpec {
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 42.into());
-	properties.insert("tokenSymbol".into(), "WOC".into());
-	properties.insert("tokenDecimals".into(), 12.into());
-	let para_id = 1000;
-	AssetHubRococoChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "wococo".into(), para_id },
-	)
-	.with_name("Wococo Asset Hub")
-	.with_id("asset-hub-wococo")
-	.with_chain_type(ChainType::Live)
-	.with_genesis_config_patch(asset_hub_rococo_genesis(
-		// initial collators.
-		vec![
-			// 5C8RGkS8t5K93fB2hkgKbvSYs5iG6AknJMuQmbBDeazon9Lj
-			(
-				hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534").into(),
-				hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
-					.unchecked_into(),
-			),
-			// 5GePeDZQeBagXH7kH5QPKnQKi39Z5hoYFB5FmUtEvc4yxKej
-			(
-				hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814").into(),
-				hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
-					.unchecked_into(),
-			),
-			// 5CfnTTb9NMJDNKDntA83mHKoedZ7wjDC8ypLCTDd4NwUx3zv
-			(
-				hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965").into(),
-				hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
-					.unchecked_into(),
-			),
-			// 5EqheiwiG22gvGpN7cvrbeaQzhg7rzsYYVkYK4yj5vRrTQRQ
-			(
-				hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66").into(),
-				hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
 					.unchecked_into(),
 			),
 		],
