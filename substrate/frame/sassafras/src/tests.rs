@@ -52,7 +52,13 @@ fn slot_ticket_id_outside_in_fetch() {
 	let next_tickets: Vec<TicketId> =
 		(0..tickets_count - 1).map(|i| (i + tickets_count) as TicketId).collect();
 
-	new_test_ext(4).execute_with(|| {
+	new_test_ext(0).execute_with(|| {
+		// Some corner cases
+		TicketsIds::<Test>::insert((0, 0_u32), 1_u128);
+
+		// Cleanup
+		(0..3).for_each(|i| TicketsIds::<Test>::remove((0, i as u32)));
+
 		curr_tickets
 			.iter()
 			.enumerate()
@@ -108,9 +114,52 @@ fn slot_ticket_id_outside_in_fetch() {
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 18), Some(next_tickets[2]));
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 19), Some(next_tickets[0]));
 
-		// Try to fetch tickets for slots beyend next epoch.
+		// Try to fetch the tickets for slots beyond the next epoch.
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 20), None);
 		assert_eq!(Sassafras::slot_ticket_id(genesis_slot + 42), None);
+	});
+}
+
+// Different test for outside-in test with more focus on corner case correctness.
+#[test]
+fn slot_ticket_id_outside_in_fetch_corner_cases() {
+	new_test_ext(0).execute_with(|| {
+		frame_system::Pallet::<Test>::set_block_number(One::one());
+
+		let mut meta = TicketsMetadata { tickets_count: [0, 0], unsorted_tickets_count: 0 };
+		let curr_epoch_idx = EpochIndex::<Test>::get();
+
+		let mut epoch_test = |epoch_idx| {
+			let tag = (epoch_idx & 1) as u8;
+			let epoch_start = Sassafras::epoch_start(epoch_idx);
+
+			// cleanup
+			meta.tickets_count = [0, 0];
+			TicketsMeta::<Test>::set(meta);
+			assert!((0..10).all(|i| Sassafras::slot_ticket_id((epoch_start + i).into()).is_none()));
+
+			meta.tickets_count[tag as usize] += 1;
+			TicketsMeta::<Test>::set(meta);
+			TicketsIds::<Test>::insert((tag, 0_u32), 1_u128);
+			assert_eq!(Sassafras::slot_ticket_id((epoch_start + 9).into()), Some(1_u128));
+			assert!((0..9).all(|i| Sassafras::slot_ticket_id((epoch_start + i).into()).is_none()));
+
+			meta.tickets_count[tag as usize] += 1;
+			TicketsMeta::<Test>::set(meta);
+			TicketsIds::<Test>::insert((tag, 1_u32), 2_u128);
+			assert_eq!(Sassafras::slot_ticket_id((epoch_start + 0).into()), Some(2_u128));
+			assert!((1..9).all(|i| Sassafras::slot_ticket_id((epoch_start + i).into()).is_none()));
+
+			meta.tickets_count[tag as usize] += 2;
+			TicketsMeta::<Test>::set(meta);
+			TicketsIds::<Test>::insert((tag, 2_u32), 3_u128);
+			assert_eq!(Sassafras::slot_ticket_id((epoch_start + 8).into()), Some(3_u128));
+			assert!((1..8).all(|i| Sassafras::slot_ticket_id((epoch_start + i).into()).is_none()));
+		};
+
+		// Even epoch
+		epoch_test(curr_epoch_idx);
+		epoch_test(curr_epoch_idx + 1);
 	});
 }
 
@@ -124,16 +173,20 @@ fn on_first_block_after_genesis() {
 
 		let digest = initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
+		let common_assertions = || {
+			assert_eq!(Sassafras::genesis_slot(), start_slot);
+			assert_eq!(Sassafras::current_slot(), start_slot);
+			assert_eq!(Sassafras::epoch_index(), 0);
+			assert_eq!(Sassafras::current_epoch_start(), start_slot);
+			assert_eq!(Sassafras::current_slot_index(), 0);
+			assert_eq!(Sassafras::randomness(), [0; 32]);
+			assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+		};
+
 		// Post-initialization status
 
 		assert!(ClaimTemporaryData::<Test>::exists());
-		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot);
-		assert_eq!(Sassafras::epoch_index(), 0);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot);
-		assert_eq!(Sassafras::current_slot_index(), 0);
-		assert_eq!(Sassafras::randomness(), [0; 32]);
-		assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+		common_assertions();
 		assert_eq!(RandomnessAccumulator::<Test>::get(), [0; 32]);
 
 		let header = finalize_block(start_block);
@@ -141,13 +194,7 @@ fn on_first_block_after_genesis() {
 		// Post-finalization status
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
-		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot);
-		assert_eq!(Sassafras::epoch_index(), 0);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot);
-		assert_eq!(Sassafras::current_slot_index(), 0);
-		assert_eq!(Sassafras::randomness(), [0; 32]);
-		assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+		common_assertions();
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
@@ -189,16 +236,20 @@ fn on_normal_block() {
 		// Progress to block 2
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
 
+		let common_assertions = || {
+			assert_eq!(Sassafras::genesis_slot(), start_slot);
+			assert_eq!(Sassafras::current_slot(), start_slot + 1);
+			assert_eq!(Sassafras::epoch_index(), 0);
+			assert_eq!(Sassafras::current_epoch_start(), start_slot);
+			assert_eq!(Sassafras::current_slot_index(), 1);
+			assert_eq!(Sassafras::randomness(), [0; 32]);
+			assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+		};
+
 		// Post-initialization status
 
 		assert!(ClaimTemporaryData::<Test>::exists());
-		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot + 1);
-		assert_eq!(Sassafras::epoch_index(), 0);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot);
-		assert_eq!(Sassafras::current_slot_index(), 1);
-		assert_eq!(Sassafras::randomness(), [0; 32]);
-		assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+		common_assertions();
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
@@ -210,13 +261,7 @@ fn on_normal_block() {
 		// Post-finalization status
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
-		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot + 1);
-		assert_eq!(Sassafras::epoch_index(), 0);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot);
-		assert_eq!(Sassafras::current_slot_index(), 1);
-		assert_eq!(Sassafras::randomness(), [0; 32]);
-		assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+		common_assertions();
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
@@ -246,15 +291,19 @@ fn produce_epoch_change_digest_no_config() {
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
 
+		let common_assertions = || {
+			assert_eq!(Sassafras::genesis_slot(), start_slot);
+			assert_eq!(Sassafras::current_slot(), start_slot + epoch_length);
+			assert_eq!(Sassafras::epoch_index(), 1);
+			assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_length);
+			assert_eq!(Sassafras::current_slot_index(), 0);
+			assert_eq!(Sassafras::randomness(), [0; 32]);
+		};
+
 		// Post-initialization status
 
 		assert!(ClaimTemporaryData::<Test>::exists());
-		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot + epoch_length);
-		assert_eq!(Sassafras::epoch_index(), 1);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_length);
-		assert_eq!(Sassafras::current_slot_index(), 0);
-		assert_eq!(Sassafras::randomness(), [0; 32]);
+		common_assertions();
 		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
@@ -271,12 +320,7 @@ fn produce_epoch_change_digest_no_config() {
 		// Post-finalization status
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
-		assert_eq!(Sassafras::genesis_slot(), start_slot);
-		assert_eq!(Sassafras::current_slot(), start_slot + epoch_length);
-		assert_eq!(Sassafras::epoch_index(), 1);
-		assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_length);
-		assert_eq!(Sassafras::current_slot_index(), 0);
-		assert_eq!(Sassafras::randomness(), [0; 32]);
+		common_assertions();
 		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
