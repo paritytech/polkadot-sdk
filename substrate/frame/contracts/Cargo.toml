@@ -60,11 +60,7 @@ wat = "1"
 pallet-contracts-fixtures = { path = "./fixtures" }
 
 # Polkadot Dependencies
-xcm-simulator = {path = "../../../polkadot/xcm/xcm-simulator"}
 xcm-builder = {package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder"}
-polkadot-runtime-parachains = {path = "../../../polkadot/runtime/parachains"}
-polkadot-parachain-primitives = { path = "../../../polkadot/parachain"  }
-polkadot-primitives = { path = "../../../polkadot/primitives"  }
 
 # Substrate Dependencies
 pallet-balances = { path = "../balances" }
@@ -118,9 +114,6 @@ runtime-benchmarks = [
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-parachains/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-runtime/runtime-benchmarks",
@@ -137,6 +130,5 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",
-	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]

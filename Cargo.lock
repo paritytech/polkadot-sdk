@@ -9711,9 +9711,6 @@ dependencies = [
  "pallet-timestamp",
  "pallet-utility",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-primitives",
- "polkadot-runtime-parachains",
  "pretty_assertions",
  "rand 0.8.5",
  "rand_pcg",
@@ -9732,7 +9729,6 @@ dependencies = [
  "wasm-instrument 0.4.0",
  "wasmi",
  "wat",
- "xcm-simulator",
 ]
 
 [[package]]
