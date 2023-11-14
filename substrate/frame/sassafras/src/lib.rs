@@ -492,59 +492,59 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let Call::submit_tickets { tickets } = call else { return InvalidTransaction::Call.into() };
-				// Discard tickets not coming from the local node or that are not
-				// yet included in a block
-				debug!(
+			let Call::submit_tickets { tickets } = call else {
+				return InvalidTransaction::Call.into()
+			};
+
+			// Discard tickets not coming from the local node or that are not
+			// yet included in a block
+			debug!(
+				target: LOG_TARGET,
+				"Validating unsigned from {} source",
+				match source {
+					TransactionSource::Local => "local",
+					TransactionSource::InBlock => "in-block",
+					TransactionSource::External => "external",
+				}
+			);
+
+			if source == TransactionSource::External {
+				// TODO @davxy: BRAINSTORM this `Local` requirement...
+				// If we only allow these txs on block production, then there is less chance to
+				// submit our tickets if we don't have enough authoring slots.
+				// If we have 0 slots => we have zero chances.
+				// Maybe this is one valid reason to introduce proxies.
+				// In short the question is >>> WHO HAS THE RIGHT TO SUBMIT A TICKET? <<<
+				//  A) The current epoch validators
+				//  B) Doesn't matter as far as the tickets are good (i.e. RVRF verify is ok)
+				// Maybe we also provide a signed extrinsic to submit tickets
+				// where the submitter doesn't pay if the tickets are good?
+				warn!(
 					target: LOG_TARGET,
-					"Validating unsigned from {} source",
-					match source {
-						TransactionSource::Local => "local",
-						TransactionSource::InBlock => "in-block",
-						TransactionSource::External => "external",
-					}
+					"Rejecting unsigned `submit_tickets` transaction from an external source",
 				);
-
-				if source == TransactionSource::External {
-					// TODO @davxy: BRAINSTORM this `Local` requirement...
-					// If we only allow these txs on block production, then there is less chance to
-					// submit our tickets if we don't have enough authoring slots.
-					// If we have 0 slots => we have zero chances.
-					// Maybe this is one valid reason to introduce proxies.
-					// In short the question is >>> WHO HAS THE RIGHT TO SUBMIT A TICKET? <<<
-					//  A) The current epoch validators
-					//  B) Doesn't matter as far as the tickets are good (i.e. RVRF verify is ok)
-					// Maybe we also provide a signed extrinsic to submit tickets
-					// where the submitter doesn't pay if the tickets are good?
-					warn!(
-						target: LOG_TARGET,
-						"Rejecting unsigned `submit_tickets` transaction from an external source",
-					);
-					return InvalidTransaction::BadSigner.into()
-				}
-
-				// Current slot should be less than half of epoch length.
-				let epoch_length = T::EpochLength::get();
-
-				let current_slot_idx = Self::current_slot_index();
-				if current_slot_idx > epoch_length / 2 {
-					warn!(target: LOG_TARGET, "Timeout to propose tickets, bailing out.",);
-					return InvalidTransaction::Stale.into()
-				}
-
-				// This should be set such that it is discarded after the first epoch half
-				let tickets_longevity = epoch_length / 2 - current_slot_idx;
-				let tickets_tag = tickets.using_encoded(|bytes| hashing::blake2_256(bytes));
-
-				ValidTransaction::with_tag_prefix("Sassafras")
-					.priority(TransactionPriority::max_value())
-					.longevity(tickets_longevity)
-					.and_provides(tickets_tag)
-					.propagate(true)
-					.build()
-			} else {
-				InvalidTransaction::Call.into()
+				return InvalidTransaction::BadSigner.into()
 			}
+
+			// Current slot should be less than half of epoch length.
+			let epoch_length = T::EpochLength::get();
+
+			let current_slot_idx = Self::current_slot_index();
+			if current_slot_idx > epoch_length / 2 {
+				warn!(target: LOG_TARGET, "Timeout to propose tickets, bailing out.",);
+				return InvalidTransaction::Stale.into()
+			}
+
+			// This should be set such that it is discarded after the first epoch half
+			let tickets_longevity = epoch_length / 2 - current_slot_idx;
+			let tickets_tag = tickets.using_encoded(|bytes| hashing::blake2_256(bytes));
+
+			ValidTransaction::with_tag_prefix("Sassafras")
+				.priority(TransactionPriority::max_value())
+				.longevity(tickets_longevity)
+				.and_provides(tickets_tag)
+				.propagate(true)
+				.build()
 		}
 	}
 }
@@ -685,11 +685,11 @@ impl<T: Config> Pallet<T> {
 		let next_epoch_tag = epoch_tag ^ 1;
 		let prev_epoch_tickets_count = &mut tickets_metadata.tickets_count[next_epoch_tag as usize];
 		if *prev_epoch_tickets_count != 0 {
-			(0..*prev_epoch_tickets_count).into_iter().for_each(|idx| {
+			for idx in 0..*prev_epoch_tickets_count {
 				if let Some(id) = TicketsIds::<T>::get((next_epoch_tag, idx)) {
 					TicketsData::<T>::remove(id);
 				}
-			});
+			}
 			*prev_epoch_tickets_count = 0;
 			TicketsMeta::<T>::set(tickets_metadata);
 		}
@@ -894,21 +894,19 @@ impl<T: Config> Pallet<T> {
 			// Push only ids with a value less than the current `upper_bound`.
 			// As ticket ids follow a uniform random distribution we expect to
 			// drop more or less half of the segment tickets here.
-			segment.into_iter().for_each(|id| {
-				if id < upper_bound {
-					sorted_candidates.push(id);
+			for ticket_id in segment {
+				if ticket_id < upper_bound {
+					sorted_candidates.push(ticket_id);
 				} else {
-					TicketsData::<T>::remove(id);
+					TicketsData::<T>::remove(ticket_id);
 				}
-			});
+			}
 
 			if sorted_candidates.len() > max_tickets {
 				// Sort, truncate good tickets, cleanup storage.
 				require_sort = false;
 				sorted_candidates.sort_unstable();
-				sorted_candidates[max_tickets..]
-					.iter()
-					.for_each(TicketsData::<T>::remove);
+				sorted_candidates[max_tickets..].iter().for_each(TicketsData::<T>::remove);
 				sorted_candidates.truncate(max_tickets);
 				upper_bound = sorted_candidates[max_tickets - 1];
 			}
@@ -967,19 +965,19 @@ impl<T: Config> Pallet<T> {
 
 		// Remove even-epoch data.
 		let tickets_count = tickets_metadata.tickets_count[0];
-		(0..tickets_count).into_iter().for_each(|idx| {
+		for idx in 0..tickets_count {
 			if let Some(id) = TicketsIds::<T>::get((0, idx)) {
 				TicketsData::<T>::remove(id);
 			}
-		});
+		}
 
 		// Remove odd-epoch data.
 		let tickets_count = tickets_metadata.tickets_count[1];
-		(0..tickets_count).into_iter().for_each(|idx| {
+		for idx in 0..tickets_count {
 			if let Some(id) = TicketsIds::<T>::get((1, idx)) {
 				TicketsData::<T>::remove(id);
 			}
-		});
+		}
 
 		// Remove all unsorted tickets segments.
 		let segments_count = tickets_metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
