@@ -79,18 +79,24 @@ mod tests;
 mod types;
 pub mod weights;
 
+use crate::types::{Username, SUFFIX_MAX_LENGTH, USERNAME_MAX_LENGTH};
+use codec::Encode;
 use frame_support::{
+	ensure,
 	pallet_prelude::DispatchResult,
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
 };
-use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
-use sp_std::prelude::*;
-pub use weights::WeightInfo;
-
 pub use pallet::*;
-pub use types::{
-	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
+use sp_runtime::{
+	traits::{AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
+	MultiSignature,
 };
+use sp_std::prelude::*;
+pub use types::{
+	AccountIdentifier, Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
+	Registration,
+};
+pub use weights::WeightInfo;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -113,7 +119,7 @@ pub mod pallet {
 		/// The currency trait.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
-		/// The amount held on deposit for a registered identity
+		/// The amount held on deposit for a registered identity.
 		#[pallet::constant]
 		type BasicDeposit: Get<BalanceOf<Self>>;
 
@@ -148,6 +154,17 @@ pub mod pallet {
 		/// The origin which may add or remove registrars. Root can always do this.
 		type RegistrarOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// The amount held on deposit for each username.
+		///
+		/// Guide: 1 storage item, 32 bytes.
+		type UsernameDeposit: Get<BalanceOf<Self>>;
+
+		/// The origin which may add or remove username authorities. Root can always do this.
+		type UsernameAuthorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The number of blocks within which a username authorization must be validated.
+		type PreapprovalExpiration: Get<BlockNumberFor<Self>>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -164,7 +181,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>,
+		(Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>, Option<Username>),
 		OptionQuery,
 	>;
 
@@ -211,6 +228,45 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// A map of the accounts who are authorized to grant usernames. The value is a byte vector that
+	/// represents a suffix appended to the username (e.g. ".wallet"). Suffixes should be unique and
+	/// start with a `.`, but it is up to the authority selection process (nominally, governance) to
+	/// enforce that.
+	#[pallet::storage]
+	#[pallet::getter(fn authority)]
+	pub(super) type UsernameAuthorities<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		BoundedVec<u8, ConstU32<SUFFIX_MAX_LENGTH>>,
+		OptionQuery,
+	>;
+
+	/// Reverse lookup from `username` to the `AccountId` that has registered it. The value should
+	/// be a key in the `IdentityOf` map. May return `None` in the case that an Identity owner has
+	/// not registered a username.
+	///
+	/// Multiple usernames may map to the same `AccountId`, but `IdentityOf` will only map to one
+	/// primary username.
+	#[pallet::storage]
+	#[pallet::getter(fn username)]
+	pub(super) type AccountOfUsername<T: Config> =
+		StorageMap<_, Twox64Concat, Username, T::AccountId, OptionQuery>;
+
+	/// Check if a user has pre-approved a username. Used primarily in cases where the `AccountId`
+	/// cannot provide a signature because they are a pure proxy, multisig, etc.
+	///
+	/// First tuple item is the username, second is the deposit held, and third is its expiration.
+	#[pallet::storage]
+	#[pallet::getter(fn preapproved_usernames)]
+	pub(super) type PreapprovedUsernames<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		(Username, BalanceOf<T>, BlockNumberFor<T>),
+		OptionQuery,
+	>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Too many subs-accounts.
@@ -247,6 +303,22 @@ pub mod pallet {
 		JudgementForDifferentIdentity,
 		/// Error that occurs when there is an issue paying for judgement.
 		JudgementPaymentFailed,
+		/// The provided suffix is too long.
+		InvalidSuffix,
+		/// The sender does not have permission to issue a username.
+		NotUsernameAuthority,
+		/// The signature on a username was not valid.
+		InvalidSignature,
+		/// Setting this username requires a signature, but none was provided.
+		RequiresSignature,
+		/// The username does not meet the requirements.
+		InvalidUsername,
+		/// The username is already taken.
+		UsernameTaken,
+		/// The requested username does not exist.
+		NoUsername,
+		/// The username cannot be forcefully removed because its preapproval has not expired.
+		NotExpired,
 	}
 
 	#[pallet::event]
@@ -273,6 +345,7 @@ pub mod pallet {
 		/// A sub-identity was cleared, and the given deposit repatriated from the
 		/// main identity account to the sub-identity account.
 		SubIdentityRevoked { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
+		// TODO: Add events
 	}
 
 	#[pallet::call]
@@ -329,36 +402,34 @@ pub mod pallet {
 			info: Box<T::IdentityInformation>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let encoded_byte_size = info.encoded_size() as u32;
-			let byte_deposit =
-				T::ByteDeposit::get().saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
 
-			let mut id = match <IdentityOf<T>>::get(&sender) {
-				Some(mut id) => {
-					// Only keep non-positive judgements.
-					id.judgements.retain(|j| j.1.is_sticky());
-					id.info = *info;
-					id
-				},
-				None => Registration {
-					info: *info,
-					judgements: BoundedVec::default(),
-					deposit: Zero::zero(),
-				},
+			let (mut id, username) = match <IdentityOf<T>>::get(&sender) {
+				Some((mut id, maybe_username)) => (
+					{
+						// Only keep non-positive judgements.
+						id.judgements.retain(|j| j.1.is_sticky());
+						id.info = *info;
+						id
+					},
+					maybe_username,
+				),
+				None => (
+					Registration {
+						info: *info,
+						judgements: BoundedVec::default(),
+						deposit: Zero::zero(),
+					},
+					None,
+				),
 			};
 
+			let new_deposit = Self::calculate_identity_deposit(&id.info);
 			let old_deposit = id.deposit;
-			id.deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
-			if id.deposit > old_deposit {
-				T::Currency::reserve(&sender, id.deposit - old_deposit)?;
-			}
-			if old_deposit > id.deposit {
-				let err_amount = T::Currency::unreserve(&sender, old_deposit - id.deposit);
-				debug_assert!(err_amount.is_zero());
-			}
+			Self::rejig_deposit(&sender, old_deposit, new_deposit)?;
 
+			id.deposit = new_deposit;
 			let judgements = id.judgements.len();
-			<IdentityOf<T>>::insert(&sender, id);
+			<IdentityOf<T>>::insert(&sender, (id, username));
 			Self::deposit_event(Event::IdentitySet { who: sender });
 
 			Ok(Some(T::WeightInfo::set_identity(judgements as u32)).into())
@@ -451,7 +522,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
-			let id = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NotNamed)?;
+			let (id, _username) = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NotNamed)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
@@ -500,7 +571,7 @@ pub mod pallet {
 				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::EmptyIndex)?;
 			ensure!(max_fee >= registrar.fee, Error::<T>::FeeChanged);
-			let mut id = <IdentityOf<T>>::get(&sender).ok_or(Error::<T>::NoIdentity)?;
+			let (mut id, username) = <IdentityOf<T>>::get(&sender).ok_or(Error::<T>::NoIdentity)?;
 
 			let item = (reg_index, Judgement::FeePaid(registrar.fee));
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
@@ -517,7 +588,7 @@ pub mod pallet {
 			T::Currency::reserve(&sender, registrar.fee)?;
 
 			let judgements = id.judgements.len();
-			<IdentityOf<T>>::insert(&sender, id);
+			<IdentityOf<T>>::insert(&sender, (id, username));
 
 			Self::deposit_event(Event::JudgementRequested {
 				who: sender,
@@ -544,7 +615,7 @@ pub mod pallet {
 			reg_index: RegistrarIndex,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let mut id = <IdentityOf<T>>::get(&sender).ok_or(Error::<T>::NoIdentity)?;
+			let (mut id, username) = <IdentityOf<T>>::get(&sender).ok_or(Error::<T>::NoIdentity)?;
 
 			let pos = id
 				.judgements
@@ -559,7 +630,7 @@ pub mod pallet {
 			let err_amount = T::Currency::unreserve(&sender, fee);
 			debug_assert!(err_amount.is_zero());
 			let judgements = id.judgements.len();
-			<IdentityOf<T>>::insert(&sender, id);
+			<IdentityOf<T>>::insert(&sender, (id, username));
 
 			Self::deposit_event(Event::JudgementUnrequested {
 				who: sender,
@@ -696,7 +767,8 @@ pub mod pallet {
 				.and_then(Option::as_ref)
 				.filter(|r| r.account == sender)
 				.ok_or(Error::<T>::InvalidIndex)?;
-			let mut id = <IdentityOf<T>>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
+			let (mut id, username) =
+				<IdentityOf<T>>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
 
 			if T::Hashing::hash_of(&id.info) != identity {
 				return Err(Error::<T>::JudgementForDifferentIdentity.into())
@@ -723,7 +795,7 @@ pub mod pallet {
 			}
 
 			let judgements = id.judgements.len();
-			<IdentityOf<T>>::insert(&target, id);
+			<IdentityOf<T>>::insert(&target, (id, username));
 			Self::deposit_event(Event::JudgementGiven { target, registrar_index: reg_index });
 
 			Ok(Some(T::WeightInfo::provide_judgement(judgements as u32)).into())
@@ -756,7 +828,7 @@ pub mod pallet {
 			let target = T::Lookup::lookup(target)?;
 			// Grab their deposit (and check that they have one).
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&target);
-			let id = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NotNamed)?;
+			let (id, _username) = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NotNamed)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
@@ -885,6 +957,237 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		/// Add an `AccountId` with permission to grant usernames with a given `suffix` appended.
+		#[pallet::call_index(15)]
+		#[pallet::weight(1)]
+		pub fn add_username_authority(
+			origin: OriginFor<T>,
+			authority: AccountIdLookupOf<T>,
+			suffix: Vec<u8>,
+		) -> DispatchResult {
+			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
+			let authority = T::Lookup::lookup(authority)?;
+			// suffix has same regex rules as the username.
+			Self::validate_username(&suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
+			let suffix = BoundedVec::<u8, ConstU32<SUFFIX_MAX_LENGTH>>::try_from(suffix)
+				.map_err(|_| Error::<T>::InvalidSuffix)?;
+			// The authority may already exist, but we don't need to check. They might be changing
+			// their suffix, so we just want to overwrite whatever was there.
+			UsernameAuthorities::<T>::insert(&authority, suffix);
+			Ok(())
+		}
+
+		/// Set the username for `who`. Must be called by a username authority.
+		#[pallet::call_index(16)]
+		#[pallet::weight(1)]
+		pub fn set_username_for(
+			origin: OriginFor<T>,
+			who: AccountIdentifier<T::AccountId>,
+			username: Vec<u8>,
+			signature: Option<MultiSignature>,
+		) -> DispatchResult {
+			// Ensure origin is a Username Authority.
+			let sender = ensure_signed(origin)?;
+			let suffix = if let Some(s) = UsernameAuthorities::<T>::get(&sender) {
+				s
+			} else {
+				return Err(Error::<T>::NotUsernameAuthority.into())
+			};
+
+			// Verify input length before allocating a Vec with the user's input.
+			ensure!(
+				username.len().saturating_add(suffix.len()) as u32 <= USERNAME_MAX_LENGTH,
+				Error::<T>::InvalidUsername
+			);
+
+			// Ensure that the username only contains allowed characters. We already know the suffix
+			// does.
+			Self::validate_username(&username)?;
+
+			// Concatenate the username with suffix and cast into a BoundedVec. Should be infallible
+			// since we already ensured it is below the max length.
+			let mut full_username = Vec::with_capacity(username.len().saturating_add(suffix.len()));
+			full_username.extend(username);
+			full_username.extend(suffix);
+			let bounded_username =
+				Username::try_from(full_username).map_err(|_| Error::<T>::InvalidUsername)?;
+
+			// Usernames must be unique. Ensure it's not taken.
+			ensure!(
+				!AccountOfUsername::<T>::contains_key(bounded_username.clone()),
+				Error::<T>::UsernameTaken
+			);
+
+			// Verify `signature` that `who` has signed their `username` (i.e. have requested it
+			// themselves).
+			let (who, requires_deposit) = match who {
+				// Ensure the account has preapproved this username.
+				AccountIdentifier::AbstractAccount(a) => {
+					ensure!(signature.is_none(), Error::<T>::InvalidSignature);
+					if let Some((u, _, _)) = PreapprovedUsernames::<T>::take(&a) {
+						// username may have expired, but it's there and hasn't been reaped. we are
+						// cleaning the storage and keeping the deposit, so no harm.
+						ensure!(
+							u.to_vec() == bounded_username.to_vec(),
+							Error::<T>::InvalidUsername
+						);
+					} else {
+						return Err(Error::<T>::NoUsername.into())
+					}
+					(a, false)
+					//  ^^^^^
+					// the account has already placed a deposit
+				},
+
+				// Account has pre-signed an authorization. Verify the signature provided.
+				AccountIdentifier::KeyedAccount(ms) => {
+					let signature = signature.ok_or(Error::<T>::RequiresSignature)?;
+					let valid = bounded_username.to_vec().using_encoded(|encoded| {
+						signature.verify(encoded, &ms.clone().into_account())
+					});
+					ensure!(valid, Error::<T>::InvalidSignature);
+
+					// It's late and I'm frustrated. Obviously do not keep.
+					//
+					// `MultiSigner` is either 32 byte (ED/SR) or 33 byte (ECDSA) public keys and
+					// already implements `into_account` for `type AccountId = AccountId32`. Is it
+					// possible (or desirable) to say that the `AccountId` type of the runtime must
+					// be able to convert a 32 or 33 byte array to an `AccountId`? Or to just make
+					// it fail if it doesn't?
+					use sp_runtime::traits::TrailingZeroInput;
+					let dummy = T::AccountId::decode(&mut TrailingZeroInput::new(&[][..]))
+						.expect("infinite input; qed");
+					(dummy, true)
+					//      ^^^^
+					// the account must place a deposit
+				},
+			};
+
+			// Check if they already have a primary. If so, leave it. If not, set it.
+			// Likewise, check if they have an identity. If not, give them a minimal one.
+			let (reg, primary_username) = match <IdentityOf<T>>::get(&who) {
+				// User has an existing Identity.
+				Some((reg, maybe_username)) => {
+					if let Some(u) = maybe_username {
+						// User already has a "primary" username.
+						(reg, u)
+					} else {
+						// User does not have a primary. Set the new one.
+						(reg, bounded_username.clone())
+					}
+				},
+				// User does not have an existing Identity. Give them a fresh default one.
+				None => (
+					Registration {
+						info: T::IdentityInformation::default(),
+						judgements: BoundedVec::default(),
+						deposit: Zero::zero(),
+					},
+					bounded_username.clone(),
+				),
+			};
+
+			// Correct deposit for IdentityInfo
+			let new_id_deposit = Self::calculate_identity_deposit(&reg.info);
+			Self::rejig_deposit(&who, reg.deposit, new_id_deposit)?;
+
+			// Take deposit for username (if not already taken in preapproval).
+			if requires_deposit {
+				let deposit = T::UsernameDeposit::get();
+				T::Currency::reserve(&who, deposit)?;
+			}
+
+			// Enter in identity map.
+			IdentityOf::<T>::insert(&who, (reg, Some(primary_username)));
+			// Enter in username map.
+			AccountOfUsername::<T>::insert(bounded_username, &who);
+
+			Ok(())
+		}
+
+		/// Approve a `username` for `origin`. For accounts corresponding to cryptographic key
+		/// pairs, this call is optional, as they can just provide a signature on their desired
+		/// username for the authority to include in `set_username_for`.
+		///
+		/// The preapproval call is meant for accounts that do _not_ correspond to a cryptographic
+		/// key pair, e.g. a pure proxy or multisig. These accounts can use the preapproval to
+		/// register a desired username that an authority can then grant.
+		///
+		/// Preapproving does not guarantee a claim on the `username`.
+		///
+		/// The username _must_ include a suffix as a means to designate the approver.
+		#[pallet::call_index(17)]
+		#[pallet::weight(1)]
+		pub fn preapprove_username(origin: OriginFor<T>, username: Vec<u8>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let bounded_username =
+				Username::try_from(username).map_err(|_| Error::<T>::InvalidUsername)?;
+
+			let now = frame_system::Pallet::<T>::block_number();
+			let expiration = now.saturating_add(T::PreapprovalExpiration::get());
+
+			let deposit = T::UsernameDeposit::get();
+			T::Currency::reserve(&who, deposit)?;
+
+			PreapprovedUsernames::<T>::insert(&who, (bounded_username, deposit, expiration));
+			Ok(())
+		}
+
+		/// Remove a preapproval for a username.
+		#[pallet::call_index(18)]
+		#[pallet::weight(1)]
+		pub fn remove_preapproval(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			if let Some((_, deposit, _)) = PreapprovedUsernames::<T>::take(&who) {
+				let err_amount = T::Currency::unreserve(&who, deposit);
+				debug_assert!(err_amount.is_zero());
+				Ok(())
+			} else {
+				Err(Error::<T>::NoUsername.into())
+			}
+		}
+
+		/// Remove an expired username preapproval.
+		#[pallet::call_index(19)]
+		#[pallet::weight(1)]
+		pub fn remove_expired_preapproval(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let who = T::Lookup::lookup(who)?;
+			if let Some((_, deposit, expiration)) = PreapprovedUsernames::<T>::take(&who) {
+				let now = frame_system::Pallet::<T>::block_number();
+				ensure!(now > expiration, Error::<T>::NotExpired);
+
+				let err_amount = T::Currency::unreserve(&who, deposit);
+				debug_assert!(err_amount.is_zero());
+
+				Ok(Pays::No.into())
+			} else {
+				Err(Error::<T>::NoUsername.into())
+			}
+		}
+
+		/// Set a given username as the primary. The username should include the suffix.
+		#[pallet::call_index(20)]
+		#[pallet::weight(1)]
+		pub fn set_primary_username(origin: OriginFor<T>, username: Vec<u8>) -> DispatchResult {
+			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
+			let who = ensure_signed(origin)?;
+			let bounded_username =
+				Username::try_from(username).map_err(|_| Error::<T>::InvalidUsername)?;
+			ensure!(
+				AccountOfUsername::<T>::get(bounded_username.clone()).is_some(),
+				Error::<T>::NoUsername
+			);
+			// todo: mutate_extant?
+			let (registration, _maybe_username) =
+				IdentityOf::<T>::get(&who).ok_or(Error::<T>::NoIdentity)?;
+			IdentityOf::<T>::insert(&who, (registration, Some(bounded_username)));
+			Ok(())
+		}
 	}
 }
 
@@ -904,6 +1207,36 @@ impl<T: Config> Pallet<T> {
 		fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
 	) -> bool {
 		IdentityOf::<T>::get(who)
-			.map_or(false, |registration| (registration.info.has_identity(fields)))
+			.map_or(false, |(registration, _username)| (registration.info.has_identity(fields)))
+	}
+
+	/// Calculate the deposit required for an identity.
+	fn calculate_identity_deposit(info: &T::IdentityInformation) -> BalanceOf<T> {
+		let bytes = info.encoded_size() as u32;
+		let byte_deposit = T::ByteDeposit::get().saturating_mul(<BalanceOf<T>>::from(bytes));
+		T::BasicDeposit::get().saturating_add(byte_deposit)
+	}
+
+	/// Take the `current` deposit that `who` is holding, and update it to a `new` one.
+	fn rejig_deposit(
+		who: &T::AccountId,
+		current: BalanceOf<T>,
+		new: BalanceOf<T>,
+	) -> DispatchResult {
+		if new > current {
+			T::Currency::reserve(who, new - current)?;
+		} else if new < current {
+			let err_amount = T::Currency::unreserve(who, current - new);
+			debug_assert!(err_amount.is_zero());
+		}
+		Ok(())
+	}
+
+	/// Validate that a username conforms to allowed characters/format.
+	fn validate_username(username: &Vec<u8>) -> DispatchResult {
+		use regex::bytes::Regex;
+		let re = Regex::new(r"^[A-Za-z0-9-.:_]+$").unwrap();
+		ensure!(re.is_match(&username[..]), Error::<T>::InvalidUsername);
+		Ok(())
 	}
 }

@@ -27,7 +27,7 @@ use scale_info::{
 };
 use sp_runtime::{
 	traits::{Member, Zero},
-	RuntimeDebug,
+	MultiSigner, RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 
@@ -240,6 +240,9 @@ pub trait IdentityInformationProvider:
 	/// Check if an identity registered information for some given `fields`.
 	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool;
 
+	/// Construct a default instance of `Self`.
+	fn default() -> Self;
+
 	/// Create a basic instance of the identity information.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self;
@@ -318,6 +321,39 @@ pub struct RegistrarInfo<
 	/// these fields.
 	pub fields: IdField,
 }
+
+/// The maximum allowed length of a suffix.
+pub(crate) const SUFFIX_MAX_LENGTH: u32 = 8;
+/// The maximum allowed length of a username, _including_ the suffix.
+pub(crate) const USERNAME_MAX_LENGTH: u32 = 32;
+/// A byte vec used to represent a username.
+pub(crate) type Username = BoundedVec<u8, ConstU32<USERNAME_MAX_LENGTH>>;
+
+#[derive(Clone, Debug, Encode, Decode, PartialEq, TypeInfo)]
+pub enum AccountIdentifier<AccountId: Clone + Decode + Debug + Encode + PartialEq + TypeInfo> {
+	AbstractAccount(AccountId),
+	KeyedAccount(MultiSigner),
+}
+
+// impl<AccountId> IdentifyAccount for AccountIdentifier<AccountId>
+// where
+// 	AccountId: Clone + Debug + PartialEq,
+// {
+// 	type AccountId = AccountId;
+// 	fn into_account(self) -> AccountId {
+// 		let account = match self {
+// 			AccountIdentifier::AbstractAccount(a) => a,
+// 			AccountIdentifier::KeyedAccount(ms) => {
+// 				match ms {
+// 					MultiSigner::Ed25519(pk) => pk.into_account_truncating(),
+// 					MultiSigner::Sr25519(pk) => pk.into_account_truncating(),
+// 					MultiSigner::Ecdsa(pk) => pk.into_account_truncating(),
+// 				}
+// 			}
+// 		};
+// 		account
+// 	}
+// }
 
 #[cfg(test)]
 mod tests {
