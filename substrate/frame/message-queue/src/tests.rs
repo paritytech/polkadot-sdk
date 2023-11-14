@@ -1662,3 +1662,24 @@ fn integrity_test_checks_service_weight() {
 		}
 	});
 }
+
+#[test]
+fn regression_issue_2319() {
+	build_and_execute::<Test>(|| {
+		Callback::set(Box::new(|_| {
+			MessageQueue::enqueue_message(mock_helpers::msg("anothermessage"), There);
+		}));
+
+		use MessageOrigin::*;
+		MessageQueue::enqueue_message(msg("callback=0"), Here);
+
+		// while servicing queue Here, "anothermessage" of origin There is enqueued in
+		// "firstmessage"'s process_message
+		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
+		assert_eq!(MessagesProcessed::take(), vec![(b"callback=0".to_vec(), Here)]);
+
+		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
+		// expects anothermessage to be processed, but it isn't procssed at all
+		assert_eq!(MessagesProcessed::take(), vec![(b"anothermessage".to_vec(), There)]);
+	});
+}

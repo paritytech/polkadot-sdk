@@ -215,11 +215,22 @@ impl ProcessMessage for RecordingMessageProcessor {
 	}
 }
 
+parameter_types! {
+	pub static Callback: Box<fn (u32)> = Box::new(|_| {});
+}
+
 /// Processed a mocked message. Messages that end with `badformat`, `corrupt`, `unsupported` or
 /// `yield` will fail with an error respectively.
 fn processing_message(msg: &[u8], origin: &MessageOrigin) -> Result<(), ProcessMessageError> {
 	if YieldingQueues::get().contains(&origin) {
 		return Err(ProcessMessageError::Yield)
+	}
+
+	if let Some(p) = msg.strip_prefix(&b"callback="[..]) {
+		log::info!("recursive");
+		let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
+		Callback::get()(s.parse().expect("Expected an u32"));
+		return Ok(())
 	}
 
 	let msg = String::from_utf8_lossy(msg);
