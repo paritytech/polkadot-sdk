@@ -27,6 +27,7 @@ polkadot-core-primitives = { path = "../../../core-primitives" }
 polkadot-node-core-pvf-common = { path = "common" }
 polkadot-node-metrics = { path = "../../metrics" }
 polkadot-node-primitives = { path = "../../primitives" }
+polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-primitives = { path = "../../../primitives" }
 
 sp-core = { path = "../../../../substrate/primitives/core" }

@@ -150,7 +150,7 @@ async fn run<Context>(
 		),
 		pvf_metrics,
 	)
-	.await;
+	.await?;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	loop {
