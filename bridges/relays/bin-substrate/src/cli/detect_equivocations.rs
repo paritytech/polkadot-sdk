@@ -20,9 +20,9 @@ use crate::{
 			kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
 			polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
 		},
-		rococo_wococo::{
-			rococo_headers_to_bridge_hub_wococo::RococoToBridgeHubWococoCliBridge,
-			wococo_headers_to_bridge_hub_rococo::WococoToBridgeHubRococoCliBridge,
+		rococo_westend::{
+			rococo_headers_to_bridge_hub_westend::RococoToBridgeHubWestendCliBridge,
+			westend_headers_to_bridge_hub_rococo::WestendToBridgeHubRococoCliBridge,
 		},
 	},
 	cli::{bridge::*, chain_schema::*, PrometheusParams},
@@ -53,10 +53,10 @@ pub struct DetectEquivocations {
 #[strum(serialize_all = "kebab_case")]
 /// Equivocations detection bridge.
 pub enum DetectEquivocationsBridge {
-	RococoToBridgeHubWococo,
-	WococoToBridgeHubRococo,
 	KusamaToBridgeHubPolkadot,
 	PolkadotToBridgeHubKusama,
+	RococoToBridgeHubWestend,
+	WestendToBridgeHubRococo,
 }
 
 #[async_trait]
@@ -82,23 +82,23 @@ where
 	}
 }
 
-impl EquivocationsDetector for RococoToBridgeHubWococoCliBridge {}
-impl EquivocationsDetector for WococoToBridgeHubRococoCliBridge {}
 impl EquivocationsDetector for KusamaToBridgeHubPolkadotCliBridge {}
 impl EquivocationsDetector for PolkadotToBridgeHubKusamaCliBridge {}
+impl EquivocationsDetector for RococoToBridgeHubWestendCliBridge {}
+impl EquivocationsDetector for WestendToBridgeHubRococoCliBridge {}
 
 impl DetectEquivocations {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
-			DetectEquivocationsBridge::RococoToBridgeHubWococo =>
-				RococoToBridgeHubWococoCliBridge::start(self),
-			DetectEquivocationsBridge::WococoToBridgeHubRococo =>
-				WococoToBridgeHubRococoCliBridge::start(self),
 			DetectEquivocationsBridge::KusamaToBridgeHubPolkadot =>
 				KusamaToBridgeHubPolkadotCliBridge::start(self),
 			DetectEquivocationsBridge::PolkadotToBridgeHubKusama =>
 				PolkadotToBridgeHubKusamaCliBridge::start(self),
+			DetectEquivocationsBridge::RococoToBridgeHubWestend =>
+				RococoToBridgeHubWestendCliBridge::start(self),
+			DetectEquivocationsBridge::WestendToBridgeHubRococo =>
+				WestendToBridgeHubRococoCliBridge::start(self),
 		}
 		.await
 	}
