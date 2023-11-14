@@ -54,7 +54,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
-use pallet_nfts::PalletFeatures;
+use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_xcm::EnsureXcm;
 pub use parachains_common as common;
 use parachains_common::{
@@ -69,7 +69,9 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
+	traits::{
+		AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Saturating, Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
@@ -944,7 +946,78 @@ pub type Migrations = (
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	// unreleased
 	InitStorageVersions,
+	// unreleased
+	DeleteUndecodableStorage,
 );
+
+/// Asset Hub Westend has some undecodable storage, delete it.
+/// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.
+///
+/// First we remove the bad Hold, then the bad NFT collection.
+pub struct DeleteUndecodableStorage;
+
+impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
+	fn on_runtime_upgrade() -> Weight {
+		use sp_core::crypto::Ss58Codec;
+
+		let mut writes = 0;
+
+		// Remove Holds for account with undecodable hold
+		// Westend doesn't have any HoldReasons implemented yet, so it's safe to just blanket remove
+		// any for this account.
+		match AccountId::from_ss58check("5GCCJthVSwNXRpbeg44gysJUx9vzjdGdfWhioeM7gCg6VyXf") {
+			Ok(a) => {
+				log::info!("Removing holds for account with bad hold");
+				pallet_balances::Holds::<Runtime, ()>::remove(a);
+				writes.saturating_inc();
+			},
+			Err(_) => {
+				log::error!("CleanupUndecodableStorage: Somehow failed to convert valid SS58 address into an AccountId!");
+			},
+		};
+
+		// Destroy undecodable NFT item 1
+		writes.saturating_inc();
+		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 1, |_| Ok(())) {
+			Ok(_) => {
+				log::info!("Destroyed undecodable NFT item 1");
+			},
+			Err(e) => {
+				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
+			},
+		}
+
+		// Destroy undecodable NFT item 2
+		writes.saturating_inc();
+		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 2, |_| Ok(())) {
+			Ok(_) => {
+				log::info!("Destroyed undecodable NFT item 2");
+			},
+			Err(e) => {
+				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
+			},
+		}
+
+		// Finally, we can destroy the collection
+		writes.saturating_inc();
+		match pallet_nfts::Pallet::<Runtime, ()>::do_destroy_collection(
+			3,
+			DestroyWitness { attributes: 0, item_metadatas: 1, item_configs: 0 },
+			None,
+		) {
+			Ok(_) => {
+				log::info!("Destroyed undecodable NFT collection");
+			},
+			Err(e) => {
+				log::error!("Failed to destroy undecodable NFT collection: {:?}", e);
+			},
+		};
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
+	}
+}
 
 /// Migration to initialize storage versions for pallets added after genesis.
 ///
@@ -957,7 +1030,6 @@ pub struct InitStorageVersions;
 impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 	fn on_runtime_upgrade() -> Weight {
 		use frame_support::traits::{GetStorageVersion, StorageVersion};
-		use sp_runtime::traits::Saturating;
 
 		let mut writes = 0;
 
