@@ -146,7 +146,6 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -170,6 +169,7 @@
 </span><span class="doccomment">//! API trait of the chain head.
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_head::event::{FollowEvent, MethodResponse, StorageQuery};
 <span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
+<span class="kw">use </span>sp_rpc::list::ListOrValue;
 
 <span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>ChainHeadApi&lt;Hash&gt; {
@@ -222,14 +222,6 @@
 		hash: Hash,
 	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;;
 
-	<span class="doccomment">/// Get the chain&#39;s genesis hash.
-	///
-	/// # Unstable
-	///
-	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_genesisHash&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_genesis_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt;;
-
 	<span class="doccomment">/// Returns storage entries at a specific block&#39;s state.
 	///
 	/// # Unstable
@@ -258,16 +250,22 @@
 		call_parameters: String,
 	) -&gt; RpcResult&lt;MethodResponse&gt;;
 
-	<span class="doccomment">/// Unpin a block reported by the `follow` method.
+	<span class="doccomment">/// Unpin a block or multiple blocks reported by the `follow` method.
 	///
 	/// Ongoing operations that require the provided block
 	/// will continue normally.
+	///
+	/// When this method returns an error, it is guaranteed that no blocks have been unpinned.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
 	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_unpin&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_unpin(<span class="kw-2">&amp;</span><span class="self">self</span>, follow_subscription: String, hash: Hash) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">fn </span>chain_head_unstable_unpin(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		follow_subscription: String,
+		hash_or_hashes: ListOrValue&lt;Hash&gt;,
+	) -&gt; RpcResult&lt;()&gt;;
 
 	<span class="doccomment">/// Resumes a storage fetch started with `chainHead_storage` after it has generated an
 	/// `operationWaitingForContinue` event.

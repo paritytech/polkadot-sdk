@@ -135,6 +135,7 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -231,22 +232,23 @@
 		inner.pin_block(sub_id, hash)
 	}
 
-	<span class="doccomment">/// Unpin the block from the subscription.
+	<span class="doccomment">/// Unpin the blocks from the subscription.
 	///
-	/// The last subscription that unpins the block is also unpinning the block
-	/// from the backend.
+	/// Blocks are reference counted and when the last subscription unpins a given block, the block
+	/// is also unpinned from the backend.
 	///
 	/// This method is called only once per subscription.
 	///
-	/// Returns an error if the block is not pinned for the subscription or
-	/// the subscription ID is invalid.
-	</span><span class="kw">pub fn </span>unpin_block(
+	/// Returns an error if the subscription ID is invalid, or any of the blocks are not pinned
+	/// for the subscriptions. When an error is returned, it is guaranteed that no blocks have
+	/// been unpinned.
+	</span><span class="kw">pub fn </span>unpin_blocks(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		sub_id: <span class="kw-2">&amp;</span>str,
-		hash: Block::Hash,
+		hashes: <span class="kw">impl </span>IntoIterator&lt;Item = Block::Hash&gt; + Clone,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubscriptionManagementError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write();
-		inner.unpin_block(sub_id, hash)
+		inner.unpin_blocks(sub_id, hashes)
 	}
 
 	<span class="doccomment">/// Ensure the block remains pinned until the return object is dropped.

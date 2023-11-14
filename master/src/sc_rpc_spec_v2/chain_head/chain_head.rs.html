@@ -480,7 +480,6 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -531,6 +530,7 @@
 <span class="kw">use </span>sp_api::CallApiAt;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_core::{traits::CallContext, Bytes};
+<span class="kw">use </span>sp_rpc::list::ListOrValue;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -589,8 +589,6 @@
 	</span>executor: SubscriptionTaskExecutor,
 	<span class="doccomment">/// Keep track of the pinned blocks for each subscription.
 	</span>subscriptions: Arc&lt;SubscriptionManagement&lt;Block, BE&gt;&gt;,
-	<span class="doccomment">/// The hexadecimal encoded hash of the genesis block.
-	</span>genesis_hash: String,
 	<span class="doccomment">/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	</span>operation_max_storage_items: usize,
@@ -600,14 +598,12 @@
 
 <span class="kw">impl</span>&lt;BE: Backend&lt;Block&gt;, Block: BlockT, Client&gt; ChainHead&lt;BE, Block, Client&gt; {
 	<span class="doccomment">/// Create a new [`ChainHead`].
-	</span><span class="kw">pub fn </span>new&lt;GenesisHash: AsRef&lt;[u8]&gt;&gt;(
+	</span><span class="kw">pub fn </span>new(
 		client: Arc&lt;Client&gt;,
 		backend: Arc&lt;BE&gt;,
 		executor: SubscriptionTaskExecutor,
-		genesis_hash: GenesisHash,
 		config: ChainHeadConfig,
 	) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>genesis_hash = hex_string(<span class="kw-2">&amp;</span>genesis_hash.as_ref());
 		<span class="self">Self </span>{
 			client,
 			backend: backend.clone(),
@@ -619,7 +615,6 @@
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
-			genesis_hash,
 			_phantom: PhantomData,
 		}
 	}
@@ -797,10 +792,6 @@
 			.map_err(Into::into)
 	}
 
-	<span class="kw">fn </span>chain_head_unstable_genesis_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt; {
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.genesis_hash.clone())
-	}
-
 	<span class="kw">fn </span>chain_head_unstable_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
@@ -915,9 +906,16 @@
 	<span class="kw">fn </span>chain_head_unstable_unpin(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
-		hash: Block::Hash,
+		hash_or_hashes: ListOrValue&lt;Block::Hash&gt;,
 	) -&gt; RpcResult&lt;()&gt; {
-		<span class="kw">match </span><span class="self">self</span>.subscriptions.unpin_block(<span class="kw-2">&amp;</span>follow_subscription, hash) {
+		<span class="kw">let </span>result = <span class="kw">match </span>hash_or_hashes {
+			ListOrValue::Value(hash) =&gt;
+				<span class="self">self</span>.subscriptions.unpin_blocks(<span class="kw-2">&amp;</span>follow_subscription, [hash]),
+			ListOrValue::List(hashes) =&gt;
+				<span class="self">self</span>.subscriptions.unpin_blocks(<span class="kw-2">&amp;</span>follow_subscription, hashes),
+		};
+
+		<span class="kw">match </span>result {
 			<span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::SubscriptionAbsent) =&gt; {
 				<span class="comment">// Invalid invalid subscription ID.
