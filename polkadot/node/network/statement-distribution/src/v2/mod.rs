@@ -758,6 +758,13 @@ fn pending_statement_network_message(
 	originator: ValidatorIndex,
 	compact: CompactStatement,
 ) -> Option<(Vec<PeerId>, net_protocol::VersionedValidationProtocol)> {
+	gum::info!(
+		target: LOG_TARGET,
+		peer = ?peer.0,
+		candidate_hash = ?compact.candidate_hash(),
+		"pending_statement_network_message"
+	);
+
 	match peer.1 {
 		ValidationVersion::V2 => statement_store
 			.validator_statement(originator, compact)
@@ -1254,6 +1261,15 @@ async fn circulate_statement<Context>(
 				);
 			},
 		}
+	}
+
+	for peer in &statement_to_peers {
+		gum::info!(
+			target: LOG_TARGET,
+			peer = ?peer.0,
+			candidate_hash = ?statement.payload().candidate_hash(),
+			"circulate_statement"
+		);
 	}
 
 	let statement_to_v2_peers =
@@ -2267,6 +2283,13 @@ fn post_acknowledgement_statement_messages(
 			recipient,
 			statement.payload(),
 		);
+		gum::info!(
+			target: LOG_TARGET,
+			peer = ?peer.0,
+			candidate_hash = ?statement.payload().candidate_hash(),
+			"post_acknoledgement"
+		);
+
 		match peer.1.into() {
 			ValidationVersion::V2 => messages.push(Versioned::V2(
 				protocol_v2::StatementDistributionMessage::Statement(
