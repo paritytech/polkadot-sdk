@@ -2748,7 +2748,7 @@ pub mod env {
 	///   is placed.
 	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::VersionedMessage`] is placed.
 	/// - `msg_len`: the length of the message in bytes.
-	/// - `output_ptr`: the pointer into the linear memory where the message id is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::v3::XcmHash`] message id is placed.
 	///
 	/// # Return Value
 	///
