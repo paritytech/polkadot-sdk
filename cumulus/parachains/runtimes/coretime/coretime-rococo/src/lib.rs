@@ -600,17 +600,11 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_timestamp, Timestamp]
-		[parachain_info, ParachainInfo]
 		[pallet_balances, Balances]
-		[pallet_transaction_payment, TransactionPayment]
-		[pallet_authorship, Authorship]
 		[pallet_collator_selection, CollatorSelection]
 		[pallet_session, SessionBench::<Runtime>]
-		[pallet_aura, Aura]
-		[cumulus_pallat_aura_ext, AuraExt]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm, PolkadotXcm]
-		[cumulus_pallet_xcm, CumulusXcm]
 		[cumulus_pallet_dmp_queue, DmpQueue]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
@@ -842,7 +836,7 @@ impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					XcmConfig,
+					xcm_config::XcmConfig,
 					ExistentialDepositMultiAsset,
 					xcm_config::PriceForParentDelivery,
 				>;
