@@ -144,12 +144,22 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
 
+		/// The fee required to perform a validation code upgrade for a parachain.
+		///
+		/// This is used to discourage spamming parachain upgrades.
 		#[pallet::constant]
 		type UpgradeFee: Get<BalanceOf<Self>>;
 
+		/// Since the fees paid are not reserved, but are actually removed from the initializer of
+		/// the upgrade this specifies the location to which the tokens will be moved.
+		///
+		/// NOTE: In most cases this will either go to treasury or simply get burned.
 		#[pallet::constant]
 		type FeeReceiver: Get<Self::AccountId>;
 
+		/// Type used to get the sovereign account of a parachain.
+		///
+		/// This is used to enable reserving a deposit from parachains.
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
 		/// Weight Information for the Extrinsics in the Pallet
@@ -414,6 +424,9 @@ pub mod pallet {
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
+		///
+		/// In case the call is made by the parachain manager or the parachain itself the upgrade
+		/// fee and potential storage costs will be reserved.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::schedule_code_upgrade(new_code.0.len() as u32))]
 		pub fn schedule_code_upgrade(
@@ -429,7 +442,8 @@ pub mod pallet {
 				ensure!(para_info.manager == caller, Error::<T>::NotOwner);
 
 				Some(caller)
-			} else if let Ok(_) = ensure_root(origin) {
+			} else if ensure_root(origin).is_ok() {
+				// Root doesn't pay.
 				None
 			} else {
 				let location: MultiLocation = (Parent, Parachain(para.into())).into();
@@ -666,6 +680,9 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Schedules a code upgrade for a parachain.
+	///
+	/// In case the `fee_payer` is defined fees will be charged and extra deposit will be requried.
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
@@ -693,6 +710,8 @@ impl<T: Config> Pallet<T> {
 			} else if current_deposit < new_deposit {
 				// An additional deposit is required to cover for the new validation code which has
 				// a greater size compared to the old one.
+
+				// NOTE: what if the upgrade fails? This should be removed or moved to another place.
 				let excess = new_deposit.saturating_sub(current_deposit);
 				<T as Config>::Currency::reserve(&payer, excess)?;
 			}
