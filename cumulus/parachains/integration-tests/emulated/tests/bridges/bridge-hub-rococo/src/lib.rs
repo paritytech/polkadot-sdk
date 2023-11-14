@@ -45,7 +45,9 @@ pub use rococo_westend_system_emulated_network::{
 	asset_hub_rococo_emulated_chain::{
 		genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 	},
-	asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+	asset_hub_westend_emulated_chain::{
+		genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+	},
 	bridge_hub_rococo_emulated_chain::{
 		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 	},
