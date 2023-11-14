@@ -623,7 +623,7 @@ impl GridTracker {
 		if let Some((_, c_h, kind, in_group)) =
 			extract_statement_and_group_info(groups, originator, statement).0
 		{
-			gum::info!(target: LOG_TARGET, validator_index = ?originator, candidate_hash = ?c_h, ?counterparty, "Sent direct statement");
+			gum::info!(target: LOG_TARGET, validator_index = ?originator, candidate_hash = ?c_h, ?counterparty, ?in_group, "Sent direct statement");
 
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
 				known.sent_direct_statement(counterparty, in_group, kind);
@@ -645,7 +645,7 @@ impl GridTracker {
 		if let Some((_, c_h, kind, in_group)) =
 			extract_statement_and_group_info(groups, originator, statement).0
 		{
-			gum::info!(target: LOG_TARGET, validator_index = ?originator, candidate_hash = ?c_h, ?counterparty, "Received direct statement");
+			gum::info!(target: LOG_TARGET, validator_index = ?originator, candidate_hash = ?c_h, ?counterparty, ?in_group, "Received direct statement");
 
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
 				known.received_direct_statement(counterparty, in_group, kind);
