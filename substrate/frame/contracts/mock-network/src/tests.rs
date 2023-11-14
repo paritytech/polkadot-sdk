@@ -19,8 +19,7 @@ use crate::{
 	parachain::{self, Runtime},
 	parachain_account_sovereign_account_id,
 	primitives::{AccountId, CENTS},
-	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB,
-	INITIAL_BALANCE,
+	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
