@@ -35,6 +35,7 @@ use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	pvf::PvfPrepData,
 };
+use polkadot_node_subsystem::SubsystemResult;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
 	collections::HashMap,
@@ -203,7 +204,10 @@ impl Config {
 /// The future should not return normally but if it does then that indicates an unrecoverable error.
 /// In that case all pending requests will be canceled, dropping the result senders and new ones
 /// will be rejected.
-pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<Output = ()>) {
+pub async fn start(
+	config: Config,
+	metrics: Metrics,
+) -> SubsystemResult<(ValidationHost, impl Future<Output = ()>)> {
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Run checks for supported security features once per host startup. Warn here if not enabled.
@@ -273,7 +277,7 @@ pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Fu
 		};
 	};
 
-	(validation_host, task)
+	Ok((validation_host, task))
 }
 
 /// A mapping from an artifact ID which is in preparation state to the list of pending execution
