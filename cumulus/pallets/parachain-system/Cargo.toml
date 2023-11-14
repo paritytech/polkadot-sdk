@@ -33,7 +33,7 @@ polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "3.0.1" }
 
 # Cumulus
-cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false, version = "0.3.0" }
+cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false, version = "0.3.1" }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false, version = "0.3.0" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false, version = "0.3.0" }
 
@@ -42,7 +42,6 @@ assert_matches = "1.5"
 hex-literal = "0.4.1"
 lazy_static = "1.4"
 futures = "0.3.28"
-
 sc-client-api = { path = "../../../substrate/client/api" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }

@@ -26,7 +26,7 @@ value = "sp-runtime/std"
 name = "cumulus-pallet-parachain-system-proc-macro"
 path = "cumulus/pallets/parachain-system/proc-macro"
 from = "0.2.0"
-to = "0.3.0"
+to = "0.3.1"
 bump = "unknown"
 reason = "changed"
 
