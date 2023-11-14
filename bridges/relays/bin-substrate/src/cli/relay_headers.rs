@@ -96,12 +96,8 @@ trait HeadersRelayer: RelayToRelayHeadersCliBridge {
 			signer: target_sign,
 			mortality: target_transactions_mortality,
 		};
-		Self::Finality::start_relay_guards(
-			&target_client,
-			&target_transactions_params,
-			target_client.can_start_version_guard(),
-		)
-		.await?;
+		Self::Finality::start_relay_guards(&target_client, target_client.can_start_version_guard())
+			.await?;
 
 		substrate_relay_helper::finality::run::<Self::Finality>(
 			source_client,
