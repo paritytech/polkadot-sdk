@@ -577,8 +577,8 @@ fn block_allowed_to_skip_epochs() {
 
 		let next_random = NextRandomness::<Test>::get();
 
-		// We want to skip 2 epochs in this test.
-		let offset = 3 * epoch_length;
+		// We want to skip 3 epochs in this test.
+		let offset = 4 * epoch_length;
 		go_to_block(start_block + offset, start_slot + offset, &pairs[0]);
 
 		// Post-initialization status
@@ -586,7 +586,7 @@ fn block_allowed_to_skip_epochs() {
 		assert!(ClaimTemporaryData::<Test>::exists());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + offset);
-		assert_eq!(Sassafras::epoch_index(), 3);
+		assert_eq!(Sassafras::epoch_index(), 4);
 		assert_eq!(Sassafras::current_epoch_start(), start_slot + offset);
 		assert_eq!(Sassafras::current_slot_index(), 0);
 
@@ -692,10 +692,11 @@ fn trivial_fisher_yates_shuffle<T>(vector: &mut Vec<T>, random_seed: u64) {
 	}
 }
 
-// For this test we use a set pre-constructed tickets from a file.
-// Creating "too many" tickets on the fly is too much expensive.
+// For this test we use a set of pre-constructed tickets from a file.
+// Creating a large set of tickets on the fly takes time, and may be annoying
+// for test execution.
 //
-// A valid ring-context is required for this test since we are passing though the
+// A valid ring-context is required for this test since we are passing through the
 // `submit_ticket` call which tests for ticket validity.
 #[test]
 fn submit_tickets_with_ring_proof_check_works() {
