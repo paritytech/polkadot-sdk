@@ -556,7 +556,7 @@ mod tests {
 	use super::*;
 	use bp_runtime::Chain as ChainBase;
 	use relay_bridge_hub_rococo_client::BridgeHubRococo;
-	use relay_bridge_hub_wococo_client::BridgeHubWococo;
+	use relay_bridge_hub_westend_client::BridgeHubWestend;
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
@@ -644,7 +644,7 @@ mod tests {
 			msgs_to_refine.push((payload, out_msg_details));
 		}
 
-		let maybe_batches = split_msgs_to_refine::<BridgeHubRococo, BridgeHubWococo>(
+		let maybe_batches = split_msgs_to_refine::<BridgeHubRococo, BridgeHubWestend>(
 			Default::default(),
 			msgs_to_refine,
 		);

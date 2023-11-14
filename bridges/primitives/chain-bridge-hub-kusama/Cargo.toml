@@ -1,6 +1,6 @@
 [package]
 name = "bp-bridge-hub-kusama"
-description = "Primitives of BridgeHubRococo parachain runtime."
+description = "Primitives of BridgeHubKusama parachain runtime."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
