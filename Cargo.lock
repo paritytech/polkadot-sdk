@@ -3096,6 +3096,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnets-common",
+ "westend-runtime-constants",
 ]
 
 [[package]]
