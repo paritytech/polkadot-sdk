@@ -12674,6 +12674,7 @@ dependencies = [
  "bitvec",
  "bounded-vec",
  "futures",
+ "hex",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-parachain-primitives",

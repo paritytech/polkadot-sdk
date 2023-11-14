@@ -28,3 +28,4 @@ zstd = { version = "0.12.4", default-features = false }
 
 [dev-dependencies]
 polkadot-erasure-coding = { path = "../../erasure-coding" }
+hex = { version = "0.4.3", default-features = false }
