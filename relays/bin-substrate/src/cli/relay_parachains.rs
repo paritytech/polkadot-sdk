@@ -24,10 +24,6 @@ use crate::bridges::{
 		rococo_parachains_to_bridge_hub_westend::BridgeHubRococoToBridgeHubWestendCliBridge,
 		westend_parachains_to_bridge_hub_rococo::BridgeHubWestendToBridgeHubRococoCliBridge,
 	},
-	rococo_wococo::{
-		rococo_parachains_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoCliBridge,
-		wococo_parachains_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoCliBridge,
-	},
 };
 use async_std::sync::Mutex;
 use async_trait::async_trait;
@@ -68,8 +64,6 @@ pub struct RelayParachains {
 #[derive(Debug, EnumString, EnumVariantNames)]
 #[strum(serialize_all = "kebab_case")]
 pub enum RelayParachainsBridge {
-	RococoToBridgeHubWococo,
-	WococoToBridgeHubRococo,
 	KusamaToBridgeHubPolkadot,
 	PolkadotToBridgeHubKusama,
 	PolkadotToPolkadotBulletin,
@@ -118,8 +112,6 @@ where
 	}
 }
 
-impl ParachainsRelayer for BridgeHubRococoToBridgeHubWococoCliBridge {}
-impl ParachainsRelayer for BridgeHubWococoToBridgeHubRococoCliBridge {}
 impl ParachainsRelayer for BridgeHubRococoToBridgeHubWestendCliBridge {}
 impl ParachainsRelayer for BridgeHubWestendToBridgeHubRococoCliBridge {}
 impl ParachainsRelayer for BridgeHubKusamaToBridgeHubPolkadotCliBridge {}
@@ -130,10 +122,6 @@ impl RelayParachains {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
-			RelayParachainsBridge::RococoToBridgeHubWococo =>
-				BridgeHubRococoToBridgeHubWococoCliBridge::relay_parachains(self),
-			RelayParachainsBridge::WococoToBridgeHubRococo =>
-				BridgeHubWococoToBridgeHubRococoCliBridge::relay_parachains(self),
 			RelayParachainsBridge::RococoToBridgeHubWestend =>
 				BridgeHubRococoToBridgeHubWestendCliBridge::relay_parachains(self),
 			RelayParachainsBridge::WestendToBridgeHubRococo =>

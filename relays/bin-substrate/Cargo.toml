@@ -35,7 +35,6 @@ relay-bridge-hub-kusama-client = { path = "../client-bridge-hub-kusama" }
 relay-bridge-hub-polkadot-client = { path = "../client-bridge-hub-polkadot" }
 relay-bridge-hub-rococo-client = { path = "../client-bridge-hub-rococo" }
 relay-bridge-hub-westend-client = { path = "../client-bridge-hub-westend" }
-relay-bridge-hub-wococo-client = { path = "../client-bridge-hub-wococo" }
 relay-kusama-client = { path = "../client-kusama" }
 relay-polkadot-client = { path = "../client-polkadot" }
 relay-polkadot-bulletin-client = { path = "../client-polkadot-bulletin" }
@@ -43,7 +42,6 @@ relay-rococo-client = { path = "../client-rococo" }
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
 relay-westend-client = { path = "../client-westend" }
-relay-wococo-client = { path = "../client-wococo" }
 substrate-relay-helper = { path = "../lib-substrate-relay" }
 
 # Substrate Dependencies

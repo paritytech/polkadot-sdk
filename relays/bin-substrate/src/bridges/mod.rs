@@ -19,4 +19,3 @@
 pub mod kusama_polkadot;
 pub mod polkadot_bulletin;
 pub mod rococo_westend;
-pub mod rococo_wococo;

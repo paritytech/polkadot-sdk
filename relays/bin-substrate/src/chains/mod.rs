@@ -21,4 +21,3 @@ mod polkadot;
 mod polkadot_bulletin;
 mod rococo;
 mod westend;
-mod wococo;

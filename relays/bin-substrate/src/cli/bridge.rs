@@ -29,8 +29,6 @@ use substrate_relay_helper::{
 #[strum(serialize_all = "kebab_case")]
 /// Supported full bridges (headers + messages).
 pub enum FullBridge {
-	BridgeHubRococoToBridgeHubWococo,
-	BridgeHubWococoToBridgeHubRococo,
 	BridgeHubRococoToBridgeHubWestend,
 	BridgeHubWestendToBridgeHubRococo,
 	BridgeHubKusamaToBridgeHubPolkadot,

@@ -51,8 +51,7 @@ sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "mas
 
 [dev-dependencies]
 bp-rococo = { path = "../../primitives/chain-rococo" }
-bp-wococo = { path = "../../primitives/chain-wococo" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-relay-rococo-client = { path = "../client-rococo" }
 relay-bridge-hub-rococo-client = { path = "../client-bridge-hub-rococo" }
-relay-bridge-hub-wococo-client = { path = "../client-bridge-hub-wococo" }
+relay-bridge-hub-westend-client = { path = "../client-bridge-hub-westend" }
+relay-rococo-client = { path = "../client-rococo" }

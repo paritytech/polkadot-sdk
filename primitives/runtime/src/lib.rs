@@ -79,14 +79,8 @@ pub const ASSET_HUB_WESTEND_CHAIN_ID: ChainId = *b"ahwe";
 /// Rococo chain id.
 pub const ROCOCO_CHAIN_ID: ChainId = *b"roco";
 
-/// Wococo chain id.
-pub const WOCOCO_CHAIN_ID: ChainId = *b"woco";
-
 /// BridgeHubRococo chain id.
 pub const BRIDGE_HUB_ROCOCO_CHAIN_ID: ChainId = *b"bhro";
-
-/// BridgeHubWococo chain id.
-pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
 
 /// BridgeHubWestend chain id.
 pub const BRIDGE_HUB_WESTEND_CHAIN_ID: ChainId = *b"bhwd";
