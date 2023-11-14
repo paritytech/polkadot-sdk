@@ -96,6 +96,7 @@ pallet-assets = { path = "../../../frame/assets" }
 pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment" }
 pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment" }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false}
+pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false}
 
 # node-specific dependencies
 kitchensink-runtime = { path = "../runtime" }
@@ -168,6 +169,7 @@ runtime-benchmarks = [
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
+	"pallet-skip-feeless-payment/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
@@ -183,6 +185,7 @@ try-runtime = [
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-im-online/try-runtime",
+	"pallet-skip-feeless-payment/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
