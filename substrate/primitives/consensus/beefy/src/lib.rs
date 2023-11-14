@@ -167,8 +167,9 @@ pub mod ecdsa_bls_crypto {
 	/// Signature for a BEEFY authority using (ECDSA,BLS) as its crypto.
 	pub type AuthoritySignature = Signature;
 
-	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
+	impl<MsgHash> BeefyAuthorityId<MsgHash> for AuthorityId
 	where
+		MsgHash: Hash,
 		<MsgHash as Hash>::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
