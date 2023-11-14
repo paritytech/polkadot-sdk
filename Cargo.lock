@@ -5798,7 +5798,7 @@ dependencies = [
  "sp-api",
  "sp-arithmetic",
  "sp-core",
- "sp-core-hashing-proc-macro",
+ "sp-crypto-hashing-proc-macro",
  "sp-debug-derive 8.0.0",
  "sp-genesis-builder",
  "sp-inherents",
@@ -5828,7 +5828,7 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
- "sp-core-hashing",
+ "sp-crypto-hashing",
  "syn 2.0.38",
 ]
 
@@ -9179,7 +9179,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
- "sp-core-hashing",
+ "sp-crypto-hashing",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
@@ -17418,8 +17418,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "sp-core-hashing",
- "sp-core-hashing-proc-macro",
+ "sp-crypto-hashing",
  "sp-debug-derive 8.0.0",
  "sp-externalities 0.19.0",
  "sp-runtime-interface 17.0.0",
@@ -17431,27 +17430,6 @@ dependencies = [
  "tracing",
  "w3f-bls",
  "zeroize",
-]
-
-[[package]]
-name = "sp-core-hashing"
-version = "9.0.0"
-dependencies = [
- "blake2b_simd",
- "byteorder",
- "digest 0.10.7",
- "sha2 0.10.7",
- "sha3",
- "twox-hash",
-]
-
-[[package]]
-name = "sp-core-hashing-proc-macro"
-version = "9.0.0"
-dependencies = [
- "quote",
- "sp-core-hashing",
- "syn 2.0.38",
 ]
 
 [[package]]
@@ -17493,6 +17471,28 @@ dependencies = [
  "ark-scale",
  "sp-runtime-interface 17.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+]
+
+[[package]]
+name = "sp-crypto-hashing"
+version = "0.1.0"
+dependencies = [
+ "blake2b_simd",
+ "byteorder",
+ "digest 0.10.7",
+ "sha2 0.10.7",
+ "sha3",
+ "sp-crypto-hashing-proc-macro",
+ "twox-hash",
+]
+
+[[package]]
+name = "sp-crypto-hashing-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "sp-crypto-hashing",
+ "syn 2.0.38",
 ]
 
 [[package]]
@@ -18058,7 +18058,7 @@ dependencies = [
  "parity-wasm",
  "scale-info",
  "serde",
- "sp-core-hashing-proc-macro",
+ "sp-crypto-hashing-proc-macro",
  "sp-runtime",
  "sp-std 8.0.0",
  "sp-version-proc-macro",

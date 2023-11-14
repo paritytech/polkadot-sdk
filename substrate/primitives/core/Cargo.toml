@@ -52,7 +52,7 @@ libsecp256k1 = { version = "0.7", default-features = false, features = ["static-
 schnorrkel = { version = "0.9.1", features = ["preaudit_deprecated", "u64_backend"], default-features = false }
 merlin = { version = "2.0", default-features = false }
 secp256k1 = { version = "0.24.0", default-features = false, features = ["recovery", "alloc"], optional = true }
-sp-core-hashing = { path = "hashing", default-features = false, optional = true }
+sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false}
 
 # bls crypto
@@ -63,7 +63,6 @@ bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "cbc342e", 
 [dev-dependencies]
 criterion = "0.4.0"
 serde_json = "1.0.108"
-sp-core-hashing-proc-macro = { path = "hashing/proc-macro" }
 
 [[bench]]
 name = "bench"
@@ -109,7 +108,7 @@ std = [
 	"secp256k1/std",
 	"secrecy/alloc",
 	"serde/std",
-	"sp-core-hashing/std",
+	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
@@ -135,7 +134,7 @@ serde = [
 	"primitive-types/serde_no_std",
 	"scale-info/serde",
 	"secrecy/alloc",
-	"sp-core-hashing",
+	"sp-crypto-hashing",
 	"sp-storage/serde",
 ]
 
@@ -148,7 +147,7 @@ full_crypto = [
 	"ed25519-zebra",
 	"libsecp256k1",
 	"secp256k1",
-	"sp-core-hashing",
+	"sp-crypto-hashing",
 	"sp-runtime-interface/disable_target_static_assertions",
 ]
 
