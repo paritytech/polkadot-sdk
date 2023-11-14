@@ -198,7 +198,7 @@ fn on_first_block_after_genesis() {
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("416f7e78a0390e14677782ea22102ba749eb9de7d02df46b39d1e3d6e6759c62"),
+			h2b("4ed5df8b0754e47244b5ff0db38208d6f82fce26c5ab3dcdf9abac72c14afda3"),
 		);
 
 		// Header data check
@@ -253,7 +253,7 @@ fn on_normal_block() {
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("416f7e78a0390e14677782ea22102ba749eb9de7d02df46b39d1e3d6e6759c62"),
+			h2b("4ed5df8b0754e47244b5ff0db38208d6f82fce26c5ab3dcdf9abac72c14afda3"),
 		);
 
 		let header = finalize_block(end_block);
@@ -265,7 +265,7 @@ fn on_normal_block() {
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("eab1c5692bf3255ae46b2e732d061700fcd51ab57f029ad39983ceae5214a713"),
+			h2b("b4cb6fb46df700d6b7851d784cd2ef7b985f8142a5a64ddc9c1555251fa4fba8"),
 		);
 
 		// Header data check
@@ -307,12 +307,12 @@ fn produce_epoch_change_digest_no_config() {
 		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
-			h2b("9538904054c3e6ec997f7f3cbae1af6196d96cd82fe217d97da947d2987b3a4d"),
+			h2b("c0e28016280191601a8dd21b903da74af7402d18b2a80201a38b3799ddf1c6eb"),
 		);
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("ce3e3aeae02c85a8e0c8ee0ff0b120484df4551491ac2296e40147634ca4c58c"),
+			h2b("462e6bad93c97b2f5da04b39011c29cb1340bc4974dcccf1ce8e37aafbd0a020"),
 		);
 
 		let header = finalize_block(end_block);
@@ -324,12 +324,12 @@ fn produce_epoch_change_digest_no_config() {
 		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
-			h2b("9538904054c3e6ec997f7f3cbae1af6196d96cd82fe217d97da947d2987b3a4d"),
+			h2b("c0e28016280191601a8dd21b903da74af7402d18b2a80201a38b3799ddf1c6eb"),
 		);
 		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("1288d911ca5deb9c514149d4fdb64ebf94e63989e09e03bc69218319456d4ec9"),
+			h2b("ebd53da015a76084b1bd31b5edca25e5fb7a8abafd39ded626a7dc87844a0309"),
 		);
 
 		// Header data check

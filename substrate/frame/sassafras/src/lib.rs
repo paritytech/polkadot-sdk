@@ -82,10 +82,10 @@ pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-const LOG_TARGET: &str = "sassafras::runtime 🌳";
+const LOG_TARGET: &str = "sassafras::runtime";
 
 // Contextual string used by the VRF to generate per-block randomness.
-const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasRandomness";
+const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
 
 // Max length for segments holding unsorted tickets.
 const SEGMENT_MAX_SIZE: u32 = 128;
