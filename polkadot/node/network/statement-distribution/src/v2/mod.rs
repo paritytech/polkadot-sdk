@@ -734,6 +734,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 				&mut local_validator_state.cluster_tracker,
 				&state.candidates,
 				&relay_parent_state.statement_store,
+				local_validator_state.index,
 			)
 			.await;
 		}
@@ -757,12 +758,14 @@ fn pending_statement_network_message(
 	peer: &(PeerId, ValidationVersion),
 	originator: ValidatorIndex,
 	compact: CompactStatement,
+	local_validator: ValidatorIndex,
 ) -> Option<(Vec<PeerId>, net_protocol::VersionedValidationProtocol)> {
 	gum::info!(
 		target: LOG_TARGET,
 		peer = ?peer.0,
 		candidate_hash = ?compact.candidate_hash(),
 		validator_index = ?originator,
+		?local_validator,
 		"pending_statement_network_message"
 	);
 
@@ -802,6 +805,7 @@ async fn send_pending_cluster_statements<Context>(
 	cluster_tracker: &mut ClusterTracker,
 	candidates: &Candidates,
 	statement_store: &StatementStore,
+	local_validator: ValidatorIndex,
 ) {
 	let pending_statements = cluster_tracker.pending_statements_for(peer_validator_id);
 	let network_messages = pending_statements
@@ -817,6 +821,7 @@ async fn send_pending_cluster_statements<Context>(
 				peer_id,
 				originator,
 				compact.clone(),
+				local_validator,
 			);
 
 			if res.is_some() {
@@ -952,6 +957,11 @@ async fn send_pending_grid_messages<Context>(
 	// otherwise, we might receive statements while the grid peer is "out of view" and then
 	// not send them when they get back "in view". problem!
 	{
+		let local_validator = relay_parent_state
+			.local_validator
+			.as_ref()
+			.map(|state| state.index)
+			.unwrap_or(ValidatorIndex(9999));
 		let grid_tracker = &mut relay_parent_state
 			.local_validator
 			.as_mut()
@@ -968,6 +978,7 @@ async fn send_pending_grid_messages<Context>(
 					peer_id,
 					originator,
 					compact.clone(),
+					local_validator,
 				);
 
 				if res.is_some() {
@@ -1270,6 +1281,7 @@ async fn circulate_statement<Context>(
 			peer = ?peer.0,
 			candidate_hash = ?statement.payload().candidate_hash(),
 			validator_index = ?statement.validator_index(),
+			local_validator = ?local_validator.index,
 			"circulate_statement"
 		);
 	}
@@ -1885,6 +1897,7 @@ async fn provide_candidate_to_grid<Context>(
 				group_index,
 				candidate_hash,
 				&(p.0, p.1.try_into().expect("Qed, can not fail was checked above")),
+				local_validator.index,
 			)
 			.into_iter()
 			.map(|m| (vec![p.0], m)),
@@ -2272,6 +2285,7 @@ fn post_acknowledgement_statement_messages(
 	group_index: GroupIndex,
 	candidate_hash: CandidateHash,
 	peer: &(PeerId, ValidationVersion),
+	local_validator: ValidatorIndex,
 ) -> Vec<net_protocol::VersionedValidationProtocol> {
 	let sending_filter = match grid_tracker.pending_statements_for(recipient, candidate_hash) {
 		None => return Vec::new(),
@@ -2293,6 +2307,8 @@ fn post_acknowledgement_statement_messages(
 			peer = ?peer.0,
 			candidate_hash = ?statement.payload().candidate_hash(),
 			validator_index = ?statement.validator_index(),
+			recipient = ?recipient,
+			?local_validator,
 			"post_acknoledgement"
 		);
 
@@ -2485,6 +2501,7 @@ fn acknowledgement_and_statement_messages(
 		group_index,
 		candidate_hash,
 		peer,
+		local_validator.index,
 	);
 
 	messages.extend(statement_messages.into_iter().map(|m| (vec![peer.0], m)));
@@ -2576,6 +2593,7 @@ async fn handle_incoming_acknowledgement<Context>(
 				// Assume the latest stable version, if we don't have info about peer version.
 				.unwrap_or(ValidationVersion::V2),
 		),
+		local_validator.index,
 	);
 
 	if !messages.is_empty() {
