@@ -191,6 +191,10 @@ pub enum ChainSyncAction<B: BlockT> {
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
 	/// Drop stale block request.
 	CancelBlockRequest { peer_id: PeerId },
+	/// Send state request to peer.
+	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
+	/// Send warp proof request to peer.
+	SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest<B> },
 	/// Peer misbehaved. Disconnect, report it and cancel the block request to it.
 	DropPeer(BadPeer),
 	/// Import blocks.
@@ -1532,7 +1536,7 @@ where
 	}
 
 	/// Get justification requests scheduled by sync to be sent out.
-	pub fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
+	fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		let peers = &mut self.peers;
 		let mut matcher = self.extra_justifications.matcher();
 		std::iter::from_fn(move || {
@@ -1559,7 +1563,7 @@ where
 	}
 
 	/// Get block requests scheduled by sync to be sent out.
-	pub fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
+	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		if self.mode == SyncMode::Warp {
 			return self
 				.warp_target_block_request()
@@ -1686,7 +1690,7 @@ where
 	}
 
 	/// Get a state request scheduled by sync to be sent out (if any).
-	pub fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
+	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
 		if self.allowed_requests.is_empty() {
 			return None
 		}
@@ -1732,7 +1736,7 @@ where
 	}
 
 	/// Get a warp proof request scheduled by sync to be sent out (if any).
-	pub fn warp_sync_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
+	fn warp_sync_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
 		if let Some(sync) = &self.warp_sync {
 			if self.allowed_requests.is_empty() ||
 				sync.is_complete() ||
@@ -2020,7 +2024,31 @@ where
 
 	/// Get pending actions to perform.
 	#[must_use]
-	pub fn take_actions(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> {
+	pub fn actions(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> {
+		let block_requests = self
+			.block_requests()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendBlockRequest { peer_id, request });
+		self.actions.extend(block_requests);
+
+		let justification_requests = self
+			.justification_requests()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendBlockRequest { peer_id, request });
+		self.actions.extend(justification_requests);
+
+		let state_request = self
+			.state_request()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendStateRequest { peer_id, request });
+		self.actions.extend(state_request);
+
+		let warp_proof_request = self
+			.warp_sync_request()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendWarpProofRequest { peer_id, request });
+		self.actions.extend(warp_proof_request);
+
 		std::mem::take(&mut self.actions).into_iter()
 	}
 }
