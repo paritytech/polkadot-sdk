@@ -124,7 +124,9 @@ mod tests {
 	}
 }
 
-// A network peer emulator
+// A network peer emulator. It spawns a task that accepts `NetworkActions` and
+// executes them with a configurable delay and bandwidth constraints. Tipically
+// these actions wrap a future that performs a channel send to the subsystem(s) under test.
 #[derive(Clone)]
 struct PeerEmulator {
 	// The queue of requests waiting to be served by the emulator
@@ -186,8 +188,8 @@ pub struct NetworkAction {
 	run: ActionFuture,
 	// The payload size that we simulate sending from a peer
 	size: usize,
-	// Peer index
-	index: usize,
+	// Peer which should run the action.
+	peer: AuthorityDiscoveryId,
 	// The amount of time to delay the polling `run`
 	latency: Option<Duration>,
 }
@@ -237,8 +239,13 @@ pub struct PeerStats {
 	pub tx_bytes_total: u64,
 }
 impl NetworkAction {
-	pub fn new(index: usize, run: ActionFuture, size: usize, latency: Option<Duration>) -> Self {
-		Self { run, size, index, latency }
+	pub fn new(
+		peer: AuthorityDiscoveryId,
+		run: ActionFuture,
+		size: usize,
+		latency: Option<Duration>,
+	) -> Self {
+		Self { run, size, peer, latency }
 	}
 
 	pub fn size(&self) -> usize {
@@ -249,44 +256,55 @@ impl NetworkAction {
 		self.run.await;
 	}
 
-	pub fn index(&self) -> usize {
-		self.index
+	pub fn peer(&self) -> AuthorityDiscoveryId {
+		self.peer.clone()
 	}
 }
 
-// Mocks the network bridge and an arbitrary number of connected peer nodes.
-// Implements network latency, bandwidth and error.
+/// Mocks the network bridge and an arbitrary number of connected peer nodes.
+/// Implements network latency, bandwidth and connection errors.
 #[derive(Clone)]
 pub struct NetworkEmulator {
 	// Per peer network emulation.
 	peers: Vec<PeerEmulator>,
-	// Per peer stats.
+	/// Per peer stats.
 	stats: Vec<Arc<PeerEmulatorStats>>,
-	// Metrics
+	/// Network throughput metrics
 	metrics: Metrics,
+	/// Each emulated peer is a validator.
+	validator_authority_ids: HashMap<AuthorityDiscoveryId, usize>,
 }
 
 impl NetworkEmulator {
 	pub fn new(
 		n_peers: usize,
+		validator_authority_ids: Vec<AuthorityDiscoveryId>,
 		bandwidth: usize,
 		spawn_task_handle: SpawnTaskHandle,
 		registry: &Registry,
 	) -> Self {
 		let metrics = Metrics::new(&registry).expect("Metrics always register succesfully");
+		let mut validator_authority_id_mapping = HashMap::new();
 
+		// Create a `PeerEmulator` for each peer.
 		let (stats, peers) = (0..n_peers)
-			.map(|peer_index| {
+			.zip(validator_authority_ids.into_iter())
+			.map(|(peer_index, authority_id)| {
+				validator_authority_id_mapping.insert(authority_id, peer_index);
 				let stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));
 				(stats.clone(), PeerEmulator::new(bandwidth, spawn_task_handle.clone(), stats))
 			})
 			.unzip();
 
-		Self { peers, stats, metrics }
+		Self { peers, stats, metrics, validator_authority_ids: validator_authority_id_mapping }
 	}
 
-	pub fn submit_peer_action(&mut self, index: usize, action: NetworkAction) {
-		let _ = self.peers[index].send(action);
+	pub fn submit_peer_action(&mut self, peer: AuthorityDiscoveryId, action: NetworkAction) {
+		let index = self
+			.validator_authority_ids
+			.get(&peer)
+			.expect("all test authorities are valid; qed");
+		self.peers[*index].send(action);
 	}
 
 	// Returns the sent/received stats for all peers.

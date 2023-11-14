@@ -22,6 +22,10 @@ use std::{
 	time::{Duration, Instant},
 };
 
+use sc_keystore::LocalKeystore;
+use sp_application_crypto::AppCrypto;
+use sp_keystore::{Keystore, KeystorePtr};
+
 use futures::{
 	channel::{mpsc, oneshot},
 	stream::FuturesUnordered,
@@ -53,7 +57,7 @@ use polkadot_node_subsystem::{
 };
 use std::net::{Ipv4Addr, SocketAddr};
 
-mod test_env;
+use super::core::{keyring::Keyring, network::*, test_env::TestEnvironmentMetrics};
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
@@ -71,9 +75,8 @@ use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
 
 mod configuration;
-mod network;
 
-pub use configuration::TestConfiguration;
+pub use configuration::{PeerLatency, TestConfiguration};
 
 // Deterministic genesis hash for protocol names
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
@@ -140,10 +143,12 @@ impl TestEnvironment {
 			task_manager.spawn_handle(),
 			state.config().use_fast_path,
 		);
+
 		let metrics =
 			TestEnvironmentMetrics::new(&registry).expect("Metrics need to be registered");
 		let mut network = NetworkEmulator::new(
 			state.config().n_validators,
+			state.validator_authority_id.clone(),
 			state.config().peer_bandwidth,
 			task_manager.spawn_handle(),
 			&registry,
@@ -243,7 +248,7 @@ impl TestEnvironment {
 	) -> NetworkAction {
 		match request {
 			Requests::ChunkFetchingV1(outgoing_request) => {
-				let validator_index = outgoing_request.payload.index.0 as usize;
+				let validator_index: usize = outgoing_request.payload.index.0 as usize;
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 
 				let candidate_index = state
@@ -266,6 +271,12 @@ impl TestEnvironment {
 					Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode())
 				};
 
+				let authority_discovery_id = match outgoing_request.peer {
+					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
+					_ => panic!("Peer recipient not supported yet"),
+				};
+				let authority_discovery_id_clone = authority_discovery_id.clone();
+
 				let future = async move {
 					let _ = outgoing_request.pending_response.send(response);
 				}
@@ -274,13 +285,14 @@ impl TestEnvironment {
 				let future_wrapper = async move {
 					// Forward the response to the ingress channel of our node.
 					// On receive side we apply our node receiving rate limit.
-					let action = NetworkAction::new(validator_index, future, size, None);
+					let action =
+						NetworkAction::new(authority_discovery_id_clone, future, size, None);
 					ingress_tx.send(action).unwrap();
 				}
 				.boxed();
 
 				NetworkAction::new(
-					validator_index,
+					authority_discovery_id,
 					future_wrapper,
 					size,
 					// Generate a random latency based on configuration.
@@ -288,12 +300,6 @@ impl TestEnvironment {
 				)
 			},
 			Requests::AvailableDataFetchingV1(outgoing_request) => {
-				println!("{:?}", outgoing_request);
-				// TODO: do better, by implementing diff authority ids and mapping network actions
-				// to authority id,
-				let validator_index =
-					Uniform::from(0..state.config().n_validators).sample(&mut thread_rng());
-
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 				let candidate_index = state
 					.candidate_hashes
@@ -318,16 +324,23 @@ impl TestEnvironment {
 				}
 				.boxed();
 
+				let authority_discovery_id = match outgoing_request.peer {
+					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
+					_ => panic!("Peer recipient not supported yet"),
+				};
+				let authority_discovery_id_clone = authority_discovery_id.clone();
+
 				let future_wrapper = async move {
 					// Forward the response to the ingress channel of our node.
 					// On receive side we apply our node receiving rate limit.
-					let action = NetworkAction::new(validator_index, future, size, None);
+					let action =
+						NetworkAction::new(authority_discovery_id_clone, future, size, None);
 					ingress_tx.send(action).unwrap();
 				}
 				.boxed();
 
 				NetworkAction::new(
-					validator_index,
+					authority_discovery_id,
 					future_wrapper,
 					size,
 					// Generate a random latency based on configuration.
@@ -362,7 +375,7 @@ impl TestEnvironment {
 								network.inc_sent(Self::request_size(&request));
 								let action = Self::respond_to_send_request(&mut state, request, ingress_tx.clone());
 								// Account for our node sending the request over the emulated network.
-								network.submit_peer_action(action.index(), action);
+								network.submit_peer_action(action.peer(), action);
 							}
 						},
 						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAvailableData(_candidate_hash, tx)) => {
@@ -470,25 +483,24 @@ impl AvailabilityRecoverySubsystemInstance {
 	}
 }
 
+pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
+	random_uniform_sample(min_pov_size, max_pov_size)
+}
+
+fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
+	Uniform::from(min_value.into()..=max_value.into())
+		.sample(&mut thread_rng())
+		.into()
+}
+
 // We use this to bail out sending messages to the subsystem if it is overloaded such that
 // the time of flight is breaches 5s.
 // This should eventually be a test parameter.
 const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
-use sp_keyring::Sr25519Keyring;
-
-use crate::availability::network::{ActionFuture, NetworkAction};
-
-use self::{
-	configuration::PeerLatency,
-	network::{NetworkEmulator, RateLimit},
-	test_env::TestEnvironmentMetrics,
-};
-
 #[derive(Clone)]
 pub struct TestState {
-	validators: Vec<Sr25519Keyring>,
-	validator_public: IndexedVec<ValidatorIndex, ValidatorId>,
+	validator_public: Vec<ValidatorId>,
 	validator_authority_id: Vec<AuthorityDiscoveryId>,
 	// The test node validator index.
 	validator_index: ValidatorIndex,
@@ -531,7 +543,7 @@ impl TestState {
 		let validator_groups = my_vec.chunks(5).map(|x| Vec::from(x)).collect::<Vec<_>>();
 
 		SessionInfo {
-			validators: self.validator_public.clone(),
+			validators: self.validator_public.clone().into(),
 			discovery_keys: self.validator_authority_id.clone(),
 			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(validator_groups),
 			assignment_keys: vec![],
@@ -608,13 +620,24 @@ impl TestState {
 	}
 
 	pub fn new(config: TestConfiguration) -> Self {
-		let validators = (0..config.n_validators as u64)
-			.into_iter()
-			.map(|_v| Sr25519Keyring::Alice)
+		let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
+
+		let keyrings = (0..config.n_validators)
+			.map(|peer_index| Keyring::new(format!("Node{}", peer_index).into()))
 			.collect::<Vec<_>>();
 
-		let validator_public = validator_pubkeys(&validators);
-		let validator_authority_id = validator_authority_id(&validators);
+		// Generate `AuthorityDiscoveryId`` for each peer
+		let validator_public: Vec<ValidatorId> = keyrings
+			.iter()
+			.map(|keyring: &Keyring| keyring.clone().public().into())
+			.collect::<Vec<_>>();
+
+		let validator_authority_id: Vec<AuthorityDiscoveryId> = keyrings
+			.iter()
+			.map({ |keyring| keyring.clone().public().into() })
+			.collect::<Vec<_>>()
+			.into();
+
 		let validator_index = ValidatorIndex(0);
 		let mut chunks = Vec::new();
 		let mut available_data = Vec::new();
@@ -643,7 +666,7 @@ impl TestState {
 			};
 
 			let (new_chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
-				validators.len(),
+				config.n_validators,
 				&new_available_data,
 				|_, _| {},
 			);
@@ -658,7 +681,6 @@ impl TestState {
 
 		let pov_sizes = config.pov_sizes.clone().into_iter().cycle();
 		let mut state = Self {
-			validators,
 			validator_public,
 			validator_authority_id,
 			validator_index,
@@ -679,14 +701,6 @@ impl TestState {
 
 		state
 	}
-}
-
-fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> IndexedVec<ValidatorIndex, ValidatorId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
-}
-
-fn validator_authority_id(val_ids: &[Sr25519Keyring]) -> Vec<AuthorityDiscoveryId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
 }
 
 fn derive_erasure_chunks_with_proofs_and_root(
@@ -731,8 +745,6 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
-	env.metrics().set_pov_size(config.pov_sizes[0]);
-	let mut completed_count = 0;
 
 	for loop_num in 0..env.config().num_loops {
 		gum::info!(target: LOG_TARGET, loop_num, "Starting loop");
@@ -754,9 +766,10 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 			.await;
 		}
 
-		gum::info!("{} requests pending, {} completed", batch.len(), completed_count);
+		gum::info!("{} requests pending", batch.len());
 		while let Some(completed) = batch.next().await {
 			let available_data = completed.unwrap().unwrap();
+			env.metrics().on_pov_size(available_data.encoded_size());
 			availability_bytes += available_data.encoded_size() as u128;
 		}
 

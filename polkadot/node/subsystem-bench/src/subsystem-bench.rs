@@ -22,8 +22,9 @@ use prometheus::proto::LabelPair;
 use std::time::Duration;
 
 pub(crate) mod availability;
+pub(crate) mod core;
 
-use availability::{TestConfiguration, TestEnvironment, TestState};
+use availability::{random_pov_size, TestConfiguration, TestEnvironment, TestState};
 const LOG_TARGET: &str = "subsystem-bench";
 
 use clap_num::number_range;
@@ -61,6 +62,14 @@ pub struct DataAvailabilityReadOptions {
 	#[clap(long, ignore_case = true, default_value_t = 500)]
 	/// Number of validators to fetch chunks from.
 	pub n_validators: usize,
+
+	#[clap(long, ignore_case = true, default_value_t = 5120)]
+	/// The minimum pov size in KiB
+	pub min_pov_size: usize,
+
+	#[clap(long, ignore_case = true, default_value_t = 5120)]
+	/// The maximum pov size bytes
+	pub max_pov_size: usize,
 
 	#[clap(short, long, default_value_t = false)]
 	/// Turbo boost AD Read by fetching from backers first. Tipically this is only faster if nodes
@@ -129,9 +138,6 @@ impl BenchCli {
 		let runtime = new_runtime();
 		let registry = Registry::new();
 
-		let mut pov_sizes = Vec::new();
-		pov_sizes.append(&mut vec![10 * 1024 * 1024; 200]);
-
 		let mut test_config = match self.target {
 			BenchmarkTarget::DataAvailabilityRead(options) => match self.network {
 				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
@@ -139,21 +145,42 @@ impl BenchCli {
 					options.fetch_from_backers,
 					options.n_validators,
 					options.n_cores,
-					pov_sizes,
+					(0..options.n_cores)
+						.map(|_| {
+							random_pov_size(
+								options.min_pov_size * 1024,
+								options.max_pov_size * 1024,
+							)
+						})
+						.collect(),
 				),
 				NetworkEmulation::Degraded => TestConfiguration::degraded_network(
 					options.num_loops,
 					options.fetch_from_backers,
 					options.n_validators,
 					options.n_cores,
-					pov_sizes,
+					(0..options.n_cores)
+						.map(|_| {
+							random_pov_size(
+								options.min_pov_size * 1024,
+								options.max_pov_size * 1024,
+							)
+						})
+						.collect(),
 				),
 				NetworkEmulation::Ideal => TestConfiguration::ideal_network(
 					options.num_loops,
 					options.fetch_from_backers,
 					options.n_validators,
 					options.n_cores,
-					pov_sizes,
+					(0..options.n_cores)
+						.map(|_| {
+							random_pov_size(
+								options.min_pov_size * 1024,
+								options.max_pov_size * 1024,
+							)
+						})
+						.collect(),
 				),
 			},
 		};

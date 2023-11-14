@@ -13028,6 +13028,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prometheus",
  "rand 0.8.5",
+ "sc-keystore",
  "sc-network",
  "sc-service",
  "sp-application-crypto",
