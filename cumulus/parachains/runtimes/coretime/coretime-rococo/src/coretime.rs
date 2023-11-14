@@ -60,12 +60,103 @@ impl CoretimeInterface for CoretimeAllocator {
 	type AccountId = AccountId;
 	type Balance = Balance;
 	type BlockNumber = BlockNumber;
+
 	fn latest() -> Self::BlockNumber {
 		System::block_number()
 	}
-	fn request_core_count(_count: CoreIndex) {}
-	fn request_revenue_info_at(_when: Self::BlockNumber) {}
-	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}
+
+	fn request_core_count(count: CoreIndex) {
+		let request_core_count_call =
+			RuntimeCall::CoretimeProvider(
+				pallet_coretime_mock::Call::<Runtime>::request_core_count { count },
+			);
+
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: Weight::from_parts(1, 1),
+				call: request_core_count_call.encode().into(),
+			},
+		]);
+
+		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+			Ok(_) => log::info!(
+				target: "runtime::coretime",
+				"Request to update schedulable cores sent successfully."
+			),
+			Err(e) => log::error!(
+				target: "runtime::coretime",
+				"Failed to send request to update schedulable cores: {:?}",
+				e
+			),
+		}
+	}
+
+	fn request_revenue_info_at(when: Self::BlockNumber) {
+		let request_revenue_info_at_call = RuntimeCall::CoretimeProvider(
+			pallet_coretime_mock::Call::<Runtime>::request_revenue_info_at { when },
+		);
+
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: Weight::from_parts(1, 1),
+				call: request_revenue_info_at_call.encode().into(),
+			},
+		]);
+
+		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+			Ok(_) => log::info!(
+				target: "runtime::coretime",
+				"Request for revenue information sent successfully."
+			),
+			Err(e) => log::error!(
+				target: "runtime::coretime",
+				"Request for revenue information failed to send: {:?}",
+				e
+			),
+		}
+	}
+
+	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
+		let credit_account_call =
+			RuntimeCall::CoretimeProvider(pallet_coretime_mock::Call::<Runtime>::credit_account {
+				who,
+				amount,
+			});
+
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: Weight::from_parts(1, 1),
+				call: credit_account_call.encode().into(),
+			},
+		]);
+
+		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+			Ok(_) => log::info!(
+				target: "runtime::coretime",
+				"Instruction to credit account sent successfully."
+			),
+			Err(e) => log::error!(
+				target: "runtime::coretime",
+				"Instruction to credit account failed to send: {:?}",
+				e
+			),
+		}
+	}
 
 	fn assign_core(
 		core: CoreIndex,
@@ -105,20 +196,24 @@ impl CoretimeInterface for CoretimeAllocator {
 			),
 		}
 	}
+
 	fn check_notify_core_count() -> Option<u16> {
 		let count = CoreCount::get();
 		CoreCount::set(&None);
 		count
 	}
+
 	fn check_notify_revenue_info() -> Option<(Self::BlockNumber, Self::Balance)> {
 		let revenue = CoretimeRevenue::get();
 		CoretimeRevenue::set(&None);
 		revenue
 	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_core_count(count: u16) {
 		CoreCount::set(&Some(count));
 	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_revenue_info(when: Self::BlockNumber, revenue: Self::Balance) {
 		CoretimeRevenue::set(&Some((when, revenue)));

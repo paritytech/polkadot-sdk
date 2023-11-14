@@ -35,8 +35,6 @@ contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
 bridge-hub-kusama-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
-coretime-kusama-runtime = { path = "../parachains/runtimes/coretime/coretime-kusama" }
-coretime-polkadot-runtime = { path = "../parachains/runtimes/coretime/coretime-polkadot" }
 coretime-rococo-runtime = { path = "../parachains/runtimes/coretime/coretime-rococo" }
 coretime-westend-runtime = { path = "../parachains/runtimes/coretime/coretime-westend" }
 bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
@@ -124,8 +122,6 @@ runtime-benchmarks = [
 	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
-	"coretime-kusama-runtime/runtime-benchmarks",
-	"coretime-polkadot-runtime/runtime-benchmarks",
 	"coretime-rococo-runtime/runtime-benchmarks",
 	"coretime-westend-runtime/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
@@ -152,8 +148,6 @@ try-runtime = [
 	"bridge-hub-westend-runtime/try-runtime",
 	"collectives-polkadot-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
-	"coretime-kusama-runtime/try-runtime",
-	"coretime-polkadot-runtime/try-runtime",
 	"coretime-rococo-runtime/try-runtime",
 	"coretime-westend-runtime/try-runtime",
 	"glutton-runtime/try-runtime",
