@@ -34,9 +34,8 @@
 use frame_support::{
 	defensive,
 	traits::{LockableCurrency, WithdrawReasons},
-	BoundedVec,
 };
-use sp_staking::{EraIndex, StakingAccount};
+use sp_staking::StakingAccount;
 use sp_std::prelude::*;
 
 use crate::{
@@ -54,7 +53,7 @@ impl<T: Config> StakingLedger<T> {
 			total: Zero::zero(),
 			active: Zero::zero(),
 			unlocking: Default::default(),
-			claimed_rewards: Default::default(),
+			legacy_claimed_rewards: Default::default(),
 			controller: Some(stash),
 		}
 	}
@@ -66,17 +65,13 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Note: as the controller accounts are being deprecated, the stash account is the same as the
 	/// controller account.
-	pub fn new(
-		stash: T::AccountId,
-		stake: BalanceOf<T>,
-		claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
-	) -> Self {
+	pub fn new(stash: T::AccountId, stake: BalanceOf<T>) -> Self {
 		Self {
 			stash: stash.clone(),
 			active: stake,
 			total: stake,
 			unlocking: Default::default(),
-			claimed_rewards,
+			legacy_claimed_rewards: Default::default(),
 			// controllers are deprecated and mapped 1-1 to stashes.
 			controller: Some(stash),
 		}
@@ -240,8 +235,8 @@ pub struct StakingLedgerInspect<T: Config> {
 	pub total: BalanceOf<T>,
 	#[codec(compact)]
 	pub active: BalanceOf<T>,
-	pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
-	pub claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
+	pub unlocking: frame_support::BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+	pub legacy_claimed_rewards: frame_support::BoundedVec<sp_staking::EraIndex, T::HistoryDepth>,
 }
 
 #[cfg(test)]
@@ -251,7 +246,7 @@ impl<T: Config> PartialEq<StakingLedgerInspect<T>> for StakingLedger<T> {
 			self.total == other.total &&
 			self.active == other.active &&
 			self.unlocking == other.unlocking &&
-			self.claimed_rewards == other.claimed_rewards
+			self.legacy_claimed_rewards == other.legacy_claimed_rewards
 	}
 }
 

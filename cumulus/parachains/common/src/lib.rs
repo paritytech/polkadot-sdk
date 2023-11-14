@@ -17,6 +17,7 @@
 
 pub mod impls;
 pub mod kusama;
+pub mod message_queue;
 pub mod polkadot;
 pub mod rococo;
 pub mod westend;
