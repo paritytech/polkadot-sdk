@@ -762,6 +762,7 @@ fn pending_statement_network_message(
 		target: LOG_TARGET,
 		peer = ?peer.0,
 		candidate_hash = ?compact.candidate_hash(),
+		validator_index = ?originator,
 		"pending_statement_network_message"
 	);
 
@@ -1268,6 +1269,7 @@ async fn circulate_statement<Context>(
 			target: LOG_TARGET,
 			peer = ?peer.0,
 			candidate_hash = ?statement.payload().candidate_hash(),
+			validator_index = ?statement.validator_index(),
 			"circulate_statement"
 		);
 	}
@@ -1410,6 +1412,7 @@ async fn handle_incoming_statement<Context>(
 		Some(l) => l,
 	};
 	let candidate_hash = *(statement.unchecked_payload().candidate_hash());
+	let validator_index = statement.unchecked_validator_index();
 	let originator_group =
 		match per_session.groups.by_validator_index(statement.unchecked_validator_index()) {
 			Some(g) => g,
@@ -1515,7 +1518,7 @@ async fn handle_incoming_statement<Context>(
 				.map(|(i, _)| i)
 				.next();
 
-			gum::info!(target: LOG_TARGET, ?peer, ?candidate_hash, ?prints, ?occupied_index, ids = ?peer_state.discovery_ids, "statement_distribution: not a cluster or a grid peer");
+			gum::info!(target: LOG_TARGET, ?peer, ?candidate_hash, ?validator_index, ?prints, ?occupied_index, ids = ?peer_state.discovery_ids, "statement_distribution: not a cluster or a grid peer");
 			// Not a cluster or grid peer.
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			return
@@ -2287,6 +2290,7 @@ fn post_acknowledgement_statement_messages(
 			target: LOG_TARGET,
 			peer = ?peer.0,
 			candidate_hash = ?statement.payload().candidate_hash(),
+			validator_index = ?statement.validator_index(),
 			"post_acknoledgement"
 		);
 
