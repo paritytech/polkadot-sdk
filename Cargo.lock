@@ -10037,6 +10037,7 @@ dependencies = [
  "pallet-example-kitchensink",
  "pallet-example-offchain-worker",
  "pallet-example-split",
+ "pallet-example-tasks",
 ]
 
 [[package]]

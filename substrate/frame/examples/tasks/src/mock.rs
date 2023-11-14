@@ -19,49 +19,25 @@
 #![cfg(test)]
 
 use crate::{self as tasks_example};
+use frame_support::derive_impl;
 
 pub type AccountId = u32;
 pub type Balance = u32;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
-		TasksExample: tasks_example::{Pallet, Call, Storage, Event<T>, Task<T>},
+	pub struct Runtime {
+		System: frame_system,
+		TasksExample: tasks_example,
 	}
 );
 
-// TODO: use derive_impl
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SS58Prefix = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeTask = RuntimeTask;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type BlockLength = ();
-	type BlockWeights = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl tasks_example::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 }
