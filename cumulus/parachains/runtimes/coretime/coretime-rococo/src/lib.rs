@@ -463,7 +463,7 @@ pub mod pallet_coretime_mock {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use pallet_broker::{CoreAssignment, CoreIndex, PartsOf57600};
-	use parachains_common::BlockNumber;
+	use parachains_common::{AccountId, Balance, BlockNumber};
 	use sp_std::vec::Vec;
 
 	#[pallet::pallet]
@@ -474,6 +474,33 @@ pub mod pallet_coretime_mock {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		pub fn request_core_count(_: OriginFor<T>, count: CoreIndex) -> DispatchResult {
+			log::info!(
+				target: "runtime::coretime",
+				"Updating number of schedulable cores to {:?}",
+				count
+			);
+			Ok(())
+		}
+
+		pub fn request_revenue_info_at(_: OriginFor<T>, when: BlockNumber) -> DispatchResult {
+			log::info!(
+				target: "runtime::coretime",
+				"Reporting revenue at or after block {:?}.",
+				when
+			);
+			Ok(())
+		}
+
+		pub fn credit_account(_: OriginFor<T>, who: AccountId, amount: Balance) -> DispatchResult {
+			log::info!(
+				target: "runtime::coretime",
+				"Crediting account {:?} with {:?}.",
+				who, amount
+			);
+			Ok(())
+		}
+
 		pub fn assign_core(
 			_: OriginFor<T>,
 			core: CoreIndex,
@@ -486,7 +513,7 @@ pub mod pallet_coretime_mock {
 					CoreAssignment::Task(para_id) => {
 						log::info!(
 							target: "runtime::coretime",
-							"Assigning task {:?} core {:?} from block {:?} for {:?} / 57600 of its block time",
+							"Assigning task {:?} core {:?} from block {:?} for {:?} / 57600 of its block time.",
 							para_id, core, begin, parts
 						);
 					},
@@ -509,7 +536,7 @@ pub mod pallet_coretime_mock {
 				if let Some(end) = end_hint {
 					log::info!(
 						target: "runtime::coretime",
-						"Expecting new instructions at block {:?}",
+						"Expecting new instructions at block {:?}.",
 						end
 					);
 				}
