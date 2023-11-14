@@ -357,16 +357,16 @@ fn ensure_workload_works() {
 		remaining: PartsOf57600::from(57600u16),
 	};
 
-	let expected_descriptor_1: CoreDescriptor<BlockNumberFor<Test>> =
+	let empty_descriptor: CoreDescriptor<BlockNumberFor<Test>> =
 		CoreDescriptor { queue: None, current_work: None };
-	let expected_descriptor_2 = CoreDescriptor {
+	let assignments_queued_descriptor = CoreDescriptor {
 		queue: Some(QueueDescriptor {
 			first: BlockNumberFor::<Test>::from(11u32),
 			last: BlockNumberFor::<Test>::from(11u32),
 		}),
 		current_work: None,
 	};
-	let expected_descriptor_3 = CoreDescriptor {
+	let assignments_active_descriptor = CoreDescriptor {
 		queue: None,
 		current_work: Some(WorkState {
 			assignments: vec![(CoreAssignment::Pool, test_assignment_state)],
@@ -375,7 +375,6 @@ fn ensure_workload_works() {
 			step: PartsOf57600::from(57600u16),
 		}),
 	};
-	let expected_descriptor_4 = expected_descriptor_1.clone();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let mut core_descriptor: CoreDescriptor<BlockNumberFor<Test>> =
@@ -384,7 +383,7 @@ fn ensure_workload_works() {
 
 		// Case 1: No new schedule in CoreSchedules for core
 		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
-		assert_eq!(core_descriptor, expected_descriptor_1);
+		assert_eq!(core_descriptor, empty_descriptor);
 
 		// Case 2: New schedule exists in CoreSchedules for core, but new
 		// schedule start is not yet reached.
@@ -400,18 +399,18 @@ fn ensure_workload_works() {
 		core_descriptor = CoreDescriptors::<Test>::get(core_idx);
 
 		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
-		assert_eq!(core_descriptor, expected_descriptor_2);
+		assert_eq!(core_descriptor, assignments_queued_descriptor);
 
 		// Case 3: Next schedule exists in CoreSchedules for core. Next starting
 		// block has been reached. Swaps new WorkState into CoreDescriptors from
 		// CoreSchedules.
 		BulkAssigner::ensure_workload(11u32, core_idx, &mut core_descriptor);
-		assert_eq!(core_descriptor, expected_descriptor_3);
+		assert_eq!(core_descriptor, assignments_active_descriptor);
 
 		// Case 4: end_hint reached but new schedule start not yet reached. WorkState in
 		// CoreDescriptor is cleared
 		BulkAssigner::ensure_workload(15u32, core_idx, &mut core_descriptor);
-		assert_eq!(core_descriptor, expected_descriptor_4);
+		assert_eq!(core_descriptor, empty_descriptor);
 	});
 }
 
@@ -551,5 +550,137 @@ fn assignment_proportions_in_core_state_work() {
 				Some(PartsOf57600::from(57600u16 / 3 * 2))
 			);
 		}
+
+		// Final check, task 2's turn to be served
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_2.into()))
+		);
+	});
+}
+
+#[test]
+fn equal_assignments_served_equally() {
+	let core_idx = CoreIndex(0);
+	let task_1 = TaskId::from(1u32);
+	let task_2 = TaskId::from(2u32);
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+
+		// Tasks 1 and 2 get equal work parts
+		let test_assignments = vec![
+			(CoreAssignment::Task(task_1), PartsOf57600::from(57600u16 / 2)),
+			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 2)),
+		];
+
+		assert_ok!(BulkAssigner::assign_core(
+			core_idx,
+			BlockNumberFor::<Test>::from(10u32),
+			test_assignments,
+			None,
+		));
+
+		// Test that popped assignments alternate between tasks 1 and 2
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_1.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_2.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_1.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_2.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_1.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_2.into()))
+		);
+	});
+}
+
+#[test]
+// Checks that core is shared fairly, even in case of `ratio` not being
+// divisible by `step` (over multiple rounds).
+fn assignment_proportions_indivisible_by_step_work() {
+	let core_idx = CoreIndex(0);
+	let task_1 = TaskId::from(1u32);
+	let ratio_1 = PartsOf57600::from(57600u16 / 5 * 3);
+	let ratio_2 = PartsOf57600::from(57600u16 / 5 * 2);
+	let task_2 = TaskId::from(2u32);
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+
+		// Task 1 gets 3/5 core usage, while task 2 gets 2/5. That way
+		// step is set to 2/5 and task 1 is indivisible by step.
+		let test_assignments =
+			vec![(CoreAssignment::Task(task_1), ratio_1), (CoreAssignment::Task(task_2), ratio_2)];
+
+		assert_ok!(BulkAssigner::assign_core(
+			core_idx,
+			BlockNumberFor::<Test>::from(10u32),
+			test_assignments,
+			None,
+		));
+
+		// Pop 5 assignments. Should Result in the the following work ordering:
+		// 1, 2, 1, 1, 2. The remaining parts for each assignment should be same
+		// at the end as in the beginning.
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_1.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_2.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_1.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_1.into()))
+		);
+
+		assert_eq!(
+			BulkAssigner::pop_assignment_for_core(core_idx),
+			Some(BulkAssignment::Bulk(task_2.into()))
+		);
+
+		// Remaining should equal ratio for both assignments.
+		assert_eq!(
+			CoreDescriptors::<Test>::get(core_idx)
+				.current_work
+				.as_ref()
+				.and_then(|w| Some(w.assignments[0].1.remaining)),
+			Some(ratio_1)
+		);
+		assert_eq!(
+			CoreDescriptors::<Test>::get(core_idx)
+				.current_work
+				.as_ref()
+				.and_then(|w| Some(w.assignments[1].1.remaining)),
+			Some(ratio_2)
+		);
 	});
 }
