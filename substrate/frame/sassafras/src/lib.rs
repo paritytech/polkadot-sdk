@@ -436,12 +436,13 @@ pub mod pallet {
 				};
 				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
 				if ticket_id >= ticket_threshold {
-					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:16x} >= {:16x})", ticket_id, ticket_threshold);
+					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:032x} >= {:032x})", ticket_id, ticket_threshold);
 					continue
 				}
 
 				if TicketsData::<T>::contains_key(ticket_id) {
-					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({:16x})", ticket_id);
+					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({:032x})", ticket_id);
+					continue
 				}
 
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
@@ -931,7 +932,7 @@ impl<T: Config> Pallet<T> {
 	/// Append a set of tickets to the segments map.
 	pub(crate) fn append_tickets(tickets: BoundedVec<TicketId, MaxTicketsFor<T>>) {
 		debug!(target: LOG_TARGET, "Appending batch with {} tickets", tickets.len());
-		tickets.iter().for_each(|t| debug!(target: LOG_TARGET, "  + {t:16x}"));
+		tickets.iter().for_each(|t| debug!(target: LOG_TARGET, "  + {t:032x}"));
 
 		let mut metadata = TicketsMeta::<T>::get();
 		let mut segment_idx = metadata.unsorted_tickets_count / SEGMENT_MAX_SIZE;

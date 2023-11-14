@@ -640,6 +640,17 @@ fn data_write<T: Encode>(filename: &str, data: T) {
 	file.write_all(&buf).unwrap();
 }
 
+// We don't want to implement anything secure here.
+// Just a trivial shuffle for the tests.
+fn trivial_fisher_yates_shuffle<T>(vector: &mut Vec<T>, random_seed: u64) {
+	let mut rng = random_seed as usize;
+	for i in (1..vector.len()).rev() {
+		let j = rng % (i + 1);
+		vector.swap(i, j);
+		rng = (rng.wrapping_mul(6364793005) + 1) as usize; // Some random number generation
+	}
+}
+
 // For this test we use a set pre-constructed tickets from a file.
 // Creating "too many" tickets on the fly is too much expensive.
 //
@@ -650,7 +661,12 @@ fn submit_tickets_with_ring_proof_check_works() {
 	use sp_core::Pair as _;
 	// env_logger::init();
 
-	let (authorities, tickets): (Vec<AuthorityId>, Vec<TicketEnvelope>) = data_read(TICKETS_FILE);
+	let (authorities, mut tickets): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
+		data_read(TICKETS_FILE);
+
+	// Also checks that duplicates are discarded
+	tickets.extend(tickets.clone());
+	trivial_fisher_yates_shuffle(&mut tickets, 321);
 
 	let (pairs, mut ext) = new_test_ext_with_pairs(authorities.len(), true);
 	let pair = &pairs[0];
