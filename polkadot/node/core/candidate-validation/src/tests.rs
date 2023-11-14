@@ -626,7 +626,7 @@ fn candidate_validation_retry_internal_errors() {
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AJD error, we should still retry again.
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(
-				"baz"into(),
+				"baz".into(),
 			))),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
@@ -658,11 +658,11 @@ fn candidate_validation_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
 		PvfExecKind::Approval,
 		vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
 		],
 	);
 
@@ -675,11 +675,11 @@ fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
 		PvfExecKind::Backing,
 		vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
 		],
 	);
 
