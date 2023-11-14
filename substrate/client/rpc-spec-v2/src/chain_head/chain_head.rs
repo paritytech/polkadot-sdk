@@ -48,6 +48,7 @@ use sc_client_api::{
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
+use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -432,9 +433,16 @@ where
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: Block::Hash,
+		hash_or_hashes: ListOrValue<Block::Hash>,
 	) -> RpcResult<()> {
-		match self.subscriptions.unpin_block(&follow_subscription, hash) {
+		let result = match hash_or_hashes {
+			ListOrValue::Value(hash) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, [hash]),
+			ListOrValue::List(hashes) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, hashes),
+		};
+
+		match result {
 			Ok(()) => Ok(()),
 			Err(SubscriptionManagementError::SubscriptionAbsent) => {
 				// Invalid invalid subscription ID.
