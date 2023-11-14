@@ -70,6 +70,19 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub(crate) const LOG_TARGET: &str = "runtime::stake-tracker";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] 📚 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
+
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
 /// The account ID of this pallet.
@@ -161,9 +174,9 @@ pub mod pallet {
 			L: SortedListProvider<AccountIdOf<T>, Score = BalanceOf<T>>,
 		{
 			// there may be nominators who nominate a non-existant validator. if that's the case,
-			// move on.
+			// move on. This is an expected behaviour, so no defensive.
 			if !L::contains(who) {
-				defensive!("`update_score` on non-existant staker", who);
+				log!(debug, "update_score of {:?}, which is not a target", who);
 				return
 			}
 
@@ -180,7 +193,6 @@ pub mod pallet {
 						// expected. Instead, we call `L::on_update` to set the new score that
 						// defensively saturates to 0. The node will be removed when `on_*_remove`
 						// is called.
-
 						let balance = Self::to_vote_extended(current_score)
 							.defensive_saturating_sub(imbalance);
 
@@ -224,15 +236,27 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 						//let prev_voter_weight = Self::to_vote_extended(prev_stake.active);
 
 						if prev_voter_weight > voter_weight {
-							StakeImbalance::Negative(prev_voter_weight - voter_weight)
+							StakeImbalance::Negative(
+								prev_voter_weight.defensive_saturating_sub(voter_weight),
+							)
 						} else {
-							StakeImbalance::Positive(voter_weight - prev_voter_weight)
+							StakeImbalance::Positive(
+								voter_weight.defensive_saturating_sub(prev_voter_weight),
+							)
 						}
 					} else {
 						// if nominator had no stake before update, then add all the voter weight
 						// to the target's score.
 						StakeImbalance::Positive(voter_weight)
 					};
+
+					log!(
+						debug,
+						"on_stake_update: {:?} with {:?}. impacting nominations {:?}",
+						who,
+						stake_imbalance,
+						nominations,
+					);
 
 					// updates vote weight of nominated targets accordingly. Note: this will update
 					// the score of up to `T::MaxNominations` validators.
@@ -282,6 +306,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				},
 			Ok(StakerStatus::Idle) | Ok(StakerStatus::Validator) | Err(_) => (), // nada.
 		};
+
+		log!(debug, "on_nominator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
 	}
 
 	// Fired when someone sets their intention to validate.
@@ -295,6 +321,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			"staker should not exist in TargetList, as per the contract with staking.",
 		);
 
+		log!(debug, "on_validator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
+
 		// a validator is also a nominator.
 		Self::on_nominator_add(who)
 	}
@@ -306,6 +334,14 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	// passed in, so that the target list can be updated accordingly.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+
+		log!(
+			debug,
+			"on_nominator_remove: {:?} with {:?}. impacting {:?}",
+			who,
+			nominator_vote,
+			nominations,
+		);
 
 		// updates the nominated target's score. Note: this may update the score of up to
 		// `T::MaxNominations` validators.
@@ -320,6 +356,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	// Fired when someone removes their intention to validate, either due to chill or nominating.
 	fn on_validator_remove(who: &T::AccountId) {
+		log!(debug, "on_validator_remove: {:?}", who,);
+
 		let _ = T::TargetList::on_remove(&who).defensive_proof(
 			"the validator exists in the list as per the contract with staking; qed.",
 		);
@@ -340,6 +378,12 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 		let curr_nominations =
 			<T::Staking as StakingInterface>::nominations(&who).unwrap_or_default();
+
+		log!(
+			debug,
+			"on_nominator_update: {:?}, with {:?}. previous nominations: {:?} -> new nominations {:?}",
+			who, nominator_vote, prev_nominations, curr_nominations,
+		);
 
 		// new nominations
 		for target in curr_nominations.iter() {

@@ -70,16 +70,6 @@ fn update_score_works() {
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: \"`update_score` on non-existant staker\": 1"]
-fn update_score_non_existing_defensive_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		assert!(!VoterBagsList::contains(&1));
-		// not expected to update score of a non-existing staker.
-		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Positive(100));
-	});
-}
-
-#[test]
 #[should_panic]
 fn update_score_below_zero_defensive_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
@@ -453,22 +443,17 @@ mod staking_integration {
 			);
 			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
 
-			add_validator(20, 50);
+			add_validator(20, 500);
 			// removes nomination from 10 and adds nomination to new validator, 20.
 			update_nominations_of(2, vec![11, 20]);
 
-			// new voter (validator) 2 with 100 stake. note that the voter score is not updated
-			// automatically.
 			assert_eq!(
 				get_scores::<VoterBagsList>(),
-				vec![(10, 100), (11, 100), (1, 100), (2, 100), (20, 50)]
+				[(20, 500), (10, 100), (11, 100), (1, 100), (2, 100)]
 			);
 
 			// target list has been updated:
-			// -100 score for 10
-			// +100 score for 11
-			// +100 score for 20
-			assert_eq!(get_scores::<TargetBagsList>(), vec![(11, 200), (20, 150), (10, 200)]);
+			assert_eq!(get_scores::<TargetBagsList>(), vec![(20, 600), (11, 200), (10, 200)]);
 		})
 	}
 }

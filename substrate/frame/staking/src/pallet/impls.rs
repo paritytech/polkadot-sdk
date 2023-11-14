@@ -982,20 +982,19 @@ impl<T: Config> Pallet<T> {
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
 		if !Nominators::<T>::contains_key(who) {
 			// new nominator.
+			Nominators::<T>::insert(who, nominations);
 			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_add(
 				who,
 			);
 		} else {
 			// update nominations.
 			let prev_nominations = Self::nominations(who).unwrap_or_default();
-
+			Nominators::<T>::insert(who, nominations);
 			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_update(
 				who,
 				prev_nominations,
 			);
 		}
-
-		Nominators::<T>::insert(who, nominations);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
@@ -1045,11 +1044,13 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
+			Validators::<T>::insert(who, prefs);
 			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_validator_add(
 				who,
 			);
+		} else {
+			Validators::<T>::insert(who, prefs);
 		}
-		Validators::<T>::insert(who, prefs);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),

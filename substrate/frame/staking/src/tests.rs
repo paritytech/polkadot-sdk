@@ -201,17 +201,17 @@ fn basic_setup_works() {
 		assert_eq!(
 			Staking::eras_stakers(active_era(), &11),
 			Exposure {
-				total: 1125,
+				total: 1375,
 				own: 1000,
-				others: vec![IndividualExposure { who: 101, value: 125 }]
+				others: vec![IndividualExposure { who: 101, value: 375 }]
 			},
 		);
 		assert_eq!(
 			Staking::eras_stakers(active_era(), &21),
 			Exposure {
-				total: 1375,
+				total: 1125,
 				own: 1000,
-				others: vec![IndividualExposure { who: 101, value: 375 }]
+				others: vec![IndividualExposure { who: 101, value: 125 }]
 			},
 		);
 
@@ -444,14 +444,14 @@ fn staking_should_work() {
 		// --- Block 6: the validators will now be changed.
 		start_session(6);
 
-		assert_eq_uvec!(validator_controllers(), vec![21, 3]);
+		assert_eq_uvec!(validator_controllers(), vec![3, 11]);
 		// --- Block 6: Unstake 4 as a validator, freeing up the balance stashed in 3
 		// 4 will chill
 		Staking::chill(RuntimeOrigin::signed(3)).unwrap();
 
 		// --- Block 7: nothing. 3 is still there.
 		start_session(7);
-		assert_eq_uvec!(validator_controllers(), vec![21, 3]);
+		assert_eq_uvec!(validator_controllers(), vec![3, 11]);
 
 		// --- Block 8:
 		start_session(8);
@@ -1850,13 +1850,6 @@ fn switching_roles() {
 			let _ = Balances::deposit_creating(&i, 5000);
 		}
 
-		// add 2 nominators
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 2000, RewardDestination::Controller));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 5]));
-
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Controller));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21, 1]));
-
 		// add a new validator candidate
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(5), 1000, RewardDestination::Controller));
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(5), ValidatorPrefs::default()));
@@ -1866,18 +1859,28 @@ fn switching_roles() {
 			vec![]
 		));
 
+		// add 2 nominators
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 2000, RewardDestination::Controller));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 5]));
+
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Controller));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21]));
+
 		mock::start_active_era(1);
 
 		// with current nominators 11 and 5 have the most stake
 		assert_eq_uvec!(validator_controllers(), vec![5, 11]);
 
-		// 2 decides to be a validator. Consequences:
+		// 1 decides to be a validator. Consequences:
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(1),
 			SessionKeys { other: 2.into() },
 			vec![]
 		));
+
+		// now that 1 is a validator, 3 updates its nominations.
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21, 1]));
 		// new stakes:
 		// 11: 1000 self vote
 		// 21: 1000 self vote + 250 vote
@@ -2466,6 +2469,7 @@ fn reporters_receive_their_slice() {
 	ExtBuilder::default().build_and_execute(|| {
 		// The reporters' reward is calculated from the total exposure.
 		let initial_balance = 1125;
+		assert_ok!(stake_tracker_sanity_tests());
 
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, initial_balance);
 
@@ -5613,7 +5617,10 @@ fn chill_other_works() {
 					1000,
 					RewardDestination::Controller
 				));
-				assert_ok!(Staking::nominate(RuntimeOrigin::signed(a), vec![1]));
+				assert_ok!(Staking::nominate(
+					RuntimeOrigin::signed(a),
+					vec![some_existing_validator().unwrap()]
+				));
 
 				// Validator
 				assert_ok!(Staking::bond(
@@ -5728,13 +5735,13 @@ fn chill_other_works() {
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), b));
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), d));
 			}
-
 			// chill a nominator. Limit is not reached, not chill-able
 			assert_eq!(Nominators::<Test>::count(), 7);
 			assert_noop!(
 				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
 				Error::<Test>::CannotChillOther
 			);
+
 			// chill a validator. Limit is reached, chill-able.
 			assert_eq!(Validators::<Test>::count(), 9);
 			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), 2));
@@ -5799,7 +5806,11 @@ fn capped_stakers_works() {
 				RewardDestination::Controller,
 			)
 			.unwrap();
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(controller), vec![1]));
+
+			assert_ok!(Staking::nominate(
+				RuntimeOrigin::signed(controller),
+				vec![some_existing_validator]
+			));
 			some_existing_nominator = controller;
 		}
 
@@ -5811,12 +5822,15 @@ fn capped_stakers_works() {
 		)
 		.unwrap();
 		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]),
+			Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![some_existing_validator]),
 			Error::<Test>::TooManyNominators
 		);
 
 		// Re-nominate works fine
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(some_existing_nominator), vec![1]));
+		assert_ok!(Staking::nominate(
+			RuntimeOrigin::signed(some_existing_nominator),
+			vec![some_existing_validator]
+		));
 		// Re-validate works fine
 		assert_ok!(Staking::validate(
 			RuntimeOrigin::signed(some_existing_validator),
@@ -5833,7 +5847,10 @@ fn capped_stakers_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 		));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]));
+		assert_ok!(Staking::nominate(
+			RuntimeOrigin::signed(last_nominator),
+			vec![some_existing_validator]
+		));
 		assert_ok!(Staking::validate(
 			RuntimeOrigin::signed(last_validator),
 			ValidatorPrefs::default()
@@ -6961,6 +6978,99 @@ mod ledger {
 			assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Controller(11)));
 
 			<Bonded<Test>>::remove(42); // ensures try-state checks pass.
+		})
+	}
+}
+
+mod stake_tracker {
+	use super::*;
+	use pallet_bags_list::Event as BagsEvent;
+
+	#[test]
+	fn add_remove_nomination_works() {
+		// Test case: a new nomination affects the stake behind the target in the target list and
+		// the sorting of the target list is also updated. Chilling the nomination will update the
+		// target list scores and rebag back to the original state.
+		// Call paths covered:
+		// * Call::validate()
+		// * Call::nominate()
+		// * Call::chill()
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			use sp_staking::StakingInterface;
+
+			// add validator 12.
+			let _ = Balances::deposit_creating(&12, 150);
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(12),
+				150,
+				RewardDestination::Controller
+			));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(12), Default::default()));
+
+			// 12 is a validator and has 150 self-vote.
+			assert_eq!(<Staking as StakingInterface>::status(&12), Ok(StakerStatus::Validator));
+			assert_eq!(<TargetBagsList as SortedListProvider<AccountId>>::get_score(&12), Ok(150));
+
+			// add validator 11.
+			let _ = Balances::deposit_creating(&11, 100);
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(11),
+				100,
+				RewardDestination::Controller
+			));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), Default::default()));
+
+			// 11 is a validator and has 100 self-vote.
+			assert_eq!(<Staking as StakingInterface>::status(&11), Ok(StakerStatus::Validator));
+			assert_eq!(<TargetBagsList as SortedListProvider<AccountId>>::get_score(&11), Ok(100));
+
+			// the target list is sorted by stake: [(12, 150), (11, 100)]
+			assert_eq!(voters_and_targets().1, [(12, 150), (11, 100)]);
+
+			// no rebags in the target list so far.
+			assert!(target_bags_events().is_empty());
+
+			// add nominator 1, which nominates 11.
+			let _ = Balances::deposit_creating(&1, 300);
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 300, RewardDestination::Controller));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11]));
+
+			// 1 is a nominator and nominates 11 with 300 stake.
+			assert_eq!(
+				<Staking as StakingInterface>::status(&1),
+				Ok(StakerStatus::Nominator(vec![11]))
+			);
+			assert_eq!(<VoterBagsList as SortedListProvider<AccountId>>::get_score(&1), Ok(300));
+
+			// 11 has self-stake and nominated stake from 1, so total score is 400.
+			assert_ok!(stake_tracker_sanity_tests());
+
+			// rebag in the target list happened as expected.
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 11, from: 100, to: 400 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 400 }
+				]
+			);
+			assert_eq!(voters_and_targets().1, [(11, 400), (12, 150)]);
+
+			System::reset_events();
+
+			// chill nominator 1.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(1)));
+
+			assert_ok!(stake_tracker_sanity_tests());
+			// the target list is sorted by stake, similar to before nomination: [(12, 150), (11,
+			// 100)]
+			assert_eq!(voters_and_targets().1, [(12, 150), (11, 100)]);
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 11, from: 400, to: 100 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 100 }
+				]
+			);
 		})
 	}
 }

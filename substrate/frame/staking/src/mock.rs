@@ -235,7 +235,7 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 const VOTER_THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
-const TARGET_THRESHOLDS: [Balance; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+const TARGET_THRESHOLDS: [Balance; 9] = [100, 200, 300, 400, 500, 600, 1_000, 2_000, 10_000];
 
 parameter_types! {
 	pub static VoterBagThresholds: &'static [sp_npos_elections::VoteWeight] = &VOTER_THRESHOLDS;
@@ -876,7 +876,55 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
-#[allow(dead_code)]
+pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
+	use sp_staking::StakingInterface;
+
+	assert_eq!(Nominators::<Test>::count() + Validators::<Test>::count(), VoterBagsList::count());
+
+	// recalculate the target's stake based on voter's nominations and compare with the score in the
+	// target list.
+	let mut map: BTreeMap<AccountId, Balance> = BTreeMap::new();
+	for nominator in VoterBagsList::iter() {
+		if let Some(nominations) = <Staking as StakingInterface>::nominations(&nominator) {
+			let score = <VoterBagsList as SortedListProvider<AccountId>>::get_score(&nominator)
+				.map_err(|_| "nominator score must exist in voter bags list")?;
+
+			for nomination in nominations {
+				if let Some(stake) = map.get_mut(&nomination) {
+					*stake += score as u128;
+				} else {
+					map.insert(nomination, score.into());
+				}
+			}
+		}
+	}
+	for target in TargetBagsList::iter() {
+		let score = <VoterBagsList as SortedListProvider<AccountId>>::get_score(&target)
+			.map_err(|_| "target score must exist in voter bags list")?;
+		if let Some(stake) = map.get_mut(&target) {
+			*stake += score as u128;
+		} else {
+			map.insert(target, score.into());
+		}
+	}
+
+	// compare final result with target list.
+	assert_eq!(map.keys().len(), TargetBagsList::count() as usize);
+	for (target, stake) in map.into_iter() {
+		let stake_in_list = TargetBagsList::get_score(&target).unwrap();
+		assert_eq!(
+			stake, stake_in_list,
+			"target list score of {:?} is not correct. expected {:?}, got {:?}",
+			target, stake, stake_in_list
+		);
+	}
+	Ok(())
+}
+
+pub(crate) fn some_existing_validator() -> Option<AccountId> {
+	TargetBagsList::iter().last()
+}
+
 pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, Balance)>) {
 	(
 		VoterBagsList::iter()
@@ -886,4 +934,14 @@ pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(Accoun
 			.map(|t| (t, TargetBagsList::get_score(&t).unwrap()))
 			.collect::<Vec<_>>(),
 	)
+}
+
+pub(crate) fn target_bags_events() -> Vec<pallet_bags_list::Event<Test, TargetBagsListInstance>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::TargetBagsList(inner) = e { Some(inner) } else { None },
+		)
+		.collect::<Vec<_>>()
 }

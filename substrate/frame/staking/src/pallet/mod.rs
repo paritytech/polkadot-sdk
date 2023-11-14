@@ -1227,6 +1227,7 @@ pub mod pallet {
 
 			Self::do_remove_validator(stash);
 			Self::do_add_nominator(stash, nominations);
+
 			Ok(())
 		}
 
