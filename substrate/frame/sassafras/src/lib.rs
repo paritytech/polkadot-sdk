@@ -451,9 +451,9 @@ pub mod pallet {
 					TicketsData::<T>::set(ticket_id, Some(ticket.body));
 					valid_tickets
 						.try_push(ticket_id)
-						.expect("input segment has same length as bounded destination vector; qed");
+						.expect("Input segment has same length as bounded destination vector; qed");
 				} else {
-					debug!(target: LOG_TARGET, "Proof verification failure");
+					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:032x})", ticket_id);
 				}
 			}
 
@@ -871,8 +871,7 @@ impl<T: Config> Pallet<T> {
 	// saved as the next epoch tickets, else it is saved to be used by next calls to
 	// this function.
 	pub(crate) fn sort_tickets(max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
-		let mut unsorted_segments_count =
-			metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
+		let unsorted_segments_count = metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
 		let max_segments = max_segments.min(unsorted_segments_count);
 		let max_tickets = MaxTicketsFor::<T>::get() as usize;
 
@@ -887,9 +886,8 @@ impl<T: Config> Pallet<T> {
 
 		// Consume at most `max_segments` segments.
 		// During the process remove every stale ticket from `TicketsData` storage.
-		for _ in 0..max_segments {
-			unsorted_segments_count -= 1;
-			let segment = UnsortedSegments::<T>::take(unsorted_segments_count);
+		for segment_idx in (0..unsorted_segments_count).rev().take(max_segments as usize) {
+			let segment = UnsortedSegments::<T>::take(segment_idx);
 			metadata.unsorted_tickets_count -= segment.len() as u32;
 
 			// Push only ids with a value less than the current `upper_bound`.
