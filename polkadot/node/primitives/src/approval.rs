@@ -158,6 +158,11 @@ pub mod v1 {
 			self.slot
 		}
 
+		/// Get the block author index.
+		pub fn authority_index(&self) -> u32 {
+			self.authority_index
+		}
+
 		/// Compute the randomness associated with this VRF output.
 		pub fn compute_randomness(
 			self,

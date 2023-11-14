@@ -225,6 +225,17 @@ async fn imported_block_info<Context>(
 			Some(unsafe_vrf) => {
 				let slot = unsafe_vrf.slot();
 
+				let authority = babe_epoch.authorities.get(unsafe_vrf.authority_index() as usize);
+
+				gum::debug!(
+					target: LOG_TARGET,
+					?block_hash,
+					?authority,
+					babe_slot = ?slot,
+					babe_epoch = ?babe_epoch.epoch_index,
+					"Computing VRF randomness",
+				);
+
 				match unsafe_vrf.compute_randomness(
 					&babe_epoch.authorities,
 					&babe_epoch.randomness,
