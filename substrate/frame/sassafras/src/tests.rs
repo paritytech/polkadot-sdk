@@ -591,13 +591,10 @@ fn block_allowed_to_skip_epochs() {
 		assert_eq!(Sassafras::current_slot_index(), 0);
 
 		// Tickets data has been discarded
-		let meta = TicketsMeta::<Test>::get();
-		assert_eq!(meta, TicketsMetadata::default());
+		assert_eq!(TicketsMeta::<Test>::get(), TicketsMetadata::default());
+		assert!(tickets.iter().all(|(id, _)| TicketsData::<Test>::get(id).is_none()));
+		assert_eq!(SortedCandidates::<Test>::get().len(), 0);
 
-		tickets.iter().for_each(|(id, _)| {
-			let data = TicketsData::<Test>::get(id);
-			assert!(data.is_none());
-		});
 		// We used the last known next epoch randomness as a fallback
 		assert_eq!(next_random, Sassafras::randomness());
 	});

@@ -938,17 +938,17 @@ impl<T: Config> Pallet<T> {
 		let mut tickets = tickets.as_slice();
 		while !tickets.is_empty() {
 			let rem = metadata.unsorted_tickets_count % SEGMENT_MAX_SIZE;
-			let todo = tickets.len().min((SEGMENT_MAX_SIZE - rem) as usize);
+			let to_be_added = tickets.len().min((SEGMENT_MAX_SIZE - rem) as usize);
 
 			let mut segment = UnsortedSegments::<T>::get(segment_idx).into_inner();
-			segment.extend_from_slice(&tickets[..todo]);
+			segment.extend_from_slice(&tickets[..to_be_added]);
 			let segment = BoundedVec::truncate_from(segment);
 			UnsortedSegments::<T>::insert(segment_idx, segment);
 
-			metadata.unsorted_tickets_count += todo as u32;
+			metadata.unsorted_tickets_count += to_be_added as u32;
 			segment_idx += 1;
 
-			tickets = &tickets[todo..];
+			tickets = &tickets[to_be_added..];
 		}
 
 		TicketsMeta::<T>::set(metadata);
