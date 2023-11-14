@@ -20,11 +20,6 @@ use crate::{
 			kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
 			polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
 		},
-		rialto_millau::{
-			millau_headers_to_rialto::MillauToRialtoCliBridge,
-			rialto_headers_to_millau::RialtoToMillauCliBridge,
-		},
-		rialto_parachain_millau::millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
 		rococo_wococo::{
 			rococo_headers_to_bridge_hub_wococo::RococoToBridgeHubWococoCliBridge,
 			wococo_headers_to_bridge_hub_rococo::WococoToBridgeHubRococoCliBridge,
@@ -58,9 +53,6 @@ pub struct DetectEquivocations {
 #[strum(serialize_all = "kebab_case")]
 /// Equivocations detection bridge.
 pub enum DetectEquivocationsBridge {
-	MillauToRialto,
-	RialtoToMillau,
-	MillauToRialtoParachain,
 	RococoToBridgeHubWococo,
 	WococoToBridgeHubRococo,
 	KusamaToBridgeHubPolkadot,
@@ -90,9 +82,6 @@ where
 	}
 }
 
-impl EquivocationsDetector for MillauToRialtoCliBridge {}
-impl EquivocationsDetector for RialtoToMillauCliBridge {}
-impl EquivocationsDetector for MillauToRialtoParachainCliBridge {}
 impl EquivocationsDetector for RococoToBridgeHubWococoCliBridge {}
 impl EquivocationsDetector for WococoToBridgeHubRococoCliBridge {}
 impl EquivocationsDetector for KusamaToBridgeHubPolkadotCliBridge {}
@@ -102,10 +91,6 @@ impl DetectEquivocations {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
-			DetectEquivocationsBridge::MillauToRialto => MillauToRialtoCliBridge::start(self),
-			DetectEquivocationsBridge::RialtoToMillau => RialtoToMillauCliBridge::start(self),
-			DetectEquivocationsBridge::MillauToRialtoParachain =>
-				MillauToRialtoParachainCliBridge::start(self),
 			DetectEquivocationsBridge::RococoToBridgeHubWococo =>
 				RococoToBridgeHubWococoCliBridge::start(self),
 			DetectEquivocationsBridge::WococoToBridgeHubRococo =>

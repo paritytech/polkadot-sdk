@@ -38,21 +38,21 @@ with mandatory headers are fee-free, the cost of running such relay is zero (in 
 ## Finality Relay Metrics
 
 Finality relay provides several metrics. Metrics names depend on names of source and target chains. The list below
-shows metrics names for Rialto (source chain) to Millau (target chain) finality relay. For other chains, simply
-change chain names. So the metrics are:
+shows metrics names for Rococo (source chain) to BridgeHubWestend (target chain) finality relay. For other
+chains, simply change chain names. So the metrics are:
 
-- `Rialto_to_Millau_Sync_best_source_block_number` - returns best finalized source chain (Rialto) block number, known
+- `Rococo_to_BridgeHubWestend_Sync_best_source_block_number` - returns best finalized source chain (Rococo) block number, known
   to the relay. If relay is running in [on-demand mode](../bin-substrate/src/cli/relay_headers_and_messages/), the
   number may not match (it may be far behind) the actual best finalized number;
 
-- `Rialto_to_Millau_Sync_best_source_at_target_block_number` - returns best finalized source chain (Rialto) block
+- `Rococo_to_BridgeHubWestend_Sync_best_source_at_target_block_number` - returns best finalized source chain (Rococo) block
   number that is known to the bridge GRANDPA pallet at the target chain.
 
-- `Rialto_to_Millau_Sync_is_source_and_source_at_target_using_different_forks` - if this metrics is set to `1`, then
+- `Rococo_to_BridgeHubWestend_Sync_is_source_and_source_at_target_using_different_forks` - if this metrics is set to `1`, then
   the best source chain header, known to the target chain doesn't match the same-number-header at the source chain.
   It means that the GRANDPA validators set has crafted the duplicate justification and it has been submitted to the
   target chain. Normally (if majority of validators are honest and if you're running finality relay without large
   breaks) this shall not happen and the metric will have `0` value.
 
-If relay operates properly, you should see that the `Rialto_to_Millau_Sync_best_source_at_target_block_number`
-tries to reach the `Rialto_to_Millau_Sync_best_source_block_number`. And the latter one always increases.
+If relay operates properly, you should see that the `Rococo_to_BridgeHubWestend_Sync_best_source_at_target_block_number`
+tries to reach the `Rococo_to_BridgeHubWestend_Sync_best_source_block_number`. And the latter one always increases.

@@ -36,7 +36,6 @@ use structopt::StructOpt;
 
 use futures::{FutureExt, TryFutureExt};
 use relay_to_parachain::*;
-use relay_to_relay::*;
 
 use crate::{
 	bridges::{
@@ -47,14 +46,6 @@ use crate::{
 		polkadot_bulletin::{
 			polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
 			polkadot_parachains_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
-		},
-		rialto_millau::{
-			millau_headers_to_rialto::MillauToRialtoCliBridge,
-			rialto_headers_to_millau::RialtoToMillauCliBridge,
-		},
-		rialto_parachain_millau::{
-			millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
-			rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
 		},
 		rococo_westend::{
 			rococo_parachains_to_bridge_hub_westend::BridgeHubRococoToBridgeHubWestendCliBridge,
@@ -203,9 +194,6 @@ where
 }
 
 // All supported chains.
-declare_chain_cli_schema!(Millau, millau);
-declare_chain_cli_schema!(Rialto, rialto);
-declare_chain_cli_schema!(RialtoParachain, rialto_parachain);
 declare_chain_cli_schema!(Rococo, rococo);
 declare_chain_cli_schema!(BridgeHubRococo, bridge_hub_rococo);
 declare_chain_cli_schema!(Wococo, wococo);
@@ -217,53 +205,7 @@ declare_chain_cli_schema!(BridgeHubKusama, bridge_hub_kusama);
 declare_chain_cli_schema!(Polkadot, polkadot);
 declare_chain_cli_schema!(BridgeHubPolkadot, bridge_hub_polkadot);
 declare_chain_cli_schema!(PolkadotBulletin, polkadot_bulletin);
-// Means to override signers of different layer transactions.
-declare_chain_cli_schema!(MillauHeadersToRialto, millau_headers_to_rialto);
-declare_chain_cli_schema!(MillauHeadersToRialtoParachain, millau_headers_to_rialto_parachain);
-declare_chain_cli_schema!(RialtoHeadersToMillau, rialto_headers_to_millau);
-declare_chain_cli_schema!(RialtoParachainsToMillau, rialto_parachains_to_millau);
-declare_chain_cli_schema!(RococoHeadersToBridgeHubWococo, rococo_headers_to_bridge_hub_wococo);
-declare_chain_cli_schema!(
-	RococoParachainsToBridgeHubWococo,
-	rococo_parachains_to_bridge_hub_wococo
-);
-declare_chain_cli_schema!(WococoHeadersToBridgeHubRococo, wococo_headers_to_bridge_hub_rococo);
-declare_chain_cli_schema!(
-	WococoParachainsToBridgeHubRococo,
-	wococo_parachains_to_bridge_hub_rococo
-);
-declare_chain_cli_schema!(RococoHeadersToBridgeHubWestend, rococo_headers_to_bridge_hub_westend);
-declare_chain_cli_schema!(
-	RococoParachainsToBridgeHubWestend,
-	rococo_parachains_to_bridge_hub_westend
-);
-declare_chain_cli_schema!(WestendHeadersToBridgeHubRococo, westend_headers_to_bridge_hub_rococo);
-declare_chain_cli_schema!(
-	WestendParachainsToBridgeHubRococo,
-	westend_parachains_to_bridge_hub_rococo
-);
-declare_chain_cli_schema!(KusamaHeadersToBridgeHubPolkadot, kusama_headers_to_bridge_hub_polkadot);
-declare_chain_cli_schema!(
-	KusamaParachainsToBridgeHubPolkadot,
-	kusama_parachains_to_bridge_hub_polkadot
-);
-declare_chain_cli_schema!(PolkadotHeadersToBridgeHubKusama, polkadot_headers_to_bridge_hub_kusama);
-declare_chain_cli_schema!(
-	PolkadotParachainsToBridgeHubKusama,
-	polkadot_parachains_to_bridge_hub_kusama
-);
-declare_chain_cli_schema!(
-	PolkadotBulletinHeadersToBridgeHubPolkadot,
-	polkadot_bulletin_headers_to_bridge_hub_polkadot
-);
-declare_chain_cli_schema!(PolkadotHeadersToPolkadotBulletin, polkadot_headers_to_polkadot_bulletin);
-declare_chain_cli_schema!(
-	PolkadotParachainsToPolkadotBulletin,
-	polkadot_parachains_to_polkadot_bulletin
-);
 // All supported bridges.
-declare_relay_to_relay_bridge_schema!(Millau, Rialto);
-declare_relay_to_parachain_bridge_schema!(Millau, RialtoParachain, Rialto);
 declare_parachain_to_parachain_bridge_schema!(BridgeHubRococo, Rococo, BridgeHubWococo, Wococo);
 declare_parachain_to_parachain_bridge_schema!(BridgeHubRococo, Rococo, BridgeHubWestend, Westend);
 declare_parachain_to_parachain_bridge_schema!(BridgeHubKusama, Kusama, BridgeHubPolkadot, Polkadot);
@@ -434,58 +376,6 @@ where
 	}
 }
 
-/// Millau <> Rialto complex relay.
-pub struct MillauRialtoFull2WayBridge {
-	base: <Self as Full2WayBridge>::Base,
-}
-
-#[async_trait]
-impl Full2WayBridge for MillauRialtoFull2WayBridge {
-	type Base = RelayToRelayBridge<Self::L2R, Self::R2L>;
-	type Left = relay_millau_client::Millau;
-	type Right = relay_rialto_client::Rialto;
-	type L2R = MillauToRialtoCliBridge;
-	type R2L = RialtoToMillauCliBridge;
-
-	fn new(base: Self::Base) -> anyhow::Result<Self> {
-		Ok(Self { base })
-	}
-
-	fn base(&self) -> &Self::Base {
-		&self.base
-	}
-
-	fn mut_base(&mut self) -> &mut Self::Base {
-		&mut self.base
-	}
-}
-
-/// Millau <> RialtoParachain complex relay.
-pub struct MillauRialtoParachainFull2WayBridge {
-	base: <Self as Full2WayBridge>::Base,
-}
-
-#[async_trait]
-impl Full2WayBridge for MillauRialtoParachainFull2WayBridge {
-	type Base = RelayToParachainBridge<Self::L2R, Self::R2L>;
-	type Left = relay_millau_client::Millau;
-	type Right = relay_rialto_parachain_client::RialtoParachain;
-	type L2R = MillauToRialtoParachainCliBridge;
-	type R2L = RialtoParachainToMillauCliBridge;
-
-	fn new(base: Self::Base) -> anyhow::Result<Self> {
-		Ok(Self { base })
-	}
-
-	fn base(&self) -> &Self::Base {
-		&self.base
-	}
-
-	fn mut_base(&mut self) -> &mut Self::Base {
-		&mut self.base
-	}
-}
-
 /// BridgeHubRococo <> BridgeHubWococo complex relay.
 pub struct BridgeHubRococoBridgeHubWococoFull2WayBridge {
 	base: <Self as Full2WayBridge>::Base,
@@ -593,10 +483,6 @@ impl Full2WayBridge for PolkadotBulletinBridgeHubPolkadotFull2WayBridge {
 /// Complex headers+messages relay.
 #[derive(Debug, PartialEq, StructOpt)]
 pub enum RelayHeadersAndMessages {
-	/// Millau <> Rialto relay.
-	MillauRialto(MillauRialtoHeadersAndMessages),
-	/// Millau <> RialtoParachain relay.
-	MillauRialtoParachain(MillauRialtoParachainHeadersAndMessages),
 	/// BridgeHubRococo <> BridgeHubWococo relay.
 	BridgeHubRococoBridgeHubWococo(BridgeHubRococoBridgeHubWococoHeadersAndMessages),
 	/// BridgeHubKusama <> BridgeHubPolkadot relay.
@@ -611,12 +497,6 @@ impl RelayHeadersAndMessages {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self {
-			RelayHeadersAndMessages::MillauRialto(params) =>
-				MillauRialtoFull2WayBridge::new(params.into_bridge().await?)?.run().await,
-			RelayHeadersAndMessages::MillauRialtoParachain(params) =>
-				MillauRialtoParachainFull2WayBridge::new(params.into_bridge().await?)?
-					.run()
-					.await,
 			RelayHeadersAndMessages::BridgeHubRococoBridgeHubWococo(params) =>
 				BridgeHubRococoBridgeHubWococoFull2WayBridge::new(params.into_bridge().await?)?
 					.run()
@@ -642,130 +522,34 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn should_parse_relay_to_relay_options() {
+	fn should_parse_parachain_to_parachain_options() {
 		// when
 		let res = RelayHeadersAndMessages::from_iter(vec![
 			"relay-headers-and-messages",
-			"millau-rialto",
-			"--millau-host",
-			"millau-node-alice",
-			"--millau-port",
+			"bridge-hub-kusama-bridge-hub-polkadot",
+			"--bridge-hub-kusama-host",
+			"bridge-hub-kusama-node-collator1",
+			"--bridge-hub-kusama-port",
 			"9944",
-			"--millau-signer",
-			"//Charlie",
-			"--millau-transactions-mortality",
-			"64",
-			"--rialto-host",
-			"rialto-node-alice",
-			"--rialto-port",
-			"9944",
-			"--rialto-signer",
-			"//Charlie",
-			"--rialto-transactions-mortality",
-			"64",
-			"--lane",
-			"00000000",
-			"--lane",
-			"73776170",
-			"--prometheus-host",
-			"0.0.0.0",
-		]);
-
-		// then
-		assert_eq!(
-			res,
-			RelayHeadersAndMessages::MillauRialto(MillauRialtoHeadersAndMessages {
-				shared: HeadersAndMessagesSharedParams {
-					lane: vec![
-						HexLaneId([0x00, 0x00, 0x00, 0x00]),
-						HexLaneId([0x73, 0x77, 0x61, 0x70])
-					],
-					only_mandatory_headers: false,
-					prometheus_params: PrometheusParams {
-						no_prometheus: false,
-						prometheus_host: "0.0.0.0".into(),
-						prometheus_port: 9616,
-					},
-				},
-				left: MillauConnectionParams {
-					millau_host: "millau-node-alice".into(),
-					millau_port: 9944,
-					millau_secure: false,
-					millau_runtime_version: MillauRuntimeVersionParams {
-						millau_version_mode: RuntimeVersionType::Bundle,
-						millau_spec_version: None,
-						millau_transaction_version: None,
-					},
-				},
-				left_sign: MillauSigningParams {
-					millau_signer: Some("//Charlie".into()),
-					millau_signer_password: None,
-					millau_signer_file: None,
-					millau_signer_password_file: None,
-					millau_transactions_mortality: Some(64),
-				},
-				left_headers_to_right_sign_override: MillauHeadersToRialtoSigningParams {
-					millau_headers_to_rialto_signer: None,
-					millau_headers_to_rialto_signer_password: None,
-					millau_headers_to_rialto_signer_file: None,
-					millau_headers_to_rialto_signer_password_file: None,
-					millau_headers_to_rialto_transactions_mortality: None,
-				},
-				right: RialtoConnectionParams {
-					rialto_host: "rialto-node-alice".into(),
-					rialto_port: 9944,
-					rialto_secure: false,
-					rialto_runtime_version: RialtoRuntimeVersionParams {
-						rialto_version_mode: RuntimeVersionType::Bundle,
-						rialto_spec_version: None,
-						rialto_transaction_version: None,
-					},
-				},
-				right_sign: RialtoSigningParams {
-					rialto_signer: Some("//Charlie".into()),
-					rialto_signer_password: None,
-					rialto_signer_file: None,
-					rialto_signer_password_file: None,
-					rialto_transactions_mortality: Some(64),
-				},
-				right_headers_to_left_sign_override: RialtoHeadersToMillauSigningParams {
-					rialto_headers_to_millau_signer: None,
-					rialto_headers_to_millau_signer_password: None,
-					rialto_headers_to_millau_signer_file: None,
-					rialto_headers_to_millau_signer_password_file: None,
-					rialto_headers_to_millau_transactions_mortality: None,
-				},
-			}),
-		);
-	}
-
-	#[test]
-	fn should_parse_relay_to_parachain_options() {
-		// when
-		let res = RelayHeadersAndMessages::from_iter(vec![
-			"relay-headers-and-messages",
-			"millau-rialto-parachain",
-			"--millau-host",
-			"millau-node-alice",
-			"--millau-port",
-			"9944",
-			"--millau-signer",
+			"--bridge-hub-kusama-signer",
 			"//Iden",
-			"--rialto-headers-to-millau-signer",
-			"//Ken",
-			"--millau-transactions-mortality",
+			"--bridge-hub-kusama-transactions-mortality",
 			"64",
-			"--rialto-parachain-host",
-			"rialto-parachain-collator-charlie",
-			"--rialto-parachain-port",
+			"--kusama-host",
+			"kusama-alice",
+			"--kusama-port",
 			"9944",
-			"--rialto-parachain-signer",
+			"--bridge-hub-polkadot-host",
+			"bridge-hub-polkadot-collator1",
+			"--bridge-hub-polkadot-port",
+			"9944",
+			"--bridge-hub-polkadot-signer",
 			"//George",
-			"--rialto-parachain-transactions-mortality",
+			"--bridge-hub-polkadot-transactions-mortality",
 			"64",
-			"--rialto-host",
-			"rialto-node-alice",
-			"--rialto-port",
+			"--polkadot-host",
+			"polkadot-alice",
+			"--polkadot-port",
 			"9944",
 			"--lane",
 			"00000000",
@@ -776,8 +560,8 @@ mod tests {
 		// then
 		assert_eq!(
 			res,
-			RelayHeadersAndMessages::MillauRialtoParachain(
-				MillauRialtoParachainHeadersAndMessages {
+			RelayHeadersAndMessages::BridgeHubKusamaBridgeHubPolkadot(
+				BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages {
 					shared: HeadersAndMessagesSharedParams {
 						lane: vec![HexLaneId([0x00, 0x00, 0x00, 0x00])],
 						only_mandatory_headers: false,
@@ -787,70 +571,59 @@ mod tests {
 							prometheus_port: 9616,
 						},
 					},
-					left: MillauConnectionParams {
-						millau_host: "millau-node-alice".into(),
-						millau_port: 9944,
-						millau_secure: false,
-						millau_runtime_version: MillauRuntimeVersionParams {
-							millau_version_mode: RuntimeVersionType::Bundle,
-							millau_spec_version: None,
-							millau_transaction_version: None,
+					left_relay: KusamaConnectionParams {
+						kusama_host: "kusama-alice".into(),
+						kusama_port: 9944,
+						kusama_secure: false,
+						kusama_runtime_version: KusamaRuntimeVersionParams {
+							kusama_version_mode: RuntimeVersionType::Bundle,
+							kusama_spec_version: None,
+							kusama_transaction_version: None,
 						},
 					},
-					left_sign: MillauSigningParams {
-						millau_signer: Some("//Iden".into()),
-						millau_signer_password: None,
-						millau_signer_file: None,
-						millau_signer_password_file: None,
-						millau_transactions_mortality: Some(64),
-					},
-					left_headers_to_right_sign_override:
-						MillauHeadersToRialtoParachainSigningParams {
-							millau_headers_to_rialto_parachain_signer: None,
-							millau_headers_to_rialto_parachain_signer_password: None,
-							millau_headers_to_rialto_parachain_signer_file: None,
-							millau_headers_to_rialto_parachain_signer_password_file: None,
-							millau_headers_to_rialto_parachain_transactions_mortality: None,
-						},
-					right: RialtoParachainConnectionParams {
-						rialto_parachain_host: "rialto-parachain-collator-charlie".into(),
-						rialto_parachain_port: 9944,
-						rialto_parachain_secure: false,
-						rialto_parachain_runtime_version: RialtoParachainRuntimeVersionParams {
-							rialto_parachain_version_mode: RuntimeVersionType::Bundle,
-							rialto_parachain_spec_version: None,
-							rialto_parachain_transaction_version: None,
+					left: BridgeHubKusamaConnectionParams {
+						bridge_hub_kusama_host: "bridge-hub-kusama-node-collator1".into(),
+						bridge_hub_kusama_port: 9944,
+						bridge_hub_kusama_secure: false,
+						bridge_hub_kusama_runtime_version: BridgeHubKusamaRuntimeVersionParams {
+							bridge_hub_kusama_version_mode: RuntimeVersionType::Bundle,
+							bridge_hub_kusama_spec_version: None,
+							bridge_hub_kusama_transaction_version: None,
 						},
 					},
-					right_sign: RialtoParachainSigningParams {
-						rialto_parachain_signer: Some("//George".into()),
-						rialto_parachain_signer_password: None,
-						rialto_parachain_signer_file: None,
-						rialto_parachain_signer_password_file: None,
-						rialto_parachain_transactions_mortality: Some(64),
+					left_sign: BridgeHubKusamaSigningParams {
+						bridge_hub_kusama_signer: Some("//Iden".into()),
+						bridge_hub_kusama_signer_password: None,
+						bridge_hub_kusama_signer_file: None,
+						bridge_hub_kusama_signer_password_file: None,
+						bridge_hub_kusama_transactions_mortality: Some(64),
 					},
-					right_relay_headers_to_left_sign_override: RialtoHeadersToMillauSigningParams {
-						rialto_headers_to_millau_signer: Some("//Ken".into()),
-						rialto_headers_to_millau_signer_password: None,
-						rialto_headers_to_millau_signer_file: None,
-						rialto_headers_to_millau_signer_password_file: None,
-						rialto_headers_to_millau_transactions_mortality: None,
+					right: BridgeHubPolkadotConnectionParams {
+						bridge_hub_polkadot_host: "bridge-hub-polkadot-collator1".into(),
+						bridge_hub_polkadot_port: 9944,
+						bridge_hub_polkadot_secure: false,
+						bridge_hub_polkadot_runtime_version:
+							BridgeHubPolkadotRuntimeVersionParams {
+								bridge_hub_polkadot_version_mode: RuntimeVersionType::Bundle,
+								bridge_hub_polkadot_spec_version: None,
+								bridge_hub_polkadot_transaction_version: None,
+							},
 					},
-					right_parachains_to_left_sign_override: RialtoParachainsToMillauSigningParams {
-						rialto_parachains_to_millau_signer: None,
-						rialto_parachains_to_millau_signer_password: None,
-						rialto_parachains_to_millau_signer_file: None,
-						rialto_parachains_to_millau_signer_password_file: None,
-						rialto_parachains_to_millau_transactions_mortality: None,
+					right_sign: BridgeHubPolkadotSigningParams {
+						bridge_hub_polkadot_signer: Some("//George".into()),
+						bridge_hub_polkadot_signer_password: None,
+						bridge_hub_polkadot_signer_file: None,
+						bridge_hub_polkadot_signer_password_file: None,
+						bridge_hub_polkadot_transactions_mortality: Some(64),
 					},
-					right_relay: RialtoConnectionParams {
-						rialto_host: "rialto-node-alice".into(),
-						rialto_port: 9944,
-						rialto_secure: false,
-						rialto_runtime_version: RialtoRuntimeVersionParams {
-							rialto_version_mode: RuntimeVersionType::Bundle,
-							rialto_spec_version: None,
-							rialto_transaction_version: None,
+					right_relay: PolkadotConnectionParams {
+						polkadot_host: "polkadot-alice".into(),
+						polkadot_port: 9944,
+						polkadot_secure: false,
+						polkadot_runtime_version: PolkadotRuntimeVersionParams {
+							polkadot_version_mode: RuntimeVersionType::Bundle,
+							polkadot_spec_version: None,
+							polkadot_transaction_version: None,
 						},
 					},
 				}

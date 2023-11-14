@@ -35,15 +35,15 @@ transaction.
 Every parachain in Polkadot is identified by the 32-bit number. All metrics, exposed by the parachains finality
 relay have the `parachain` label, which is set to the parachain id. And the metrics are prefixed with the prefix,
 that depends on the name of the source relay and target chains. The list below shows metrics names for
-Rialto (source relay chain) to Millau (target chain) parachains finality relay. For other chains, simply
+Rococo (source relay chain) to BridgeHubWestend (target chain) parachains finality relay. For other chains, simply
 change chain names. So the metrics are:
 
-- `Rialto_to_Millau_Parachains_best_parachain_block_number_at_source` - returns best known parachain block
-   number, registered in the `paras` pallet at the source relay chain (Rialto in our example);
+- `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_source` - returns best known parachain block
+   number, registered in the `paras` pallet at the source relay chain (Rococo in our example);
 
-- `Rialto_to_Millau_Parachains_best_parachain_block_number_at_target` - returns best known parachain block
-   number, registered in the bridge parachains pallet at the target chain (Millau in our example).
+- `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_target` - returns best known parachain block
+   number, registered in the bridge parachains pallet at the target chain (BridgeHubWestend in our example).
 
-If relay operates properly, you should see that the `Rialto_to_Millau_Parachains_best_parachain_block_number_at_target`
-tries to reach the `Rialto_to_Millau_Parachains_best_parachain_block_number_at_source`. And the latter one
+If relay operates properly, you should see that the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_target`
+tries to reach the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_source`. And the latter one
 always increases.

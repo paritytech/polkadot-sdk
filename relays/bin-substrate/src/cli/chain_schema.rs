@@ -129,29 +129,6 @@ macro_rules! declare_chain_connection_params_cli_schema {
 	};
 }
 
-/// Helper trait to override transaction parameters differently.
-pub trait TransactionParamsProvider {
-	/// Returns `true` if transaction parameters are defined by this provider.
-	fn is_defined(&self) -> bool;
-	/// Returns transaction parameters.
-	fn transaction_params<Chain: ChainWithTransactions>(
-		&self,
-	) -> anyhow::Result<TransactionParams<AccountKeyPairOf<Chain>>>;
-
-	/// Returns transaction parameters, defined by `self` provider or, if they're not defined,
-	/// defined by `other` provider.
-	fn transaction_params_or<Chain: ChainWithTransactions, T: TransactionParamsProvider>(
-		&self,
-		other: &T,
-	) -> anyhow::Result<TransactionParams<AccountKeyPairOf<Chain>>> {
-		if self.is_defined() {
-			self.transaction_params::<Chain>()
-		} else {
-			other.transaction_params::<Chain>()
-		}
-	}
-}
-
 /// Create chain-specific set of signing parameters.
 #[macro_export]
 macro_rules! declare_chain_signing_params_cli_schema {
@@ -239,15 +216,12 @@ macro_rules! declare_chain_signing_params_cli_schema {
 						suri_password.as_deref()
 					).map_err(|e| anyhow::format_err!("{:?}", e))
 				}
-			}
 
-			#[allow(dead_code)]
-			impl TransactionParamsProvider for [<$chain SigningParams>] {
-				fn is_defined(&self) -> bool {
-					self.[<$chain_prefix _signer>].is_some() || self.[<$chain_prefix _signer_file>].is_some()
-				}
-
-				fn transaction_params<Chain: ChainWithTransactions>(&self) -> anyhow::Result<TransactionParams<AccountKeyPairOf<Chain>>> {
+				/// Return transaction parameters.
+				#[allow(dead_code)]
+				pub fn transaction_params<Chain: ChainWithTransactions>(
+					&self,
+				) -> anyhow::Result<TransactionParams<AccountKeyPairOf<Chain>>> {
 					Ok(TransactionParams {
 						mortality: self.transactions_mortality()?,
 						signer: self.to_keypair::<Chain>()?,
@@ -310,7 +284,7 @@ mod tests {
 
 				target_transactions_mortality: None,
 			}
-			.to_keypair::<relay_rialto_client::Rialto>()
+			.to_keypair::<relay_polkadot_client::Polkadot>()
 			.map(|p| p.public())
 			.map_err(drop),
 			Ok(alice.public()),
@@ -327,7 +301,7 @@ mod tests {
 
 				target_transactions_mortality: None,
 			}
-			.to_keypair::<relay_rialto_client::Rialto>()
+			.to_keypair::<relay_polkadot_client::Polkadot>()
 			.map(|p| p.public())
 			.map_err(drop),
 			Ok(bob.public()),
@@ -344,7 +318,7 @@ mod tests {
 
 				target_transactions_mortality: None,
 			}
-			.to_keypair::<relay_rialto_client::Rialto>()
+			.to_keypair::<relay_polkadot_client::Polkadot>()
 			.map(|p| p.public())
 			.map_err(drop),
 			Ok(bob_with_alice_password.public()),
@@ -361,7 +335,7 @@ mod tests {
 
 				target_transactions_mortality: None,
 			}
-			.to_keypair::<relay_rialto_client::Rialto>()
+			.to_keypair::<relay_polkadot_client::Polkadot>()
 			.map(|p| p.public())
 			.map_err(drop),
 			Ok(alice.public()),

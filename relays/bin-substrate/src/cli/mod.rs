@@ -16,8 +16,6 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
-use std::convert::TryInto;
-
 use async_std::prelude::*;
 use codec::{Decode, Encode};
 use futures::{select, FutureExt};
@@ -31,18 +29,14 @@ use bp_messages::LaneId;
 use relay_substrate_client::SimpleRuntimeVersion;
 
 pub(crate) mod bridge;
-pub(crate) mod encode_message;
-pub(crate) mod send_message;
 
 mod chain_schema;
 mod detect_equivocations;
 mod init_bridge;
-mod register_parachain;
 mod relay_headers;
 mod relay_headers_and_messages;
 mod relay_messages;
 mod relay_parachains;
-mod resubmit_transactions;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "bridge";
@@ -77,16 +71,6 @@ pub enum Command {
 	///
 	/// Sends initialization transaction to bootstrap the bridge with current finalized block data.
 	InitBridge(init_bridge::InitBridge),
-	/// Send custom message over the bridge.
-	///
-	/// Allows interacting with the bridge by sending messages over `Messages` component.
-	/// The message is being sent to the source chain, delivered to the target chain and dispatched
-	/// there.
-	SendMessage(send_message::SendMessage),
-	/// Resubmit transactions with increased tip if they are stalled.
-	ResubmitTransactions(resubmit_transactions::ResubmitTransactions),
-	/// Register parachain.
-	RegisterParachain(register_parachain::RegisterParachain),
 	/// Relay parachain heads.
 	RelayParachains(relay_parachains::RelayParachains),
 	/// Detect and report equivocations.
@@ -121,9 +105,6 @@ impl Command {
 			Self::RelayMessages(arg) => arg.run().await?,
 			Self::RelayHeadersAndMessages(arg) => arg.run().await?,
 			Self::InitBridge(arg) => arg.run().await?,
-			Self::SendMessage(arg) => arg.run().await?,
-			Self::ResubmitTransactions(arg) => arg.run().await?,
-			Self::RegisterParachain(arg) => arg.run().await?,
 			Self::RelayParachains(arg) => arg.run().await?,
 			Self::DetectEquivocations(arg) => arg.run().await?,
 		}
@@ -169,33 +150,7 @@ arg_enum! {
 	}
 }
 
-/// Generic balance type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Balance(pub u128);
-
-impl std::fmt::Display for Balance {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		use num_format::{Locale, ToFormattedString};
-		write!(fmt, "{}", self.0.to_formatted_string(&Locale::en))
-	}
-}
-
-impl std::str::FromStr for Balance {
-	type Err = <u128 as std::str::FromStr>::Err;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Ok(Self(s.parse()?))
-	}
-}
-
-impl Balance {
-	/// Cast balance to `u64` type, panicking if it's too large.
-	pub fn cast(&self) -> u64 {
-		self.0.try_into().expect("Balance is too high for this chain.")
-	}
-}
-
-// Bridge-supported network definition.
+/// Bridge-supported network definition.
 ///
 /// Used to abstract away CLI commands.
 pub trait CliChain: relay_substrate_client::Chain {

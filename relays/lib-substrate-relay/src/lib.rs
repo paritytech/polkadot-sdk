@@ -45,21 +45,8 @@ pub struct TransactionParams<TS> {
 /// Tagged relay account, which balance may be exposed as metrics by the relay.
 #[derive(Clone, Debug)]
 pub enum TaggedAccount<AccountId> {
-	/// Account, used to sign headers relay transactions from given bridged chain.
-	Headers {
-		/// Account id.
-		id: AccountId,
-		/// Name of the bridged chain, which headers are relayed.
-		bridged_chain: String,
-	},
-	/// Account, used to sign parachains relay transactions from given bridged relay chain.
-	Parachains {
-		/// Account id.
-		id: AccountId,
-		/// Name of the bridged relay chain with parachain heads.
-		bridged_chain: String,
-	},
-	/// Account, used to sign message relay transactions from given bridged chain.
+	/// Account, used to sign message (also headers and parachains) relay transactions from given
+	/// bridged chain.
 	Messages {
 		/// Account id.
 		id: AccountId,
@@ -72,8 +59,6 @@ impl<AccountId> TaggedAccount<AccountId> {
 	/// Returns reference to the account id.
 	pub fn id(&self) -> &AccountId {
 		match *self {
-			TaggedAccount::Headers { ref id, .. } => id,
-			TaggedAccount::Parachains { ref id, .. } => id,
 			TaggedAccount::Messages { ref id, .. } => id,
 		}
 	}
@@ -81,10 +66,6 @@ impl<AccountId> TaggedAccount<AccountId> {
 	/// Returns stringified account tag.
 	pub fn tag(&self) -> String {
 		match *self {
-			TaggedAccount::Headers { ref bridged_chain, .. } => format!("{bridged_chain}Headers"),
-			TaggedAccount::Parachains { ref bridged_chain, .. } => {
-				format!("{bridged_chain}Parachains")
-			},
 			TaggedAccount::Messages { ref bridged_chain, .. } => {
 				format!("{bridged_chain}Messages")
 			},

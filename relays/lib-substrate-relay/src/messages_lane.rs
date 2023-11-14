@@ -187,8 +187,6 @@ where
 {
 	// 2/3 is reserved for proofs and tx overhead
 	let max_messages_size_in_single_batch = P::TargetChain::max_extrinsic_size() / 3;
-	// we don't know exact weights of the Polkadot runtime. So to guess weights we'll be using
-	// weights from Rialto and then simply dividing it by x2.
 	let limits = match params.limits {
 		Some(limits) => limits,
 		None =>

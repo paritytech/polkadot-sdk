@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+// we don't have any relay/standalone <> relay/standalone chain bridges, but we may need it in a
+// future
+#![allow(unused_macros)]
+
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -27,7 +31,6 @@ use sp_core::Pair;
 use substrate_relay_helper::{
 	finality::SubstrateFinalitySyncPipeline,
 	on_demand::{headers::OnDemandHeadersRelay, OnDemandRelay},
-	TaggedAccount, TransactionParams,
 };
 
 /// A base relay between two standalone (relay) chains.
@@ -40,12 +43,6 @@ pub struct RelayToRelayBridge<
 	/// Parameters that are shared by all bridge types.
 	pub common:
 		Full2WayBridgeCommonParams<<R2L as CliBridgeBase>::Target, <L2R as CliBridgeBase>::Target>,
-	/// Override for right->left headers signer.
-	pub right_to_left_transaction_params:
-		TransactionParams<AccountKeyPairOf<<R2L as CliBridgeBase>::Target>>,
-	/// Override for left->right headers signer.
-	pub left_to_right_transaction_params:
-		TransactionParams<AccountKeyPairOf<<L2R as CliBridgeBase>::Target>>,
 }
 
 macro_rules! declare_relay_to_relay_bridge_schema {
@@ -62,18 +59,12 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 				// default signer, which is always used to sign messages relay transactions on the left chain
 				#[structopt(flatten)]
 				left_sign: [<$left_chain SigningParams>],
-				// override for right->left headers signer
-				#[structopt(flatten)]
-				right_headers_to_left_sign_override: [<$right_chain HeadersTo $left_chain SigningParams>],
 
 				#[structopt(flatten)]
 				right: [<$right_chain ConnectionParams>],
 				#[structopt(flatten)]
 				// default signer, which is always used to sign messages relay transactions on the right chain
 				right_sign: [<$right_chain SigningParams>],
-				// override for left->right headers signer
-				#[structopt(flatten)]
-				left_headers_to_right_sign_override: [<$left_chain HeadersTo $right_chain SigningParams>],
 			}
 
 			impl [<$left_chain $right_chain HeadersAndMessages>] {
@@ -99,12 +90,8 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 								accounts: vec![],
 							},
 						)?,
-						right_to_left_transaction_params: self
-							.right_headers_to_left_sign_override
-							.transaction_params_or::<Left, _>(&self.left_sign)?,
-						left_to_right_transaction_params: self
-							.left_headers_to_right_sign_override
-							.transaction_params_or::<Right, _>(&self.right_sign)?,
+						right_to_left_transaction_params: self.left_sign.transaction_params::<Left>(),
+						left_to_right_transaction_params: self.right_sign.transaction_params::<Right>(),
 					})
 				}
 			}
@@ -145,15 +132,6 @@ where
 		Arc<dyn OnDemandRelay<Self::Left, Self::Right>>,
 		Arc<dyn OnDemandRelay<Self::Right, Self::Left>>,
 	)> {
-		self.common.right.accounts.push(TaggedAccount::Headers {
-			id: self.left_to_right_transaction_params.signer.public().into(),
-			bridged_chain: Self::Left::NAME.to_string(),
-		});
-		self.common.left.accounts.push(TaggedAccount::Headers {
-			id: self.right_to_left_transaction_params.signer.public().into(),
-			bridged_chain: Self::Right::NAME.to_string(),
-		});
-
 		<L2R as RelayToRelayHeadersCliBridge>::Finality::start_relay_guards(
 			&self.common.right.client,
 			self.common.right.client.can_start_version_guard(),
@@ -169,7 +147,7 @@ where
 			OnDemandHeadersRelay::<<L2R as RelayToRelayHeadersCliBridge>::Finality>::new(
 				self.common.left.client.clone(),
 				self.common.right.client.clone(),
-				self.left_to_right_transaction_params.clone(),
+				self.common.right.tx_params.clone(),
 				self.common.shared.only_mandatory_headers,
 				None,
 			);
@@ -177,7 +155,7 @@ where
 			OnDemandHeadersRelay::<<R2L as RelayToRelayHeadersCliBridge>::Finality>::new(
 				self.common.right.client.clone(),
 				self.common.left.client.clone(),
-				self.right_to_left_transaction_params.clone(),
+				self.common.left.tx_params.clone(),
 				self.common.shared.only_mandatory_headers,
 				None,
 			);

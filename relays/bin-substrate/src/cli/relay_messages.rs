@@ -28,14 +28,6 @@ use crate::bridges::{
 		bridge_hub_polkadot_messages_to_polkadot_bulletin::BridgeHubPolkadotToPolkadotBulletinMessagesCliBridge,
 		polkadot_bulletin_messages_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge,
 	},
-	rialto_millau::{
-		millau_headers_to_rialto::MillauToRialtoCliBridge,
-		rialto_headers_to_millau::RialtoToMillauCliBridge,
-	},
-	rialto_parachain_millau::{
-		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
-		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
-	},
 	rococo_westend::{
 		bridge_hub_rococo_messages_to_bridge_hub_westend::BridgeHubRococoToBridgeHubWestendMessagesCliBridge,
 		bridge_hub_westend_messages_to_bridge_hub_rococo::BridgeHubWestendToBridgeHubRococoMessagesCliBridge,
@@ -109,10 +101,6 @@ where
 	}
 }
 
-impl MessagesRelayer for MillauToRialtoCliBridge {}
-impl MessagesRelayer for RialtoToMillauCliBridge {}
-impl MessagesRelayer for MillauToRialtoParachainCliBridge {}
-impl MessagesRelayer for RialtoParachainToMillauCliBridge {}
 impl MessagesRelayer for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubWococoToBridgeHubRococoMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubRococoToBridgeHubWestendMessagesCliBridge {}
@@ -126,12 +114,6 @@ impl RelayMessages {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
-			FullBridge::MillauToRialto => MillauToRialtoCliBridge::relay_messages(self),
-			FullBridge::RialtoToMillau => RialtoToMillauCliBridge::relay_messages(self),
-			FullBridge::MillauToRialtoParachain =>
-				MillauToRialtoParachainCliBridge::relay_messages(self),
-			FullBridge::RialtoParachainToMillau =>
-				RialtoParachainToMillauCliBridge::relay_messages(self),
 			FullBridge::BridgeHubRococoToBridgeHubWococo =>
 				BridgeHubRococoToBridgeHubWococoMessagesCliBridge::relay_messages(self),
 			FullBridge::BridgeHubWococoToBridgeHubRococo =>
