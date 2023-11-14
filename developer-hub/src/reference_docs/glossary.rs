@@ -67,7 +67,7 @@
 //!
 //! #### Pallet
 //!
-//! FRAME pallets are modular components that encapsulate specific functionalities or
+//! [FRAME](frame) pallets are modular components that encapsulate specific functionalities or
 //! business logic of a blockchain. They are the building blocks used to construct a blockchain's
 //! runtime, allowing for customizable and upgradeable networks. Pallets can be used to extend the
 //! capabilities of a Substrate-based blockchain in a composable way.
@@ -104,3 +104,13 @@
 //! interoperability features of it.
 //!
 //! **Synonyms**: AppChain
+//!
+//! #### PVF
+//! The Parachain Validation Function (PVF) is the current runtime Wasm for a parachain that is
+//! stored on the Relay chain. It is an essential component in the Polkadot ecosystem, encapsulating
+//! the validation logic for each parachain. The PVF is executed by validators to verify the
+//! correctness of parachain blocks. This is critical for ensuring that each block follows the logic
+//! set by its respective parachain, thus maintaining the integrity and security of the entire
+//! network.
+//!
+//! **Synonyms**: Parachain Validation Function
