@@ -107,8 +107,6 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	executor: SubscriptionTaskExecutor,
 	/// Keep track of the pinned blocks for each subscription.
 	subscriptions: Arc<SubscriptionManagement<Block, BE>>,
-	/// The hexadecimal encoded hash of the genesis block.
-	genesis_hash: String,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
@@ -118,14 +116,12 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 	/// Create a new [`ChainHead`].
-	pub fn new<GenesisHash: AsRef<[u8]>>(
+	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		executor: SubscriptionTaskExecutor,
-		genesis_hash: GenesisHash,
 		config: ChainHeadConfig,
 	) -> Self {
-		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self {
 			client,
 			backend: backend.clone(),
@@ -137,7 +133,6 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
-			genesis_hash,
 			_phantom: PhantomData,
 		}
 	}
@@ -313,10 +308,6 @@ where
 			.map(|opt_header| opt_header.map(|h| hex_string(&h.encode())))
 			.map_err(ChainHeadRpcError::FetchBlockHeader)
 			.map_err(Into::into)
-	}
-
-	fn chain_head_unstable_genesis_hash(&self) -> RpcResult<String> {
-		Ok(self.genesis_hash.clone())
 	}
 
 	fn chain_head_unstable_storage(
