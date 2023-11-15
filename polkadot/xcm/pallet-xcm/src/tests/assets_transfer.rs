@@ -117,6 +117,30 @@ fn limited_teleport_assets_works() {
 	);
 }
 
+/// `limited_teleport_assets` should fail for filtered assets
+#[test]
+fn limited_teleport_filtered_assets_disallowed() {
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
+		let result = XcmPallet::limited_teleport_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(FilteredTeleportLocation::get().into()),
+			Box::new(beneficiary.into()),
+			Box::new(FilteredTeleportAsset::get().into()),
+			0,
+			Unlimited,
+		);
+		assert_eq!(
+			result,
+			Err(DispatchError::Module(ModuleError {
+				index: 4,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			}))
+		);
+	});
+}
+
 /// Test `reserve_transfer_assets_with_paid_router_works`
 ///
 /// Asserts that the sender's balance is decreased and the beneficiary's balance
@@ -1401,5 +1425,35 @@ fn reserve_transfer_assets_with_teleportable_asset_fails() {
 		// Verify total and active issuance of USDT are still the same
 		assert_eq!(Assets::total_issuance(usdt_id_multilocation), usdt_initial_local_amount);
 		assert_eq!(Assets::active_issuance(usdt_id_multilocation), usdt_initial_local_amount);
+	});
+}
+
+/// Test `reserve_transfer_assets` with teleportable fee that is filtered - should fail.
+#[test]
+fn reserve_transfer_assets_with_filtered_teleported_fee_disallowed() {
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
+		let (assets, fee_index, _, _) = into_multiassets_checked(
+			// FilteredTeleportAsset for fees - teleportable but filtered
+			FilteredTeleportAsset::get().into(),
+			// native asset to transfer (not used for fees) - local reserve
+			(MultiLocation::here(), SEND_AMOUNT).into(),
+		);
+		let result = XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(FilteredTeleportLocation::get().into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		);
+		assert_eq!(
+			result,
+			Err(DispatchError::Module(ModuleError {
+				index: 4,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			}))
+		);
 	});
 }
