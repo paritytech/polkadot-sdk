@@ -121,7 +121,7 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 /// The resource footprint of a queue.
 #[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
 pub struct QueueFootprint {
-	/// The number of pages in the queue (including overweight pages).
+	/// The number of pages in the queue (excluding overweight pages).
 	pub pages: u32,
 	/// The storage footprint of the queue (including overweight messages).
 	pub storage: Footprint,
