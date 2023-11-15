@@ -23,11 +23,12 @@
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
-	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
-	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
+	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
+	ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, impl_runtime_weights,
@@ -1499,6 +1500,7 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
 
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 	);
 }
 
@@ -1660,7 +1662,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(8)]
+	#[api_version(9)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1808,6 +1810,9 @@ sp_api::impl_runtime_apis! {
 			parachains_staging_runtime_api_impl::disabled_validators::<Runtime>()
 		}
 
+		fn node_features() -> NodeFeatures {
+			parachains_staging_runtime_api_impl::node_features::<Runtime>()
+		}
 	}
 
 	#[api_version(3)]
