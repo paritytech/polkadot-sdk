@@ -30,8 +30,8 @@ use primitives::{CoreIndex, Id as ParaId};
 use crate::{
 	assigner_bulk, assigner_parachains as assigner_legacy, configuration, paras,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
-		FixedAssignmentProvider, V0Assignment,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
+		V0Assignment,
 	},
 };
 
@@ -85,51 +85,21 @@ impl<OnDemand: Assignment, Legacy: Assignment> Assignment for UnifiedAssignment<
 	}
 }
 
-impl<T: Config> Pallet<T> {
-	// Helper fn for the AssignmentProvider implementation.
-	// Assumes that the first allocation of cores is to bulk parachains.
-	// This function will return false if there are no cores assigned to the bulk parachain
-	// assigner.
-	fn is_legacy_core(core_idx: &CoreIndex) -> bool {
-		let parachain_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
-			BlockNumberFor<T>,
-		>>::session_core_count();
-		core_idx.0 < parachain_cores
-	}
-}
-
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	type AssignmentType = UnifiedAssignmentType<T>;
 
-	type OldAssignmentType = V0Assignment;
-
-	// Sum of underlying versions ensures this version will always get increased on changes.
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion =
-		<assigner_legacy::Pallet<T>>::ASSIGNMENT_STORAGE_VERSION
-			.saturating_add(<assigner_bulk::Pallet<T>>::ASSIGNMENT_STORAGE_VERSION);
-
-	fn migrate_old_to_current(
-		old: Self::OldAssignmentType,
-		core: CoreIndex,
-	) -> Self::AssignmentType {
-		if Self::is_legacy_core(&core) {
-			UnifiedAssignment::LegacyAuction(<assigner_legacy::Pallet<T> as AssignmentProvider<
-				BlockNumberFor<T>,
-			>>::migrate_old_to_current(old, core))
-		} else {
-			UnifiedAssignment::Bulk(<assigner_bulk::Pallet<T> as AssignmentProvider<
-				BlockNumberFor<T>,
-			>>::migrate_old_to_current(old, core))
-		}
-	}
-
 	/// Pops an `Assignment` from a specified `CoreIndex`
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
-		if Pallet::<T>::is_legacy_core(&core_idx) {
+		let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
+			BlockNumberFor<T>>>::session_core_count();
+
+		if core_idx.0 < legacy_cores {
 			<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
 				core_idx,
 			).map(UnifiedAssignment::LegacyAuction)
 		} else {
+			let core_idx = CoreIndex(core_idx.0 - legacy_cores);
+
 			<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
 				core_idx,
 			)
@@ -164,11 +134,16 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		if Pallet::<T>::is_legacy_core(&core_idx) {
+		let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
+			BlockNumberFor<T>>>::session_core_count();
+
+		if core_idx.0 < legacy_cores {
 			<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
 				core_idx,
 			)
 		} else {
+			let core_idx = CoreIndex(core_idx.0 - legacy_cores);
+
 			<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
 				core_idx,
 			)
@@ -178,13 +153,33 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn session_core_count() -> u32 {
-		let parachain_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
+		let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
 			BlockNumberFor<T>,
 		>>::session_core_count();
 		let bulk_cores =
 			<assigner_bulk::Pallet<T> as FixedAssignmentProvider<BlockNumberFor<T>>>::session_core_count(
 			);
 
-		parachain_cores.saturating_add(bulk_cores)
+		legacy_cores.saturating_add(bulk_cores)
+	}
+}
+
+pub fn migrate_assignment_v0_to_v1<T: Config>(
+	old: V0Assignment,
+	core: CoreIndex,
+) -> UnifiedAssignmentType<T> {
+	let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
+		BlockNumberFor<T>,
+	>>::session_core_count();
+
+	if core.0 < legacy_cores {
+		UnifiedAssignment::LegacyAuction(assigner_legacy::ParachainsAssignment::from_v0_assignment(
+			old,
+		))
+	} else {
+		// We are not subtracting `legacy_cores` from `core` here, as this was not done before for on-demand.
+		// Therefore we keep it as is, so the book keeping will affect the correct core in the underlying on-demand
+		// assignment provider.
+		UnifiedAssignment::Bulk(assigner_bulk::BulkAssignment::from_v0_assignment(old, core))
 	}
 }
