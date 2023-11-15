@@ -401,6 +401,13 @@ pub mod pallet {
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
+			let epoch_length = T::EpochLength::get();
+			let current_slot_idx = Self::current_slot_index();
+			if current_slot_idx > epoch_length / 2 {
+				warn!(target: LOG_TARGET, "Tickets shall be submitted in the first epoch half",);
+				return Err("Tickets shall be submitted in the first epoch half".into())
+			}
+
 			let Some(verifier) = RingVerifierData::<T>::get().map(|v| v.into()) else {
 				warn!(target: LOG_TARGET, "Ring verifier key not initialized");
 				return Err("Ring verifier key not initialized".into())
