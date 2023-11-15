@@ -106,7 +106,10 @@ impl MockedWeightInfo {
 
 impl crate::weights::WeightInfo for MockedWeightInfo {
 	fn reap_page() -> Weight {
-		WeightForCall::get().get("reap_page").copied().unwrap_or_default()
+		WeightForCall::get()
+			.get("reap_page")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn execute_overweight_page_updated() -> Weight {
 		WeightForCall::get()
@@ -205,6 +208,10 @@ impl ProcessMessage for RecordingMessageProcessor {
 		let required = Weight::from_parts(weight, weight);
 
 		if meter.try_consume(required).is_ok() {
+			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
+				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
+				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+			}
 			let mut m = MessagesProcessed::get();
 			m.push((message.to_vec(), origin));
 			MessagesProcessed::set(m);
@@ -216,7 +223,7 @@ impl ProcessMessage for RecordingMessageProcessor {
 }
 
 parameter_types! {
-	pub static Callback: Box<fn (u32)> = Box::new(|_| {});
+	pub static Callback: Box<fn (&MessageOrigin, u32)> = Box::new(|_, _| {});
 }
 
 /// Processed a mocked message. Messages that end with `badformat`, `corrupt`, `unsupported` or
@@ -224,13 +231,6 @@ parameter_types! {
 fn processing_message(msg: &[u8], origin: &MessageOrigin) -> Result<(), ProcessMessageError> {
 	if YieldingQueues::get().contains(&origin) {
 		return Err(ProcessMessageError::Yield)
-	}
-
-	if let Some(p) = msg.strip_prefix(&b"callback="[..]) {
-		log::info!("recursive");
-		let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
-		Callback::get()(s.parse().expect("Expected an u32"));
-		return Ok(())
 	}
 
 	let msg = String::from_utf8_lossy(msg);
@@ -273,6 +273,10 @@ impl ProcessMessage for CountingMessageProcessor {
 		let required = Weight::from_parts(1, 1);
 
 		if meter.try_consume(required).is_ok() {
+			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
+				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
+				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+			}
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
@@ -380,4 +384,17 @@ pub fn num_overweight_enqueued_events() -> u32 {
 
 pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
 	QueueFootprint { storage: Footprint { count, size }, pages }
+}
+
+/// A random seed that can be overwritten with `MQ_SEED`.
+pub fn gen_seed() -> u64 {
+	use rand::Rng;
+	let seed = if let Ok(seed) = std::env::var("MQ_SEED") {
+		seed.parse().expect("Need valid u64 as MQ_SEED env variable")
+	} else {
+		rand::thread_rng().gen::<u64>()
+	};
+
+	println!("Using seed: {}", seed);
+	seed
 }
