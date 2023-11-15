@@ -34,7 +34,7 @@ fn example() {
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
 			network: WococoId,
-			destination: X1(Parachain(AssetHubWococo::para_id().into())),
+			destination: X1(Parachain(CoretimeWococo::para_id().into())),
 			xcm: remote_xcm,
 		},
 	]));

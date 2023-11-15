@@ -44,16 +44,12 @@ pub use emulated_integration_tests_common::{
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 };
 pub use parachains_common::{AccountId, Balance};
-pub use rococo_system_emulated_network::{
+pub use rococo_wococo_system_emulated_network::{
 	coretime_rococo_emulated_chain::{
 		genesis::ED as CORETIME_ROCOCO_ED, CoretimeRococoParaPallet as CoretimeRococoPallet,
 	},
-	penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
 	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 	BridgeHubRococoPara as BridgeHubRococo, BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
-	CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
-	CoretimeRococoParaSender as CoretimeRococoSender, PenpalAPara as PenpalA,
-	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
 	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
 	RococoRelaySender as RococoSender,
 };
@@ -62,46 +58,6 @@ pub const ASSET_ID: u32 = 1;
 pub const ASSET_MIN_BALANCE: u128 = 1000;
 // `Assets` pallet index
 pub const ASSETS_PALLET_ID: u8 = 50;
-
-pub type RelayToSystemParaTest = Test<Rococo, CoretimeRococo>;
-pub type SystemParaToRelayTest = Test<CoretimeRococo, Rococo>;
-pub type SystemParaToParaTest = Test<CoretimeRococo, PenpalA>;
-
-/// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
-pub fn relay_test_args(amount: Balance) -> TestArgs {
-	TestArgs {
-		dest: Rococo::child_location_of(CoretimeRococo::para_id()),
-		beneficiary: AccountId32Junction {
-			network: None,
-			id: CoretimeRococoReceiver::get().into(),
-		}
-		.into(),
-		amount,
-		assets: (Here, amount).into(),
-		asset_id: None,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
-
-/// Returns a `TestArgs` instance to de used for the System Parachain accross integraton tests
-pub fn system_para_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-	assets: MultiAssets,
-	asset_id: Option<u32>,
-) -> TestArgs {
-	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
-		amount,
-		assets,
-		asset_id,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
 
 #[cfg(test)]
 mod tests;

@@ -17,6 +17,8 @@ pub use asset_hub_rococo_emulated_chain;
 pub use asset_hub_wococo_emulated_chain;
 pub use bridge_hub_rococo_emulated_chain;
 pub use bridge_hub_wococo_emulated_chain;
+pub use coretime_rococo_emulated_chain;
+pub use coretime_wococo_emulated_chain;
 pub use rococo_emulated_chain;
 pub use wococo_emulated_chain;
 
