@@ -7084,7 +7084,8 @@ mod stake_tracker {
 	#[test]
 	fn bond_and_unbond_work() {
 		// Test case: unbond on validator and nominator affects the target list score
-		// accordingly and rebagging may happen.
+		// accordingly and rebagging may happen. It also adds some moot nominations that are
+		// basically noops.
 		// Call paths covered:
 		// * Call::validate()
 		// * Call::nominate()
@@ -7093,7 +7094,12 @@ mod stake_tracker {
 		ExtBuilder::default().build_and_execute(|| {
 			// bond and nominate with stash 61.
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(61), 500, Default::default()));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![31]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![31, 7777, 8888]));
+
+			// 7777 and 8888 are moot nominations.
+			assert_noop!(Staking::status(&7777), Error::<Test>::NotStash);
+			assert_noop!(Staking::status(&8888), Error::<Test>::NotStash);
+
 			assert_ok!(stake_tracker_sanity_tests());
 
 			let score_31 = <TargetBagsList as ScoreProvider<A>>::score(&31);
@@ -7307,24 +7313,35 @@ mod stake_tracker {
 			// 101 nominates both 11 and 21.
 			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec!(11, 21))));
 			// with score
-			let nominated_score = Staking::active_stake(&101);
-			assert_eq!(nominated_score, Ok(1100));
+			let nominated_score = Staking::active_stake(&101).unwrap();
+			assert_eq!(nominated_score, 1100);
 
-			let _score_11_before = <TargetBagsList as ScoreProvider<A>>::score(&11);
-			let _score_21_before = <TargetBagsList as ScoreProvider<A>>::score(&21);
+			let score_11_before = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			let score_21_before = <TargetBagsList as ScoreProvider<A>>::score(&21);
 
-			assert_eq!(voters_and_targets().1, [(11, 2100), (21, 2100), (31, 500)]);
+			assert_eq!(
+				voters_and_targets().1,
+				[(11, score_11_before), (21, score_21_before), (31, 500)]
+			);
 
 			// kick 101 from nominating 21.
 			assert_ok!(Staking::kick(RuntimeOrigin::signed(21), vec![101]));
 
 			// target list was updated as expected, rebagging 21.
-			//assert_eq!(voters_and_targets().1, [(11, 2100), (21, 1000), (31, 500)]);
+			assert_eq!(
+				voters_and_targets().1,
+				[(11, score_11_before), (21, score_21_before - nominated_score), (31, 500)]
+			);
 
-			// TODO(gpestana): we don't have the primitives for this, may need to add one more
-			// method to the OnStakingUpdate,
-			// eg. `OnStakingUpdate::drop_nomination(who, Vec<AccountId>)`, which updates the
-			// target score of a validator by dropping hte nominations on that nominator.
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 21, from: 10000, to: 1000 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 }
+				]
+			);
+
+			assert_ok!(stake_tracker_sanity_tests());
 		})
 	}
 

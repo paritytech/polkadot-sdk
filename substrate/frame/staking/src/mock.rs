@@ -909,15 +909,21 @@ pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
 	}
 
 	// compare final result with target list.
-	assert_eq!(map.keys().len(), TargetBagsList::count() as usize);
+	let mut valid_validators_count = 0;
 	for (target, stake) in map.into_iter() {
-		let stake_in_list = TargetBagsList::get_score(&target).unwrap();
-		assert_eq!(
-			stake, stake_in_list,
-			"target list score of {:?} is not correct. expected {:?}, got {:?}",
-			target, stake, stake_in_list
-		);
+		if let Ok(stake_in_list) = TargetBagsList::get_score(&target) {
+			assert_eq!(
+				stake, stake_in_list,
+				"target list score of {:?} is not correct. expected {:?}, got {:?}",
+				target, stake, stake_in_list
+			);
+			valid_validators_count += 1;
+		} else {
+			// moot target nomination, do nothing.
+		}
 	}
+	assert_eq!(valid_validators_count, TargetBagsList::count() as usize);
+
 	Ok(())
 }
 

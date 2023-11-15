@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, OnStakingUpdate, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 };
 use sp_std::prelude::*;
@@ -264,7 +264,7 @@ pub mod pallet {
 
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
-		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+		type EventListeners: OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -1646,6 +1646,9 @@ pub mod pallet {
 					if let Some(ref mut nom) = maybe_nom {
 						if let Some(pos) = nom.targets.iter().position(|v| v == stash) {
 							nom.targets.swap_remove(pos);
+							// update nominations and trickle down to target list score.
+							Self::do_add_nominator(&nom_stash, nom.clone());
+
 							Self::deposit_event(Event::<T>::Kicked {
 								nominator: nom_stash.clone(),
 								stash: stash.clone(),
