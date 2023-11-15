@@ -1206,6 +1206,8 @@ impl parachains_paras_inherent::Config for Runtime {
 }
 
 impl parachains_scheduler::Config for Runtime {
+	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
+	// otherwise provide a migration.
 	type AssignmentProvider = ParaAssignmentProvider;
 }
 
