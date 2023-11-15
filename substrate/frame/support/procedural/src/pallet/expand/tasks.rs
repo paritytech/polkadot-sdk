@@ -20,7 +20,7 @@ use derive_syn_parse::Parse;
 use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse_quote, spanned::Spanned, Item, ItemEnum, ItemImpl};
+use syn::{parse_quote, spanned::Spanned, ItemEnum, ItemImpl};
 
 impl TaskEnumDef {
 	pub fn generate(
@@ -117,7 +117,7 @@ pub struct ExpandedTasksDef {
 impl ToTokens for TasksDef {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
 		let scrate = &self.scrate;
-		let enum_ident = &self.enum_ident;
+		let enum_ident = syn::Ident::new("Task", self.enum_ident.span());
 		let enum_arguments = &self.enum_arguments;
 		let enum_use = quote!(#enum_ident #enum_arguments);
 
@@ -162,14 +162,14 @@ impl ToTokens for TasksDef {
 
 				fn task_index(&self) -> u32 {
 					match self {
-						#(#enum_ident::#task_fn_idents { .. } => #task_indices),*,
+						#(#enum_ident::#task_fn_idents { .. } => #task_indices,)*
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
 
 				fn is_valid(&self) -> bool {
 					match self {
-						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => (#task_conditions)(#(#task_arg_names),* )),*,
+						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => (#task_conditions)(#(#task_arg_names),* ),)*
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
@@ -178,7 +178,7 @@ impl ToTokens for TasksDef {
 					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => {
 							<#enum_use>::#task_fn_names(#( #task_arg_names, )* )
-						}),*,
+						},)*
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
@@ -186,7 +186,7 @@ impl ToTokens for TasksDef {
 				#[allow(unused_variables)]
 				fn weight(&self) -> #scrate::pallet_prelude::Weight {
 					match self.clone() {
-						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_weights),*,
+						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_weights,)*
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
@@ -198,17 +198,10 @@ impl ToTokens for TasksDef {
 pub fn expand_tasks_impl(def: &mut Def) -> TokenStream2 {
 	let Some(tasks) = &mut def.tasks else { return quote!() };
 	let ExpandedTasksDef { task_item_impl, task_trait_impl } = parse_quote!(#tasks);
-	let Some(content) = &mut def.item.content else { return quote!() };
-	for item in content.1.iter_mut() {
-		let Item::Impl(item_impl) = item else { continue };
-		let Some(trait_) = &item_impl.trait_ else { continue };
-		let Some(last_seg) = trait_.1.segments.last() else { continue };
-		if last_seg.ident == "Task" {
-			*item_impl = task_item_impl;
-			break
-		}
+	quote! {
+		#task_item_impl
+		#task_trait_impl
 	}
-	quote!(#task_trait_impl)
 }
 
 #[derive(Parse)]
@@ -220,8 +213,6 @@ pub struct ExpandedTaskEnum {
 pub fn expand_task_enum(def: &mut Def) -> TokenStream2 {
 	let Some(task_enum) = &mut def.task_enum else { return quote!() };
 	let ExpandedTaskEnum { item_enum, debug_impl } = parse_quote!(#task_enum);
-	// item_enum.pretty_print();
-	// debug_impl.pretty_print();
 	quote! {
 		#item_enum
 		#debug_impl

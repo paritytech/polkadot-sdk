@@ -42,7 +42,7 @@ pub mod pallet {
 	}
 
 	#[pallet::tasks]
-	impl<T: Config> frame_support::traits::Task for Task<T> {
+	impl<T: Config> Pallet<T> {
 		/// Add a pair of numbers into the totals and remove them.
 		#[pallet::task_list(Numbers::<T>::iter_keys())]
 		#[pallet::task_condition(|i| Numbers::<T>::contains_key(i))]

@@ -142,6 +142,9 @@ impl Def {
 						#[pallet::tasks]
 						#item_tokens
 					})?);
+
+					// replace item with a no-op because it will be handled by the expansion of tasks
+					*item = syn::Item::Verbatim(quote::quote!());
 				}
 				Some(PalletAttr::TaskCondition(span)) => return Err(syn::Error::new(
 					span,
