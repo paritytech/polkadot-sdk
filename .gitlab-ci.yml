@@ -142,6 +142,7 @@ default:
 .test-pr-refs:
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
 
 # handle the specific case where benches could store incorrect bench data because of the downstream staging runs
 # exclude cargo-check-benches from such runs
