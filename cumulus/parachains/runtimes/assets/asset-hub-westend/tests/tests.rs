@@ -20,26 +20,33 @@
 use asset_hub_westend_runtime::{
 	xcm_config::{
 		AssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
-		WestendLocation,
+		RelayTreasuryAccount, WestendLocation,
 	},
 	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, RuntimeCall,
 	RuntimeEvent,
 };
 pub use asset_hub_westend_runtime::{
 	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
-	AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
-	ParachainSystem, Runtime, SessionKeys, System, TrustBackedAssetsInstance,
+	AssetConversion, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
+	ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
+	TrustBackedAssetsInstance,
 };
 use asset_test_utils::{CollatorSessionKeys, ExtBuilder, XcmReceivedFrom};
 use codec::{Decode, DecodeLimit, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::fungibles::InspectEnumerable,
+	traits::{
+		fungible::{Inspect, Mutate},
+		fungibles::{
+			Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
+		},
+	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
-	westend::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
+	westend::{currency::UNITS, fee::WeightToFee},
+	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_io;
 use sp_runtime::traits::MaybeEquivalence;
@@ -64,6 +71,148 @@ fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 		AccountId::from(ALICE),
 		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
 	)
+}
+
+#[test]
+fn test_asset_swap_local_xcm_trader() {
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let bob: AccountId = SOME_ASSET_ADMIN.into();
+			let treasury = RelayTreasuryAccount::get();
+			let asset_1: u32 = 1;
+			let native_location = WestendLocation::get();
+			let asset_1_location =
+				AssetIdForTrustBackedAssetsConvert::convert_back(&asset_1).unwrap();
+			// bob's initial balance for native and `asset1` assets.
+			let initial_balance = 200 * UNITS;
+			// liquidity for both arms of (native, asset1) pool.
+			let pool_liquidity = 100 * UNITS;
+
+			assert_ok!(<Assets as Create<_>>::create(asset_1, bob.clone(), true, 10));
+
+			assert_ok!(Assets::mint_into(asset_1, &bob, initial_balance));
+			assert_ok!(Balances::mint_into(&bob, initial_balance));
+			assert_ok!(Balances::mint_into(&treasury, initial_balance));
+
+			assert_ok!(AssetConversion::create_pool(
+				RuntimeHelper::origin_of(bob.clone()),
+				Box::new(native_location),
+				Box::new(asset_1_location)
+			));
+
+			assert_ok!(AssetConversion::add_liquidity(
+				RuntimeHelper::origin_of(bob.clone()),
+				Box::new(native_location),
+				Box::new(asset_1_location),
+				pool_liquidity,
+				pool_liquidity,
+				1,
+				1,
+				bob,
+			));
+
+			let weight = Weight::from_parts(4_000_000_000, 0);
+			let fee = WeightToFee::weight_to_fee(&weight);
+			let actual_fee =
+				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
+			let extra_amount = 100;
+			let asset: MultiAsset = (asset_1_location, actual_fee + extra_amount).into();
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+			let total_issuance = Assets::total_issuance(asset_1);
+
+			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
+			let unused_assets = trader.buy_weight(weight, asset.into(), &ctx).expect("Expected Ok");
+
+			assert_eq!(Balances::balance(&treasury), initial_balance);
+			drop(trader);
+			assert_eq!(Balances::balance(&treasury), initial_balance + fee);
+			let unused_amount =
+				unused_assets.fungible.get(&asset_1_location.into()).map_or(0, |a| *a);
+			assert_eq!(unused_amount, extra_amount);
+			assert_eq!(Assets::total_issuance(asset_1), total_issuance + actual_fee);
+		})
+}
+
+#[test]
+fn test_asset_swap_foreign_xcm_trader() {
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let bob: AccountId = SOME_ASSET_ADMIN.into();
+			let treasury = RelayTreasuryAccount::get();
+			// let asset_1: u32 = 1;
+			let native_location = WestendLocation::get();
+			let foreign_location =
+				MultiLocation { parents: 1, interior: X2(Parachain(1234), GeneralIndex(12345)) };
+			// bob's initial balance for native and `asset1` assets.
+			let initial_balance = 200 * UNITS;
+			// liquidity for both arms of (native, asset1) pool.
+			let pool_liquidity = 100 * UNITS;
+
+			assert_ok!(<ForeignAssets as Create<_>>::create(
+				foreign_location,
+				bob.clone(),
+				true,
+				10
+			));
+
+			assert_ok!(ForeignAssets::mint_into(foreign_location, &bob, initial_balance));
+			assert_ok!(Balances::mint_into(&bob, initial_balance));
+			assert_ok!(Balances::mint_into(&treasury, initial_balance));
+
+			assert_ok!(AssetConversion::create_pool(
+				RuntimeHelper::origin_of(bob.clone()),
+				Box::new(native_location),
+				Box::new(foreign_location)
+			));
+
+			assert_ok!(AssetConversion::add_liquidity(
+				RuntimeHelper::origin_of(bob.clone()),
+				Box::new(native_location),
+				Box::new(foreign_location),
+				pool_liquidity,
+				pool_liquidity,
+				1,
+				1,
+				bob,
+			));
+
+			let weight = Weight::from_parts(4_000_000_000, 0);
+			let fee = WeightToFee::weight_to_fee(&weight);
+			let actual_fee =
+				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
+			let extra_amount = 100;
+			let asset: MultiAsset = (foreign_location, actual_fee + extra_amount).into();
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+			let total_issuance = ForeignAssets::total_issuance(foreign_location);
+
+			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
+			let unused_assets = trader.buy_weight(weight, asset.into(), &ctx).expect("Expected Ok");
+
+			assert_eq!(Balances::balance(&treasury), initial_balance);
+			drop(trader);
+			assert_eq!(Balances::balance(&treasury), initial_balance + fee);
+			let unused_amount =
+				unused_assets.fungible.get(&foreign_location.into()).map_or(0, |a| *a);
+			assert_eq!(unused_amount, extra_amount);
+			assert_eq!(
+				ForeignAssets::total_issuance(foreign_location),
+				total_issuance + actual_fee
+			);
+		})
 }
 
 // TODO: rewrite for a new weight trader

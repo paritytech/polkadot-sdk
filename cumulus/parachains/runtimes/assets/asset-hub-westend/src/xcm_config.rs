@@ -23,6 +23,7 @@ use crate::ForeignAssets;
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
+	TrustBackedAssetsAsMultiLocation,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -564,7 +565,10 @@ impl xcm_executor::Config for XcmConfig {
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
-			ForeignAssetsConvertedConcreteId,
+			(
+				TrustBackedAssetsAsMultiLocation<TrustBackedAssetsPalletLocation, Balance>,
+				ForeignAssetsConvertedConcreteId,
+			),
 			ResolveAssetTo<RelayTreasuryAccount, crate::NativeAndAssets>,
 			AccountId,
 		>,
