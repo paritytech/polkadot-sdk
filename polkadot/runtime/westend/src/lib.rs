@@ -421,7 +421,7 @@ pub struct OldSessionKeys {
 }
 
 impl OpaqueKeys for OldSessionKeys {
-	type KeyTypeIdProviders = (Grandpa, Babe, (), Initializer, ParaSessionInfo, AuthorityDiscovery);
+	type KeyTypeIdProviders = ();
 	fn key_ids() -> &'static [KeyTypeId] {
 		&[
 			<<Grandpa as BoundToRuntimeAppPublic>::Public>::ID,
@@ -436,12 +436,12 @@ impl OpaqueKeys for OldSessionKeys {
 		match i {
 			<<Grandpa as BoundToRuntimeAppPublic>::Public>::ID => self.grandpa.as_ref(),
 			<<Babe as BoundToRuntimeAppPublic>::Public>::ID => self.babe.as_ref(),
+			sp_core::crypto::key_types::IM_ONLINE => self.im_online.as_ref(),
 			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID => self.para_validator.as_ref(),
 			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID =>
 				self.para_assignment.as_ref(),
 			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
 				self.authority_discovery.as_ref(),
-			_ => &[],
 		}
 	}
 }
