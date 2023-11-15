@@ -509,9 +509,7 @@ where
 		frame_system::Pallet::<System>::note_finished_initialize();
 	}
 
-	/// Returns if the runtime was upgraded.
-	///
-	/// based on [`frame_system::LastRuntimeUpgrade`]
+	/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].
 	fn runtime_upgraded() -> bool {
 		let last = frame_system::LastRuntimeUpgrade::<System>::get();
 		let current = <System::Version as frame_support::traits::Get<_>>::get();
@@ -1515,9 +1513,7 @@ mod tests {
 	#[test]
 	fn all_weights_are_recorded_correctly() {
 		// Reset to get the correct new genesis below.
-		RuntimeVersionTestValues::mutate(|v| {
-			*v = sp_version::RuntimeVersion { spec_version: 0, ..Default::default() }
-		});
+		RuntimeVersionTestValues::take();
 
 		new_test_ext(1).execute_with(|| {
 			// Make sure `on_runtime_upgrade` is called for maximum complexity
@@ -1537,9 +1533,7 @@ mod tests {
 
 			// Reset the last runtime upgrade info, to make the second call to `on_runtime_upgrade`
 			// succeed.
-			LastRuntimeUpgrade::<Runtime>::set(Some(
-				sp_version::RuntimeVersion { spec_version: 0, ..Default::default() }.into(),
-			));
+			LastRuntimeUpgrade::<Runtime>::take();
 
 			// All weights that show up in the `initialize_block_impl`
 			let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();

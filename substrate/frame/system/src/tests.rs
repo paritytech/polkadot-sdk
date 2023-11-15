@@ -792,7 +792,6 @@ fn last_runtime_upgrade_spec_version_usage() {
 			}
 
 			// Do the migration.
-
 			Weight::zero()
 		}
 	}
