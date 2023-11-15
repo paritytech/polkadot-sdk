@@ -160,7 +160,7 @@ pub(crate) mod import_kusama_fellowship {
 #[cfg(test)]
 pub mod tests {
 	use super::import_kusama_fellowship::FellowshipAddresses;
-	use crate::{FellowshipCollectiveInstance as Fellowship, Runtime, System};
+	use crate::{FellowshipCollectiveInstance as Fellowship, Runtime};
 	use frame_support::traits::OnRuntimeUpgrade;
 	use pallet_ranked_collective::Rank;
 	use parachains_common::AccountId;
