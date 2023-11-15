@@ -26,7 +26,7 @@ use wococo_emulated_chain::Wococo;
 // BridgeHubRococo Parachain declaration
 decl_test_parachains! {
 	pub struct CoretimeWococo {
-		genesis = genesis::genesis(),
+		genesis = coretime_rococo_emulated_chain::genesis::genesis(),
 		on_init = {
 			coretime_rococo_runtime::AuraExt::on_initialize(1);
 		},

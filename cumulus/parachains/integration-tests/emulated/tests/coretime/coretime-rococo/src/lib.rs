@@ -45,11 +45,14 @@ pub use emulated_integration_tests_common::{
 };
 pub use parachains_common::{AccountId, Balance};
 pub use rococo_wococo_system_emulated_network::{
-	coretime_rococo_emulated_chain::{
-		genesis::ED as CORETIME_ROCOCO_ED, CoretimeRococoParaPallet as CoretimeRococoPallet,
+	bridge_hub_rococo_emulated_chain::{
+		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 	},
 	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
+	AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWococoPara as AssetHubWococo,
 	BridgeHubRococoPara as BridgeHubRococo, BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
+	BridgeHubRococoParaSender as BridgeHubRococoSender, BridgeHubWococoPara as BridgeHubWococo,
 	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
 	RococoRelaySender as RococoSender,
 };

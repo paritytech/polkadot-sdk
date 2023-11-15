@@ -26,6 +26,8 @@ use asset_hub_rococo_emulated_chain::AssetHubRococo;
 use asset_hub_wococo_emulated_chain::AssetHubWococo;
 use bridge_hub_rococo_emulated_chain::BridgeHubRococo;
 use bridge_hub_wococo_emulated_chain::BridgeHubWococo;
+use coretime_rococo_emulated_chain::CoretimeRococo;
+use coretime_wococo_emulated_chain::CoretimeWococo;
 use rococo_emulated_chain::Rococo;
 use wococo_emulated_chain::Wococo;
 
@@ -55,7 +57,7 @@ decl_test_networks! {
 		parachains = vec![
 			AssetHubWococo,
 			BridgeHubWococo,
-			CoretimeRococo,
+			CoretimeWococo,
 		],
 		bridge = WococoRococoMockBridge
 	},

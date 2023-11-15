@@ -14,18 +14,17 @@
 // limitations under the License.
 
 use crate::*;
-use coretime_rococo_runtime::xcm_config::{
-	XcmConfig as CoretimeRococoConfig, XcmConfig as RococoXcmConfig,
+use rococo_wococo_system_emulated_network::{
+	coretime_rococo_emulated_chain::CoretimeRococo, coretime_wococo_emulated_chain::CoretimeWococo,
 };
-use rococo_system_emulated_network::coretime_rococo_emulated_chain::CoretimeRococo;
 
 #[test]
 fn example() {
 	// Init tests vars
 	// XcmPallet send args
 	let sudo_origin = <Rococo as Chain>::RuntimeOrigin::root();
-	let destination = Rococo::child_location_of(CoretimeRococo::para_id()).into();
-	let weight_limit = WeightLimit::Unlimited;
+	let destination = Rococo::child_location_of(CoretimeWococo::para_id()).into();
+	let weight_limit = Unlimited;
 	let check_origin = None;
 
 	let remove_xcm = Xcm(vec![ClearOrigin]);
@@ -35,7 +34,68 @@ fn example() {
 		ExportMessage {
 			network: WococoId,
 			destination: X1(Parachain(CoretimeWococo::para_id().into())),
-			xcm: remote_xcm,
+			xcm: remove_xcm,
 		},
 	]));
+
+	//Rococo Global Consensus
+	// Send XCM message from Relay Chain to Coretime source Parachain
+	Rococo::execute_with(|| {
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
+			sudo_origin,
+			bx!(destination),
+			bx!(xcm),
+		));
+
+		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+			]
+		);
+	});
+
+	//Receive XCM message in Coretime source Parachain
+	CoretimeRococo::execute_with(|| {
+		type RuntimeEvent = <CoretimeRococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			CoretimeRococo,
+			vec![
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+					success: true,
+					..
+				}) => {},
+			]
+		);
+	});
+
+	//Wococo Global Conesnsus
+	//Receive XCM message in Coretime target Parachain
+	CoretimeRococo::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			CoretimeWococo,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+
+	//Receive embedded XCM message within `ExportMessage` in Parachain destination
+	CoretimeRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubWococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			CoretimeWococo,
+			vec![
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed {
+					..
+				}) => {},
+			]
+		);
+	});
 }
