@@ -1395,9 +1395,6 @@
 <a href="#1395" id="1395">1395</a>
 <a href="#1396" id="1396">1396</a>
 <a href="#1397" id="1397">1397</a>
-<a href="#1398" id="1398">1398</a>
-<a href="#1399" id="1399">1399</a>
-<a href="#1400" id="1400">1400</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1430,7 +1427,7 @@
 	schema::v1::{StateRequest, StateResponse},
 	service::{
 		<span class="self">self</span>,
-		chain_sync::{SyncingService, ToServiceCommand},
+		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
@@ -2113,16 +2110,13 @@
 			<span class="self">self</span>.is_major_syncing
 				.store(<span class="self">self</span>.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
 
-			<span class="comment">// Process actions requested by `ChainSync` during `select!`.
+			<span class="comment">// Process actions requested by `ChainSync`.
 			</span><span class="self">self</span>.process_chain_sync_actions();
-
-			<span class="comment">// Send outbound requests on `ChanSync`&#39;s behalf.
-			</span><span class="self">self</span>.send_chain_sync_requests();
 		}
 	}
 
 	<span class="kw">fn </span>process_chain_sync_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="self">self</span>.chain_sync.take_actions().for_each(|action| <span class="kw">match </span>action {
+		<span class="self">self</span>.chain_sync.actions().for_each(|action| <span class="kw">match </span>action {
 			ChainSyncAction::SendBlockRequest { peer_id, request } =&gt; {
 				<span class="comment">// Sending block request implies dropping obsolete pending response as we are not
 				// interested in it anymore (see [`ChainSyncAction::SendBlockRequest`]).
@@ -2141,7 +2135,25 @@
 			ChainSyncAction::CancelBlockRequest { peer_id } =&gt; {
 				<span class="kw">let </span>removed = <span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
 
-				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Processed {action:?}., response removed: {removed}.&quot;</span>);
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Processed {action:?}, response removed: {removed}.&quot;</span>);
+			},
+			ChainSyncAction::SendStateRequest { peer_id, request } =&gt; {
+				<span class="self">self</span>.send_state_request(peer_id, request);
+
+				<span class="macro">trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {peer_id}.&quot;</span>,
+				);
+			},
+			ChainSyncAction::SendWarpProofRequest { peer_id, request } =&gt; {
+				<span class="self">self</span>.send_warp_proof_request(peer_id, request.clone());
+
+				<span class="macro">trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Processed `ChainSyncAction::SendWarpProofRequest` to {}, request: {:?}.&quot;</span>,
+					peer_id,
+					request,
+				);
 			},
 			ChainSyncAction::DropPeer(BadPeer(peer_id, rep)) =&gt; {
 				<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
@@ -2504,26 +2516,8 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>send_chain_sync_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="kw">for </span>(peer_id, request) <span class="kw">in </span><span class="self">self</span>.chain_sync.block_requests() {
-			<span class="self">self</span>.send_block_request(peer_id, request);
-		}
-
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((peer_id, request)) = <span class="self">self</span>.chain_sync.state_request() {
-			<span class="self">self</span>.send_state_request(peer_id, request);
-		}
-
-		<span class="kw">for </span>(peer_id, request) <span class="kw">in </span><span class="self">self</span>.chain_sync.justification_requests() {
-			<span class="self">self</span>.send_block_request(peer_id, request);
-		}
-
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((peer_id, request)) = <span class="self">self</span>.chain_sync.warp_sync_request() {
-			<span class="self">self</span>.send_warp_sync_request(peer_id, request);
-		}
-	}
-
 	<span class="kw">fn </span>send_block_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, request: BlockRequest&lt;B&gt;) {
-		<span class="kw">if </span>!<span class="self">self</span>.chain_sync.is_peer_known(<span class="kw-2">&amp;</span>peer_id) {
+		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send block request to unknown peer {peer_id}&quot;</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
@@ -2539,7 +2533,7 @@
 	}
 
 	<span class="kw">fn </span>send_state_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, request: OpaqueStateRequest) {
-		<span class="kw">if </span>!<span class="self">self</span>.chain_sync.is_peer_known(<span class="kw-2">&amp;</span>peer_id) {
+		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send state request to unknown peer {peer_id}&quot;</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
@@ -2568,8 +2562,8 @@
 		}
 	}
 
-	<span class="kw">fn </span>send_warp_sync_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, request: WarpProofRequest&lt;B&gt;) {
-		<span class="kw">if </span>!<span class="self">self</span>.chain_sync.is_peer_known(<span class="kw-2">&amp;</span>peer_id) {
+	<span class="kw">fn </span>send_warp_proof_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, request: WarpProofRequest&lt;B&gt;) {
+		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send warp proof request to unknown peer {peer_id}&quot;</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return

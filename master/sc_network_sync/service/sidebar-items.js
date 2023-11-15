@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["chain_sync","mock","network"]};
+window.SIDEBAR_ITEMS = {"mod":["mock","network","syncing_service"]};

@@ -2390,6 +2390,36 @@
 <a href="#2390" id="2390">2390</a>
 <a href="#2391" id="2391">2391</a>
 <a href="#2392" id="2392">2392</a>
+<a href="#2393" id="2393">2393</a>
+<a href="#2394" id="2394">2394</a>
+<a href="#2395" id="2395">2395</a>
+<a href="#2396" id="2396">2396</a>
+<a href="#2397" id="2397">2397</a>
+<a href="#2398" id="2398">2398</a>
+<a href="#2399" id="2399">2399</a>
+<a href="#2400" id="2400">2400</a>
+<a href="#2401" id="2401">2401</a>
+<a href="#2402" id="2402">2402</a>
+<a href="#2403" id="2403">2403</a>
+<a href="#2404" id="2404">2404</a>
+<a href="#2405" id="2405">2405</a>
+<a href="#2406" id="2406">2406</a>
+<a href="#2407" id="2407">2407</a>
+<a href="#2408" id="2408">2408</a>
+<a href="#2409" id="2409">2409</a>
+<a href="#2410" id="2410">2410</a>
+<a href="#2411" id="2411">2411</a>
+<a href="#2412" id="2412">2412</a>
+<a href="#2413" id="2413">2413</a>
+<a href="#2414" id="2414">2414</a>
+<a href="#2415" id="2415">2415</a>
+<a href="#2416" id="2416">2416</a>
+<a href="#2417" id="2417">2417</a>
+<a href="#2418" id="2418">2418</a>
+<a href="#2419" id="2419">2419</a>
+<a href="#2420" id="2420">2420</a>
+<a href="#2421" id="2421">2421</a>
+<a href="#2422" id="2422">2422</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2583,6 +2613,10 @@
 	</span>SendBlockRequest { peer_id: PeerId, request: BlockRequest&lt;B&gt; },
 	<span class="doccomment">/// Drop stale block request.
 	</span>CancelBlockRequest { peer_id: PeerId },
+	<span class="doccomment">/// Send state request to peer.
+	</span>SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
+	<span class="doccomment">/// Send warp proof request to peer.
+	</span>SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest&lt;B&gt; },
 	<span class="doccomment">/// Peer misbehaved. Disconnect, report it and cancel the block request to it.
 	</span>DropPeer(BadPeer),
 	<span class="doccomment">/// Import blocks.
@@ -3812,11 +3846,6 @@
 			.any(|(<span class="kw">_</span>, p)| p.state == PeerSyncState::DownloadingStale(<span class="kw-2">*</span>hash))
 	}
 
-	<span class="doccomment">/// Check if the peer is known to the sync state machine. Used for sanity checks.
-	</span><span class="kw">pub fn </span>is_peer_known(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; bool {
-		<span class="self">self</span>.peers.contains_key(peer_id)
-	}
-
 	<span class="doccomment">/// Get the set of downloaded blocks that are ready to be queued for import.
 	</span><span class="kw">fn </span>ready_blocks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;IncomingBlock&lt;B&gt;&gt; {
 		<span class="self">self</span>.blocks
@@ -3929,7 +3958,7 @@
 	}
 
 	<span class="doccomment">/// Get justification requests scheduled by sync to be sent out.
-	</span><span class="kw">pub fn </span>justification_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;(PeerId, BlockRequest&lt;B&gt;)&gt; {
+	</span><span class="kw">fn </span>justification_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;(PeerId, BlockRequest&lt;B&gt;)&gt; {
 		<span class="kw">let </span>peers = <span class="kw-2">&amp;mut </span><span class="self">self</span>.peers;
 		<span class="kw">let </span><span class="kw-2">mut </span>matcher = <span class="self">self</span>.extra_justifications.matcher();
 		std::iter::from_fn(<span class="kw">move </span>|| {
@@ -3956,7 +3985,7 @@
 	}
 
 	<span class="doccomment">/// Get block requests scheduled by sync to be sent out.
-	</span><span class="kw">pub fn </span>block_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;(PeerId, BlockRequest&lt;B&gt;)&gt; {
+	</span><span class="kw">fn </span>block_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;(PeerId, BlockRequest&lt;B&gt;)&gt; {
 		<span class="kw">if </span><span class="self">self</span>.mode == SyncMode::Warp {
 			<span class="kw">return </span><span class="self">self
 				</span>.warp_target_block_request()
@@ -4083,7 +4112,7 @@
 	}
 
 	<span class="doccomment">/// Get a state request scheduled by sync to be sent out (if any).
-	</span><span class="kw">pub fn </span>state_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(PeerId, OpaqueStateRequest)&gt; {
+	</span><span class="kw">fn </span>state_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(PeerId, OpaqueStateRequest)&gt; {
 		<span class="kw">if </span><span class="self">self</span>.allowed_requests.is_empty() {
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
@@ -4129,7 +4158,7 @@
 	</span>}
 
 	<span class="doccomment">/// Get a warp proof request scheduled by sync to be sent out (if any).
-	</span><span class="kw">pub fn </span>warp_sync_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(PeerId, WarpProofRequest&lt;B&gt;)&gt; {
+	</span><span class="kw">fn </span>warp_sync_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(PeerId, WarpProofRequest&lt;B&gt;)&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(sync) = <span class="kw-2">&amp;</span><span class="self">self</span>.warp_sync {
 			<span class="kw">if </span><span class="self">self</span>.allowed_requests.is_empty() ||
 				sync.is_complete() ||
@@ -4417,7 +4446,38 @@
 
 	<span class="doccomment">/// Get pending actions to perform.
 	</span><span class="attr">#[must_use]
-	</span><span class="kw">pub fn </span>take_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ChainSyncAction&lt;B&gt;&gt; {
+	</span><span class="kw">pub fn </span>actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ChainSyncAction&lt;B&gt;&gt; {
+		<span class="kw">let </span>block_requests = <span class="self">self
+			</span>.block_requests()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendBlockRequest { peer_id, request });
+		<span class="self">self</span>.actions.extend(block_requests);
+
+		<span class="kw">let </span>justification_requests = <span class="self">self
+			</span>.justification_requests()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendBlockRequest { peer_id, request });
+		<span class="self">self</span>.actions.extend(justification_requests);
+
+		<span class="kw">let </span>state_request = <span class="self">self
+			</span>.state_request()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendStateRequest { peer_id, request });
+		<span class="self">self</span>.actions.extend(state_request);
+
+		<span class="kw">let </span>warp_proof_request = <span class="self">self
+			</span>.warp_sync_request()
+			.into_iter()
+			.map(|(peer_id, request)| ChainSyncAction::SendWarpProofRequest { peer_id, request });
+		<span class="self">self</span>.actions.extend(warp_proof_request);
+
+		std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.actions).into_iter()
+	}
+
+	<span class="doccomment">/// A version of `actions()` that doesn&#39;t schedule extra requests. For testing only.
+	</span><span class="attr">#[cfg(test)]
+	#[must_use]
+	</span><span class="kw">fn </span>take_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ChainSyncAction&lt;B&gt;&gt; {
 		std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.actions).into_iter()
 	}
 }

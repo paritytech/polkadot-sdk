@@ -447,7 +447,7 @@
 </span><span class="kw">pub struct </span>EncodedProof(<span class="kw">pub </span>Vec&lt;u8&gt;);
 
 <span class="doccomment">/// Warp sync request
-</span><span class="attr">#[derive(Encode, Decode, Debug)]
+</span><span class="attr">#[derive(Encode, Decode, Debug, Clone)]
 </span><span class="kw">pub struct </span>WarpProofRequest&lt;B: BlockT&gt; {
 	<span class="doccomment">/// Start collecting proofs from this block.
 	</span><span class="kw">pub </span>begin: B::Hash,
