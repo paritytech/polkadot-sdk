@@ -71,7 +71,7 @@
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
 //!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`.
 //! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? This
-//!   is outside the scope of this tutorial, and you can learn more about it in the origin reference
+//!   is outside the scope of this guide, and you can learn more about it in the origin reference
 //!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result<T::AccountId, _>`. So by the end of this function call, we know that this dispatchable
@@ -285,13 +285,13 @@
 //!
 //! ## What Next?
 //!
-//! The following topics where used in this tutorial, but not covered in depth. It is suggested to
+//! The following topics where used in this guide, but not covered in depth. It is suggested to
 //! study them subsequently:
 //!
 //! - [`crate::reference_docs::safe_defensive_programming`].
 //! - [`crate::reference_docs::frame_origin`].
 //! - [`crate::reference_docs::frame_composite_enums`].
-//! - The pallet we wrote in this tutorial was using `dev_mode`, learn more in
+//! - The pallet we wrote in this guide was using `dev_mode`, learn more in
 //!   [`frame::pallet_macros::config`].
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].

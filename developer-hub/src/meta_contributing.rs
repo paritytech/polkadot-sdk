@@ -45,10 +45,10 @@
 //!
 //! 1. 🔺 Ground Up: Information should be layed out in the most ground-up fashion. The lowest level
 //!    (i.e. "ground") is Rust-docs. The highest level (i.e. "up") is "outside of this crate". In
-//!    between lies [`reference_docs`] and [`tutorial`], from low to high. The point of this
-//!    principle is to document as much of the information as possible in the lower level media, as
-//!    it is easier to maintain and more reachable. Then, use excessive linking to back-link when
-//!    writing in a more high level.
+//!    between lies [`reference_docs`] and [`guides`], from low to high. The point of this principle
+//!    is to document as much of the information as possible in the lower level media, as it is
+//!    easier to maintain and more reachable. Then, use excessive linking to back-link when writing
+//!    in a more high level.
 //!
 //! > A prime example of this, the details of the FRAME storage APIs should NOT be explained in a
 //! > high level tutorial. They should be explained in the rust-doc of the corresponding type or

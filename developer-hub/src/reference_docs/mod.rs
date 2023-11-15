@@ -10,11 +10,11 @@
 //! First, see [why we use rust-docs for everything](crate#why-rust-docs) and our documentation
 //! [principles](crate#principles). We acknowledge that as much of the crucial information should be
 //! embedded in the low level rust-docs. Then, high level scenarios should be covered in
-//! [`crate::tutorial`]. Finally, we acknowledge that there is a category of information that is:
+//! [`crate::guides`]. Finally, we acknowledge that there is a category of information that is:
 //!
 //! 1. crucial to know.
 //! 2. is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
-//! 3. is too low level to be encompassed in a [`crate::tutorial`].
+//! 3. is too low level to be encompassed in a [`crate::guides`].
 //!
 //! We call this class of documents "reference documents". Our goal should be to minimize the number
 //! of "reference" docs, as they incur maintenance burden.

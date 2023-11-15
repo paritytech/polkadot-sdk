@@ -44,12 +44,12 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
-	pub use sp_core::{hashing, OpaqueMetadata, Void};
+	pub use sp_core::{OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
-	pub use sp_io::{self, storage::root as storage_root};
+	pub use sp_io::{self, hashing, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
@@ -2229,9 +2229,10 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, error, event,
-		extra_constants, generate_deposit, generate_store, getter, hooks, import_section, inherent,
-		no_default, no_default_bounds, origin, pallet_section, storage_prefix, storage_version,
-		type_value, unbounded, validate_unsigned, weight, whitelist_storage,
+		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
+		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
+		whitelist_storage,
 	};
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
