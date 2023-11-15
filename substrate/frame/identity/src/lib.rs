@@ -978,8 +978,21 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the username for `who`. Must be called by a username authority.
+		/// Remove `authority` from the username authorities.
 		#[pallet::call_index(16)]
+		#[pallet::weight(1)]
+		pub fn remove_username_authority(
+			origin: OriginFor<T>,
+			authority: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
+			let authority = T::Lookup::lookup(authority)?;
+			UsernameAuthorities::<T>::remove(&authority);
+			Ok(())
+		}
+
+		/// Set the username for `who`. Must be called by a username authority.
+		#[pallet::call_index(17)]
 		#[pallet::weight(1)]
 		pub fn set_username_for(
 			origin: OriginFor<T>,
@@ -1055,6 +1068,8 @@ pub mod pallet {
 					// possible (or desirable) to say that the `AccountId` type of the runtime must
 					// be able to convert a 32 or 33 byte array to an `AccountId`? Or to just make
 					// it fail if it doesn't?
+					//
+					// TODO: type KeyedAccounts: Convert<MultiSigner, Self::AccountId>;
 					use sp_runtime::traits::TrailingZeroInput;
 					let dummy = T::AccountId::decode(&mut TrailingZeroInput::new(&[][..]))
 						.expect("infinite input; qed");
@@ -1067,17 +1082,12 @@ pub mod pallet {
 			// Check if they already have a primary. If so, leave it. If not, set it.
 			// Likewise, check if they have an identity. If not, give them a minimal one.
 			let (reg, primary_username) = match <IdentityOf<T>>::get(&who) {
-				// User has an existing Identity.
-				Some((reg, maybe_username)) => {
-					if let Some(u) = maybe_username {
-						// User already has a "primary" username.
-						(reg, u)
-					} else {
-						// User does not have a primary. Set the new one.
-						(reg, bounded_username.clone())
-					}
-				},
-				// User does not have an existing Identity. Give them a fresh default one.
+				// User has an existing Identity and a primary username. Leave it.
+				Some((reg, Some(primary))) => (reg, primary),
+				// User has an Identity but no primary. Set the new one as primary.
+				Some((reg, None)) => (reg, bounded_username.clone()),
+				// User does not have an existing Identity. Give them a fresh default one and set
+				// their username as primary.
 				None => (
 					Registration {
 						info: T::IdentityInformation::default(),
@@ -1117,7 +1127,7 @@ pub mod pallet {
 		/// Preapproving does not guarantee a claim on the `username`.
 		///
 		/// The username _must_ include a suffix as a means to designate the approver.
-		#[pallet::call_index(17)]
+		#[pallet::call_index(18)]
 		#[pallet::weight(1)]
 		pub fn preapprove_username(origin: OriginFor<T>, username: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -1135,7 +1145,7 @@ pub mod pallet {
 		}
 
 		/// Remove a preapproval for a username.
-		#[pallet::call_index(18)]
+		#[pallet::call_index(19)]
 		#[pallet::weight(1)]
 		pub fn remove_preapproval(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -1149,7 +1159,7 @@ pub mod pallet {
 		}
 
 		/// Remove an expired username preapproval.
-		#[pallet::call_index(19)]
+		#[pallet::call_index(20)]
 		#[pallet::weight(1)]
 		pub fn remove_expired_preapproval(
 			origin: OriginFor<T>,
@@ -1171,7 +1181,7 @@ pub mod pallet {
 		}
 
 		/// Set a given username as the primary. The username should include the suffix.
-		#[pallet::call_index(20)]
+		#[pallet::call_index(21)]
 		#[pallet::weight(1)]
 		pub fn set_primary_username(origin: OriginFor<T>, username: Vec<u8>) -> DispatchResult {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
