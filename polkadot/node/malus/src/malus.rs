@@ -195,4 +195,38 @@ mod tests {
 			assert!(run.cli.run.base.bob);
 		});
 	}
+
+	#[test]
+	fn dispute_finalized_candidates_works() {
+		let cli = MalusCli::try_parse_from(IntoIterator::into_iter([
+			"malus",
+			"dispute-finalized-candidates",
+			"--bob",
+		]))
+		.unwrap();
+		assert_matches::assert_matches!(cli, MalusCli {
+			variant: NemesisVariant::DisputeFinalizedCandidates(run),
+			..
+		} => {
+			assert!(run.cli.run.base.bob);
+		});
+	}
+
+	#[test]
+	fn dispute_finalized_offset_works() {
+		let cli = MalusCli::try_parse_from(IntoIterator::into_iter([
+			"malus",
+			"dispute-finalized-candidates",
+			"--dispute-offset",
+			"13",
+			"--bob",
+		]))
+		.unwrap();
+		assert_matches::assert_matches!(cli, MalusCli {
+			variant: NemesisVariant::DisputeFinalizedCandidates(run),
+			..
+		} => {
+			assert!(run.cli.run.base.bob);
+		});
+	}
 }
