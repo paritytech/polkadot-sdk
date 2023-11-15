@@ -48,20 +48,20 @@ where
 /// `construct_runtime` of the Relay chain.
 #[derive(Encode, Decode)]
 enum BrokerRuntimePallets<
-	AccountId: Encode,
-	Balance: Encode,
 	CoreIndex: Encode,
 	BlockNumber: Encode,
+	AccountId: Encode,
+	Balance: Encode,
 	CoreAssignment: Encode,
 	PartsOf57600: Encode,
 > {
 	#[codec(index = 74)]
 	Broker(
 		CoretimeProviderCalls<
-			AccountId,
-			Balance,
 			CoreIndex,
 			BlockNumber,
+			AccountId,
+			Balance,
 			CoreAssignment,
 			PartsOf57600,
 		>,
@@ -71,10 +71,10 @@ enum BrokerRuntimePallets<
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
 enum CoretimeProviderCalls<
-	AccountId: Encode,
-	Balance: Encode,
 	CoreIndex: Encode,
 	BlockNumber: Encode,
+	AccountId: Encode,
+	Balance: Encode,
 	CoreAssignment: Encode,
 	PartsOf57600: Encode,
 > {
@@ -113,10 +113,10 @@ impl CoretimeInterface for CoretimeAllocator {
 	fn request_core_count(count: CoreIndex) {
 		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
 		let request_core_count_call = BrokerRuntimePallets::<
-			AccountId,
-			Balance,
 			CoreIndex,
 			BlockNumber,
+			AccountId,
+			Balance,
 			CoreAssignment,
 			PartsOf57600,
 		>::Broker(RequestCoreCount(count));
@@ -149,10 +149,10 @@ impl CoretimeInterface for CoretimeAllocator {
 	fn request_revenue_info_at(when: Self::BlockNumber) {
 		use crate::coretime::CoretimeProviderCalls::RequestRevenueInfoAt;
 		let request_revenue_info_at_call = BrokerRuntimePallets::<
-			AccountId,
-			Balance,
 			CoreIndex,
 			BlockNumber,
+			AccountId,
+			Balance,
 			CoreAssignment,
 			PartsOf57600,
 		>::Broker(RequestRevenueInfoAt(when));
@@ -185,10 +185,10 @@ impl CoretimeInterface for CoretimeAllocator {
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
 		use crate::coretime::CoretimeProviderCalls::CreditAccount;
 		let credit_account_call = BrokerRuntimePallets::<
-			AccountId,
-			Balance,
 			CoreIndex,
 			BlockNumber,
+			AccountId,
+			Balance,
 			CoreAssignment,
 			PartsOf57600,
 		>::Broker(CreditAccount(who, amount));
@@ -226,10 +226,10 @@ impl CoretimeInterface for CoretimeAllocator {
 	) {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
 		let assign_core_call = BrokerRuntimePallets::<
-			AccountId,
-			Balance,
 			CoreIndex,
 			BlockNumber,
+			AccountId,
+			Balance,
 			CoreAssignment,
 			PartsOf57600,
 		>::Broker(AssignCore(core, begin, assignment, end_hint));
