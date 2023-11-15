@@ -91,7 +91,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// Pops an `Assignment` from a specified `CoreIndex`
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
-			BlockNumberFor<T>>>::session_core_count();
+			BlockNumberFor<T>,
+		>>::session_core_count();
 
 		if core_idx.0 < legacy_cores {
 			<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
@@ -135,7 +136,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
 		let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
-			BlockNumberFor<T>>>::session_core_count();
+			BlockNumberFor<T>,
+		>>::session_core_count();
 
 		if core_idx.0 < legacy_cores {
 			<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
@@ -177,9 +179,9 @@ pub fn migrate_assignment_v0_to_v1<T: Config>(
 			old,
 		))
 	} else {
-		// We are not subtracting `legacy_cores` from `core` here, as this was not done before for on-demand.
-		// Therefore we keep it as is, so the book keeping will affect the correct core in the underlying on-demand
-		// assignment provider.
+		// We are not subtracting `legacy_cores` from `core` here, as this was not done before for
+		// on-demand. Therefore we keep it as is, so the book keeping will affect the correct core
+		// in the underlying on-demand assignment provider.
 		UnifiedAssignment::Bulk(assigner_bulk::BulkAssignment::from_v0_assignment(old, core))
 	}
 }

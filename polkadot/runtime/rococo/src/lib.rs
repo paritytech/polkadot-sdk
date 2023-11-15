@@ -41,7 +41,8 @@ use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use runtime_parachains::{
-	assigner as parachains_assigner, assigner_on_demand as parachains_assigner_on_demand,
+	assigner::v1 as parachains_assigner_v1,
+	assigner_bulk as parachains_assigner_bulk, assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -982,7 +983,7 @@ impl parachains_assigner_bulk::Config for Runtime {
 
 impl parachains_assigner_parachains::Config for Runtime {}
 
-impl parachains_assigner::Config for Runtime {}
+impl parachains_assigner_v1::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1361,7 +1362,7 @@ construct_runtime! {
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 62,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 63,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 64,
-		ParaAssignmentProvider: parachains_assigner::{Pallet, Storage} = 65,
+		ParaAssignmentProvider: parachains_assigner_v1::{Pallet, Storage} = 65,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 66,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 67,
 
@@ -1430,6 +1431,8 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
+	use parachains_scheduler::common::AssignmentVersion;
+	use primitives::CoreIndex;
 
 	parameter_types! {
 		pub const DemocracyPalletName: &'static str = "Democracy";
@@ -1510,13 +1513,14 @@ pub mod migrations {
 	impl parachains_scheduler::migration::assignment_version::AssignmentMigration
 		for SchedulerAssignmentMigration<Runtime>
 	{
-		const ON_CHAIN_STORAGE_VERSION: u16 = 0;
-		const STORAGE_VERSION: u16 = 1;
+		const ON_CHAIN_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
+		const STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(1);
+
 		type OldType = parachains_scheduler::common::V0Assignment;
-		type NewType = parachains_scheduler::assigner::v1::UnifiedAssignmentType;
+		type NewType = parachains_assigner_v1::UnifiedAssignmentType<Runtime>;
 
 		fn migrate(core_idx: CoreIndex, old: Self::OldType) -> Self::NewType {
-			parachains_scheduler::assigner::migrate_assignment_v0_to_v1(old, core_idx)
+			parachains_assigner_v1::migrate_assignment_v0_to_v1::<Runtime>(old, core_idx)
 		}
 	}
 }

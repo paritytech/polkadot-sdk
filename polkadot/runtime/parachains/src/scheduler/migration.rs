@@ -65,7 +65,7 @@ pub mod assignment_version {
 
 	mod new {
 		use super::*;
-		/// Previously used `ParasEntryType`.
+		/// Now used `ParasEntryType`.
 		pub type ParasEntryType<T, M> = ParasEntry<BlockNumberFor<T>, AssignmentType<M>>;
 
 		/// Now used assignment type:
