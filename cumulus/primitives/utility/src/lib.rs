@@ -390,7 +390,7 @@ impl<
 		let first_asset: MultiAsset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
 		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
-			.map_err(|_| XcmError::FeesNotMet)?;
+			.map_err(|_| XcmError::AssetNotFound)?;
 
 		let swap_asset = fungibles_asset.clone().into();
 		if Target::get().eq(&swap_asset) {
@@ -444,7 +444,7 @@ impl<
 		}
 		let mut refund_asset = if let Some(asset) = &self.last_fee_asset {
 			// create an initial zero refund in the asset used in the last `buy_weight`.
-			(*asset, 0).into()
+			(*asset, Fungible(0)).into()
 		} else {
 			return None
 		};
