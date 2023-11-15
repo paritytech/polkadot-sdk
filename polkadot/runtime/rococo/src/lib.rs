@@ -959,6 +959,8 @@ impl parachains_paras_inherent::Config for Runtime {
 }
 
 impl parachains_scheduler::Config for Runtime {
+	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
+	// otherwise provide a migration.
 	type AssignmentProvider = ParaAssignmentProvider;
 }
 
@@ -971,6 +973,11 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
+}
+impl parachains_assigner_bulk::Config for Runtime {
+	// FIXME: Proper weights:
+	type WeightInfo = ();
+	// type WeightInfo = weights::runtime_parachains_assigner_bulk::WeightInfo<Runtime>;
 }
 
 impl parachains_assigner_parachains::Config for Runtime {}
@@ -1475,7 +1482,7 @@ pub mod migrations {
 		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v2::MigrateToV2<Runtime>,
-		parachains_scheduler::migration::assignment_version::MigrateAssignment<Runtime>,
+		parachains_scheduler::migration::assignment_version::MigrateAssignment<Runtime, SchedulerAssignmentMigration<Runtime>>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
@@ -1497,6 +1504,21 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<TechnicalMembershipPalletName, <Runtime as frame_system::Config>::DbWeight>,
 		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
 	);
+
+	/// We are swapping out the assignment type in the scheduler for coretime.
+	struct SchedulerAssignmentMigration<T>(sp_std::marker::PhantomData<T>);
+	impl parachains_scheduler::migration::assignment_version::AssignmentMigration
+		for SchedulerAssignmentMigration<Runtime>
+	{
+		const ON_CHAIN_STORAGE_VERSION: u16 = 0;
+		const STORAGE_VERSION: u16 = 1;
+		type OldType = parachains_scheduler::common::V0Assignment;
+		type NewType = parachains_scheduler::assigner::v1::UnifiedAssignmentType;
+
+		fn migrate(core_idx: CoreIndex, old: Self::OldType) -> Self::NewType {
+			parachains_scheduler::assigner::migrate_assignment_v0_to_v1(old, core_idx)
+		}
+	}
 }
 
 /// Executive: handles dispatch to the various modules.
