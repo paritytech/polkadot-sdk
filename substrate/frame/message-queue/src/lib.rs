@@ -49,9 +49,21 @@
 //! **Message Execution**
 //!
 //! Executing a message is offloaded to the [`Config::MessageProcessor`] which contains the actual
-//! logic of how to handle the message since they are blobs. A message can be temporarily or
-//! permanently overweight. The pallet will perpetually try to execute a temporarily overweight
-//! message. A permanently overweight message is skipped and must be executed manually.
+//! logic of how to handle the message since they are blobs. Storage changes are not rolled back on
+//! error.
+//!
+//! A failed message can be temporarily or permanently overweight. The pallet will perpetually try
+//! to execute a temporarily overweight message. A permanently overweight message is skipped and
+//! must be executed manually.
+//!
+//! **Reentrancy**
+//!
+//! This pallet has two entry points for executing (possibly recursive) logic;
+//! [`Pallet::service_queues`] and [`Pallet::execute_overweight`]. Both entry points are guarded the
+//! same mutex to error on reentrancy. The only functions that is explicitly **allowed** to be
+//! called by a message processor are [`Pallet::`enqueue_message`] and
+//! [`Pallet::`enqueue_messages`]. All other functions are forbidden and error with
+//! [`Error::RecursiveDisallowed`].
 //!
 //! **Pagination**
 //!
@@ -146,6 +158,7 @@
 //!   which is the default state for a message after being enqueued.
 //! - `knitting`/`unknitting`: The means of adding or removing a `Queue` from the `ReadyRing`.
 //! - `MEL`: The Max Encoded Length of a type, see [`codec::MaxEncodedLen`].
+//! - `Reentrance`: To enter an execution context again before it has completed.
 //!
 //! # Properties
 //!
@@ -180,6 +193,7 @@
 //! expensive. Currently this is archived by having one queue per para-chain/thread, which keeps the
 //! number of queues within `O(n)` and should be "good enough".
 
+#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
@@ -461,6 +475,10 @@ pub mod pallet {
 
 		/// Processor for a message.
 		///
+		/// Storage changes are not rolled back on error.
+		///
+		/// # Benchmarking
+		///
 		/// Must be set to [`mock_helpers::NoopMessageProcessor`] for benchmarking.
 		/// Other message processors that consumes exactly (1, 1) weight for any give message will
 		/// work as well. Otherwise the benchmarking will also measure the weight of the message
@@ -517,18 +535,51 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Message discarded due to an error in the `MessageProcessor` (usually a format error).
-		ProcessingFailed { id: [u8; 32], origin: MessageOriginOf<T>, error: ProcessMessageError },
+		ProcessingFailed {
+			/// The `blake2_256` hash of the message.
+			id: [u8; 32],
+			/// The queue of the message.
+			origin: MessageOriginOf<T>,
+			/// The error that occurred.
+			///
+			/// This error is pretty opaque. More fine-grained errors need to be emitted as events
+			/// by the `MessageProcessor`.
+			error: ProcessMessageError,
+		},
 		/// Message is processed.
-		Processed { id: [u8; 32], origin: MessageOriginOf<T>, weight_used: Weight, success: bool },
+		Processed {
+			/// The `blake2_256` hash of the message.
+			id: [u8; 32],
+			/// The queue of the message.
+			origin: MessageOriginOf<T>,
+			/// How much weight was used to process the message.
+			weight_used: Weight,
+			/// Whether the message was processed.
+			///
+			/// Note that this does not mean that the underlying `MessageProcessor` was internally
+			/// successful. It *solely* means that the MQ pallet will treat this as a success
+			/// condition and discard the message. Any internal error needs to be emitted as events
+			/// by the `MessageProcessor`.
+			success: bool,
+		},
 		/// Message placed in overweight queue.
 		OverweightEnqueued {
+			/// The `blake2_256` hash of the message.
 			id: [u8; 32],
+			/// The queue of the message.
 			origin: MessageOriginOf<T>,
+			/// The page of the message.
 			page_index: PageIndex,
+			/// The index of the message within the page.
 			message_index: T::Size,
 		},
 		/// This page was reaped.
-		PageReaped { origin: MessageOriginOf<T>, index: PageIndex },
+		PageReaped {
+			/// The queue of the page.
+			origin: MessageOriginOf<T>,
+			/// The index of the page.
+			index: PageIndex,
+		},
 	}
 
 	#[pallet::error]
