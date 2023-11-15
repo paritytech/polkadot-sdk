@@ -23,6 +23,8 @@ fn fixtures_root_dir() -> PathBuf {
 		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
 		(Err(_), _) => "substrate/frame/contracts/fixtures/data".into(),
 		(Ok(path), Ok(s)) if s == "pallet-contracts" => PathBuf::from(path).join("fixtures/data"),
+		(Ok(path), Ok(s)) if s == "pallet-contracts-mock-network" =>
+			PathBuf::from(path).parent().unwrap().join("fixtures/data"),
 		(Ok(_), pkg_name) => panic!("Failed to resolve fixture dir for tests from {pkg_name:?}."),
 	}
 }

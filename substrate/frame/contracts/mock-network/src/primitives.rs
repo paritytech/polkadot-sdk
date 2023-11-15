@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Staging Primitives.
+pub type Balance = u128;
 
-// Put any primitives used by staging APIs functions here
+pub const UNITS: Balance = 10_000_000_000;
+pub const CENTS: Balance = UNITS / 100; // 100_000_000
 
-use bitvec::vec::BitVec;
-
-/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
-pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
+pub type AccountId = sp_runtime::AccountId32;
+pub type AssetIdForAssets = u128;

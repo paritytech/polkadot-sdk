@@ -1353,6 +1353,7 @@ impl pallet_contracts::Config for Runtime {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = ();
 	type Environment = ();
+	type Xcm = ();
 }
 
 impl pallet_sudo::Config for Runtime {
