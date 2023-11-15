@@ -1868,6 +1868,25 @@
 <a href="#1868" id="1868">1868</a>
 <a href="#1869" id="1869">1869</a>
 <a href="#1870" id="1870">1870</a>
+<a href="#1871" id="1871">1871</a>
+<a href="#1872" id="1872">1872</a>
+<a href="#1873" id="1873">1873</a>
+<a href="#1874" id="1874">1874</a>
+<a href="#1875" id="1875">1875</a>
+<a href="#1876" id="1876">1876</a>
+<a href="#1877" id="1877">1877</a>
+<a href="#1878" id="1878">1878</a>
+<a href="#1879" id="1879">1879</a>
+<a href="#1880" id="1880">1880</a>
+<a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2964,7 +2983,26 @@
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-	<span class="kw">pub fn </span>account_exists(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
+	<span class="doccomment">/// Returns the `spec_version` of the last runtime upgrade.
+	///
+	/// This function is useful for writing guarded runtime migrations in the runtime. A runtime
+	/// migration can use the `spec_version` to ensure that it isn&#39;t applied twice. This works
+	/// similar as the storage version for pallets.
+	///
+	/// This functions returns the `spec_version` of the last runtime upgrade while executing the
+	/// runtime migrations
+	/// [`on_runtime_upgrade`](frame_support::traits::OnRuntimeUpgrade::on_runtime_upgrade)
+	/// function. After all migrations are executed, this will return the `spec_version` of the
+	/// current runtime until there is another runtime upgrade.
+	///
+	/// Example:
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, last_runtime_upgrade_spec_version_usage)]
+	</span><span class="kw">pub fn </span>last_runtime_upgrade_spec_version() -&gt; u32 {
+		LastRuntimeUpgrade::&lt;T&gt;::get().map_or(<span class="number">0</span>, |l| l.spec_version.<span class="number">0</span>)
+	}
+
+	<span class="doccomment">/// Returns true if the given account exists.
+	</span><span class="kw">pub fn </span>account_exists(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		Account::&lt;T&gt;::contains_key(who)
 	}
 

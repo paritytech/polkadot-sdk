@@ -2176,6 +2176,12 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
 		<span class="kw">if </span><span class="self">Self</span>::runtime_upgraded() {
 			weight = weight.saturating_add(<span class="self">Self</span>::execute_on_runtime_upgrade());
+
+			frame_system::LastRuntimeUpgrade::&lt;System&gt;::put(
+				frame_system::LastRuntimeUpgradeInfo::from(
+					&lt;System::Version <span class="kw">as </span>frame_support::traits::Get&lt;<span class="kw">_</span>&gt;&gt;::get(),
+				),
+			);
 		}
 		&lt;frame_system::Pallet&lt;System&gt;&gt;::initialize(block_number, parent_hash, digest);
 		weight = weight.saturating_add(&lt;AllPalletsWithSystem <span class="kw">as </span>OnInitialize&lt;
@@ -2192,19 +2198,12 @@
 		frame_system::Pallet::&lt;System&gt;::note_finished_initialize();
 	}
 
-	<span class="doccomment">/// Returns if the runtime was upgraded since the last time this function was called.
+	<span class="doccomment">/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].
 	</span><span class="kw">fn </span>runtime_upgraded() -&gt; bool {
 		<span class="kw">let </span>last = frame_system::LastRuntimeUpgrade::&lt;System&gt;::get();
 		<span class="kw">let </span>current = &lt;System::Version <span class="kw">as </span>frame_support::traits::Get&lt;<span class="kw">_</span>&gt;&gt;::get();
 
-		<span class="kw">if </span>last.map(|v| v.was_upgraded(<span class="kw-2">&amp;</span>current)).unwrap_or(<span class="bool-val">true</span>) {
-			frame_system::LastRuntimeUpgrade::&lt;System&gt;::put(
-				frame_system::LastRuntimeUpgradeInfo::from(current),
-			);
-			<span class="bool-val">true
-		</span>} <span class="kw">else </span>{
-			<span class="bool-val">false
-		</span>}
+		last.map(|v| v.was_upgraded(<span class="kw-2">&amp;</span>current)).unwrap_or(<span class="bool-val">true</span>)
 	}
 
 	<span class="kw">fn </span>initial_checks(block: <span class="kw-2">&amp;</span>Block) {
@@ -2444,7 +2443,7 @@
 		traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 		weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
 	};
-	<span class="kw">use </span>frame_system::{ChainContext, LastRuntimeUpgradeInfo};
+	<span class="kw">use </span>frame_system::{ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
 	<span class="kw">use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
 	<span class="kw">use </span>pallet_transaction_payment::CurrencyAdapter;
 
@@ -2683,6 +2682,9 @@
 			sp_io::storage::set(TEST_KEY, <span class="string">&quot;custom_upgrade&quot;</span>.as_bytes());
 			sp_io::storage::set(CUSTOM_ON_RUNTIME_KEY, <span class="kw-2">&amp;</span><span class="bool-val">true</span>.encode());
 			System::deposit_event(frame_system::Event::CodeUpdated);
+
+			<span class="macro">assert_eq!</span>(<span class="number">0</span>, System::last_runtime_upgrade_spec_version());
+
 			Weight::from_parts(<span class="number">100</span>, <span class="number">0</span>)
 		}
 	}
@@ -3045,17 +3047,13 @@
 		new_test_ext(<span class="number">1</span>).execute_with(|| {
 			RuntimeVersionTestValues::mutate(|v| <span class="kw-2">*</span>v = Default::default());
 			<span class="comment">// It should be added at genesis
-			</span><span class="macro">assert!</span>(frame_system::LastRuntimeUpgrade::&lt;Runtime&gt;::exists());
+			</span><span class="macro">assert!</span>(LastRuntimeUpgrade::&lt;Runtime&gt;::exists());
 			<span class="macro">assert!</span>(!Executive::runtime_upgraded());
 
 			RuntimeVersionTestValues::mutate(|v| {
 				<span class="kw-2">*</span>v = sp_version::RuntimeVersion { spec_version: <span class="number">1</span>, ..Default::default() }
 			});
 			<span class="macro">assert!</span>(Executive::runtime_upgraded());
-			<span class="macro">assert_eq!</span>(
-				<span class="prelude-val">Some</span>(LastRuntimeUpgradeInfo { spec_version: <span class="number">1</span>.into(), spec_name: <span class="string">&quot;&quot;</span>.into() }),
-				frame_system::LastRuntimeUpgrade::&lt;Runtime&gt;::get(),
-			);
 
 			RuntimeVersionTestValues::mutate(|v| {
 				<span class="kw-2">*</span>v = sp_version::RuntimeVersion {
@@ -3065,27 +3063,18 @@
 				}
 			});
 			<span class="macro">assert!</span>(Executive::runtime_upgraded());
-			<span class="macro">assert_eq!</span>(
-				<span class="prelude-val">Some</span>(LastRuntimeUpgradeInfo { spec_version: <span class="number">1</span>.into(), spec_name: <span class="string">&quot;test&quot;</span>.into() }),
-				frame_system::LastRuntimeUpgrade::&lt;Runtime&gt;::get(),
-			);
 
 			RuntimeVersionTestValues::mutate(|v| {
 				<span class="kw-2">*</span>v = sp_version::RuntimeVersion {
-					spec_version: <span class="number">1</span>,
-					spec_name: <span class="string">&quot;test&quot;</span>.into(),
+					spec_version: <span class="number">0</span>,
 					impl_version: <span class="number">2</span>,
 					..Default::default()
 				}
 			});
 			<span class="macro">assert!</span>(!Executive::runtime_upgraded());
 
-			frame_system::LastRuntimeUpgrade::&lt;Runtime&gt;::take();
+			LastRuntimeUpgrade::&lt;Runtime&gt;::take();
 			<span class="macro">assert!</span>(Executive::runtime_upgraded());
-			<span class="macro">assert_eq!</span>(
-				<span class="prelude-val">Some</span>(LastRuntimeUpgradeInfo { spec_version: <span class="number">1</span>.into(), spec_name: <span class="string">&quot;test&quot;</span>.into() }),
-				frame_system::LastRuntimeUpgrade::&lt;Runtime&gt;::get(),
-			);
 		})
 	}
 
@@ -3133,6 +3122,10 @@
 
 			<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>sp_io::storage::get(TEST_KEY).unwrap()[..], <span class="kw-2">*</span><span class="string">b&quot;module&quot;</span>);
 			<span class="macro">assert_eq!</span>(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).unwrap(), <span class="bool-val">true</span>.encode());
+			<span class="macro">assert_eq!</span>(
+				<span class="prelude-val">Some</span>(RuntimeVersionTestValues::get().into()),
+				LastRuntimeUpgrade::&lt;Runtime&gt;::get(),
+			)
 		});
 	}
 
@@ -3208,6 +3201,9 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>all_weights_are_recorded_correctly() {
+		<span class="comment">// Reset to get the correct new genesis below.
+		</span>RuntimeVersionTestValues::take();
+
 		new_test_ext(<span class="number">1</span>).execute_with(|| {
 			<span class="comment">// Make sure `on_runtime_upgrade` is called for maximum complexity
 			</span>RuntimeVersionTestValues::mutate(|v| {
@@ -3223,6 +3219,10 @@
 				[<span class="number">69u8</span>; <span class="number">32</span>].into(),
 				Digest::default(),
 			));
+
+			<span class="comment">// Reset the last runtime upgrade info, to make the second call to `on_runtime_upgrade`
+			// succeed.
+			</span>LastRuntimeUpgrade::&lt;Runtime&gt;::take();
 
 			<span class="comment">// All weights that show up in the `initialize_block_impl`
 			</span><span class="kw">let </span>custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
