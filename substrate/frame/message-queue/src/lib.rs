@@ -1189,6 +1189,7 @@ impl<T: Config> Pallet<T> {
 		weight: &mut WeightMeter,
 		overweight_limit: Weight,
 	) -> ItemExecutionStatus {
+		use MessageExecutionStatus::*;
 		// This ugly pre-checking is needed for the invariant
 		// "we never bail if a page became complete".
 		if page.is_complete() {
@@ -1202,16 +1203,31 @@ impl<T: Config> Pallet<T> {
 			Some(m) => m,
 			None => return ItemExecutionStatus::NoItem,
 		}[..];
+		let payload_len = payload.len() as u64;
 
-		use MessageExecutionStatus::*;
-		let is_processed = match Self::process_message_payload(
+		// Store these for the case that `process_message_payload` is recursive.
+		Pages::<T>::insert(origin, page_index, &*page);
+		BookStateFor::<T>::insert(origin, &*book_state);
+
+		let res = Self::process_message_payload(
 			origin.clone(),
 			page_index,
 			page.first_index,
 			payload,
 			weight,
 			overweight_limit,
-		) {
+		);
+
+		// And restore them afterwards to see the changes of a recursive call.
+		*book_state = BookStateFor::<T>::get(origin);
+		if let Some(new_page) = Pages::<T>::get(origin, page_index) {
+			*page = new_page;
+		} else {
+			defensive!("page must exist since we just inserted it and recursive calls are not allowed to remove anything");
+			return ItemExecutionStatus::NoItem
+		};
+
+		let is_processed = match res {
 			InsufficientWeight => return ItemExecutionStatus::Bailed,
 			Unprocessable { permanent: false } => return ItemExecutionStatus::NoProgress,
 			Processed | Unprocessable { permanent: true } => true,
@@ -1220,7 +1236,7 @@ impl<T: Config> Pallet<T> {
 
 		if is_processed {
 			book_state.message_count.saturating_dec();
-			book_state.size.saturating_reduce(payload.len() as u64);
+			book_state.size.saturating_reduce(payload_len as u64);
 		}
 		page.skip_first(is_processed);
 		ItemExecutionStatus::Executed(is_processed)
