@@ -2412,6 +2412,10 @@ impl_runtime_apis! {
 		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
 			Staking::api_eras_stakers_page_count(era, account)
 		}
+
+		fn eras_stakers(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Exposure<AccountId, Balance> {
+			Staking::api_eras_stakers(era, account)
+		}
 	}
 
 	impl sp_consensus_babe::BabeApi<Block> for Runtime {
