@@ -156,6 +156,21 @@ impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor
 	}
 }
 
+/// Native Westend Collectives executor instance.
+pub struct CollectivesWestendRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for CollectivesWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		collectives_westend_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		collectives_westend_runtime::native_version()
+	}
+}
+
 /// Native BridgeHubPolkadot executor instance.
 pub struct BridgeHubPolkadotRuntimeExecutor;
 
@@ -213,6 +228,21 @@ impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		contracts_rococo_runtime::native_version()
+	}
+}
+
+/// Native Westend Glutton executor instance.
+pub struct GluttonWestendRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		glutton_westend_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		glutton_westend_runtime::native_version()
 	}
 }
 

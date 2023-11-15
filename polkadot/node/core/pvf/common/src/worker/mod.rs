@@ -205,9 +205,15 @@ impl fmt::Display for WorkerKind {
 	}
 }
 
-// The worker version must be passed in so that we accurately get the version of the worker, and not
-// the version that this crate was compiled with.
-pub fn worker_event_loop<F>(
+// NOTE: The worker version must be passed in so that we accurately get the version of the worker,
+// and not the version that this crate was compiled with.
+//
+// NOTE: This must not spawn any threads due to safety requirements in `event_loop` and to avoid
+// errors in [`security::unshare_user_namespace_and_change_root`].
+//
+/// Initializes the worker process, then runs the given event loop, which spawns a new job process
+/// to securely handle each incoming request.
+pub fn run_worker<F>(
 	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
