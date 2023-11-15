@@ -237,8 +237,6 @@ pub mod pallet {
 		AssignmentsNotSorted,
 		/// Two or more of the same assignment contained in assignment set
 		AssignmentsNotUnique,
-		/// Assignments must be added with at least 10 blocks of lead time
-		InsufficientLeadTime,
 	}
 }
 
