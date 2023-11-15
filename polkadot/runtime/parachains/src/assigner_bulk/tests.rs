@@ -246,7 +246,7 @@ fn assign_core_enforces_well_formed_schedule() {
 		let not_sorted = vec![
 			(CoreAssignment::Task(para_id.into()), PartsOf57600::from(19200u16)),
 			(CoreAssignment::Pool, PartsOf57600::from(19200u16)),
-			(CoreAssignment::Idle, PartsOf57600::from(19200u16))
+			(CoreAssignment::Idle, PartsOf57600::from(19200u16)),
 		];
 
 		// Attempting to assign_core with bad assignments
