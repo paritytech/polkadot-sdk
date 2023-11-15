@@ -748,13 +748,15 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	env.metrics().set_n_cores(config.n_cores);
 
 	for block_num in 0..env.config().num_blocks {
-		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
+		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
 		for candidate_num in 0..config.n_cores as u64 {
-			let candidate =
-				env.state.next_candidate().expect("We always send up to n_cores*num_blocks; qed");
+			let candidate = env
+				.state
+				.next_candidate()
+				.expect("We always send up to n_cores*num_blocks; qed");
 			let (tx, rx) = oneshot::channel();
 			batch.push(rx);
 
@@ -769,7 +771,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 			.await;
 		}
 
-		gum::info!("{}", format!("{} requests pending", batch.len()).bright_black());
+		gum::info!("{}", format!("{} recoveries pending", batch.len()).bright_black());
 		while let Some(completed) = batch.next().await {
 			let available_data = completed.unwrap().unwrap();
 			env.metrics().on_pov_size(available_data.encoded_size());
@@ -778,6 +780,10 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 
 		let block_time_delta =
 			Duration::from_secs(6).saturating_sub(Instant::now().sub(block_start_ts));
+
+		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
+		env.metrics().set_block_time(block_time);
+		gum::info!("Block time {}", format!("{:?}ms", block_time).cyan());
 		gum::info!(target: LOG_TARGET,"{}", format!("Sleeping till end of block ({}ms)", block_time_delta.as_millis()).bright_black());
 		tokio::time::sleep(block_time_delta).await;
 	}
@@ -785,14 +791,15 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	env.send_signal(OverseerSignal::Conclude).await;
 	let duration = start_marker.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
-	gum::info!("Benchmark completed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
 	gum::info!(
 		"Throughput: {}",
 		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
 	);
 	gum::info!(
 		"Block time: {}",
-		format!("{} ms", start_marker.elapsed().as_millis() / env.config().num_blocks as u128).red()
+		format!("{} ms", start_marker.elapsed().as_millis() / env.config().num_blocks as u128)
+			.red()
 	);
 
 	let stats = env.network().stats();
@@ -812,9 +819,13 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	let test_metrics = super::core::display::parse_metrics(&env.registry());
 	let subsystem_cpu_metrics =
 		test_metrics.subset_with_label_value("task_group", "availability-recovery-subsystem");
-	gum::info!(target: LOG_TARGET, "Total subsystem CPU usage {}", format!("{:.2}s", subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum")).bright_purple());
+	let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+	gum::info!(target: LOG_TARGET, "Total subsystem CPU usage {}", format!("{:.2}s", total_cpu).bright_purple());
+	gum::info!(target: LOG_TARGET, "CPU usage per block {}", format!("{:.2}s", total_cpu/env.config().num_blocks as f64).bright_purple());
 
 	let test_env_cpu_metrics =
 		test_metrics.subset_with_label_value("task_group", "test-environment");
-	gum::info!(target: LOG_TARGET, "Total test environment CPU usage {}", format!("{:.2}s", test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum")).bright_purple());
+	let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+	gum::info!(target: LOG_TARGET, "Total test environment CPU usage {}", format!("{:.2}s", total_cpu).bright_purple());
+	gum::info!(target: LOG_TARGET, "CPU usage per block {}", format!("{:.2}s", total_cpu/env.config().num_blocks as f64).bright_purple());
 }

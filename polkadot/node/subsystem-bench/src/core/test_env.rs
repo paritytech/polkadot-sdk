@@ -31,6 +31,8 @@ pub struct TestEnvironmentMetrics {
 	pov_size: Histogram,
 	/// Current block
 	current_block: Gauge<U64>,
+	/// Current block
+	block_time: Gauge<U64>,
 }
 
 impl TestEnvironmentMetrics {
@@ -58,6 +60,10 @@ impl TestEnvironmentMetrics {
 				Gauge::new("subsystem_benchmark_current_block", "The current test block")?,
 				registry,
 			)?,
+			block_time: prometheus::register(
+				Gauge::new("subsystem_benchmark_block_time", "The time it takes for the target subsystems(s) to complete all the requests in a block")?,
+				registry,
+			)?,
 			pov_size: prometheus::register(
 				Histogram::with_opts(
 					prometheus::HistogramOpts::new(
@@ -81,6 +87,10 @@ impl TestEnvironmentMetrics {
 
 	pub fn set_current_block(&self, current_block: usize) {
 		self.current_block.set(current_block as u64);
+	}
+
+	pub fn set_block_time(&self, block_time_ms: u64) {
+		self.block_time.set(block_time_ms);
 	}
 
 	pub fn on_pov_size(&self, pov_size: usize) {

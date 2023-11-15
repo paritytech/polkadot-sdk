@@ -582,6 +582,7 @@ impl AvailabilityRecoverySubsystem {
 		}
 	}
 
+	/// Starts the inner subsystem loop.
 	pub async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
 		let mut state = State::default();
 		let Self { mut req_receiver, metrics, recovery_strategy_kind, bypass_availability_store } =
@@ -726,8 +727,6 @@ impl AvailabilityRecoverySubsystem {
 					}
 				}
 				output = state.ongoing_recoveries.select_next_some() => {
-					// No caching for benchmark.
-					#[cfg(not(feature = "subsystem-benchmarks"))]
 					if let Some((candidate_hash, result)) = output {
 						if let Ok(recovery) = CachedRecovery::try_from(result) {
 							state.availability_lru.insert(candidate_hash, recovery);

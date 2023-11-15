@@ -17,7 +17,7 @@
 use std::path::Path;
 
 use super::*;
-use serde::{Deserialize,Serialize};
+use serde::{Deserialize, Serialize};
 /// Peer response latency configuration.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PeerLatency {
@@ -56,7 +56,6 @@ pub struct TestConfiguration {
 	pub num_blocks: usize,
 }
 
-
 impl Default for TestConfiguration {
 	fn default() -> Self {
 		Self {
@@ -69,8 +68,8 @@ impl Default for TestConfiguration {
 			latency: None,
 			error: 0,
 			num_blocks: 1,
-			min_pov_size: 5*1024*1024,
-			max_pov_size: 5*1024*1024,
+			min_pov_size: 5 * 1024 * 1024,
+			max_pov_size: 5 * 1024 * 1024,
 		}
 	}
 }
@@ -79,10 +78,10 @@ fn generate_pov_sizes(count: usize, min: usize, max: usize) -> Vec<usize> {
 	(0..count).map(|_| random_pov_size(min, max)).collect()
 }
 
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct TestSequence {
 	#[serde(rename(serialize = "TestConfiguration", deserialize = "TestConfiguration"))]
-	test_configurations: Vec<TestConfiguration>
+	test_configurations: Vec<TestConfiguration>,
 }
 
 impl TestSequence {
@@ -90,14 +89,15 @@ impl TestSequence {
 		// Generate Pov sizes
 
 		for config in self.test_configurations.iter_mut() {
-			config.pov_sizes = generate_pov_sizes(config.n_cores, config.min_pov_size, config.max_pov_size);
+			config.pov_sizes =
+				generate_pov_sizes(config.n_cores, config.min_pov_size, config.max_pov_size);
 		}
 
 		self.test_configurations
 	}
 }
 
-impl TestSequence { 
+impl TestSequence {
 	pub fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
 		let string = String::from_utf8(std::fs::read(&path)?).expect("File is valid UTF8");
 		Ok(toml::from_str(&string).expect("File is valid test sequence TOML"))
@@ -107,7 +107,8 @@ impl TestSequence {
 impl TestConfiguration {
 	pub fn write_to_disk(&self) {
 		// Serialize a slice of configurations
-		let toml = toml::to_string(&TestSequence{ test_configurations: vec![self.clone()] }).unwrap();
+		let toml =
+			toml::to_string(&TestSequence { test_configurations: vec![self.clone()] }).unwrap();
 		std::fs::write("last_test.toml", toml).unwrap();
 	}
 

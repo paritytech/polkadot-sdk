@@ -1,0 +1,77 @@
+[[TestConfiguration]]
+use_fast_path = false
+n_validators = 300
+n_cores = 20
+min_pov_size = 5242880
+max_pov_size = 5242880
+peer_bandwidth = 128000
+bandwidth = 52428800
+error = 33
+num_blocks = 5
+
+[TestConfiguration.latency.min_latency]
+secs = 0
+nanos = 1000000
+
+[TestConfiguration.latency.max_latency]
+secs = 0
+nanos = 100000000
+
+[[TestConfiguration]]
+use_fast_path = false
+n_validators = 500
+n_cores = 20
+min_pov_size = 5242880
+max_pov_size = 5242880
+peer_bandwidth = 128000
+bandwidth = 52428800
+error = 33
+num_blocks = 5
+
+[TestConfiguration.latency.min_latency]
+secs = 0
+nanos = 1000000
+
+[TestConfiguration.latency.max_latency]
+secs = 0
+nanos = 1000000000
+
+
+[[TestConfiguration]]
+use_fast_path = false
+n_validators = 1000
+n_cores = 20
+min_pov_size = 5242880
+max_pov_size = 5242880
+peer_bandwidth = 128000
+bandwidth = 52428800
+error = 33
+num_blocks = 5
+
+[TestConfiguration.latency.min_latency]
+secs = 0
+nanos = 1000000
+
+[TestConfiguration.latency.max_latency]
+secs = 0
+nanos = 1000000000
+
+
+[[TestConfiguration]]
+use_fast_path = false
+n_validators = 2000
+n_cores = 20
+min_pov_size = 5242880
+max_pov_size = 5242880
+peer_bandwidth = 128000
+bandwidth = 52428800
+error = 33
+num_blocks = 5
+
+[TestConfiguration.latency.min_latency]
+secs = 0
+nanos = 1000000
+
+[TestConfiguration.latency.max_latency]
+secs = 0
+nanos = 1000000000

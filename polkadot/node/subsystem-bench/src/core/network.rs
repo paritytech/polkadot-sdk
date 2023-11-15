@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use super::*;
+use colored::Colorize;
 use prometheus_endpoint::U64;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc::UnboundedSender;
+
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
 pub struct RateLimit {
@@ -282,6 +284,8 @@ impl NetworkEmulator {
 		spawn_task_handle: SpawnTaskHandle,
 		registry: &Registry,
 	) -> Self {
+		gum::info!(target: LOG_TARGET, "{}",format!("Initializing network emulation for {} peers.", n_peers).bright_blue());
+
 		let metrics = Metrics::new(&registry).expect("Metrics always register succesfully");
 		let mut validator_authority_id_mapping = HashMap::new();
 
@@ -337,8 +341,8 @@ impl NetworkEmulator {
 	}
 }
 
-use polkadot_node_subsystem_util::metrics::{
-	prometheus::{CounterVec, Opts, PrometheusError, Registry},
+use polkadot_node_subsystem_util::metrics::prometheus::{
+	self, CounterVec, Opts, PrometheusError, Registry,
 };
 
 /// Emulated network metrics.

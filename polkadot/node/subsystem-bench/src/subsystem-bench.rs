@@ -20,7 +20,7 @@ use clap::Parser;
 use color_eyre::eyre;
 
 use colored::Colorize;
-use std::{time::Duration, path::Path};
+use std::{path::Path, time::Duration};
 
 pub(crate) mod availability;
 pub(crate) mod core;
@@ -82,7 +82,6 @@ pub struct DataAvailabilityReadOptions {
 	pub num_blocks: usize,
 }
 
-
 #[derive(Debug, clap::Parser)]
 #[clap(rename_all = "kebab-case")]
 #[allow(missing_docs)]
@@ -91,12 +90,10 @@ pub struct TestSequenceOptions {
 	pub path: String,
 }
 
-
-
 /// Define the supported benchmarks targets
 #[derive(Debug, Parser)]
-#[command(about = "Target subsystems", version, rename_all = "kebab-case")]
-enum BenchmarkTarget {
+#[command(about = "Test objectives", version, rename_all = "kebab-case")]
+enum TestObjective {
 	/// Benchmark availability recovery strategies.
 	DataAvailabilityRead(DataAvailabilityReadOptions),
 	/// Run a test sequence specified in a file
@@ -131,7 +128,7 @@ struct BenchCli {
 	pub peer_max_latency: Option<u64>,
 
 	#[command(subcommand)]
-	pub target: BenchmarkTarget,
+	pub objective: TestObjective,
 }
 
 fn new_runtime() -> tokio::runtime::Runtime {
@@ -150,25 +147,35 @@ impl BenchCli {
 
 		let runtime = new_runtime();
 
-		let mut test_config = match self.target {
-			BenchmarkTarget::TestSequence(options) => {
-				let test_sequence = availability::TestSequence::new_from_file(Path::new(&options.path)).expect("File exists").to_vec();
+		let mut test_config = match self.objective {
+			TestObjective::TestSequence(options) => {
+				let test_sequence =
+					availability::TestSequence::new_from_file(Path::new(&options.path))
+						.expect("File exists")
+						.to_vec();
 				let num_steps = test_sequence.len();
-				gum::info!("{}", format!("Sequence contains {} step(s)",num_steps).bright_purple());
-				for (index, test_config) in test_sequence.into_iter().enumerate(){
-					gum::info!("{}", format!("Current step {}/{}", index + 1, num_steps).bright_purple());
+				gum::info!(
+					"{}",
+					format!("Sequence contains {} step(s)", num_steps).bright_purple()
+				);
+				for (index, test_config) in test_sequence.into_iter().enumerate() {
+					gum::info!(
+						"{}",
+						format!("Current step {}/{}", index + 1, num_steps).bright_purple()
+					);
 
 					let candidate_count = test_config.n_cores * test_config.num_blocks;
 
 					let mut state = TestState::new(test_config);
 					state.generate_candidates(candidate_count);
-					let mut env = TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
-	
+					let mut env =
+						TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
+
 					runtime.block_on(availability::bench_chunk_recovery(&mut env));
 				}
 				return Ok(())
-			}
-			BenchmarkTarget::DataAvailabilityRead(options) => match self.network {
+			},
+			TestObjective::DataAvailabilityRead(options) => match self.network {
 				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
 					options.num_blocks,
 					options.fetch_from_backers,
