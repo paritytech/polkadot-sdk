@@ -40,44 +40,47 @@
 //! for enhancing scalability and efficiency, enabling activities like data fetching and computation
 //! without bloating the blockchain.
 //!
-//! #### Host Function:
+//! #### Host Functions:
 //!
-//! Host functions are functions provided by the runtime environment (the [host](#host)) to the Wasm
-//! runtime. These functions allow the Wasm code to interact with and perform operations on the
-//! [node](#node), like accessing the blockchain state.
+//! Host functions are the node's API, these are functions provided by the runtime environment (the
+//! [host](#host)) to the Wasm runtime. These functions allow the Wasm code to interact with and
+//! perform operations on the [node](#node), like accessing the blockchain state.
 //!
 //! #### Runtime API:
 //!
-//! The runtime API acts as a communication bridge between the runtime and the node, serving as the
-//! exposed interface that facilitates their interactions.
+//! This is the API of the runtime, it acts as a communication bridge between the runtime and the
+//! node, serving as the exposed interface that facilitates their interactions.
 //!
 //! #### Dispatchable:
 //!
-//! Dispatchables are functions that can be called by external entities, such as users or external
-//! systems, to interact with the blockchain's state. They are a core aspect of the runtime logic,
-//! handling transactions and other state-changing operations.
+//! Dispatchables are [function objects](https://en.wikipedia.org/wiki/Function_object) that act as
+//! the entry points in [FRAME](frame) pallets. They can be called by internal or external entities
+//! to interact with the blockchain's state. They are a core aspect of the runtime logic, handling
+//! transactions and other state-changing operations.
 //!
 //! **Synonyms**: Callable
 //!
 //! #### Extrinsic
 //!
-//! An extrinsic is a general term for a piece of data that is originated outside of the runtime and
-//! fed into the it as a part of the block-body. This includes user-initiated transactions as well
-//! as inherents which are placed into the block by the block-builder.
+//! An extrinsic is a general term for a piece of data that is originated outside of the runtime,
+//! included into a block and leads to some action. This includes user-initiated transactions as
+//! well as inherents which are placed into the block by the block-builder.
 //!
 //! #### Pallet
 //!
-//! [FRAME](frame) pallets are modular components that encapsulate specific functionalities or
-//! business logic of a blockchain. They are the building blocks used to construct a blockchain's
-//! runtime, allowing for customizable and upgradeable networks. Pallets can be used to extend the
-//! capabilities of a Substrate-based blockchain in a composable way.
+//! Similar to software modules in traditional programming, [FRAME](frame) pallets in Substrate are
+//! modular components that encapsulate distinct functionalities or business logic. Just as
+//! libraries or modules are used to build and extend the capabilities of a software application,
+//! pallets are the foundational building blocks for constructing a blockchain's runtime. They
+//! enable the creation of customizable and upgradeable networks, offering a composable framework
+//! for a Substrate-based blockchain. Each pallet can be thought of as a plug-and-play module,
+//! enhancing the blockchain's functionality in a cohesive and integrated manner.
 //!
 //! #### Full Node
 //!
 //! It is a node that prunes historical states, keeping only recent finalized block states to reduce
-//! storage needs. It can potentially rebuild all states to become an archive node. Full nodes
-//! provide current chain state access and allow direct submission and validation of extrinsics,
-//! maintaining network decentralization.
+//! storage needs. Full nodes provide current chain state access and allow direct submission and
+//! validation of extrinsics, maintaining network decentralization.
 //!
 //! #### Archive Node
 //!
