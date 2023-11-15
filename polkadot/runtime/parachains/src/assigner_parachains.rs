@@ -30,8 +30,8 @@ use sp_runtime::codec::{Decode, Encode};
 use crate::{
 	configuration, paras,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
-		FixedAssignmentProvider, V0Assignment,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
+		V0Assignment,
 	},
 };
 
@@ -58,6 +58,10 @@ impl ParachainsAssignment {
 	fn new(para_id: ParaId) -> Self {
 		Self { para_id }
 	}
+
+	pub(crate) fn from_v0_assignment(v0: V0Assignment) -> Self {
+		Self { para_id: v0.para_id }
+	}
 }
 
 impl Assignment for ParachainsAssignment {
@@ -68,13 +72,6 @@ impl Assignment for ParachainsAssignment {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	type AssignmentType = ParachainsAssignment;
-	type OldAssignmentType = V0Assignment;
-	// Format has not changed for parachains, therefore still version 0.
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
-
-	fn migrate_old_to_current(old: Self::OldAssignmentType, _: CoreIndex) -> Self::AssignmentType {
-		ParachainsAssignment { para_id: old.para_id }
-	}
 
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		<paras::Pallet<T>>::parachains()

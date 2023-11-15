@@ -31,8 +31,8 @@ mod tests;
 use crate::{
 	assigner_on_demand, configuration, paras,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
-		FixedAssignmentProvider,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
+		V0Assignment,
 	},
 };
 
@@ -256,24 +256,17 @@ impl<OnDemand: Assignment> Assignment for BulkAssignment<OnDemand> {
 	}
 }
 
-impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	type AssignmentType = BulkAssignmentType<T>;
-
-	type OldAssignmentType =
-		<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::OldAssignmentType;
-
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0)
-		.saturating_add(<assigner_on_demand::Pallet<T>>::ASSIGNMENT_STORAGE_VERSION);
-
-	fn migrate_old_to_current(
-		old: Self::OldAssignmentType,
-		core: CoreIndex,
-	) -> Self::AssignmentType {
-		// Previous version all assignments had been on-demand (bulk was not a thing):
-		BulkAssignment::Instantaneous(<assigner_on_demand::Pallet<T>>::migrate_old_to_current(
-			old, core,
+impl BulkAssignment<assigner_on_demand::OnDemandAssignment> {
+	pub(crate) fn from_v0_assignment(v0: V0Assignment, core_index: CoreIndex) -> Self {
+		// There have been no bulk cores previously:
+		BulkAssignment::Instantaneous(assigner_on_demand::OnDemandAssignment::from_v0_assignment(
+			v0, core_index,
 		))
 	}
+}
+
+impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	type AssignmentType = BulkAssignmentType<T>;
 
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		let now = <frame_system::Pallet<T>>::block_number();

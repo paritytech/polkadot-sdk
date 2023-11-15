@@ -34,9 +34,7 @@ mod tests;
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
-	},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig, V0Assignment},
 };
 
 use frame_support::{
@@ -118,10 +116,14 @@ pub struct OnDemandAssignment {
 	core_index: CoreIndex,
 }
 
-#[cfg(test)]
 impl OnDemandAssignment {
+	#[cfg(test)]
 	pub(crate) fn new(para_id: ParaId, core_index: CoreIndex) -> Self {
 		Self { para_id, core_index }
+	}
+
+	pub(crate) fn from_v0_assignment(v0: V0Assignment, core_index: CoreIndex) -> Self {
+		Self { para_id: v0.para_id, core_index }
 	}
 }
 
@@ -568,17 +570,6 @@ where
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	type AssignmentType = OnDemandAssignment;
-
-	type OldAssignmentType = V0Assignment;
-
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(1);
-
-	fn migrate_old_to_current(
-		old: Self::OldAssignmentType,
-		core: CoreIndex,
-	) -> Self::AssignmentType {
-		OnDemandAssignment { para_id: old.para_id, core_index: core }
-	}
 
 	/// Take the next queued entry that is available for a given core index.
 	/// Invalidates and removes orders with a `para_id` that is not `ParaLifecycle::Parathread`

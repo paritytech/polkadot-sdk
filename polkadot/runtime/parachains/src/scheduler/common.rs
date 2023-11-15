@@ -144,30 +144,8 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// functions.
 	///
 	/// As the lifetime of an assignment might outlive the current process (and need persistence),
-	/// we provide this type in a versioned fashion. This is where `OldAssignmentType` below and
-	/// `ASSIGNMENT_STORAGE_VERSION` come into play.
+	/// make sure to migrate using code if you change the `AssignmentProvider` implementation.
 	type AssignmentType: Assignment + Encode + Decode + TypeInfo + Debug;
-
-	/// Previous version of assignments.
-	///
-	/// Useful for migrating persisted assignments to the new version.
-	type OldAssignmentType: Assignment + Encode + Decode + TypeInfo + Debug;
-
-	/// What version the binary format of the `AssignmentType` has.
-	///
-	/// Will be bumped whenver the storage format of `AssignmentType` changes. If this version
-	/// differs from the version persisted you need to decode `OldAssignmentType` and migrate to the
-	/// new one via `migrate_old_to_current`.
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion;
-
-	/// Migrate an old Assignment to the current format.
-	///
-	/// In addition to the old assignment the core this assignment has been scheduled to, needs to
-	/// be provided.
-	fn migrate_old_to_current(
-		old: Self::OldAssignmentType,
-		core: CoreIndex,
-	) -> Self::AssignmentType;
 
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
