@@ -220,43 +220,6 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -281,7 +244,6 @@
 <span class="kw">use </span>pallet_bridge_grandpa::CallSubType <span class="kw">as </span>GrandpaCallSubType;
 <span class="kw">use </span>pallet_bridge_parachains::CallSubType <span class="kw">as </span>ParachainsCallSubtype;
 <span class="kw">use </span>sp_runtime::transaction_validity::TransactionValidity;
-<span class="kw">use </span>xcm::v3::NetworkId;
 
 <span class="kw">pub mod </span>messages;
 <span class="kw">pub mod </span>messages_api;
@@ -351,8 +313,8 @@
 /// ```nocompile
 /// generate_bridge_reject_obsolete_headers_and_messages!{
 ///     Call, AccountId
-///     BridgeRialtoGrandpa, BridgeWestendGrandpa,
-///     BridgeRialtoParachains
+///     BridgeRococoGrandpa, BridgeRococoMessages,
+///     BridgeRococoParachains
 /// }
 /// ```
 ///
@@ -404,42 +366,6 @@
 			}
 		}
 	};
-}
-
-<span class="doccomment">/// A mapping over `NetworkId`.
-/// Since `NetworkId` doesn&#39;t include `Millau`, `Rialto` and `RialtoParachain`, we create some
-/// synthetic associations between these chains and `NetworkId` chains.
-</span><span class="kw">pub enum </span>CustomNetworkId {
-	<span class="doccomment">/// The Millau network ID, associated with Kusama.
-	</span>Millau,
-	<span class="doccomment">/// The Rialto network ID, associated with Polkadot.
-	</span>Rialto,
-	<span class="doccomment">/// The RialtoParachain network ID, associated with Westend.
-	</span>RialtoParachain,
-}
-
-<span class="kw">impl </span>TryFrom&lt;bp_runtime::ChainId&gt; <span class="kw">for </span>CustomNetworkId {
-	<span class="kw">type </span>Error = ();
-
-	<span class="kw">fn </span>try_from(chain: bp_runtime::ChainId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-		<span class="prelude-val">Ok</span>(<span class="kw">match </span>chain {
-			bp_runtime::MILLAU_CHAIN_ID =&gt; <span class="self">Self</span>::Millau,
-			bp_runtime::RIALTO_CHAIN_ID =&gt; <span class="self">Self</span>::Rialto,
-			bp_runtime::RIALTO_PARACHAIN_CHAIN_ID =&gt; <span class="self">Self</span>::RialtoParachain,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(()),
-		})
-	}
-}
-
-<span class="kw">impl </span>CustomNetworkId {
-	<span class="doccomment">/// Converts self to XCM&#39; network id.
-	</span><span class="kw">pub const fn </span>as_network_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkId {
-		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			CustomNetworkId::Millau =&gt; NetworkId::Kusama,
-			CustomNetworkId::Rialto =&gt; NetworkId::Polkadot,
-			CustomNetworkId::RialtoParachain =&gt; NetworkId::Westend,
-		}
-	}
 }
 
 <span class="attr">#[cfg(test)]

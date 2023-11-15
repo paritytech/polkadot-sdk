@@ -762,73 +762,6 @@
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
 <a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -863,7 +796,6 @@
 	sc_service::GenericChainSpec&lt;asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions&gt;;
 <span class="kw">pub type </span>AssetHubRococoChainSpec =
 	sc_service::GenericChainSpec&lt;asset_hub_rococo_runtime::RuntimeGenesisConfig, Extensions&gt;;
-<span class="kw">pub type </span>AssetHubWococoChainSpec = AssetHubRococoChainSpec;
 
 <span class="kw">const </span>ASSET_HUB_POLKADOT_ED: AssetHubBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
@@ -1264,6 +1196,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
 		],
+		parachains_common::westend::currency::UNITS * <span class="number">1_000_000</span>,
 		<span class="number">1000</span>.into(),
 	))
 	.with_properties(properties)
@@ -1309,6 +1242,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
 		],
+		parachains_common::westend::currency::UNITS * <span class="number">1_000_000</span>,
 		<span class="number">1000</span>.into(),
 	))
 	.with_properties(properties)
@@ -1353,6 +1287,7 @@
 			),
 		],
 		Vec::new(),
+		ASSET_HUB_WESTEND_ED * <span class="number">4096</span>,
 		<span class="number">1000</span>.into(),
 	))
 	.with_properties(properties)
@@ -1362,6 +1297,7 @@
 <span class="kw">fn </span>asset_hub_westend_genesis(
 	invulnerables: Vec&lt;(AccountId, AuraId)&gt;,
 	endowed_accounts: Vec&lt;AccountId&gt;,
+	endowment: AssetHubBalance,
 	id: ParaId,
 ) -&gt; serde_json::Value {
 	<span class="macro">serde_json::json!</span>({
@@ -1369,7 +1305,7 @@
 			<span class="string">&quot;balances&quot;</span>: endowed_accounts
 				.iter()
 				.cloned()
-				.map(|k| (k, ASSET_HUB_WESTEND_ED * <span class="number">4096</span>))
+				.map(|k| (k, endowment))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
 		<span class="string">&quot;parachainInfo&quot;</span>: {
@@ -1410,19 +1346,6 @@
 	)
 }
 
-<span class="kw">pub fn </span>asset_hub_wococo_development_config() -&gt; AssetHubWococoChainSpec {
-	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WOC&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
-	asset_hub_rococo_like_development_config(
-		properties,
-		<span class="string">&quot;Wococo Asset Hub Development&quot;</span>,
-		<span class="string">&quot;asset-hub-wococo-dev&quot;</span>,
-		<span class="number">1000</span>,
-	)
-}
-
 <span class="kw">fn </span>asset_hub_rococo_like_development_config(
 	properties: sc_chain_spec::Properties,
 	name: <span class="kw-2">&amp;</span>str,
@@ -1448,6 +1371,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
 		],
+		parachains_common::rococo::currency::UNITS * <span class="number">1_000_000</span>,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -1463,19 +1387,6 @@
 		properties,
 		<span class="string">&quot;Rococo Asset Hub Local&quot;</span>,
 		<span class="string">&quot;asset-hub-rococo-local&quot;</span>,
-		<span class="number">1000</span>,
-	)
-}
-
-<span class="kw">pub fn </span>asset_hub_wococo_local_config() -&gt; AssetHubWococoChainSpec {
-	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WOC&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
-	asset_hub_rococo_like_local_config(
-		properties,
-		<span class="string">&quot;Wococo Asset Hub Local&quot;</span>,
-		<span class="string">&quot;asset-hub-wococo-local&quot;</span>,
 		<span class="number">1000</span>,
 	)
 }
@@ -1519,6 +1430,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
 		],
+		parachains_common::rococo::currency::UNITS * <span class="number">1_000_000</span>,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -1566,54 +1478,7 @@
 			),
 		],
 		Vec::new(),
-		para_id.into(),
-	))
-	.with_properties(properties)
-	.build()
-}
-
-<span class="kw">pub fn </span>asset_hub_wococo_genesis_config() -&gt; AssetHubWococoChainSpec {
-	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WOC&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
-	<span class="kw">let </span>para_id = <span class="number">1000</span>;
-	AssetHubRococoChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
-		Extensions { relay_chain: <span class="string">&quot;wococo&quot;</span>.into(), para_id },
-	)
-	.with_name(<span class="string">&quot;Wococo Asset Hub&quot;</span>)
-	.with_id(<span class="string">&quot;asset-hub-wococo&quot;</span>)
-	.with_chain_type(ChainType::Live)
-	.with_genesis_config_patch(asset_hub_rococo_genesis(
-		<span class="comment">// initial collators.
-		</span><span class="macro">vec!</span>[
-			<span class="comment">// 5C8RGkS8t5K93fB2hkgKbvSYs5iG6AknJMuQmbBDeazon9Lj
-			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534&quot;</span>)
-					.unchecked_into(),
-			),
-			<span class="comment">// 5GePeDZQeBagXH7kH5QPKnQKi39Z5hoYFB5FmUtEvc4yxKej
-			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814&quot;</span>)
-					.unchecked_into(),
-			),
-			<span class="comment">// 5CfnTTb9NMJDNKDntA83mHKoedZ7wjDC8ypLCTDd4NwUx3zv
-			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965&quot;</span>)
-					.unchecked_into(),
-			),
-			<span class="comment">// 5EqheiwiG22gvGpN7cvrbeaQzhg7rzsYYVkYK4yj5vRrTQRQ
-			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66&quot;</span>)
-					.unchecked_into(),
-			),
-		],
-		Vec::new(),
+		ASSET_HUB_ROCOCO_ED * <span class="number">524_288</span>,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -1623,6 +1488,7 @@
 <span class="kw">fn </span>asset_hub_rococo_genesis(
 	invulnerables: Vec&lt;(AccountId, AuraId)&gt;,
 	endowed_accounts: Vec&lt;AccountId&gt;,
+	endowment: AssetHubBalance,
 	id: ParaId,
 ) -&gt; serde_json::Value {
 	<span class="macro">serde_json::json!</span>({
@@ -1630,7 +1496,7 @@
 			balances: endowed_accounts
 				.iter()
 				.cloned()
-				.map(|k| (k, ASSET_HUB_ROCOCO_ED * <span class="number">524_288</span>))
+				.map(|k| (k, endowment))
 				.collect(),
 		},
 		<span class="string">&quot;parachainInfo&quot;</span>: asset_hub_rococo_runtime::ParachainInfoConfig {

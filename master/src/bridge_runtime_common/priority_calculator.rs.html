@@ -199,6 +199,7 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -228,6 +229,7 @@
 <span class="kw">use </span>sp_runtime::transaction_validity::TransactionPriority;
 
 <span class="comment">// reexport everything from `integrity_tests` module
+</span><span class="attr">#[allow(unused_imports)]
 </span><span class="kw">pub use </span>integrity_tests::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Compute priority boost for message delivery transaction that delivers

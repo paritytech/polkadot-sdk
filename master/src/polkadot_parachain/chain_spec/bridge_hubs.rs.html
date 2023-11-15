@@ -636,68 +636,6 @@
 <a href="#636" id="636">636</a>
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -728,9 +666,6 @@
 	RococoLocal,
 	<span class="comment">// used by benchmarks
 	</span>RococoDevelopment,
-
-	Wococo,
-	WococoLocal,
 
 	Kusama,
 	KusamaLocal,
@@ -766,8 +701,6 @@
 			rococo::BRIDGE_HUB_ROCOCO =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::Rococo),
 			rococo::BRIDGE_HUB_ROCOCO_LOCAL =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::RococoLocal),
 			rococo::BRIDGE_HUB_ROCOCO_DEVELOPMENT =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::RococoDevelopment),
-			wococo::BRIDGE_HUB_WOCOCO =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::Wococo),
-			wococo::BRIDGE_HUB_WOCOCO_LOCAL =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::WococoLocal),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Value &#39;{}&#39; is not configured yet&quot;</span>, value)),
 		}
 	}
@@ -794,8 +727,6 @@
 			BridgeHubRuntimeType::RococoLocal |
 			BridgeHubRuntimeType::RococoDevelopment =&gt;
 				<span class="prelude-val">Ok</span>(Box::new(rococo::BridgeHubChainSpec::from_json_file(path)<span class="question-mark">?</span>)),
-			BridgeHubRuntimeType::Wococo | BridgeHubRuntimeType::WococoLocal =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(wococo::BridgeHubChainSpec::from_json_file(path)<span class="question-mark">?</span>)),
 		}
 	}
 
@@ -870,17 +801,6 @@
 				ParaId::new(<span class="number">1013</span>),
 				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
 				|<span class="kw">_</span>| (),
-			))),
-			BridgeHubRuntimeType::Wococo =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(wococo::BridgeHubChainSpec::from_json_bytes(
-					<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-wococo.json&quot;</span>)[..],
-				)<span class="question-mark">?</span>)),
-			BridgeHubRuntimeType::WococoLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(wococo::local_config(
-				wococo::BRIDGE_HUB_WOCOCO_LOCAL,
-				<span class="string">&quot;Wococo BridgeHub Local&quot;</span>,
-				<span class="string">&quot;wococo-local&quot;</span>,
-				ParaId::new(<span class="number">1014</span>),
-				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
 			))),
 		}
 	}
@@ -1009,57 +929,13 @@
 			<span class="string">&quot;polkadotXcm&quot;</span>: {
 				<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			},
-
-			<span class="string">&quot;bridgeWococoGrandpa&quot;</span>:  {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
-			},
 			<span class="string">&quot;bridgeWestendGrandpa&quot;</span>: {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
-			},
-			<span class="string">&quot;bridgeRococoGrandpa&quot;</span>: {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
-			},
-			<span class="string">&quot;bridgeRococoMessages&quot;</span>: {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
-			},
-			<span class="string">&quot;bridgeWococoMessages&quot;</span>: {
 				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
 			},
 			<span class="string">&quot;bridgeWestendMessages&quot;</span>: {
 				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
 			},
 		})
-	}
-}
-
-<span class="doccomment">/// Sub-module for Wococo setup (reuses stuff from Rococo)
-</span><span class="kw">pub mod </span>wococo {
-	<span class="kw">use </span><span class="kw">super</span>::ParaId;
-	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::bridge_hubs::rococo;
-
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WOCOCO: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-wococo&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WOCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-wococo-local&quot;</span>;
-
-	<span class="kw">pub type </span>BridgeHubChainSpec = rococo::BridgeHubChainSpec;
-	<span class="kw">pub type </span>RuntimeApi = rococo::RuntimeApi;
-
-	<span class="kw">pub fn </span>local_config(
-		id: <span class="kw-2">&amp;</span>str,
-		chain_name: <span class="kw-2">&amp;</span>str,
-		relay_chain: <span class="kw-2">&amp;</span>str,
-		para_id: ParaId,
-		bridges_pallet_owner_seed: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	) -&gt; BridgeHubChainSpec {
-		rococo::local_config(
-			id,
-			chain_name,
-			relay_chain,
-			para_id,
-			bridges_pallet_owner_seed,
-			|properties| {
-				properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WOOK&quot;</span>.into());
-			},
-		)
 	}
 }
 

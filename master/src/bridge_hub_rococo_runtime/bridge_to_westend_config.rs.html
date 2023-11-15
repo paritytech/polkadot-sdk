@@ -518,7 +518,7 @@
 </span><span class="kw">pub type </span>WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance3;
 <span class="kw">impl </span>pallet_bridge_messages::Config&lt;WithBridgeHubWestendMessagesInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>WeightInfo = weights::pallet_bridge_messages_rococo_to_westend::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_bridge_messages::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>BridgedChainId = BridgeHubWestendChainId;
 	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
 	<span class="kw">type </span>MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;

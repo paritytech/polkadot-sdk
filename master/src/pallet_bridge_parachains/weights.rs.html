@@ -296,7 +296,7 @@
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some(&quot;dev&quot;), DB CACHE: 1024
 
 </span><span class="comment">// Executed Command:
-// target/release/millau-bridge-node
+// target/release/unknown-bridge-node
 // benchmark
 // pallet
 // --chain=dev
@@ -333,29 +333,29 @@
 /// Those weights are test only and must never be used in production.
 </span><span class="kw">pub struct </span>BridgeWeight&lt;T&gt;(PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: frame_system::Config&gt; WeightInfo <span class="kw">for </span>BridgeWeight&lt;T&gt; {
-	<span class="doccomment">/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	<span class="doccomment">/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 2]`.
@@ -370,29 +370,29 @@
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4_u64</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3_u64</span>))
 	}
-	<span class="doccomment">/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	<span class="doccomment">/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	</span><span class="kw">fn </span>submit_parachain_heads_with_1kb_proof() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
@@ -403,29 +403,29 @@
 			.saturating_add(T::DbWeight::get().reads(<span class="number">4_u64</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3_u64</span>))
 	}
-	<span class="doccomment">/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	<span class="doccomment">/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	</span><span class="kw">fn </span>submit_parachain_heads_with_16kb_proof() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
@@ -440,29 +440,29 @@
 
 <span class="comment">// For backwards compatibility and tests
 </span><span class="kw">impl </span>WeightInfo <span class="kw">for </span>() {
-	<span class="doccomment">/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	<span class="doccomment">/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 2]`.
@@ -477,29 +477,29 @@
 			.saturating_add(RocksDbWeight::get().reads(<span class="number">4_u64</span>))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">3_u64</span>))
 	}
-	<span class="doccomment">/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	<span class="doccomment">/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	</span><span class="kw">fn </span>submit_parachain_heads_with_1kb_proof() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
@@ -510,29 +510,29 @@
 			.saturating_add(RocksDbWeight::get().reads(<span class="number">4_u64</span>))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">3_u64</span>))
 	}
-	<span class="doccomment">/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	<span class="doccomment">/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	</span><span class="kw">fn </span>submit_parachain_heads_with_16kb_proof() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:

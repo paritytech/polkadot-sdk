@@ -647,7 +647,6 @@
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
 <a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -955,7 +954,6 @@
 				WithdrawAsset(fees.clone().into()),
 				BuyExecution { fees, weight_limit: Unlimited },
 				export_instruction,
-				RefundSurplus,
 				DepositAsset { assets: All.into(), beneficiary: local_from_bridge },
 			]
 		} <span class="kw">else </span>{

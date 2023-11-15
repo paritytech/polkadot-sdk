@@ -680,7 +680,7 @@
 /// - constants that are stringified names of runtime API methods:
 ///     - `BEST_FINALIZED_&lt;THIS_CHAIN&gt;_HEADER_METHOD`
 ///     - `&lt;THIS_CHAIN&gt;_ACCEPTED_&lt;CONSENSUS&gt;_FINALITY_PROOFS_METHOD`
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>decl_bridge_finality_runtime_apis {
 	(<span class="macro-nonterminal">$chain</span>: ident $(, <span class="macro-nonterminal">$consensus</span>: ident =&gt; <span class="macro-nonterminal">$justification_type</span>: ty)<span class="question-mark">?</span>) =&gt; {
@@ -732,7 +732,7 @@
 ///     - `From&lt;ThisChain&gt;InboundLaneApi`
 /// - constants that are stringified names of runtime API methods:
 ///     - `FROM_&lt;THIS_CHAIN&gt;_MESSAGE_DETAILS_METHOD`,
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>decl_bridge_messages_runtime_apis {
 	(<span class="macro-nonterminal">$chain</span>: ident) =&gt; {
@@ -790,7 +790,7 @@
 
 <span class="doccomment">/// Convenience macro that declares bridge finality runtime apis, bridge messages runtime apis
 /// and related constants for a chain.
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>decl_bridge_runtime_apis {
 	(<span class="macro-nonterminal">$chain</span>: ident $(, <span class="macro-nonterminal">$consensus</span>: ident)<span class="question-mark">?</span>) =&gt; {

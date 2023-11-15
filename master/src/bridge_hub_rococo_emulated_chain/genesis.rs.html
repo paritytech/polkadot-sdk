@@ -73,14 +73,6 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -139,19 +131,11 @@
 			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			..Default::default()
 		},
-		bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
+		bridge_westend_grandpa: bridge_hub_rococo_runtime::BridgeWestendGrandpaConfig {
 			owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
 			..Default::default()
 		},
-		bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
-			owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
-			..Default::default()
-		},
-		bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
-			owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
-			..Default::default()
-		},
-		bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+		bridge_westend_messages: bridge_hub_rococo_runtime::BridgeWestendMessagesConfig {
 			owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
 			..Default::default()
 		},

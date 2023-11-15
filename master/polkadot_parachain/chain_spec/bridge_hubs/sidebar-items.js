@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BridgeHubRuntimeType"],"fn":["ensure_id"],"mod":["kusama","polkadot","rococo","westend","wococo"]};
+window.SIDEBAR_ITEMS = {"enum":["BridgeHubRuntimeType"],"fn":["ensure_id"],"mod":["kusama","polkadot","rococo","westend"]};
