@@ -82,6 +82,8 @@ pub enum ExecuteOverweightError {
 	QueuePaused,
 	/// An unspecified error.
 	Other,
+	/// Another call is currently ongoing and prevents this call from executing.
+	RecursiveDisallowed,
 }
 
 /// Can service queues and execute overweight messages.
