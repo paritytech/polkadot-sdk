@@ -49,9 +49,9 @@ use sp_std::prelude::*;
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PayoutDestination,
-	PositiveImbalanceOf, SessionInterface, StakingLedger, ValidatorPrefs,
+	BalanceOf, CheckedPayoutDestination, EraInfo, EraPayout, Exposure, ExposureOf, Forcing,
+	IndividualExposure, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
+	PayoutDestination, PositiveImbalanceOf, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -351,13 +351,13 @@ impl<T: Config> Pallet<T> {
 		let payout_destination_stake = |a: BalanceOf<T>| -> Option<PositiveImbalanceOf<T>> {
 			Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
-					ledger.active += amount;
-					ledger.total += amount;
+					ledger.active += a;
+					ledger.total += a;
 					let _ = ledger
 						.update()
 						.defensive_proof("ledger fetched from storage, so it exists; qed.");
 
-					let r = T::Currency::deposit_into_existing(stash, amount).ok();
+					let r = T::Currency::deposit_into_existing(stash, a).ok();
 					Ok(r)
 				})
 				.unwrap_or_default()

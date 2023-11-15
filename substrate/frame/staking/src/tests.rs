@@ -237,7 +237,7 @@ fn basic_setup_works() {
 #[test]
 fn change_controller_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
+		let (stash, controller) = create_unique_stash_controller::<Test>(
 			0,
 			100,
 			PayoutRoute::Direct(PayoutDestination::Stake),
@@ -719,7 +719,7 @@ fn set_payee_also_updates_payee_destination() {
 				.unwrap();
 		Payees::<Test>::remove(stash);
 		// Value to be migrated
-		DeprecatedPayee::<Test>::insert(stash, PayoutDestination::Deposit(stash));
+		DeprecatedPayee::<Test>::insert(stash, RewardDestination::Staked);
 
 		// When
 		assert_ok!(Staking::set_payee(
@@ -753,7 +753,7 @@ fn update_payee_works() {
 				.unwrap();
 		Payees::<Test>::remove(stash);
 		// Value to be migrated
-		DeprecatedPayee::<Test>::insert(stash, PayoutDestination::Stake);
+		DeprecatedPayee::<Test>::insert(stash, RewardDestination::Staked);
 
 		// When
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(controller), PayoutDestination::Stake));
@@ -800,7 +800,7 @@ fn get_destination_payout_migrates_payee() {
 			create_stash_controller::<Test>(12, 13, PayoutRoute::Direct(PayoutDestination::Stake))
 				.unwrap();
 		Payees::<Test>::remove(stash);
-		DeprecatedPayee::<Test>::insert(stash, PayoutDestination::Stake);
+		DeprecatedPayee::<Test>::insert(stash, RewardDestination::Staked);
 
 		// When
 		let dest = Staking::get_payout_destination_migrate(&stash, controller);
@@ -874,7 +874,7 @@ fn double_staking_should_fail() {
 	// * an account already bonded as controller can nominate.
 	ExtBuilder::default().build_and_execute(|| {
 		let arbitrary_value = 5;
-		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
+		let (stash, controller) = create_unique_stash_controller::<Test>(
 			0,
 			arbitrary_value,
 			PayoutRoute::Direct(PayoutDestination::Stake),
@@ -908,7 +908,7 @@ fn double_controlling_attempt_should_fail() {
 	//   account.
 	ExtBuilder::default().build_and_execute(|| {
 		let arbitrary_value = 5;
-		let (stash, _) = testing_utils::create_unique_stash_controller::<Test>(
+		let (stash, _) = create_unique_stash_controller::<Test>(
 			0,
 			arbitrary_value,
 			PayoutRoute::Direct(PayoutDestination::Stake),
@@ -1173,7 +1173,7 @@ fn payout_destination_works() {
 		mock::make_all_reward_payment(0);
 
 		// Check that PayoutDestination is Stake (default)
-		assert_eq!(Staking::payee(11.into()), PayoutDestination::Stake);
+		assert_eq!(Staking::payee(11.into()), CheckedPayoutDestination(PayoutDestination::Stake));
 		// Check that reward went to the stash account of validator
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0);
 		// Check that amount at stake increased accordingly
@@ -1942,7 +1942,7 @@ fn switching_roles() {
 		for i in &[11, 21] {
 			assert_ok!(Staking::set_payee(
 				RuntimeOrigin::signed(*i),
-				PayoutDestination::Deposit(i)
+				PayoutDestination::Deposit(*i)
 			));
 		}
 
@@ -3634,8 +3634,8 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		let part_for_101 = Perbill::from_rational::<u32>(125, 1125);
 
 		// Check state
-		Payees::<Test>::insert(11, PayoutDestination::Deposit(11));
-		Payees::<Test>::insert(101, PayoutDestination::Deposit(101));
+		Payees::<Test>::insert(11, CheckedPayoutDestination(PayoutDestination::Deposit(11)));
+		Payees::<Test>::insert(101, CheckedPayoutDestination(PayoutDestination::Deposit(101)));
 
 		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 		// Compute total payout now for whole duration as other parameter won't change
@@ -3839,7 +3839,7 @@ fn test_nominators_are_rewarded_for_all_exposure_page() {
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(stash),
 				balance,
-				RewardDestination::Stash
+				PayoutDestination::Deposit(stash)
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![11]));
 		}
@@ -3926,12 +3926,12 @@ fn test_multi_page_payout_stakers_by_page() {
 				..,
 				Event::Rewarded {
 					stash: 1063,
-					dest: PayoutDestination::Deposit(1037),
+					dest: CheckedPayoutDestination(PayoutDestination::Deposit(1037)),
 					amount: 111
 				},
 				Event::Rewarded {
 					stash: 1064,
-					dest: PayoutDestination::Deposit(1036),
+					dest: CheckedPayoutDestination(PayoutDestination::Deposit(1036)),
 					amount: 111
 				}
 			]
@@ -3955,8 +3955,16 @@ fn test_multi_page_payout_stakers_by_page() {
 			events.as_slice(),
 			&[
 				Event::PayoutStarted { era_index: 1, validator_stash: 11 },
-				Event::Rewarded { stash: 1065, dest: RewardDestination::Controller, amount: 111 },
-				Event::Rewarded { stash: 1066, dest: RewardDestination::Controller, amount: 111 },
+				Event::Rewarded {
+					stash: 1065,
+					dest: CheckedPayoutDestination(PayoutDestination::Deposit(_)),
+					amount: 111
+				},
+				Event::Rewarded {
+					stash: 1066,
+					dest: CheckedPayoutDestination(PayoutDestination::Deposit(_)),
+					amount: 111
+				},
 				..
 			]
 		));
@@ -4805,7 +4813,7 @@ fn payout_creates_controller() {
 		bond_validator(11, balance);
 
 		// create a stash/controller pair and nominate
-		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
+		let (stash, controller) = create_unique_stash_controller::<Test>(
 			0,
 			100,
 			PayoutRoute::Direct(PayoutDestination::Stake),
@@ -5795,7 +5803,7 @@ fn capped_stakers_works() {
 			let (_, controller) = testing_utils::create_stash_controller::<Test>(
 				i + 10_000_000,
 				100,
-				PayoutDestination::Deposit(i),
+				PayoutRoute::Direct(PayoutDestination::Stake),
 			)
 			.unwrap();
 			assert_ok!(Staking::validate(
@@ -5835,7 +5843,7 @@ fn capped_stakers_works() {
 		let (_, last_nominator) = testing_utils::create_stash_controller::<Test>(
 			30_000_000,
 			100,
-			PayoutDestination::Deposit(100),
+			PayoutRoute::Direct(PayoutDestination::Stake),
 		)
 		.unwrap();
 		assert_noop!(
@@ -6959,7 +6967,7 @@ mod ledger {
 			assert!(<Bonded<Test>>::get(&42).is_none());
 
 			let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42);
-			let reward_dest = PayoutDestination::Deposit(10);
+			let reward_dest = CheckedPayoutDestination(PayoutDestination::Deposit(10));
 
 			assert_ok!(ledger.clone().bond(reward_dest));
 			assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));

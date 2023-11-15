@@ -325,7 +325,7 @@ use sp_staking::{
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, PayoutDestinationAlias,
 	SessionIndex, StakingAccount,
 };
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+pub use sp_staking::{Exposure, IndividualExposure, PayoutSplitOpt, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 

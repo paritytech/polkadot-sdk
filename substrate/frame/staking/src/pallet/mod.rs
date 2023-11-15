@@ -47,10 +47,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf, NegativeImbalanceOf,
-	Nominations, NominationsQuota, PayoutDestination, PositiveImbalanceOf, SessionInterface,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
+	CheckedPayoutDestination, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PayoutDestination,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
+	UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -945,10 +946,6 @@ pub mod pallet {
 			// Ensure a 100% or 0% `Split` variant is updated to a `Deposit` or `Stake` variant
 			// respectively.
 			let checked_payee = PayoutDestination::to_checked(payee);
-
-			let current_era = CurrentEra::<T>::get().unwrap_or(0);
-			let history_depth = T::HistoryDepth::get();
-			let last_reward_era = current_era.saturating_sub(history_depth);
 
 			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
@@ -1852,7 +1849,10 @@ pub mod pallet {
 		/// This will waive the transaction fee if the payee is successfully migrated.
 		#[pallet::call_index(27)]
 		#[pallet::weight(0)]
-		pub fn update_payee(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+		pub fn update_payee(
+			origin: OriginFor<T>,
+			controller: T::AccountId,
+		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller.clone()))?;
 
