@@ -457,6 +457,7 @@ impl OpaqueKeys for OldSessionKeys {
 				self.para_assignment.as_ref(),
 			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
 				self.authority_discovery.as_ref(),
+			_ => &[],
 		}
 	}
 }
