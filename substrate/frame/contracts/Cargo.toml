@@ -48,6 +48,9 @@ sp-io = { path = "../../primitives/io", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
 sp-std = { path = "../../primitives/std", default-features = false}
 
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+
 [dev-dependencies]
 array-bytes = "6.1"
 assert_matches = "1"
@@ -56,13 +59,19 @@ pretty_assertions = "1"
 wat = "1"
 pallet-contracts-fixtures = { path = "./fixtures" }
 
+# Polkadot Dependencies
+xcm-builder = {package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder"}
+
 # Substrate Dependencies
 pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
+pallet-message-queue = { path = "../message-queue" }
 pallet-insecure-randomness-collective-flip = { path = "../insecure-randomness-collective-flip" }
 pallet-utility = { path = "../utility" }
+pallet-assets = { path = "../assets" }
 pallet-proxy = { path = "../proxy" }
 sp-keystore = { path = "../../primitives/keystore" }
+sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
 default = [ "std" ]
@@ -92,12 +101,16 @@ std = [
 	"sp-std/std",
 	"wasm-instrument/std",
 	"wasmi/std",
+	"xcm-builder/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -105,12 +118,15 @@ runtime-benchmarks = [
 	"rand_pcg",
 	"sp-runtime/runtime-benchmarks",
 	"wasm-instrument",
+	"xcm-builder/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",
