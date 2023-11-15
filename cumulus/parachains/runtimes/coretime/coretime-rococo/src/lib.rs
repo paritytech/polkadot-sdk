@@ -462,96 +462,6 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = ();
 }
 
-#[frame_support::pallet(dev_mode)]
-pub mod pallet_coretime_mock {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use pallet_broker::{CoreAssignment, CoreIndex, PartsOf57600};
-	use parachains_common::{AccountId, Balance, BlockNumber};
-	use sp_std::vec::Vec;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		pub fn request_core_count(_: OriginFor<T>, count: CoreIndex) -> DispatchResult {
-			log::info!(
-				target: "runtime::coretime",
-				"Updating number of schedulable cores to {:?}",
-				count
-			);
-			Ok(())
-		}
-
-		pub fn request_revenue_info_at(_: OriginFor<T>, when: BlockNumber) -> DispatchResult {
-			log::info!(
-				target: "runtime::coretime",
-				"Reporting revenue at or after block {:?}.",
-				when
-			);
-			Ok(())
-		}
-
-		pub fn credit_account(_: OriginFor<T>, who: AccountId, amount: Balance) -> DispatchResult {
-			log::info!(
-				target: "runtime::coretime",
-				"Crediting account {:?} with {:?}.",
-				who, amount
-			);
-			Ok(())
-		}
-
-		pub fn assign_core(
-			_: OriginFor<T>,
-			core: CoreIndex,
-			begin: BlockNumber,
-			assignment: Vec<(CoreAssignment, PartsOf57600)>,
-			end_hint: Option<BlockNumber>,
-		) -> DispatchResult {
-			for (assignment, parts) in assignment {
-				match assignment {
-					CoreAssignment::Task(para_id) => {
-						log::info!(
-							target: "runtime::coretime",
-							"Assigning task {:?} core {:?} from block {:?} for {:?} / 57600 of its block time.",
-							para_id, core, begin, parts
-						);
-					},
-					CoreAssignment::Idle => {
-						log::info!(
-							target: "runtime::coretime",
-							"Setting core {:?} as idle from block {:?} for {:?} / 57600 of its block time.",
-							core, begin, parts
-						);
-					},
-					CoreAssignment::Pool => {
-						log::info!(
-							target: "runtime::coretime",
-							"Setting core {:?} as pool core from block {:?} for {:?} / 57600 of its block time.",
-							core, begin, parts
-						);
-					},
-				};
-
-				if let Some(end) = end_hint {
-					log::info!(
-						target: "runtime::coretime",
-						"Expecting new instructions at block {:?}.",
-						end
-					);
-				}
-			}
-			Ok(())
-		}
-	}
-}
-
-impl pallet_coretime_mock::Config for Runtime {}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -588,9 +498,6 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
-
-		// Temporary mock for assign_core
-		CoretimeProvider: pallet_coretime_mock = 60,
 	}
 );
 
