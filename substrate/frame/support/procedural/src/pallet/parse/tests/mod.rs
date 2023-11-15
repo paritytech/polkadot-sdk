@@ -21,8 +21,50 @@ use syn::parse_quote;
 
 /// Ensures that only one thread can modify/restore the `CARGO_MANIFEST_DIR` ENV var at a time,
 /// avoiding a race condition because `cargo test` runs tests in parallel.
+///
+/// Although this forces all tests that use [`simulate_manifest_dir`] to run sequentially with
+/// respect to each other, this is still several orders of magnitude faster than using UI
+/// tests, even if they are run in parallel.
 static MANIFEST_DIR_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
+/// Allows you to assert that the input expression resolves to an error whose string
+/// representation matches the specified regex literal.
+///
+/// ## Example:
+///
+/// ```
+/// use super::tasks::*;
+///
+/// assert_error_matches!(
+/// 	parse2::<TaskEnumDef>(quote! {
+/// 		#[pallet::task_enum]
+/// 		pub struct Something;
+/// 	}),
+/// 	"expected `enum`"
+/// );
+/// ```
+///
+/// More complex regular expressions are also possible (anything that could pass as a regex for
+/// use with the [`regex`] crate.):
+///
+/// ```ignore
+/// assert_error_matches!(
+/// 	parse2::<TasksDef>(quote! {
+/// 		#[pallet::tasks]
+/// 		impl<T: Config<I>, I: 'static> Pallet<T, I> {
+/// 			#[pallet::task_condition(|i| i % 2 == 0)]
+/// 			#[pallet::task_index(0)]
+/// 			pub fn foo(i: u32) -> DispatchResult {
+/// 				Ok(())
+/// 			}
+/// 		}
+/// 	}),
+/// 	r"missing `#\[pallet::task_list\(\.\.\)\]`"
+/// );
+/// ```
+///
+/// Although this is primarily intended to be used with parsing errors, this macro is general
+/// enough that it will work with any error with a reasonable [`core::fmt::Display`] impl.
 #[macro_export]
 macro_rules! assert_error_matches {
 	($expr:expr, $reg:literal) => {
@@ -42,6 +84,36 @@ macro_rules! assert_error_matches {
 	};
 }
 
+/// Allows you to assert that an entire pallet parses successfully. A custom syntax is used for
+/// specifying arguments so please pay attention to the docs below.
+///
+/// The general syntax is:
+///
+/// ```ignore
+/// assert_pallet_parses! {
+/// 	#[manifest_dir("../../examples/basic")]
+/// 	#[frame_support::pallet]
+/// 	pub mod pallet {
+/// 		#[pallet::config]
+/// 		pub trait Config: frame_system::Config {}
+///
+/// 		#[pallet::pallet]
+/// 		pub struct Pallet<T>(_);
+/// 	}
+/// };
+/// ```
+///
+/// The `#[manifest_dir(..)]` attribute _must_ be specified as the _first_ attribute on the
+/// pallet module, and should reference the relative (to your current directory) path of a
+/// directory containing containing the `Cargo.toml` of a valid pallet. Typically you will only
+/// ever need to use the `examples/basic` pallet, but sometimes it might be advantageous to
+/// specify a different one that has additional dependencies.
+///
+/// The reason this must be specified is that our underlying parsing of pallets depends on
+/// reaching out into the file system to look for particular `Cargo.toml` dependencies via the
+/// [`generate_access_from_frame_or_crate`] method, so to simulate this properly in a proc
+/// macro crate, we need to temporarily convince this function that we are running from the
+/// directory of a valid pallet.
 #[macro_export]
 macro_rules! assert_pallet_parses {
 	(
@@ -60,6 +132,28 @@ macro_rules! assert_pallet_parses {
 	}
 }
 
+/// Similar to [`assert_pallet_parses`], except this instead expects the pallet not to parse,
+/// and allows you to specify a regex matching the expected parse error.
+///
+/// This is identical syntactically to [`assert_pallet_parses`] in every way except there is a
+/// second attribute that must be specified immediately after `#[manifest_dir(..)]` which is
+/// `#[error_regex(..)]` which should contain a string/regex literal designed to match what you
+/// consider to be the correct parsing error we should see when we try to parse this particular
+/// pallet.
+///
+/// ## Example:
+///
+/// ```
+/// assert_pallet_parse_error! {
+/// 	#[manifest_dir("../../examples/basic")]
+/// 	#[error_regex("Missing `\\#\\[pallet::pallet\\]`")]
+/// 	#[frame_support::pallet]
+/// 	pub mod pallet {
+/// 		#[pallet::config]
+/// 		pub trait Config: frame_system::Config {}
+/// 	}
+/// }
+/// ```
 #[macro_export]
 macro_rules! assert_pallet_parse_error {
 	(

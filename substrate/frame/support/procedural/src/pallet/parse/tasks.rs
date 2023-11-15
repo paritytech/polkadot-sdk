@@ -48,11 +48,14 @@ pub mod keywords {
 	custom_keyword!(pallet);
 }
 
+/// Represents the `#[pallet::tasks]` attribute and its attached item. Also includes metadata
+/// about the linked [`TaskEnumDef`] if applicable.
 #[derive(Clone, Debug)]
 pub struct TasksDef {
 	pub tasks_attr: Option<PalletTasksAttr>,
 	pub tasks: Vec<TaskDef>,
 	pub item_impl: ItemImpl,
+	/// Path to `frame_support`
 	pub scrate: Path,
 	pub enum_ident: Ident,
 	pub enum_arguments: PathArguments,
@@ -126,14 +129,29 @@ impl syn::parse::Parse for TasksDef {
 	}
 }
 
+/// Parsing for a `#[pallet::tasks]` attr.
 pub type PalletTasksAttr = PalletTaskAttr<keywords::tasks>;
+
+/// Parsing for any of the attributes that can be used within a `#[pallet::tasks]` [`ItemImpl`].
 pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
+
+/// Parsing for a `#[pallet::task_index]` attr.
 pub type TaskIndexAttr = PalletTaskAttr<TaskIndexAttrMeta>;
+
+/// Parsing for a `#[pallet::task_condition]` attr.
 pub type TaskConditionAttr = PalletTaskAttr<TaskConditionAttrMeta>;
+
+/// Parsing for a `#[pallet::task_list]` attr.
 pub type TaskListAttr = PalletTaskAttr<TaskListAttrMeta>;
+
+/// Parsing for a `#[pallet::task_weight]` attr.
 pub type TaskWeightAttr = PalletTaskAttr<TaskWeightAttrMeta>;
+
+/// Parsing for a `#[pallet:task_enum]` attr.
 pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 
+/// Parsing for a manually-specified (or auto-generated) task enum, optionally including the
+/// attached `#[pallet::task_enum]` attribute.
 #[derive(Clone, Debug)]
 pub struct TaskEnumDef {
 	pub attr: Option<PalletTaskEnumAttr>,
@@ -192,6 +210,7 @@ impl syn::parse::Parse for TaskEnumDef {
 	}
 }
 
+/// Represents an individual tasks within a [`TasksDef`].
 #[derive(Debug, Clone)]
 pub struct TaskDef {
 	pub index_attr: TaskIndexAttr,
@@ -337,6 +356,7 @@ impl syn::parse::Parse for TaskDef {
 	}
 }
 
+/// The contents of a [`TasksDef`]-related attribute.
 #[derive(Parse, Debug, Clone)]
 pub enum TaskAttrMeta {
 	#[peek(keywords::task_list, name = "#[pallet::task_list(..)]")]
@@ -349,6 +369,7 @@ pub enum TaskAttrMeta {
 	TaskWeight(TaskWeightAttrMeta),
 }
 
+/// The contents of a `#[pallet::task_list]` attribute.
 #[derive(Parse, Debug, Clone)]
 pub struct TaskListAttrMeta {
 	pub task_list: keywords::task_list,
@@ -358,6 +379,7 @@ pub struct TaskListAttrMeta {
 	pub expr: Expr,
 }
 
+/// The contents of a `#[pallet::task_index]` attribute.
 #[derive(Parse, Debug, Clone)]
 pub struct TaskIndexAttrMeta {
 	pub task_index: keywords::task_index,
@@ -367,6 +389,7 @@ pub struct TaskIndexAttrMeta {
 	pub index: LitInt,
 }
 
+/// The contents of a `#[pallet::task_condition]` attribute.
 #[derive(Parse, Debug, Clone)]
 pub struct TaskConditionAttrMeta {
 	pub task_condition: keywords::task_condition,
@@ -376,6 +399,7 @@ pub struct TaskConditionAttrMeta {
 	pub expr: Expr,
 }
 
+/// The contents of a `#[pallet::task_weight]` attribute.
 #[derive(Parse, Debug, Clone)]
 pub struct TaskWeightAttrMeta {
 	pub task_weight: keywords::task_weight,
@@ -385,6 +409,7 @@ pub struct TaskWeightAttrMeta {
 	pub expr: Expr,
 }
 
+/// The contents of a `#[pallet::task]` attribute.
 #[derive(Parse, Debug, Clone)]
 pub struct PalletTaskAttr<T: syn::parse::Parse + core::fmt::Debug + ToTokens> {
 	pub pound: Pound,

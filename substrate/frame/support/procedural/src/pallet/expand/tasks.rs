@@ -1,3 +1,5 @@
+//! Contains logic for expanding task-related items.
+
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -23,6 +25,9 @@ use quote::{format_ident, quote, ToTokens};
 use syn::{parse_quote, spanned::Spanned, ItemEnum, ItemImpl};
 
 impl TaskEnumDef {
+	/// Since we optionally allow users to manually specify a `#[pallet::task_enum]`, in the
+	/// event they _don't_ specify one (which is actually the most common behavior) we have to
+	/// generate one based on the existing [`TasksDef`]. This method performs that generation.
 	pub fn generate(
 		tasks: &TasksDef,
 		type_decl_bounded_generics: TokenStream2,
@@ -108,6 +113,7 @@ impl ToTokens for TaskEnumDef {
 	}
 }
 
+/// Represents an already-expanded [`TasksDef`].
 #[derive(Parse)]
 pub struct ExpandedTasksDef {
 	pub task_item_impl: ItemImpl,
@@ -195,6 +201,9 @@ impl ToTokens for TasksDef {
 	}
 }
 
+/// Expands the [`TasksDef`] in the enclosing [`Def`], if present, and returns its tokens.
+///
+/// This modifies the underlying [`Def`] in addition to returning any tokens that were added.
 pub fn expand_tasks_impl(def: &mut Def) -> TokenStream2 {
 	let Some(tasks) = &mut def.tasks else { return quote!() };
 	let ExpandedTasksDef { task_item_impl, task_trait_impl } = parse_quote!(#tasks);
@@ -204,12 +213,16 @@ pub fn expand_tasks_impl(def: &mut Def) -> TokenStream2 {
 	}
 }
 
+/// Represents a fully-expanded [`TaskEnumDef`].
 #[derive(Parse)]
 pub struct ExpandedTaskEnum {
 	pub item_enum: ItemEnum,
 	pub debug_impl: ItemImpl,
 }
 
+/// Modifies a [`Def`] to expand the underlying [`TaskEnumDef`] if present, and also returns
+/// its tokens. A blank [`TokenStream2`] is returned if no [`TaskEnumDef`] has been generated
+/// or defined.
 pub fn expand_task_enum(def: &mut Def) -> TokenStream2 {
 	let Some(task_enum) = &mut def.task_enum else { return quote!() };
 	let ExpandedTaskEnum { item_enum, debug_impl } = parse_quote!(#task_enum);
@@ -219,6 +232,8 @@ pub fn expand_task_enum(def: &mut Def) -> TokenStream2 {
 	}
 }
 
+/// Modifies a [`Def`] to expand the underlying [`TasksDef`] and also generate a
+/// [`TaskEnumDef`] if applicable. The tokens for these items are returned if they are created.
 pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
 	if let Some(tasks_def) = &def.tasks {
 		if def.task_enum.is_none() {
