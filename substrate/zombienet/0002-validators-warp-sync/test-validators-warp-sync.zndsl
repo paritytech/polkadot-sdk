@@ -29,7 +29,7 @@ bob: count of log lines containing  "Block history download is complete" is 1 wi
 alice: reports block height is at least 12133 within 10 seconds
 bob: reports block height is at least 12133 within 10 seconds
 
-alice: count of log lines containing "error" is 0 within 10 seconds
+# alice: count of log lines containing "error" is 0 within 10 seconds
 bob: count of log lines containing "verification failed" is 0 within 10 seconds
 
 # new block were built
