@@ -1,6 +1,7 @@
 [package]
 name = "polkadot-runtime-parachains"
 version = "1.0.0"
+description = "Relay Chain runtime code responsible for Parachains."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -62,7 +63,7 @@ test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../pri
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 thousands = "0.2.0"
 assert_matches = "1"
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 
 [features]
 default = [ "std" ]

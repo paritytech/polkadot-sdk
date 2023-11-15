@@ -403,6 +403,14 @@ pub mod pallet {
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
+
+		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
+		/// execute XCM programs.
+		type Xcm: xcm_builder::Controller<
+			OriginFor<Self>,
+			<Self as frame_system::Config>::RuntimeCall,
+			BlockNumberFor<Self>,
+		>;
 	}
 
 	#[pallet::hooks]
@@ -1004,6 +1012,8 @@ pub mod pallet {
 		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
 		/// is rejected.
 		NoChainExtension,
+		/// Failed to decode the XCM program.
+		XCMDecodeFailed,
 		/// A contract with the same AccountId already exists.
 		DuplicateContract,
 		/// A contract self destructed in its constructor.
