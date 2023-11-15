@@ -1150,39 +1150,46 @@ pub trait IsMember<MemberId> {
 }
 
 /// Super trait with all the attributes for a block number.
-pub trait BlockNumber: Member
-+ MaybeSerializeDeserialize
-+ MaybeFromStr
-+ Debug
-+ sp_std::hash::Hash
-+ Copy
-+ MaybeDisplay
-+ AtLeast32BitUnsigned
-+ Into<U256>
-+ Into<u64>
-+ TryFrom<U256>
-+ TryFrom<u64>
-+ Default
-+ TypeInfo
-+ MaxEncodedLen
-+ FullCodec {}
+pub trait BlockNumber:
+	Member
+	+ MaybeSerializeDeserialize
+	+ MaybeFromStr
+	+ Debug
+	+ sp_std::hash::Hash
+	+ Copy
+	+ MaybeDisplay
+	+ AtLeast32BitUnsigned
+	+ Into<U256>
+	+ Into<u64>
+	+ TryFrom<U256>
+	+ TryFrom<u64>
+	+ Default
+	+ TypeInfo
+	+ MaxEncodedLen
+	+ FullCodec
+{
+}
 
-impl<T: Member
-+ MaybeSerializeDeserialize
-+ MaybeFromStr
-+ Debug
-+ sp_std::hash::Hash
-+ Copy
-+ MaybeDisplay
-+ AtLeast32BitUnsigned
-+ Into<U256>
-+ Into<u64>
-+ TryFrom<U256>
-+ TryFrom<u64>
-+ Default
-+ TypeInfo
-+ MaxEncodedLen
-+ FullCodec> BlockNumber for T {}
+impl<
+		T: Member
+			+ MaybeSerializeDeserialize
+			+ MaybeFromStr
+			+ Debug
+			+ sp_std::hash::Hash
+			+ Copy
+			+ MaybeDisplay
+			+ AtLeast32BitUnsigned
+			+ Into<U256>
+			+ Into<u64>
+			+ TryFrom<U256>
+			+ TryFrom<u64>
+			+ Default
+			+ TypeInfo
+			+ MaxEncodedLen
+			+ FullCodec,
+	> BlockNumber for T
+{
+}
 
 /// Something which fulfills the abstract idea of a Substrate header. It has types for a `Number`,
 /// a `Hash` and a `Hashing`. It provides access to an `extrinsics_root`, `state_root` and

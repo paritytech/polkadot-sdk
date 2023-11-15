@@ -21,9 +21,7 @@ use crate::{
 	codec::{Codec, Decode, Encode},
 	generic::Digest,
 	scale_info::TypeInfo,
-	traits::{
-		self, AtLeast32BitUnsigned, Hash as HashT, MaybeDisplay, Member,BlockNumber
-	},
+	traits::{self, AtLeast32BitUnsigned, BlockNumber, Hash as HashT, MaybeDisplay, Member},
 };
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -76,7 +74,7 @@ where
 
 impl<Number, Hash> traits::Header for Header<Number, Hash>
 where
-	Number:  BlockNumber,
+	Number: BlockNumber,
 	Hash: HashT,
 {
 	type Number = Number;
