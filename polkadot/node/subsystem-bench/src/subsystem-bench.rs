@@ -141,7 +141,6 @@ fn new_runtime() -> tokio::runtime::Runtime {
 }
 
 impl BenchCli {
-	/// Launch a malus node.
 	fn launch(self) -> eyre::Result<()> {
 		use prometheus::Registry;
 
