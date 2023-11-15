@@ -74,7 +74,7 @@ If the `key` is not associated with a storage value in the trie, then no respons
 Returned when the `type` of the query was `"hash"`:
 
 - `key` is guaranteed to be equal to one of the `key`s provided.
-- `hash` is a string containing the hexadecimal-encoded cryptographic hash of the storage entry.
+- `hash` is a string containing the hexadecimal-encoded hash of the storage entry.
 
 Returned when the `type` of the query was `"descendantsHashes"`:
 
