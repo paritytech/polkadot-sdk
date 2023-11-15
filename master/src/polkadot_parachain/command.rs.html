@@ -1267,6 +1267,93 @@
 <a href="#1267" id="1267">1267</a>
 <a href="#1268" id="1268">1268</a>
 <a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1319,6 +1406,7 @@
 	CollectivesPolkadot,
 	CollectivesWestend,
 	Glutton,
+	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 }
 
@@ -1380,6 +1468,8 @@
 			id.parse::&lt;chain_spec::bridge_hubs::BridgeHubRuntimeType&gt;()
 				.expect(<span class="string">&quot;Invalid value&quot;</span>),
 		)
+	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;glutton-westend&quot;</span>) {
+		Runtime::GluttonWestend
 	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;glutton&quot;</span>) {
 		Runtime::Glutton
 	} <span class="kw">else </span>{
@@ -1488,8 +1578,12 @@
 			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-polkadot.json&quot;</span>)[..],
 			)<span class="question-mark">?</span>),
+		<span class="string">&quot;collectives-westend-dev&quot; </span>=&gt;
+			Box::new(chain_spec::collectives::collectives_westend_development_config()),
+		<span class="string">&quot;collectives-westend-local&quot; </span>=&gt;
+			Box::new(chain_spec::collectives::collectives_westend_local_config()),
 		<span class="string">&quot;collectives-westend&quot; </span>=&gt;
-			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
+			Box::new(chain_spec::collectives::CollectivesWestendChainSpec::from_json_bytes(
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-westend.json&quot;</span>)[..],
 			)<span class="question-mark">?</span>),
 
@@ -1521,6 +1615,18 @@
 		<span class="string">&quot;penpal-polkadot&quot; </span>=&gt; Box::new(chain_spec::penpal::get_penpal_chain_spec(
 			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
 			<span class="string">&quot;polkadot-local&quot;</span>,
+		)),
+
+		<span class="comment">// -- Glutton Westend
+		</span><span class="string">&quot;glutton-westend-dev&quot; </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_development_config(
+			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
+		)),
+		<span class="string">&quot;glutton-westend-local&quot; </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_local_config(
+			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
+		)),
+		<span class="comment">// the chain spec as used for generating the upgrade genesis values
+		</span><span class="string">&quot;glutton-westend-genesis&quot; </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_config(
+			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
 		)),
 
 		<span class="comment">// -- Glutton
@@ -1557,8 +1663,11 @@
 				Runtime::AssetHubWestend =&gt; Box::new(
 					chain_spec::asset_hubs::AssetHubWestendChainSpec::from_json_file(path)<span class="question-mark">?</span>,
 				),
-				Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =&gt; Box::new(
+				Runtime::CollectivesPolkadot =&gt; Box::new(
 					chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_file(path)<span class="question-mark">?</span>,
+				),
+				Runtime::CollectivesWestend =&gt; Box::new(
+					chain_spec::collectives::CollectivesWestendChainSpec::from_json_file(path)<span class="question-mark">?</span>,
 				),
 				Runtime::Shell =&gt;
 					Box::new(chain_spec::shell::ShellChainSpec::from_json_file(path)<span class="question-mark">?</span>),
@@ -1570,6 +1679,8 @@
 					bridge_hub_runtime_type.chain_spec_from_json_file(path)<span class="question-mark">?</span>,
 				Runtime::Penpal(_para_id) =&gt;
 					Box::new(chain_spec::penpal::PenpalChainSpec::from_json_file(path)<span class="question-mark">?</span>),
+				Runtime::GluttonWestend =&gt;
+					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)<span class="question-mark">?</span>),
 				Runtime::Glutton =&gt;
 					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)<span class="question-mark">?</span>),
 				Runtime::Default =&gt; Box::new(
@@ -1591,6 +1702,10 @@
 	<span class="kw">const </span>GLUTTON_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-kusama-local-&quot;</span>;
 	<span class="kw">const </span>GLUTTON_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-kusama-genesis-&quot;</span>;
 
+	<span class="kw">const </span>GLUTTON_WESTEND_PARA_DEV_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-dev-&quot;</span>;
+	<span class="kw">const </span>GLUTTON_WESTEND_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-local-&quot;</span>;
+	<span class="kw">const </span>GLUTTON_WESTEND_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-genesis-&quot;</span>;
+
 	<span class="kw">let </span>(norm_id, orig_id, para) = <span class="kw">if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
 		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
 		(<span class="kw-2">&amp;</span>id[..KUSAMA_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
@@ -1606,6 +1721,15 @@
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
 		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
 		(<span class="kw-2">&amp;</span>id[..GLUTTON_PARA_GENESIS_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
+	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_DEV_PREFIX) {
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_DEV_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
+	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_LOCAL_PREFIX) {
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_LOCAL_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
+	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_GENESIS_PREFIX) {
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_GENESIS_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else </span>{
 		(id, id, <span class="prelude-val">None</span>)
 	};
@@ -1763,8 +1887,15 @@
 					<span class="macro-nonterminal">$code
 				</span>},
 			},
-			Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =&gt; {
+			Runtime::CollectivesPolkadot =&gt; {
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;collectives_polkadot_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+					<span class="kw">crate</span>::service::aura_build_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
+				)<span class="question-mark">?</span>;
+				<span class="macro-nonterminal">$code
+			</span>},
+			Runtime::CollectivesWestend =&gt; {
+				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;collectives_westend_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
 					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 					<span class="kw">crate</span>::service::aura_build_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
 				)<span class="question-mark">?</span>;
@@ -1795,6 +1926,13 @@
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;rococo_parachain_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
 					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 					<span class="kw">crate</span>::service::rococo_parachain_build_import_queue,
+				)<span class="question-mark">?</span>;
+				<span class="macro-nonterminal">$code
+			</span>},
+			Runtime::GluttonWestend =&gt; {
+				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;glutton_westend_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+					<span class="kw">crate</span>::service::shell_build_import_queue,
 				)<span class="question-mark">?</span>;
 				<span class="macro-nonterminal">$code
 			</span>},
@@ -1853,9 +1991,19 @@
 					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =&gt; {
+			Runtime::CollectivesPolkadot =&gt; {
 				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
 					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;collectives_polkadot_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+						<span class="kw">crate</span>::service::aura_build_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
+					)<span class="question-mark">?</span>;
+					<span class="kw">let </span>task_manager = <span class="macro-nonterminal">$components</span>.task_manager;
+					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
+				})
+			},
+			Runtime::CollectivesWestend =&gt; {
+				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
+					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;collectives_westend_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
 						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 						<span class="kw">crate</span>::service::aura_build_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
 					)<span class="question-mark">?</span>;
@@ -1969,6 +2117,16 @@
 					&gt;(
 						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 						<span class="kw">crate</span>::service::rococo_parachain_build_import_queue,
+					)<span class="question-mark">?</span>;
+					<span class="kw">let </span>task_manager = <span class="macro-nonterminal">$components</span>.task_manager;
+					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
+				})
+			},
+			Runtime::GluttonWestend =&gt; {
+				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
+					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;glutton_westend_runtime::RuntimeApi, <span class="kw">_</span>&gt;(
+						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+						<span class="kw">crate</span>::service::shell_build_import_queue,
 					)<span class="question-mark">?</span>;
 					<span class="kw">let </span>task_manager = <span class="macro-nonterminal">$components</span>.task_manager;
 					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
@@ -2105,7 +2263,7 @@
 				// that both file paths exist, the node will exit, as the user must decide (by
 				// deleting one path) the information that they want to use as their DB.
 				</span><span class="kw">let </span>old_name = <span class="kw">match </span>config.chain_spec.id() {
-				     <span class="string">&quot;asset-hub-polkadot&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemint&quot;</span>),
+					 <span class="string">&quot;asset-hub-polkadot&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemint&quot;</span>),
 				     <span class="string">&quot;asset-hub-kusama&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemine&quot;</span>),
 				     <span class="string">&quot;asset-hub-westend&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;westmint&quot;</span>),
 				     <span class="string">&quot;asset-hub-rococo&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;rockmine&quot;</span>),
@@ -2190,9 +2348,17 @@
 					.<span class="kw">await
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
-					Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =&gt;
+					Runtime::CollectivesPolkadot =&gt;
 						<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
 							collectives_polkadot_runtime::RuntimeApi,
+							AuraId,
+						&gt;(config, polkadot_config, collator_options, id, hwbench)
+						.<span class="kw">await
+						</span>.map(|r| r.<span class="number">0</span>)
+						.map_err(Into::into),
+					Runtime::CollectivesWestend =&gt;
+						<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+							collectives_westend_runtime::RuntimeApi,
 							AuraId,
 						&gt;(config, polkadot_config, collator_options, id, hwbench)
 						.<span class="kw">await
@@ -2231,7 +2397,7 @@
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
 					Runtime::BridgeHub(bridge_hub_runtime_type) =&gt; <span class="kw">match </span>bridge_hub_runtime_type {
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
+chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotDevelopment =&gt;
 							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
@@ -2285,6 +2451,14 @@
 							id,
 							hwbench,
 						)
+						.<span class="kw">await
+						</span>.map(|r| r.<span class="number">0</span>)
+						.map_err(Into::into),
+					Runtime::GluttonWestend =&gt;
+						<span class="kw">crate</span>::service::start_basic_lookahead_node::&lt;
+							glutton_westend_runtime::RuntimeApi,
+							AuraId,
+						&gt;(config, polkadot_config, collator_options, id, hwbench)
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),

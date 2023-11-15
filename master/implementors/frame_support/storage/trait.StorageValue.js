@@ -2,6 +2,7 @@
 "cumulus_test_runtime":[],
 "frame_support":[],
 "glutton_runtime":[],
+"glutton_westend_runtime":[],
 "node_template_runtime":[],
 "rococo_parachain_runtime":[],
 "seedling_runtime":[],
