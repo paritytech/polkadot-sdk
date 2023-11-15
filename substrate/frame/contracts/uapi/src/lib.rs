@@ -286,13 +286,15 @@ fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 #[cfg(not(any(feature = "std", feature = "no-allocator")))]
 mod allocator;
 
+mod prelude;
+
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "ink-debug", feature = "std"))] {
         /// Required by the `debug_print*` macros below, because there is no guarantee that
         /// contracts will have a direct `ink_prelude` dependency. In the future we could introduce
         /// an "umbrella" crate containing all the `ink!` crates which could also host these macros.
         #[doc(hidden)]
-        pub use ink_prelude::format;
+        pub use prelude::format;
 
         /// Appends a formatted string to the `debug_message` buffer if message recording is
         /// enabled in the contracts pallet and if the call is performed via RPC (**not** via an
