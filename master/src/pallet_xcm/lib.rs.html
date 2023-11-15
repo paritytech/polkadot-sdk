@@ -2741,6 +2741,10 @@
 <a href="#2741" id="2741">2741</a>
 <a href="#2742" id="2742">2742</a>
 <a href="#2743" id="2743">2743</a>
+<a href="#2744" id="2744">2744</a>
+<a href="#2745" id="2745">2745</a>
+<a href="#2746" id="2746">2746</a>
+<a href="#2747" id="2747">2747</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4122,7 +4126,7 @@
 				TransferType::DestinationReserve =&gt;
 					<span class="self">Self</span>::destination_reserve_fees_instructions(dest, fees, weight_limit)<span class="question-mark">?</span>,
 				TransferType::Teleport =&gt;
-					<span class="self">Self</span>::teleport_fees_instructions(dest, fees, weight_limit)<span class="question-mark">?</span>,
+					<span class="self">Self</span>::teleport_fees_instructions(origin_location, dest, fees, weight_limit)<span class="question-mark">?</span>,
 				TransferType::RemoteReserve(<span class="kw">_</span>) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidAssetUnsupportedReserve.into()),
 			});
@@ -4458,10 +4462,14 @@
 	}
 
 	<span class="kw">fn </span>teleport_fees_instructions(
+		origin: MultiLocation,
 		dest: MultiLocation,
 		fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Xcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;, Xcm&lt;()&gt;), Error&lt;T&gt;&gt; {
+		<span class="kw">let </span>value = (origin, <span class="macro">vec!</span>[fees.clone()]);
+		<span class="macro">ensure!</span>(T::XcmTeleportFilter::contains(<span class="kw-2">&amp;</span>value), Error::&lt;T&gt;::Filtered);
+
 		<span class="kw">let </span>context = T::UniversalLocation::get();
 		<span class="kw">let </span>reanchored_fees = fees
 			.clone()
