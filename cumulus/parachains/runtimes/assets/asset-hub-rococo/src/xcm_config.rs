@@ -695,7 +695,7 @@ impl<SelfParaId>
 	pallet_asset_conversion::BenchmarkHelper<MultiLocation, sp_std::boxed::Box<MultiLocation>>
 	for BenchmarkMultiLocationConverter<SelfParaId>
 where
-	SelfParaId: Get<ParaId>,
+	SelfParaId: frame_support::traits::Get<ParaId>,
 {
 	fn asset_id(asset_id: u32) -> MultiLocation {
 		MultiLocation {

@@ -1391,7 +1391,7 @@ impl_runtime_apis! {
 				// AssetHubRococo trusts AssetHubWestend as reserve for WNDs
 				pub TrustedReserve: Option<(MultiLocation, MultiAsset)> = Some(
 					(
-						xcm_config::bridging::to_westend::AssetHubWe::get(),
+						xcm_config::bridging::to_westend::AssetHubWestend::get(),
 						MultiAsset::from((xcm_config::bridging::to_westend::WndLocation::get(), 1000000000000 as u128))
 					)
 				);
