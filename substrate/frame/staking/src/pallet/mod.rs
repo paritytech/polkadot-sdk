@@ -1853,7 +1853,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			controller: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			let controller = ensure_signed(origin)?;
+			let _ = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller.clone()))?;
 
 			if Payees::<T>::contains_key(&ledger.stash) &&

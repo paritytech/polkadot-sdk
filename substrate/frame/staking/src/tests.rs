@@ -2172,7 +2172,7 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(3),
 				1000,
-				PayoutDestination::Deposit(1)
+				PayoutDestination::Deposit(3)
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21, 31]));
 
