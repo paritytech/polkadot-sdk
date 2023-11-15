@@ -279,6 +279,13 @@ impl<M> TestSubsystemContextHandle<M> {
 			.expect("Test subsystem no longer live")
 	}
 
+	/// Receive the next message from the subsystem.
+	pub async fn maybe_recv(&mut self) -> Option<AllMessages> {
+		self.try_recv()
+			.timeout(Self::TIMEOUT)
+			.await
+			.expect("`fn recv` does not timeout")
+	}
 	/// Receive the next message from the subsystem, or `None` if the channel has been closed.
 	pub async fn try_recv(&mut self) -> Option<AllMessages> {
 		self.rx

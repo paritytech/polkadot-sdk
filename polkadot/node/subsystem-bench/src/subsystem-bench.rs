@@ -18,8 +18,9 @@
 //! CI regression testing.
 use clap::Parser;
 use color_eyre::eyre;
-use prometheus::proto::LabelPair;
-use std::time::Duration;
+
+use colored::Colorize;
+use std::{time::Duration, path::Path};
 
 pub(crate) mod availability;
 pub(crate) mod core;
@@ -77,15 +78,29 @@ pub struct DataAvailabilityReadOptions {
 	pub fetch_from_backers: bool,
 
 	#[clap(short, long, ignore_case = true, default_value_t = 1)]
-	/// Number of times to loop fetching for each core.
-	pub num_loops: usize,
+	/// Number of times to block fetching for each core.
+	pub num_blocks: usize,
 }
+
+
+#[derive(Debug, clap::Parser)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct TestSequenceOptions {
+	#[clap(short, long, ignore_case = true)]
+	pub path: String,
+}
+
+
+
 /// Define the supported benchmarks targets
 #[derive(Debug, Parser)]
 #[command(about = "Target subsystems", version, rename_all = "kebab-case")]
 enum BenchmarkTarget {
 	/// Benchmark availability recovery strategies.
 	DataAvailabilityRead(DataAvailabilityReadOptions),
+	/// Run a test sequence specified in a file
+	TestSequence(TestSequenceOptions),
 }
 
 #[derive(Debug, Parser)]
@@ -131,17 +146,31 @@ fn new_runtime() -> tokio::runtime::Runtime {
 impl BenchCli {
 	/// Launch a malus node.
 	fn launch(self) -> eyre::Result<()> {
-		use prometheus::{proto::MetricType, Registry, TextEncoder};
-
-		println!("Preparing {:?} benchmarks", self.target);
+		use prometheus::Registry;
 
 		let runtime = new_runtime();
-		let registry = Registry::new();
 
 		let mut test_config = match self.target {
+			BenchmarkTarget::TestSequence(options) => {
+				let test_sequence = availability::TestSequence::new_from_file(Path::new(&options.path)).expect("File exists").to_vec();
+				let num_steps = test_sequence.len();
+				gum::info!("{}", format!("Sequence contains {} step(s)",num_steps).bright_purple());
+				for (index, test_config) in test_sequence.into_iter().enumerate(){
+					gum::info!("{}", format!("Current step {}/{}", index + 1, num_steps).bright_purple());
+
+					let candidate_count = test_config.n_cores * test_config.num_blocks;
+
+					let mut state = TestState::new(test_config);
+					state.generate_candidates(candidate_count);
+					let mut env = TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
+	
+					runtime.block_on(availability::bench_chunk_recovery(&mut env));
+				}
+				return Ok(())
+			}
 			BenchmarkTarget::DataAvailabilityRead(options) => match self.network {
 				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
-					options.num_loops,
+					options.num_blocks,
 					options.fetch_from_backers,
 					options.n_validators,
 					options.n_cores,
@@ -155,7 +184,7 @@ impl BenchCli {
 						.collect(),
 				),
 				NetworkEmulation::Degraded => TestConfiguration::degraded_network(
-					options.num_loops,
+					options.num_blocks,
 					options.fetch_from_backers,
 					options.n_validators,
 					options.n_cores,
@@ -169,7 +198,7 @@ impl BenchCli {
 						.collect(),
 				),
 				NetworkEmulation::Ideal => TestConfiguration::ideal_network(
-					options.num_loops,
+					options.num_blocks,
 					options.fetch_from_backers,
 					options.n_validators,
 					options.n_cores,
@@ -209,56 +238,15 @@ impl BenchCli {
 			test_config.bandwidth = bandwidth * 1024;
 		}
 
-		let candidate_count = test_config.n_cores * test_config.num_loops;
+		let candidate_count = test_config.n_cores * test_config.num_blocks;
+		test_config.write_to_disk();
 
 		let mut state = TestState::new(test_config);
 		state.generate_candidates(candidate_count);
-		let mut env = TestEnvironment::new(runtime.handle().clone(), state, registry.clone());
-
-		println!("{:?}", env.config());
+		let mut env = TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
 
 		runtime.block_on(availability::bench_chunk_recovery(&mut env));
 
-		let metric_families = registry.gather();
-
-		for familiy in metric_families {
-			let metric_type = familiy.get_field_type();
-
-			for metric in familiy.get_metric() {
-				match metric_type {
-					MetricType::HISTOGRAM => {
-						let h = metric.get_histogram();
-
-						let labels = metric.get_label();
-						// Skip test env usage.
-						let mut env_label = LabelPair::default();
-						env_label.set_name("task_group".into());
-						env_label.set_value("test-environment".into());
-
-						let mut is_env_metric = false;
-						for label_pair in labels {
-							if &env_label == label_pair {
-								is_env_metric = true;
-								break
-							}
-						}
-
-						if !is_env_metric {
-							println!(
-								"{:?} CPU seconds used: {:?}",
-								familiy.get_name(),
-								h.get_sample_sum()
-							);
-						}
-					},
-					_ => {},
-				}
-			}
-		}
-		// encoder.encode(&metric_families, &mut buffer).unwrap();
-
-		// Output to the standard output.
-		// println!("Metrics: {}", String::from_utf8(buffer).unwrap());
 		Ok(())
 	}
 }
@@ -267,6 +255,7 @@ fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	let _ = env_logger::builder()
 		.filter(Some("hyper"), log::LevelFilter::Info)
+		.filter(None, log::LevelFilter::Info)
 		.try_init()
 		.unwrap();
 

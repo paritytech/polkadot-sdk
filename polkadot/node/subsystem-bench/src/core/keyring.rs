@@ -16,11 +16,9 @@
 
 pub use sp_core::sr25519;
 use sp_core::{
-	sr25519::{Pair, Public, Signature},
-	ByteArray, Pair as PairT, H256,
+	sr25519::{Pair, Public},
+	Pair as PairT,
 };
-use std::{collections::HashMap, ops::Deref};
-
 /// Set of test accounts.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Keyring {
@@ -38,9 +36,5 @@ impl Keyring {
 
 	pub fn public(self) -> Public {
 		self.pair().public()
-	}
-
-	pub fn to_seed(self) -> String {
-		format!("//{}", self.name)
 	}
 }

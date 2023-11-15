@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use super::*;
 use prometheus_endpoint::U64;
-use sc_network::network_state::Peer;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc::UnboundedSender;
 // An emulated node egress traffic rate_limiter.
@@ -339,8 +338,7 @@ impl NetworkEmulator {
 }
 
 use polkadot_node_subsystem_util::metrics::{
-	self,
-	prometheus::{self, Counter, CounterVec, Histogram, Opts, PrometheusError, Registry},
+	prometheus::{CounterVec, Opts, PrometheusError, Registry},
 };
 
 /// Emulated network metrics.

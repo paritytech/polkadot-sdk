@@ -17,22 +17,18 @@ use itertools::Itertools;
 use std::{
 	collections::HashMap,
 	iter::Cycle,
-	ops::{Div, Sub},
+	ops::Sub,
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use sc_keystore::LocalKeystore;
-use sp_application_crypto::AppCrypto;
-use sp_keystore::{Keystore, KeystorePtr};
+use colored::Colorize;
 
 use futures::{
 	channel::{mpsc, oneshot},
 	stream::FuturesUnordered,
 	FutureExt, SinkExt, StreamExt,
 };
-use futures_timer::Delay;
-
 use polkadot_node_metrics::metrics::Metrics;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -41,7 +37,7 @@ use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
 	self as req_res, v1::ChunkResponse, IncomingRequest, ReqProtocolNames, Requests,
 };
-use rand::{distributions::Uniform, prelude::Distribution, seq::IteratorRandom, thread_rng};
+use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
 
 use prometheus::Registry;
 use sc_network::{config::RequestResponseConfig, OutboundFailure, RequestFailure};
@@ -74,9 +70,9 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
 
-mod configuration;
+pub mod configuration;
 
-pub use configuration::{PeerLatency, TestConfiguration};
+pub use configuration::{PeerLatency, TestConfiguration, TestSequence};
 
 // Deterministic genesis hash for protocol names
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
@@ -205,8 +201,12 @@ impl TestEnvironment {
 		self.state.config()
 	}
 
-	pub fn network(&self) -> &NetworkEmulator {
-		&self.network
+	pub fn network(&mut self) -> &mut NetworkEmulator {
+		&mut self.network
+	}
+
+	pub fn registry(&self) -> &Registry {
+		&self.registry
 	}
 
 	/// Produce a randomized duration between `min` and `max`.
@@ -361,7 +361,14 @@ impl TestEnvironment {
 	) {
 		loop {
 			futures::select! {
-				message = ctx.recv().fuse() => {
+				maybe_message = ctx.maybe_recv().fuse() => {
+					let message = if let Some(message) = maybe_message{
+						message
+					} else {
+						gum::info!("{}", "Test completed".bright_blue());
+						return
+					};
+
 					gum::trace!(target: LOG_TARGET, ?message, "Env task received message");
 
 					match message {
@@ -390,7 +397,7 @@ impl TestEnvironment {
 							AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx)
 						) => {
 							let candidate_index = state.candidate_hashes.get(&candidate_hash).expect("candidate was generated previously; qed");
-							gum::info!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+							gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
 							let chunk_size = state.chunks.get(*candidate_index as usize).unwrap()[0].encoded_size();
 							let _ = tx.send(Some(chunk_size));
@@ -564,13 +571,11 @@ impl TestState {
 		send_chunk: impl Fn(usize) -> bool,
 		tx: oneshot::Sender<Vec<ErasureChunk>>,
 	) {
-		gum::info!(target: LOG_TARGET, ?candidate_hash, "respond_to_query_all_request");
-
 		let candidate_index = self
 			.candidate_hashes
 			.get(&candidate_hash)
 			.expect("candidate was generated previously; qed");
-		gum::info!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+		gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
 		let v = self
 			.chunks
@@ -593,7 +598,7 @@ impl TestState {
 
 	/// Generate candidates to be used in the test.
 	pub fn generate_candidates(&mut self, count: usize) {
-		gum::info!(target: LOG_TARGET, "Pre-generating {} candidates.", count);
+		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", count).bright_blue());
 
 		// Generate all candidates
 		self.candidates = (0..count)
@@ -610,7 +615,7 @@ impl TestState {
 				// Store the new candidate in the state
 				self.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
 
-				gum::info!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
+				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
 
 				candidate_receipt
 			})
@@ -620,8 +625,6 @@ impl TestState {
 	}
 
 	pub fn new(config: TestConfiguration) -> Self {
-		let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
-
 		let keyrings = (0..config.n_validators)
 			.map(|peer_index| Keyring::new(format!("Node{}", peer_index).into()))
 			.collect::<Vec<_>>();
@@ -634,7 +637,7 @@ impl TestState {
 
 		let validator_authority_id: Vec<AuthorityDiscoveryId> = keyrings
 			.iter()
-			.map({ |keyring| keyring.clone().public().into() })
+			.map(|keyring| keyring.clone().public().into())
 			.collect::<Vec<_>>()
 			.into();
 
@@ -654,8 +657,8 @@ impl TestState {
 		};
 
 		// For each unique pov we create a candidate receipt.
-		for (index, pov_size) in config.pov_sizes.iter().cloned().unique().enumerate() {
-			gum::info!(target: LOG_TARGET, index, pov_size, "Generating template candidates");
+		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
+			gum::info!(target: LOG_TARGET, index, pov_size, "{}", "Generating template candidate".bright_blue());
 
 			let mut candidate_receipt = dummy_candidate_receipt(dummy_hash());
 			let pov = PoV { block_data: BlockData(vec![index as u8; pov_size]) };
@@ -679,8 +682,10 @@ impl TestState {
 			candidate_receipts.push(candidate_receipt);
 		}
 
-		let pov_sizes = config.pov_sizes.clone().into_iter().cycle();
-		let mut state = Self {
+		let pov_sizes = config.pov_sizes().to_vec().into_iter().cycle();
+		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
+
+		Self {
 			validator_public,
 			validator_authority_id,
 			validator_index,
@@ -695,11 +700,7 @@ impl TestState {
 			candidates_generated: 0,
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
-		};
-
-		gum::info!(target: LOG_TARGET, "Created test environment.");
-
-		state
+		}
 	}
 }
 
@@ -746,27 +747,29 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	for loop_num in 0..env.config().num_loops {
-		gum::info!(target: LOG_TARGET, loop_num, "Starting loop");
-		env.metrics().set_current_loop(loop_num);
+	for block_num in 0..env.config().num_blocks {
+		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
+		env.metrics().set_current_block(block_num);
 
-		let loop_start_ts = Instant::now();
+		let block_start_ts = Instant::now();
 		for candidate_num in 0..config.n_cores as u64 {
 			let candidate =
-				env.state.next_candidate().expect("We always send up to n_cores*num_loops; qed");
+				env.state.next_candidate().expect("We always send up to n_cores*num_blocks; qed");
 			let (tx, rx) = oneshot::channel();
 			batch.push(rx);
 
 			env.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
 				candidate.clone(),
 				1,
-				Some(GroupIndex(candidate_num as u32 % (config.n_cores / 5) as u32)),
+				Some(GroupIndex(
+					candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
+				)),
 				tx,
 			))
 			.await;
 		}
 
-		gum::info!("{} requests pending", batch.len());
+		gum::info!("{}", format!("{} requests pending", batch.len()).bright_black());
 		while let Some(completed) = batch.next().await {
 			let available_data = completed.unwrap().unwrap();
 			env.metrics().on_pov_size(available_data.encoded_size());
@@ -774,31 +777,44 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 		}
 
 		let block_time_delta =
-			Duration::from_secs(6).saturating_sub(Instant::now().sub(loop_start_ts));
-		gum::info!(target: LOG_TARGET, "Sleeping till end of block {}ms", block_time_delta.as_millis());
+			Duration::from_secs(6).saturating_sub(Instant::now().sub(block_start_ts));
+		gum::info!(target: LOG_TARGET,"{}", format!("Sleeping till end of block ({}ms)", block_time_delta.as_millis()).bright_black());
 		tokio::time::sleep(block_time_delta).await;
 	}
 
 	env.send_signal(OverseerSignal::Conclude).await;
 	let duration = start_marker.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
-	gum::info!("Benchmark completed in {:?}ms", duration);
-	gum::info!("Throughput: {} KiB/block", availability_bytes / env.config().num_loops as u128);
+	gum::info!("Benchmark completed in {}", format!("{:?}ms", duration).cyan());
 	gum::info!(
-		"Block time: {} ms",
-		start_marker.elapsed().as_millis() / env.config().num_loops as u128
+		"Throughput: {}",
+		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
+	);
+	gum::info!(
+		"Block time: {}",
+		format!("{} ms", start_marker.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	let stats = env.network.stats();
+	let stats = env.network().stats();
 	gum::info!(
-		"Total received from network: {} MiB",
-		stats
-			.iter()
-			.enumerate()
-			.map(|(index, stats)| stats.tx_bytes_total as u128)
-			.sum::<u128>() /
-			(1024 * 1024)
+		"Total received from network: {}",
+		format!(
+			"{} MiB",
+			stats
+				.iter()
+				.enumerate()
+				.map(|(_index, stats)| stats.tx_bytes_total as u128)
+				.sum::<u128>() / (1024 * 1024)
+		)
+		.cyan()
 	);
 
-	tokio::time::sleep(Duration::from_secs(1)).await;
+	let test_metrics = super::core::display::parse_metrics(&env.registry());
+	let subsystem_cpu_metrics =
+		test_metrics.subset_with_label_value("task_group", "availability-recovery-subsystem");
+	gum::info!(target: LOG_TARGET, "Total subsystem CPU usage {}", format!("{:.2}s", subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum")).bright_purple());
+
+	let test_env_cpu_metrics =
+		test_metrics.subset_with_label_value("task_group", "test-environment");
+	gum::info!(target: LOG_TARGET, "Total test environment CPU usage {}", format!("{:.2}s", test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum")).bright_purple());
 }

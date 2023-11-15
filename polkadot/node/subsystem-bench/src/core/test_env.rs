@@ -14,15 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
-use polkadot_node_subsystem_util::metrics::{
-	self,
-	prometheus::{
-		self, Counter, Gauge, Histogram, HistogramVec, Opts, PrometheusError, Registry, U64,
-	},
+use polkadot_node_subsystem_util::metrics::prometheus::{
+	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
 
-const MIB: f64 = 1024.0*1024.0;
+const MIB: f64 = 1024.0 * 1024.0;
 
 /// Test environment/configuration metrics
 #[derive(Clone)]
@@ -33,22 +29,15 @@ pub struct TestEnvironmentMetrics {
 	n_cores: Gauge<U64>,
 	/// PoV size
 	pov_size: Histogram,
-	/// Current loop
-	current_loop: Gauge<U64>,
+	/// Current block
+	current_block: Gauge<U64>,
 }
 
 impl TestEnvironmentMetrics {
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
 		let mut buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
-							.expect("arguments are always valid; qed");
-		buckets.extend(vec![
-			5.0 * MIB,
-			6.0 * MIB,
-			7.0 * MIB,
-			8.0 * MIB,
-			9.0 * MIB,
-			10.0 * MIB,
-		]);
+			.expect("arguments are always valid; qed");
+		buckets.extend(vec![5.0 * MIB, 6.0 * MIB, 7.0 * MIB, 8.0 * MIB, 9.0 * MIB, 10.0 * MIB]);
 
 		Ok(Self {
 			n_validators: prometheus::register(
@@ -61,12 +50,12 @@ impl TestEnvironmentMetrics {
 			n_cores: prometheus::register(
 				Gauge::new(
 					"subsystem_benchmark_n_cores",
-					"Number of cores we fetch availability for each loop",
+					"Number of cores we fetch availability for each block",
 				)?,
 				registry,
 			)?,
-			current_loop: prometheus::register(
-				Gauge::new("subsystem_benchmark_current_loop", "The current test loop")?,
+			current_block: prometheus::register(
+				Gauge::new("subsystem_benchmark_current_block", "The current test block")?,
 				registry,
 			)?,
 			pov_size: prometheus::register(
@@ -75,9 +64,7 @@ impl TestEnvironmentMetrics {
 						"subsystem_benchmark_pov_size",
 						"The compressed size of the proof of validity of a candidate",
 					)
-					.buckets(
-						buckets
-					),
+					.buckets(buckets),
 				)?,
 				registry,
 			)?,
@@ -92,8 +79,8 @@ impl TestEnvironmentMetrics {
 		self.n_cores.set(n_cores as u64);
 	}
 
-	pub fn set_current_loop(&self, current_loop: usize) {
-		self.current_loop.set(current_loop as u64);
+	pub fn set_current_block(&self, current_block: usize) {
+		self.current_block.set(current_block as u64);
 	}
 
 	pub fn on_pov_size(&self, pov_size: usize) {
