@@ -223,13 +223,22 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		AssignmentsEmpty,
+		TooManyAssignments,
 		/// Assignments together exceeded 57600.
 		OverScheduled,
+		/// Assignments together less than 57600
+		UnderScheduled,
 		/// assign_core is only allowed to append new assignments at the end of already existing
 		/// ones.
 		DisallowedInsert,
 		/// Tried to insert a schedule for the same core and block number as an existing schedule
 		DuplicateInsert,
+		/// Tried to add an unsorted set of assignments 
+		AssignmentsNotSorted,
+		/// Two or more of the same assignment contained in assignment set
+		AssignmentsNotUnique,
+		/// Assignments must be added with at least 10 blocks of lead time
+		InsufficientLeadTime,
 	}
 }
 
@@ -418,18 +427,36 @@ impl<T: Config> Pallet<T> {
 		assignments: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<BlockNumberFor<T>>,
 	) -> Result<(), DispatchError> {
-		// There should be at least one assignment
-		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
+		// TODO: Add this assert once the calls `request_core_count` and `notify_core_count`
+		//       have been established. assert!(core < legacy_core_count + core_count);
+		
+		// Begin should be no less than the Relay-chain block number on arrival of 
+		// the message plus 10
+		let now = <frame_system::Pallet<T>>::block_number();
+		ensure!(begin >= now + BlockNumberFor::<T>::from(10u32), Error::<T>::InsufficientLeadTime);
 
-		// Check that the total parts between all assignments do not exceed 57600
-		ensure!(
-			assignments
-				.iter()
-				.map(|assignment| assignment.1)
-				.fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) <=
-				PartsOf57600::from(57600u16),
-			Error::<T>::OverScheduled
-		);
+		// There should be at least one assignment and at most 100
+		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
+		ensure!(assignments.len() <= 100usize, Error::<T>::TooManyAssignments);
+
+		// Checking for sort and unique manually, since we don't have access to iterator tools
+		let assignment_targets = assignments.iter().map(|x| &x.0);
+		let mut maybe_prior = None;
+		for target in assignment_targets {
+			if let Some(prior) = maybe_prior {
+				ensure!(target != prior, Error::<T>::AssignmentsNotUnique);
+				ensure!(target > prior, Error::<T>::AssignmentsNotSorted);
+			}
+			maybe_prior = Some(target);
+		}
+
+		// Check that the total parts between all assignments are equal to 57600
+		let parts_sum = assignments
+			.iter()
+			.map(|assignment| assignment.1)
+			.fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts));
+		ensure!(parts_sum <= PartsOf57600::from(57600u16), Error::<T>::OverScheduled);
+		ensure!(parts_sum >= PartsOf57600::from(57600u16), Error::<T>::UnderScheduled);
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_descriptor| {
 			let new_queue = match core_descriptor.queue {
