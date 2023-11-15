@@ -921,7 +921,6 @@ dependencies = [
  "assets-common",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
- "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
  "cumulus-pallet-aura-ext",
@@ -1701,16 +1700,6 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-westend"
-version = "0.1.0"
-dependencies = [
- "bp-xcm-bridge-hub-router",
- "frame-support",
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
-name = "bp-asset-hub-wococo"
 version = "0.1.0"
 dependencies = [
  "bp-xcm-bridge-hub-router",
