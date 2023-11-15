@@ -210,12 +210,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			//TODO: Implement
-			T::DbWeight::get().reads_writes(0, 0)
-		}
-	}
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
