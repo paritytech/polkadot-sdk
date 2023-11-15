@@ -109,7 +109,7 @@ where
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		)
-		.map_err(|_| pallet_xcm::Error::<Runtime>::InvalidAsset)?;
+		.map_err(|_| pallet_xcm::Error::<Runtime>::CannotCheckOutTeleport)?;
 		xcm_config::LocalAssetTransactor::check_out(
 			&destination,
 			&wnd.inner().first().expect("`wnd` was just set and has a `first()`; qed."),
