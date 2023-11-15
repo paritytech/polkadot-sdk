@@ -61,7 +61,7 @@ use frame_support::{
 };
 use sp_npos_elections::ExtendedBalance;
 use sp_staking::{
-	currency_to_vote::CurrencyToVote, OnStakingUpdate, StakerStatus, StakingInterface,
+	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -193,8 +193,8 @@ pub mod pallet {
 						// expected. Instead, we call `L::on_update` to set the new score that
 						// defensively saturates to 0. The node will be removed when `on_*_remove`
 						// is called.
-						let balance = Self::to_vote_extended(current_score)
-							.defensive_saturating_sub(imbalance);
+						let balance =
+							Self::to_vote_extended(current_score).saturating_sub(imbalance);
 
 						let _ = L::on_update(who, Self::to_currency(balance)).defensive_proof(
 							"staker exists in the list as per the check above; qed.",
@@ -214,8 +214,30 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	// When a nominator's stake is updated, all the nominated targets must be updated accordingly.
 	//
 	// Note: it is assumed that who's staking state is updated *before* this method is called.
-	fn on_stake_update(who: &T::AccountId, prev_stake: Option<sp_staking::Stake<BalanceOf<T>>>) {
-		if let Ok(stake) = T::Staking::status(who).and(T::Staking::stake(who)).defensive_proof(
+	fn on_stake_update(who: &T::AccountId, prev_stake: Option<Stake<BalanceOf<T>>>) {
+		// closure to calculate the stake imbalance of a staker.
+		let stake_imbalance_of = |prev_stake: Option<Stake<BalanceOf<T>>>,
+		                          voter_weight: ExtendedBalance| {
+			if let Some(prev_stake) = prev_stake {
+				let prev_voter_weight = Self::to_vote_extended(prev_stake.active);
+
+				if prev_voter_weight > voter_weight {
+					StakeImbalance::Negative(
+						prev_voter_weight.defensive_saturating_sub(voter_weight),
+					)
+				} else {
+					StakeImbalance::Positive(
+						voter_weight.defensive_saturating_sub(prev_voter_weight),
+					)
+				}
+			} else {
+				// if staker had no stake before update, then add all the voter weight
+				// to the target's score.
+				StakeImbalance::Positive(voter_weight)
+			}
+		};
+
+		if let Ok(_) = T::Staking::status(who).and(T::Staking::stake(who)).defensive_proof(
 			"staker should exist when calling on_stake_update and have a valid status",
 		) {
 			let voter_weight = Self::weight_of(Self::active_vote_of(who));
@@ -227,28 +249,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
                             with staking.",
 					);
 
-					// convert to extended balance to peform operations with voter's weight.
-					let voter_weight: ExtendedBalance = voter_weight.into();
-
-					// calculate imbalace to update the score of nominated targets.
-					let stake_imbalance = if let Some(prev_stake) = prev_stake {
-						let prev_voter_weight = Self::to_vote_extended(prev_stake.active);
-						//let prev_voter_weight = Self::to_vote_extended(prev_stake.active);
-
-						if prev_voter_weight > voter_weight {
-							StakeImbalance::Negative(
-								prev_voter_weight.defensive_saturating_sub(voter_weight),
-							)
-						} else {
-							StakeImbalance::Positive(
-								voter_weight.defensive_saturating_sub(prev_voter_weight),
-							)
-						}
-					} else {
-						// if nominator had no stake before update, then add all the voter weight
-						// to the target's score.
-						StakeImbalance::Positive(voter_weight)
-					};
+					let stake_imbalance = stake_imbalance_of(prev_stake, voter_weight.into());
 
 					log!(
 						debug,
@@ -270,10 +271,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				},
 				StakerStatus::Validator => {
 					// validator is both a target and a voter.
-					let _ = T::TargetList::on_update(who, stake.active).defensive_proof(
-						"staker should exist in TargetList, as per the contract \
-                            with staking.",
-					);
+					let stake_imbalance = stake_imbalance_of(prev_stake, voter_weight.into());
+					Self::update_score::<T::TargetList>(&who, stake_imbalance);
+
 					let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
 						"the staker should exit in VoterList, as per the \
                             contract with staking.",
@@ -407,8 +407,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	// noop: the updates to target and voter lists when applying a slash are performed
 	// through [`Self::on_nominator_remove`] and [`Self::on_validator_remove`] when the stakers are
-	// chilled. When the slash is applied, the ledger is updated, thus the stake is propagated
-	// through the `[Self::update::<T::EventListener>]`.
+	// chilled. When the slash is applied, the ledger is updated of the affected stashes is, thus
+	// the stake is propagated through the `[Self::update::<T::EventListener>]`.
 	fn on_slash(
 		_stash: &T::AccountId,
 		_slashed_active: BalanceOf<T>,

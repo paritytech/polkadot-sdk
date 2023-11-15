@@ -6988,7 +6988,12 @@ mod ledger {
 
 mod stake_tracker {
 	use super::*;
+	use frame_election_provider_support::ScoreProvider;
 	use pallet_bags_list::Event as BagsEvent;
+	use sp_staking::{StakingAccount::*, StakingInterface};
+
+	// keep tests clean;
+	type A = AccountId;
 
 	#[test]
 	fn add_remove_nomination_works() {
@@ -7000,8 +7005,6 @@ mod stake_tracker {
 		// * Call::nominate()
 		// * Call::chill()
 		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
-			use sp_staking::StakingInterface;
-
 			// add validator 12.
 			let _ = Balances::deposit_creating(&12, 150);
 			assert_ok!(Staking::bond(
@@ -7073,6 +7076,354 @@ mod stake_tracker {
 				[
 					BagsEvent::Rebagged { who: 11, from: 400, to: 100 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 100 }
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn bond_extra_works() {
+		// Test case: bonding extra on validator and nominator affects the target list score
+		// accordingly and rebagging may happen.
+		// Call paths covered:
+		// * Call::validate()
+		// * Call::nominate()
+		// * Call::bond_extra()
+		ExtBuilder::default()
+			.add_staker(100, 100, 100, StakerStatus::Nominator(vec![31]))
+			.build_and_execute(|| {
+				// target score of 31 is the sum of own stake and nominations stake.
+				let own_stake = Staking::ledger(Stash(31)).unwrap().active;
+				let other_stake = Staking::ledger(Stash(100)).unwrap().active;
+				assert_eq!(
+					<TargetBagsList as SortedListProvider<AccountId>>::get_score(&31),
+					Ok(own_stake + other_stake)
+				);
+
+				// target list is sorted by score.
+				assert_ok!(stake_tracker_sanity_tests());
+				assert_eq!(
+					voters_and_targets().1,
+					[(11, 1500), (21, 1500), (31, own_stake + other_stake)]
+				);
+
+				// 100, which nominates 31, bonds 1500 extra.
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(100), 1500));
+				assert_eq!(Staking::ledger(Stash(100)).unwrap().active, 1600);
+
+				// target score of 31 has increased by 1500, although own stake remained the same.
+				assert_eq!(own_stake, Staking::ledger(Stash(31)).unwrap().active);
+				assert_eq!(
+					<TargetBagsList as SortedListProvider<AccountId>>::get_score(&31),
+					Ok(own_stake + other_stake + 1500)
+				);
+
+				// target score of 31 is higher than the remaining of the targets, rebagging
+				// happened.
+				assert_eq!(
+					voters_and_targets().1,
+					[(31, own_stake + other_stake + 1500), (11, 1500), (21, 1500)]
+				);
+
+				assert_eq!(
+					target_bags_events(),
+					[
+						BagsEvent::Rebagged { who: 31, from: 600, to: 10000 },
+						BagsEvent::ScoreUpdated {
+							who: 31,
+							new_score: own_stake + other_stake + 1500
+						}
+					]
+				);
+				System::reset_events();
+
+				// and now, validator 21 (nominated by 101) also bonds extra self-stake.
+				let own_stake = Staking::ledger(Stash(21)).unwrap().active;
+				let other_stake = Staking::ledger(Stash(101)).unwrap().active;
+
+				assert_eq!(
+					<TargetBagsList as SortedListProvider<AccountId>>::get_score(&21),
+					Ok(own_stake + other_stake) // 1500
+				);
+
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(21), 300));
+
+				// updates to 21 target score are as expected.
+				assert_eq!(Staking::ledger(Stash(21)).unwrap().active, own_stake + 300);
+				assert_eq!(
+					<TargetBagsList as SortedListProvider<AccountId>>::get_score(&21),
+					Ok(own_stake + other_stake + 300)
+				);
+
+				// although 21 increased in target score, there was no rebagging due to the new
+				// score not being high enough to move the the next bag, given thresholds (1_000
+				// -> 2_000)).
+				assert_eq!(voters_and_targets().1, [(31, 2100), (11, 1500), (21, 1800)]);
+
+				assert_eq!(
+					target_bags_events(),
+					[BagsEvent::ScoreUpdated { who: 21, new_score: own_stake + other_stake + 300 }]
+				);
+			})
+	}
+
+	#[test]
+	fn chill_works() {
+		// Test case: kicking and chilling nominators and validators affects the target list score
+		// and rebagging may happen.
+		// Call paths covered:
+		// * Call::validate()
+		// * Call::nominate()
+		// * Call::chill()
+		// * Call::kick()
+		ExtBuilder::default().build_and_execute(|| {
+			// bond extra to rebag nominated validator.
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(101), 600));
+			System::reset_events();
+
+			// 101 nominates both 11 and 21.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec!(11, 21))));
+			// with score
+			let nominated_score = Staking::active_stake(&101);
+			assert_eq!(nominated_score, Ok(1100));
+
+			let score_11_before = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			let score_21_before = <TargetBagsList as ScoreProvider<A>>::score(&21);
+
+			assert_eq!(voters_and_targets().1, [(11, 2100), (21, 2100), (31, 500)]);
+
+			// now chill 101.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(101)));
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Idle));
+
+			// the target scores of 11 and 21 are the previous score - the nominated score of the
+			// chilled nominator.
+			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			let score_21_after = <TargetBagsList as ScoreProvider<A>>::score(&21);
+			assert_eq!(score_11_after, score_11_before - nominated_score.unwrap());
+			assert_eq!(score_21_after, score_21_before - nominated_score.unwrap());
+
+			// now the target score of 11 and 21 is only the self-stake.
+			assert_eq!(voters_and_targets().1, [(11, 1000), (21, 1000), (31, 500)]);
+			assert_eq!(score_11_after, Staking::ledger(Stash(11)).unwrap().active);
+			assert_eq!(score_21_after, Staking::ledger(Stash(11)).unwrap().active);
+
+			// and we confirm the rebag happened as expected.
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 11, from: 10000, to: 1000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1000 },
+					BagsEvent::Rebagged { who: 21, from: 10000, to: 1000 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 }
+				]
+			);
+			System::reset_events();
+
+			// let's chill a validator now.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
+
+			// the chilled validator score is updated to 0 and 11 is not part of the targets list
+			// anymore.
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 0);
+			assert_eq!(voters_and_targets().1, [(21, 1000), (31, 500)]);
+
+			// now, let's have 101 re-nominate 21 and kick him. Note that 101 also nominates 11 but
+			// that's a noop since 11 is Idle at the moment.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![21, 11]));
+			assert_eq!(voters_and_targets().1, [(21, 2100), (31, 500)]);
+
+			// score of 21 and rebag hapened due to nomination.
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 21, from: 1000, to: 10000 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 2100 }
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn kick_works() {
+		// Test case: kicking a nominator affects the target list score and rebagging may happen.
+		// Call paths covered:
+		// * Call::validate()
+		// * Call::nominate()
+		// * Call::kick()
+		ExtBuilder::default().build_and_execute(|| {
+			// bond extra to rebag nominated validator.
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(101), 600));
+			System::reset_events();
+
+			// 101 nominates both 11 and 21.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec!(11, 21))));
+			// with score
+			let nominated_score = Staking::active_stake(&101);
+			assert_eq!(nominated_score, Ok(1100));
+
+			let _score_11_before = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			let _score_21_before = <TargetBagsList as ScoreProvider<A>>::score(&21);
+
+			assert_eq!(voters_and_targets().1, [(11, 2100), (21, 2100), (31, 500)]);
+
+			// kick 101 from nominating 21.
+			assert_ok!(Staking::kick(RuntimeOrigin::signed(21), vec![101]));
+
+			// target list was updated as expected, rebagging 21.
+			//assert_eq!(voters_and_targets().1, [(11, 2100), (21, 1000), (31, 500)]);
+
+			// TODO(gpestana): we don't have the primitives for this, may need to add one more
+			// method to the OnStakingUpdate,
+			// eg. `OnStakingUpdate::drop_nomination(who, Vec<AccountId>)`, which updates the
+			// target score of a validator by dropping hte nominations on that nominator.
+		})
+	}
+
+	#[test]
+	fn rewards_work() {
+		// Test case: validator and nominators' rewards are reflected in the target list scores,
+		// which also may cause rebaging of the target list.
+		// Call paths covered:
+		// * Call::validate()
+		// * Call::nominate()
+		// * Call::stakers_payout()
+		ExtBuilder::default().build_and_execute(|| {
+			// all payee destinations are Staked.
+			let _ = Payee::<Test>::iter()
+				.map(|(_, dest)| assert_eq!(dest, RewardDestination::Staked))
+				.collect::<Vec<_>>();
+
+			// initial state voters.
+			assert_eq!(voters_and_targets().0, [(11, 1000), (21, 1000), (31, 500), (101, 500)]);
+			// initial state targets.
+			assert_eq!(voters_and_targets().1, [(11, 1500), (21, 1500), (31, 500)]);
+
+			// 101 nominates validator 11 and 21.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;
+			assert_eq!(stake_101_before, 500);
+
+			// add reward points to 11 in era 0.
+			Staking::reward_by_ids(vec![(11, 1)]);
+
+			mock::start_active_era(1);
+
+			// payout 11 and nominators.
+			assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(11), 11, current_era() - 1));
+
+			// stake of nominator 101 increased since it was exposed to payout.
+			assert!(Staking::ledger(Stash(101)).unwrap().active > stake_101_before);
+
+			// current bags list, nominators and validators state are OK.
+			assert_ok!(stake_tracker_sanity_tests());
+
+			// overview of the target list is as expected: 11 and 21 have increased the score after
+			// the payout as they were directly and indirectly exposed to the payout.
+			assert_eq!(voters_and_targets().1, [(11, 12575), (21, 4520), (31, 500)]);
+
+			// rebag happened for both 11 and 21, which indirectly had its score increased.
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1500 },
+					BagsEvent::Rebagged { who: 11, from: 2000, to: 10000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 9555 },
+					BagsEvent::Rebagged { who: 11, from: 10000, to: u128::MAX },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 12575 },
+					BagsEvent::Rebagged { who: 21, from: 2000, to: 10000 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 4520 }
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn slashing_works() {
+		// Test case: slashing a validator affects the target list score of the validator according
+		// to its slashed self-stake and the slashed stake of its nominators. A slash may cause
+		// target list rebagging of indirect slashing (targets which were not slashed by their
+		// nominators were exposed to a slash from validator).
+		// Call paths covered:
+		// * Call::validate()
+		// * Call::nominate()
+		// * OnOffenceHandler::on_offence()
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(41), vec![21, 11]));
+			// unbond 450 from 41 so that the slash will cause the rebag of a validator which
+			// target score was indirectly affected by the slash.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(41), 450));
+			System::reset_events();
+
+			// checks the current targets' score and list sorting.
+			assert_eq!(voters_and_targets().1, [(21, 2050), (11, 2050), (31, 500)]);
+			assert_ok!(stake_tracker_sanity_tests());
+
+			// get the bonded stake of the nominators that wilbe affected by the slash.
+			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;
+			let stake_41_before = Staking::ledger(Stash(41)).unwrap().active;
+
+			// target score of 11 is the sum of self-stake and nominations stake.
+			let score_11_before = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			assert_eq!(score_11_before, 2050);
+
+			let self_stake_11_before = Staking::ledger(Stash(11)).unwrap().active;
+			assert_eq!(score_11_before, self_stake_11_before + stake_101_before + stake_41_before,);
+
+			// same for 21.
+			let score_21_before = <TargetBagsList as ScoreProvider<A>>::score(&21);
+			assert_eq!(score_21_before, 2050);
+
+			let self_stake_21_before = Staking::ledger(Stash(21)).unwrap().active;
+			assert_eq!(score_21_before, self_stake_21_before + stake_101_before + stake_41_before,);
+
+			// advance one era for the exposures to update given the current nominations.
+			start_active_era(current_era() + 1);
+
+			// we immediately slash 11 with a 50% slash.
+			let exposure = Staking::eras_stakers(active_era(), &11);
+			let slash_percent = Perbill::from_percent(50);
+			on_offence_now(
+				&[OffenceDetails { offender: (11, exposure.clone()), reporters: vec![] }],
+				&[slash_percent],
+			);
+
+			// 11 has been chilled and not part of the targets list anymore (using
+			// `DisablementStrategy::WhenSlashed`).
+			assert!(!<TargetBagsList as SortedListProvider<A>>::contains(&11));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 0);
+
+			// self-stake of 11 has decreased by 50% due to slash.
+			assert_eq!(
+				Staking::ledger(Stash(11)).unwrap().active,
+				slash_percent * self_stake_11_before
+			);
+
+			// although 21 was not directly slashed, their nominators were. This will be reflected
+			// in its current target score.
+			let score_21_after = <TargetBagsList as ScoreProvider<A>>::score(&21);
+			assert!(score_21_after < score_21_before);
+
+			// slashed amounts from nominators are reflected in the score of 21.
+			let slashed_101 = stake_101_before - Staking::ledger(Stash(101)).unwrap().active;
+			let slashed_41 = stake_41_before - Staking::ledger(Stash(41)).unwrap().active;
+
+			assert_eq!(
+				score_21_after,
+				Staking::ledger(Stash(21)).unwrap().active +
+					(stake_101_before - slashed_101) +
+					(stake_41_before - slashed_41),
+			);
+
+			// the target list has been updated accordingly and an indirect rebag of 21 happened.
+			assert_eq!(voters_and_targets().1, [(21, score_21_after), (31, 500)]);
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 21, from: 10000, to: 2000 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1965 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1872 }
 				]
 			);
 		})

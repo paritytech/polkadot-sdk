@@ -69,17 +69,6 @@ fn update_score_works() {
 	})
 }
 
-#[test]
-#[should_panic]
-fn update_score_below_zero_defensive_works() {
-	ExtBuilder::default().populate_lists().build_and_execute(|| {
-		assert!(VoterBagsList::contains(&1));
-		assert_eq!(VoterBagsList::get_score(&1), Ok(100));
-		// updating the score below 0 is unexpected.
-		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(500));
-	})
-}
-
 // same as test above but does not panic after defensive so we can test invariants.
 #[test]
 #[cfg(not(debug_assertions))]
@@ -133,6 +122,7 @@ fn on_stake_update_works() {
 		assert!(TargetBagsList::contains(&10));
 		assert!(VoterBagsList::contains(&10));
 		let stake_before = stake_of(10);
+		let target_score_before = TargetBagsList::get_score(&10).unwrap();
 
 		// validator has no nominations, as expected.
 		assert!(<StakingMock as StakingInterface>::nominations(&10).unwrap().len() == 0);
@@ -145,13 +135,18 @@ fn on_stake_update_works() {
 			n.insert(10, (new_stake, vec![]));
 		});
 
+		let stake_imbalance = stake_before.unwrap().active - new_stake.total;
+
 		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before);
 
 		assert_eq!(VoterBagsList::get_score(&10).unwrap(), new_stake.active);
+		assert_eq!(StakingMock::stake(&10), Ok(new_stake));
 
-		// target bags list was updated as expected.
+		// target bags list was updated as expected (new score is difference between previous and
+		// the stake imbalance of previous and the new stake, in order to not touch the nomination's
+		// weight in the total target score).
 		let target_score_after = TargetBagsList::get_score(&10).unwrap();
-		assert_eq!(target_score_after, new_stake.active);
+		assert_eq!(target_score_after, target_score_before - stake_imbalance);
 	})
 }
 
