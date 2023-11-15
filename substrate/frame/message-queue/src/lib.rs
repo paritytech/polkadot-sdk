@@ -1261,7 +1261,7 @@ impl<T: Config> Pallet<T> {
 	/// * `remaining_size` > 0
 	/// * `first` <= `last`
 	/// * Every page can be decoded into peek_* functions
-	#[cfg(any(test, feature = "try-runtime"))]
+	#[cfg(any(test, feature = "try-runtime", feature = "std"))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// Checking memory corruption for BookStateFor
 		ensure!(
@@ -1274,13 +1274,17 @@ impl<T: Config> Pallet<T> {
 			"Memory Corruption in Pages"
 		);
 
-		// No state to check
-		if ServiceHead::<T>::get().is_none() {
-			return Ok(())
+		// Basic checks for each book
+		for book in BookStateFor::<T>::iter_values() {
+			ensure!(book.end >= book.begin, "End > Begin if unprocessed messages exists");
+			ensure!(book.end < 1 << 30, "Likely overflow or corruption");
+			ensure!(book.message_count < 1 << 30, "Likely overflow or corruption");
+			ensure!(book.size < 1 << 30, "Likely overflow or corruption");
+			ensure!(book.count < 1 << 30, "Likely overflow or corruption");
 		}
 
 		//loop around this origin
-		let starting_origin = ServiceHead::<T>::get().unwrap();
+		let Some(starting_origin) = ServiceHead::<T>::get() else { return Ok(()) };
 
 		while let Some(head) = Self::bump_service_head(&mut WeightMeter::new()) {
 			ensure!(
@@ -1313,7 +1317,7 @@ impl<T: Config> Pallet<T> {
 			for page_index in head_book_state.begin..head_book_state.end {
 				let page = Pages::<T>::get(&head, page_index).unwrap();
 				let remaining_messages = page.remaining;
-				let mut counted_remaining_messages = 0;
+				let mut counted_remaining_messages: u32 = 0;
 				ensure!(
 					remaining_messages > 0.into(),
 					"These must be some messages that have not been processed yet!"
@@ -1330,7 +1334,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				ensure!(
-					remaining_messages == counted_remaining_messages.into(),
+					remaining_messages.into() == counted_remaining_messages,
 					"Memory Corruption"
 				);
 			}
