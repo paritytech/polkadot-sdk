@@ -47,7 +47,7 @@ use parachains_common::{
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use polkadot_runtime_common::{identity_migrator, BlockHashCount, SlowAdjustingFeeUpdate};
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -401,6 +401,14 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+// To be removed after migration is complete.
+impl identity_migrator::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Reaper = EnsureRoot<AccountId>;
+	type ReapIdentityHandler = ();
+	type WeightInfo = weights::polkadot_runtime_common_identity_migrator::WeightInfo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -438,7 +446,7 @@ construct_runtime!(
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 50,
 
 		// To migrate deposits
-		// IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
+		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
 	}
 );
 
@@ -449,6 +457,7 @@ extern crate frame_benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	define_benchmarks!(
+		// Substrate
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_identity, Identity]
@@ -456,10 +465,13 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
-		[pallet_collator_selection, CollatorSelection]
+		// Polkadot
+		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
+		// Cumulus
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_collator_selection, CollatorSelection]
+		// XCM
 		[pallet_xcm, PolkadotXcm]
-		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 	);
