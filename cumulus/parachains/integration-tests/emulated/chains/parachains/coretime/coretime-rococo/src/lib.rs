@@ -45,7 +45,6 @@ decl_test_parachains! {
 	},
 }
 
-// BridgeHubRococo implementation
+// CoretimeRococo implementation
 impl_accounts_helpers_for_parachain!(CoretimeRococo);
 impl_assert_events_helpers_for_parachain!(CoretimeRococo);
-impl_assets_helpers_for_system_parachain!(CoretimeRococo, Rococo);
