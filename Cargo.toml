@@ -75,6 +75,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/chains/relays/wococo",
 	"cumulus/parachains/integration-tests/emulated/chains/relays/westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-wococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-wococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend",

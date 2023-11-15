@@ -13,21 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod genesis;
-
 // Substrate
 use frame_support::traits::OnInitialize;
-use rococo_emulated_chain::Rococo;
 
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	xcm_emulator::decl_test_parachains,
 };
+use wococo_emulated_chain::Wococo;
 
 // BridgeHubRococo Parachain declaration
 decl_test_parachains! {
-	pub struct CoretimeRococo {
+	pub struct CoretimeWococo {
 		genesis = genesis::genesis(),
 		on_init = {
 			coretime_rococo_runtime::AuraExt::on_initialize(1);
@@ -46,5 +44,5 @@ decl_test_parachains! {
 }
 
 // CoretimeRococo implementation
-impl_accounts_helpers_for_parachain!(CoretimeRococo);
-impl_assert_events_helpers_for_parachain!(CoretimeRococo);
+impl_accounts_helpers_for_parachain!(CoretimeWococo);
+impl_assert_events_helpers_for_parachain!(CoretimeWococo);

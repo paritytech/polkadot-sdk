@@ -3299,6 +3299,7 @@ dependencies = [
  "parity-scale-codec",
  "rococo-runtime",
  "rococo-system-emulated-network",
+ "rococo-wococo-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
@@ -3425,6 +3426,22 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "coretime-wococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "coretime-rococo-emulated-chain",
+ "coretime-rococo-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "wococo-emulated-chain",
 ]
 
 [[package]]
@@ -14744,6 +14761,8 @@ dependencies = [
  "asset-hub-wococo-emulated-chain",
  "bridge-hub-rococo-emulated-chain",
  "bridge-hub-wococo-emulated-chain",
+ "coretime-rococo-emulated-chain",
+ "coretime-wococo-emulated-chain",
  "emulated-integration-tests-common",
  "rococo-emulated-chain",
  "wococo-emulated-chain",

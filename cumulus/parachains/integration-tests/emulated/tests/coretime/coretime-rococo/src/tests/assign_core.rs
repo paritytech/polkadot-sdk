@@ -20,21 +20,22 @@ use coretime_rococo_runtime::xcm_config::{
 use rococo_system_emulated_network::coretime_rococo_emulated_chain::CoretimeRococo;
 
 #[test]
-fn coretime_executes_xcm(t: RelayToSystemParaTest) {
-	CoretimeRococo::execute_with(|| {
-		type RuntimeEvent = <CoretimeRococo as Chain>::RuntimeEvent;
+fn example() {
+	// Init tests vars
+	// XcmPallet send args
+	let sudo_origin = <Rococo as Chain>::RuntimeOrigin::root();
+	let destination = Rococo::child_location_of(CoretimeRococo::para_id()).into();
+	let weight_limit = WeightLimit::Unlimited;
+	let check_origin = None;
 
-		//@TODO Dummy Weight values for now
-		CoretimeRococo::assert_dmp_queue_complete(Some(Weight::from_parts(1_019_210_000, 200_000)));
+	let remove_xcm = Xcm(vec![ClearOrigin]);
 
-		assert_expected_events!(
-			CoretimeRococo,
-			vec![
-				RuntimeEvent::CoretimePallet(coretime::Event::CoreAssigned {
-					core: t.core,
-					who: t.who,
-				}) => { core: *core == t.core, who: *who == t.who, },
-			]
-		);
-	})
+	let xcm = VersionedXcm::from(Xcm(vec![
+		UnpaidExecution { weight_limit, check_origin },
+		ExportMessage {
+			network: WococoId,
+			destination: X1(Parachain(AssetHubWococo::para_id().into())),
+			xcm: remote_xcm,
+		},
+	]));
 }

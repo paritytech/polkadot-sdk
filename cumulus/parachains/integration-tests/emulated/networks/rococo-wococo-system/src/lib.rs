@@ -43,6 +43,7 @@ decl_test_networks! {
 		parachains = vec![
 			AssetHubRococo,
 			BridgeHubRococo,
+			CoretimeRococo,
 		],
 		bridge = RococoWococoMockBridge
 
@@ -52,6 +53,7 @@ decl_test_networks! {
 		parachains = vec![
 			AssetHubWococo,
 			BridgeHubWococo,
+			CoretimeRococo,
 		],
 		bridge = WococoRococoMockBridge
 	},

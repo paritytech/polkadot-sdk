@@ -26,7 +26,10 @@ pub use frame_support::{
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+	v3::{
+		Error,
+		NetworkId::{Rococo as RococoId, Wococo as WococoId},
+	},
 };
 
 // Cumulus

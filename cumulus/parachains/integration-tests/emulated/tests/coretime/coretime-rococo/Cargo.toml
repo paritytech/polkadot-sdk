@@ -29,4 +29,5 @@ asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { path = "../../../../../../parachains/common" }
 coretime-rococo-runtime = { path = "../../../../../runtimes/coretime/coretime-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}
+rococo-wococo-system-emulated-network = { path = "../../../networks/rococo-wococo-system" }
 rococo-system-emulated-network ={ path = "../../../networks/rococo-system" }
