@@ -22,15 +22,12 @@ use crate::{
 	generic::Digest,
 	scale_info::TypeInfo,
 	traits::{
-		self, AtLeast32BitUnsigned, Hash as HashT, MaybeDisplay, MaybeFromStr,
-		MaybeSerializeDeserialize, Member,
+		self, AtLeast32BitUnsigned, Hash as HashT, MaybeDisplay, Member,BlockNumber
 	},
 };
-use codec::{FullCodec, MaxEncodedLen};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_core::U256;
-use sp_std::fmt::Debug;
 
 /// Abstraction over a block header for a substrate chain.
 #[derive(Encode, Decode, PartialEq, Eq, Clone, sp_core::RuntimeDebug, TypeInfo)]
@@ -79,20 +76,7 @@ where
 
 impl<Number, Hash> traits::Header for Header<Number, Hash>
 where
-	Number: Member
-		+ MaybeSerializeDeserialize
-		+ MaybeFromStr
-		+ Debug
-		+ Default
-		+ sp_std::hash::Hash
-		+ MaybeDisplay
-		+ AtLeast32BitUnsigned
-		+ FullCodec
-		+ Copy
-		+ MaxEncodedLen
-		+ Into<U256>
-		+ TryFrom<U256>
-		+ TypeInfo,
+	Number:  BlockNumber,
 	Hash: HashT,
 {
 	type Number = Number;
