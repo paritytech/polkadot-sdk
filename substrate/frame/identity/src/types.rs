@@ -256,6 +256,8 @@ pub trait IdentityInformationProvider:
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
+//
+// TODO: Perhaps just move `username` into a field of `Registration`?
 #[derive(
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
@@ -323,37 +325,27 @@ pub struct RegistrarInfo<
 }
 
 /// The maximum allowed length of a suffix.
-pub(crate) const SUFFIX_MAX_LENGTH: u32 = 8;
+pub(crate) const SUFFIX_MAX_LENGTH: u32 = 7;
 /// The maximum allowed length of a username, _including_ the suffix.
 pub(crate) const USERNAME_MAX_LENGTH: u32 = 32;
 /// A byte vec used to represent a username.
 pub(crate) type Username = BoundedVec<u8, ConstU32<USERNAME_MAX_LENGTH>>;
+
+// TODO: Consider:
+// struct RegisteredUsername {
+// 	   // primary username
+// 	   primary: Username,
+// 	   // all other usernames of user (maybe)
+// 	   seconary: BoundedVec<Username, UsernameLimit>,
+// 	   // deposit held for this username
+// 	   deposit: BalanceOf<T>,
+// }
 
 #[derive(Clone, Debug, Encode, Decode, PartialEq, TypeInfo)]
 pub enum AccountIdentifier<AccountId: Clone + Decode + Debug + Encode + PartialEq + TypeInfo> {
 	AbstractAccount(AccountId),
 	KeyedAccount(MultiSigner),
 }
-
-// impl<AccountId> IdentifyAccount for AccountIdentifier<AccountId>
-// where
-// 	AccountId: Clone + Debug + PartialEq,
-// {
-// 	type AccountId = AccountId;
-// 	fn into_account(self) -> AccountId {
-// 		let account = match self {
-// 			AccountIdentifier::AbstractAccount(a) => a,
-// 			AccountIdentifier::KeyedAccount(ms) => {
-// 				match ms {
-// 					MultiSigner::Ed25519(pk) => pk.into_account_truncating(),
-// 					MultiSigner::Sr25519(pk) => pk.into_account_truncating(),
-// 					MultiSigner::Ecdsa(pk) => pk.into_account_truncating(),
-// 				}
-// 			}
-// 		};
-// 		account
-// 	}
-// }
 
 #[cfg(test)]
 mod tests {

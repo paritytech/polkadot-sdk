@@ -175,6 +175,13 @@ pub mod pallet {
 	/// Information that is pertinent to identify the entity behind an account.
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
+	//
+	// TODO: Consider setting a username limit per account and storing a BoundedVec of all of an
+	// account's usernames. Obvious downside is storing a vec that may not be full, but without it,
+	// when a user calls `clear_identity` there is no way to clean up all their username accounts
+	// without looping through all the map keys. Alternate way would be to introduce a new
+	// dispatchable, callable by anyone, that could identify a username with no key in `IdentityOf`
+	// and remove the username from storage.
 	#[pallet::storage]
 	#[pallet::getter(fn identity)]
 	pub(super) type IdentityOf<T: Config> = StorageMap<
@@ -967,7 +974,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
 			let authority = T::Lookup::lookup(authority)?;
-			// suffix has same regex rules as the username.
 			Self::validate_username(&suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
 			let suffix = BoundedVec::<u8, ConstU32<SUFFIX_MAX_LENGTH>>::try_from(suffix)
 				.map_err(|_| Error::<T>::InvalidSuffix)?;
@@ -1008,8 +1014,10 @@ pub mod pallet {
 			};
 
 			// Verify input length before allocating a Vec with the user's input.
+			// `<` instead of `<=` because it needs one element for the point
+			// (`username` + `.` + `suffix`)
 			ensure!(
-				username.len().saturating_add(suffix.len()) as u32 <= USERNAME_MAX_LENGTH,
+				(username.len().saturating_add(suffix.len()) as u32) < USERNAME_MAX_LENGTH,
 				Error::<T>::InvalidUsername
 			);
 
@@ -1019,8 +1027,10 @@ pub mod pallet {
 
 			// Concatenate the username with suffix and cast into a BoundedVec. Should be infallible
 			// since we already ensured it is below the max length.
-			let mut full_username = Vec::with_capacity(username.len().saturating_add(suffix.len()));
+			let mut full_username =
+				Vec::with_capacity(username.len().saturating_add(suffix.len()).saturating_add(1));
 			full_username.extend(username);
+			full_username.extend(b".");
 			full_username.extend(suffix);
 			let bounded_username =
 				Username::try_from(full_username).map_err(|_| Error::<T>::InvalidUsername)?;
@@ -1248,9 +1258,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Validate that a username conforms to allowed characters/format.
 	fn validate_username(username: &Vec<u8>) -> DispatchResult {
-		use regex::bytes::Regex;
-		let re = Regex::new(r"^[A-Za-z0-9-.:_]+$").unwrap();
-		ensure!(re.is_match(&username[..]), Error::<T>::InvalidUsername);
+		ensure!(
+			username.iter().all(|byte| byte.is_ascii_alphanumeric()),
+			Error::<T>::InvalidUsername
+		);
 		Ok(())
 	}
 
