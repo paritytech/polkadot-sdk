@@ -30,4 +30,3 @@ cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", def
 cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", default-features = false}
 coretime-rococo-runtime = { path = "../../../../../../parachains/runtimes/coretime/coretime-rococo", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}
-rococo-wococo-system-emulated-network ={ path = "../../../networks/rococo-wococo-system" }

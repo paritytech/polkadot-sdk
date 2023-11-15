@@ -750,22 +750,36 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		}
 	}
 
-	pub fn unpin_block(
+	pub fn unpin_blocks(
 		&mut self,
 		sub_id: &str,
-		hash: Block::Hash,
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
 	) -> Result<(), SubscriptionManagementError> {
 		let Some(sub) = self.subs.get_mut(sub_id) else {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
 		};
 
-		// Check that unpin was not called before and the block was pinned
-		// for this subscription.
-		if !sub.unregister_block(hash) {
-			return Err(SubscriptionManagementError::BlockHashAbsent)
+		// Ensure that all blocks are part of the subscription before removing individual
+		// blocks.
+		for hash in hashes.clone() {
+			if !sub.contains_block(hash) {
+				return Err(SubscriptionManagementError::BlockHashAbsent);
+			}
 		}
 
-		self.global_unregister_block(hash);
+		// Note: this needs to be separate from the global mappings to avoid barrow checker
+		// thinking we borrow `&mut self` twice: once from `self.subs.get_mut` and once from
+		// `self.global_unregister_block`. Although the borrowing is correct, since different
+		// fields of the structure are borrowed, one at a time.
+		for hash in hashes.clone() {
+			sub.unregister_block(hash);
+		}
+
+		// Block have been removed from the subscription. Remove them from the global tracking.
+		for hash in hashes {
+			self.global_unregister_block(hash);
+		}
+
 		Ok(())
 	}
 
@@ -1029,11 +1043,11 @@ mod tests {
 		assert_eq!(block.has_runtime(), true);
 
 		let invalid_id = "abc-invalid".to_string();
-		let err = subs.unpin_block(&invalid_id, hash).unwrap_err();
+		let err = subs.unpin_blocks(&invalid_id, vec![hash]).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::SubscriptionAbsent);
 
 		// Unpin the block.
-		subs.unpin_block(&id, hash).unwrap();
+		subs.unpin_blocks(&id, vec![hash]).unwrap();
 		let err = subs.lock_block(&id, hash, 1).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::BlockHashAbsent);
 	}
@@ -1077,13 +1091,13 @@ mod tests {
 		// Ensure the block propagated to the subscription.
 		subs.subs.get(&id_second).unwrap().blocks.get(&hash).unwrap();
 
-		subs.unpin_block(&id, hash).unwrap();
+		subs.unpin_blocks(&id, vec![hash]).unwrap();
 		assert_eq!(*subs.global_blocks.get(&hash).unwrap(), 1);
 		// Cannot unpin a block twice for the same subscription.
-		let err = subs.unpin_block(&id, hash).unwrap_err();
+		let err = subs.unpin_blocks(&id, vec![hash]).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::BlockHashAbsent);
 
-		subs.unpin_block(&id_second, hash).unwrap();
+		subs.unpin_blocks(&id_second, vec![hash]).unwrap();
 		// Block unregistered from the memory.
 		assert!(subs.global_blocks.get(&hash).is_none());
 	}
