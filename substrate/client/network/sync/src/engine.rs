@@ -30,7 +30,7 @@ use crate::{
 	schema::v1::{StateRequest, StateResponse},
 	service::{
 		self,
-		chain_sync::{SyncingService, ToServiceCommand},
+		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
@@ -713,16 +713,13 @@ where
 			self.is_major_syncing
 				.store(self.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
 
-			// Process actions requested by `ChainSync` during `select!`.
+			// Process actions requested by `ChainSync`.
 			self.process_chain_sync_actions();
-
-			// Send outbound requests on `ChanSync`'s behalf.
-			self.send_chain_sync_requests();
 		}
 	}
 
 	fn process_chain_sync_actions(&mut self) {
-		self.chain_sync.take_actions().for_each(|action| match action {
+		self.chain_sync.actions().for_each(|action| match action {
 			ChainSyncAction::SendBlockRequest { peer_id, request } => {
 				// Sending block request implies dropping obsolete pending response as we are not
 				// interested in it anymore (see [`ChainSyncAction::SendBlockRequest`]).
@@ -741,7 +738,25 @@ where
 			ChainSyncAction::CancelBlockRequest { peer_id } => {
 				let removed = self.pending_responses.remove(&peer_id);
 
-				trace!(target: LOG_TARGET, "Processed {action:?}., response removed: {removed}.");
+				trace!(target: LOG_TARGET, "Processed {action:?}, response removed: {removed}.");
+			},
+			ChainSyncAction::SendStateRequest { peer_id, request } => {
+				self.send_state_request(peer_id, request);
+
+				trace!(
+					target: LOG_TARGET,
+					"Processed `ChainSyncAction::SendBlockRequest` to {peer_id}.",
+				);
+			},
+			ChainSyncAction::SendWarpProofRequest { peer_id, request } => {
+				self.send_warp_proof_request(peer_id, request.clone());
+
+				trace!(
+					target: LOG_TARGET,
+					"Processed `ChainSyncAction::SendWarpProofRequest` to {}, request: {:?}.",
+					peer_id,
+					request,
+				);
 			},
 			ChainSyncAction::DropPeer(BadPeer(peer_id, rep)) => {
 				self.pending_responses.remove(&peer_id);
@@ -1104,26 +1119,8 @@ where
 		Ok(())
 	}
 
-	fn send_chain_sync_requests(&mut self) {
-		for (peer_id, request) in self.chain_sync.block_requests() {
-			self.send_block_request(peer_id, request);
-		}
-
-		if let Some((peer_id, request)) = self.chain_sync.state_request() {
-			self.send_state_request(peer_id, request);
-		}
-
-		for (peer_id, request) in self.chain_sync.justification_requests() {
-			self.send_block_request(peer_id, request);
-		}
-
-		if let Some((peer_id, request)) = self.chain_sync.warp_sync_request() {
-			self.send_warp_sync_request(peer_id, request);
-		}
-	}
-
 	fn send_block_request(&mut self, peer_id: PeerId, request: BlockRequest<B>) {
-		if !self.chain_sync.is_peer_known(&peer_id) {
+		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
@@ -1139,7 +1136,7 @@ where
 	}
 
 	fn send_state_request(&mut self, peer_id: PeerId, request: OpaqueStateRequest) {
-		if !self.chain_sync.is_peer_known(&peer_id) {
+		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
@@ -1168,8 +1165,8 @@ where
 		}
 	}
 
-	fn send_warp_sync_request(&mut self, peer_id: PeerId, request: WarpProofRequest<B>) {
-		if !self.chain_sync.is_peer_known(&peer_id) {
+	fn send_warp_proof_request(&mut self, peer_id: PeerId, request: WarpProofRequest<B>) {
+		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
 			debug_assert!(false);
 			return
