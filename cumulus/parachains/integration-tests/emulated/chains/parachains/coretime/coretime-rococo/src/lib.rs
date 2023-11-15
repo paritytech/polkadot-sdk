@@ -25,7 +25,7 @@ use emulated_integration_tests_common::{
 	xcm_emulator::decl_test_parachains,
 };
 
-// BridgeHubRococo Parachain declaration
+// Coretime Parachain declaration
 decl_test_parachains! {
 	pub struct CoretimeRococo {
 		genesis = genesis::genesis(),
