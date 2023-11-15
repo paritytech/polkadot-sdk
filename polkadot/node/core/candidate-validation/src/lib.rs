@@ -150,7 +150,7 @@ async fn run<Context>(
 		),
 		pvf_metrics,
 	)
-	.await;
+	.await?;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	loop {
@@ -159,13 +159,14 @@ async fn run<Context>(
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 			FromOrchestra::Communication { msg } => match msg {
-				CandidateValidationMessage::ValidateFromChainState(
+				CandidateValidationMessage::ValidateFromChainState {
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let metrics = metrics.clone();
@@ -179,7 +180,7 @@ async fn run<Context>(
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -191,15 +192,16 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-chain-state", bg.boxed())?;
 				},
-				CandidateValidationMessage::ValidateFromExhaustive(
-					persisted_validation_data,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data,
 					validation_code,
 					candidate_receipt,
 					pov,
 					executor_params,
-					timeout,
+					exec_timeout_kind,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let metrics = metrics.clone();
 						let validation_host = validation_host.clone();
@@ -208,12 +210,12 @@ async fn run<Context>(
 							let _timer = metrics.time_validate_from_exhaustive();
 							let res = validate_candidate_exhaustive(
 								validation_host,
-								persisted_validation_data,
+								validation_data,
 								validation_code,
 								candidate_receipt,
 								pov,
 								executor_params,
-								timeout,
+								exec_timeout_kind,
 								&metrics,
 							)
 							.await;
@@ -225,11 +227,12 @@ async fn run<Context>(
 
 					ctx.spawn("validate-from-exhaustive", bg.boxed())?;
 				},
-				CandidateValidationMessage::PreCheck(
+				CandidateValidationMessage::PreCheck {
 					relay_parent,
 					validation_code_hash,
 					response_sender,
-				) => {
+					..
+				} => {
 					let bg = {
 						let mut sender = ctx.sender().clone();
 						let validation_host = validation_host.clone();
@@ -639,14 +642,19 @@ async fn validate_candidate_exhaustive(
 		},
 		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedError(e))) =>
+		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
 		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
 			))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(err))) =>
+		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+
+		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(err))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
+				"ambiguous job death: {err}"
+			)))),
 		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) => {
 			// In principle if preparation of the `WASM` fails, the current candidate can not be the
 			// reason for that. So we can't say whether it is invalid or not. In addition, with
@@ -738,9 +746,9 @@ trait ValidationBackend {
 		};
 
 		// Allow limited retries for each kind of error.
+		let mut num_death_retries_left = 1;
+		let mut num_job_error_retries_left = 1;
 		let mut num_internal_retries_left = 1;
-		let mut num_awd_retries_left = 1;
-		let mut num_panic_retries_left = 1;
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
@@ -749,11 +757,12 @@ trait ValidationBackend {
 
 			match validation_result {
 				Err(ValidationError::InvalidCandidate(
-					WasmInvalidCandidate::AmbiguousWorkerDeath,
-				)) if num_awd_retries_left > 0 => num_awd_retries_left -= 1,
-				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(_)))
-					if num_panic_retries_left > 0 =>
-					num_panic_retries_left -= 1,
+					WasmInvalidCandidate::AmbiguousWorkerDeath |
+					WasmInvalidCandidate::AmbiguousJobDeath(_),
+				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
+				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(_)))
+					if num_job_error_retries_left > 0 =>
+					num_job_error_retries_left -= 1,
 				Err(ValidationError::InternalError(_)) if num_internal_retries_left > 0 =>
 					num_internal_retries_left -= 1,
 				_ => break,
