@@ -194,8 +194,8 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint, ProcessMessage,
-		ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+		Defensive, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint,
+		ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -203,6 +203,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
+use sp_core::defer;
 use sp_runtime::{
 	traits::{One, Zero},
 	SaturatedConversion, Saturating,
@@ -1350,6 +1351,26 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 	}
+}
+
+/// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
+pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
+	/// Holds the singelton token instance.
+	environmental::environmental!(token: Option<()>);
+
+	token::using_once(&mut Some(()), || {
+		// The first `ok_or` should always be `Ok` since we are inside a `using_once`.
+		let hold = token::with(|t| t.take()).ok_or(()).defensive()?.ok_or(())?;
+
+		// Put the token back when we're done.
+		defer! {
+			token::with(|t| {
+				*t = Some(hold);
+			});
+		}
+
+		Ok(f())
+	})
 }
 
 /// Provides a [`sp_core::Get`] to access the `MEL` of a [`codec::MaxEncodedLen`] type.
