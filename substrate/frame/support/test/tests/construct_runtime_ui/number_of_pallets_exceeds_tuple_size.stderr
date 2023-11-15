@@ -1,7 +1,7 @@
 error: The number of pallets exceeds the maximum number of tuple elements. To increase this limit, enable the tuples-96 feature of [frame_support].
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:66:2
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:67:2
    |
-66 |     pub struct Runtime
+67 |     pub struct Runtime
    |     ^^^
 
 error[E0412]: cannot find type `RuntimeCall` in this scope
@@ -45,15 +45,21 @@ error[E0412]: cannot find type `RuntimeEvent` in this scope
 49 |     type RuntimeEvent = RuntimeEvent;
    |                         ^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeEvent`
 
-error[E0412]: cannot find type `PalletInfo` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:55:20
+error[E0412]: cannot find type `RuntimeTask` in this scope
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:50:21
    |
-55 |     type PalletInfo = PalletInfo;
+50 |     type RuntimeTask = RuntimeTask;
+   |                        ^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeTask`
+
+error[E0412]: cannot find type `PalletInfo` in this scope
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:56:20
+   |
+56 |     type PalletInfo = PalletInfo;
    |                       ^^^^^^^^^^
    |
 help: you might have meant to use the associated type
    |
-55 |     type PalletInfo = Self::PalletInfo;
+56 |     type PalletInfo = Self::PalletInfo;
    |                       ~~~~~~~~~~~~~~~~
 help: consider importing one of these items
    |
