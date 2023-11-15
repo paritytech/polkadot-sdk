@@ -50,8 +50,8 @@ use sp_std::prelude::*;
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	PayoutDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PayoutDestination,
+	PositiveImbalanceOf, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -338,7 +338,6 @@ impl<T: Config> Pallet<T> {
 		if amount.is_zero() {
 			return None
 		}
-
 		// NOTE: temporary getter while `Payee` -> `Payees` lazy migration is taking place.
 		// Tracking issue: <https://github.com/paritytech/polkadot-sdk/issues/1195>
 		// Can replace with `dest = Self:payees(stash);` once migration is done.
@@ -1115,6 +1114,8 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Payees::<T>::get(stash).0
 		}
+	}
+
 	/// Returns full exposure of a validator for a given era.
 	///
 	/// History note: This used to be a getter for old storage item `ErasStakers` deprecated in v14.

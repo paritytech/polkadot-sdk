@@ -322,8 +322,8 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, ExposurePage, PayoutDestinationAlias, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	StakingAccount,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, PayoutDestinationAlias,
+	SessionIndex, StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
