@@ -270,7 +270,6 @@ cargo-check-benches:
       SKIP_WASM_BUILD=1 time cargo check --locked --benches --all;
       cargo run --locked --release -p node-bench -- ::trie::read::small --json
       | tee ./artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA/::trie::read::small.json;
-      echo "___Uploading cache for rusty-cachier___";
       ;;
       2)
       cargo run --locked --release -p node-bench -- ::node::import::sr25519::transfer_keep_alive::paritydb::small --json
@@ -520,6 +519,6 @@ test-syscalls:
     - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
   after_script:
     - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
-        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
       fi
   allow_failure: true # TODO: remove this once we have an idea how often the syscall lists will change
