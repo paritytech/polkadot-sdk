@@ -1691,18 +1691,18 @@ fn recursive_enqueue_works() {
 	build_and_execute::<Test>(|| {
 		Callback::set(Box::new(|o, i| match i {
 			0 => {
-				MessageQueue::enqueue_message(msg(&format!("callback={}", 1)), o.clone());
+				MessageQueue::enqueue_message(msg(&format!("callback={}", 1)), *o);
 			},
 			1 => {
 				for _ in 0..100 {
-					MessageQueue::enqueue_message(msg(&format!("callback={}", 2)), o.clone());
+					MessageQueue::enqueue_message(msg(&format!("callback={}", 2)), *o);
 				}
 				for i in 0..100 {
 					MessageQueue::enqueue_message(msg(&format!("callback={}", 3)), i.into());
 				}
 			},
 			2 | 3 => {
-				MessageQueue::enqueue_message(msg(&format!("callback={}", 4)), o.clone());
+				MessageQueue::enqueue_message(msg(&format!("callback={}", 4)), *o);
 			},
 			4 => (),
 			_ => unreachable!(),
