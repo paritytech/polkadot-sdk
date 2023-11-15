@@ -47,7 +47,7 @@
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use log::{debug, error, warn};
+use log::{debug, error, trace, warn};
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -411,7 +411,6 @@ pub mod pallet {
 
 			// Check tickets score
 			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
-			// Current slot should be less than half of epoch length.
 			let epoch_length = T::EpochLength::get();
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
 				next_config.redundancy_factor,
@@ -424,29 +423,33 @@ pub mod pallet {
 			let randomness = NextRandomness::<T>::get();
 			let epoch_idx = EpochIndex::<T>::get() + 1;
 
-			let mut valid_tickets = BoundedVec::with_max_capacity();
+			let mut valid_tickets = BoundedVec::with_bounded_capacity(tickets.len());
+
 			for ticket in tickets {
 				debug!(target: LOG_TARGET, "Checking ring proof");
 
-				let ticket_id_input =
-					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
 				let Some(ticket_id_output) = ticket.signature.outputs.get(0) else {
 					debug!(target: LOG_TARGET, "Missing ticket vrf output from ring signature");
 					continue
 				};
+				let ticket_id_input =
+					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
+
+				// Check threshold constraint
 				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
 				if ticket_id >= ticket_threshold {
 					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:032x} >= {:032x})", ticket_id, ticket_threshold);
 					continue
 				}
 
+				// Check for duplicates
 				if TicketsData::<T>::contains_key(ticket_id) {
 					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({:032x})", ticket_id);
 					continue
 				}
 
+				// Check ring signature
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
-
 				if ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					TicketsData::<T>::set(ticket_id, Some(ticket.body));
 					valid_tickets
@@ -931,7 +934,7 @@ impl<T: Config> Pallet<T> {
 	/// Append a set of tickets to the segments map.
 	pub(crate) fn append_tickets(tickets: BoundedVec<TicketId, MaxTicketsFor<T>>) {
 		debug!(target: LOG_TARGET, "Appending batch with {} tickets", tickets.len());
-		tickets.iter().for_each(|t| debug!(target: LOG_TARGET, "  + {t:032x}"));
+		tickets.iter().for_each(|t| trace!(target: LOG_TARGET, "  + {t:032x}"));
 
 		let mut metadata = TicketsMeta::<T>::get();
 		let mut segment_idx = metadata.unsorted_tickets_count / SEGMENT_MAX_SIZE;
@@ -1000,6 +1003,16 @@ impl<T: Config> Pallet<T> {
 				false
 			},
 		}
+	}
+
+	/// Configuration epoch length.
+	pub fn epoch_length() -> usize {
+		T::EpochLength::get() as usize
+	}
+
+	/// Configuration max authorities.
+	pub fn max_authorities() -> usize {
+		T::MaxAuthorities::get() as usize
 	}
 }
 

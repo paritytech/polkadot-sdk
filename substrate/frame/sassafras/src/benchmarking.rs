@@ -133,16 +133,7 @@ mod benchmarks {
 		plan_config_change(RawOrigin::Root, config);
 	}
 
-	// Construction of ring verifier benchmark
-	#[benchmark]
-	fn load_ring_context() {
-		#[block]
-		{
-			let _ring_ctx = RingContext::<T>::get().unwrap();
-		}
-	}
-
-	// Construction of ring verifier benchmark
+	// Construction of ring verifier
 	#[benchmark]
 	fn update_ring_verifier(x: Linear<1, 100>) {
 		let authorities_count = x as usize;
@@ -155,6 +146,18 @@ mod benchmarks {
 		#[block]
 		{
 			Pallet::<T>::update_ring_verifier(&authorities);
+		}
+	}
+
+	// Bare loading of ring context.
+	//
+	// It is interesting to see how this compares to 'update_ring_verifier', which
+	// also recomputes and stores the new verifier.
+	#[benchmark]
+	fn load_ring_context() {
+		#[block]
+		{
+			let _ring_ctx = RingContext::<T>::get().unwrap();
 		}
 	}
 
