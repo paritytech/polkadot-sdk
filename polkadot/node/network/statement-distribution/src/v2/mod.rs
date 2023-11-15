@@ -1023,12 +1023,12 @@ async fn send_pending_grid_messages<Context>(
 				);
 
 				if res.is_some() {
-					grid_tracker.sent_direct_statement(
-						groups,
-						originator,
-						peer_validator_id,
-						&compact,
-					);
+					// grid_tracker.sent_direct_statement(
+					// 	groups,
+					// 	originator,
+					// 	peer_validator_id,
+					// 	&compact,
+					// );
 				}
 
 				res
@@ -1315,12 +1315,12 @@ async fn circulate_statement<Context>(
 			},
 			DirectTargetKind::Grid => {
 				statement_to_peers.push(peer_id);
-				local_validator.grid_tracker.sent_direct_statement(
-					&per_session.groups,
-					originator,
-					target,
-					&compact_statement,
-				);
+				// local_validator.grid_tracker.sent_direct_statement(
+				// 	&per_session.groups,
+				// 	originator,
+				// 	target,
+				// 	&compact_statement,
+				// );
 			},
 		}
 	}
