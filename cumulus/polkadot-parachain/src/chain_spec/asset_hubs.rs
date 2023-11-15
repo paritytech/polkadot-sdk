@@ -432,6 +432,7 @@ pub fn asset_hub_westend_development_config() -> AssetHubWestendChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		],
+		parachains_common::westend::currency::UNITS * 1_000_000,
 		1000.into(),
 	))
 	.with_properties(properties)
@@ -477,6 +478,7 @@ pub fn asset_hub_westend_local_config() -> AssetHubWestendChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
+		parachains_common::westend::currency::UNITS * 1_000_000,
 		1000.into(),
 	))
 	.with_properties(properties)
@@ -521,6 +523,7 @@ pub fn asset_hub_westend_config() -> AssetHubWestendChainSpec {
 			),
 		],
 		Vec::new(),
+		ASSET_HUB_WESTEND_ED * 4096,
 		1000.into(),
 	))
 	.with_properties(properties)
@@ -530,6 +533,7 @@ pub fn asset_hub_westend_config() -> AssetHubWestendChainSpec {
 fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
+	endowment: AssetHubBalance,
 	id: ParaId,
 ) -> serde_json::Value {
 	serde_json::json!({
@@ -537,7 +541,7 @@ fn asset_hub_westend_genesis(
 			"balances": endowed_accounts
 				.iter()
 				.cloned()
-				.map(|k| (k, ASSET_HUB_WESTEND_ED * 4096))
+				.map(|k| (k, endowment))
 				.collect::<Vec<_>>(),
 		},
 		"parachainInfo": {
@@ -603,6 +607,7 @@ fn asset_hub_rococo_like_development_config(
 			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		],
+		parachains_common::rococo::currency::UNITS * 1_000_000,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -661,6 +666,7 @@ fn asset_hub_rococo_like_local_config(
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
+		parachains_common::rococo::currency::UNITS * 1_000_000,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -708,6 +714,7 @@ pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
 			),
 		],
 		Vec::new(),
+		ASSET_HUB_ROCOCO_ED * 524_288,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -717,6 +724,7 @@ pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
 fn asset_hub_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
+	endowment: AssetHubBalance,
 	id: ParaId,
 ) -> serde_json::Value {
 	serde_json::json!({
@@ -724,7 +732,7 @@ fn asset_hub_rococo_genesis(
 			balances: endowed_accounts
 				.iter()
 				.cloned()
-				.map(|k| (k, ASSET_HUB_ROCOCO_ED * 524_288))
+				.map(|k| (k, endowment))
 				.collect(),
 		},
 		"parachainInfo": asset_hub_rococo_runtime::ParachainInfoConfig {
