@@ -49,6 +49,7 @@ fn enqueue_within_one_page_works() {
 		MessageQueue::enqueue_message(msg("c"), Here);
 		assert_eq!(MessageQueue::service_queues(2.into_weight()), 2.into_weight());
 		assert_eq!(MessagesProcessed::take(), vec![(b"a".to_vec(), Here), (b"b".to_vec(), Here)]);
+		assert_eq!(MessageQueue::footprint(Here).pages, 1);
 
 		assert_eq!(MessageQueue::service_queues(2.into_weight()), 1.into_weight());
 		assert_eq!(MessagesProcessed::take(), vec![(b"c".to_vec(), Here)]);
@@ -314,6 +315,7 @@ fn reap_page_permanent_overweight_works() {
 			MessageQueue::enqueue_message(msg("weight=2"), Here);
 		}
 		assert_eq!(Pages::<Test>::iter().count(), n);
+		assert_eq!(MessageQueue::footprint(Here).pages, n as u32);
 		assert_eq!(QueueChanges::take().len(), n);
 		// Mark all pages as stale since their message is permanently overweight.
 		MessageQueue::service_queues(1.into_weight());
@@ -339,6 +341,7 @@ fn reap_page_permanent_overweight_works() {
 			assert_noop!(MessageQueue::do_reap_page(&o, i), Error::<Test>::NotReapable);
 			assert!(QueueChanges::take().is_empty());
 		}
+		assert_eq!(MessageQueue::footprint(Here).pages, 3);
 	});
 }
 
@@ -1022,8 +1025,9 @@ fn footprint_works() {
 		BookStateFor::<Test>::insert(origin, book);
 
 		let info = MessageQueue::footprint(origin);
-		assert_eq!(info.count as usize, msgs);
-		assert_eq!(info.size, page.remaining_size as u64);
+		assert_eq!(info.storage.count as usize, msgs);
+		assert_eq!(info.storage.size, page.remaining_size as u64);
+		assert_eq!(info.pages, 1);
 
 		// Sweeping a queue never calls OnQueueChanged.
 		assert!(QueueChanges::take().is_empty());
@@ -1044,16 +1048,44 @@ fn footprint_invalid_works() {
 fn footprint_on_swept_works() {
 	use MessageOrigin::*;
 	build_and_execute::<Test>(|| {
-		let mut book = empty_book::<Test>();
-		book.message_count = 3;
-		book.size = 10;
-		BookStateFor::<Test>::insert(Here, &book);
-		knit(&Here);
+		build_ring::<Test>(&[Here]);
 
 		MessageQueue::sweep_queue(Here);
 		let fp = MessageQueue::footprint(Here);
-		assert_eq!(fp.count, 3);
-		assert_eq!(fp.size, 10);
+		assert_eq!((1, 1, 1), (fp.storage.count, fp.storage.size, fp.pages));
+	})
+}
+
+/// The number of reported pages takes overweight pages into account.
+#[test]
+fn footprint_num_pages_works() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		MessageQueue::enqueue_message(msg("weight=2"), Here);
+		MessageQueue::enqueue_message(msg("weight=3"), Here);
+
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+
+		// Mark the messages as overweight.
+		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
+		assert_eq!(System::events().len(), 2);
+		// Overweight does not change the footprint.
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+
+		// Now execute the second message.
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(3.into_weight(), (Here, 1, 0))
+				.unwrap(),
+			3.into_weight()
+		);
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 8));
+		// And the first one:
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
+				.unwrap(),
+			2.into_weight()
+		);
+		assert_eq!(MessageQueue::footprint(Here), Default::default());
 	})
 }
 
@@ -1143,6 +1175,7 @@ fn permanently_overweight_book_unknits() {
 		assert_ring(&[]);
 		assert_eq!(MessagesProcessed::take().len(), 0);
 		assert_eq!(BookStateFor::<Test>::get(Here).message_count, 1);
+		assert_eq!(MessageQueue::footprint(Here).pages, 1);
 		// Now if we enqueue another message, it will become ready again.
 		MessageQueue::enqueue_messages([msg("weight=1")].into_iter(), Here);
 		assert_ring(&[Here]);
