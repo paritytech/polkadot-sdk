@@ -141,18 +141,36 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 	output
 }
 
-/// All instructions that load the holding register
-const LOAD_HOLDING_INSTRUCTIONS: &[&str] = &[
-	"WithdrawAsset",
-	"ClaimAsset",
-	"ReserveAssetDeposited",
-	"ReceiveTeleportedAsset",
-];
-
 fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {
 	// We first require an instruction that load the holding register
-	let load_holding_methods = data_enum.variants.iter()
-		.filter(|variant| LOAD_HOLDING_INSTRUCTIONS.contains(&&variant.ident.to_string().as_str()))
+	let load_holding_variants = data_enum.variants.iter()
+		.map(|variant| {
+			let maybe_builder_attr = variant.attrs.iter().find(|attr| match attr.meta {
+				Meta::List(ref list) => {
+					return list.path.is_ident("builder");
+				},
+				_ => false,
+			});
+			let builder_attr = match maybe_builder_attr {
+				Some(builder) => builder.clone(),
+				None => return Ok(None), // It's not going to be an instruction that loads the holding register
+			};
+			match builder_attr.meta {
+				Meta::List(ref list) => {
+					let inner_ident: Ident = syn::parse2(list.tokens.clone().into()).unwrap(); // TODO: Remove
+					let ident_to_match: Ident = syn::parse_quote!(loads_holding);
+					if inner_ident == ident_to_match {
+						Ok(Some(variant))
+					} else {
+						Err(Error::new_spanned(&builder_attr, "Expected another thing"))
+					}
+				},
+				_ => Err(Error::new_spanned(&builder_attr, "Expected another thing")),
+			}
+		})
+		.collect::<Result<Vec<_>>>()?;
+
+	let load_holding_methods = load_holding_variants.into_iter().filter_map(|variant| variant)
 		.map(|variant| {
 			let variant_name = &variant.ident;
 			let method_name_string = &variant_name.to_string().to_snake_case();

@@ -57,7 +57,7 @@ pub fn impl_conversion_functions_for_junctions_v3(input: TokenStream) -> TokenSt
 /// 	.buy_execution(fees, weight_limit)
 /// 	.deposit_asset(assets, beneficiary)
 /// 	.build();
-#[proc_macro_derive(Builder)]
+#[proc_macro_derive(Builder, attributes(builder))]
 pub fn derive_builder(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	builder_pattern::derive(input)
