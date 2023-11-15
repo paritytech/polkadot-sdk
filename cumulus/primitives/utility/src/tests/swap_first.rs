@@ -14,207 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod mock {
-	use crate::*;
-	use core::cell::RefCell;
-	use frame_support::{
-		ensure,
-		traits::{
-			fungibles::{Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Unbalanced},
-			tokens::{
-				DepositConsequence, Fortitude, Fortitude::Polite, Precision::Exact, Preservation,
-				Preservation::Preserve, Provenance, WithdrawConsequence,
-			},
-		},
-	};
-	use sp_runtime::{traits::One, DispatchError};
-	use std::collections::HashMap;
-	use xcm::latest::Junction;
-
-	pub type AccountId = u64;
-	pub type AssetId = u32;
-	pub type Balance = u128;
-	pub type Credit = fungibles::Credit<AccountId, Fungibles>;
-
-	thread_local! {
-	   pub static TOTAL_ISSUANCE: RefCell<HashMap<AssetId, Balance>> = RefCell::new(HashMap::new());
-	   pub static ACCOUNT: RefCell<HashMap<(AssetId, AccountId), Balance>> = RefCell::new(HashMap::new());
-	   pub static SWAP: RefCell<HashMap<(AssetId, AssetId), AccountId>> = RefCell::new(HashMap::new());
-	}
-
-	pub struct Swap {}
-	impl SwapCreditT<AccountId> for Swap {
-		type Balance = Balance;
-		type AssetKind = AssetId;
-		type Credit = Credit;
-		fn max_path_len() -> u32 {
-			2
-		}
-		fn swap_exact_tokens_for_tokens(
-			path: Vec<Self::AssetKind>,
-			credit_in: Self::Credit,
-			amount_out_min: Option<Self::Balance>,
-		) -> Result<Self::Credit, (Self::Credit, DispatchError)> {
-			ensure!(2 == path.len(), (credit_in, DispatchError::Unavailable));
-			ensure!(
-				credit_in.peek() >= amount_out_min.unwrap_or(Self::Balance::zero()),
-				(credit_in, DispatchError::Unavailable)
-			);
-			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| v.clone()));
-			let pool_account = match swap_res {
-				Some(a) => a,
-				None => return Err((credit_in, DispatchError::Unavailable)),
-			};
-			let credit_out = match Fungibles::withdraw(
-				path[1],
-				&pool_account,
-				credit_in.peek(),
-				Exact,
-				Preserve,
-				Polite,
-			) {
-				Ok(c) => c,
-				Err(_) => return Err((credit_in, DispatchError::Unavailable)),
-			};
-			let _ = Fungibles::resolve(&pool_account, credit_in)
-				.map_err(|c| (c, DispatchError::Unavailable))?;
-			Ok(credit_out)
-		}
-		fn swap_tokens_for_exact_tokens(
-			path: Vec<Self::AssetKind>,
-			credit_in: Self::Credit,
-			amount_out: Self::Balance,
-		) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)> {
-			ensure!(2 == path.len(), (credit_in, DispatchError::Unavailable));
-			ensure!(credit_in.peek() >= amount_out, (credit_in, DispatchError::Unavailable));
-			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| v.clone()));
-			let pool_account = match swap_res {
-				Some(a) => a,
-				None => return Err((credit_in, DispatchError::Unavailable)),
-			};
-			let credit_out = match Fungibles::withdraw(
-				path[1],
-				&pool_account,
-				amount_out,
-				Exact,
-				Preserve,
-				Polite,
-			) {
-				Ok(c) => c,
-				Err(_) => return Err((credit_in, DispatchError::Unavailable)),
-			};
-			let (credit_in, change) = credit_in.split(amount_out);
-			let _ = Fungibles::resolve(&pool_account, credit_in)
-				.map_err(|c| (c, DispatchError::Unavailable))?;
-			Ok((credit_out, change))
-		}
-	}
-
-	pub fn pool_account(asset1: AssetId, asset2: AssetId) -> AccountId {
-		(1000 + asset1 * 10 + asset2 * 100).into()
-	}
-
-	pub fn setup_pool(asset1: AssetId, liquidity1: Balance, asset2: AssetId, liquidity2: Balance) {
-		let account = pool_account(asset1, asset2);
-		SWAP.with(|b| b.borrow_mut().insert((asset1, asset2), account));
-		let debt1 = Fungibles::deposit(asset1, &account, liquidity1, Exact);
-		let debt2 = Fungibles::deposit(asset2, &account, liquidity2, Exact);
-		drop(debt1);
-		drop(debt2);
-	}
-
-	pub struct WeightToFee;
-	impl WeightToFeeT for WeightToFee {
-		type Balance = Balance;
-		fn weight_to_fee(weight: &Weight) -> Self::Balance {
-			(weight.ref_time() + weight.proof_size()).into()
-		}
-	}
-
-	pub struct Fungibles {}
-
-	impl Inspect<AccountId> for Fungibles {
-		type AssetId = AssetId;
-		type Balance = Balance;
-		fn total_issuance(asset: Self::AssetId) -> Self::Balance {
-			TOTAL_ISSUANCE.with(|b| b.borrow().get(&asset).map_or(Self::Balance::zero(), |b| *b))
-		}
-		fn minimum_balance(_: Self::AssetId) -> Self::Balance {
-			Self::Balance::one()
-		}
-		fn total_balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance {
-			ACCOUNT.with(|b| b.borrow().get(&(asset, *who)).map_or(Self::Balance::zero(), |b| *b))
-		}
-		fn balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance {
-			ACCOUNT.with(|b| b.borrow().get(&(asset, *who)).map_or(Self::Balance::zero(), |b| *b))
-		}
-		fn reducible_balance(
-			asset: Self::AssetId,
-			who: &AccountId,
-			_: Preservation,
-			_: Fortitude,
-		) -> Self::Balance {
-			ACCOUNT.with(|b| b.borrow().get(&(asset, *who)).map_or(Self::Balance::zero(), |b| *b))
-		}
-		fn can_deposit(
-			_: Self::AssetId,
-			_: &AccountId,
-			_: Self::Balance,
-			_: Provenance,
-		) -> DepositConsequence {
-			unimplemented!()
-		}
-		fn can_withdraw(
-			_: Self::AssetId,
-			_: &AccountId,
-			_: Self::Balance,
-		) -> WithdrawConsequence<Self::Balance> {
-			unimplemented!()
-		}
-		fn asset_exists(_: Self::AssetId) -> bool {
-			unimplemented!()
-		}
-	}
-
-	impl Unbalanced<AccountId> for Fungibles {
-		fn set_total_issuance(asset: Self::AssetId, amount: Self::Balance) {
-			TOTAL_ISSUANCE.with(|b| b.borrow_mut().insert(asset, amount));
-		}
-		fn handle_dust(_: Dust<AccountId, Self>) {
-			unimplemented!()
-		}
-		fn write_balance(
-			asset: Self::AssetId,
-			who: &AccountId,
-			amount: Self::Balance,
-		) -> Result<Option<Self::Balance>, DispatchError> {
-			let _ = ACCOUNT.with(|b| b.borrow_mut().insert((asset, *who), amount));
-			Ok(None)
-		}
-	}
-
-	impl Balanced<AccountId> for Fungibles {
-		type OnDropCredit = DecreaseIssuance<AccountId, Self>;
-		type OnDropDebt = IncreaseIssuance<AccountId, Self>;
-	}
-
-	pub struct FungiblesMatcher;
-	impl MatchesFungibles<AssetId, Balance> for FungiblesMatcher {
-		fn matches_fungibles(
-			a: &MultiAsset,
-		) -> core::result::Result<(AssetId, Balance), xcm_executor::traits::Error> {
-			match a {
-				MultiAsset {
-					fun: Fungible(amount),
-					id:
-						Concrete(MultiLocation { parents: 0, interior: X1(Junction::GeneralIndex(id)) }),
-				} => Ok(((*id).try_into().unwrap(), *amount)),
-				_ => Err(xcm_executor::traits::Error::AssetNotHandled),
-			}
-		}
-	}
-}
-
 use crate::*;
 use frame_support::{parameter_types, traits::fungibles::Inspect};
 use mock::{setup_pool, AccountId, AssetId, Balance, Fungibles};
@@ -549,4 +348,204 @@ fn holding_asset_equal_to_target_asset() {
 			.unwrap_err(),
 		XcmError::FeesNotMet
 	);
+}
+
+pub mod mock {
+	use crate::*;
+	use core::cell::RefCell;
+	use frame_support::{
+		ensure,
+		traits::{
+			fungibles::{Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Unbalanced},
+			tokens::{
+				DepositConsequence, Fortitude, Fortitude::Polite, Precision::Exact, Preservation,
+				Preservation::Preserve, Provenance, WithdrawConsequence,
+			},
+		},
+	};
+	use sp_runtime::{traits::One, DispatchError};
+	use std::collections::HashMap;
+	use xcm::latest::Junction;
+
+	pub type AccountId = u64;
+	pub type AssetId = u32;
+	pub type Balance = u128;
+	pub type Credit = fungibles::Credit<AccountId, Fungibles>;
+
+	thread_local! {
+	   pub static TOTAL_ISSUANCE: RefCell<HashMap<AssetId, Balance>> = RefCell::new(HashMap::new());
+	   pub static ACCOUNT: RefCell<HashMap<(AssetId, AccountId), Balance>> = RefCell::new(HashMap::new());
+	   pub static SWAP: RefCell<HashMap<(AssetId, AssetId), AccountId>> = RefCell::new(HashMap::new());
+	}
+
+	pub struct Swap {}
+	impl SwapCreditT<AccountId> for Swap {
+		type Balance = Balance;
+		type AssetKind = AssetId;
+		type Credit = Credit;
+		fn max_path_len() -> u32 {
+			2
+		}
+		fn swap_exact_tokens_for_tokens(
+			path: Vec<Self::AssetKind>,
+			credit_in: Self::Credit,
+			amount_out_min: Option<Self::Balance>,
+		) -> Result<Self::Credit, (Self::Credit, DispatchError)> {
+			ensure!(2 == path.len(), (credit_in, DispatchError::Unavailable));
+			ensure!(
+				credit_in.peek() >= amount_out_min.unwrap_or(Self::Balance::zero()),
+				(credit_in, DispatchError::Unavailable)
+			);
+			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| v.clone()));
+			let pool_account = match swap_res {
+				Some(a) => a,
+				None => return Err((credit_in, DispatchError::Unavailable)),
+			};
+			let credit_out = match Fungibles::withdraw(
+				path[1],
+				&pool_account,
+				credit_in.peek(),
+				Exact,
+				Preserve,
+				Polite,
+			) {
+				Ok(c) => c,
+				Err(_) => return Err((credit_in, DispatchError::Unavailable)),
+			};
+			let _ = Fungibles::resolve(&pool_account, credit_in)
+				.map_err(|c| (c, DispatchError::Unavailable))?;
+			Ok(credit_out)
+		}
+		fn swap_tokens_for_exact_tokens(
+			path: Vec<Self::AssetKind>,
+			credit_in: Self::Credit,
+			amount_out: Self::Balance,
+		) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)> {
+			ensure!(2 == path.len(), (credit_in, DispatchError::Unavailable));
+			ensure!(credit_in.peek() >= amount_out, (credit_in, DispatchError::Unavailable));
+			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| v.clone()));
+			let pool_account = match swap_res {
+				Some(a) => a,
+				None => return Err((credit_in, DispatchError::Unavailable)),
+			};
+			let credit_out = match Fungibles::withdraw(
+				path[1],
+				&pool_account,
+				amount_out,
+				Exact,
+				Preserve,
+				Polite,
+			) {
+				Ok(c) => c,
+				Err(_) => return Err((credit_in, DispatchError::Unavailable)),
+			};
+			let (credit_in, change) = credit_in.split(amount_out);
+			let _ = Fungibles::resolve(&pool_account, credit_in)
+				.map_err(|c| (c, DispatchError::Unavailable))?;
+			Ok((credit_out, change))
+		}
+	}
+
+	pub fn pool_account(asset1: AssetId, asset2: AssetId) -> AccountId {
+		(1000 + asset1 * 10 + asset2 * 100).into()
+	}
+
+	pub fn setup_pool(asset1: AssetId, liquidity1: Balance, asset2: AssetId, liquidity2: Balance) {
+		let account = pool_account(asset1, asset2);
+		SWAP.with(|b| b.borrow_mut().insert((asset1, asset2), account));
+		let debt1 = Fungibles::deposit(asset1, &account, liquidity1, Exact);
+		let debt2 = Fungibles::deposit(asset2, &account, liquidity2, Exact);
+		drop(debt1);
+		drop(debt2);
+	}
+
+	pub struct WeightToFee;
+	impl WeightToFeeT for WeightToFee {
+		type Balance = Balance;
+		fn weight_to_fee(weight: &Weight) -> Self::Balance {
+			(weight.ref_time() + weight.proof_size()).into()
+		}
+	}
+
+	pub struct Fungibles {}
+	impl Inspect<AccountId> for Fungibles {
+		type AssetId = AssetId;
+		type Balance = Balance;
+		fn total_issuance(asset: Self::AssetId) -> Self::Balance {
+			TOTAL_ISSUANCE.with(|b| b.borrow().get(&asset).map_or(Self::Balance::zero(), |b| *b))
+		}
+		fn minimum_balance(_: Self::AssetId) -> Self::Balance {
+			Self::Balance::one()
+		}
+		fn total_balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance {
+			ACCOUNT.with(|b| b.borrow().get(&(asset, *who)).map_or(Self::Balance::zero(), |b| *b))
+		}
+		fn balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance {
+			ACCOUNT.with(|b| b.borrow().get(&(asset, *who)).map_or(Self::Balance::zero(), |b| *b))
+		}
+		fn reducible_balance(
+			asset: Self::AssetId,
+			who: &AccountId,
+			_: Preservation,
+			_: Fortitude,
+		) -> Self::Balance {
+			ACCOUNT.with(|b| b.borrow().get(&(asset, *who)).map_or(Self::Balance::zero(), |b| *b))
+		}
+		fn can_deposit(
+			_: Self::AssetId,
+			_: &AccountId,
+			_: Self::Balance,
+			_: Provenance,
+		) -> DepositConsequence {
+			unimplemented!()
+		}
+		fn can_withdraw(
+			_: Self::AssetId,
+			_: &AccountId,
+			_: Self::Balance,
+		) -> WithdrawConsequence<Self::Balance> {
+			unimplemented!()
+		}
+		fn asset_exists(_: Self::AssetId) -> bool {
+			unimplemented!()
+		}
+	}
+
+	impl Unbalanced<AccountId> for Fungibles {
+		fn set_total_issuance(asset: Self::AssetId, amount: Self::Balance) {
+			TOTAL_ISSUANCE.with(|b| b.borrow_mut().insert(asset, amount));
+		}
+		fn handle_dust(_: Dust<AccountId, Self>) {
+			unimplemented!()
+		}
+		fn write_balance(
+			asset: Self::AssetId,
+			who: &AccountId,
+			amount: Self::Balance,
+		) -> Result<Option<Self::Balance>, DispatchError> {
+			let _ = ACCOUNT.with(|b| b.borrow_mut().insert((asset, *who), amount));
+			Ok(None)
+		}
+	}
+
+	impl Balanced<AccountId> for Fungibles {
+		type OnDropCredit = DecreaseIssuance<AccountId, Self>;
+		type OnDropDebt = IncreaseIssuance<AccountId, Self>;
+	}
+
+	pub struct FungiblesMatcher;
+	impl MatchesFungibles<AssetId, Balance> for FungiblesMatcher {
+		fn matches_fungibles(
+			a: &MultiAsset,
+		) -> core::result::Result<(AssetId, Balance), xcm_executor::traits::Error> {
+			match a {
+				MultiAsset {
+					fun: Fungible(amount),
+					id:
+						Concrete(MultiLocation { parents: 0, interior: X1(Junction::GeneralIndex(id)) }),
+				} => Ok(((*id).try_into().unwrap(), *amount)),
+				_ => Err(xcm_executor::traits::Error::AssetNotHandled),
+			}
+		}
+	}
 }
