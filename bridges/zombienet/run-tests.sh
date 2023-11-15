@@ -15,7 +15,7 @@ export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_
 export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
 
 # bridge configuration
-export LANE_ID="00000001"
+export LANE_ID="00000002"
 
 # tests configuration
 ALL_TESTS_FOLDER=`mktemp -d`

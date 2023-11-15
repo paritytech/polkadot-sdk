@@ -19,8 +19,8 @@ asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "reserve-trans
 asset-hub-westend-collator1: js-script ../helpers/wrapped-assets-balance.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,0,Rococo" within 600 seconds
 
 # step 4: check that the relayer //Charlie is rewarded by both our AH and target AH
-bridge-hub-westend-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000001,0x6268726F,BridgedChain,0" within 300 seconds
-bridge-hub-westend-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000001,0x6268726F,ThisChain,0" within 300 seconds
+bridge-hub-westend-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x6268726f,BridgedChain,0" within 300 seconds
+bridge-hub-westend-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x6268726F,ThisChain,0" within 300 seconds
 
 # wait until other network test has completed OR exit with an error too
 asset-hub-westend-collator1: run ../scripts/sync-exit.sh within 600 seconds

@@ -19,8 +19,8 @@ asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transf
 asset-hub-rococo-collator1: js-script ../helpers/wrapped-assets-balance.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,0,Westend" within 600 seconds
 
 # step 6: check that the relayer //Charlie is rewarded by both our AH and target AH
-bridge-hub-rococo-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000001,0x6268776F,BridgedChain,0" within 300 seconds
-bridge-hub-rococo-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000001,0x6268776F,ThisChain,0" within 300 seconds
+bridge-hub-rococo-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x62687764,BridgedChain,0" within 300 seconds
+bridge-hub-rococo-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x62687764,ThisChain,0" within 300 seconds
 
 # wait until other network test has completed OR exit with an error too
 asset-hub-rococo-collator1: run ../scripts/sync-exit.sh within 600 seconds
