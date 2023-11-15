@@ -59,9 +59,9 @@
 //! **Reentrancy**
 //!
 //! This pallet has two entry points for executing (possibly recursive) logic;
-//! [`Pallet::service_queues`] and [`Pallet::execute_overweight`]. Both entry points are guarded the
-//! same mutex to error on reentrancy. The only functions that is explicitly **allowed** to be
-//! called by a message processor are [`Pallet::`enqueue_message`] and
+//! [`Pallet::service_queues`] and [`Pallet::execute_overweight`]. Both entry points are guarded by
+//! the same mutex to error on reentrancy. The only functions that are explicitly **allowed** to be
+//! called by a message processor are: [`Pallet::`enqueue_message`] and
 //! [`Pallet::`enqueue_messages`]. All other functions are forbidden and error with
 //! [`Error::RecursiveDisallowed`].
 //!
@@ -208,8 +208,9 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint,
-		ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
+		QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -441,7 +442,8 @@ impl<MessageOrigin> Default for BookState<MessageOrigin> {
 impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
 	fn from(book: BookState<MessageOrigin>) -> Self {
 		QueueFootprint {
-			pages: book.end.defensive_sanitized_sub(book.begin),
+			pages: book.count,
+			active_pages: book.end.defensive_saturating_sub(book.begin),
 			storage: Footprint { count: book.message_count, size: book.size },
 		}
 	}
@@ -1276,7 +1278,7 @@ impl<T: Config> Pallet<T> {
 
 		// Basic checks for each book
 		for book in BookStateFor::<T>::iter_values() {
-			ensure!(book.end >= book.begin, "End > Begin if unprocessed messages exists");
+			ensure!(book.end >= book.begin, "Invariant");
 			ensure!(book.end < 1 << 30, "Likely overflow or corruption");
 			ensure!(book.message_count < 1 << 30, "Likely overflow or corruption");
 			ensure!(book.size < 1 << 30, "Likely overflow or corruption");

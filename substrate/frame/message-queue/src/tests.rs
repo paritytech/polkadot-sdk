@@ -1064,13 +1064,13 @@ fn footprint_num_pages_works() {
 		MessageQueue::enqueue_message(msg("weight=2"), Here);
 		MessageQueue::enqueue_message(msg("weight=3"), Here);
 
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 2, 16));
 
 		// Mark the messages as overweight.
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
 		assert_eq!(System::events().len(), 2);
 		// Overweight does not change the footprint.
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		assert_eq!(MessageQueue::footprint(Here), fp(0, 2, 2, 16));
 
 		// Now execute the second message.
 		assert_eq!(
@@ -1078,7 +1078,7 @@ fn footprint_num_pages_works() {
 				.unwrap(),
 			3.into_weight()
 		);
-		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 8));
+		assert_eq!(MessageQueue::footprint(Here), fp(0, 1, 1, 8));
 		// And the first one:
 		assert_eq!(
 			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
@@ -1663,6 +1663,7 @@ fn integrity_test_checks_service_weight() {
 	});
 }
 
+/// Test for <https://github.com/paritytech/polkadot-sdk/issues/2319>.
 #[test]
 fn regression_issue_2319() {
 	build_and_execute::<Test>(|| {
@@ -1713,6 +1714,7 @@ fn recursive_enqueue_works() {
 			assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		}
 		assert_eq!(MessageQueue::service_queues(Weight::MAX), Weight::zero());
+
 		assert_eq!(MessagesProcessed::take().len(), 402);
 	});
 }
