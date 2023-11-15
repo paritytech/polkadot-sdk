@@ -3354,14 +3354,12 @@ fn non_slashable_offence_disables_validator() {
 #[test]
 fn slashing_independent_of_disabling_validator() {
 	ExtBuilder::default()
-		.validator_count(7)
+		.validator_count(5)
 		.set_status(41, StakerStatus::Validator)
 		.set_status(51, StakerStatus::Validator)
-		.set_status(201, StakerStatus::Validator)
-		.set_status(202, StakerStatus::Validator)
 		.build_and_execute(|| {
 			mock::start_active_era(1);
-			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51, 201, 202]);
+			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51]);
 
 			let exposure_11 = Staking::eras_stakers(Staking::active_era().unwrap().index, &11);
 			let exposure_21 = Staking::eras_stakers(Staking::active_era().unwrap().index, &21);
@@ -3410,9 +3408,10 @@ fn slashing_independent_of_disabling_validator() {
 				]
 			);
 
-			// both validators should be disabled
+			// first validator is disabled but not slashed
 			assert!(is_disabled(11));
-			assert!(is_disabled(21));
+			// second validator is slashed but not disabled
+			assert!(!is_disabled(21));
 		});
 }
 
@@ -3439,6 +3438,9 @@ fn offence_threshold_doesnt_trigger_new_era() {
 				&[Perbill::zero()],
 			);
 
+			// 11 should be disabled because the byzantine threshold is 1
+			assert!(is_disabled(11));
+
 			assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 
 			on_offence_now(
@@ -3446,12 +3448,19 @@ fn offence_threshold_doesnt_trigger_new_era() {
 				&[Perbill::zero()],
 			);
 
+			// 21 should not be disabled because the number of disabled validators will be above the
+			// byzantine threshold
+			assert!(!is_disabled(21));
+
 			assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 
 			on_offence_now(
 				&[OffenceDetails { offender: (31, exposure_31.clone()), reporters: vec![] }],
 				&[Perbill::zero()],
 			);
+
+			// same for 31
+			assert!(!is_disabled(31));
 
 			assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 		});
