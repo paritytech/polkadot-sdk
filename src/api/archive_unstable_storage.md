@@ -46,7 +46,7 @@ The JSON objects in the `"result"` field can have one of the following formats b
 
 The JSON object corresponds to one of the requested items whose `type` was `"value"` or `"descendantsValues"`.
 
-If the `key` is not associated with a storage value in the trie, then no response is generated.
+If the `key` is not associated with a storage value in the trie, then no response is generated in the `"result"` vector for this item.
 
 Returned when the `type` of the query was `"value"`:
 
@@ -69,7 +69,7 @@ Returned when the `type` of the query was `"descendantsValues"`:
 
 The JSON object corresponds to one of the requested items whose `type` was `"hash"` or `"descendantsHashes"`.
 
-If the `key` is not associated with a storage value in the trie, then no response is generated.
+If the `key` is not associated with a storage value in the trie, then no response is generated in the `"result"` vector for this item.
 
 Returned when the `type` of the query was `"hash"`:
 
@@ -93,7 +93,7 @@ Returned when the `type` of the query was `"descendantsHashes"`:
 
 The JSON object corresponds to one of the requested items whose `type` was `"closestDescendantMerkleValue"`.
 
-If the `key` doesn't exist in the trie, then the Merkle value of the closest descendant of `key` (including branch nodes) is provided. If `key` doesn't have any descendant in the trie, then no response is generated.
+If the `key` doesn't exist in the trie, then the Merkle value of the closest descendant of `key` (including branch nodes) is provided. If `key` doesn't have any descendant in the trie, then no response is generated in the `"result"` vector for this item.
 
 - `key` is guaranteed to be equal to one of the `key`s provided.
 - `closestDescendantMerkleValue` is the closest trie Merkle value of the `key`.
