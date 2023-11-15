@@ -1,4 +1,4 @@
-# Bridges Tests for Local Rococo <> Wococo Bridge
+# Bridges Tests for Local Rococo <> Westend Bridge
 
 This folder contains [zombienet](https://github.com/paritytech/zombienet/) based integration tests for both
 onchain and offchain bridges code. Due to some
