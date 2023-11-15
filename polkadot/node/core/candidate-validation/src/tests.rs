@@ -500,7 +500,7 @@ fn perform_basic_checks_on_valid_candidate(
 	pov: &PoV,
 	validation_code: &ValidationCode,
 	validation_data: &PersistedValidationData,
-	head_data_hash: Hash
+	head_data_hash: Hash,
 ) -> CandidateDescriptor {
 	let descriptor = make_valid_candidate_descriptor(
 		ParaId::from(1_u32),
@@ -532,7 +532,12 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = perform_basic_checks_on_valid_candidate(&pov, &validation_code, &validation_data, head_data.hash());
+	let descriptor = perform_basic_checks_on_valid_candidate(
+		&pov,
+		&validation_code,
+		&validation_data,
+		head_data.hash(),
+	);
 
 	let validation_result = WasmValidationResult {
 		head_data,
@@ -586,20 +591,26 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = perform_basic_checks_on_valid_candidate(&pov, &validation_code, &validation_data, dummy_hash());
+	let descriptor = perform_basic_checks_on_valid_candidate(
+		&pov,
+		&validation_code,
+		&validation_data,
+		dummy_hash(),
+	);
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result_list(vec![Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath),
-		)]),
+		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+		]),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Approval,
 		&Default::default(),
 	))
 	.unwrap();
