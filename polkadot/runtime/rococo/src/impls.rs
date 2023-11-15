@@ -20,7 +20,7 @@ use frame_system::RawOrigin;
 use parity_scale_codec::{Decode, Encode};
 use primitives::Balance;
 use rococo_runtime_constants::currency::*;
-use runtime_common::identity_migrator::OnReapIdentity;
+use runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
@@ -85,7 +85,10 @@ where
 	AccountId: Into<[u8; 32]> + Clone + Encode,
 {
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
-		use crate::impls::IdentityMigratorCalls::PokeDeposit;
+		use crate::{
+			impls::IdentityMigratorCalls::PokeDeposit,
+			weights::runtime_common_identity_migrator::WeightInfo as MigratorWeights,
+		};
 
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
@@ -93,7 +96,7 @@ where
 		let roc: MultiAssets =
 			vec![MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(total_to_send) }]
 				.into();
-		// TODO: confirm people chain para id. Tentatively 1004.
+		// People Chain: ParaId 1004
 		let destination: MultiLocation = MultiLocation::new(0, Parachain(1004));
 
 		// Do `check_out` accounting since the XCM Executor's `InitiateTeleport` doesn't support
@@ -122,6 +125,7 @@ where
 		.into();
 
 		let poke = PeopleRuntimePallets::<AccountId>::IdentityMigrator(PokeDeposit(who.clone()));
+		let remote_weight_limit = MigratorWeights::<Runtime>::poke_deposit().saturating_mul(2);
 
 		// Actual program to execute on People Chain.
 		let program: Xcm<()> = Xcm(vec![
@@ -140,7 +144,7 @@ where
 			// Poke the deposit to reserve the appropriate amount on the parachain.
 			Transact {
 				origin_kind: OriginKind::Superuser,
-				require_weight_at_most: Weight::from_parts(2_000_000_000, 16_384),
+				require_weight_at_most: remote_weight_limit,
 				call: poke.encode().into(),
 			},
 		]);
