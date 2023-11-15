@@ -68,7 +68,7 @@ pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
 pub fn relay_test_args(
-	dest: MultiLocation,
+	dest: Location,
 	beneficiary_id: AccountId32,
 	amount: Balance,
 ) -> TestArgs {

@@ -37,7 +37,7 @@ use sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,
 };
-use xcm::{latest::prelude::*, VersionedMultiAssets};
+use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -172,7 +172,7 @@ pub fn teleports_for_native_asset_works<
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
-				dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
+				dest_beneficiary.reanchor(&dest, &XcmConfig::UniversalLocation::get()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
@@ -237,7 +237,7 @@ pub fn teleports_for_native_asset_works<
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
-				dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
+				dest_beneficiary.reanchor(&dest, &XcmConfig::UniversalLocation::get()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
@@ -248,27 +248,9 @@ pub fn teleports_for_native_asset_works<
 						target_account_balance_before_teleport - existential_deposit
 				);
 
-				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
-					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
-					dest.clone(),
-					dest_beneficiary.clone(),
-					(native_asset_id.clone(), native_asset_to_teleport_away.into()),
-					Some((runtime_para_id, other_para_id)),
-					included_head,
-					&alice,
-				));
-
-				let delivery_fees =
-					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
-						(native_asset_id, native_asset_to_teleport_away.into()).into(),
-						0,
-						Unlimited,
-						dest_beneficiary,
-=======
 				assert_eq!(
 					RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 						RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
->>>>>>> master
 						dest,
 						dest_beneficiary,
 						(native_asset_id, native_asset_to_teleport_away.into()),
@@ -565,7 +547,7 @@ pub fn teleports_for_foreign_assets_works<
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
-				dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
+				dest_beneficiary.reanchor(&dest, &XcmConfig::UniversalLocation::get()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
@@ -1462,15 +1444,15 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			// reserve-transfer native asset with local reserve to remote parachain (2345)
 
 			let other_para_id = 2345;
-			let native_asset = MultiLocation::parent();
-			let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
-			let mut dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
+			let native_asset = Location::parent();
+			let dest = Location::new(1, [Parachain(other_para_id)]);
+			let mut dest_beneficiary = Location::new(1, [Parachain(other_para_id)])
 				.appended_with(AccountId32 {
 					network: None,
 					id: sp_runtime::AccountId32::new([3; 32]).into(),
 				})
 				.unwrap();
-			dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
+			dest_beneficiary.reanchor(&dest, &XcmConfig::UniversalLocation::get()).unwrap();
 
 			let reserve_account = LocationToAccountId::convert_location(&dest)
 				.expect("Sovereign account for reserves");
@@ -1516,17 +1498,17 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			);
 
 			// local native asset (pallet_balances)
-			let asset_to_transfer = MultiAsset {
+			let asset_to_transfer = Asset {
 				fun: Fungible(balance_to_transfer.into()),
-				id: Concrete(native_asset),
+				id: AssetId(native_asset),
 			};
 
 			// pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
-				Box::new(dest.into_versioned()),
-				Box::new(dest_beneficiary.into_versioned()),
-				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_transfer))),
+				Box::new(dest.clone().into_versioned()),
+				Box::new(dest_beneficiary.clone().into_versioned()),
+				Box::new(VersionedAssets::from(Assets::from(asset_to_transfer))),
 				0,
 				weight_limit,
 			));
@@ -1556,9 +1538,12 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			)
 			.unwrap();
 
+			let v4_xcm: Xcm<()> = xcm_sent.clone().try_into().unwrap();
+			dbg!(&v4_xcm);
+
 			let delivery_fees = get_fungible_delivery_fees::<
 				<XcmConfig as xcm_executor::Config>::XcmSender,
-			>(dest, Xcm::try_from(xcm_sent.clone()).unwrap());
+			>(dest.clone(), Xcm::try_from(xcm_sent.clone()).unwrap());
 
 			assert_eq!(
 				xcm_sent_message_hash,
@@ -1568,8 +1553,8 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 
 			// check sent XCM Program to other parachain
 			println!("reserve_transfer_native_asset_works sent xcm: {:?}", xcm_sent);
-			let reserve_assets_deposited = MultiAssets::from(vec![MultiAsset {
-				id: Concrete(MultiLocation { parents: 1, interior: Here }),
+			let reserve_assets_deposited = Assets::from(vec![Asset {
+				id: AssetId(Location { parents: 1, interior: Here }),
 				fun: Fungible(1000000000000),
 			}]);
 

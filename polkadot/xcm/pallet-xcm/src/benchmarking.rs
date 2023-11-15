@@ -32,30 +32,30 @@ pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config: crate::Config {
-	/// A `MultiLocation` that can be reached via `XcmRouter`. Used only in benchmarks.
+	/// A `Location` that can be reached via `XcmRouter`. Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
-	fn reachable_dest() -> Option<MultiLocation> {
+	fn reachable_dest() -> Option<Location> {
 		None
 	}
 
-	/// A `(MultiAsset, MultiLocation)` pair representing asset and the destination it can be
+	/// A `(Asset, Location)` pair representing asset and the destination it can be
 	/// teleported to. Used only in benchmarks.
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
 	/// If `None`, the benchmarks that depend on this will be skipped.
-	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+	fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 		None
 	}
 
-	/// A `(MultiAsset, MultiLocation)` pair representing asset and the destination it can be
+	/// A `(Asset, Location)` pair representing asset and the destination it can be
 	/// reserve-transferred to. Used only in benchmarks.
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
 	/// If `None`, the benchmarks that depend on this will be skipped.
-	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+	fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 		None
 	}
 }

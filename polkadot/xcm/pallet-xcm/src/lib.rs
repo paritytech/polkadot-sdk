@@ -1323,7 +1323,7 @@ impl<T: Config> Pallet<T> {
 		let assets_transfer_type = if assets.is_empty() {
 			// Single asset to transfer (one used for fees where transfer type is determined above).
 			ensure!(fees_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
-			fees_transfer_type
+			fees_transfer_type.clone()
 		} else {
 			// Find reserve for non-fee assets.
 			Self::validate_assets_and_find_reserve(&assets, &dest)?
@@ -1352,11 +1352,11 @@ impl<T: Config> Pallet<T> {
 			// build fees transfer instructions to be added to assets transfers XCM programs
 			separate_fees_instructions = Some(match fees_transfer_type {
 				TransferType::LocalReserve =>
-					Self::local_reserve_fees_instructions(dest, fees, weight_limit)?,
+					Self::local_reserve_fees_instructions(dest.clone(), fees, weight_limit)?,
 				TransferType::DestinationReserve =>
-					Self::destination_reserve_fees_instructions(dest, fees, weight_limit)?,
+					Self::destination_reserve_fees_instructions(dest.clone(), fees, weight_limit)?,
 				TransferType::Teleport =>
-					Self::teleport_fees_instructions(dest, fees, weight_limit)?,
+					Self::teleport_fees_instructions(dest.clone(), fees, weight_limit)?,
 				TransferType::RemoteReserve(_) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 			});
@@ -1430,7 +1430,7 @@ impl<T: Config> Pallet<T> {
 		let (mut local_xcm, remote_xcm) = match transfer_type {
 			TransferType::LocalReserve => {
 				let (local, remote) = Self::local_reserve_transfer_programs(
-					dest,
+					dest.clone(),
 					beneficiary,
 					assets,
 					fees,
@@ -1441,7 +1441,7 @@ impl<T: Config> Pallet<T> {
 			},
 			TransferType::DestinationReserve => {
 				let (local, remote) = Self::destination_reserve_transfer_programs(
-					dest,
+					dest.clone(),
 					beneficiary,
 					assets,
 					fees,
@@ -1453,7 +1453,7 @@ impl<T: Config> Pallet<T> {
 			TransferType::RemoteReserve(reserve) => (
 				Self::remote_reserve_transfer_program(
 					reserve,
-					dest,
+					dest.clone(),
 					beneficiary,
 					assets,
 					fees,
@@ -1462,23 +1462,22 @@ impl<T: Config> Pallet<T> {
 				None,
 			),
 			TransferType::Teleport => (
-				Self::teleport_assets_program(dest, beneficiary, assets, fees, weight_limit)?,
+				Self::teleport_assets_program(dest.clone(), beneficiary, assets, fees, weight_limit)?,
 				None,
 			),
 		};
 		let weight =
 			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
-		let hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
+		let mut hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
 		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
+			T::XcmExecutor::prepare_and_execute(origin.clone(), local_xcm, &mut hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		if let Some(remote_xcm) = remote_xcm {
 			outcome.ensure_complete().map_err(|_| Error::<T>::LocalExecutionIncomplete)?;
-
-			let (ticket, price) = validate_send::<T::XcmRouter>(dest, remote_xcm.clone())
+			let (ticket, price) = validate_send::<T::XcmRouter>(dest.clone(), remote_xcm.clone())
 				.map_err(Error::<T>::from)?;
 			if origin != Here.into_location() {
-				Self::charge_fees(origin, price).map_err(|_| Error::<T>::FeesNotMet)?;
+				Self::charge_fees(origin.clone(), price).map_err(|_| Error::<T>::FeesNotMet)?;
 			}
 			let message_id = T::XcmRouter::deliver(ticket).map_err(Error::<T>::from)?;
 
@@ -1527,7 +1526,7 @@ impl<T: Config> Pallet<T> {
 		let context = T::UniversalLocation::get();
 		let mut reanchored_assets = assets.clone();
 		reanchored_assets
-			.reanchor(&dest, context)
+			.reanchor(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 
 		// fees are either handled through dedicated instructions, or batched together with assets
@@ -1539,7 +1538,7 @@ impl<T: Config> Pallet<T> {
 		// start off with any necessary local fees specific instructions
 		let mut local_execute_xcm = fees_local_xcm;
 		// move `assets` to `dest`s local sovereign account
-		local_execute_xcm.push(TransferAsset { assets, beneficiary: dest });
+		local_execute_xcm.push(TransferAsset { assets, beneficiary: dest.clone() });
 
 		// on destination chain, start off with custom fee instructions
 		let mut xcm_on_dest = fees_remote_xcm;
@@ -1554,7 +1553,7 @@ impl<T: Config> Pallet<T> {
 			// no custom fees instructions, they are batched together with `assets` transfer;
 			// BuyExecution happens after receiving all `assets`
 			let reanchored_fees =
-				fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+				fees.reanchored(&dest, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 			// buy execution using `fees` batched together with above `reanchored_assets`
 			xcm_on_dest.push(BuyExecution { fees: reanchored_fees, weight_limit });
 		}
@@ -1572,7 +1571,7 @@ impl<T: Config> Pallet<T> {
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
 			.clone()
-			.reanchored(&dest, context)
+			.reanchored(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		let fees: Assets = fees.into();
 
@@ -1606,7 +1605,7 @@ impl<T: Config> Pallet<T> {
 		let context = T::UniversalLocation::get();
 		let mut reanchored_assets = assets.clone();
 		reanchored_assets
-			.reanchor(&dest, context)
+			.reanchor(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 
 		// fees are either handled through dedicated instructions, or batched together with assets
@@ -1638,7 +1637,7 @@ impl<T: Config> Pallet<T> {
 			// no custom fees instructions, they are batched together with `assets` transfer;
 			// BuyExecution happens after receiving all `assets`
 			let reanchored_fees =
-				fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+				fees.reanchored(&dest, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 			// buy execution using `fees` batched together with above `reanchored_assets`
 			xcm_on_dest.push(BuyExecution { fees: reanchored_fees, weight_limit });
 		}
@@ -1664,13 +1663,13 @@ impl<T: Config> Pallet<T> {
 		let (fees_half_1, fees_half_2) = Self::halve_fees(fees)?;
 		// identifies fee item as seen by `reserve` - to be used at reserve chain
 		let reserve_fees = fees_half_1
-			.reanchored(&reserve, context)
+			.reanchored(&reserve, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		// identifies fee item as seen by `dest` - to be used at destination chain
 		let dest_fees =
-			fees_half_2.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+			fees_half_2.reanchored(&dest, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 		// identifies `dest` as seen by `reserve`
-		let dest = dest.reanchored(&reserve, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let dest = dest.reanchored(&reserve, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 		// xcm to be executed at dest
 		let xcm_on_dest = Xcm(vec![
 			BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
@@ -1699,7 +1698,7 @@ impl<T: Config> Pallet<T> {
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
 			.clone()
-			.reanchored(&dest, context)
+			.reanchored(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 
 		// XcmContext irrelevant in teleports checks
@@ -1745,7 +1744,7 @@ impl<T: Config> Pallet<T> {
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let context = T::UniversalLocation::get();
-		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		fees.reanchor(&dest, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let xcm_on_dest = Xcm(vec![
 			BuyExecution { fees, weight_limit },
@@ -1766,7 +1765,7 @@ impl<T: Config> Pallet<T> {
 				let fee2 = amount.saturating_sub(fee1);
 				ensure!(fee1 > 0, Error::<T>::FeesNotMet);
 				ensure!(fee2 > 0, Error::<T>::FeesNotMet);
-				Ok((Asset::from((fees.id, fee1)), Asset::from((fees.id, fee2))))
+				Ok((Asset::from((fees.id.clone(), fee1)), Asset::from((fees.id.clone(), fee2))))
 			},
 			NonFungible(_) => Err(Error::<T>::FeesNotMet),
 		}

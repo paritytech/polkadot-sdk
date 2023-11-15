@@ -84,6 +84,7 @@ assets-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils" }
+env_logger = "0.10.1"
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }

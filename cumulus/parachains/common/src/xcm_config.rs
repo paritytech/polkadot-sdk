@@ -108,7 +108,7 @@ impl<AssetLocation: Get<Location>> ContainsPair<Asset, Location>
 		log::trace!(target: "xcm::contains", "ConcreteAssetFromSystem asset: {:?}, origin: {:?}", asset, origin);
 		let is_system = match origin.unpack() {
 			// The Relay Chain
-			(1, HERE) => true,
+			(1, []) => true,
 			// System parachain
 			(1, [Parachain(id)]) => ParaId::from(*id).is_system(),
 			// Others

@@ -140,7 +140,7 @@ construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Storage, Config<T>, Event<T>},
+		AssetsPallet: pallet_assets::{Pallet, Call, Storage, Config<T>, Event<T>},
 		ParasOrigin: origin::{Pallet, Origin},
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>},
 		TestNotifier: pallet_test_notifier::{Pallet, Call, Event<T>},
@@ -344,44 +344,44 @@ parameter_types! {
 		fun: Fungible(10),
 		id: AssetId(Here.into_location()),
 	};
-	pub const SystemParachainLocation: Location = Location::new(
+	pub SystemParachainLocation: Location = Location::new(
 		0,
 		[Parachain(SOME_SYSTEM_PARA)]
 	);
-	pub const ForeignReserveLocation: Location = Location::new(
+	pub ForeignReserveLocation: Location = Location::new(
 		0,
 		[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID)]
 	);
-	pub const ForeignAsset: Asset = Asset {
+	pub ForeignAsset: Asset = Asset {
 		fun: Fungible(10),
 		id: AssetId(Location::new(
 			0,
 			[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION],
 		)),
 	};
-	pub const UsdcReserveLocation: Location = Location::new(
+	pub UsdcReserveLocation: Location = Location::new(
 		0,
 		[Parachain(USDC_RESERVE_PARA_ID)]
 	);
-	pub const Usdc: Asset = Asset {
+	pub Usdc: Asset = Asset {
 		fun: Fungible(10),
 		id: AssetId(Location::new(
 			0,
 			[Parachain(USDC_RESERVE_PARA_ID), USDC_INNER_JUNCTION],
 		)),
 	};
-	pub const UsdtTeleportLocation: Location = Location::new(
+	pub UsdtTeleportLocation: Location = Location::new(
 		0,
 		[Parachain(USDT_PARA_ID)]
 	);
-	pub const Usdt: Asset = Asset {
+	pub Usdt: Asset = Asset {
 		fun: Fungible(10),
 		id: AssetId(Location::new(
 			0,
 			[Parachain(USDT_PARA_ID)],
 		)),
 	};
-	pub const AnyNetwork: Option<NetworkId> = None;
+	pub AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
@@ -405,7 +405,7 @@ pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 pub type AssetTransactors = (
 	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>,
 	FungiblesAdapter<
-		Assets,
+		AssetsPallet,
 		ForeignAssetsConvertedConcreteId,
 		SovereignAccountOf,
 		AccountId,

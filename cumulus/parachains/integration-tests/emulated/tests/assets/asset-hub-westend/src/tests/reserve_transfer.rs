@@ -96,10 +96,10 @@ fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) 
 fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get().into());
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
-	let beneficiary: MultiLocation =
+	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 	let amount_to_send: Balance = WESTEND_ED * 1000;
-	let assets: MultiAssets = (Here, amount_to_send).into();
+	let assets: Assets = (Here, amount_to_send).into();
 	let fee_asset_item = 0;
 
 	// this should fail
@@ -131,10 +131,10 @@ fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
 	let destination = AssetHubWestend::parent_location();
 	let beneficiary_id = WestendReceiver::get();
-	let beneficiary: MultiLocation =
+	let beneficiary: Location =
 		AccountId32Junction { network: None, id: beneficiary_id.into() }.into();
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let assets: MultiAssets = (Parent, amount_to_send).into();
+	let assets: Assets = (Parent, amount_to_send).into();
 	let fee_asset_item = 0;
 
 	// this should fail

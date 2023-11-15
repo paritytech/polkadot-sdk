@@ -213,10 +213,10 @@ fn para_to_system_para_limited_reserve_transfer_assets(t: ParaToSystemParaTest) 
 fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let signed_origin = <Rococo as Chain>::RuntimeOrigin::signed(RococoSender::get().into());
 	let destination = Rococo::child_location_of(AssetHubRococo::para_id());
-	let beneficiary: MultiLocation =
+	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
-	let assets: MultiAssets = (Here, amount_to_send).into();
+	let assets: Assets = (Here, amount_to_send).into();
 	let fee_asset_item = 0;
 
 	// this should fail
@@ -248,11 +248,11 @@ fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
 	let destination = AssetHubRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
-	let beneficiary: MultiLocation =
+	let beneficiary: Location =
 		AccountId32Junction { network: None, id: beneficiary_id.into() }.into();
 	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
 
-	let assets: MultiAssets = (Parent, amount_to_send).into();
+	let assets: Assets = (Parent, amount_to_send).into();
 	let fee_asset_item = 0;
 
 	// this should fail

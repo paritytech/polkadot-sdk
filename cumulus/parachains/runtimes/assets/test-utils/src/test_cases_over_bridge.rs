@@ -269,7 +269,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 					// Call `SendXcm::validate` to get delivery fees.
 					delivery_fees = get_fungible_delivery_fees::<
 						<XcmConfig as xcm_executor::Config>::XcmSender,
-					>(target_location_from_different_consensus, inner_xcm.clone());
+					>(target_location_from_different_consensus.clone(), inner_xcm.clone());
 					assert_matches_reserve_asset_deposited_instructions(
 						inner_xcm,
 						&expected_assets,

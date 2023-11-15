@@ -661,15 +661,30 @@ impl Assets {
 		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))
 	}
 
-	/// Mutate the location of the asset identifier if concrete, giving it the same location
-	/// relative to a `target` context. The local context is provided as `context`.
-	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
-		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))
-	}
-
 	/// Return a reference to an item at a specific index or `None` if it doesn't exist.
 	pub fn get(&self, index: usize) -> Option<&Asset> {
 		self.0.get(index)
+	}
+}
+
+impl Reanchorable for Assets {
+	type Error = ();
+
+	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
+		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))?;
+		self.0.sort();
+		Ok(())
+	}
+
+	fn reanchored(
+		mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> Result<Self, ()> {
+		match self.reanchor(target, context) {
+			Ok(()) => Ok(self),
+			Err(()) => Err(()),
+		}
 	}
 }
 

@@ -1188,6 +1188,7 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(old_instruction: OldInstruction<Call>) -> result::Result<Self, Self::Error> {
+		dbg!(&old_instruction);
 		use OldInstruction::*;
 		Ok(match old_instruction {
 			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
@@ -1286,7 +1287,26 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			SubscribeVersion { query_id, max_response_weight } =>
 				Self::SubscribeVersion { query_id, max_response_weight },
 			UnsubscribeVersion => Self::UnsubscribeVersion,
-			_ => return Err(()),
+			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
+			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
+			ExpectOrigin(maybe_location) => Self::ExpectOrigin(maybe_location.map(|location| location.try_into()).transpose().map_err(|_| ())?),
+			ExpectError(maybe_error) => Self::ExpectError(maybe_error.map(|error| error.try_into()).transpose().map_err(|_| ())?),
+			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
+			QueryPallet { module_name, response_info } => Self::QueryPallet { module_name, response_info: response_info.try_into().map_err(|_| ())? },
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
+			ReportTransactStatus(response_info) => Self::ReportTransactStatus(response_info.try_into().map_err(|_| ())?),
+			ClearTransactStatus => Self::ClearTransactStatus,
+			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into().map_err(|_| ())?),
+			ExportMessage { network, destination, xcm } => Self::ExportMessage { network: network.into(), destination: destination.try_into().map_err(|_| ())?, xcm: xcm.try_into().map_err(|_| ())? },
+			LockAsset { asset, unlocker } => Self::LockAsset { asset: asset.try_into().map_err(|_| ())?, unlocker: unlocker.try_into().map_err(|_| ())? },
+			UnlockAsset { asset, target } => Self::UnlockAsset { asset: asset.try_into().map_err(|_| ())?, target: target.try_into().map_err(|_| ())? },
+			NoteUnlockable { asset, owner } => Self::NoteUnlockable { asset: asset.try_into().map_err(|_| ())?, owner: owner.try_into().map_err(|_| ())? },
+			RequestUnlock { asset, locker } => Self::RequestUnlock { asset: asset.try_into().map_err(|_| ())?, locker: locker.try_into().map_err(|_| ())? },
+			SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
+			SetTopic(topic) => Self::SetTopic(topic),
+			ClearTopic => Self::ClearTopic,
+			AliasOrigin(location) => Self::AliasOrigin(location.try_into().map_err(|_| ())?),
+			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution { weight_limit, check_origin: check_origin.map(|location| location.try_into()).transpose().map_err(|_| ())? },
 		})
 	}
 }
