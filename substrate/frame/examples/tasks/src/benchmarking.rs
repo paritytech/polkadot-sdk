@@ -18,11 +18,8 @@
 //! Benchmarking for `pallet-example-tasks`.
 
 #![cfg(feature = "runtime-benchmarks")]
-use super::*;
 
-#[allow(unused)]
-use crate::Pallet as TasksExample;
-
+use crate::*;
 use frame_benchmarking::v2::*;
 
 #[benchmarks]
