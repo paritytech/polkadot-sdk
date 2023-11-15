@@ -43,7 +43,6 @@ enum Runtime {
 	AssetHubPolkadot,
 	AssetHubKusama,
 	AssetHubRococo,
-	AssetHubWococo,
 	AssetHubWestend,
 	Penpal(ParaId),
 	ContractsRococo,
@@ -95,8 +94,6 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::AssetHubKusama
 	} else if id.starts_with("asset-hub-rococo") {
 		Runtime::AssetHubRococo
-	} else if id.starts_with("asset-hub-wococo") {
-		Runtime::AssetHubWococo
 	} else if id.starts_with("asset-hub-westend") | id.starts_with("westmint") {
 		Runtime::AssetHubWestend
 	} else if id.starts_with("penpal") {
@@ -184,19 +181,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"asset-hub-rococo" =>
 			Box::new(chain_spec::asset_hubs::AssetHubRococoChainSpec::from_json_bytes(
 				&include_bytes!("../chain-specs/asset-hub-rococo.json")[..],
-			)?),
-
-		// -- Asset Hub Wococo
-		"asset-hub-wococo-dev" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_wococo_development_config()),
-		"asset-hub-wococo-local" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_wococo_local_config()),
-		// the chain spec as used for generating the upgrade genesis values
-		"asset-hub-wococo-genesis" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_wococo_genesis_config()),
-		"asset-hub-wococo" =>
-			Box::new(chain_spec::asset_hubs::AssetHubWococoChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/asset-hub-wococo.json")[..],
 			)?),
 
 		// -- Asset Hub Westend
@@ -302,8 +286,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 					Box::new(chain_spec::asset_hubs::AssetHubKusamaChainSpec::from_json_file(path)?),
 				Runtime::AssetHubRococo =>
 					Box::new(chain_spec::asset_hubs::AssetHubRococoChainSpec::from_json_file(path)?),
-				Runtime::AssetHubWococo =>
-					Box::new(chain_spec::asset_hubs::AssetHubWococoChainSpec::from_json_file(path)?),
 				Runtime::AssetHubWestend => Box::new(
 					chain_spec::asset_hubs::AssetHubWestendChainSpec::from_json_file(path)?,
 				),
@@ -464,7 +446,7 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::AssetHubRococo | Runtime::AssetHubWococo => {
+			Runtime::AssetHubRococo => {
 				let $partials = new_partial::<asset_hub_rococo_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::aura_build_import_queue::<_, AuraId>,
@@ -517,14 +499,6 @@ macro_rules! construct_partials {
 				chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 				chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment => {
 					let $partials = new_partial::<chain_spec::bridge_hubs::rococo::RuntimeApi, _>(
-						&$config,
-						crate::service::aura_build_import_queue::<_, AuraId>,
-					)?;
-					$code
-				},
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal => {
-					let $partials = new_partial::<chain_spec::bridge_hubs::wococo::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
 					)?;
@@ -605,7 +579,7 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::AssetHubRococo | Runtime::AssetHubWococo => {
+			Runtime::AssetHubRococo => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<asset_hub_rococo_runtime::RuntimeApi, _>(
 						&$config,
@@ -739,18 +713,6 @@ macro_rules! construct_async_run {
 							{ $( $code )* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal => {
-						runner.async_run(|$config| {
-							let $components = new_partial::<chain_spec::bridge_hubs::wococo::RuntimeApi, _>(
-								&$config,
-								crate::service::aura_build_import_queue::<_, AuraId>,
-							)?;
-
-							let task_manager = $components.task_manager;
-							{ $( $code )* }.map(|v| (v, task_manager))
-						})
-					}
 				}
 			},
 			Runtime::Penpal(_) | Runtime::Default => {
@@ -978,7 +940,7 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::AssetHubRococo | Runtime::AssetHubWococo => crate::service::start_asset_hub_node::<
+					Runtime::AssetHubRococo => crate::service::start_asset_hub_node::<
 						asset_hub_rococo_runtime::RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
@@ -1073,14 +1035,6 @@ chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::bridge_hubs::rococo::RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal =>
-							crate::service::start_generic_aura_node::<
-								chain_spec::bridge_hubs::wococo::RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
