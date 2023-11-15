@@ -32,7 +32,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 	let config = TestConfig {
 		validator_count: 20,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -43,7 +43,8 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -57,7 +58,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
@@ -188,7 +189,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: Some(AsyncBackingParams {
 			// Makes `seconding_limit: 2` (easier to hit the limit).
 			max_candidate_depth: 1,
@@ -203,9 +204,9 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -475,7 +476,7 @@ fn peer_reported_for_not_enough_statements() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -486,9 +487,9 @@ fn peer_reported_for_not_enough_statements() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -670,7 +671,7 @@ fn peer_reported_for_duplicate_statements() {
 	let config = TestConfig {
 		validator_count: 20,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -681,7 +682,8 @@ fn peer_reported_for_duplicate_statements() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -695,7 +697,7 @@ fn peer_reported_for_duplicate_statements() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
@@ -830,7 +832,7 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 	let config = TestConfig {
 		validator_count: 20,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -841,7 +843,8 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -855,8 +858,8 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		state.group_validators((local_validator.group_index.0 + 1).into(), true);
+		let other_group_validators = state.group_validators(local_group_index, true);
+		state.group_validators((local_group_index.0 + 1).into(), true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
@@ -968,7 +971,7 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 	let config = TestConfig {
 		validator_count: 20,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -979,7 +982,8 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -993,9 +997,8 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		let next_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let next_group_validators = state.group_validators((local_group_index.0 + 1).into(), true);
 		let v_a = other_group_validators[0];
 		let v_c = next_group_validators[0];
 
@@ -1105,7 +1108,7 @@ fn local_node_sanity_checks_incoming_requests() {
 	let config = TestConfig {
 		validator_count: 20,
 		group_size: 3,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1117,7 +1120,8 @@ fn local_node_sanity_checks_incoming_requests() {
 
 	test_harness(config, |mut state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -1135,7 +1139,7 @@ fn local_node_sanity_checks_incoming_requests() {
 		// peer B is in group, has no relay parent in view.
 		// peer C is not in group, has relay parent in view.
 		{
-			let other_group_validators = state.group_validators(local_validator.group_index, true);
+			let other_group_validators = state.group_validators(local_group_index, true);
 
 			connect_peer(
 				&mut overseer,
@@ -1311,7 +1315,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 	let config = TestConfig {
 		validator_count: 20,
 		group_size: 3,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1321,7 +1325,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 
 	test_harness(config, |mut state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -1336,7 +1341,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 		let candidate_hash = candidate.hash();
 
 		// Peers A and B are in group and have relay parent in view.
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 
 		connect_peer(
 			&mut overseer,
@@ -1515,7 +1520,7 @@ fn local_node_respects_statement_mask() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1527,7 +1532,8 @@ fn local_node_respects_statement_mask() {
 
 	test_harness(config, |mut state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -1541,9 +1547,9 @@ fn local_node_respects_statement_mask() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 		let target_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
+			state.group_validators((local_group_index.0 + 1).into(), true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 		let v_c = target_group_validators[0];
@@ -1707,7 +1713,7 @@ fn local_node_respects_statement_mask() {
 					assert_eq!(manifest, BackedCandidateManifest {
 						relay_parent,
 						candidate_hash,
-						group_index: local_validator.group_index,
+						group_index: local_group_index,
 						para_id: local_para,
 						parent_head_data_hash: pvd.parent_head.hash(),
 						statement_knowledge: StatementFilter {
@@ -1761,7 +1767,7 @@ fn should_delay_before_retrying_dropped_requests() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1772,9 +1778,9 @@ fn should_delay_before_retrying_dropped_requests() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
