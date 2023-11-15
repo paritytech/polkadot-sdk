@@ -1,0 +1,62 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: weekly
+    time: "03:00"
+    timezone: Europe/Berlin
+  open-pull-requests-limit: 20
+  ignore:
+  # Substrate (+ Polkadot/Cumulus pallets) dependencies
+  - dependency-name: beefy-*
+    versions:
+    - ">= 0"
+  - dependency-name: frame-*
+    versions:
+    - ">= 0"
+  - dependency-name: fork-tree
+    versions:
+    - ">= 0"
+  - dependency-name: mmr-*
+    versions:
+    - ">= 0"
+  - dependency-name: node-inspect
+    versions:
+    - ">= 0"
+  - dependency-name: pallet-*
+    versions:
+    - ">= 0"
+  - dependency-name: sc-*
+    versions:
+    - ">= 0"
+  - dependency-name: sp-*
+    versions:
+    - ">= 0"
+  - dependency-name: substrate-*
+    versions:
+    - ">= 0"
+  - dependency-name: try-runtime-cli
+    versions:
+    - ">= 0"
+  - dependency-name: binary-merkle-tree
+    versions:
+    - ">= 0"
+  # Polkadot dependencies
+  - dependency-name: kusama-*
+    versions:
+    - ">= 0"
+  - dependency-name: polkadot-*
+    versions:
+    - ">= 0"
+  - dependency-name: xcm*
+    versions:
+    - ">= 0"
+  # Cumulus dependencies
+  - dependency-name: cumulus-*
+    versions:
+    - ">= 0"
+  - dependency-name: parachain-info
+    versions:
+    - ">= 0"
+  rebase-strategy: disabled

@@ -1,0 +1,3 @@
+# This file only works for `local.Dockerfile` when docker buildkit is used (see ./scripts/build-containers.sh for details)
+*
+!target/release/substrate-relay
