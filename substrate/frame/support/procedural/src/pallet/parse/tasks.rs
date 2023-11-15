@@ -312,7 +312,6 @@ impl syn::parse::Parse for TaskDef {
 		let mut arg_names = vec![];
 		for input in item.sig.inputs.iter() {
 			match input {
-				// Todo: This should be checked in the parsing stage.
 				syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
 					syn::Pat::Ident(ident) => arg_names.push(ident.ident.clone()),
 					_ => return Err(Error::new(input.span(), "unexpected pattern type")),
