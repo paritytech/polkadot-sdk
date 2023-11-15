@@ -1130,7 +1130,7 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 			}
 		};
 
-		// Bitmask with the disabled indecies within the validator group
+		// Bitmask with the disabled indices within the validator group
 		let disabled_indices = BitVec::<u8, bitvec::order::Lsb0>::from_iter(validator_group.iter().map(|idx| disabled_validators.contains(idx)));
 		// The indices of statements from disabled validators in `BackedCandidate`. We have to drop these.
 		let indices_to_drop = disabled_indices.clone() & &bc.validator_indices;
@@ -1161,9 +1161,5 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 	});
 
 	// Also return `true` if a whole candidate was dropped from the set
-	if !filtered {
-		filtered = backed_len_before > backed_candidates.len();
-	}
-
-	filtered
+	filtered || backed_len_before != backed_candidates.len()
 }
