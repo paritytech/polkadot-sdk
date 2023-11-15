@@ -34,7 +34,7 @@ use std::{
 	},
 };
 
-/// Commands send to `ChainSync`
+/// Commands send to `SyncingEngine`
 pub enum ToServiceCommand<B: BlockT> {
 	SetSyncForkRequest(Vec<PeerId>, B::Hash, NumberFor<B>),
 	RequestJustification(B::Hash, NumberFor<B>),
@@ -63,7 +63,7 @@ pub enum ToServiceCommand<B: BlockT> {
 	// },
 }
 
-/// Handle for communicating with `ChainSync` asynchronously
+/// Handle for communicating with `SyncingEngine` asynchronously
 #[derive(Clone)]
 pub struct SyncingService<B: BlockT> {
 	tx: TracingUnboundedSender<ToServiceCommand<B>>,
@@ -148,7 +148,7 @@ impl<B: BlockT> SyncingService<B> {
 
 	/// Get sync status
 	///
-	/// Returns an error if `ChainSync` has terminated.
+	/// Returns an error if `SyncingEngine` has terminated.
 	pub async fn status(&self) -> Result<SyncStatus<B>, ()> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.tx.unbounded_send(ToServiceCommand::Status(tx));
