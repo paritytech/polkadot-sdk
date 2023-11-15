@@ -34,10 +34,11 @@
 ### Conclusions
 
 - Verification doesn't depend on ring size as verification key is already constructed.
-- Timing is insignificant given a number of tickets that is appropriately bounded.
-- Currently the bound is set to epoch-slots, which iirc for Polkadot is 3600.
-  In this case if all the tickets are submitted in one shot timing is 39 seconds, which is not acceptable.
-  TODO: find a sensible bound
+- The call is fast as far as the max number of tickets which can be submitted in one shot
+  is appropriately bounded.
+- Currently, the bound is set equal epoch length, which iirc for Polkadot is 3600.
+  In this case if all the tickets are submitted in one shot timing is expected to be
+  ~39 seconds, which is not acceptable. TODO: find a sensible bound
 
 ---
 
@@ -71,11 +72,11 @@
 
 ### Conclusions
 
+- Here we load the full ring context data to recompute verification key for the epoch
 - Ring size influence is marginal (e.g. for 1500 validators → ~98 ms to be added to the base time)
-- This step is performed once per epoch.
-- Here we load the ring context to recompute verification key for the epoch
+- This step is performed at most once per epoch (if validator set changes).
 - Domain size for ring context influence the PoV size (see next paragraph)
-- Compression influence heavily timings (1.5sec vs 100ms for same domain size)
+- Decompression heavily influence timings (1.5sec vs 100ms for same domain size)
 
 ---
 

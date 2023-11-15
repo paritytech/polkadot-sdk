@@ -391,7 +391,6 @@ pub mod pallet {
 		/// Submit next epoch tickets candidates.
 		///
 		/// The number of tickets allowed to be submitted in one call is equal to the epoch length.
-		// TODO: maybe we must be more restrictive?
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(
@@ -409,9 +408,8 @@ pub mod pallet {
 
 			let next_authorities = Self::next_authorities();
 
-			// Check tickets score
+			// Compute tickets threshold
 			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
-			let epoch_length = T::EpochLength::get();
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
 				next_config.redundancy_factor,
 				epoch_length as u32,
@@ -501,42 +499,20 @@ pub mod pallet {
 				return InvalidTransaction::Call.into()
 			};
 
-			// Discard tickets not coming from the local node or that are not
-			// yet included in a block
-			debug!(
-				target: LOG_TARGET,
-				"Validating unsigned from {} source",
-				match source {
-					TransactionSource::Local => "local",
-					TransactionSource::InBlock => "in-block",
-					TransactionSource::External => "external",
-				}
-			);
-
+			// Discard tickets not coming from the local node or that are not included in a block
 			if source == TransactionSource::External {
-				// TODO @davxy: BRAINSTORM this `Local` requirement...
-				// If we only allow these txs on block production, then there is less chance to
-				// submit our tickets if we don't have enough authoring slots.
-				// If we have 0 slots => we have zero chances.
-				// Maybe this is one valid reason to introduce proxies.
-				// In short the question is >>> WHO HAS THE RIGHT TO SUBMIT A TICKET? <<<
-				//  A) The current epoch validators
-				//  B) Doesn't matter as far as the tickets are good (i.e. RVRF verify is ok)
-				// Maybe we also provide a signed extrinsic to submit tickets
-				// where the submitter doesn't pay if the tickets are good?
 				warn!(
 					target: LOG_TARGET,
-					"Rejecting unsigned `submit_tickets` transaction from an external source",
+					"Rejecting unsigned `submit_tickets` transaction from external source",
 				);
 				return InvalidTransaction::BadSigner.into()
 			}
 
 			// Current slot should be less than half of epoch length.
 			let epoch_length = T::EpochLength::get();
-
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx > epoch_length / 2 {
-				warn!(target: LOG_TARGET, "Timeout to propose tickets, bailing out.",);
+				warn!(target: LOG_TARGET, "Tickets shall be proposed in the first epoch half",);
 				return InvalidTransaction::Stale.into()
 			}
 
@@ -866,14 +842,15 @@ impl<T: Config> Pallet<T> {
 		Self::slot_ticket_id(slot).and_then(|id| TicketsData::<T>::get(id).map(|body| (id, body)))
 	}
 
-	// Lexicographically sort the tickets which belong to the next epoch.
-	//
-	// Tickets are fetched from at most `max_segments` segments.
-	//
-	// The resulting sorted vector is optionally truncated to contain at most `MaxTickets`
-	// entries. If all the unsorted segments are consumed then the sorted vector is
-	// saved as the next epoch tickets, else it is saved to be used by next calls to
-	// this function.
+	/// Lexicographically sort the tickets which belong to the next epoch.
+	///
+	/// At most `max_segments` are taken from the `UnsortedSegments` structure.
+	///
+	/// The tickets of the removed segments are merged with the tickets on the `SortedCandidates`
+	/// which is then sorted an truncated to contain at most `MaxTickets` entries.
+	///
+	/// If all the entries in `UnsortedSegments` are consumed, then `SortedCandidates` is elected
+	/// as the next epoch tickets, else it is saved to be used by next calls of this function.
 	pub(crate) fn sort_tickets(max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
 		let unsorted_segments_count = metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
 		let max_segments = max_segments.min(unsorted_segments_count);
@@ -926,7 +903,7 @@ impl<T: Config> Pallet<T> {
 			});
 			metadata.tickets_count[epoch_tag as usize] = sorted_candidates.len() as u32;
 		} else {
-			// Keep the partial result for next calls.
+			// Keep the partial result for the next calls.
 			SortedCandidates::<T>::set(BoundedVec::truncate_from(sorted_candidates));
 		}
 	}
