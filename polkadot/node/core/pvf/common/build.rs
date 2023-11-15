@@ -1,28 +1,20 @@
-fn main() {
-	get_wasmtime_version();
-}
+// This file is part of Substrate.
 
-pub fn get_wasmtime_version() {
-	// we only care about the root of the tree
-	match std::process::Command::new("cargo")
-		.args(&["tree", "--package=wasmtime", "--depth=0"])
-		.output()
-	{
-		Ok(out) if out.status.success() => {
-			// wasmtime vX.X.X
-			let version = String::from_utf8_lossy(&out.stdout);
-			if let Some(version) = version.strip_prefix("wasmtime v") {
-				println!("cargo:rustc-env=SUBSTRATE_WASMTIME_VERSION={}", version);
-			} else {
-				println!("cargo:warning=build.rs: unexpected result {}", version);
-			}
-		},
-		Ok(out) => println!(
-			"cargo:warning=build.rs: `cargo tree` {}",
-			String::from_utf8_lossy(&out.stderr),
-		),
-		Err(err) => {
-			println!("cargo:warning=build.rs: Could not run `cargo tree`: {}", err);
-		},
-	}
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+fn main() {
+	substrate_build_script_utils::generate_wasmtime_version();
 }

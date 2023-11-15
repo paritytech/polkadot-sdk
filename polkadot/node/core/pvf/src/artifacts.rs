@@ -538,7 +538,7 @@ mod tests {
 		// invalid prefix
 		create_rand_artifact(&cache_dir, "");
 		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v");
-		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v1.0.0");
+		create_rand_artifact(&cache_dir, "wasmtime_v8.0.0_polkadot_v1.0.0");
 
 		// no checksum
 		create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
