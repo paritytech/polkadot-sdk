@@ -27,7 +27,7 @@ use scale_info::{
 };
 use sp_runtime::{
 	traits::{Member, Zero},
-	MultiSigner, RuntimeDebug,
+	RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 
@@ -336,15 +336,27 @@ pub(crate) type Username = BoundedVec<u8, ConstU32<USERNAME_MAX_LENGTH>>;
 // 	   // primary username
 // 	   primary: Username,
 // 	   // all other usernames of user (maybe)
-// 	   seconary: BoundedVec<Username, UsernameLimit>,
+// 	   secondary: BoundedVec<Username, UsernameLimit>,
 // 	   // deposit held for this username
 // 	   deposit: BalanceOf<T>,
 // }
 
+/// A wrapper around different accounts based on whether they are based on a cryptographic key or
+/// not.
 #[derive(Clone, Debug, Encode, Decode, PartialEq, TypeInfo)]
-pub enum AccountIdentifier<AccountId: Clone + Decode + Debug + Encode + PartialEq + TypeInfo> {
+pub enum AccountIdentifier<
+	AccountId: Clone + Decode + Debug + Encode + PartialEq + TypeInfo,
+	S: SignerProvider<AccountId>,
+> {
 	AbstractAccount(AccountId),
-	KeyedAccount(MultiSigner),
+	KeyedAccount(S),
+}
+
+/// Cryptographic keys used with this pallet must have verifiable signatures and be able to be
+/// converted into accounts.
+pub trait SignerProvider<A>: Clone + Decode + Debug + Encode + PartialEq + TypeInfo {
+	fn verify_signature(&self, signature: &MultiSignature, message: &[u8]) -> bool;
+	fn into_account_truncating(&self) -> A;
 }
 
 #[cfg(test)]

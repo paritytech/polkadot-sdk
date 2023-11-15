@@ -88,13 +88,13 @@ use frame_support::{
 };
 pub use pallet::*;
 use sp_runtime::{
-	traits::{AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
+	traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero},
 	MultiSignature,
 };
 use sp_std::prelude::*;
 pub use types::{
 	AccountIdentifier, Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
-	Registration,
+	Registration, SignerProvider,
 };
 pub use weights::WeightInfo;
 
@@ -153,6 +153,9 @@ pub mod pallet {
 
 		/// The origin which may add or remove registrars. Root can always do this.
 		type RegistrarOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Type that can both sign messages and be converted into an AccountId of the runtime.
+		type Signer: SignerProvider<Self::AccountId>;
 
 		/// The amount held on deposit for each username.
 		///
@@ -1001,7 +1004,7 @@ pub mod pallet {
 		#[pallet::weight(1)]
 		pub fn set_username_for(
 			origin: OriginFor<T>,
-			who: AccountIdentifier<T::AccountId>,
+			who: AccountIdentifier<T::AccountId, T::Signer>,
 			username: Vec<u8>,
 			signature: Option<MultiSignature>,
 		) -> DispatchResult {
@@ -1041,8 +1044,8 @@ pub mod pallet {
 				Error::<T>::UsernameTaken
 			);
 
-			// Verify `signature` that `who` has signed their `username` (i.e. have requested it
-			// themselves).
+			// Verify that `who` has approved their `username` (i.e. have either signed it or
+			// requested it themselves).
 			let (who, requires_deposit) = match who {
 				// Ensure the account has preapproved this username.
 				AccountIdentifier::AbstractAccount(a) => {
@@ -1063,27 +1066,14 @@ pub mod pallet {
 				},
 
 				// Account has pre-signed an authorization. Verify the signature provided.
-				AccountIdentifier::KeyedAccount(ms) => {
+				AccountIdentifier::KeyedAccount(signer) => {
 					let signature = signature.ok_or(Error::<T>::RequiresSignature)?;
-					let valid = bounded_username.to_vec().using_encoded(|encoded| {
-						signature.verify(encoded, &ms.clone().into_account())
-					});
+					let valid = bounded_username
+						.to_vec()
+						.using_encoded(|encoded| signer.verify_signature(&signature, encoded));
 					ensure!(valid, Error::<T>::InvalidSignature);
-
-					// It's late and I'm frustrated. Obviously do not keep.
-					//
-					// `MultiSigner` is either 32 byte (ED/SR) or 33 byte (ECDSA) public keys and
-					// already implements `into_account` for `type AccountId = AccountId32`. Is it
-					// possible (or desirable) to say that the `AccountId` type of the runtime must
-					// be able to convert a 32 or 33 byte array to an `AccountId`? Or to just make
-					// it fail if it doesn't?
-					//
-					// TODO: type KeyedAccounts: Convert<MultiSigner, Self::AccountId>;
-					use sp_runtime::traits::TrailingZeroInput;
-					let dummy = T::AccountId::decode(&mut TrailingZeroInput::new(&[][..]))
-						.expect("infinite input; qed");
-					(dummy, true)
-					//      ^^^^
+					(signer.into_account_truncating(), true)
+					//                                 ^^^^
 					// the account must place a deposit
 				},
 			};
