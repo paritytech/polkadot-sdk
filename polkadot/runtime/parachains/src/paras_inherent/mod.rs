@@ -143,6 +143,8 @@ pub mod pallet {
 		DisputeStatementsUnsortedOrDuplicates,
 		/// A dispute statement was invalid.
 		DisputeInvalid,
+		/// A candidate was backed by a disabled validator
+		BackedByDisabled,
 	}
 
 	/// Whether the paras inherent was included within this block.
@@ -621,7 +623,7 @@ impl<T: Config> Pallet<T> {
 		// disabled validators because they should have been filtered out during inherent data
 		// preparation (`ProvideInherent` context). Abort in such cases.
 		if context == ProcessInherentDataContext::Enter {
-			ensure!(!votes_from_disabled_were_dropped, Error::<T>::InherentOverweight);
+			ensure!(!votes_from_disabled_were_dropped, Error::<T>::BackedByDisabled);
 		}
 
 		// Process backed candidates according to scheduled cores.
@@ -1065,8 +1067,9 @@ fn limit_and_sanitize_disputes<
 	}
 }
 
-// Filters statements from disabled validators in `BackedCandidate`. Returns `true` if at least one
-// statement is removed and `false` otherwise.
+// Filters statements from disabled validators in `BackedCandidate`, non-scheduled candidates and
+// few more sanity checks. Returns `true` if at least one statement is removed and `false`
+// otherwise.
 fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>(
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
@@ -1084,6 +1087,8 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 
 	// Flag which will be returned. Set to `true` if at least one vote is filtered.
 	let mut filtered = false;
+
+	let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
 
 	// Process all backed candidates. `validator_indices` in `BackedCandidates` are indices within
 	// the validator group assigned to the parachain. To obtain this group we need:
@@ -1151,7 +1156,7 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 		// are not enough backing votes after filtering we will remove the whole candidate.
 		if bc.validity_votes.len() < effective_minimum_backing_votes(
 			validator_group.len(),
-			configuration::Pallet::<T>::config().minimum_backing_votes
+			minimum_backing_votes
 
 		) {
 			return false
