@@ -1011,11 +1011,10 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		info: T::IdentityInformation,
 	) -> DispatchResult {
-		use frame_support::BoundedVec;
 		IdentityOf::<T>::insert(
 			&who,
 			Registration {
-				judgements: BoundedVec::default(),
+				judgements: Default::default(),
 				deposit: Zero::zero(),
 				info: info.clone(),
 			},

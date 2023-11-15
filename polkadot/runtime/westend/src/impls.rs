@@ -93,9 +93,7 @@ where
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
 		// define asset / destination from relay perspective
-		let wnd: MultiAssets =
-			vec![MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(total_to_send) }]
-				.into();
+		let wnd = MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(total_to_send) };
 		// People Chain: ParaId 1004
 		let destination: MultiLocation = MultiLocation::new(0, Parachain(1004));
 
@@ -105,14 +103,14 @@ where
 		// check out
 		xcm_config::LocalAssetTransactor::can_check_out(
 			&destination,
-			&wnd.inner().first().expect("`wnd` was just set and has a `first()`; qed."),
+			&wnd,
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		)
 		.map_err(|_| pallet_xcm::Error::<Runtime>::CannotCheckOutTeleport)?;
 		xcm_config::LocalAssetTransactor::check_out(
 			&destination,
-			&wnd.inner().first().expect("`wnd` was just set and has a `first()`; qed."),
+			&wnd,
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		);
