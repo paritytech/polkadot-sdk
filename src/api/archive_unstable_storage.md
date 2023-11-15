@@ -3,91 +3,119 @@
 **Parameters**:
 
 - `hash`: String containing a hexadecimal-encoded hash of the header of the block whose storage to fetch.
-- `key`: String containing the hexadecimal-encoded key to fetch in the storage.
+- `items`: Array of objects. The structure of these objects is found below.
 - `childTrie`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the child trie of the "default" namespace.
-- `includeDescendants`: Boolean indicating whether the key-values of all the descendants of the `key` should be returned as well.
 
-**Return value**: String containing an opaque value representing the operation, or `null` if no block with that `hash` exists.
+Each element in `items` must be an object containing the following fields:
 
-The JSON-RPC server must obtain the value of the entry with the given `key` from the storage, either from the main trie of from `childTrie`. If `includeDescendants` is `true`, then the values of all the descendants must be obtained as well.
+- `key`: String containing the hexadecimal-encoded key to fetch in the storage.
+- `type`: String equal to one of: `value`, `hash`, `closestDescendantMerkleValue`, `descendantsValues`, `descendantsHashes`.
+- `paginationStartKey`: This parameter is optional and should be a string containing the hexadecimal-encoded key from which the storage iteration should resume. This parameter is only valid in the context of `descendantsValues` and `descendantsHashes`.
 
-If the block was previously returned by `archive_unstable_hashByHeight` at a height inferior or equal to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then calling this method multiple times is guaranteed to always return non-null and always the same results.
+**Return value**: A JSON object.
 
-If the block was previously returned by `archive_unstable_hashByHeight` at a height strictly superior to the current finalized block height (as indicated by `archive_unstable_finalizedHeight`), then the block might "disappear" and calling this function might return `null` at any point.
+The JSON object returned by this function has the following format:
 
-## Notifications format
-
-This function will later generate notifications in the following format:
-
-```json
+```
 {
-    "jsonrpc": "2.0",
-    "method": "archive_unstable_storageEvent",
-    "params": {
-        "subscription": "...",
-        "result": ...
-    }
+    "result": [
+        {
+            ...
+        },
+        ...
+    ],
+    "discardedItems": ...
 }
 ```
 
-Where `subscription` is equal to the value returned by this function, and `result` can be one of:
+Where:
 
-### item
+- `result` contains a vector of JSON objects (possibly empty) that were found in the storage.
+- `discardedItems` is an integer indicating the number of items at the back of the array of the `items` parameters that couldn't be processed.
 
-```json
+The JSON objects in the `"result"` field can have one of the following formats based on their type:
+
+### Value
+
+```
 {
-    "event": "item",
     "key": "0x0000000...",
     "value": "0x0000000...",
 }
 ```
 
-Yields an item that was found in the storage.
+The JSON object corresponds to one of the requested items whose `type` was `"value"` or `"descendantsValues"`.
 
-The `key` field is a string containing the hexadecimal-encoded key of the value that was found.
-If the `includeDescendants` parameter was `true`, this `key` is guaranteed to start with the `key` provided as parameter.
-If the `includeDescendants` parameter was `false`, then it is also guaranteed to be equal to the `key` provided as parameter.
+If the `key` is not associated with a storage value in the trie, then no response is generated in the `"result"` vector for this item.
 
-The `value` field is a string containing the hexadecimal-encoded value of the storage item.
+Returned when the `type` of the query was `"value"`:
 
-### waiting-for-continue
+- `key` is guaranteed to be equal to one of the `key`s provided.
+- `value` is a string containing the hexadecimal-encoded value of the storage entry.
 
-```json
+Returned when the `type` of the query was `"descendantsValues"`:
+
+- `key` is guaranteed to start with one of the `key`s provided.
+- `value` is a string containing the hexadecimal-encoded value of the storage entry.
+
+### Hash
+
+```
 {
-    "event": "waiting-for-continue"
+    "key": "0x0000000...",
+    "hash": "0x0000000...",
 }
 ```
 
-The `waiting-for-continue` event is generated after at least one `"item"` event has been generated, and indicates that the JSON-RPC client must call `archive_unstable_storageContinue` before more events are generated.
+The JSON object corresponds to one of the requested items whose `type` was `"hash"` or `"descendantsHashes"`.
 
-This event only ever happens if the `includeDescendants` parameter was `true`.
+If the `key` is not associated with a storage value in the trie, then no response is generated in the `"result"` vector for this item.
 
-While the JSON-RPC server is waiting for `archive_unstable_storageContinue` to be called, it can generate a `stop` event indicating that it can no longer proceed with that storage access.
+Returned when the `type` of the query was `"hash"`:
 
-### done
+- `key` is guaranteed to be equal to one of the `key`s provided.
+- `hash` is a string containing the hexadecimal-encoded hash of the storage entry.
 
-```json
+Returned when the `type` of the query was `"descendantsHashes"`:
+
+- `key` is guaranteed to start with one of the `key`s provided.
+- `hash` is a string containing the hexadecimal-encoded cryptographic hash of the storage entry.
+
+
+### ClosestDescendantMerkleValue
+
+```
 {
-    "event": "done"
+    "key": "0x0000000...",
+    "closestDescendantMerkleValue": "0x000000..."
 }
 ```
 
-The `done` event indicates that everything went well and all values have been provided through `item` events in the past.
+The JSON object corresponds to one of the requested items whose `type` was `"closestDescendantMerkleValue"`.
 
-If no `item` event was yielded, then the storage doesn't contain a value at the given key.
+If the `key` doesn't exist in the trie, then the Merkle value of the closest descendant of `key` (including branch nodes) is provided. If `key` doesn't have any descendant in the trie, then no response is generated in the `"result"` vector for this item.
 
-No more event will be generated with this `subscription`.
+- `key` is guaranteed to be equal to one of the `key`s provided.
+- `closestDescendantMerkleValue` is the closest trie Merkle value of the `key`.
 
-### stop
+The trie node whose Merkle value is indicated in `closestDescendantMerkleValue` is not indicated, as determining the key of this node might incur an overhead for the JSON-RPC server. The Merkle value is equal to either the node value or the hash of the node value, as defined in the [Polkadot specification](https://spec.polkadot.network/chap-state#defn-merkle-value).
 
-```json
-{
-    "event": "stop"
-}
-```
+## Overview
 
-The `stop` event can be generated after a `waiting-for-continue` event in order to indicate that the JSON-RPC server can't continue. The JSON-RPC client should simply try again.
+For each item in `items`, the JSON-RPC server must start obtaining the value of the entry with the given `key` from the storage, either from the main trie or from `childTrie`. If `type` is `descendantsValues` or `descendantsHashes`, then it must also obtain the values of all the descendants of the entry.
 
-No more event will be generated with this `subscription`.
+For the purpose of storage requests, the trie root hash of the child tries of the storage can be found in the main trie at keys starting the bytes of the ASCII string `:child_storage:`. This behaviour is consistent with all the other storage-request-alike mechanisms of Polkadot and Substrate-based chains, such as host functions or libp2p network requests.
 
-**Note**: This event is generated in very niche situations, such as a node doing a clean shutdown of all its active subscriptions before shutting down.
+If the height of the block hash provided is less than or equal to the current finalized block height (which can be obtained via archive_unstable_finalizedHeight), then calling this method with the same parameters will always return the same response.
+If the height of the block hash provided is greater than the current finalized block height, then the block might be pruned at any time and calling this method may return null.
+
+This function should be used when the target block is older than the blocks reported by `chainHead_unstable_follow`.
+Use `chainHead_unstable_storage` if instead you want to retrieve the storage of a block obtained by the `chainHead_unstable_follow`.
+
+If `items` contains multiple identical or overlapping queries, the JSON-RPC server can choose whether to merge or not the items in the result. For example, if the request contains two items with the same key, one with `hash` and one with `value`, the JSON-RPC server can choose whether to generate two `item` objects, one with the value and one with the hash, or only a single `item` object with both `hash` and `value` set.
+
+It is allowed (but discouraged) for the JSON-RPC server to provide the same information multiple times in the result, for example providing the `value` field of the same `key` twice. Forcing the JSON-RPC server to de-duplicate items in the result might lead to unnecessary overhead.
+
+## Possible errors
+
+- A JSON-RPC error is generated if `type` isn't one of the allowed values (similarly to a missing parameter or an invalid parameter type).

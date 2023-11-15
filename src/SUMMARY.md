@@ -15,7 +15,6 @@
     - [archive_unstable_hashByHeight](api/archive_unstable_hashByHeight.md)
     - [archive_unstable_header](api/archive_unstable_header.md)
     - [archive_unstable_storage](api/archive_unstable_storage.md)
-    - [archive_unstable_storageContinue](api/archive_unstable_storageContinue.md)
   - [chainHead](api/chainHead.md)
     - [chainHead_unstable_body](api/chainHead_unstable_body.md)
     - [chainHead_unstable_call](api/chainHead_unstable_call.md)
