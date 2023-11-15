@@ -81,7 +81,7 @@ impl<B: BlockT> SlotInfo<B> {
 			duration,
 			chain_head,
 			block_size_limit,
-			ends_at: Instant::now() + time_until_next_slot(duration),
+			ends_at: Instant::now() + duration,
 		}
 	}
 }
@@ -106,7 +106,7 @@ impl<Block, SC, IDP> Slots<Block, SC, IDP> {
 		Slots {
 			last_slot: 0.into(),
 			slot_duration,
-			until_next_slot: None,
+			until_next_slot: Some(Delay::new(Duration::from_secs(300))),
 			create_inherent_data_providers,
 			select_chain,
 			_phantom: Default::default(),
