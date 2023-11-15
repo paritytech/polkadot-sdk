@@ -45,8 +45,6 @@ use sp_std::prelude::*;
 
 pub use pallet::*;
 
-const REQUIRED_LEAD_TIME: u32 = 10;
-
 pub trait WeightInfo {}
 
 /// A weight info that is only suitable for testing.
@@ -430,12 +428,7 @@ impl<T: Config> Pallet<T> {
 		end_hint: Option<BlockNumberFor<T>>,
 	) -> Result<(), DispatchError> {
 		// TODO: Add this assert once the calls `request_core_count` and `notify_core_count`
-		// have been established. assert!(core < legacy_core_count + core_count);
-
-		// Begin should be no less than the Relay-chain block number on arrival of
-		// the message plus 10
-		let now = <frame_system::Pallet<T>>::block_number();
-		ensure!(begin >= now + BlockNumberFor::<T>::from(REQUIRED_LEAD_TIME), Error::<T>::InsufficientLeadTime);
+		// have been established. assert!(core < core_count);
 
 		// There should be at least one assignment and at most 100
 		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);

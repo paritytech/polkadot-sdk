@@ -249,7 +249,8 @@ fn assign_core_enforces_well_formed_schedule() {
 			(CoreAssignment::Idle, PartsOf57600::from(19200u16)),
 		];
 
-		// Attempting to assign_core with bad assignments
+		// Attempting assign_core with malformed assignments such that all error cases
+		// are tested
 		assert_noop!(
 			BulkAssigner::assign_core(
 				core_idx,
