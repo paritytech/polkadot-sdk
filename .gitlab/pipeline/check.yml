@@ -151,6 +151,31 @@ check-runtime-migration-asset-hub-westend:
     PACKAGE: "asset-hub-westend-runtime"
     WASM: "asset_hub_westend_runtime.compact.compressed.wasm"
     URI: "wss://westend-asset-hub-rpc.polkadot.io:443"
+    
+check-runtime-migration-asset-hub-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-rococo"
+    PACKAGE: "asset-hub-rococo-runtime"
+    WASM: "asset_hub_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-asset-hub-rpc.polkadot.io:443"
+
+# Check runtime migrations for Parity managed bridge hub chains
+check-runtime-migration-bridge-hub-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-westend"
+    PACKAGE: "bridge-hub-westend-runtime"
+    WASM: "bridge_hub_westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-bridge-hub-rpc.polkadot.io:443"
 
 check-runtime-migration-bridge-hub-rococo:
   stage: check
