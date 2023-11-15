@@ -550,6 +550,7 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
+			},
 			Runtime::Shell => {
 				let $partials = new_partial::<shell_runtime::RuntimeApi, _>(
 					&$config,
