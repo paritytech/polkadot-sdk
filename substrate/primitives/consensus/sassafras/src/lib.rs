@@ -80,7 +80,9 @@ pub type EquivocationProof<H> = sp_consensus_slots::EquivocationProof<H, Authori
 /// Randomness required by some protocol's operations.
 pub type Randomness = [u8; RANDOMNESS_LENGTH];
 
-/// Configuration data that can be modified on epoch change.
+/// Protocol configuration that can be modified on epoch change.
+///
+/// Mostly tweaks to the ticketing system parameters.
 #[derive(
 	Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
 )]
@@ -88,7 +90,7 @@ pub type Randomness = [u8; RANDOMNESS_LENGTH];
 pub struct EpochConfiguration {
 	/// Tickets threshold redundancy factor.
 	pub redundancy_factor: u32,
-	/// Tickets attempts for each validator.
+	/// Tickets max attempts for each validator.
 	pub attempts_number: u32,
 }
 

@@ -216,8 +216,8 @@ pub mod pallet {
 	/// Pending epoch configuration change that will be set as `NextEpochConfig` when the next
 	/// epoch is enacted.
 	///
-	/// In other words, a config change submitted during epoch N will be enacted on epoch N+2.
-	/// This is to maintain coherence for already submitted tickets for epoch N+1 that where
+	/// In other words, a configuration change submitted during epoch N will be enacted on epoch
+	/// N+2. This is to maintain coherence for already submitted tickets for epoch N+1 that where
 	/// computed using configuration parameters stored for epoch N+1.
 	#[pallet::storage]
 	pub type PendingEpochConfigChange<T> = StorageValue<_, EpochConfiguration>;
@@ -358,7 +358,7 @@ pub mod pallet {
 				EpochIndex::<T>::get(),
 			);
 			let randomness_output = ClaimTemporaryData::<T>::take()
-				.expect("Finalization is called after initialization; qed");
+				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed");
 			let randomness = randomness_output
 				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 			Self::deposit_slot_randomness(&randomness);
@@ -464,13 +464,14 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Plan an epoch config change.
+		/// Plan an epoch configuration change.
 		///
-		/// The epoch config change is recorded and will be announced at the begin of the
-		/// next epoch together with next epoch authorities information.
-		/// In other words the configuration will be activated one epoch after.
-		/// Multiple calls to this method will replace any existing planned config change that had
-		/// not been enacted yet.
+		/// The epoch configuration change is recorded and will be announced at the begining
+		/// of the next epoch together with next epoch authorities information.
+		/// In other words, the configuration will be enacted one epoch later.
+		///
+		/// Multiple calls to this method will replace any existing planned config change
+		/// that has not been enacted yet.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::plan_config_change())]
 		pub fn plan_config_change(
@@ -803,7 +804,7 @@ impl<T: Config> Pallet<T> {
 	/// current epoch first half slots were elapsed (see `submit_tickets_unsigned_extrinsic`).
 	///
 	/// Returns `None` if, according to the sorting strategy, there is no ticket associated to the
-	/// specified slot-index (happend if a ticket falls in the middle of an epoch and n > k),
+	/// specified slot-index (happens if a ticket falls in the middle of an epoch and n > k),
 	/// or if the slot falls beyond the next epoch.
 	///
 	/// Before importing the first block this returns `None`.
@@ -854,7 +855,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Returns ticket id and data associated to the given `slot`.
+	/// Returns ticket id and data associated with the given `slot`.
 	///
 	/// Refer to the `slot_ticket_id` documentation for the slot-ticket association
 	/// criteria.
