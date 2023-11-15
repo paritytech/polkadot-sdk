@@ -91,20 +91,39 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by the HRMP queue.
 	Sibling(ParaId),
+	/// The message came from an abstract origin that can be identified by
+	/// a 32-byte ID.
+	///
+	/// Due to its versatility, this can be used by subsystems other than
+	/// the DMP and HRMP queue.
+	///
+	/// If multiple subsystems want to enqueue messages using this variant,
+	/// potential conflicts can be prevented by generating keys using the
+	/// following pattern:
+	///
+	/// ```nocompile
+	/// let key = blake2_256(("subsystem", key).encode());
+	///                       ^^^ Some ID for a subsystem or pallet
+	/// let origin = AggregateMessageOrigin::GeneralKey(key);
+	/// ```
+	GeneralKey([u8; 32]),
 }
 
 impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
 	fn from(origin: AggregateMessageOrigin) -> Self {
+		use AggregateMessageOrigin::*;
 		match origin {
-			AggregateMessageOrigin::Here => MultiLocation::here(),
-			AggregateMessageOrigin::Parent => MultiLocation::parent(),
-			AggregateMessageOrigin::Sibling(id) =>
+			Here => MultiLocation::here(),
+			Parent => MultiLocation::parent(),
+			Sibling(id) =>
 				MultiLocation::new(1, Junction::Parachain(id.into())),
+			GeneralKey(id) =>
+				MultiLocation::new(0, Junction::GeneralKey { length: 32, data: id }),
 		}
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 impl From<u32> for AggregateMessageOrigin {
 	fn from(x: u32) -> Self {
 		match x {
@@ -112,6 +131,13 @@ impl From<u32> for AggregateMessageOrigin {
 			1 => Self::Parent,
 			p => Self::Sibling(ParaId::from(p)),
 		}
+	}
+}
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl From<[u8; 32]> for AggregateMessageOrigin {
+	fn from(x: [u8; 32]) -> Self {
+		Self::GeneralKey(x)
 	}
 }
 
