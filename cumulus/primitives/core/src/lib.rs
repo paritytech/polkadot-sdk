@@ -115,10 +115,8 @@ impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
 		match origin {
 			Here => MultiLocation::here(),
 			Parent => MultiLocation::parent(),
-			Sibling(id) =>
-				MultiLocation::new(1, Junction::Parachain(id.into())),
-			GeneralKey(id) =>
-				MultiLocation::new(0, Junction::GeneralKey { length: 32, data: id }),
+			Sibling(id) => MultiLocation::new(1, Junction::Parachain(id.into())),
+			GeneralKey(id) => MultiLocation::new(0, Junction::GeneralKey { length: 32, data: id }),
 		}
 	}
 }
