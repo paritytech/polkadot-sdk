@@ -21,7 +21,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
 	Data, DeriveInput, Error, Expr, ExprLit, Fields, Lit, Meta, MetaNameValue,
-	Result, Variant, Ident, DataEnum, parse_quote,
+	Result, Variant, Ident, DataEnum,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
@@ -33,22 +33,47 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
 	let builder_impl = generate_builder_impl(&input.ident, data_enum)?;
 	let builder_unpaid_impl = generate_builder_unpaid_impl(&input.ident, data_enum)?;
 	let output = quote! {
-		/// Type used to build XCM programs that require fee payment
-		pub struct XcmBuilder<Call>(pub(crate) Vec<Instruction<Call>>);
-		/// Type used to build XCM programs that require explicitly stating no fees need to be paid
-		pub struct XcmBuilderUnpaid<Call>(pub(crate) Vec<Instruction<Call>>);
-		/// Type used to build arbitrary XCM, without restrictions.
-		/// Should only be used when you know what you're doing, for experimenting or for learning/teaching purposes.
-		pub struct XcmBuilderRaw<Call>(pub(crate) Vec<Instruction<Call>>);
+		/// A trait for types that track state inside the XcmBuilder
+		pub trait XcmBuilderState {}
+
+		/// Access to all the instructions
+		pub enum AnythingGoes {}
+		/// You need to pay for execution
+		pub enum PaymentRequired {}
+		/// The holding register was loaded, now to buy execution
+		pub enum LoadedHolding {}
+		/// Need to explicitly state it won't pay for fees
+		pub enum ExplicitUnpaidRequired {}
+
+		impl XcmBuilderState for AnythingGoes {}
+		impl XcmBuilderState for PaymentRequired {}
+		impl XcmBuilderState for LoadedHolding {}
+		impl XcmBuilderState for ExplicitUnpaidRequired {}
+
+		/// Type used to build XCM programs
+		pub struct XcmBuilder<Call, S: XcmBuilderState> {
+			pub(crate) instructions: Vec<Instruction<Call>>,
+			pub state: core::marker::PhantomData<S>,
+		}
+
 		impl<Call> Xcm<Call> {
-			pub fn builder() -> XcmBuilder<Call> {
-				XcmBuilder::<Call>(Vec::new())
+			pub fn builder() -> XcmBuilder<Call, PaymentRequired> {
+				XcmBuilder::<Call, PaymentRequired> {
+					instructions: Vec::new(),
+					state: core::marker::PhantomData,
+				}
 			}
-			pub fn builder_unpaid() -> XcmBuilderUnpaid<Call> {
-				XcmBuilderUnpaid::<Call>(Vec::new())
+			pub fn builder_unpaid() -> XcmBuilder<Call, ExplicitUnpaidRequired> {
+				XcmBuilder::<Call, ExplicitUnpaidRequired> {
+					instructions: Vec::new(),
+					state: core::marker::PhantomData,
+				}
 			}
-			pub fn builder_unsafe() -> XcmBuilderRaw<Call> {
-				XcmBuilderRaw::<Call>(Vec::new())
+			pub fn builder_unsafe() -> XcmBuilder<Call, AnythingGoes> {
+				XcmBuilder::<Call, AnythingGoes> {
+					instructions: Vec::new(),
+					state: core::marker::PhantomData,
+				}
 			}
 		}
 		#builder_impl
@@ -68,7 +93,7 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 			Fields::Unit => {
 				quote! {
 					pub fn #method_name(mut self) -> Self {
-						self.0.push(#name::<Call>::#variant_name);
+						self.instructions.push(#name::<Call>::#variant_name);
 						self
 					}
 				}
@@ -83,7 +108,7 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 				let arg_types: Vec<_> = fields.unnamed.iter().map(|field| &field.ty).collect();
 				quote! {
 					pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> Self {
-						self.0.push(#name::<Call>::#variant_name(#(#arg_names),*));
+						self.instructions.push(#name::<Call>::#variant_name(#(#arg_names),*));
 						self
 					}
 				}
@@ -93,7 +118,7 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 				let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
 				quote! {
 					pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> Self {
-						self.0.push(#name::<Call>::#variant_name { #(#arg_names),* });
+						self.instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
 						self
 					}
 				}
@@ -105,17 +130,11 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 		}
 	});
 	let output = quote! {
-		impl<Call> XcmBuilderRaw<Call> {
+		impl<Call> XcmBuilder<Call, AnythingGoes> {
 			#(#methods)*
 
-			/// Create an instance of this type with some pre-filled instructions.
-			/// Useful to create additional builders with some restrictions beforehand.
-			pub(crate) fn with_instructions(instructions: Vec<#name<Call>>) -> Self {
-				Self(instructions)
-			}
-
 			pub fn build(self) -> Xcm<Call> {
-				Xcm(self.0)
+				Xcm(self.instructions)
 			}
 		}
 	};
@@ -131,7 +150,6 @@ const LOAD_HOLDING_INSTRUCTIONS: &[&str] = &[
 ];
 
 fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {
-	let loaded_holding_builder_ident: Ident = parse_quote!(XcmLoadedHoldingBuilder);
 	// We first require an instruction that load the holding register
 	let load_holding_methods = data_enum.variants.iter()
 		.filter(|variant| LOAD_HOLDING_INSTRUCTIONS.contains(&&variant.ident.to_string().as_str()))
@@ -151,10 +169,13 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 					let arg_types: Vec<_> = fields.unnamed.iter().map(|field| &field.ty).collect();
 					quote! {
 						#(#docs)*
-						pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> #loaded_holding_builder_ident<Call> {
-							#loaded_holding_builder_ident::<Call>::with_instructions(vec![
-								#name::<Call>::#variant_name(#(#arg_names),*)
-							])
+						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, LoadedHolding> {
+							let mut new_instructions = self.instructions;
+							new_instructions.push(#name::<Call>::#variant_name(#(#arg_names),*));
+							XcmBuilder {
+								instructions: new_instructions,
+								state: core::marker::PhantomData,
+							}
 						}
 					}
 				},
@@ -163,10 +184,13 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 					let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
 					quote! {
 						#(#docs)*
-						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> #loaded_holding_builder_ident<Call> {
-							#loaded_holding_builder_ident::<Call>::with_instructions(vec![
-								#name::<Call>::#variant_name { #(#arg_names),* }
-							])
+						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, LoadedHolding> {
+							let mut new_instructions = self.instructions;
+							new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
+							XcmBuilder {
+								instructions: new_instructions,
+								state: core::marker::PhantomData,
+							}
 						}
 					}
 				},
@@ -177,7 +201,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.collect::<std::result::Result<Vec<_>, _>>()?;
 
 	let first_impl = quote! {
-		impl<Call> XcmBuilder<Call> {
+		impl<Call> XcmBuilder<Call, PaymentRequired> {
 			#(#load_holding_methods)*
 		}
 	};
@@ -196,11 +220,13 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 					let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
 					quote! {
 						#(#docs)*
-						pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> XcmBuilderRaw<Call> {
-							self.0.extend_from_slice(&[
-								#name::<Call>::#variant_name { #(#arg_names),* }
-							]);
-							XcmBuilderRaw::<Call>::with_instructions(self.0)
+						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, AnythingGoes> {
+							let mut new_instructions = self.instructions;
+							new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
+							XcmBuilder {
+								instructions: new_instructions,
+								state: core::marker::PhantomData,
+							}
 						}
 					}
 				},
@@ -210,13 +236,8 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		})?;
 
 	let second_impl = quote! {
-		pub struct #loaded_holding_builder_ident<Call>(pub Vec<#name<Call>>);
-		impl<Call> #loaded_holding_builder_ident<Call> {
+		impl<Call> XcmBuilder<Call, LoadedHolding> {
 			#buy_execution_method
-
-			pub(crate) fn with_instructions(instructions: Vec<#name<Call>>) -> Self {
-				Self(instructions)
-			}
 		}
 	};
 
@@ -231,7 +252,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {
 	let unpaid_execution_variant = data_enum.variants.iter()
 		.find(|variant| variant.ident.to_string() == "UnpaidExecution")
-		.unwrap();
+		.ok_or(Error::new_spanned(&data_enum.variants, "No UnpaidExecution instruction"))?;
 	let unpaid_execution_ident = &unpaid_execution_variant.ident;
 	let unpaid_execution_method_name = Ident::new(
 		&unpaid_execution_ident.to_string().to_snake_case(),
@@ -245,12 +266,15 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 	let arg_names: Vec<_> = fields.named.iter().map(|field| &field.ident).collect();
 	let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
 	Ok(quote! {
-		impl<Call> XcmBuilderUnpaid<Call> {
+		impl<Call> XcmBuilder<Call, ExplicitUnpaidRequired> {
 			#(#docs)*
-			pub fn #unpaid_execution_method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilderRaw<Call> {
-				XcmBuilderRaw::<Call>::with_instructions(vec![
-					#name::<Call>::#unpaid_execution_ident { #(#arg_names),* }
-				])
+			pub fn #unpaid_execution_method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, AnythingGoes> {
+				let mut new_instructions = self.instructions;
+				new_instructions.push(#name::<Call>::#unpaid_execution_ident { #(#arg_names),* });
+				XcmBuilder {
+					instructions: new_instructions,
+					state: core::marker::PhantomData,
+				}
 			}
 		}
 	})
