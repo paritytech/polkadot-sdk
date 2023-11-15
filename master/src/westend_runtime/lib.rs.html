@@ -2432,6 +2432,33 @@
 <a href="#2432" id="2432">2432</a>
 <a href="#2433" id="2433">2433</a>
 <a href="#2434" id="2434">2434</a>
+<a href="#2435" id="2435">2435</a>
+<a href="#2436" id="2436">2436</a>
+<a href="#2437" id="2437">2437</a>
+<a href="#2438" id="2438">2438</a>
+<a href="#2439" id="2439">2439</a>
+<a href="#2440" id="2440">2440</a>
+<a href="#2441" id="2441">2441</a>
+<a href="#2442" id="2442">2442</a>
+<a href="#2443" id="2443">2443</a>
+<a href="#2444" id="2444">2444</a>
+<a href="#2445" id="2445">2445</a>
+<a href="#2446" id="2446">2446</a>
+<a href="#2447" id="2447">2447</a>
+<a href="#2448" id="2448">2448</a>
+<a href="#2449" id="2449">2449</a>
+<a href="#2450" id="2450">2450</a>
+<a href="#2451" id="2451">2451</a>
+<a href="#2452" id="2452">2452</a>
+<a href="#2453" id="2453">2453</a>
+<a href="#2454" id="2454">2454</a>
+<a href="#2455" id="2455">2455</a>
+<a href="#2456" id="2456">2456</a>
+<a href="#2457" id="2457">2457</a>
+<a href="#2458" id="2458">2458</a>
+<a href="#2459" id="2459">2459</a>
+<a href="#2460" id="2460">2460</a>
+<a href="#2461" id="2461">2461</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2465,7 +2492,7 @@
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, EitherOf, EitherOfDiverse, Everything,
+		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, WithdrawReasons,
 	},
@@ -2490,7 +2517,7 @@
 <span class="kw">use </span>runtime_common::{
 	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
-	impl_runtime_weights,
+	identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
@@ -2553,6 +2580,10 @@
 <span class="kw">mod </span>weights;
 <span class="kw">pub mod </span>xcm_config;
 
+<span class="comment">// Implemented types.
+</span><span class="kw">mod </span>impls;
+<span class="kw">use </span>impls::ToParachainIdentityReaper;
+
 <span class="comment">// Governance and configurations.
 </span><span class="kw">pub mod </span>governance;
 <span class="kw">use </span>governance::{
@@ -2595,13 +2626,24 @@
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+<span class="doccomment">/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+</span><span class="kw">pub struct </span>IsIdentityCall;
+<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>IsIdentityCall {
+	<span class="kw">fn </span>contains(c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
+		<span class="macro">matches!</span>(c, RuntimeCall::Identity(<span class="kw">_</span>))
+	}
+}
+
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
 <span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = Everything;
+	<span class="kw">type </span>BaseCallFilter = EverythingBut&lt;IsIdentityCall&gt;;
 	<span class="kw">type </span>BlockWeights = BlockWeights;
 	<span class="kw">type </span>BlockLength = BlockLength;
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
@@ -3762,6 +3804,14 @@
 	<span class="kw">type </span>WeightInfo = weights::runtime_common_auctions::WeightInfo&lt;Runtime&gt;;
 }
 
+<span class="kw">impl </span>identity_migrator::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="comment">// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
+	</span><span class="kw">type </span>Reaper = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>ReapIdentityHandler = ToParachainIdentityReaper&lt;Runtime, <span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>WeightInfo = weights::runtime_common_identity_migrator::WeightInfo&lt;Runtime&gt;;
+}
+
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>PoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/nopls&quot;</span>);
 	<span class="kw">pub const </span>MaxPointsToBalance: u8 = <span class="number">10</span>;
@@ -3925,6 +3975,9 @@
 
 		<span class="comment">// Root testing pallet.
 		</span>RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">102</span>,
+
+		<span class="comment">// Pallet for migrating Identity to a parachain. To be removed post-migration.
+		</span>IdentityMigrator: identity_migrator::{Pallet, Call, Event&lt;T&gt;} = <span class="number">248</span>,
 	}
 }
 
@@ -4021,6 +4074,7 @@
 		</span>[runtime_common::assigned_slots, AssignedSlots]
 		[runtime_common::auctions, Auctions]
 		[runtime_common::crowdloan, Crowdloan]
+		[runtime_common::identity_migrator, IdentityMigrator]
 		[runtime_common::paras_registrar, Registrar]
 		[runtime_common::slots, Slots]
 		[runtime_parachains::configuration, Configuration]

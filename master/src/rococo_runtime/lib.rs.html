@@ -2289,6 +2289,33 @@
 <a href="#2289" id="2289">2289</a>
 <a href="#2290" id="2290">2290</a>
 <a href="#2291" id="2291">2291</a>
+<a href="#2292" id="2292">2292</a>
+<a href="#2293" id="2293">2293</a>
+<a href="#2294" id="2294">2294</a>
+<a href="#2295" id="2295">2295</a>
+<a href="#2296" id="2296">2296</a>
+<a href="#2297" id="2297">2297</a>
+<a href="#2298" id="2298">2298</a>
+<a href="#2299" id="2299">2299</a>
+<a href="#2300" id="2300">2300</a>
+<a href="#2301" id="2301">2301</a>
+<a href="#2302" id="2302">2302</a>
+<a href="#2303" id="2303">2303</a>
+<a href="#2304" id="2304">2304</a>
+<a href="#2305" id="2305">2305</a>
+<a href="#2306" id="2306">2306</a>
+<a href="#2307" id="2307">2307</a>
+<a href="#2308" id="2308">2308</a>
+<a href="#2309" id="2309">2309</a>
+<a href="#2310" id="2310">2310</a>
+<a href="#2311" id="2311">2311</a>
+<a href="#2312" id="2312">2312</a>
+<a href="#2313" id="2313">2313</a>
+<a href="#2314" id="2314">2314</a>
+<a href="#2315" id="2315">2315</a>
+<a href="#2316" id="2316">2316</a>
+<a href="#2317" id="2317">2317</a>
+<a href="#2318" id="2318">2318</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2322,7 +2349,7 @@
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 <span class="kw">use </span>runtime_common::{
-	assigned_slots, auctions, claims, crowdloan, impl_runtime_weights,
+	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
@@ -2359,9 +2386,9 @@
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, EitherOf, EitherOfDiverse, Everything, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
-		StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
+		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -2404,6 +2431,10 @@
 
 <span class="comment">// XCM configurations.
 </span><span class="kw">pub mod </span>xcm_config;
+
+<span class="comment">// Implemented types.
+</span><span class="kw">mod </span>impls;
+<span class="kw">use </span>impls::ToParachainIdentityReaper;
 
 <span class="comment">// Governance and configurations.
 </span><span class="kw">pub mod </span>governance;
@@ -2457,13 +2488,24 @@
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+<span class="doccomment">/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+</span><span class="kw">pub struct </span>IsIdentityCall;
+<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>IsIdentityCall {
+	<span class="kw">fn </span>contains(c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
+		<span class="macro">matches!</span>(c, RuntimeCall::Identity(<span class="kw">_</span>))
+	}
+}
+
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
 <span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = Everything;
+	<span class="kw">type </span>BaseCallFilter = EverythingBut&lt;IsIdentityCall&gt;;
 	<span class="kw">type </span>BlockWeights = BlockWeights;
 	<span class="kw">type </span>BlockLength = BlockLength;
 	<span class="kw">type </span>DbWeight = RocksDbWeight;
@@ -3370,6 +3412,14 @@
 	<span class="kw">type </span>WeightInfo = weights::runtime_common_auctions::WeightInfo&lt;Runtime&gt;;
 }
 
+<span class="kw">impl </span>identity_migrator::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="comment">// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
+	</span><span class="kw">type </span>Reaper = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>ReapIdentityHandler = ToParachainIdentityReaper&lt;Runtime, <span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>WeightInfo = weights::runtime_common_identity_migrator::WeightInfo&lt;Runtime&gt;;
+}
+
 <span class="kw">type </span>NisCounterpartInstance = pallet_balances::Instance2;
 <span class="kw">impl </span>pallet_balances::Config&lt;NisCounterpartInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>Balance = Balance;
@@ -3631,7 +3681,7 @@
 
 		<span class="comment">// NIS pallet.
 		</span>Nis: pallet_nis::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">38</span>,
-<span class="comment">//		pub type NisCounterpartInstance = pallet_balances::Instance2;
+		<span class="comment">// pub type NisCounterpartInstance = pallet_balances::Instance2;
 		</span>NisCounterpartBalances: pallet_balances::&lt;Instance2&gt; = <span class="number">45</span>,
 
 		<span class="comment">// Parachains pallets. Start indices at 50 to leave room.
@@ -3661,6 +3711,9 @@
 
 		<span class="comment">// Pallet for sending XCM.
 		</span>XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">99</span>,
+
+		<span class="comment">// Pallet for migrating Identity to a parachain. To be removed post-migration.
+		</span>IdentityMigrator: identity_migrator::{Pallet, Call, Event&lt;T&gt;} = <span class="number">248</span>,
 
 		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call} = <span class="number">250</span>,
 		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">251</span>,
@@ -3842,6 +3895,7 @@
 		[runtime_common::auctions, Auctions]
 		[runtime_common::crowdloan, Crowdloan]
 		[runtime_common::claims, Claims]
+		[runtime_common::identity_migrator, IdentityMigrator]
 		[runtime_common::slots, Slots]
 		[runtime_common::paras_registrar, Registrar]
 		[runtime_parachains::configuration, Configuration]
