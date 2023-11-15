@@ -16,6 +16,13 @@
 
 //! A malicious node variant that attempts to dispute finalized candidates.
 //! 
+//! This malus variant behaves honestly in backing and approval voting.
+//! The maliciosunes comes from emitting an extra dispute statement on top of the other ones.
+//! 
+//! Some extra quirks which generally should be insignificant:
+//! - The malus node will not dispute at session boundaries
+//! - The malus node will not dispute blocks it backed itself
+//! 
 //! Attention: For usage with `zombienet` only!
 
 #![allow(missing_docs)]
@@ -49,7 +56,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 struct AncestorDisputer<Spawner> {
 	spawner: Spawner, //stores the actual ApprovalVotingSubsystem spawner
-	dispute_offset: u32, //relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized
+	dispute_offset: u32, //relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized etc
 }
 
 impl<Sender, Spawner> MessageInterceptor<Sender> for AncestorDisputer<Spawner>
@@ -68,7 +75,6 @@ where
 		match msg {
 			FromOrchestra::Communication{msg} => Some(FromOrchestra::Communication{msg}),
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(h, n)) => {
-
 				gum::info!(
 					target: MALUS,
 					"😈 Block Finalization Interception! Block: {:?}", h,
@@ -125,14 +131,6 @@ where
 							},
 
 						};
-
-						// log all events for debugging
-						for event in events.iter() {
-							gum::info!(
-								target: MALUS,
-								"😈 Event: {:?}", event
-							);
-						}
 
 						// Extract a token candidate from the events to use for disputing
 						let event = events.iter().find(|event| matches!(event, CandidateEvent::CandidateIncluded(_,_,_,_)));
@@ -192,8 +190,8 @@ where
 #[clap(rename_all = "kebab-case")]
 #[allow(missing_docs)]
 pub struct DisputeFinalizedCandidatesOptions {
-	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized
-	#[clap(long, ignore_case = true, default_value_t = 2, value_parser = clap::value_parser!(u32).range(0..=10))]
+	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized etc
+	#[clap(long, ignore_case = true, default_value_t = 2, value_parser = clap::value_parser!(u32).range(0..=50))]
 	pub dispute_offset: u32,
 
 	#[clap(flatten)]
@@ -201,7 +199,7 @@ pub struct DisputeFinalizedCandidatesOptions {
 }
 /// DisputeFinalizedCandidates implementation wrapper which implements `OverseerGen` glue.
 pub(crate) struct DisputeFinalizedCandidates {
-	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized
+	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized etc
 	pub dispute_offset: u32,
 }
 
