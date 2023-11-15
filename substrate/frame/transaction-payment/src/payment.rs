@@ -28,7 +28,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Debt, Inspect},
 		tokens::Precision,
-		Currency, ExistenceRequirement, Imbalance, OnUnbalanced, TryDrop, WithdrawReasons,
+		Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
 };

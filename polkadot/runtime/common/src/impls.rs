@@ -16,8 +16,10 @@
 
 //! Auxiliary `struct`/`enum`s for polkadot runtime.
 
-use crate::NegativeImbalance;
-use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use frame_support::traits::{
+	fungible::{Balanced, Credit},
+	Imbalance, OnUnbalanced,
+};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
 use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
@@ -25,28 +27,32 @@ use xcm::VersionedMultiLocation;
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
+impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthor<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config,
 	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
 {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+	fn on_nonzero_unbalanced(
+		amount: Credit<<R as frame_system::Config>::AccountId, pallet_balances::Pallet<R>>,
+	) {
 		if let Some(author) = <pallet_authorship::Pallet<R>>::author() {
-			<pallet_balances::Pallet<R>>::resolve_creating(&author, amount);
+			let _ = <pallet_balances::Pallet<R>>::resolve(&author, amount);
 		}
 	}
 }
 
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
+impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
 	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
-	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
+	pallet_treasury::Pallet<R>: OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>>,
 	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
 {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
+	fn on_unbalanceds<B>(
+		mut fees_then_tips: impl Iterator<Item = Credit<R::AccountId, pallet_balances::Pallet<R>>>,
+	) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 80% to treasury, 20% to author
 			let mut split = fees.ration(80, 20);
