@@ -9761,6 +9761,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-contracts-test-contracts"
+version = "1.0.0"
+dependencies = [
+ "pallet-contracts-uapi",
+]
+
+[[package]]
+name = "pallet-contracts-uapi"
+version = "4.0.0-dev"
+dependencies = [
+ "cfg-if",
+ "parity-scale-codec",
+ "paste",
+]
+
+[[package]]
 name = "pallet-conviction-voting"
 version = "4.0.0-dev"
 dependencies = [

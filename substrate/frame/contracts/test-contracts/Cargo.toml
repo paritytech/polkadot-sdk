@@ -1,0 +1,21 @@
+[package]
+name = "pallet-contracts-test-contracts"
+publish = false
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Fixtures for testing contracts pallet."
+
+[[bin]]
+name = "dummy"
+path = "src/dummy.rs"
+
+[dependencies]
+uapi = { package = "pallet-contracts-uapi",  path = "../uapi", default-features = false}
+
+[features]
+std = [ "uapi/std" ]
+ink-debug = [ "uapi/ink-debug" ]
+
+
