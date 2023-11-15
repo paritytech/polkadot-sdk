@@ -168,6 +168,7 @@ where
 
 			println!("🤵🤵🤵🤵🤵🤵🤵 In Aura about to call check block status");
 			println!("🤵🤵🤵🤵🤵🤵🤵 Last header is {:?}", parent_header);
+			println!("🤵🤵🤵🤵🤵🤵🤵 Last header Encoded is {:?}", parent_header.encode());
 			println!("🤵🤵🤵🤵🤵🤵🤵 and its hash is {:?}", parent_header.hash());
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
 				println!("🤵🤵🤵🤵🤵🤵🤵 In Aura continuing.");

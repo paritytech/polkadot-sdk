@@ -119,7 +119,7 @@ impl<Block: BlockT, B: Backend<Block>, E: RuntimeVersionOf> GenesisBlockBuilder<
 			_phantom: PhantomData::<Block>,
 		})
 	}
-}
+} 
 
 impl<Block: BlockT, B: Backend<Block>, E: RuntimeVersionOf> BuildGenesisBlock<Block>
 	for GenesisBlockBuilder<Block, B, E>

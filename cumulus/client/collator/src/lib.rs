@@ -213,6 +213,9 @@ pub mod relay_chain_driven {
 				// unbounded. The channel is actually bounded by the block production
 				// and consensus systems of Polkadot, which limits the amount of possible
 				// blocks.
+				println!("🤵🤵🤵🤵🤵🤵🤵 We're executing this 'collator' boxed function");
+				println!("🤵🤵🤵🤵🤵🤵🤵 Relay parent is: {:#?}", relay_parent);
+				println!("🤵🤵🤵🤵🤵🤵🤵 Validation data is: {:#?}", validation_data);
 				let mut stream_tx = stream_tx.clone();
 				let validation_data = validation_data.clone();
 				Box::pin(async move {
