@@ -7082,6 +7082,53 @@ mod stake_tracker {
 	}
 
 	#[test]
+	fn bond_and_unbond_work() {
+		// Test case: unbond on validator and nominator affects the target list score
+		// accordingly and rebagging may happen.
+		// Call paths covered:
+		// * Call::validate()
+		// * Call::nominate()
+		// * Call::bond()
+		// * Call::unbond()
+		ExtBuilder::default().build_and_execute(|| {
+			// bond and nominate with stash 61.
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(61), 500, Default::default()));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![31]));
+			assert_ok!(stake_tracker_sanity_tests());
+
+			let score_31 = <TargetBagsList as ScoreProvider<A>>::score(&31);
+			let self_stake_31 = Staking::ledger(Stash(31)).unwrap().active;
+			let self_stake_61 = Staking::ledger(Stash(61)).unwrap().active;
+
+			// new score of 31 is the self stake + 61 stake from nomination.
+			assert_eq!(score_31, self_stake_31 + self_stake_61);
+
+			// 61 nominating 31 reflected as a target list score update and rebag.
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 31, from: 500, to: 1000 },
+					BagsEvent::ScoreUpdated { who: 31, new_score: score_31 }
+				]
+			);
+			System::reset_events();
+
+			// now we unbond a portion of the stake of 61.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(61), 250));
+			assert_ok!(stake_tracker_sanity_tests());
+
+			// score of 61 was updated after unbonding.
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&31), score_31 - 250);
+
+			// nominator unbonding was not enough to rebag 31 but score was updated, as expected.
+			assert_eq!(
+				target_bags_events(),
+				[BagsEvent::ScoreUpdated { who: 31, new_score: score_31 - 250 }]
+			);
+		})
+	}
+
+	#[test]
 	fn bond_extra_works() {
 		// Test case: bonding extra on validator and nominator affects the target list score
 		// accordingly and rebagging may happen.
