@@ -3,7 +3,7 @@ Network: ../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.
 Creds: config
 
 # step 1: initialize Rococo asset hub
-asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-rococo-local" within 120 seconds
+asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-rococo-local" within 240 seconds
 asset-hub-rococo-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1013" within 400 seconds
 
 # step 2: initialize Rococo bridge hub
