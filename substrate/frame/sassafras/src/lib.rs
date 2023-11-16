@@ -553,8 +553,7 @@ impl<T: Config> Pallet<T> {
 	/// Slot index relative to the current epoch.
 	fn slot_index(slot: Slot) -> u32 {
 		slot.checked_sub(*Self::current_epoch_start())
-			.map(|v| v.try_into().ok())
-			.flatten()
+			.and_then(|v| v.try_into().ok())
 			.unwrap_or(u32::MAX)
 	}
 
