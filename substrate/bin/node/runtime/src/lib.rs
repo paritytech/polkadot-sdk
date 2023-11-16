@@ -2194,7 +2194,8 @@ pub type Executive = frame_executive::Executive<
 >;
 
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
-// `OnRuntimeUpgrade`.
+// `OnRuntimeUpgrade`. Note: These are examples and do not need to be run directly 
+// after the genesis block.
 type Migrations = (
 	pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 	pallet_alliance::migration::Migration<Runtime>,
