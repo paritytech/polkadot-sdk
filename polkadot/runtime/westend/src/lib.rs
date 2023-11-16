@@ -31,7 +31,7 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, EitherOf, EitherOfDiverse, Everything,
+		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, WithdrawReasons,
 	},
@@ -46,17 +46,17 @@ use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
-	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
 	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
-	impl_runtime_weights,
+	identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
@@ -119,6 +119,10 @@ mod bag_thresholds;
 mod weights;
 pub mod xcm_config;
 
+// Implemented types.
+mod impls;
+use impls::ToParachainIdentityReaper;
+
 // Governance and configurations.
 pub mod governance;
 use governance::{
@@ -161,13 +165,24 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+pub struct IsIdentityCall;
+impl Contains<RuntimeCall> for IsIdentityCall {
+	fn contains(c: &RuntimeCall) -> bool {
+		matches!(c, RuntimeCall::Identity(_))
+	}
+}
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = Everything;
+	type BaseCallFilter = EverythingBut<IsIdentityCall>;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -411,17 +426,6 @@ parameter_types! {
 }
 
 impl_opaque_keys! {
-	pub struct OldSessionKeys {
-		pub grandpa: Grandpa,
-		pub babe: Babe,
-		pub im_online: ImOnline,
-		pub para_validator: Initializer,
-		pub para_assignment: ParaSessionInfo,
-		pub authority_discovery: AuthorityDiscovery,
-	}
-}
-
-impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub grandpa: Grandpa,
 		pub babe: Babe,
@@ -430,32 +434,6 @@ impl_opaque_keys! {
 		pub para_assignment: ParaSessionInfo,
 		pub authority_discovery: AuthorityDiscovery,
 		pub beefy: Beefy,
-	}
-}
-
-// remove this when removing `OldSessionKeys`
-fn transform_session_keys(v: AccountId, old: OldSessionKeys) -> SessionKeys {
-	SessionKeys {
-		grandpa: old.grandpa,
-		babe: old.babe,
-		im_online: old.im_online,
-		para_validator: old.para_validator,
-		para_assignment: old.para_assignment,
-		authority_discovery: old.authority_discovery,
-		beefy: {
-			// From Session::upgrade_keys():
-			//
-			// Care should be taken that the raw versions of the
-			// added keys are unique for every `ValidatorId, KeyTypeId` combination.
-			// This is an invariant that the session pallet typically maintains internally.
-			//
-			// So, produce a dummy value that's unique for the `ValidatorId, KeyTypeId` combination.
-			let mut id: BeefyId = sp_application_crypto::ecdsa::Public::from_raw([0u8; 33]).into();
-			let id_raw: &mut [u8] = id.as_mut();
-			id_raw[1..33].copy_from_slice(v.as_ref());
-			id_raw[0..4].copy_from_slice(b"beef");
-			id
-		},
 	}
 }
 
@@ -1328,6 +1306,14 @@ impl auctions::Config for Runtime {
 	type WeightInfo = weights::runtime_common_auctions::WeightInfo<Runtime>;
 }
 
+impl identity_migrator::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
+	type Reaper = EnsureRoot<AccountId>;
+	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime, Self::AccountId>;
+	type WeightInfo = weights::runtime_common_identity_migrator::WeightInfo<Runtime>;
+}
+
 parameter_types! {
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
@@ -1491,6 +1477,9 @@ construct_runtime! {
 
 		// Root testing pallet.
 		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 102,
+
+		// Pallet for migrating Identity to a parachain. To be removed post-migration.
+		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
 	}
 }
 
@@ -1534,16 +1523,6 @@ pub type Migrations = migrations::Unreleased;
 pub mod migrations {
 	use super::*;
 
-	/// Upgrade Session keys to include BEEFY key.
-	/// When this is removed, should also remove `OldSessionKeys`.
-	pub struct UpgradeSessionKeys;
-	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
-		fn on_runtime_upgrade() -> Weight {
-			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
-			Perbill::from_percent(50) * BlockWeights::get().max_block
-		}
-	}
-
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		pallet_im_online::migration::v1::Migration<Runtime>,
@@ -1552,13 +1531,13 @@ pub mod migrations {
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
-		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 	);
 }
 
@@ -1586,6 +1565,7 @@ mod benches {
 		[runtime_common::assigned_slots, AssignedSlots]
 		[runtime_common::auctions, Auctions]
 		[runtime_common::crowdloan, Crowdloan]
+		[runtime_common::identity_migrator, IdentityMigrator]
 		[runtime_common::paras_registrar, Registrar]
 		[runtime_common::slots, Slots]
 		[runtime_parachains::configuration, Configuration]
@@ -1699,7 +1679,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(8)]
+	#[api_version(9)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1845,6 +1825,10 @@ sp_api::impl_runtime_apis! {
 
 		fn disabled_validators() -> Vec<ValidatorIndex> {
 			parachains_staging_runtime_api_impl::disabled_validators::<Runtime>()
+		}
+
+		fn node_features() -> NodeFeatures {
+			parachains_staging_runtime_api_impl::node_features::<Runtime>()
 		}
 	}
 

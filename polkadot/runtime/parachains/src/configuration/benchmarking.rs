@@ -49,6 +49,8 @@ benchmarks! {
 
 	set_config_with_perbill {}: set_on_demand_fee_variability(RawOrigin::Root, Perbill::from_percent(100))
 
+	set_node_feature{}: set_node_feature(RawOrigin::Root, 255, true)
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),
