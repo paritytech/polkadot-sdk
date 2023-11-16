@@ -362,14 +362,14 @@ pub mod pallet {
 			if current_slot_idx >= epoch_length / 2 {
 				let mut metadata = TicketsMeta::<T>::get();
 				if metadata.unsorted_tickets_count != 0 {
-					let epoch_idx = EpochIndex::<T>::get() + 1;
-					let epoch_tag = (epoch_idx & 1) as u8;
+					let next_epoch_idx = EpochIndex::<T>::get() + 1;
+					let next_epoch_tag = (next_epoch_idx & 1) as u8;
 					let slots_left = epoch_length.checked_sub(current_slot_idx).unwrap_or(1);
 					Self::sort_segments(
 						metadata
 							.unsorted_tickets_count
 							.div_ceil(SEGMENT_MAX_SIZE * slots_left as u32),
-						epoch_tag,
+						next_epoch_tag,
 						&mut metadata,
 					);
 					TicketsMeta::<T>::set(metadata);
@@ -633,16 +633,17 @@ impl<T: Config> Pallet<T> {
 			);
 		}
 
-		let mut tickets_metadata = TicketsMeta::<T>::get();
+		let mut metadata = TicketsMeta::<T>::get();
+		let mut metadata_dirty = false;
 
 		EpochIndex::<T>::put(epoch_idx);
 
-		let next_epoch_index = epoch_idx
+		let next_epoch_idx = epoch_idx
 			.checked_add(1)
 			.expect("epoch indices will never reach 2^64 before the death of the universe; qed");
 
 		// Updates current epoch randomness and computes the *next* epoch randomness.
-		let next_randomness = Self::update_epoch_randomness(next_epoch_index);
+		let next_randomness = Self::update_epoch_randomness(next_epoch_idx);
 
 		if let Some(config) = NextEpochConfig::<T>::take() {
 			EpochConfig::<T>::put(config);
@@ -663,23 +664,29 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_next_epoch_descriptor_digest(next_epoch);
 
 		let epoch_tag = (epoch_idx & 1) as u8;
+
 		// Optionally finish sorting
-		if tickets_metadata.unsorted_tickets_count != 0 {
-			Self::sort_segments(u32::MAX, epoch_tag, &mut tickets_metadata);
+		if metadata.unsorted_tickets_count != 0 {
+			Self::sort_segments(u32::MAX, epoch_tag, &mut metadata);
+			metadata_dirty = true;
 		}
 
 		// Clear the "prev ≡ next (mod 2)" epoch tickets counter and bodies.
 		// Ids are left since are just cyclically overwritten on-the-go.
-		let next_epoch_tag = epoch_tag ^ 1;
-		let prev_epoch_tickets_count = &mut tickets_metadata.tickets_count[next_epoch_tag as usize];
+		let prev_epoch_tag = epoch_tag ^ 1;
+		let prev_epoch_tickets_count = &mut metadata.tickets_count[prev_epoch_tag as usize];
 		if *prev_epoch_tickets_count != 0 {
 			for idx in 0..*prev_epoch_tickets_count {
-				if let Some(id) = TicketsIds::<T>::get((next_epoch_tag, idx)) {
-					TicketsData::<T>::remove(id);
+				if let Some(ticket_id) = TicketsIds::<T>::get((prev_epoch_tag, idx)) {
+					TicketsData::<T>::remove(ticket_id);
 				}
 			}
 			*prev_epoch_tickets_count = 0;
-			TicketsMeta::<T>::set(tickets_metadata);
+			metadata_dirty = true;
+		}
+
+		if metadata_dirty {
+			TicketsMeta::<T>::set(metadata);
 		}
 	}
 
@@ -801,7 +808,7 @@ impl<T: Config> Pallet<T> {
 		let epoch_idx = EpochIndex::<T>::get();
 		let epoch_len = T::EpochLength::get();
 		let mut slot_idx = Self::slot_index(slot);
-		let mut tickets_meta = TicketsMeta::<T>::get();
+		let mut metadata = TicketsMeta::<T>::get();
 
 		let get_ticket_idx = |slot_idx| {
 			let ticket_idx = if slot_idx < epoch_len / 2 {
@@ -825,16 +832,16 @@ impl<T: Config> Pallet<T> {
 			// we may have to finish sorting the tickets.
 			epoch_tag ^= 1;
 			slot_idx -= epoch_len;
-			if tickets_meta.unsorted_tickets_count != 0 {
-				Self::sort_segments(u32::MAX, epoch_tag, &mut tickets_meta);
-				TicketsMeta::<T>::set(tickets_meta);
+			if metadata.unsorted_tickets_count != 0 {
+				Self::sort_segments(u32::MAX, epoch_tag, &mut metadata);
+				TicketsMeta::<T>::set(metadata);
 			}
 		} else if slot_idx >= 2 * epoch_len {
 			return None
 		}
 
 		let ticket_idx = get_ticket_idx(slot_idx);
-		if ticket_idx < tickets_meta.tickets_count[epoch_tag as usize] {
+		if ticket_idx < metadata.tickets_count[epoch_tag as usize] {
 			TicketsIds::<T>::get((epoch_tag, ticket_idx))
 		} else {
 			None
@@ -857,7 +864,7 @@ impl<T: Config> Pallet<T> {
 		candidates[max_tickets - 1]
 	}
 
-	/// Lexicographically sort the tickets which belong to the next epoch.
+	/// Lexicographically sort the tickets which belong to the epoch with the specified `epoch_tag`.
 	///
 	/// At most `max_segments` are taken from the `UnsortedSegments` structure.
 	///
@@ -962,11 +969,11 @@ impl<T: Config> Pallet<T> {
 	/// but is a very extraordinary operation (hopefully never happens in production)
 	/// and better safe than sorry.
 	fn reset_tickets_data() {
-		let tickets_metadata = TicketsMeta::<T>::get();
+		let metadata = TicketsMeta::<T>::get();
 
 		// Remove even/odd-epoch data.
 		for epoch_tag in 0..=1 {
-			for idx in 0..tickets_metadata.tickets_count[epoch_tag] {
+			for idx in 0..metadata.tickets_count[epoch_tag] {
 				if let Some(id) = TicketsIds::<T>::get((epoch_tag as u8, idx)) {
 					TicketsData::<T>::remove(id);
 				}
@@ -974,7 +981,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Remove all unsorted tickets segments.
-		let segments_count = tickets_metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
+		let segments_count = metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
 		(0..segments_count).for_each(UnsortedSegments::<T>::remove);
 
 		// Reset sorted candidates
