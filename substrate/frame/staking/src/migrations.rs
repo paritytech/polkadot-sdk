@@ -20,6 +20,7 @@
 use super::*;
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
+	migrations::VersionedMigration,
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade},
@@ -63,56 +64,36 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v15 {
 	use super::*;
 
-	pub struct MigrateToV15<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV15<T> {
+	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
-			let on_chain = Pallet::<T>::on_chain_storage_version();
+			let migrated = v14::OffendingValidators::<T>::get()
+				.into_iter()
+				.map(|p| p.0)
+				.collect::<Vec<_>>();
+			DisabledValidators::<T>::set(migrated);
 
-			if current == 15 && on_chain == 14 {
-				current.put::<Pallet<T>>();
-
-				let migrated = v14::V14OffendingValidators::<T>::get()
-					.into_iter()
-					.map(|p| p.0)
-					.collect::<Vec<_>>();
-				OffendingValidators::<T>::set(migrated);
-
-				log!(info, "v15 applied successfully.");
-				T::DbWeight::get().reads_writes(1, 1)
-			} else {
-				log!(warn, "v15 not applied.");
-				T::DbWeight::get().reads(1)
-			}
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			frame_support::ensure!(
-				Pallet::<T>::on_chain_storage_version() == 14,
-				"Required v14 before upgrading to v15."
-			);
-
-			Ok(Default::default())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			frame_support::ensure!(
-				Pallet::<T>::on_chain_storage_version() == 15,
-				"v15 not applied"
-			);
-			Ok(())
+			log!(info, "v15 applied successfully.");
+			T::DbWeight::get().reads_writes(1, 1)
 		}
 	}
+
+	pub type MigrateV14ToV15<T> = VersionedMigration<
+		14,
+		15,
+		VersionUncheckedMigrateV14ToV15<T>,
+		crate::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }
+
 /// Migration of era exposure storage items to paged exposures.
 /// Changelog: [v14.](https://github.com/paritytech/substrate/blob/ankan/paged-rewards-rebased2/frame/staking/CHANGELOG.md#14)
 pub mod v14 {
 	use super::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type V14OffendingValidators<T: Config> =
+	pub(crate) type OffendingValidators<T: Config> =
 		StorageValue<Pallet<T>, Vec<(u32, bool)>, ValueQuery>;
 
 	pub struct MigrateToV14<T>(sp_std::marker::PhantomData<T>);

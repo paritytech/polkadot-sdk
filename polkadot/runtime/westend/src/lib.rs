@@ -1547,7 +1547,7 @@ pub mod migrations {
 		pallet_im_online::migration::v1::Migration<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
-		pallet_staking::migrations::v15::MigrateToV15<Runtime>,
+		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
