@@ -61,7 +61,11 @@ mod v1 {
 
 				max_deposits.iter().for_each(|(leaser, deposit)| {
 					weight.saturating_accrue(T::DbWeight::get().writes(1));
-					ReservedAmounts::<T>::insert(para, leaser, deposit);
+					// for existing leasers, set it to 4 since we don't really know how many
+					// past leases they had. This is generally 8 if a para applies for a full
+					// slot, but we initialise it to half of that.
+					let init_lease_period_count: LeasePeriodOf<T> = 4u32.into();
+					LeaseInfo::<T>::insert(para, leaser, (deposit, init_lease_period_count));
 				})
 			}
 
@@ -125,7 +129,7 @@ pub mod slots_crowdloan_index_migration {
 						"para_id={:?}, old_fund_account={:?}, fund_id={:?}, leases={:?}",
 						para_id, old_fund_account, crowdloan.fund_index, leases,
 					);
-					break
+					break;
 				}
 			}
 		}

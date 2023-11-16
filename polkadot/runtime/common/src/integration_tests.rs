@@ -250,6 +250,7 @@ impl auctions::Config for Test {
 parameter_types! {
 	pub const LeasePeriod: BlockNumber = 100;
 	pub const EarliestRefundPeriod: BlockNumber = 10;
+	pub const MinLeasePeriodForEarlyRefund: BlockNumber = 2;
 	pub static LeaseOffset: BlockNumber = 5;
 }
 
@@ -258,6 +259,7 @@ impl slots::Config for Test {
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
+	type MinLeasePeriodForEarlyRefund = MinLeasePeriodForEarlyRefund;
 	type EarliestRefundPeriod = EarliestRefundPeriod;
 	type LeaseOffset = LeaseOffset;
 	type ForceOrigin = EnsureRoot<AccountId>;

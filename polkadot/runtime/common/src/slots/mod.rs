@@ -34,6 +34,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
+use sp_api::codec;
 use sp_runtime::traits::{CheckedAdd, CheckedConversion, CheckedSub, Saturating, Zero};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -50,6 +51,7 @@ pub trait WeightInfo {
 }
 
 pub struct TestWeightInfo;
+
 impl WeightInfo for TestWeightInfo {
 	fn force_lease() -> Weight {
 		Weight::zero()
@@ -73,6 +75,7 @@ pub mod pallet {
 	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	#[pallet::without_storage_info]
@@ -96,6 +99,15 @@ pub mod pallet {
 		/// The number of blocks in past upto which early refund is allowed.
 		#[pallet::constant]
 		type EarliestRefundPeriod: Get<BlockNumberFor<Self>>;
+
+		/// Minimum count of leases to enable early refund.
+		///
+		/// If a para has leased out `lease_periods` higher than this number, they can apply for an
+		/// early refund of their slot deposit during their last lease period.
+		///
+		/// Note: Setting it to zero would disable early refund.
+		#[pallet::constant]
+		type MinLeasePeriodForEarlyRefund: Get<BlockNumberFor<Self>>;
 
 		/// The number of blocks to offset each lease period by.
 		#[pallet::constant]
@@ -134,8 +146,22 @@ pub mod pallet {
 	pub type ReservedAmounts<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, ParaId, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
+	/// Information about the current leased slot by the leaser.
+	///
+	/// Keyed by para_id and leaser, value is a tuple of current_reserved_amount and
+	/// lease_period_count for the latest applied lease.
+	#[pallet::storage]
+	pub type LeaseInfo<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		ParaId,
+		Twox64Concat,
+		T::AccountId,
+		(BalanceOf<T>, LeasePeriodOf<T>),
+	>;
+
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new `[lease_period]` is beginning.
 		NewLeasePeriod { lease_period: LeasePeriodOf<T> },
@@ -171,7 +197,7 @@ pub mod pallet {
 			if let Some((lease_period, first_block)) = Self::lease_period_index(n) {
 				// If we're beginning a new lease period then handle that.
 				if first_block {
-					return Self::manage_lease_period_start(lease_period)
+					return Self::manage_lease_period_start(lease_period);
 				}
 			}
 
@@ -281,7 +307,7 @@ pub mod pallet {
 			} else {
 				// This should never happen.
 				defensive!("lease period should never be empty");
-				return Err(Error::<T>::LeaseError.into())
+				return Err(Error::<T>::LeaseError.into());
 			}
 
 			Ok(())
@@ -303,7 +329,7 @@ impl<T: Config> Pallet<T> {
 		let mut parachains = Vec::new();
 		for (para, mut lease_periods) in Leases::<T>::iter() {
 			if lease_periods.is_empty() {
-				continue
+				continue;
 			}
 			// ^^ should never be empty since we would have deleted the entry otherwise.
 
@@ -384,7 +410,9 @@ impl<T: Config> Pallet<T> {
 	// Useful when trying to clean up a parachain leases, as this would tell
 	// you all the balances you need to unreserve.
 	fn all_deposits_held(para: ParaId) -> Vec<(T::AccountId, BalanceOf<T>)> {
-		ReservedAmounts::<T>::iter_prefix(para).collect::<Vec<_>>()
+		LeaseInfo::<T>::iter_prefix(para)
+			.map(|(leaser, lease_info)| (leaser, lease_info.0))
+			.collect::<Vec<_>>()
 	}
 
 	/// Returns how much deposit should be taken from the leaser for the current lease period of the
@@ -419,7 +447,7 @@ impl<T: Config> Pallet<T> {
 			return current_lease
 				.checked_add(&sp_runtime::traits::One::one())
 				.map(|next_lease| soon_lease == next_lease)
-				.unwrap_or(false)
+				.unwrap_or(false);
 		}
 
 		false
@@ -427,13 +455,19 @@ impl<T: Config> Pallet<T> {
 
 	/// Reserve the amount for the parachain, updating the current reserved amount for this leaser
 	/// and parachain.
-	fn reserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+	fn reserve(
+		para: ParaId,
+		leaser: &T::AccountId,
+		amount: BalanceOf<T>,
+		lease_period_count: LeasePeriodOf<T>,
+	) -> DispatchResult {
 		T::Currency::reserve(&leaser, amount).map(|_| {
-			ReservedAmounts::<T>::mutate(para, leaser, |maybe_current| {
-				if let Some(current) = maybe_current {
-					*current = amount.saturating_add(*current)
+			// update the current reserved amount if reserve succeeds.
+			LeaseInfo::<T>::mutate(para, leaser, |maybe_info| {
+				if let Some(info) = maybe_info {
+					*info = (amount.saturating_add(info.0), lease_period_count)
 				} else {
-					*maybe_current = Some(amount)
+					*maybe_info = Some((amount, lease_period_count))
 				}
 			});
 			()
@@ -445,20 +479,19 @@ impl<T: Config> Pallet<T> {
 	fn unreserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) {
 		if amount == Zero::zero() {
 			// nothing to unreserve
-			return
+			return;
 		}
 
 		let err_balance = T::Currency::unreserve(&leaser, amount);
 		defensive_assert!(err_balance.is_zero());
 
 		let unreserved_balance = amount.saturating_sub(err_balance);
-		ReservedAmounts::<T>::mutate(para, &leaser, |maybe_current| {
-			if let Some(current) = maybe_current {
-				*current = current.checked_sub(&unreserved_balance).defensive_unwrap_or_default();
-				// remove the entry if it is zero.
-				if current.is_zero() {
-					*maybe_current = None
-				}
+		LeaseInfo::<T>::mutate(para, &leaser, |maybe_lease_info| {
+			if let Some(lease_info) = maybe_lease_info {
+				*lease_info = (
+					lease_info.0.checked_sub(&unreserved_balance).defensive_unwrap_or_default(),
+					lease_info.1,
+				);
 			} else {
 				defensive!("unreserve called for non-existent reserve");
 			}
@@ -468,7 +501,7 @@ impl<T: Config> Pallet<T> {
 	fn clear_lease_storage(para: ParaId) {
 		Leases::<T>::remove(para);
 		// Since we don't expect too many child keys here, should be fine to do this.
-		let result = ReservedAmounts::<T>::clear_prefix(para, u32::MAX, None);
+		let result = LeaseInfo::<T>::clear_prefix(para, u32::MAX, None);
 		defensive_assert!(result.maybe_cursor.is_none());
 	}
 }
@@ -477,18 +510,18 @@ impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
 		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)));
 		// copy keys from one.
-		let one_map: BTreeMap<T::AccountId, BalanceOf<T>> =
-			ReservedAmounts::<T>::drain_prefix(one).collect();
+		let map_one: BTreeMap<T::AccountId, (BalanceOf<T>, LeasePeriodOf<T>)> =
+			LeaseInfo::<T>::drain_prefix(one).collect();
 
 		// move keys from other to one.
-		ReservedAmounts::<T>::iter_prefix(other).for_each(|(leaser, reserved_other)| {
-			ReservedAmounts::<T>::insert(one, &leaser, reserved_other);
+		LeaseInfo::<T>::iter_prefix(other).for_each(|(leaser, lease_other)| {
+			LeaseInfo::<T>::insert(one, &leaser, lease_other);
 		});
 
 		// move keys from one to other.
-		one_map.into_iter().for_each(|(leaser, reserved_one)| {
+		map_one.into_iter().for_each(|(leaser, lease_one)| {
 			// move keys from one to other.
-			ReservedAmounts::<T>::insert(other, &leaser, reserved_one);
+			LeaseInfo::<T>::insert(other, &leaser, lease_one);
 		});
 	}
 }
@@ -541,7 +574,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 						// attempt.
 						//
 						// We bail, not giving any lease and leave it for governance to sort out.
-						return Err(LeaseError::AlreadyLeased)
+						return Err(LeaseError::AlreadyLeased);
 					}
 				} else if d.len() == i {
 					// Doesn't exist. This is usual.
@@ -556,7 +589,8 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 			// `para_id`.  If so, then we can deduct those from the amount that we need to reserve.
 			let maybe_additional = amount.checked_sub(&Self::deposit_held(para, &leaser));
 			if let Some(ref additional) = maybe_additional {
-				Self::reserve(para, &leaser, *additional).map_err(|_| LeaseError::ReserveFailed)?;
+				Self::reserve(para, &leaser, *additional, period_count)
+					.map_err(|_| LeaseError::ReserveFailed)?;
 			}
 
 			let reserved = maybe_additional.unwrap_or_default();
@@ -587,7 +621,9 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		para: ParaId,
 		leaser: &Self::AccountId,
 	) -> <Self::Currency as Currency<Self::AccountId>>::Balance {
-		ReservedAmounts::<T>::get(para, leaser).unwrap_or(Zero::zero())
+		LeaseInfo::<T>::get(para, leaser)
+			.map(|lease_info| lease_info.0)
+			.unwrap_or(Zero::zero())
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
@@ -636,7 +672,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		for slot in offset..=offset + period_count {
 			if let Some(Some(_)) = leases.get(slot) {
 				// If there exists any lease period, we exit early and return true.
-				return true
+				return true;
 			}
 		}
 
@@ -726,6 +762,7 @@ mod tests {
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 10;
 		pub const EarliestRefundPeriod: BlockNumber = 2;
+		pub const MinLeasePeriodForEarlyRefund: BlockNumber = 2;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
 	}
@@ -735,6 +772,7 @@ mod tests {
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
+		type MinLeasePeriodForEarlyRefund = MinLeasePeriodForEarlyRefund;
 		type EarliestRefundPeriod = EarliestRefundPeriod;
 		type LeaseOffset = LeaseOffset;
 		type ForceOrigin = EnsureRoot<Self::AccountId>;
@@ -795,21 +833,21 @@ mod tests {
 			assert_ok!(Slots::lease_out(1.into(), &1, 1, 1, 1));
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
-			assert_eq!(ReservedAmounts::<Test>::get(ParaId::from(1), 1).unwrap(), 1);
+			assert_eq!(LeaseInfo::<Test>::get(ParaId::from(1), 1).unwrap(), (1, 1));
 
 			run_to_block(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
-			assert_eq!(ReservedAmounts::<Test>::get(ParaId::from(1), 1).unwrap(), 1);
+			assert_eq!(LeaseInfo::<Test>::get(ParaId::from(1), 1).unwrap(), (1, 1));
 
 			run_to_block(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
-			assert_eq!(ReservedAmounts::<Test>::get(ParaId::from(1), 1), None);
+			assert_eq!(LeaseInfo::<Test>::get(ParaId::from(1), 1), None);
 
 			assert_eq!(
 				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 20, false),]
+				vec![(1.into(), 10, true), (1.into(), 20, false)]
 			);
 		});
 	}
@@ -902,7 +940,7 @@ mod tests {
 
 			assert_eq!(
 				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 30, false),]
+				vec![(1.into(), 10, true), (1.into(), 30, false)]
 			);
 		});
 	}
@@ -937,7 +975,7 @@ mod tests {
 
 			assert_eq!(
 				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 30, false),]
+				vec![(1.into(), 10, true), (1.into(), 30, false)]
 			);
 		});
 	}
@@ -980,7 +1018,7 @@ mod tests {
 
 			assert_eq!(
 				TestRegistrar::<Test>::operations(),
-				vec![(1.into(), 10, true), (1.into(), 30, false),]
+				vec![(1.into(), 10, true), (1.into(), 30, false)]
 			);
 		});
 	}
@@ -1049,7 +1087,7 @@ mod tests {
 			// Lease in the future doesn't
 			assert_ok!(Slots::lease_out(2.into(), &1, 1, 3, 1));
 
-			assert_eq!(TestRegistrar::<Test>::operations(), vec![(1.into(), 20, true),]);
+			assert_eq!(TestRegistrar::<Test>::operations(), vec![(1.into(), 20, true)]);
 		});
 	}
 
@@ -1101,7 +1139,7 @@ mod tests {
 			// Trying Para 2 again should fail cause they are not currently an on-demand parachain
 			assert!(Slots::trigger_onboard(RuntimeOrigin::signed(1), 2.into()).is_err());
 
-			assert_eq!(TestRegistrar::<Test>::operations(), vec![(2.into(), 1, true),]);
+			assert_eq!(TestRegistrar::<Test>::operations(), vec![(2.into(), 1, true)]);
 		});
 	}
 
@@ -1213,7 +1251,7 @@ mod tests {
 					(1.into(), 10, true),
 					(1.into(), 20, false),
 					(1.into(), 30, true),
-					(1.into(), 40, false)
+					(1.into(), 40, false),
 				]
 			);
 		});

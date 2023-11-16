@@ -748,6 +748,7 @@ mod tests {
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 3;
 		pub const EarliestRefundPeriod: BlockNumber = 1;
+		pub const MinLeasePeriodForEarlyRefund: BlockNumber = 2;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
 	}
@@ -757,6 +758,7 @@ mod tests {
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
+		type MinLeasePeriodForEarlyRefund = MinLeasePeriodForEarlyRefund;
 		type EarliestRefundPeriod = EarliestRefundPeriod;
 		type LeaseOffset = LeaseOffset;
 		type ForceOrigin = EnsureRoot<Self::AccountId>;
