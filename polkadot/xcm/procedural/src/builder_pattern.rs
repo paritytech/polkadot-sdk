@@ -155,22 +155,19 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 				Some(builder) => builder.clone(),
 				None => return Ok(None), // It's not going to be an instruction that loads the holding register
 			};
-			match builder_attr.meta {
-				Meta::List(ref list) => {
-					let inner_ident: Ident = syn::parse2(list.tokens.clone().into()).unwrap(); // TODO: Remove
-					let ident_to_match: Ident = syn::parse_quote!(loads_holding);
-					if inner_ident == ident_to_match {
-						Ok(Some(variant))
-					} else {
-						Err(Error::new_spanned(&builder_attr, "Expected another thing"))
-					}
-				},
-				_ => Err(Error::new_spanned(&builder_attr, "Expected another thing")),
+			let Meta::List(ref list) = builder_attr.meta else { unreachable!("We checked before") };
+			let inner_ident: Ident = syn::parse2(list.tokens.clone().into())
+				.map_err(|_| Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)`"))?;
+			let ident_to_match: Ident = syn::parse_quote!(loads_holding);
+			if inner_ident == ident_to_match {
+				Ok(Some(variant))
+			} else {
+				Err(Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)`"))
 			}
 		})
 		.collect::<Result<Vec<_>>>()?;
 
-	let load_holding_methods = load_holding_variants.into_iter().filter_map(|variant| variant)
+	let load_holding_methods = load_holding_variants.into_iter().flatten()
 		.map(|variant| {
 			let variant_name = &variant.ident;
 			let method_name_string = &variant_name.to_string().to_snake_case();
@@ -212,7 +209,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 						}
 					}
 				},
-				_ => return Err(Error::new_spanned(&variant, "Instructions that load the holding register take operands"))
+				_ => return Err(Error::new_spanned(&variant, "Instructions that load the holding register should take operands"))
 			};
 			Ok(method)
 		})
@@ -248,7 +245,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 						}
 					}
 				},
-				_ => return Err(Error::new_spanned(&variant, "BuyExecution takes named fields")),
+				_ => return Err(Error::new_spanned(&variant, "BuyExecution should have named fields")),
 			};
 			Ok(fields)
 		})?;
