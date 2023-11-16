@@ -720,7 +720,11 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 
 impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 	fn clone(&self) -> Self {
-		NativeElseWasmExecutor { native_version: D::native_version(), wasm: self.wasm.clone() }
+		NativeElseWasmExecutor {
+			native_version: D::native_version(),
+			wasm: self.wasm.clone(),
+			use_native: self.use_native,
+		}
 	}
 }
 
