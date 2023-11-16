@@ -98,8 +98,14 @@ pub fn from_block_number(n: u32) -> Header {
 	Header::new(n, Default::default(), Default::default(), [69; 32].into(), Default::default())
 }
 
-pub fn executor() -> NativeElseWasmExecutor<ExecutorDispatch> {
-	NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
+pub fn executor(use_native: bool) -> NativeElseWasmExecutor<ExecutorDispatch> {
+	let mut executor =
+		NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build());
+	if !use_native {
+		executor.disable_use_native();
+	}
+
+	executor
 }
 
 pub fn executor_call(
@@ -118,7 +124,7 @@ pub fn executor_call(
 		heap_pages: heap_pages.and_then(|hp| Decode::decode(&mut &hp[..]).ok()),
 	};
 	sp_tracing::try_init_simple();
-	executor().call(&mut t, &runtime_code, method, data, use_native, CallContext::Onchain)
+	executor(use_native).call(&mut t, &runtime_code, method, data, CallContext::Onchain)
 }
 
 pub fn new_test_ext(code: &[u8]) -> TestExternalities<BlakeTwo256> {
