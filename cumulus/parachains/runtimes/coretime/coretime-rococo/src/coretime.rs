@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -43,6 +43,51 @@ where
 	}
 }
 
+/// A type containing the encoding of the Broker pallet in the Relay chain runtime. Used to
+/// construct any remote calls. The codec index must correspond to the index of `Broker` in the
+/// `construct_runtime` of the Relay chain.
+#[derive(Encode, Decode)]
+enum BrokerRuntimePallets<
+	CoreIndex: Encode,
+	BlockNumber: Encode,
+	AccountId: Encode,
+	Balance: Encode,
+	CoreAssignment: Encode,
+	PartsOf57600: Encode,
+> {
+	#[codec(index = 74)]
+	Broker(
+		CoretimeProviderCalls<
+			CoreIndex,
+			BlockNumber,
+			AccountId,
+			Balance,
+			CoreAssignment,
+			PartsOf57600,
+		>,
+	),
+}
+
+/// Call encoding for the calls needed from the Broker pallet.
+#[derive(Encode, Decode)]
+enum CoretimeProviderCalls<
+	CoreIndex: Encode,
+	BlockNumber: Encode,
+	AccountId: Encode,
+	Balance: Encode,
+	CoreAssignment: Encode,
+	PartsOf57600: Encode,
+> {
+	#[codec(index = 1)]
+	RequestCoreCount(CoreIndex),
+	#[codec(index = 2)]
+	RequestRevenueInfoAt(BlockNumber),
+	#[codec(index = 3)]
+	CreditAccount(AccountId, Balance),
+	#[codec(index = 4)]
+	AssignCore(CoreIndex, BlockNumber, Vec<(CoreAssignment, PartsOf57600)>, Option<BlockNumber>),
+}
+
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 }
@@ -66,10 +111,15 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 
 	fn request_core_count(count: CoreIndex) {
-		let request_core_count_call =
-			RuntimeCall::CoretimeProvider(
-				pallet_coretime_mock::Call::<Runtime>::request_core_count { count },
-			);
+		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
+		let request_core_count_call = BrokerRuntimePallets::<
+			CoreIndex,
+			BlockNumber,
+			AccountId,
+			Balance,
+			CoreAssignment,
+			PartsOf57600,
+		>::Broker(RequestCoreCount(count));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -97,9 +147,15 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 
 	fn request_revenue_info_at(when: Self::BlockNumber) {
-		let request_revenue_info_at_call = RuntimeCall::CoretimeProvider(
-			pallet_coretime_mock::Call::<Runtime>::request_revenue_info_at { when },
-		);
+		use crate::coretime::CoretimeProviderCalls::RequestRevenueInfoAt;
+		let request_revenue_info_at_call = BrokerRuntimePallets::<
+			CoreIndex,
+			BlockNumber,
+			AccountId,
+			Balance,
+			CoreAssignment,
+			PartsOf57600,
+		>::Broker(RequestRevenueInfoAt(when));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -127,11 +183,15 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
-		let credit_account_call =
-			RuntimeCall::CoretimeProvider(pallet_coretime_mock::Call::<Runtime>::credit_account {
-				who,
-				amount,
-			});
+		use crate::coretime::CoretimeProviderCalls::CreditAccount;
+		let credit_account_call = BrokerRuntimePallets::<
+			CoreIndex,
+			BlockNumber,
+			AccountId,
+			Balance,
+			CoreAssignment,
+			PartsOf57600,
+		>::Broker(CreditAccount(who, amount));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -164,13 +224,15 @@ impl CoretimeInterface for CoretimeAllocator {
 		assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<Self::BlockNumber>,
 	) {
-		let assign_core_call =
-			RuntimeCall::CoretimeProvider(pallet_coretime_mock::Call::<Runtime>::assign_core {
-				core,
-				begin,
-				assignment,
-				end_hint,
-			});
+		use crate::coretime::CoretimeProviderCalls::AssignCore;
+		let assign_core_call = BrokerRuntimePallets::<
+			CoreIndex,
+			BlockNumber,
+			AccountId,
+			Balance,
+			CoreAssignment,
+			PartsOf57600,
+		>::Broker(AssignCore(core, begin, assignment, end_hint));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {

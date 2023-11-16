@@ -155,6 +155,10 @@ impl Contains<RuntimeCall> for BrokerCalls {
 	}
 }
 
+// Temporary weights
+pub trait WeightInfo {}
+impl WeightInfo for () {}
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
@@ -218,7 +222,7 @@ impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
 	type BaseCallFilter = EverythingBut<BrokerCalls>;
 	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	type SystemWeightInfo = ();
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -234,7 +238,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -252,7 +256,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
+	type WeightInfo = ();
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
@@ -284,7 +288,7 @@ parameter_types! {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
-	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
+	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
@@ -308,7 +312,7 @@ parameter_types! {
 
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
+	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
 		cumulus_primitives_core::AggregateMessageOrigin,
@@ -365,7 +369,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = RootOrFellows;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
+	type WeightInfo = ();
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
@@ -374,7 +378,7 @@ parameter_types! {
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
-	type WeightInfo = weights::cumulus_pallet_dmp_queue::WeightInfo<Runtime>;
+	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type DmpSink = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 }
@@ -393,7 +397,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -431,7 +435,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
-	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -448,105 +452,15 @@ impl pallet_multisig::Config for Runtime {
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
-	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
-	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
-
-#[frame_support::pallet(dev_mode)]
-pub mod pallet_coretime_mock {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use pallet_broker::{CoreAssignment, CoreIndex, PartsOf57600};
-	use parachains_common::{AccountId, Balance, BlockNumber};
-	use sp_std::vec::Vec;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		pub fn request_core_count(_: OriginFor<T>, count: CoreIndex) -> DispatchResult {
-			log::info!(
-				target: "runtime::coretime",
-				"Updating number of schedulable cores to {:?}",
-				count
-			);
-			Ok(())
-		}
-
-		pub fn request_revenue_info_at(_: OriginFor<T>, when: BlockNumber) -> DispatchResult {
-			log::info!(
-				target: "runtime::coretime",
-				"Reporting revenue at or after block {:?}.",
-				when
-			);
-			Ok(())
-		}
-
-		pub fn credit_account(_: OriginFor<T>, who: AccountId, amount: Balance) -> DispatchResult {
-			log::info!(
-				target: "runtime::coretime",
-				"Crediting account {:?} with {:?}.",
-				who, amount
-			);
-			Ok(())
-		}
-
-		pub fn assign_core(
-			_: OriginFor<T>,
-			core: CoreIndex,
-			begin: BlockNumber,
-			assignment: Vec<(CoreAssignment, PartsOf57600)>,
-			end_hint: Option<BlockNumber>,
-		) -> DispatchResult {
-			for (assignment, parts) in assignment {
-				match assignment {
-					CoreAssignment::Task(para_id) => {
-						log::info!(
-							target: "runtime::coretime",
-							"Assigning task {:?} core {:?} from block {:?} for {:?} / 57600 of its block time.",
-							para_id, core, begin, parts
-						);
-					},
-					CoreAssignment::Idle => {
-						log::info!(
-							target: "runtime::coretime",
-							"Setting core {:?} as idle from block {:?} for {:?} / 57600 of its block time.",
-							core, begin, parts
-						);
-					},
-					CoreAssignment::Pool => {
-						log::info!(
-							target: "runtime::coretime",
-							"Setting core {:?} as pool core from block {:?} for {:?} / 57600 of its block time.",
-							core, begin, parts
-						);
-					},
-				};
-
-				if let Some(end) = end_hint {
-					log::info!(
-						target: "runtime::coretime",
-						"Expecting new instructions at block {:?}.",
-						end
-					);
-				}
-			}
-			Ok(())
-		}
-	}
-}
-
-impl pallet_coretime_mock::Config for Runtime {}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -584,9 +498,6 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
-
-		// Temporary mock for assign_core
-		CoretimeProvider: pallet_coretime_mock = 60,
 	}
 );
 
