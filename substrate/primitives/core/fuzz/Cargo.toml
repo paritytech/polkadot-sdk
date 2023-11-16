@@ -13,13 +13,6 @@ regex = "1.10.2"
 
 sp-core = { path = ".." }
 
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
-
-[profile.release]
-debug = 1
-
 [[bin]]
 name = "fuzz_address_uri"
 path = "fuzz_targets/fuzz_address_uri.rs"
