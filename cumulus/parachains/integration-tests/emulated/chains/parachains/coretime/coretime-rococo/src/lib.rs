@@ -41,10 +41,11 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: coretime_rococo_runtime::PolkadotXcm,
 			Balances: coretime_rococo_runtime::Balances,
+			CoretimeProvider: coretime_rococo_runtime::CoretimeProvider,
+			Broker: coretime_rococo_runtime::Broker,
 		}
 	},
 }
 
 // CoretimeRococo implementation
-impl_accounts_helpers_for_parachain!(CoretimeRococo);
-impl_assert_events_helpers_for_parachain!(CoretimeRococo);
+impl_assert_events_helpers_for_parachain!(CoretimeRococo, false);
