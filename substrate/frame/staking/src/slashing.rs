@@ -336,7 +336,7 @@ fn add_offending_validator<T: Config>(stash: &T::AccountId) {
 			// this is a new offending validator
 
 			// we don't want to disable too many validators otherwise we will break consensus
-			if offending.len() + 1 > disabling_threshold(validators.len()) as usize {
+			if offending.len() >= disabling_threshold(validators.len()) as usize {
 				return
 			}
 
