@@ -61,19 +61,30 @@ const DEFAULT_ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
 // Some deterministic genesis hash for req/res protocol names
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 
+#[derive(Debug, Copy, Clone)]
+enum LocalRole {
+	/// Active validator.
+	Validator,
+	/// Authority, not in active validator set.
+	InactiveValidator,
+	/// Not a validator.
+	None,
+}
+
 struct TestConfig {
+	// number of active validators.
 	validator_count: usize,
 	// how many validators to place in each group.
 	group_size: usize,
 	// whether the local node should be a validator
-	local_validator: bool,
+	local_validator: LocalRole,
 	async_backing_params: Option<AsyncBackingParams>,
 }
 
 #[derive(Debug, Clone)]
 struct TestLocalValidator {
 	validator_index: ValidatorIndex,
-	group_index: GroupIndex,
+	group_index: Option<GroupIndex>,
 }
 
 struct TestState {
@@ -99,7 +110,7 @@ impl TestState {
 		let mut assignment_keys = Vec::new();
 		let mut validator_groups = Vec::new();
 
-		let local_validator_pos = if config.local_validator {
+		let local_validator_pos = if let LocalRole::Validator = config.local_validator {
 			// ensure local validator is always in a full group.
 			Some(rng.gen_range(0..config.validator_count).saturating_sub(config.group_size - 1))
 		} else {
@@ -128,13 +139,19 @@ impl TestState {
 			}
 		}
 
-		let local = if let Some(local_pos) = local_validator_pos {
-			Some(TestLocalValidator {
+		let local = match (config.local_validator, local_validator_pos) {
+			(LocalRole::Validator, Some(local_pos)) => Some(TestLocalValidator {
 				validator_index: ValidatorIndex(local_pos as _),
-				group_index: GroupIndex((local_pos / config.group_size) as _),
-			})
-		} else {
-			None
+				group_index: Some(GroupIndex((local_pos / config.group_size) as _)),
+			}),
+			(LocalRole::InactiveValidator, None) => {
+				discovery_keys.push(AuthorityDiscoveryPair::generate().0.public());
+				Some(TestLocalValidator {
+					validator_index: ValidatorIndex(config.validator_count as u32),
+					group_index: None,
+				})
+			},
+			_ => None,
 		};
 
 		let validator_public = validator_pubkeys(&validators);
@@ -181,15 +198,23 @@ impl TestState {
 
 	fn make_dummy_topology(&self) -> NewGossipTopology {
 		let validator_count = self.config.validator_count;
+		let is_local_inactive = matches!(self.config.local_validator, LocalRole::InactiveValidator);
+
+		let mut indices: Vec<usize> = (0..validator_count).collect();
+		if is_local_inactive {
+			indices.push(validator_count);
+		}
+
 		NewGossipTopology {
 			session: 1,
 			topology: SessionGridTopology::new(
-				(0..validator_count).collect(),
-				(0..validator_count)
+				indices.clone(),
+				indices
+					.into_iter()
 					.map(|i| TopologyPeerInfo {
 						peer_ids: Vec::new(),
 						validator_index: ValidatorIndex(i as u32),
-						discovery_id: AuthorityDiscoveryPair::generate().0.public(),
+						discovery_id: self.session_info.discovery_keys[i].clone(),
 					})
 					.collect(),
 			),
@@ -276,7 +301,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	test: impl FnOnce(TestState, VirtualOverseer) -> T,
 ) {
 	let pool = sp_core::testing::TaskExecutor::new();
-	let keystore = if config.local_validator {
+	let keystore = if let LocalRole::Validator = config.local_validator {
 		test_helpers::mock::make_ferdie_keystore()
 	} else {
 		Arc::new(LocalKeystore::in_memory()) as KeystorePtr

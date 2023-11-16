@@ -19,6 +19,8 @@ jobs:
           - { name: asset-hub-westend, package: asset-hub-westend-runtime, path: cumulus/parachains/runtimes/assets/asset-hub-westend }
           - { name: bridge-hub-rococo, package: bridge-hub-rococo-runtime, path: cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo }
           - { name: contracts-rococo, package: contracts-rococo-runtime, path: cumulus/parachains/runtimes/contracts/contracts-rococo }
+          - { name: collectives-westend, package: collectives-westend-runtime, path: cumulus/parachains/runtimes/collectives/collectives-westend }
+          - { name: glutton-westend, package: glutton-westend-runtime, path: cumulus/parachains/runtimes/glutton/glutton-westend }
         build_config:
           # Release build has logging disabled and no dev features
           - { type: on-chain-release, opts: --features on-chain-release-build } 
