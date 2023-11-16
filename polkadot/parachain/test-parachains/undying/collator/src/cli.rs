@@ -18,6 +18,7 @@
 
 use clap::Parser;
 use sc_cli::SubstrateCli;
+use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, Parser)]

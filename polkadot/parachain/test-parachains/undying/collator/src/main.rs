@@ -22,6 +22,10 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
+use std::{
+	fs,
+	io::{self, Write},
+};
 use test_parachain_undying_collator::Collator;
 
 mod cli;
