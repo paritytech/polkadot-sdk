@@ -128,7 +128,6 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
-//TODO rename this command
 /// Command for exporting the genesis state of the parachain
 #[derive(Debug, clap::Parser)]
 pub struct ExportGenesisStateCommand {
@@ -153,9 +152,9 @@ impl ExportGenesisStateCommand {
 		C: HeaderBackend<B> + BlockBackend<B> + 'static,
 	{
 		let genesis_hash = client.hash(Zero::zero())?.ok_or(
-			sc_cli::Error::Client(sp_blockchain::Error::Backend("Filed to lookup genesis block hash when exporting genesis head data.".into())))?;
+			sc_cli::Error::Client(sp_blockchain::Error::Backend("Failed to lookup genesis block hash when exporting genesis head data.".into())))?;
 		let genesis_header = client.header(genesis_hash)?.ok_or(
-			sc_cli::Error::Client(sp_blockchain::Error::Backend("Filed to lookup genesis header by hash when exporting genesis head data.".into())))?;
+			sc_cli::Error::Client(sp_blockchain::Error::Backend("Failed to lookup genesis header by hash when exporting genesis head data.".into())))?;
 
 		let raw_header = genesis_header.encode();
 		let output_buf = if self.raw {
