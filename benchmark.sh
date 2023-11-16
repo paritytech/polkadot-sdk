@@ -9,9 +9,9 @@ export RUST_LOG="sassafras=debug"
 
 pallet='pallet_sassafras'
 
-bench=$1
+extrinsic=$1
 
-if [[ $bench == "" ]]; then
+if [[ $extrinsic == "" ]]; then
     list=$($binary benchmark pallet --list | grep $pallet | cut -d ',' -f 2)
 
     echo "Usage: $0 <benchmark>"
@@ -20,10 +20,13 @@ if [[ $bench == "" ]]; then
     for bench in $list; do
         echo "- $bench"
     done
+    echo "- all"
     exit
 fi
 
-extrinsic=$bench
+if [[ $extrinsic == "all" ]]; then
+    extrinsic='*'
+fi
 
 $binary benchmark pallet \
     --chain dev \

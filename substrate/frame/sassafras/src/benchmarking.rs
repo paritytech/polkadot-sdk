@@ -18,7 +18,7 @@
 //! Benchmarks for the Sassafras pallet.
 
 use crate::*;
-use sp_consensus_sassafras::{vrf::VrfSignature, EpochConfiguration};
+use sp_consensus_sassafras::{vrf::VrfSignature, EphemeralPublic, EpochConfiguration};
 use sp_std::vec;
 
 use frame_benchmarking::v2::*;
@@ -63,10 +63,13 @@ mod benchmarks {
 		};
 		frame_system::Pallet::<T>::deposit_log((&slot_claim).into());
 
+		// We currently don't account for the potential weight added by the `on_finalize`
+		// incremental sorting of the tickets.
+
 		#[block]
 		{
-			// According to `Hooks` docs, `on_finalize` Weight should be bundled together
-			// with `on_initialize`.
+			// According to `Hooks` trait docs, `on_finalize` `Weight` should be bundled
+			// together with `on_initialize` `Weight`.
 			Pallet::<T>::on_initialize(block_num);
 			Pallet::<T>::on_finalize(block_num)
 		}
@@ -74,13 +77,30 @@ mod benchmarks {
 
 	// Weight for the default internal epoch change trigger.
 	//
-	// This accounts for the worst case where we need to recompute the ring verifier.
+	// Parameters:
+	// - `x`: number of authorities (1:100).
+	// - `y`: epoch length in slots (1000:5000)
 	//
-	// The weight also slightly depends on the number of authorities in the next epoch.
+	// This accounts for the worst case which includes:
+	// - load the full ring context.
+	// - recompute the ring verifier.
+	// - sorting the epoch tickets in one shot
+	//  (here we account for the very unluky scenario where we haven't done any sort work yet)
+	// - pending epoch change config.
+	//
+	// For this bench we assume a redundancy factor of 2 (suggested value to be used in prod).
 	#[benchmark]
-	fn internal_epoch_change_trigger(x: Linear<1, 100>) {
+	fn enact_epoch_change(x: Linear<1, 100>, y: Linear<1000, 5000>) {
 		let authorities_count = x as usize;
+		let epoch_length = y as u32;
+		let redundancy_factor = 2;
 
+		let unsorted_tickets_count = epoch_length * redundancy_factor;
+
+		let mut meta = TicketsMetadata { unsorted_tickets_count, tickets_count: [0, 0] };
+		let config = EpochConfiguration { redundancy_factor, attempts_number: 32 };
+
+		// Triggers ring verifier computation for `x` authorities
 		let mut raw_data = TICKETS_DATA;
 		let (authorities, _): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
 			Decode::decode(&mut raw_data).expect("Failed to decode tickets buffer");
@@ -88,10 +108,51 @@ mod benchmarks {
 		let next_authorities = WeakBoundedVec::force_from(next_authorities, None);
 		NextAuthorities::<T>::set(next_authorities);
 
+		// Triggers JIT sorting tickets
+		(0..meta.unsorted_tickets_count)
+			.collect::<Vec<_>>()
+			.chunks(SEGMENT_MAX_SIZE as usize)
+			.enumerate()
+			.for_each(|(segment_id, chunk)| {
+				let segment = chunk
+					.iter()
+					.map(|i| {
+						let id_bytes = crate::hashing::blake2_128(&i.to_le_bytes());
+						TicketId::from_le_bytes(id_bytes)
+					})
+					.collect::<Vec<_>>();
+				UnsortedSegments::<T>::insert(
+					segment_id as u32,
+					BoundedVec::truncate_from(segment),
+				);
+			});
+
+		// Triggers some code related to config change (dummy values)
+		NextEpochConfig::<T>::set(Some(config));
+		PendingEpochConfigChange::<T>::set(Some(config));
+
+		// Triggers the cleanup of the "just elapsed" epoch tickets (i.e. the current one)
+		let epoch_tag = EpochIndex::<T>::get() & 1;
+		meta.tickets_count[epoch_tag as usize] = epoch_length;
+		(0..epoch_length).for_each(|i| {
+			let id_bytes = crate::hashing::blake2_128(&i.to_le_bytes());
+			let id = TicketId::from_le_bytes(id_bytes);
+			TicketsIds::<T>::insert((epoch_tag as u8, i), id);
+			let body = TicketBody {
+				attempt_idx: i,
+				erased_public: EphemeralPublic([i as u8; 32]),
+				revealed_public: EphemeralPublic([i as u8; 32]),
+			};
+			TicketsData::<T>::set(id, Some(body));
+		});
+
+		TicketsMeta::<T>::set(meta);
+
 		#[block]
 		{
 			Pallet::<T>::should_end_epoch(BlockNumberFor::<T>::from(3u32));
 			let next_authorities = Pallet::<T>::next_authorities();
+			// Using a different set of authorities triggers the recomputation of ring verifier.
 			Pallet::<T>::enact_epoch_change(Default::default(), next_authorities);
 		}
 	}
@@ -164,7 +225,6 @@ mod benchmarks {
 	// Tickets segments sorting function benchmark.
 	#[benchmark]
 	fn sort_segments(x: Linear<1, 100>) {
-		use sp_consensus_sassafras::EphemeralPublic;
 		let segments_count = x as u32;
 		let tickets_count = segments_count * SEGMENT_MAX_SIZE;
 

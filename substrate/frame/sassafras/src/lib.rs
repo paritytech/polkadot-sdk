@@ -599,11 +599,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Enact an epoch change.
 	///
-	/// Should be done on every block where `should_end_epoch` has returned `true`, and the caller
+	/// Should be done on every block where [`should_end_epoch`] has returned `true`, and the caller
 	/// is the only caller of this function.
 	///
 	/// Typically, this is not handled directly, but by a higher-level component implementing the
-	/// `EpochChangeTrigger` or `OneSessionHandler` trait.
+	/// [`EpochChangeTrigger`] or [`OneSessionHandler`] trait.
 	///
 	/// If we detect one or more skipped epochs the policy is to use the authorities and values
 	/// from the first skipped epoch. The tickets are invalidated.
@@ -630,7 +630,12 @@ impl<T: Config> Pallet<T> {
 			Self::reset_tickets_data();
 			let skipped_epochs = u64::from(slot_idx) / T::EpochLength::get();
 			epoch_idx += skipped_epochs;
-			warn!(target: LOG_TARGET, "Detected {} skipped epochs, resuming from epoch {}", skipped_epochs, epoch_idx);
+			warn!(
+				target: LOG_TARGET,
+				"Detected {} skipped epochs, resuming from epoch {}",
+				skipped_epochs,
+				epoch_idx
+			);
 		}
 
 		let mut tickets_metadata = TicketsMeta::<T>::get();
@@ -1036,7 +1041,7 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 			let next_authorities = authorities.clone();
 			let len = next_authorities.len() as u32;
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
-			Some(T::WeightInfo::internal_epoch_change_trigger(len))
+			Some(T::WeightInfo::enact_epoch_change(len, Pallet::<T>::epoch_length() as u32))
 		} else {
 			None
 		}
