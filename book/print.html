@@ -118,7 +118,7 @@
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/paritytech/polkadot" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/paritytech/polkadot-sdk" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
 
@@ -198,7 +198,7 @@ their users more <em>leverage</em>.</p>
 <p>Having recognized these issues, we set out to find a solution to these problems, which could allow developers to create
 and deploy purpose-built blockchains unified under a common source of security, with the capability of message-passing
 between them; a <em>heterogeneous sharding solution</em>, which we have come to know as <strong>Parachains</strong>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="protocol-overview"><a class="header" href="#protocol-overview">Protocol Overview</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="protocol-overview"><a class="header" href="#protocol-overview">Protocol Overview</a></h1>
 <p>This section aims to describe, at a high level, the actors and protocols involved in running parachains in Polkadot.
 Specifically, we describe how different actors communicate with each other, what data structures they keep both
 individually and collectively, and the high-level purpose on why they do these things.</p>
@@ -329,7 +329,7 @@ aware of both C and <code>C'</code>, while others remain only aware of one.</p>
 contribute to some or a full extent on both. It is possible that due to network asynchrony two forks may grow in
 parallel for some time, although in the absence of an adversarial network this is unlikely in the case where there are
 validators who are aware of both chain heads.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-process"><a class="header" href="#approval-process">Approval Process</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-process"><a class="header" href="#approval-process">Approval Process</a></h1>
 <p>The Approval Process is the mechanism by which the relay-chain ensures that only valid parablocks are finalized and that
 backing validators are held accountable for managing to get bad blocks included into the relay chain.</p>
 <p>Having a parachain include a bad block into a fork of the relay-chain is not catastrophic as long as the block isn't
@@ -639,7 +639,7 @@ this, we should discover if reconstruction performs adequately with a complete g
 restrictions.  At this point, an assignment notices could implicitly request pieces from a random 1/3rd, perhaps
 topology restricted, which saves one gossip round.  If this preliminary fast reconstruction fails, then nodes' request
 alternative pieces directly.  There is an interesting design space in how this overlaps with &quot;slow availability&quot; claims.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
 <p>Fast forward to <a href="./disputes-flow.html">more detailed disputes requirements</a>.</p>
 <h2 id="motivation-and-background"><a class="header" href="#motivation-and-background">Motivation and Background</a></h2>
 <p>All parachain blocks that end up in the finalized relay chain should be valid. This does not apply to blocks that are
@@ -756,7 +756,7 @@ side. However, the losing side of the dispute is slashed.</p>
 witnessing supermajority, which will only happen if the majority of validators are unable to vote for some reason.
 Furthermore, disputes on-chain will stay open for some fixed amount of time even after concluding, to accept new votes.</p>
 <p>Late votes, after the dispute already reached a ⅔ supermajority, must be rewarded (albeit a smaller amount) as well.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-flows"><a class="header" href="#disputes-flows">Disputes Flows</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-flows"><a class="header" href="#disputes-flows">Disputes Flows</a></h1>
 <p>A component-free description in what-if form with addition state graphs of the dispute.</p>
 <pre class="mermaid">stateDiagram-v2
     [*] --&gt; WaitForBackingVote: negative Vote received
@@ -853,7 +853,7 @@ voting).</p>
 <p>If a dispute is not resolved within due time, governance mode shall be entered for manual resolution.</p>
 <p>If a validator unexpectedly restarts, the dispute shall be continued with the state based on votes being cast and being
 present in persistent storage.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection"><a class="header" href="#chain-selection">Chain Selection</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection"><a class="header" href="#chain-selection">Chain Selection</a></h1>
 <p>Chain selection processes in blockchains are used for the purpose of selecting blocks to build on and finalize. It is
 important for these processes to be consistent among nodes and resilient to a maximum proportion of malicious nodes
 which do not obey the chain selection process.</p>
@@ -916,7 +916,7 @@ this, but if unfinalized chains grow long then Merkle Mountain-Ranges will most 
 </ol>
 <p>Once selecting a leaf, the chain should be constrained to the maximum of the required block or the highest
 <strong>finalizable</strong> ancestor.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h1>
 <p>This section aims to describe, at a high level, the code architecture and subsystems involved in the implementation of
 an individual Parachain Host. It also illuminates certain subtleties and challenges faced in the design and
 implementation of those subsystems.</p>
@@ -982,7 +982,7 @@ information from the state of a single fork.</p>
 <p>These two aspects of the implementation are heavily dependent on each other. The Runtime depends on Node-side behavior
 to author blocks, and to include Extrinsics which trigger the correct entry points. The Node-side behavior relies on
 Runtime APIs to extract information necessary to determine which actions to take.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="messaging-overview"><a class="header" href="#messaging-overview">Messaging Overview</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="messaging-overview"><a class="header" href="#messaging-overview">Messaging Overview</a></h1>
 <p>The Polkadot Host has a few mechanisms that are responsible for message passing. They can be generally divided on two
 categories: Horizontal and Vertical. Horizontal Message Passing (HMP) refers to mechanisms that are responsible for
 exchanging messages between parachains. Vertical Message Passing (VMP) is used for communication between the relay chain
@@ -1042,7 +1042,7 @@ interface. The crucial difference from XCMP though is that all the messages are 
 makes things simple but at the same time that makes HRMP more demanding in terms of resources thus making it more
 expensive.</p>
 <p>Once XCMP is available we expect to retire HRMP.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking-overview"><a class="header" href="#pvf-pre-checking-overview">PVF Pre-checking Overview</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking-overview"><a class="header" href="#pvf-pre-checking-overview">PVF Pre-checking Overview</a></h1>
 <h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
 <p>Parachains' validation function is described by a wasm module that we refer to as a PVF. Since a PVF is a wasm module
 the typical way of executing it is to compile it to machine code.</p>
@@ -1115,7 +1115,7 @@ compilation of the wasm module into machine code (referred to as an artifact).</
 <p>Besides pre-checking, preparation can also be triggered by execution, since a compiled artifact is needed for the
 execution. If an artifact already exists, execution will skip preparation. If it does do preparation, execution uses a
 more lenient timeout than preparation, to avoid the situation where honest validators fail on valid, pre-checked PVFs.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-architecture"><a class="header" href="#runtime-architecture">Runtime Architecture</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-architecture"><a class="header" href="#runtime-architecture">Runtime Architecture</a></h1>
 <p>It's clear that we want to separate different aspects of the runtime logic into different modules. Modules define their
 own storage, routines, and entry-points. They also define initialization and finalization logic.</p>
 <p>Due to the (lack of) guarantees provided by a particular blockchain-runtime framework, there is no defined or dependable
@@ -1251,7 +1251,7 @@ initialization of the current block.</p>
 <p>Finalization order is less important in this case than initialization order, so we finalize the modules in the reverse
 order from initialization.</p>
 <p>Set <code>HasInitialized</code> to false.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-pallet"><a class="header" href="#configuration-pallet">Configuration Pallet</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-pallet"><a class="header" href="#configuration-pallet">Configuration Pallet</a></h1>
 <p>This module is responsible for managing all configuration of the parachain host in-flight. It provides a central point
 for configuration updates to prevent races between configuration changes and parachain-processing logic. Configuration
 can only change during the session change routine, and as this module handles the session change notification first it
@@ -1320,7 +1320,7 @@ fn schedule_config_update(updater: impl FnOnce(&amp;mut HostConfiguration&lt;Blo
 <p>The Configuration module exposes an entry point for each configuration member. These entry-points accept calls only from
 governance origins. These entry-points will use the <code>update_configuration</code> routine to update the specific configuration
 field.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="shared-pallet"><a class="header" href="#shared-pallet">Shared Pallet</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="shared-pallet"><a class="header" href="#shared-pallet">Shared Pallet</a></h1>
 <p>This module is responsible for managing shared storage and configuration for other modules.</p>
 <p>It is important that other pallets are able to use the Shared Module, so it should not have a dependency on any other
 modules in the Parachains Runtime.</p>
@@ -1396,7 +1396,7 @@ session change.</p>
 would be safe to apply.</li>
 <li><code>set_session_index(SessionIndex)</code>: For tests. Set the current session index in the Shared Module.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-pallet"><a class="header" href="#disputes-pallet">Disputes Pallet</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-pallet"><a class="header" href="#disputes-pallet">Disputes Pallet</a></h1>
 <p>After a backed candidate is made available, it is included and proceeds into an acceptance period during which
 validators are randomly selected to do (secondary) approval checks of the parablock. Any reports disputing the validity
 of the candidate will cause escalation, where even more validators are requested to check the block, and so on, until
@@ -1580,7 +1580,7 @@ inconclusive disputes are not slashed. Thanks to the applied filtering (describe
 confident that there are no spam disputes in the runtime. So if a validator is not voting it is due to another reason
 (e.g. being under DoS attack). There is no reason to punish such validators with a slash.</p>
 <p><em>Implementation note</em>: Slashing is performed in <code>process_checked_dispute_data</code> from <code>Disputes</code> pallet.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="paras-pallet"><a class="header" href="#paras-pallet">Paras Pallet</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="paras-pallet"><a class="header" href="#paras-pallet">Paras Pallet</a></h1>
 <p>The Paras module is responsible for storing information on parachains. Registered parachains cannot change except at
 session boundaries and after at least a full session has passed. This is primarily to ensure that the number and meaning
 of bits required for the availability bitfields does not change except at session boundaries.</p>
@@ -1861,7 +1861,7 @@ PVF pre-checking votes.</li>
 <h2 id="finalization-2"><a class="header" href="#finalization-2">Finalization</a></h2>
 <p>Collect all <code>(para_id, next_possible_upgrade_at)</code> from <code>UpgradeCooldowns</code> where <code>next_possible_upgrade_at &lt;= now</code> and
 prune them. For each para pruned remove its <code>UpgradeRestrictionSignal</code>.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="scheduler-pallet"><a class="header" href="#scheduler-pallet">Scheduler Pallet</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="scheduler-pallet"><a class="header" href="#scheduler-pallet">Scheduler Pallet</a></h1>
 <blockquote>
 <p>TODO: this section is still heavily under construction. key questions about availability cores and validator
 assignment are still open and the flow of the the section may be contradictory or inconsistent</p>
@@ -2125,7 +2125,7 @@ which no longer exist under paras.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
 <p>The inclusion module is responsible for inclusion and availability of scheduled parachains. It also manages the UMP
 dispatch queue of each parachain.</p>
 <h2 id="storage-6"><a class="header" href="#storage-6">Storage</a></h2>
@@ -2334,7 +2334,7 @@ in <code>well_known_keys</code> in order to facilitate oraclisation on to the pa
 </ol>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
 <p>This module is responsible for providing all data given to the runtime by the block author to the various parachains
 modules. The entry-point is mandatory, in that it must be invoked exactly once within every block, and it is also
 &quot;inherent&quot;, in that it is provided with no origin by the block author. The data within it carries its own
@@ -2391,7 +2391,7 @@ processing it, so the processed inherent data is simply dropped.</p>
 <p>This also means that the <code>enter</code> function keeps data around for no good reason. This seems acceptable though as the size
 of a block is rather limited. Nevertheless if we ever wanted to optimize this we can easily implement an inherent
 collector that has two implementations, where one clones and stores the data and the other just passes it on.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
 <p>A module responsible for Downward Message Processing (DMP). See <a href="runtime/../messaging.html">Messaging Overview</a> for more details.</p>
 <h2 id="storage-8"><a class="header" href="#storage-8">Storage</a></h2>
 <p>Storage layout required for implementation of DMP.</p>
@@ -2445,7 +2445,7 @@ current block number for <code>sent_at</code>. 1. Obtain a new MQC link for the 
 </ol>
 </li>
 </ol>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="hrmp-pallet"><a class="header" href="#hrmp-pallet">HRMP Pallet</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="hrmp-pallet"><a class="header" href="#hrmp-pallet">HRMP Pallet</a></h1>
 <p>A module responsible for Horizontally Relay-routed Message Passing (HRMP). See <a href="runtime/../messaging.html">Messaging Overview</a> for
 more details.</p>
 <h2 id="storage-9"><a class="header" href="#storage-9">Storage</a></h2>
@@ -2800,7 +2800,7 @@ found in the configuration <code>config.hrmp_recipient_deposit</code>.</li>
 <li>Remove <code>recipient</code> from the set <code>HrmpEgressChannelsIndex</code> for <code>sender</code>.</li>
 <li>Remove <code>sender</code> from the set <code>HrmpIngressChannelsIndex</code> for <code>recipient</code>.</li>
 </ol>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-info"><a class="header" href="#session-info">Session Info</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-info"><a class="header" href="#session-info">Session Info</a></h1>
 <p>For disputes and approvals, we need access to information about validator sets from prior sessions. We also often want
 easy access to the same information about the current session's validator set. This module aggregates and stores this
 information in a rolling window while providing easy APIs for access.</p>
@@ -2879,7 +2879,7 @@ parachain validation. Only these validators should appear in the <code>SessionIn
 <li><code>session_info(session: SessionIndex) -&gt; Option&lt;SessionInfo&gt;</code>: Yields the session info for the given session, if
 stored.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-apis"><a class="header" href="#runtime-apis">Runtime APIs</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-apis"><a class="header" href="#runtime-apis">Runtime APIs</a></h1>
 <p>Runtime APIs are the means by which the node-side code extracts information from the state of the runtime.</p>
 <p>Every block in the relay-chain contains a <em>state root</em> which is the root hash of a state trie encapsulating all storage
 of runtime modules after execution of the block. This is a cryptographic commitment to a unique state. We use the
@@ -2959,7 +2959,7 @@ parachains in the child of the provided block.</p>
 </span>fn validators(at: Block) -&gt; Vec&lt;ValidatorId&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="validator-groups-1"><a class="header" href="#validator-groups-1">Validator Groups</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="validator-groups-1"><a class="header" href="#validator-groups-1">Validator Groups</a></h1>
 <p>Yields the validator groups used during the current session. The validators in the groups are referred to by their index
 into the validator-set and this is assumed to be as-of the child of the block whose state is being queried.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -2991,7 +2991,7 @@ impl GroupRotationInfo {
 fn validator_groups(at: Block) -&gt; (Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo);
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-cores-1"><a class="header" href="#availability-cores-1">Availability Cores</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-cores-1"><a class="header" href="#availability-cores-1">Availability Cores</a></h1>
 <p>Yields information on all availability cores. Cores are either free or occupied. Free cores can have paras assigned to
 them. Occupied cores don't, but they can become available part-way through a block due to bitfields and then have
 something scheduled on them. To allow optimistic validation of candidates, the occupied cores are accompanied by
@@ -3060,7 +3060,7 @@ enum CoreState {
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="persisted-validation-data"><a class="header" href="#persisted-validation-data">Persisted Validation Data</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="persisted-validation-data"><a class="header" href="#persisted-validation-data">Persisted Validation Data</a></h1>
 <p>Yields the <a href="runtime-api/../types/candidate.html#persistedvalidationdata"><code>PersistedValidationData</code></a> for the given
 <a href="runtime-api/../types/candidate.html#paraid"><code>ParaId</code></a> along with an assumption that should be used if the para currently occupies a
 core:</p>
@@ -3073,7 +3073,7 @@ core:</p>
 fn persisted_validation_data(at: Block, ParaId, OccupiedCoreAssumption) -&gt; Option&lt;PersistedValidationData&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-index"><a class="header" href="#session-index">Session Index</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-index"><a class="header" href="#session-index">Session Index</a></h1>
 <p>Get the session index that is expected at the child of a block.</p>
 <p>In the <a href="runtime-api/../runtime/initializer.html"><code>Initializer</code></a> module, session changes are buffered by one block. The session index
 of the child of any relay block is always predictable by that block's state.</p>
@@ -3084,7 +3084,7 @@ of the child of any relay block is always predictable by that block's state.</p>
 fn session_index_for_child(at: Block) -&gt; SessionIndex;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="validation-code"><a class="header" href="#validation-code">Validation Code</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="validation-code"><a class="header" href="#validation-code">Validation Code</a></h1>
 <p>Fetch the validation code used by a para, making the given <code>OccupiedCoreAssumption</code>.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -3106,7 +3106,7 @@ fn session_index_for_child(at: Block) -&gt; SessionIndex;
 </span>fn validation_code_hash(at: Block, ParaId, OccupiedCoreAssumption) -&gt; Option&lt;ValidationCodeHash&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2021-12-28, commit: <a href="https://github.com/paritytech/polkadot/commit/91aff5d341">91aff5d341</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-pending-availability"><a class="header" href="#candidate-pending-availability">Candidate Pending Availability</a></h1>
+<footer id="last-change">Last change: 2021-12-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/91aff5d341">91aff5d341</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-pending-availability"><a class="header" href="#candidate-pending-availability">Candidate Pending Availability</a></h1>
 <p>Get the receipt of a candidate pending availability. This returns <code>Some</code> for any paras assigned to occupied cores in
 <code>availability_cores</code> and <code>None</code> otherwise.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -3114,7 +3114,7 @@ fn session_index_for_child(at: Block) -&gt; SessionIndex;
 </span>fn candidate_pending_availability(at: Block, ParaId) -&gt; Option&lt;CommittedCandidateReceipt&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-events"><a class="header" href="#candidate-events">Candidate Events</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-events"><a class="header" href="#candidate-events">Candidate Events</a></h1>
 <p>Yields a vector of events concerning candidates that occurred within the given block.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -3130,7 +3130,7 @@ fn session_index_for_child(at: Block) -&gt; SessionIndex;
 fn candidate_events(at: Block) -&gt; Vec&lt;CandidateEvent&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2021-01-29, commit: <a href="https://github.com/paritytech/polkadot/commit/956bc300c1">956bc300c1</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-info"><a class="header" href="#disputes-info">Disputes Info</a></h1>
+<footer id="last-change">Last change: 2021-01-29, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/956bc300c1">956bc300c1</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-info"><a class="header" href="#disputes-info">Disputes Info</a></h1>
 <p>Get information about all disputes known by the chain as well as information about which validators the disputes
 subsystem will accept disputes from. These disputes may be either live or concluded. The
 <a href="runtime-api/../types/disputes.html#disputestate"><code>DisputeState</code></a> can be used to determine whether the dispute still accepts votes, as
@@ -3157,7 +3157,7 @@ struct DisputesInfo {
 fn disputes_info() -&gt; DisputesInfo;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidates-included"><a class="header" href="#candidates-included">Candidates Included</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidates-included"><a class="header" href="#candidates-included">Candidates Included</a></h1>
 <p>This runtime API is for checking which candidates have been included within the chain, locally.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -3165,7 +3165,7 @@ fn disputes_info() -&gt; DisputesInfo;
 fn candidates_included(Vec&lt;(SessionIndex, CandidateHash)&gt;) -&gt; Vec&lt;bool&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2021-04-01, commit: <a href="https://github.com/paritytech/polkadot/commit/ccfabaa0c6">ccfabaa0c6</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking"><a class="header" href="#pvf-pre-checking">PVF Pre-checking</a></h1>
+<footer id="last-change">Last change: 2021-04-01, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/ccfabaa0c6">ccfabaa0c6</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking"><a class="header" href="#pvf-pre-checking">PVF Pre-checking</a></h1>
 <blockquote>
 <p>⚠️ This runtime API was added in v2.</p>
 </blockquote>
@@ -3187,7 +3187,7 @@ returned by <code>pvfs_require_precheck</code> anymore.</p>
 </span>fn submit_pvf_check_statement(stmt: PvfCheckStatement, signature: ValidatorSignature);
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="node-architecture"><a class="header" href="#node-architecture">Node Architecture</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="node-architecture"><a class="header" href="#node-architecture">Node Architecture</a></h1>
 <h2 id="design-goals"><a class="header" href="#design-goals">Design Goals</a></h2>
 <ul>
 <li>Modularity: Components of the system should be as self-contained as possible. Communication boundaries between
@@ -3564,7 +3564,7 @@ things going on.</p>
 <p>The tuple <code>(SignedAvailabilityBitfields, BackedCandidates, ParentHeader)</code> is
 injected by the <code>ParachainsInherentDataProvider</code> into the inherent data. From
 that point on, control passes from the node to the runtime.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="overseer"><a class="header" href="#overseer">Overseer</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="overseer"><a class="header" href="#overseer">Overseer</a></h1>
 <p>The overseer is responsible for these tasks:</p>
 <ol>
 <li>Setting up, monitoring, and handing failure for overseen subsystems.</li>
@@ -3693,7 +3693,7 @@ prevent subsystems from accessing aspects of each other that are beyond the scop
 <h2 id="on-shutdown"><a class="header" href="#on-shutdown">On shutdown</a></h2>
 <p>Send an <code>OverseerSignal::Conclude</code> message to each subsystem and wait some time for them to conclude before
 hard-exiting.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="grandpa-voting-rule"><a class="header" href="#grandpa-voting-rule">GRANDPA Voting Rule</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="grandpa-voting-rule"><a class="header" href="#grandpa-voting-rule">GRANDPA Voting Rule</a></h1>
 <p>Specifics on the motivation and types of constraints we apply to the GRANDPA voting logic as well as the definitions of
 <strong>viable</strong> and <strong>finalizable</strong> blocks can be found in the <a href="node/../protocol-chain-selection.html">Chain Selection Protocol</a>
 section. The subsystem which provides us with viable leaves is the <a href="node/utility/chain-selection.html">Chain Selection
@@ -3714,7 +3714,7 @@ block containing a candidate undergoing an active dispute. The list of block has
 <code>ApprovedAncestor</code> should be reversed, and passed to the
 <a href="node/../types/overseer-protocol.html#dispute-coordinator-message"><code>DisputeCoordinatorMessage::DetermineUndisputedChain</code></a> to
 determine the <strong>finalizable</strong> block which will be our eventual vote.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="collators"><a class="header" href="#collators">Collators</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="collators"><a class="header" href="#collators">Collators</a></h1>
 <p>Collators are special nodes which bridge a parachain to the relay chain. They are simultaneously full nodes of the
 parachain, and at least light clients of the relay chain. Their overall contribution to the system is the generation of
 Proofs of Validity for parachain candidates.</p>
@@ -3881,7 +3881,7 @@ pub struct CollationGenerationConfig {
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="collator-protocol"><a class="header" href="#collator-protocol">Collator Protocol</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="collator-protocol"><a class="header" href="#collator-protocol">Collator Protocol</a></h1>
 <p>The Collator Protocol implements the network protocol by which collators and validators communicate. It is used by
 collators to distribute collations to validators and used by validators to accept collations by collators.</p>
 <p>Collator-to-Validator networking is more difficult than Validator-to-Validator networking because the set of possible
@@ -4000,7 +4000,7 @@ seconding any of its received candidates, reducing throughput.</li>
 behaved poorly (whether recently or historically) and subsequently only verify the PoV for the most suitable of
 collations.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="backing-subsystems"><a class="header" href="#backing-subsystems">Backing Subsystems</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="backing-subsystems"><a class="header" href="#backing-subsystems">Backing Subsystems</a></h1>
 <p>The backing subsystems, when conceived as a black box, receive an arbitrary quantity of parablock candidates and
 associated proofs of validity from arbitrary untrusted collators. From these, they produce a bounded quantity of
 backable candidates which relay chain block authors may choose to include in a subsequent block.</p>
@@ -4159,7 +4159,7 @@ therefore we need to retry with other backing validators in that case.</p>
 <p>Create a <code>(sender, receiver)</code> pair. Dispatch a <code>CandidateValidationMessage::Validate(validation function, candidate, pov, BACKING_EXECUTION_TIMEOUT, sender)</code> and listen on the receiver for a response.</p>
 <h3 id="distribute-signed-statement"><a class="header" href="#distribute-signed-statement">Distribute Signed Statement</a></h3>
 <p>Dispatch a <a href="node/backing/../../types/overseer-protocol.html#statement-distribution-message"><code>StatementDistributionMessage</code></a><code>::Share(relay_parent, SignedFullStatementWithPVD)</code>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="prospective-parachains"><a class="header" href="#prospective-parachains">Prospective Parachains</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="prospective-parachains"><a class="header" href="#prospective-parachains">Prospective Parachains</a></h1>
 <h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
 <p><strong>Purpose:</strong> Tracks and handles prospective parachain fragments and informs
 other backing-stage subsystems of work to be done.</p>
@@ -4347,7 +4347,7 @@ anchored to.</li>
 <li><strong>Scope:</strong> The scope of a fragment tree, defining limits on nodes
 within the tree.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-27, commit: <a href="https://github.com/paritytech/polkadot/commit/7cbe0c76ef">7cbe0c76ef</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution"><a class="header" href="#statement-distribution">Statement Distribution</a></h1>
+<footer id="last-change">Last change: 2023-09-27, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/7cbe0c76ef">7cbe0c76ef</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution"><a class="header" href="#statement-distribution">Statement Distribution</a></h1>
 <p>This subsystem is responsible for distributing signed statements that we have generated and forwarding statements
 generated by our peers. Received candidate receipts and statements are passed to the <a href="node/backing/candidate-backing.html">Candidate Backing
 subsystem</a> to handle producing local statements. On receiving
@@ -4812,7 +4812,7 @@ various parachains at those leaves.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution-legacy"><a class="header" href="#statement-distribution-legacy">Statement Distribution (Legacy)</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution-legacy"><a class="header" href="#statement-distribution-legacy">Statement Distribution (Legacy)</a></h1>
 <p>This describes the legacy, backwards-compatible version of the Statement Distribution subsystem.</p>
 <p><strong>Note:</strong> All the V1 (legacy) code was extracted out to a <code>legacy_v1</code> module of the <code>statement-distribution</code> crate,
 which doesn't alter any logic. V2 (new protocol) peers also run <code>legacy_v1</code> and communicate with V1 peers using V1
@@ -4937,7 +4937,7 @@ specifications. For scaling up even more, runtime upgrades and message passing s
 <p>Flood protection considerations: For making DoS attacks slightly harder on this subsystem, nodes will only respond to
 large statement requests, when they previously notified that peer via gossip about that statement. So, it is not
 possible to DoS nodes at scale, by requesting candidate data over and over again.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-subsystems"><a class="header" href="#availability-subsystems">Availability Subsystems</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-subsystems"><a class="header" href="#availability-subsystems">Availability Subsystems</a></h1>
 <p>The availability subsystems are responsible for ensuring that Proofs of Validity of backed candidates are widely
 available within the validator set, without requiring every node to retain a full copy. They accomplish this by broadly
 distributing erasure-coded chunks of the PoV, keeping track of which validator has which chunk by means of signed
@@ -5010,7 +5010,7 @@ network bridge and will respond to queries, by looking the requested chunks and 
 this happens in the <code>responder</code> module.</p>
 <p>We rely on the backing subsystem to make available data available locally in the <code>Availability Store</code> after it has
 validated it.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-recovery"><a class="header" href="#availability-recovery">Availability Recovery</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-recovery"><a class="header" href="#availability-recovery">Availability Recovery</a></h1>
 <p>This subsystem is the inverse of the <a href="node/availability/availability-distribution.html">Availability Distribution</a> subsystem: validators
 will serve the availability chunks kept in the availability store to nodes who connect to them. And the subsystem will
 also implement the other side: the logic for nodes to connect to validators, request availability pieces, and
@@ -5187,7 +5187,7 @@ fails due to network issues, insert into the front of <code>shuffling</code> to 
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-distribution"><a class="header" href="#bitfield-distribution">Bitfield Distribution</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-distribution"><a class="header" href="#bitfield-distribution">Bitfield Distribution</a></h1>
 <p>Validators vote on the availability of a backed candidate by issuing signed bitfields, where each bit corresponds to a
 single candidate. These bitfields can be used to compactly determine which backed candidates are available or not based
 on a 2/3+ quorum.</p>
@@ -5215,7 +5215,7 @@ to other peers when relevant to their most recent view. Accept and distribute on
 authorship (provisioning) subsystem for potential inclusion in a block.</p>
 <p>Peers connecting after a set of valid bitfield gossip messages was received, those messages must be cached and sent upon
 connection of new peers or re-connecting peers.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-signing"><a class="header" href="#bitfield-signing">Bitfield Signing</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-signing"><a class="header" href="#bitfield-signing">Bitfield Signing</a></h1>
 <p>Validators vote on the availability of a backed candidate by issuing signed bitfields, where each bit corresponds to a
 single candidate. These bitfields can be used to compactly determine which backed candidates are available or not based
 on a 2/3+ quorum.</p>
@@ -5245,7 +5245,7 @@ runtime.</li>
 <li>For all chunks we have, set the corresponding bit in the bitfield.</li>
 <li>Sign the bitfield and dispatch a <code>BitfieldDistribution::DistributeBitfield</code> message.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-subsystems"><a class="header" href="#approval-subsystems">Approval Subsystems</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-subsystems"><a class="header" href="#approval-subsystems">Approval Subsystems</a></h1>
 <p>The approval subsystems implement the node-side of the <a href="node/approval/../../protocol-approval.html">Approval Protocol</a>.</p>
 <p>We make a divide between the <a href="node/approval/approval-voting.html">assignment/voting logic</a> and the <a href="node/approval/approval-distribution.html">distribution
 logic</a> that distributes assignment certifications and approval votes. The logic in the
@@ -5811,7 +5811,7 @@ false.</li>
 <li>Given the slot number of a block, and the current time, this informs about the current tranche.</li>
 <li>Convert <code>time.saturating_sub(slot_number.to_time())</code> to a delay tranches value</li>
 </ul>
-<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
 <p>A subsystem for the distribution of assignments and approvals for approval checks on candidates over the network.</p>
 <p>The <a href="node/approval/approval-voting.html">Approval Voting</a> subsystem is responsible for active participation in a protocol designed to
 select a sufficient number of validators to check each and every candidate which appears in the relay chain. Statements
@@ -6129,7 +6129,7 @@ finalized number go to step 6.</p>
 peer.</p>
 </li>
 </ol>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-subsystems"><a class="header" href="#disputes-subsystems">Disputes Subsystems</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-subsystems"><a class="header" href="#disputes-subsystems">Disputes Subsystems</a></h1>
 <p>If approval voting finds an invalid candidate, a dispute is raised. The disputes
 subsystems are concerned with the following:</p>
 <ol>
@@ -6677,7 +6677,7 @@ writing, this is not a use-case we support as other subsystems do not invariably
 channel, unless <code>i</code> is 0, in which case <code>None</code> should be sent. The <code>block_hash</code> is determined by inspecting
 <code>block_descriptions[i]</code>.</li>
 </ul>
-<footer id="last-change">Last change: 2023-10-16, commit: <a href="https://github.com/paritytech/polkadot/commit/19f38ca3aa">19f38ca3aa</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dispute-distribution"><a class="header" href="#dispute-distribution">Dispute Distribution</a></h1>
+<footer id="last-change">Last change: 2023-10-16, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/19f38ca3aa">19f38ca3aa</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dispute-distribution"><a class="header" href="#dispute-distribution">Dispute Distribution</a></h1>
 <p>Dispute distribution is responsible for ensuring all concerned validators will
 be aware of a dispute and have the relevant votes.</p>
 <h2 id="design-goals-1"><a class="header" href="#design-goals-1">Design Goals</a></h2>
@@ -7039,7 +7039,7 @@ and harder over time. Assuming an attacker can not DoS a node forever, the
 dispute will succeed eventually, which is all that matters. And again, even if
 an attacker managed to prevent such a dispute from happening somehow, there is
 no real harm done: There was no serious attack to begin with.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="utility-subsystems"><a class="header" href="#utility-subsystems">Utility Subsystems</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="utility-subsystems"><a class="header" href="#utility-subsystems">Utility Subsystems</a></h1>
 <p>The utility subsystems are an assortment which don't have a natural home in another subsystem collection.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="availability-store"><a class="header" href="#availability-store">Availability Store</a></h1>
 <p>This is a utility subsystem responsible for keeping available certain data and pruning that data.</p>
@@ -7286,7 +7286,7 @@ assume that some mocking of time is happening.</p>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-validation"><a class="header" href="#candidate-validation">Candidate Validation</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-validation"><a class="header" href="#candidate-validation">Candidate Validation</a></h1>
 <p>This subsystem is responsible for handling candidate validation requests. It is a simple request/response server.</p>
 <p>A variety of subsystems want to know if a parachain block candidate is valid. None of them care about the detailed
 mechanics of how a candidate gets validated, just the results. This subsystem handles those details.</p>
@@ -7342,7 +7342,7 @@ the entire event loop. Before invoking the validation function itself, this shou
 <p>If we can assume the presence of the relay-chain state (that is, during processing
 <a href="node/utility/../../types/overseer-protocol.html#validationrequesttype"><code>CandidateValidationMessage</code></a><code>::ValidateFromChainState</code>) we can run all the checks that the relay-chain would run
 at the inclusion time thus confirming that the candidate will be accepted.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-host-and-workers"><a class="header" href="#pvf-host-and-workers">PVF Host and Workers</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-host-and-workers"><a class="header" href="#pvf-host-and-workers">PVF Host and Workers</a></h1>
 <p>The PVF host is responsible for handling requests to prepare and execute PVF
 code blobs, which it sends to PVF <strong>workers</strong> running in their own child
 processes.</p>
@@ -7482,7 +7482,7 @@ data on the host machine.</p>
 attackers potentially sensitive data unnecessarily? And even if everything else
 is locked down, env vars can potentially provide a source of randomness (see
 point 1, &quot;Consensus faults&quot; above).</p>
-<footer id="last-change">Last change: 2023-11-14, commit: <a href="https://github.com/paritytech/polkadot/commit/54f84285bf">54f84285bf</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="provisioner"><a class="header" href="#provisioner">Provisioner</a></h1>
+<footer id="last-change">Last change: 2023-11-14, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/54f84285bf">54f84285bf</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="provisioner"><a class="header" href="#provisioner">Provisioner</a></h1>
 <p>Relay chain block authorship authority is governed by BABE and is beyond the scope of the Overseer and the rest of the
 subsystems. That said, ultimately the block author needs to select a set of backable parachain candidates and other
 consensus data, and assemble a block from them. This subsystem is responsible for providing the necessary data to all
@@ -7757,7 +7757,7 @@ availability from a particular validator's perspective. Each bit in the bitfield
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="network-bridge"><a class="header" href="#network-bridge">Network Bridge</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="network-bridge"><a class="header" href="#network-bridge">Network Bridge</a></h1>
 <p>One of the main features of the overseer/subsystem duality is to avoid shared ownership of resources and to communicate
 via message-passing. However, implementing each networking subsystem as its own network protocol brings a fair share of
 challenges.</p>
@@ -7883,7 +7883,7 @@ variant of a message to be sent via the overseer.</p>
 <ul>
 <li><code>CollatorProtocolV1Message -&gt; CollatorProtocolMessage::NetworkBridgeUpdate</code></li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="gossip-support"><a class="header" href="#gossip-support">Gossip Support</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="gossip-support"><a class="header" href="#gossip-support">Gossip Support</a></h1>
 <p>The Gossip Support Subsystem is responsible for keeping track of session changes
 and issuing a connection request to all validators in the next, current and
 a few past sessions if we are a validator in these sessions.
@@ -7898,14 +7898,14 @@ with the <code>NetworkBridgeMessage::NewGossipTopology</code> message.</p>
 such as Bitfield Distribution, (small) Statement Distribution and
 Approval Distribution to limit the amount of peers we send messages to
 and handle view updates.</p>
-<footer id="last-change">Last change: 2021-08-02, commit: <a href="https://github.com/paritytech/polkadot/commit/33fe763188">33fe763188</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="peer-set-manager"><a class="header" href="#peer-set-manager">Peer Set Manager</a></h1>
+<footer id="last-change">Last change: 2021-08-02, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/33fe763188">33fe763188</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="peer-set-manager"><a class="header" href="#peer-set-manager">Peer Set Manager</a></h1>
 <blockquote>
 <p>TODO</p>
 </blockquote>
 <h2 id="protocol-19"><a class="header" href="#protocol-19">Protocol</a></h2>
 <h2 id="functionality-14"><a class="header" href="#functionality-14">Functionality</a></h2>
 <h2 id="jobs-if-any"><a class="header" href="#jobs-if-any">Jobs, if any</a></h2>
-<footer id="last-change">Last change: 2020-07-07, commit: <a href="https://github.com/paritytech/polkadot/commit/42bd096413">42bd096413</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-api"><a class="header" href="#runtime-api">Runtime API</a></h1>
+<footer id="last-change">Last change: 2020-07-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/42bd096413">42bd096413</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-api"><a class="header" href="#runtime-api">Runtime API</a></h1>
 <p>The Runtime API subsystem is responsible for providing a single point of access to runtime state data via a set of
 pre-determined queries. This prevents shared ownership of a blockchain client resource by providing</p>
 <h2 id="protocol-20"><a class="header" href="#protocol-20">Protocol</a></h2>
@@ -7920,7 +7920,7 @@ pre-determined queries. This prevents shared ownership of a blockchain client re
 <code>relay_parent</code>s that are not active based on <code>ActiveLeavesUpdate</code> messages. Maybe with some leeway for things that
 have just been stopped.</p>
 </blockquote>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-api"><a class="header" href="#chain-api">Chain API</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-api"><a class="header" href="#chain-api">Chain API</a></h1>
 <p>The Chain API subsystem is responsible for providing a single point of access to chain state data via a set of
 pre-determined queries.</p>
 <h2 id="protocol-21"><a class="header" href="#protocol-21">Protocol</a></h2>
@@ -7938,7 +7938,7 @@ request.</p>
 <li>Last finalized block number</li>
 <li>Ancestors</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection-subsystem"><a class="header" href="#chain-selection-subsystem">Chain Selection Subsystem</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection-subsystem"><a class="header" href="#chain-selection-subsystem">Chain Selection Subsystem</a></h1>
 <p>This subsystem implements the necessary metadata for the implementation of the <a href="node/utility/../../protocol-chain-selection.html">chain
 selection</a> portion of the protocol.</p>
 <p>The subsystem wraps a database component which maintains a view of the unfinalized chain and records the properties of
@@ -7983,7 +7983,7 @@ blocks will be marked as reverted, and their descendants will be marked as non-v
 <h2 id="periodically"><a class="header" href="#periodically">Periodically</a></h2>
 <p>Detect stagnant blocks and apply the stagnant definition to all descendants. Update the set of viable leaves
 accordingly.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checker"><a class="header" href="#pvf-pre-checker">PVF Pre-checker</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checker"><a class="header" href="#pvf-pre-checker">PVF Pre-checker</a></h1>
 <p>The PVF pre-checker is a subsystem that is responsible for watching the relay chain for new PVFs that require
 pre-checking. Head over to <a href="node/utility/../../pvf-prechecking.html">overview</a> for the PVF pre-checking process overview.</p>
 <h2 id="protocol-22"><a class="header" href="#protocol-22">Protocol</a></h2>
@@ -8031,7 +8031,7 @@ for execution can be assumed to be a local problem on the current node.</p>
 <p>For this reason, even deterministic preparation errors should not trigger disputes. And since we do not dispute as a
 result of the pre-checking phase, as stated above, it should be impossible for preparation in general to result in
 disputes.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="type-definitions"><a class="header" href="#type-definitions">Type Definitions</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="type-definitions"><a class="header" href="#type-definitions">Type Definitions</a></h1>
 <p>This section of the guide provides type definitions of various categories.</p>
 <h2 id="v1-overview"><a class="header" href="#v1-overview">V1 Overview</a></h2>
 <p>Diagrams are rendered in high resolution; open them in a separate tab to see full scale.</p>
@@ -8235,7 +8235,7 @@ simpler.</p>
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="backing-types"><a class="header" href="#backing-types">Backing Types</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="backing-types"><a class="header" href="#backing-types">Backing Types</a></h1>
 <p><a href="types/candidate.html">Candidates</a> go through many phases before being considered included in a fork of the relay chain and
 eventually accepted.</p>
 <p>These types describe the data used in the backing phase. Some are sent over the wire within subsystems, and some are
@@ -8347,7 +8347,7 @@ backing. This is submitted to the relay-chain to process and move along the cand
 struct BackedCandidates(Vec&lt;BackedCandidate&gt;); // sorted by para-id.
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability"><a class="header" href="#availability">Availability</a></h1>
+<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability"><a class="header" href="#availability">Availability</a></h1>
 <p>One of the key roles of validators is to ensure availability of all data necessary to validate candidates for the
 duration of a challenge period. This is done via an erasure-coding of the data to keep available.</p>
 <h2 id="signed-availability-bitfield"><a class="header" href="#signed-availability-bitfield">Signed Availability Bitfield</a></h2>
@@ -8411,7 +8411,7 @@ should be apparent from context, and is the <code>erasure_root</code> field of a
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="overseer-protocol"><a class="header" href="#overseer-protocol">Overseer Protocol</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="overseer-protocol"><a class="header" href="#overseer-protocol">Overseer Protocol</a></h1>
 <p>This chapter contains message types sent to and from the overseer, and the underlying subsystem message types that are
 transmitted using these.</p>
 <h2 id="overseer-signal"><a class="header" href="#overseer-signal">Overseer Signal</a></h2>
@@ -9336,7 +9336,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-10-23, commit: <a href="https://github.com/paritytech/polkadot/commit/5ca909cc09">5ca909cc09</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
+<footer id="last-change">Last change: 2023-10-23, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/5ca909cc09">5ca909cc09</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
 <p>Types used within the runtime exclusively and pervasively.</p>
 <h2 id="host-configuration"><a class="header" href="#host-configuration">Host Configuration</a></h2>
 <p>The internal-to-runtime configuration of the parachain host. This is expected to be altered only by governance procedures.</p>
@@ -9459,7 +9459,7 @@ pub enum PvfCheckerMessage { }
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="message-types"><a class="header" href="#message-types">Message types</a></h1>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="message-types"><a class="header" href="#message-types">Message types</a></h1>
 <p>Types of messages that are passed between parachains and the relay chain: UMP, DMP, XCMP.</p>
 <p>There is also HRMP (Horizontally Relay-routed Message Passing) which provides the same functionality
 although with smaller scalability potential.</p>
@@ -9517,7 +9517,7 @@ struct InboundHrmpMessage {
 	pub data: Vec&lt;u8&gt;,
 }
 </code></pre>
-<footer id="last-change">Last change: 2020-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/c96f8cfcca">c96f8cfcca</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="network-types"><a class="header" href="#network-types">Network Types</a></h1>
+<footer id="last-change">Last change: 2020-11-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/c96f8cfcca">c96f8cfcca</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="network-types"><a class="header" href="#network-types">Network Types</a></h1>
 <p>These types are those that are actually sent over the network to subsystems.</p>
 <h2 id="universal-types"><a class="header" href="#universal-types">Universal Types</a></h2>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -9706,7 +9706,7 @@ enum NetworkBridgeEvent&lt;M&gt; {
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-types"><a class="header" href="#approval-types">Approval Types</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-types"><a class="header" href="#approval-types">Approval Types</a></h1>
 <h2 id="assignmentid"><a class="header" href="#assignmentid"><code>AssignmentId</code></a></h2>
 <p>The public key of a keypair used by a validator for determining assignments to approve included parachain candidates.</p>
 <h2 id="assignmentcert"><a class="header" href="#assignmentcert"><code>AssignmentCert</code></a></h2>
@@ -9834,7 +9834,7 @@ have actually been done. Fields should be accessible via getters, not direct str
 </span>type DelayTranche = u32;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-2"><a class="header" href="#disputes-2">Disputes</a></h1>
+<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-2"><a class="header" href="#disputes-2">Disputes</a></h1>
 <h2 id="disputestatementset"><a class="header" href="#disputestatementset"><code>DisputeStatementSet</code></a></h2>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -9923,7 +9923,7 @@ struct ScrapedOnChainVotes {
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking-types"><a class="header" href="#pvf-pre-checking-types">PVF Pre-checking types</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking-types"><a class="header" href="#pvf-pre-checking-types">PVF Pre-checking types</a></h1>
 <h2 id="pvfcheckstatement"><a class="header" href="#pvfcheckstatement"><code>PvfCheckStatement</code></a></h2>
 <blockquote>
 <p>⚠️ This type was added in v2.</p>
@@ -9945,7 +9945,7 @@ struct ScrapedOnChainVotes {
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2022-11-23, commit: <a href="https://github.com/paritytech/polkadot/commit/1dec2433ae">1dec2433ae</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="glossary-3"><a class="header" href="#glossary-3">Glossary</a></h1>
+<footer id="last-change">Last change: 2022-11-23, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/1dec2433ae">1dec2433ae</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="glossary-3"><a class="header" href="#glossary-3">Glossary</a></h1>
 <p>Here you can find definitions of a bunch of jargon, usually specific to the Polkadot project.</p>
 <ul>
 <li><strong>Approval Checker:</strong> A validator who randomly self-selects so to perform validity checks on a parablock which is
@@ -10017,12 +10017,12 @@ highly scalable.</li>
 </ul>
 <h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
 <p>Also of use is the <a href="https://substrate.dev/docs/en/knowledgebase/getting-started/glossary">Substrate Glossary</a>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="further-reading"><a class="header" href="#further-reading">Further Reading</a></h1>
+<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="further-reading"><a class="header" href="#further-reading">Further Reading</a></h1>
 <ul>
 <li>Polkadot Wiki on Consensus: <a href="https://wiki.polkadot.network/docs/learn-consensus">https://wiki.polkadot.network/docs/learn-consensus</a></li>
 <li>Polkadot Spec: <a href="https://github.com/w3f/polkadot-spec">https://github.com/w3f/polkadot-spec</a></li>
 </ul>
-<footer id="last-change">Last change: 2021-06-22, commit: <a href="https://github.com/paritytech/polkadot/commit/0225640d62">0225640d62</a></footer>
+<footer id="last-change">Last change: 2021-06-22, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0225640d62">0225640d62</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
