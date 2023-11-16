@@ -108,7 +108,7 @@ fn build_overseer(
 
 	let builder = Overseer::builder()
 		.availability_distribution(DummySubsystem)
-		.availability_recovery(AvailabilityRecoverySubsystem::with_availability_store_skip(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))

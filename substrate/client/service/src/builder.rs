@@ -637,7 +637,6 @@ where
 		client.clone(),
 		backend.clone(),
 		task_executor.clone(),
-		client.info().genesis_hash,
 		// Defaults to sensible limits for the `ChainHead`.
 		sc_rpc_spec_v2::chain_head::ChainHeadConfig::default(),
 	)
