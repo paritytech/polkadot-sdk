@@ -319,10 +319,10 @@ where
 				// `create_inherents` should not change any state, to ensure this we always rollback
 				// the transaction.
 				TransactionOutcome::Rollback(
-					BlockBuilderApi.inherent_extrinsics(&api, inherent_data),
+					BlockBuilderApi::<Block>::inherent_extrinsics(api, inherent_data),
 				)
 			})
-			.map_err(|e: String| Error::Application(Box::new(e)))
+			.map_err(Into::into)
 	}
 
 	/// Estimate the size of the block in the current state.

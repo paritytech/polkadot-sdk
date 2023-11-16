@@ -15,25 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::panic::UnwindSafe;
-
+use codec::Encode;
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::{ApiExt, Core, ProvideRuntimeApi, RuntimeInstance};
+use sp_api::{Core, RuntimeInstance};
 use sp_runtime::{
 	traits::{HashingFor, Header as HeaderT},
 	TransactionOutcome,
 };
 use sp_state_machine::{create_proof_check_backend, execution_proof_check_on_trie_backend};
-
 use substrate_test_runtime_client::{
 	prelude::*,
 	runtime::{Block, Header, TestAPI, Transfer},
-	DefaultTestClientBuilderExt, TestClient, TestClientBuilder,
+	sc_executor::WasmExecutor,
+	DefaultTestClientBuilderExt, TestClientBuilder,
 };
-
-use codec::Encode;
-use sp_consensus::SelectChain;
-use substrate_test_runtime_client::sc_executor::WasmExecutor;
 
 #[test]
 fn calling_runtime_function() {
@@ -43,18 +38,6 @@ fn calling_runtime_function() {
 	let runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
 
 	assert_eq!(runtime_api.benchmark_add_one(&1).unwrap(), 2);
-}
-
-#[test]
-fn calling_runtime_signature_changed_old_function() {
-	let client = TestClientBuilder::new().build();
-	let best_hash = client.chain_info().best_hash;
-
-	let runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
-
-	#[allow(deprecated)]
-	let res = runtime_api.function_signature_changed_before_version_2().unwrap();
-	assert_eq!(&res, &[1, 2]);
 }
 
 #[test]
@@ -92,7 +75,7 @@ fn initialize_block_works() {
 fn record_proof_works() {
 	sp_tracing::try_init_simple();
 
-	let (client, backend) = TestClientBuilder::new().build_with_backend();
+	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
 	let storage_root = *client.header(best_hash).unwrap().unwrap().state_root();
 
@@ -111,8 +94,6 @@ fn record_proof_works() {
 		to: AccountKeyring::Bob.into(),
 	}
 	.into_unchecked_extrinsic();
-
-	let genesis_hash = client.chain_info().genesis_hash;
 
 	// Build the block and record proof
 	let mut builder = BlockBuilderBuilder::new(&client)
@@ -145,7 +126,6 @@ fn record_proof_works() {
 	)
 	.expect("Executes block while using the proof backend");
 }
-/*
 
 #[test]
 fn call_runtime_api_with_multiple_arguments() {
@@ -153,9 +133,11 @@ fn call_runtime_api_with_multiple_arguments() {
 
 	let data = vec![1, 2, 4, 5, 6, 7, 8, 8, 10, 12];
 	let best_hash = client.chain_info().best_hash;
-	client
-		.runtime_api()
-		.test_multiple_arguments(best_hash, data.clone(), data.clone(), data.len() as u32)
+
+	RuntimeInstance::builder(client, best_hash)
+		.off_chain_context()
+		.build()
+		.test_multiple_arguments(data.clone(), data.clone(), data.len() as u32)
 		.unwrap();
 }
 
@@ -170,10 +152,10 @@ fn disable_logging_works() {
 		);
 
 		let client = builder.build();
-		let runtime_api = client.runtime_api();
-		runtime_api
-			.do_trace_log(client.chain_info().genesis_hash)
-			.expect("Logging should not fail");
+		let runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
+			.off_chain_context()
+			.build();
+		runtime_api.do_trace_log().expect("Logging should not fail");
 		log::error!("Logging from native works");
 	} else {
 		let executable = std::env::current_exe().unwrap();
@@ -190,11 +172,6 @@ fn disable_logging_works() {
 	}
 }
 
-// Certain logic like the transaction handling is not unwind safe.
-//
-// Ensure that the type is not unwind safe!
-static_assertions::assert_not_impl_any!(<TestClient as ProvideRuntimeApi<_>>::Api: UnwindSafe);
-
 #[test]
 fn ensure_transactional_works() {
 	const KEY: &[u8] = b"test";
@@ -202,12 +179,12 @@ fn ensure_transactional_works() {
 	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
 
-	let runtime_api = client.runtime_api();
+	let runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 	runtime_api.execute_in_transaction(|api| {
-		api.write_key_value(best_hash, KEY.to_vec(), vec![1, 2, 3], false).unwrap();
+		api.write_key_value(KEY.to_vec(), vec![1, 2, 3], false).unwrap();
 
 		api.execute_in_transaction(|api| {
-			api.write_key_value(best_hash, KEY.to_vec(), vec![1, 2, 3, 4], false).unwrap();
+			api.write_key_value(KEY.to_vec(), vec![1, 2, 3, 4], false).unwrap();
 
 			TransactionOutcome::Commit(())
 		});
@@ -215,21 +192,16 @@ fn ensure_transactional_works() {
 		TransactionOutcome::Commit(())
 	});
 
-	let changes = runtime_api
-		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
-		.unwrap();
+	let changes = runtime_api.into_storage_changes().unwrap();
 	assert_eq!(changes.main_storage_changes[0].1, Some(vec![1, 2, 3, 4]));
 
-	let runtime_api = client.runtime_api();
+	let runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 	runtime_api.execute_in_transaction(|api| {
-		assert!(api.write_key_value(best_hash, KEY.to_vec(), vec![1, 2, 3], true).is_err());
+		assert!(api.write_key_value(KEY.to_vec(), vec![1, 2, 3], true).is_err());
 
 		TransactionOutcome::Commit(())
 	});
 
-	let changes = runtime_api
-		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
-		.unwrap();
+	let changes = runtime_api.into_storage_changes().unwrap();
 	assert_eq!(changes.main_storage_changes[0].1, Some(vec![1, 2, 3]));
 }
-*/

@@ -21,7 +21,7 @@ use sp_api::{
 use sp_runtime::traits::Block as BlockT;
 
 use substrate_test_runtime_client::runtime::{Block, Hash};
-/*
+
 /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro in a real
 /// runtime.
 pub struct Runtime {}
@@ -106,7 +106,7 @@ impl_runtime_apis! {
 	}
 
 	#[cfg_attr(feature = "enable-staging-api", api_version(99))]
-	impl self::ApiWithStagingMethod<Block> for Runtime {
+	impl self::ApiWithStagingMethod for Runtime {
 		fn stable_one(_: u64) {}
 
 		#[cfg(feature = "enable-staging-api")]
@@ -115,7 +115,7 @@ impl_runtime_apis! {
 
 	#[cfg_attr(feature = "enable-staging-api", api_version(99))]
 	#[api_version(2)]
-	impl self::ApiWithStagingAndVersionedMethods<Block> for Runtime {
+	impl self::ApiWithStagingAndVersionedMethods for Runtime {
 		fn stable_one(_: u64) {}
 		fn new_one() {}
 
@@ -124,7 +124,7 @@ impl_runtime_apis! {
 	}
 
 	#[cfg_attr(feature = "enable-staging-api", api_version(99))]
-	impl self::ApiWithStagingAndChangedBase<Block> for Runtime {
+	impl self::ApiWithStagingAndChangedBase for Runtime {
 		fn stable_one(_: u64) {}
 		fn new_one() {}
 
@@ -191,26 +191,6 @@ type TestClient = substrate_test_runtime_client::client::Client<
 >;
 
 #[test]
-fn test_client_side_function_signature() {
-	let _test: fn(
-		&RuntimeApiImpl<Block, TestClient>,
-		<Block as BlockT>::Hash,
-		u64,
-	) -> Result<(), ApiError> = RuntimeApiImpl::<Block, TestClient>::test;
-	let _something_with_block: fn(
-		&RuntimeApiImpl<Block, TestClient>,
-		<Block as BlockT>::Hash,
-		Block,
-	) -> Result<Block, ApiError> = RuntimeApiImpl::<Block, TestClient>::something_with_block;
-
-	#[allow(deprecated)]
-	let _same_name_before_version_2: fn(
-		&RuntimeApiImpl<Block, TestClient>,
-		<Block as BlockT>::Hash,
-	) -> Result<String, ApiError> = RuntimeApiImpl::<Block, TestClient>::same_name_before_version_2;
-}
-
-#[test]
 fn check_runtime_api_info() {
 	assert_eq!(&<dyn Api::<Block>>::ID, &runtime_decl_for_api::ID);
 	assert_eq!(<dyn Api::<Block>>::VERSION, runtime_decl_for_api::VERSION);
@@ -220,10 +200,7 @@ fn check_runtime_api_info() {
 		<dyn ApiWithCustomVersion>::VERSION,
 		runtime_decl_for_api_with_custom_version::VERSION,
 	);
-	assert_eq!(
-		&<dyn ApiWithCustomVersion>::ID,
-		&runtime_decl_for_api_with_custom_version::ID,
-	);
+	assert_eq!(&<dyn ApiWithCustomVersion>::ID, &runtime_decl_for_api_with_custom_version::ID,);
 	assert_eq!(<dyn ApiWithCustomVersion>::VERSION, 2);
 
 	// The stable version of the API
@@ -305,4 +282,3 @@ fn mock_runtime_api_works_with_advanced() {
 		mock.wild_card(Hash::repeat_byte(0x01), 1).unwrap_err().to_string(),
 	);
 }
-*/

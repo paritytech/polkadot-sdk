@@ -16755,7 +16755,6 @@ dependencies = [
  "sc-block-builder",
  "scale-info",
  "sp-api",
- "sp-consensus",
  "sp-core",
  "sp-runtime",
  "sp-state-machine",

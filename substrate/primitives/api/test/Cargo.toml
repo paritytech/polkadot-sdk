@@ -17,7 +17,6 @@ substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 sp-version = { path = "../../version" }
 sp-tracing = { path = "../../tracing" }
 sp-runtime = { path = "../../runtime" }
-sp-consensus = { path = "../../consensus/common" }
 sc-block-builder = { path = "../../../client/block-builder" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 sp-state-machine = { path = "../../state-machine" }
