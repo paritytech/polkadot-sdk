@@ -50,7 +50,7 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	pallet::disabling_threshold, BalanceOf, Config, DisabledValidators, Error, Exposure,
+	pallet::disabling_limit, BalanceOf, Config, DisabledValidators, Error, Exposure,
 	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
 	UnappliedSlash, ValidatorSlashInEra,
 };
@@ -336,7 +336,7 @@ fn add_offending_validator<T: Config>(stash: &T::AccountId) {
 			// this is a new offending validator
 
 			// we don't want to disable too many validators otherwise we will break consensus
-			if offending.len() >= disabling_threshold(validators.len()) as usize {
+			if offending.len() >= disabling_limit(validators.len()) as usize {
 				return
 			}
 

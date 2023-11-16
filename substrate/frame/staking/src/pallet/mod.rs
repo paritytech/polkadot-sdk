@@ -1873,8 +1873,8 @@ fn is_sorted_and_unique(list: &[u32]) -> bool {
 	list.windows(2).all(|w| w[0] < w[1])
 }
 
-/// Disabling threshold calculated from the total number of validators in the active set. When
-/// reached no more validators will be disabled.
-pub fn disabling_threshold(validators_len: usize) -> usize {
+/// Disabling limit calculated from the total number of validators in the active set. When reached
+/// no more validators will be disabled.
+pub fn disabling_limit(validators_len: usize) -> usize {
 	validators_len.saturating_sub(1) / 3
 }
