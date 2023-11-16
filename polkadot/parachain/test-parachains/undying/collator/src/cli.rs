@@ -31,7 +31,7 @@ pub enum Subcommand {
 	ExportGenesisWasm(ExportGenesisWasmCommand),
 }
 
-/// Command for exporting the genesis state of the parachain
+/// Command for exporting the genesis head data of the parachain
 #[derive(Debug, Parser)]
 pub struct ExportGenesisHeadCommand {
 	/// Id of the parachain this collator collates for.

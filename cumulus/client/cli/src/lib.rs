@@ -127,7 +127,7 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
-/// Command for exporting the genesis state of the parachain
+/// Command for exporting the genesis head data of the parachain
 #[derive(Debug, clap::Parser)]
 pub struct ExportGenesisHeadCommand {
 	/// Output file name or stdout if unspecified.
