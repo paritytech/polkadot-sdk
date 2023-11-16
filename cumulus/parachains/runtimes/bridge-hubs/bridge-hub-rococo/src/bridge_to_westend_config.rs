@@ -196,7 +196,7 @@ bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWesten
 pub type WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance3;
 impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_messages_rococo_to_westend::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_messages::WeightInfo<Runtime>;
 	type BridgedChainId = BridgeHubWestendChainId;
 	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
