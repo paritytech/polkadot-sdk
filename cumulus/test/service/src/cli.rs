@@ -60,7 +60,7 @@ pub enum Subcommand {
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the genesis state of the parachain.
-	ExportGenesisState(ExportGenesisStateCommand),
+	ExportGenesisState(ExportGenesisHeadCommand),
 
 	/// Export the genesis wasm of the parachain.
 	ExportGenesisWasm(ExportGenesisWasmCommand),
@@ -68,15 +68,15 @@ pub enum Subcommand {
 
 #[derive(Debug, clap::Parser)]
 #[group(skip)]
-pub struct ExportGenesisStateCommand {
+pub struct ExportGenesisHeadCommand {
 	#[arg(default_value_t = 2000u32)]
 	pub parachain_id: u32,
 
 	#[command(flatten)]
-	pub base: cumulus_client_cli::ExportGenesisStateCommand,
+	pub base: cumulus_client_cli::ExportGenesisHeadCommand,
 }
 
-impl CliConfiguration for ExportGenesisStateCommand {
+impl CliConfiguration for ExportGenesisHeadCommand {
 	fn shared_params(&self) -> &SharedParams {
 		&self.base.shared_params
 	}
