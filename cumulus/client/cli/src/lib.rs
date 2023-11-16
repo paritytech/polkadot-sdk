@@ -129,7 +129,7 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 
 /// Command for exporting the genesis state of the parachain
 #[derive(Debug, clap::Parser)]
-pub struct ExportGenesisStateCommand {
+pub struct ExportGenesisHeadCommand {
 	/// Output file name or stdout if unspecified.
 	#[arg()]
 	pub output: Option<PathBuf>,
@@ -143,7 +143,7 @@ pub struct ExportGenesisStateCommand {
 	pub shared_params: sc_cli::SharedParams,
 }
 
-impl ExportGenesisStateCommand {
+impl ExportGenesisHeadCommand {
 	/// Run the export-genesis-state command
 	pub fn run<B, C>(&self, client: Arc<C>) -> sc_cli::Result<()>
 	where
@@ -178,7 +178,7 @@ impl ExportGenesisStateCommand {
 	}
 }
 
-impl sc_cli::CliConfiguration for ExportGenesisStateCommand {
+impl sc_cli::CliConfiguration for ExportGenesisHeadCommand {
 	fn shared_params(&self) -> &sc_cli::SharedParams {
 		&self.shared_params
 	}
