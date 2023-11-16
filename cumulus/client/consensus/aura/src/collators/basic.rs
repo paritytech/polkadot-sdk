@@ -166,16 +166,12 @@ where
 
 			let parent_hash = parent_header.hash();
 
-			println!("🤵🤵🤵🤵🤵🤵🤵 In Aura about to call check block status");
-			println!("🤵🤵🤵🤵🤵🤵🤵 Last header is {:?}", parent_header);
-
 			println!("🤵🤵🤵🤵🤵🤵🤵 Last header Encoded is 0x{:?}", sp_core::hexdisplay::HexDisplay::from(&parent_header.encode()));
 			println!("🤵🤵🤵🤵🤵🤵🤵 and its hash is {:?}", parent_header.hash());
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
 				println!("🤵🤵🤵🤵🤵🤵🤵 In Aura continuing.");
 				continue
 			}
-			println!("🤵🤵🤵🤵🤵🤵🤵 In Aura made it past check.");
 
 			let relay_parent_header =
 				match params.relay_client.header(RBlockId::hash(*request.relay_parent())).await {
