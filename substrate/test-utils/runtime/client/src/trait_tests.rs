@@ -225,8 +225,6 @@ where
 	let blockchain = backend.blockchain();
 	let genesis_hash = client.chain_info().genesis_hash;
 
-	let genesis_hash = client.chain_info().genesis_hash;
-
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
 		.on_parent_block(genesis_hash)
@@ -394,8 +392,6 @@ where
 	// 		A1 -> D2
 	let mut client = TestClientBuilder::with_backend(backend.clone()).build();
 	let blockchain = backend.blockchain();
-	let genesis_hash = client.chain_info().genesis_hash;
-
 	let genesis_hash = client.chain_info().genesis_hash;
 
 	// G -> A1

@@ -312,7 +312,7 @@ where
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
-			.fetch_parent_block_number(&*self.client)?
+			.with_parent_block_number(self.parent_number)
 			.with_proof_recording(PR::ENABLED)
 			.with_inherent_digests(inherent_digests)
 			.build()?;
@@ -954,8 +954,12 @@ mod tests {
 		// Exact block_limit, which includes:
 		// 99 (header_size) + 718 (proof@initialize_block) + 246 (one Transfer extrinsic)
 		let block_limit = {
-			let builder =
-				client.new_block_at(genesis_header.hash(), Default::default(), true).unwrap();
+			let builder = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(genesis_header.hash())
+				.with_parent_block_number(0)
+				.enable_proof_recording()
+				.build()
+				.unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
 		};
 		let block = block_on(proposer.propose(

@@ -354,22 +354,18 @@ mod tests {
 	#[test]
 	fn block_building_storage_proof_does_not_include_runtime_by_default() {
 		let builder = substrate_test_runtime_client::TestClientBuilder::new();
-		let backend = builder.backend();
 		let client = builder.build();
 
 		let genesis_hash = client.info().best_hash;
 
-		let block = BlockBuilder::new(
-			&client,
-			genesis_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			&*backend,
-		)
-		.unwrap()
-		.build()
-		.unwrap();
+		let block = BlockBuilderBuilder::new(&client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(0)
+			.enable_proof_recording()
+			.build()
+			.unwrap()
+			.build()
+			.unwrap();
 
 		let proof = block.proof.expect("Proof is build on request");
 		let genesis_state_root = client.header(genesis_hash).unwrap().unwrap().state_root;
@@ -387,18 +383,15 @@ mod tests {
 	#[test]
 	fn failing_extrinsic_rolls_back_changes_in_storage_proof() {
 		let builder = substrate_test_runtime_client::TestClientBuilder::new();
-		let backend = builder.backend();
 		let client = builder.build();
+		let genesis_hash = client.info().best_hash;
 
-		let mut block_builder = BlockBuilder::new(
-			&client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			&*backend,
-		)
-		.unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(0)
+			.enable_proof_recording()
+			.build()
+			.unwrap();
 
 		block_builder.push(ExtrinsicBuilder::new_read_and_panic(8).build()).unwrap_err();
 
@@ -406,15 +399,12 @@ mod tests {
 
 		let proof_with_panic = block.proof.expect("Proof is build on request").encoded_size();
 
-		let mut block_builder = BlockBuilder::new(
-			&client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			&*backend,
-		)
-		.unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(0)
+			.enable_proof_recording()
+			.build()
+			.unwrap();
 
 		block_builder.push(ExtrinsicBuilder::new_read(8).build()).unwrap();
 
@@ -422,17 +412,14 @@ mod tests {
 
 		let proof_without_panic = block.proof.expect("Proof is build on request").encoded_size();
 
-		let block = BlockBuilder::new(
-			&client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::Yes,
-			Default::default(),
-			&*backend,
-		)
-		.unwrap()
-		.build()
-		.unwrap();
+		let block = BlockBuilderBuilder::new(&client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(0)
+			.enable_proof_recording()
+			.build()
+			.unwrap()
+			.build()
+			.unwrap();
 
 		let proof_empty_block = block.proof.expect("Proof is build on request").encoded_size();
 

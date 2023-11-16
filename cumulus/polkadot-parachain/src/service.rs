@@ -156,6 +156,21 @@ impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor
 	}
 }
 
+/// Native Westend Collectives executor instance.
+pub struct CollectivesWestendRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for CollectivesWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		collectives_westend_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		collectives_westend_runtime::native_version()
+	}
+}
+
 /// Native BridgeHubPolkadot executor instance.
 pub struct BridgeHubPolkadotRuntimeExecutor;
 
@@ -213,6 +228,21 @@ impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		contracts_rococo_runtime::native_version()
+	}
+}
+
+/// Native Westend Glutton executor instance.
+pub struct GluttonWestendRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		glutton_westend_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		glutton_westend_runtime::native_version()
 	}
 }
 
@@ -1955,10 +1985,11 @@ pub async fn start_contracts_rococo_node(
 fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	// Polkadot para-chains should generally use these requirements to ensure that the relay-chain
 	// will not take longer than expected to import its blocks.
-	if !frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
+	if let Err(err) = frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
 		log::warn!(
-			"⚠️  The hardware does not meet the minimal requirements for role 'Authority' find out more at:\n\
-			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"
+			"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+			err
 		);
 	}
 }
