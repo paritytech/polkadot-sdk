@@ -30,7 +30,11 @@ If a change does not alter any logic (e.g. comments, dependencies, docs), then i
 `A1-insubstantial` and merged faster.
 If it is an urgent fix with no large change to logic, then it may be merged after a non-author
 contributor has reviewed it well and approved the review once CI is complete.
-No PR should be merged until all reviews' comments are addressed.
+No PR should be merged until all reviews' comments are addressed. It is expected that 
+there is no PR merged that is not ready. It is only allowed to merge such a PR if 
+the code is disabled, not used or in any other way clearly tagged as experimental. 
+It is expected that master is always releasable and that all PRs got tested well 
+enough that they likelyhood of critical bugs is quite small.
 
 ### Labels
 
@@ -50,8 +54,6 @@ The set of labels and their description can be found [here](https://paritytech.g
    `T13-documentation`. The docs team will get in touch.
 5. If your PR changes files in these paths:
 
-   `polkadot` : `^runtime/polkadot`
-   `polkadot` : `^runtime/kusama`
    `polkadot` : `^primitives/src/`
    `polkadot` : `^runtime/common`
    `substrate` : `^frame/`
@@ -133,9 +135,76 @@ Please label issues with the following labels:
 2. `D*`  issue difficulty, suggesting the level of complexity this issue has. AT MOST ONE ALLOWED.
 3. `T*`  Issue topic. MULTIPLE ALLOWED.
 
-## Releases
+## Release Process
 
-Declaring formal releases remains the prerogative of the project maintainer(s).
+We are aiming for a **two week** release process of the `polkadot-sdk` repository. The output of a release
+are the Parity `polkadot` node implementation, the runtimes for the Westend & Rococo and new versions 
+of the crates. Given the cadence of two weeks, there is no need to halt a release process for any kind 
+of PR (no BRAKES for the release train). There is only to be made an exception for high security issues 
+for code that is already running in production. However, these critical bug fixes may warrant an out of 
+band release any way, but this should be decided based on the severity on a case by case basis.
+
+### Versioning
+
+We are releasing multiple different things from this repository in one release, but 
+we don't want to use the same version for everything. Thus, in the following we explain
+the versioning story for the node, Westend & Rococo and the crates. The version associated
+to a particular release is taken from the node version.
+
+#### Node
+
+The versioning of the node is done 99% of the time by only incrementing the `minor` version. 
+The `major` version is only bumped for special releases and the `patch` can be used for an 
+out of band release that fixes some critical bug. The node version is not following SemVer. 
+This means that the version doesn't express if there are any breaking changes in the CLI 
+interface or similar. The node version is declared in the `NODE_VERSION` variable in 
+`polkadot/node/primitives/src/lib.rs`.
+
+#### Westend & Rococo
+
+For the test networks we only increment the `spec_version`. The spec version is also following
+the node version. So, `10020` is for example the node release `1.2.0`. This versioning has no
+further meaning and is only done to map from an on chain `spec_version` easily to the 
+release in this repository.
+
+#### Crate
+
+We want to follow SemVer as best as possible when it comes to crates versioning.
+Following SemVer isn't that easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) 
+in the Rust documentation that explains the small details on when to bump what. The bumping 
+should be done in between the releases in the PRs. However, it isn't required to 
+bump e.g. the `patch` version multiple times in between two releases. There
+exists a CI job that checks that the versions are not bumped multiple times to help 
+the developer. Another CI job is also checking for SemVer breaking changes. It is using
+[`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks). While 
+the tool isn't perfect, it should help to remind the developer of checking the SemVer 
+compatibility of its changes. In general there is not any guarantee to downstream 
+that there isn't a breaking in between and thus a `major` (or `minor` on `<1.0.0`) 
+bump. If possible, it should be prevented, but we also don't want to carry
+"dead code" with us for too long. As long as there are clear instructions on how 
+to integrate the breaking changes it should be fine to break things.
+
+So, the general approach is that developers are required to bump the versions in 
+all crates that they are changing. If there is a `major` (or `minor` on `<1.0.0`)
+crate version bump, it is important to also bump any crate that depends on this
+bumped version crate and re-export it. However, if the re-export is done in a
+`__private` module (that makes clear that it is internal api) the `major`/`minor`
+version bump doesn't ripple and only requires a `minor`/`patch` bump.
+
+### Backports
+
+Backports should most of the time not required. We should only backport critical 
+bug fixes and then release the fixed crates. There should be no need to backport 
+anything from a release branch. Bumping the `NODE_VERSION` and `spec_version` of 
+the test networks should be done before the release process is started on master.
+The only other change on release branches, new weights are not that important to 
+be backported.
+
+When a backport is required for some previous release, it is the job of the
+developer (assuming it is some internal person) that has created the initial PR
+to create the backports. After the backports are done it is important to ensure
+that the crate release is being done. We should backport fixes to the releases
+of the last 6 months.
 
 ## UI tests
 
