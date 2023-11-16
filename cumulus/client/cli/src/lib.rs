@@ -22,20 +22,19 @@ use std::{
 	fs,
 	io::{self, Write},
 	net::SocketAddr,
-	path::PathBuf, sync::Arc,
+	path::PathBuf,
+	sync::Arc,
 };
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
-use sc_client_api::{HeaderBackend, BlockBackend};
+use sc_client_api::{BlockBackend, HeaderBackend};
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
 };
 use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::{
-	traits::{Block as BlockT, Zero},
-};
+use sp_runtime::traits::{Block as BlockT, Zero};
 use url::Url;
 
 /// The `purge-chain` command used to remove the whole chain: the parachain and the relay chain.
@@ -151,10 +150,16 @@ impl ExportGenesisStateCommand {
 		B: BlockT,
 		C: HeaderBackend<B> + BlockBackend<B> + 'static,
 	{
-		let genesis_hash = client.hash(Zero::zero())?.ok_or(
-			sc_cli::Error::Client(sp_blockchain::Error::Backend("Failed to lookup genesis block hash when exporting genesis head data.".into())))?;
-		let genesis_header = client.header(genesis_hash)?.ok_or(
-			sc_cli::Error::Client(sp_blockchain::Error::Backend("Failed to lookup genesis header by hash when exporting genesis head data.".into())))?;
+		let genesis_hash = client.hash(Zero::zero())?.ok_or(sc_cli::Error::Client(
+			sp_blockchain::Error::Backend(
+				"Failed to lookup genesis block hash when exporting genesis head data.".into(),
+			),
+		))?;
+		let genesis_header = client.header(genesis_hash)?.ok_or(sc_cli::Error::Client(
+			sp_blockchain::Error::Backend(
+				"Failed to lookup genesis header by hash when exporting genesis head data.".into(),
+			),
+		))?;
 
 		let raw_header = genesis_header.encode();
 		let output_buf = if self.raw {
