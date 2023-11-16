@@ -478,6 +478,9 @@ where
 				}
 			}
 
+			crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
+				.map_err(|e| Error::Backend(e.to_string()))?;
+
 			// Update gossip validator votes filter.
 			if let Err(e) = self
 				.persisted_state
