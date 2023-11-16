@@ -53,6 +53,8 @@ prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 prometheus = { version = "0.13.0", default-features = false }
 toml = "0.8.8"
 serde = "1.0.192"
+pyroscope = "0.5.7"
+pyroscope_pprofrs = "0.2.7"
 
 [features]
 default = []

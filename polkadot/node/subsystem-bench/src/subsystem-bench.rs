@@ -143,6 +143,15 @@ fn new_runtime() -> tokio::runtime::Runtime {
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
 		use prometheus::Registry;
+		use pyroscope::PyroscopeAgent;
+		use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+
+		// Pyroscope must be running on port 4040
+		// See https://grafana.com/docs/pyroscope/latest/get-started/#download-and-configure-pyroscope
+		let agent = PyroscopeAgent::builder("http://localhost:4040", "subsystem-bench")
+			.backend(pprof_backend(PprofConfig::new().sample_rate(100)))
+			.build()?;
+		let agent_running = agent.start()?;
 
 		let runtime = new_runtime();
 
@@ -252,6 +261,9 @@ impl BenchCli {
 		let mut env = TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
 
 		runtime.block_on(availability::bench_chunk_recovery(&mut env));
+
+		let agent_ready = agent_running.stop()?;
+		agent_ready.shutdown();
 
 		Ok(())
 	}
