@@ -42,20 +42,20 @@ fn builder_pattern_works() {
 fn default_builder_requires_buy_execution() {
 	let asset: MultiAsset = (Here, 100u128).into();
 	let beneficiary: MultiLocation = AccountId32 { id: [0u8; 32], network: None }.into();
-    // This is invalid, since it doesn't pay for fees.
-    // This is enforced by the runtime, because the build() method doesn't exist
-    // on the resulting type.
-    // let message: Xcm<()> = Xcm::builder()
-    //     .withdraw_asset(asset.clone().into())
-    //     .deposit_asset(asset.into(), beneficiary)
-    //     .build();
+	// This is invalid, since it doesn't pay for fees.
+	// This is enforced by the runtime, because the build() method doesn't exist
+	// on the resulting type.
+	// let message: Xcm<()> = Xcm::builder()
+	//     .withdraw_asset(asset.clone().into())
+	//     .deposit_asset(asset.into(), beneficiary)
+	//     .build();
 
-    // To be able to do that, we need to use the explicitly unpaid variant
-    let message: Xcm<()> = Xcm::builder_unpaid()
-        .unpaid_execution(Unlimited, None)
-        .withdraw_asset(asset.clone().into())
-        .deposit_asset(asset.clone().into(), beneficiary)
-        .build(); // This works
+	// To be able to do that, we need to use the explicitly unpaid variant
+	let message: Xcm<()> = Xcm::builder_unpaid()
+		.unpaid_execution(Unlimited, None)
+		.withdraw_asset(asset.clone().into())
+		.deposit_asset(asset.clone().into(), beneficiary)
+		.build(); // This works
 	assert_eq!(
 		message,
 		Xcm(vec![
@@ -65,12 +65,12 @@ fn default_builder_requires_buy_execution() {
 		])
 	);
 
-    // The other option doesn't have any limits whatsoever, so it should
-    // only be used when you really know what you're doing.
-    let message: Xcm<()> = Xcm::builder_unsafe()
-        .withdraw_asset(asset.clone().into())
-        .deposit_asset(asset.clone().into(), beneficiary)
-        .build();
+	// The other option doesn't have any limits whatsoever, so it should
+	// only be used when you really know what you're doing.
+	let message: Xcm<()> = Xcm::builder_unsafe()
+		.withdraw_asset(asset.clone().into())
+		.deposit_asset(asset.clone().into(), beneficiary)
+		.build();
 	assert_eq!(
 		message,
 		Xcm(vec![

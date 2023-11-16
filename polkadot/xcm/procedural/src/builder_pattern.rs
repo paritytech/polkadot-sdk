@@ -20,14 +20,14 @@ use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-	Data, DeriveInput, Error, Expr, ExprLit, Fields, Lit, Meta, MetaNameValue,
-	Result, Variant, Ident, DataEnum,
+	Data, DataEnum, DeriveInput, Error, Expr, ExprLit, Fields, Ident, Lit, Meta, MetaNameValue,
+	Result, Variant,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
 	let data_enum = match &input.data {
 		Data::Enum(data_enum) => data_enum,
-		_ => return Err(Error::new_spanned(&input, "Expected the `Instruction` enum"))
+		_ => return Err(Error::new_spanned(&input, "Expected the `Instruction` enum")),
 	};
 	let builder_raw_impl = generate_builder_raw_impl(&input.ident, data_enum);
 	let builder_impl = generate_builder_impl(&input.ident, data_enum)?;
@@ -143,7 +143,9 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 
 fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {
 	// We first require an instruction that load the holding register
-	let load_holding_variants = data_enum.variants.iter()
+	let load_holding_variants = data_enum
+		.variants
+		.iter()
 		.map(|variant| {
 			let maybe_builder_attr = variant.attrs.iter().find(|attr| match attr.meta {
 				Meta::List(ref list) => {
@@ -153,11 +155,13 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 			});
 			let builder_attr = match maybe_builder_attr {
 				Some(builder) => builder.clone(),
-				None => return Ok(None), // It's not going to be an instruction that loads the holding register
+				None => return Ok(None), /* It's not going to be an instruction that loads the
+				                          * holding register */
 			};
 			let Meta::List(ref list) = builder_attr.meta else { unreachable!("We checked before") };
-			let inner_ident: Ident = syn::parse2(list.tokens.clone().into())
-				.map_err(|_| Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)`"))?;
+			let inner_ident: Ident = syn::parse2(list.tokens.clone().into()).map_err(|_| {
+				Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)`")
+			})?;
 			let ident_to_match: Ident = syn::parse_quote!(loads_holding);
 			if inner_ident == ident_to_match {
 				Ok(Some(variant))
@@ -167,7 +171,9 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		})
 		.collect::<Result<Vec<_>>>()?;
 
-	let load_holding_methods = load_holding_variants.into_iter().flatten()
+	let load_holding_methods = load_holding_variants
+		.into_iter()
+		.flatten()
 		.map(|variant| {
 			let variant_name = &variant.ident;
 			let method_name_string = &variant_name.to_string().to_snake_case();
@@ -209,7 +215,11 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 						}
 					}
 				},
-				_ => return Err(Error::new_spanned(&variant, "Instructions that load the holding register should take operands"))
+				_ =>
+					return Err(Error::new_spanned(
+						&variant,
+						"Instructions that load the holding register should take operands",
+					)),
 			};
 			Ok(method)
 		})
@@ -222,33 +232,44 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 	};
 
 	// Then we require fees to be paid
-	let buy_execution_method = data_enum.variants.iter()
+	let buy_execution_method = data_enum
+		.variants
+		.iter()
 		.find(|variant| variant.ident.to_string() == "BuyExecution")
-		.map_or(Err(Error::new_spanned(&data_enum.variants, "No BuyExecution instruction")), |variant| {
-			let variant_name = &variant.ident;
-			let method_name_string = &variant_name.to_string().to_snake_case();
-			let method_name = syn::Ident::new(&method_name_string, variant_name.span());
-			let docs = get_doc_comments(&variant);
-			let fields = match &variant.fields {
-				Fields::Named(fields) => {
-					let arg_names: Vec<_> = fields.named.iter().map(|field| &field.ident).collect();
-					let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
-					quote! {
-						#(#docs)*
-						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, AnythingGoes> {
-							let mut new_instructions = self.instructions;
-							new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
-							XcmBuilder {
-								instructions: new_instructions,
-								state: core::marker::PhantomData,
+		.map_or(
+			Err(Error::new_spanned(&data_enum.variants, "No BuyExecution instruction")),
+			|variant| {
+				let variant_name = &variant.ident;
+				let method_name_string = &variant_name.to_string().to_snake_case();
+				let method_name = syn::Ident::new(&method_name_string, variant_name.span());
+				let docs = get_doc_comments(&variant);
+				let fields = match &variant.fields {
+					Fields::Named(fields) => {
+						let arg_names: Vec<_> =
+							fields.named.iter().map(|field| &field.ident).collect();
+						let arg_types: Vec<_> =
+							fields.named.iter().map(|field| &field.ty).collect();
+						quote! {
+							#(#docs)*
+							pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, AnythingGoes> {
+								let mut new_instructions = self.instructions;
+								new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
+								XcmBuilder {
+									instructions: new_instructions,
+									state: core::marker::PhantomData,
+								}
 							}
 						}
-					}
-				},
-				_ => return Err(Error::new_spanned(&variant, "BuyExecution should have named fields")),
-			};
-			Ok(fields)
-		})?;
+					},
+					_ =>
+						return Err(Error::new_spanned(
+							&variant,
+							"BuyExecution should have named fields",
+						)),
+				};
+				Ok(fields)
+			},
+		)?;
 
 	let second_impl = quote! {
 		impl<Call> XcmBuilder<Call, LoadedHolding> {
@@ -265,18 +286,24 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 }
 
 fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {
-	let unpaid_execution_variant = data_enum.variants.iter()
+	let unpaid_execution_variant = data_enum
+		.variants
+		.iter()
 		.find(|variant| variant.ident.to_string() == "UnpaidExecution")
 		.ok_or(Error::new_spanned(&data_enum.variants, "No UnpaidExecution instruction"))?;
 	let unpaid_execution_ident = &unpaid_execution_variant.ident;
 	let unpaid_execution_method_name = Ident::new(
 		&unpaid_execution_ident.to_string().to_snake_case(),
-		unpaid_execution_ident.span()
+		unpaid_execution_ident.span(),
 	);
 	let docs = get_doc_comments(&unpaid_execution_variant);
 	let fields = match &unpaid_execution_variant.fields {
 		Fields::Named(fields) => fields,
-		_ => return Err(Error::new_spanned(&unpaid_execution_variant, "UnpaidExecution should have named fields")),
+		_ =>
+			return Err(Error::new_spanned(
+				&unpaid_execution_variant,
+				"UnpaidExecution should have named fields",
+			)),
 	};
 	let arg_names: Vec<_> = fields.named.iter().map(|field| &field.ident).collect();
 	let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
