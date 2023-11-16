@@ -113,13 +113,7 @@ fn construct_block<E: Externalities>(
 
 	// execute the block to get the real header.
 	executor
-		.call(
-			ext,
-			&runtime_code,
-			"Core_initialize_block",
-			&header.encode(),
-			CallContext::Offchain,
-		)
+		.call(ext, &runtime_code, "Core_initialize_block", &header.encode(), CallContext::Offchain)
 		.0
 		.unwrap();
 
