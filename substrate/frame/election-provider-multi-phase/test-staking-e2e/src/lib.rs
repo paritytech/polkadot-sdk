@@ -159,7 +159,7 @@ fn enters_emergency_phase_after_forcing_before_elect() {
 		// slashes so that staking goes into `Forcing::ForceNew`.
 		slash_through_offending_threshold();
 
-		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::ForceNew);
+		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
 
 		advance_session_delayed_solution(pool_state.clone());
 		assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
@@ -269,7 +269,7 @@ fn continous_slashes_below_offending_threshold() {
 /// Related to <https://github.com/paritytech/substrate/issues/13714>.
 fn set_validation_intention_after_chilled() {
 	use frame_election_provider_support::SortedListProvider;
-	use pallet_staking::{Event, Forcing, Nominators};
+	use pallet_staking::{Event, Nominators};
 
 	let (mut ext, pool_state, _) = ExtBuilder::default()
 		.epm(EpmExtBuilder::default())
@@ -295,7 +295,6 @@ fn set_validation_intention_after_chilled() {
 			staking_events(),
 			[
 				Event::Chilled { stash: 41 },
-				Event::ForceEra { mode: Forcing::ForceNew },
 				Event::SlashReported {
 					validator: 41,
 					slash_era: 0,
