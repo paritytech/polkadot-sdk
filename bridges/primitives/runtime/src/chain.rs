@@ -280,7 +280,7 @@ pub type TransactionEraOf<C> = crate::TransactionEra<BlockNumberOf<C>, HashOf<C>
 /// - constants that are stringified names of runtime API methods:
 ///     - `BEST_FINALIZED_<THIS_CHAIN>_HEADER_METHOD`
 ///     - `<THIS_CHAIN>_ACCEPTED_<CONSENSUS>_FINALITY_PROOFS_METHOD`
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_finality_runtime_apis {
 	($chain: ident $(, $consensus: ident => $justification_type: ty)?) => {
@@ -332,7 +332,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 ///     - `From<ThisChain>InboundLaneApi`
 /// - constants that are stringified names of runtime API methods:
 ///     - `FROM_<THIS_CHAIN>_MESSAGE_DETAILS_METHOD`,
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_messages_runtime_apis {
 	($chain: ident) => {
@@ -390,7 +390,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 
 /// Convenience macro that declares bridge finality runtime apis, bridge messages runtime apis
 /// and related constants for a chain.
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_runtime_apis {
 	($chain: ident $(, $consensus: ident)?) => {

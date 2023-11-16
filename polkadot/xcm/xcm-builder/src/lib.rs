@@ -44,7 +44,7 @@ pub use barriers::{
 mod controller;
 pub use controller::{
 	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
-	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
+	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
 
 mod currency_adapter;
