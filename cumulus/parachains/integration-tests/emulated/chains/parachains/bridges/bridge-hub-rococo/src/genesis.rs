@@ -56,19 +56,11 @@ pub fn genesis() -> Storage {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
-		bridge_wococo_grandpa: bridge_hub_rococo_runtime::BridgeWococoGrandpaConfig {
+		bridge_westend_grandpa: bridge_hub_rococo_runtime::BridgeWestendGrandpaConfig {
 			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			..Default::default()
 		},
-		bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
-			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-			..Default::default()
-		},
-		bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
-			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-			..Default::default()
-		},
-		bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
+		bridge_westend_messages: bridge_hub_rococo_runtime::BridgeWestendMessagesConfig {
 			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			..Default::default()
 		},
