@@ -14,11 +14,15 @@ on:
       - ready_for_review
       - converted_to_draft
   pull_request_review:
+  merge_group:
 
 jobs:
   pr-custom-review:
     runs-on: ubuntu-latest
     steps:
+      - name: Skip merge queue
+        if: ${{ contains(github.ref, 'gh-readonly-queue') }}
+        run: exit 0
       - name: Skip if pull request is in Draft
         # `if: github.event.pull_request.draft == true` should be kept here, at
         # the step level, rather than at the job level. The latter is not
