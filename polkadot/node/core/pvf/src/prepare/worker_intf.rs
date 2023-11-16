@@ -79,7 +79,7 @@ pub enum Outcome {
 	CreateTmpFileErr { worker: IdleWorker, err: String },
 	/// The response from the worker is received, but the tmp file cannot be renamed (moved) to the
 	/// final destination location.
-	RenameTmpFileErr {
+	RenameTmpFile {
 		worker: IdleWorker,
 		result: PrepareResult,
 		err: String,
@@ -100,6 +100,10 @@ pub enum Outcome {
 	IoErr(String),
 	/// The worker ran out of memory and is aborting. The worker should be ripped.
 	OutOfMemory,
+	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	///
+	/// The worker might still be usable, but we kill it just in case.
+	JobDied(String),
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -187,21 +191,6 @@ pub async fn start_work(
 						"failed to recv a prepare response: {:?}",
 						err,
 					);
-
-					// The worker died. Check if it was due to a seccomp violation.
-					//
-					// NOTE: Log, but don't change the outcome. Not all validators may have auditing
-					// enabled, so we don't want attackers to abuse a non-deterministic outcome.
-					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-						gum::error!(
-							target: LOG_TARGET,
-							worker_pid = %pid,
-							%syscall,
-							?pvf,
-							"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-						);
-					}
-
 					Outcome::IoErr(err.to_string())
 				},
 				Err(_) => {
@@ -236,6 +225,7 @@ async fn handle_response(
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+		Err(PrepareError::JobDied(err)) => return Outcome::JobDied(err),
 		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(_) => return Outcome::Concluded { worker, result },
 	};
@@ -272,7 +262,7 @@ async fn handle_response(
 				artifact_path.display(),
 				err,
 			);
-			Outcome::RenameTmpFileErr {
+			Outcome::RenameTmpFile {
 				worker,
 				result,
 				err: format!("{:?}", err),

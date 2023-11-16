@@ -43,13 +43,13 @@ enum Runtime {
 	AssetHubPolkadot,
 	AssetHubKusama,
 	AssetHubRococo,
-	AssetHubWococo,
 	AssetHubWestend,
 	Penpal(ParaId),
 	ContractsRococo,
 	CollectivesPolkadot,
 	CollectivesWestend,
 	Glutton,
+	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 }
 
@@ -94,8 +94,6 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::AssetHubKusama
 	} else if id.starts_with("asset-hub-rococo") {
 		Runtime::AssetHubRococo
-	} else if id.starts_with("asset-hub-wococo") {
-		Runtime::AssetHubWococo
 	} else if id.starts_with("asset-hub-westend") | id.starts_with("westmint") {
 		Runtime::AssetHubWestend
 	} else if id.starts_with("penpal") {
@@ -111,6 +109,8 @@ fn runtime(id: &str) -> Runtime {
 			id.parse::<chain_spec::bridge_hubs::BridgeHubRuntimeType>()
 				.expect("Invalid value"),
 		)
+	} else if id.starts_with("glutton-westend") {
+		Runtime::GluttonWestend
 	} else if id.starts_with("glutton") {
 		Runtime::Glutton
 	} else {
@@ -183,19 +183,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 				&include_bytes!("../chain-specs/asset-hub-rococo.json")[..],
 			)?),
 
-		// -- Asset Hub Wococo
-		"asset-hub-wococo-dev" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_wococo_development_config()),
-		"asset-hub-wococo-local" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_wococo_local_config()),
-		// the chain spec as used for generating the upgrade genesis values
-		"asset-hub-wococo-genesis" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_wococo_genesis_config()),
-		"asset-hub-wococo" =>
-			Box::new(chain_spec::asset_hubs::AssetHubWococoChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/asset-hub-wococo.json")[..],
-			)?),
-
 		// -- Asset Hub Westend
 		"asset-hub-westend-dev" | "westmint-dev" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_westend_development_config()),
@@ -219,8 +206,12 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
 				&include_bytes!("../chain-specs/collectives-polkadot.json")[..],
 			)?),
+		"collectives-westend-dev" =>
+			Box::new(chain_spec::collectives::collectives_westend_development_config()),
+		"collectives-westend-local" =>
+			Box::new(chain_spec::collectives::collectives_westend_local_config()),
 		"collectives-westend" =>
-			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
+			Box::new(chain_spec::collectives::CollectivesWestendChainSpec::from_json_bytes(
 				&include_bytes!("../chain-specs/collectives-westend.json")[..],
 			)?),
 
@@ -254,6 +245,18 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			"polkadot-local",
 		)),
 
+		// -- Glutton Westend
+		"glutton-westend-dev" => Box::new(chain_spec::glutton::glutton_westend_development_config(
+			para_id.expect("Must specify parachain id"),
+		)),
+		"glutton-westend-local" => Box::new(chain_spec::glutton::glutton_westend_local_config(
+			para_id.expect("Must specify parachain id"),
+		)),
+		// the chain spec as used for generating the upgrade genesis values
+		"glutton-westend-genesis" => Box::new(chain_spec::glutton::glutton_westend_config(
+			para_id.expect("Must specify parachain id"),
+		)),
+
 		// -- Glutton
 		"glutton-kusama-dev" => Box::new(chain_spec::glutton::glutton_development_config(
 			para_id.expect("Must specify parachain id"),
@@ -283,13 +286,14 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 					Box::new(chain_spec::asset_hubs::AssetHubKusamaChainSpec::from_json_file(path)?),
 				Runtime::AssetHubRococo =>
 					Box::new(chain_spec::asset_hubs::AssetHubRococoChainSpec::from_json_file(path)?),
-				Runtime::AssetHubWococo =>
-					Box::new(chain_spec::asset_hubs::AssetHubWococoChainSpec::from_json_file(path)?),
 				Runtime::AssetHubWestend => Box::new(
 					chain_spec::asset_hubs::AssetHubWestendChainSpec::from_json_file(path)?,
 				),
-				Runtime::CollectivesPolkadot | Runtime::CollectivesWestend => Box::new(
+				Runtime::CollectivesPolkadot => Box::new(
 					chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_file(path)?,
+				),
+				Runtime::CollectivesWestend => Box::new(
+					chain_spec::collectives::CollectivesWestendChainSpec::from_json_file(path)?,
 				),
 				Runtime::Shell =>
 					Box::new(chain_spec::shell::ShellChainSpec::from_json_file(path)?),
@@ -301,6 +305,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 					bridge_hub_runtime_type.chain_spec_from_json_file(path)?,
 				Runtime::Penpal(_para_id) =>
 					Box::new(chain_spec::penpal::PenpalChainSpec::from_json_file(path)?),
+				Runtime::GluttonWestend =>
+					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)?),
 				Runtime::Glutton =>
 					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)?),
 				Runtime::Default => Box::new(
@@ -322,6 +328,10 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	const GLUTTON_PARA_LOCAL_PREFIX: &str = "glutton-kusama-local-";
 	const GLUTTON_PARA_GENESIS_PREFIX: &str = "glutton-kusama-genesis-";
 
+	const GLUTTON_WESTEND_PARA_DEV_PREFIX: &str = "glutton-westend-dev-";
+	const GLUTTON_WESTEND_PARA_LOCAL_PREFIX: &str = "glutton-westend-local-";
+	const GLUTTON_WESTEND_PARA_GENESIS_PREFIX: &str = "glutton-westend-genesis-";
+
 	let (norm_id, orig_id, para) = if let Some(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
 		(&id[..KUSAMA_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
@@ -337,6 +347,15 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
 		(&id[..GLUTTON_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_DEV_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_WESTEND_PARA_DEV_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_LOCAL_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_WESTEND_PARA_LOCAL_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_GENESIS_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_WESTEND_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
 	} else {
 		(id, id, None)
 	};
@@ -427,7 +446,7 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::AssetHubRococo | Runtime::AssetHubWococo => {
+			Runtime::AssetHubRococo => {
 				let $partials = new_partial::<asset_hub_rococo_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::aura_build_import_queue::<_, AuraId>,
@@ -485,17 +504,16 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
-				chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal => {
-					let $partials = new_partial::<chain_spec::bridge_hubs::wococo::RuntimeApi, _>(
-						&$config,
-						crate::service::aura_build_import_queue::<_, AuraId>,
-					)?;
-					$code
-				},
 			},
-			Runtime::CollectivesPolkadot | Runtime::CollectivesWestend => {
+			Runtime::CollectivesPolkadot => {
 				let $partials = new_partial::<collectives_polkadot_runtime::RuntimeApi, _>(
+					&$config,
+					crate::service::aura_build_import_queue::<_, AuraId>,
+				)?;
+				$code
+			},
+			Runtime::CollectivesWestend => {
+				let $partials = new_partial::<collectives_westend_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::aura_build_import_queue::<_, AuraId>,
 				)?;
@@ -529,6 +547,13 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
+			Runtime::GluttonWestend => {
+				let $partials = new_partial::<glutton_westend_runtime::RuntimeApi, _>(
+					&$config,
+					crate::service::shell_build_import_queue,
+				)?;
+				$code
+			},
 			Runtime::Glutton => {
 				let $partials = new_partial::<glutton_runtime::RuntimeApi, _>(
 					&$config,
@@ -554,7 +579,7 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::AssetHubRococo | Runtime::AssetHubWococo => {
+			Runtime::AssetHubRococo => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<asset_hub_rococo_runtime::RuntimeApi, _>(
 						&$config,
@@ -584,9 +609,19 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::CollectivesPolkadot | Runtime::CollectivesWestend => {
+			Runtime::CollectivesPolkadot => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<collectives_polkadot_runtime::RuntimeApi, _>(
+						&$config,
+						crate::service::aura_build_import_queue::<_, AuraId>,
+					)?;
+					let task_manager = $components.task_manager;
+					{ $( $code )* }.map(|v| (v, task_manager))
+				})
+			},
+			Runtime::CollectivesWestend => {
+				runner.async_run(|$config| {
+					let $components = new_partial::<collectives_westend_runtime::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
 					)?;
@@ -678,18 +713,6 @@ macro_rules! construct_async_run {
 							{ $( $code )* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
-					chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal => {
-						runner.async_run(|$config| {
-							let $components = new_partial::<chain_spec::bridge_hubs::wococo::RuntimeApi, _>(
-								&$config,
-								crate::service::aura_build_import_queue::<_, AuraId>,
-							)?;
-
-							let task_manager = $components.task_manager;
-							{ $( $code )* }.map(|v| (v, task_manager))
-						})
-					}
 				}
 			},
 			Runtime::Penpal(_) | Runtime::Default => {
@@ -700,6 +723,16 @@ macro_rules! construct_async_run {
 					>(
 						&$config,
 						crate::service::rococo_parachain_build_import_queue,
+					)?;
+					let task_manager = $components.task_manager;
+					{ $( $code )* }.map(|v| (v, task_manager))
+				})
+			},
+			Runtime::GluttonWestend => {
+				runner.async_run(|$config| {
+					let $components = new_partial::<glutton_westend_runtime::RuntimeApi, _>(
+						&$config,
+						crate::service::shell_build_import_queue,
 					)?;
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
@@ -836,7 +869,7 @@ pub fn run() -> Result<()> {
 				// that both file paths exist, the node will exit, as the user must decide (by
 				// deleting one path) the information that they want to use as their DB.
 				let old_name = match config.chain_spec.id() {
-				     "asset-hub-polkadot" => Some("statemint"),
+					 "asset-hub-polkadot" => Some("statemint"),
 				     "asset-hub-kusama" => Some("statemine"),
 				     "asset-hub-westend" => Some("westmint"),
 				     "asset-hub-rococo" => Some("rockmine"),
@@ -907,7 +940,7 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::AssetHubRococo | Runtime::AssetHubWococo => crate::service::start_asset_hub_node::<
+					Runtime::AssetHubRococo => crate::service::start_asset_hub_node::<
 						asset_hub_rococo_runtime::RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
@@ -921,9 +954,17 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
+					Runtime::CollectivesPolkadot =>
 						crate::service::start_generic_aura_node::<
 							collectives_polkadot_runtime::RuntimeApi,
+							AuraId,
+						>(config, polkadot_config, collator_options, id, hwbench)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+					Runtime::CollectivesWestend =>
+						crate::service::start_generic_aura_node::<
+							collectives_westend_runtime::RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
 						.await
@@ -962,7 +1003,7 @@ pub fn run() -> Result<()> {
 					.map(|r| r.0)
 					.map_err(Into::into),
 					Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
+chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotDevelopment =>
 							crate::service::start_generic_aura_node::<
@@ -998,14 +1039,6 @@ pub fn run() -> Result<()> {
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
 							.map(|r| r.0),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Wococo |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::WococoLocal =>
-							crate::service::start_generic_aura_node::<
-								chain_spec::bridge_hubs::wococo::RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
 					}
 					.map_err(Into::into),
 					Runtime::Penpal(_) | Runtime::Default =>
@@ -1016,6 +1049,14 @@ pub fn run() -> Result<()> {
 							id,
 							hwbench,
 						)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+					Runtime::GluttonWestend =>
+						crate::service::start_basic_lookahead_node::<
+							glutton_westend_runtime::RuntimeApi,
+							AuraId,
+						>(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
