@@ -433,6 +433,7 @@ pub struct OldSessionKeys {
 	pub para_validator: <Initializer as BoundToRuntimeAppPublic>::Public,
 	pub para_assignment: <ParaSessionInfo as BoundToRuntimeAppPublic>::Public,
 	pub authority_discovery: <AuthorityDiscovery as BoundToRuntimeAppPublic>::Public,
+	pub beefy: <Beefy as BoundToRuntimeAppPublic>::Public,
 }
 
 impl OpaqueKeys for OldSessionKeys {
@@ -445,6 +446,7 @@ impl OpaqueKeys for OldSessionKeys {
 			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID,
 			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID,
 			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID,
+			<<Beefy as BoundToRuntimeAppPublic>::Public>::ID,
 		]
 	}
 	fn get_raw(&self, i: KeyTypeId) -> &[u8] {
@@ -457,6 +459,7 @@ impl OpaqueKeys for OldSessionKeys {
 				self.para_assignment.as_ref(),
 			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
 				self.authority_discovery.as_ref(),
+			<<Beefy as BoundToRuntimeAppPublic>::Public>::ID => self.beefy.as_ref(),
 			_ => &[],
 		}
 	}
@@ -474,27 +477,14 @@ impl_opaque_keys! {
 }
 
 // remove this when removing `OldSessionKeys`
-fn transform_session_keys(v: AccountId, old: OldSessionKeys) -> SessionKeys {
+fn transform_session_keys(_v: AccountId, old: OldSessionKeys) -> SessionKeys {
 	SessionKeys {
 		grandpa: old.grandpa,
 		babe: old.babe,
 		para_validator: old.para_validator,
 		para_assignment: old.para_assignment,
 		authority_discovery: old.authority_discovery,
-		beefy: {
-			// From Session::upgrade_keys():
-			//
-			// Care should be taken that the raw versions of the
-			// added keys are unique for every `ValidatorId, KeyTypeId` combination.
-			// This is an invariant that the session pallet typically maintains internally.
-			//
-			// So, produce a dummy value that's unique for the `ValidatorId, KeyTypeId` combination.
-			let mut id: BeefyId = sp_application_crypto::ecdsa::Public::from_raw([0u8; 33]).into();
-			let id_raw: &mut [u8] = id.as_mut();
-			id_raw[1..33].copy_from_slice(v.as_ref());
-			id_raw[0..4].copy_from_slice(b"beef");
-			id
-		},
+		beefy: old.beefy,
 	}
 }
 
@@ -1577,6 +1567,10 @@ pub mod migrations {
 	pub struct UpgradeSessionKeys;
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 		fn on_runtime_upgrade() -> Weight {
+			if System::last_runtime_upgrade_spec_version() > 103000 {
+				log::warn!("Skipping session keys upgrade: already applied");
+			}
+			log::trace!("Upgrading session keys");
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
 			Perbill::from_percent(50) * BlockWeights::get().max_block
 		}
@@ -1589,7 +1583,6 @@ pub mod migrations {
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
-		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
@@ -1597,6 +1590,7 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
+		UpgradeSessionKeys,
 		frame_support::migrations::RemovePallet<
 			ImOnlinePalletName,
 			<Runtime as frame_system::Config>::DbWeight,
