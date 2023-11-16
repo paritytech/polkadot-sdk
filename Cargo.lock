@@ -875,29 +875,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset-hub-rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "rococo-emulated-chain",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "asset-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
+ "emulated-integration-tests-common",
  "frame-support",
- "frame-system",
- "integration-tests-common",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
+ "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
- "polkadot-runtime-parachains",
+ "penpal-runtime",
  "rococo-runtime",
+ "rococo-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
- "xcm-emulator",
 ]
 
 [[package]]
@@ -908,10 +921,8 @@ dependencies = [
  "assets-common",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
- "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
- "bp-bridge-hub-wococo",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -983,6 +994,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset-hub-westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "westend-emulated-chain",
+]
+
+[[package]]
 name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -991,9 +1017,9 @@ dependencies = [
  "asset-test-utils",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
+ "emulated-integration-tests-common",
  "frame-support",
  "frame-system",
- "integration-tests-common",
  "pallet-asset-conversion",
  "pallet-asset-rate",
  "pallet-assets",
@@ -1003,17 +1029,14 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
  "polkadot-runtime-common",
- "polkadot-runtime-parachains",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
  "westend-runtime",
  "westend-runtime-constants",
- "xcm-emulator",
+ "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -1470,8 +1493,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.7.3",
- "rand_core 0.5.1",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -1502,6 +1525,7 @@ checksum = "1bc2832c24239b0141d5674bb9174f9d68a8b5b3f2753311927c172ca46f7e9c"
 dependencies = [
  "funty",
  "radium",
+ "serde",
  "tap",
  "wyz",
 ]
@@ -1665,27 +1689,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-asset-hub-kusama"
-version = "0.1.0"
-dependencies = [
- "bp-xcm-bridge-hub-router",
- "frame-support",
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
-name = "bp-asset-hub-polkadot"
-version = "0.1.0"
-dependencies = [
- "bp-xcm-bridge-hub-router",
- "frame-support",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime",
-]
-
-[[package]]
 name = "bp-asset-hub-rococo"
 version = "0.1.0"
 dependencies = [
@@ -1697,16 +1700,6 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-westend"
-version = "0.1.0"
-dependencies = [
- "bp-xcm-bridge-hub-router",
- "frame-support",
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
-name = "bp-asset-hub-wococo"
 version = "0.1.0"
 dependencies = [
  "bp-xcm-bridge-hub-router",
@@ -1770,19 +1763,6 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-westend"
-version = "0.1.0"
-dependencies = [
- "bp-bridge-hub-cumulus",
- "bp-messages",
- "bp-runtime",
- "frame-support",
- "sp-api",
- "sp-runtime",
- "sp-std 8.0.0",
-]
-
-[[package]]
-name = "bp-bridge-hub-wococo"
 version = "0.1.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
@@ -1986,19 +1966,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-wococo"
-version = "0.1.0"
-dependencies = [
- "bp-header-chain",
- "bp-polkadot-core",
- "bp-rococo",
- "bp-runtime",
- "frame-support",
- "sp-api",
- "sp-std 8.0.0",
-]
-
-[[package]]
 name = "bp-xcm-bridge-hub-router"
 version = "0.1.0"
 dependencies = [
@@ -2137,6 +2104,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge-hub-rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "bridge-hub-rococo-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -2145,9 +2126,8 @@ dependencies = [
  "bridge-hub-rococo-runtime",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
  "frame-support",
- "frame-system",
- "integration-tests-common",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
@@ -2155,14 +2135,9 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
- "polkadot-runtime-parachains",
- "sp-core",
- "sp-weights",
+ "rococo-westend-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
- "xcm-emulator",
 ]
 
 [[package]]
@@ -2171,10 +2146,8 @@ version = "0.1.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
- "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
- "bp-bridge-hub-wococo",
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
@@ -2183,7 +2156,6 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
- "bp-wococo",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
  "cumulus-pallet-aura-ext",
@@ -2257,8 +2229,6 @@ name = "bridge-hub-test-utils"
 version = "0.1.0"
 dependencies = [
  "asset-test-utils",
- "bp-bridge-hub-rococo",
- "bp-bridge-hub-wococo",
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
@@ -2295,6 +2265,43 @@ dependencies = [
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
+ "staging-xcm-executor",
+]
+
+[[package]]
+name = "bridge-hub-westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "bridge-hub-westend-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "bridge-hub-westend-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "asset-test-utils",
+ "bp-messages",
+ "bridge-hub-westend-runtime",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-bridge-messages",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "rococo-westend-system-emulated-network",
+ "staging-xcm",
  "staging-xcm-executor",
 ]
 
@@ -2928,6 +2935,80 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "collectives-westend-runtime"
+version = "1.0.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal",
+ "log",
+ "pallet-alliance",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-collective",
+ "pallet-collective-content",
+ "pallet-core-fellowship",
+ "pallet-message-queue",
+ "pallet-multisig",
+ "pallet-preimage",
+ "pallet-proxy",
+ "pallet-ranked-collective",
+ "pallet-referenda",
+ "pallet-salary",
+ "pallet-scheduler",
+ "pallet-session",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-utility",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "smallvec",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 8.0.0",
+ "sp-storage 13.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+ "testnets-common",
+ "westend-runtime-constants",
 ]
 
 [[package]]
@@ -3839,6 +3920,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "futures",
  "hex-literal",
  "impl-trait-for-tuples",
  "lazy_static",
@@ -4102,6 +4184,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
+ "polkadot-node-core-prospective-parachains",
  "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem-util",
@@ -4959,6 +5042,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "emulated-integration-tests-common"
+version = "1.0.0"
+dependencies = [
+ "asset-test-utils",
+ "bp-messages",
+ "bridge-runtime-common",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "frame-support",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-bridge-messages",
+ "pallet-im-online",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "paste",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "polkadot-service",
+ "sc-consensus-grandpa",
+ "serde_json",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-runtime",
+ "staging-xcm",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5787,6 +5904,7 @@ version = "4.0.0-dev"
 dependencies = [
  "cfg-if",
  "criterion 0.4.0",
+ "docify",
  "frame-support",
  "log",
  "parity-scale-codec",
@@ -6130,6 +6248,51 @@ dependencies = [
 
 [[package]]
 name = "glutton-runtime"
+version = "1.0.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcm",
+ "cumulus-primitives-aura",
+ "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "pallet-aura",
+ "pallet-glutton",
+ "pallet-message-queue",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "parachains-common",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 8.0.0",
+ "sp-storage 13.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+]
+
+[[package]]
+name = "glutton-westend-runtime"
 version = "1.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
@@ -6706,56 +6869,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "integration-tests-common"
-version = "1.0.0"
-dependencies = [
- "asset-hub-kusama-runtime",
- "asset-hub-polkadot-runtime",
- "asset-hub-rococo-runtime",
- "asset-hub-westend-runtime",
- "bp-messages",
- "bridge-hub-kusama-runtime",
- "bridge-hub-polkadot-runtime",
- "bridge-hub-rococo-runtime",
- "bridge-runtime-common",
- "collectives-polkadot-runtime",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-core",
- "frame-support",
- "pallet-assets",
- "pallet-balances",
- "pallet-bridge-messages",
- "pallet-im-online",
- "pallet-message-queue",
- "pallet-staking",
- "pallet-xcm",
- "parachains-common",
- "parity-scale-codec",
- "paste",
- "penpal-runtime",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
- "polkadot-primitives",
- "polkadot-runtime-parachains",
- "polkadot-service",
- "rococo-runtime",
- "rococo-runtime-constants",
- "sc-chain-spec",
- "sc-consensus-grandpa",
- "serde_json",
- "sp-authority-discovery",
- "sp-consensus-babe",
- "sp-consensus-beefy",
- "sp-core",
- "sp-runtime",
- "staging-xcm",
- "westend-runtime",
- "westend-runtime-constants",
- "xcm-emulator",
-]
-
-[[package]]
 name = "interceptor"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7143,6 +7256,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
+ "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -8571,6 +8685,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
+dependencies = [
+ "bitflags 2.4.0",
+ "cfg-if",
+ "libc",
+]
+
+[[package]]
 name = "no-std-net"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8772,6 +8897,7 @@ dependencies = [
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-skip-feeless-payment",
  "parity-scale-codec",
  "sc-block-builder",
  "sc-client-api",
@@ -9043,6 +9169,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3305af35278dd29f46fcdd139e0b1fbfae2153f0e5928b39b035542dd31e37b7"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "os_pipe"
+version = "1.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ae859aa07428ca9a929b936690f8b12dc5f11dd8c6992a18ca93919f28bc177"
+dependencies = [
+ "libc",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -9462,7 +9598,6 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
@@ -9507,7 +9642,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
- "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
@@ -9619,10 +9753,13 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "log",
+ "pallet-assets",
  "pallet-balances",
+ "pallet-contracts-fixtures",
  "pallet-contracts-primitives",
  "pallet-contracts-proc-macro",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-message-queue",
  "pallet-proxy",
  "pallet-timestamp",
  "pallet-utility",
@@ -9639,9 +9776,59 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
  "wasm-instrument 0.4.0",
  "wasmi",
  "wat",
+]
+
+[[package]]
+name = "pallet-contracts-fixtures"
+version = "1.0.0"
+dependencies = [
+ "frame-system",
+ "sp-runtime",
+ "wat",
+]
+
+[[package]]
+name = "pallet-contracts-mock-network"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-contracts",
+ "pallet-contracts-fixtures",
+ "pallet-contracts-primitives",
+ "pallet-contracts-proc-macro",
+ "pallet-insecure-randomness-collective-flip",
+ "pallet-message-queue",
+ "pallet-proxy",
+ "pallet-timestamp",
+ "pallet-utility",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "pretty_assertions",
+ "scale-info",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -10705,6 +10892,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-skip-feeless-payment"
+version = "1.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "pallet-society"
 version = "4.0.0-dev"
 dependencies = [
@@ -11078,6 +11277,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
@@ -11517,6 +11717,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "penpal-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "penpal-runtime",
+ "rococo-emulated-chain",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "penpal-runtime"
 version = "0.9.27"
 dependencies = [
@@ -11761,9 +11976,11 @@ name = "polkadot-approval-distribution"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+ "bitvec",
  "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "log",
  "polkadot-node-jaeger",
  "polkadot-node-metrics",
@@ -12071,10 +12288,13 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
+ "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "kvdb",
  "kvdb-memorydb",
+ "log",
  "merlin 2.0.1",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -12086,6 +12306,8 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rand_core 0.5.1",
  "sc-keystore",
  "schnellru",
@@ -12350,6 +12572,7 @@ dependencies = [
  "polkadot-node-core-pvf-prepare-worker",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
+ "polkadot-node-subsystem",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "procfs",
@@ -12421,6 +12644,9 @@ name = "polkadot-node-core-pvf-execute-worker"
 version = "1.0.0"
 dependencies = [
  "cpu-time",
+ "libc",
+ "nix 0.27.1",
+ "os_pipe",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-parachain-primitives",
@@ -12435,6 +12661,8 @@ dependencies = [
  "cfg-if",
  "criterion 0.4.0",
  "libc",
+ "nix 0.27.1",
+ "os_pipe",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",
@@ -12443,10 +12671,10 @@ dependencies = [
  "sc-executor-common",
  "sc-executor-wasmtime",
  "sp-maybe-compressed-blob",
+ "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tracing-gum",
- "tracking-allocator",
 ]
 
 [[package]]
@@ -12541,6 +12769,7 @@ dependencies = [
 name = "polkadot-node-primitives"
 version = "1.0.0"
 dependencies = [
+ "bitvec",
  "bounded-vec",
  "futures",
  "parity-scale-codec",
@@ -12592,6 +12821,7 @@ name = "polkadot-node-subsystem-types"
 version = "1.0.0"
 dependencies = [
  "async-trait",
+ "bitvec",
  "derive_more",
  "futures",
  "orchestra",
@@ -12696,6 +12926,7 @@ dependencies = [
  "bridge-hub-westend-runtime",
  "clap 4.4.6",
  "collectives-polkadot-runtime",
+ "collectives-westend-runtime",
  "color-print",
  "contracts-rococo-runtime",
  "cumulus-client-cli",
@@ -12713,6 +12944,7 @@ dependencies = [
  "frame-benchmarking-cli",
  "futures",
  "glutton-runtime",
+ "glutton-westend-runtime",
  "hex-literal",
  "jsonrpsee",
  "log",
@@ -12871,6 +13103,7 @@ dependencies = [
  "pallet-balances",
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
+ "pallet-identity",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-fn",
@@ -13033,6 +13266,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "polkadot-rpc",
  "polkadot-runtime-parachains",
  "polkadot-statement-distribution",
@@ -14248,6 +14482,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "emulated-integration-tests-common",
+ "pallet-im-online",
+ "parachains-common",
+ "polkadot-primitives",
+ "rococo-runtime",
+ "rococo-runtime-constants",
+ "sc-consensus-grandpa",
+ "serde_json",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "rococo-parachain-runtime"
 version = "0.1.0"
 dependencies = [
@@ -14412,6 +14665,30 @@ dependencies = [
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
+]
+
+[[package]]
+name = "rococo-system-emulated-network"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-emulated-chain",
+ "bridge-hub-rococo-emulated-chain",
+ "emulated-integration-tests-common",
+ "penpal-emulated-chain",
+ "rococo-emulated-chain",
+]
+
+[[package]]
+name = "rococo-westend-system-emulated-network"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-emulated-chain",
+ "asset-hub-westend-emulated-chain",
+ "bridge-hub-rococo-emulated-chain",
+ "bridge-hub-westend-emulated-chain",
+ "emulated-integration-tests-common",
+ "rococo-emulated-chain",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -15820,6 +16097,7 @@ dependencies = [
  "sp-consensus",
  "sp-core",
  "sp-maybe-compressed-blob",
+ "sp-rpc",
  "sp-runtime",
  "sp-version",
  "substrate-test-runtime",
@@ -16459,9 +16737,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.107"
+version = "1.0.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b420ce6e3d8bd882e9b243c6eed35dbc9a6110c9769e74b584e0d68d1f20c65"
+checksum = "3d1c7e3eac408d115102c4c24ad393e0821bb3a5df4d506a80f85f7a742a526b"
 dependencies = [
  "itoa",
  "ryu",
@@ -18045,6 +18323,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-im-online",
+ "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "parity-scale-codec",
  "platforms",
@@ -18181,6 +18460,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "staging-tracking-allocator"
+version = "1.0.0"
+
+[[package]]
 name = "staging-xcm"
 version = "1.0.0"
 dependencies = [
@@ -18239,6 +18522,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
+ "scale-info",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -18990,6 +19274,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "testnets-common"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "polkadot-core-primitives",
+ "rococo-runtime-constants",
+ "smallvec",
+ "sp-runtime",
+ "substrate-wasm-builder",
+ "westend-runtime-constants",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19473,10 +19770,6 @@ dependencies = [
  "tracing-log",
  "tracing-serde",
 ]
-
-[[package]]
-name = "tracking-allocator"
-version = "1.0.0"
 
 [[package]]
 name = "trie-bench"
@@ -20642,6 +20935,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "emulated-integration-tests-common",
+ "pallet-im-online",
+ "pallet-staking",
+ "parachains-common",
+ "polkadot-primitives",
+ "sc-consensus-grandpa",
+ "serde_json",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-runtime",
+ "westend-runtime",
+ "westend-runtime-constants",
+]
+
+[[package]]
 name = "westend-runtime"
 version = "1.0.0"
 dependencies = [
@@ -20764,6 +21077,17 @@ dependencies = [
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
+]
+
+[[package]]
+name = "westend-system-emulated-network"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-westend-emulated-chain",
+ "bridge-hub-westend-emulated-chain",
+ "emulated-integration-tests-common",
+ "penpal-emulated-chain",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -21166,6 +21490,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
+ "trybuild",
 ]
 
 [[package]]

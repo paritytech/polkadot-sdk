@@ -16,8 +16,8 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::shared;
-use primitives::ValidatorIndex;
+use crate::{configuration, initializer, shared};
+use primitives::{vstaging::NodeFeatures, ValidatorIndex};
 use sp_std::prelude::Vec;
 
 /// Implementation for `DisabledValidators`
@@ -28,4 +28,9 @@ where
 	T: shared::Config,
 {
 	<shared::Pallet<T>>::disabled_validators()
+}
+
+/// Returns the current state of the node features.
+pub fn node_features<T: initializer::Config>() -> NodeFeatures {
+	<configuration::Pallet<T>>::config().node_features
 }

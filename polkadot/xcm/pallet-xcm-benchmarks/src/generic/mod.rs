@@ -91,6 +91,18 @@ pub mod pallet {
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError>;
+
+		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
+		///
+		/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
+		fn valid_pallet() -> frame_support::traits::PalletInfoData {
+			frame_support::traits::PalletInfoData {
+				index: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::index(),
+				name: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::name(),
+				module_name: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::module_name(),
+				crate_version: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::crate_version(),
+			}
+		}
 	}
 
 	#[pallet::pallet]
