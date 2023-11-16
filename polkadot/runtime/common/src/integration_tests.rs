@@ -249,7 +249,6 @@ impl auctions::Config for Test {
 
 parameter_types! {
 	pub const LeasePeriod: BlockNumber = 100;
-	pub const EarliestRefundPeriod: BlockNumber = 10;
 	pub const MinLeasePeriodForEarlyRefund: BlockNumber = 2;
 	pub static LeaseOffset: BlockNumber = 5;
 }
@@ -260,7 +259,6 @@ impl slots::Config for Test {
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
 	type MinLeasePeriodForEarlyRefund = MinLeasePeriodForEarlyRefund;
-	type EarliestRefundPeriod = EarliestRefundPeriod;
 	type LeaseOffset = LeaseOffset;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = crate::slots::TestWeightInfo;
@@ -1836,7 +1834,7 @@ fn early_crowdloan_dissolve() {
 		);
 
 		let lease_end_block = 8 * LeasePeriod::get() + LeaseOffset::get();
-		let early_refund_start_block = lease_end_block - EarliestRefundPeriod::get();
+		let early_refund_start_block = lease_end_block - LeasePeriod::get() + 1;
 		// Go in future when lease is about to end
 		run_to_block(early_refund_start_block);
 

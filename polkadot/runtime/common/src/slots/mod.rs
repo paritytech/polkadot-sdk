@@ -34,7 +34,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
-use sp_runtime::traits::{CheckedAdd, CheckedConversion, CheckedSub, Saturating, Zero};
+use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 type BalanceOf<T> =
@@ -94,10 +94,6 @@ pub mod pallet {
 		/// The number of blocks over which a single period lasts.
 		#[pallet::constant]
 		type LeasePeriod: Get<BlockNumberFor<Self>>;
-
-		/// The number of blocks in past upto which early refund is allowed.
-		#[pallet::constant]
-		type EarliestRefundPeriod: Get<BlockNumberFor<Self>>;
 
 		/// Minimum count of leases to enable early refund.
 		///
@@ -293,12 +289,6 @@ pub mod pallet {
 				Error::<T>::PreconditionNotMet
 			);
 
-			// check if lease is ending soon.
-			ensure!(
-				Self::lease_period_ending_soon(frame_system::Pallet::<T>::block_number()),
-				Error::<T>::PreconditionNotMet
-			);
-
 			// allow this iff parachain has one lease period left.
 			let leases = Leases::<T>::get(para);
 			ensure!(leases.len() == 1, Error::<T>::PreconditionNotMet);
@@ -442,25 +432,6 @@ impl<T: Config> Pallet<T> {
 			})
 			.max()
 			.unwrap_or_else(Zero::zero)
-	}
-
-	/// Returns true if the current lease period is ending within the next `T::EarliestRefundPeriod`
-	/// blocks.
-	fn lease_period_ending_soon(now: BlockNumberFor<T>) -> bool {
-		if let Some(current_lease) = Self::lease_period_index(now).map(|(index, _)| index) {
-			let soon = now.saturating_add(T::EarliestRefundPeriod::get());
-
-			// default to current lease period if we can't find the lease period index.
-			let soon_lease =
-				Self::lease_period_index(soon).map(|(index, _)| index).unwrap_or(current_lease);
-
-			return current_lease
-				.checked_add(&sp_runtime::traits::One::one())
-				.map(|next_lease| soon_lease == next_lease)
-				.unwrap_or(false);
-		}
-
-		false
 	}
 
 	/// Reserve the amount for the parachain, updating the current reserved amount for this leaser
@@ -771,7 +742,6 @@ mod tests {
 
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 10;
-		pub const EarliestRefundPeriod: BlockNumber = 2;
 		pub const MinLeasePeriodForEarlyRefund: BlockNumber = 2;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
@@ -783,7 +753,6 @@ mod tests {
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
 		type MinLeasePeriodForEarlyRefund = MinLeasePeriodForEarlyRefund;
-		type EarliestRefundPeriod = EarliestRefundPeriod;
 		type LeaseOffset = LeaseOffset;
 		type ForceOrigin = EnsureRoot<Self::AccountId>;
 		type WeightInfo = crate::slots::TestWeightInfo;
@@ -1228,18 +1197,17 @@ mod tests {
 			);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
 
-			// 3 blocks before the lease ends and no upcoming leases
-			run_to_block(67);
+			// fails as last lease period has not yet started
+			run_to_block(59);
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
-			// EarliestRefundPeriod is 2 blocks, so this should still fail.
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
 				Error::<Test>::PreconditionNotMet
 			);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
 
-			// 2 blocks before lease ends, should be able to refund deposit now.
-			run_to_block(68);
+			// we are in the last lease period, should be able to refund deposit now.
+			run_to_block(60);
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_ok!(Slots::early_lease_refund(RuntimeOrigin::signed(1), ParaId::from(1)));
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
@@ -1451,13 +1419,13 @@ mod benchmarking {
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 			T::Currency::make_free_balance_be(&leaser, BalanceOf::<T>::max_value());
 			// lease out a slot
-			Slots::<T>::force_lease(T::ForceOrigin::try_successful_origin().unwrap(), para, leaser.clone(), 10u32.into(), 1u32.into(), 1u32.into())?;
+			Slots::<T>::force_lease(T::ForceOrigin::try_successful_origin().unwrap(), para, leaser.clone(), 10u32.into(), 1u32.into(), 2u32.into())?;
 			// verify deposit is reserved
 			assert_eq!(T::Currency::reserved_balance(&leaser), 10u32.into());
 			// setup lease for period 1
 			Slots::<T>::manage_lease_period_start(1u32.into());
 			// go to block near the end of slot where we can refund things
-			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + T::LeasePeriod::get() - T::EarliestRefundPeriod::get());
+			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + T::LeasePeriod::get() + 1);
 			let origin =
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		}: _<T::RuntimeOrigin>(origin, para)
