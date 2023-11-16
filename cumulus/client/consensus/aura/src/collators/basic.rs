@@ -166,10 +166,7 @@ where
 
 			let parent_hash = parent_header.hash();
 
-			println!("🤵🤵🤵🤵🤵🤵🤵 Last header Encoded is 0x{:?}", sp_core::hexdisplay::HexDisplay::from(&parent_header.encode()));
-			println!("🤵🤵🤵🤵🤵🤵🤵 and its hash is {:?}", parent_header.hash());
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				println!("🤵🤵🤵🤵🤵🤵🤵 In Aura continuing.");
 				continue
 			}
 
