@@ -54,8 +54,5 @@ pub use rococo_system_emulated_network::{
 	RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 };
 
-const CORE_INDEX: u32 = 0;
-const BLOCK_NUMBER: u32 = 1;
-
 #[cfg(test)]
 mod tests;

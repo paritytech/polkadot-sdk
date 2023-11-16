@@ -17,12 +17,10 @@ pub mod genesis;
 
 // Substrate
 use frame_support::traits::OnInitialize;
-use rococo_emulated_chain::Rococo;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	xcm_emulator::decl_test_parachains,
+	impl_assert_events_helpers_for_parachain, xcm_emulator::decl_test_parachains,
 };
 
 // Coretime Parachain declaration

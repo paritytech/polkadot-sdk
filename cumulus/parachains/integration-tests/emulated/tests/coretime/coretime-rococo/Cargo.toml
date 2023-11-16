@@ -14,7 +14,6 @@ assert_matches = "1.5.0"
 # Substrate
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false}
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false}
-pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
 pallet-broker = { path = "../../../../../../../substrate/frame/broker" }
 
 # Polkadot

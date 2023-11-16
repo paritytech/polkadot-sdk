@@ -14,12 +14,11 @@
 // limitations under the License.
 
 use crate::*;
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
+use pallet_broker::{CoreAssignment, CoreIndex, PartsOf57600};
 
 #[test]
 fn assign_core() {
 	CoretimeRococo::execute_with(|| {
-		type RuntimeEvent = <CoretimeRococo as Chain>::RuntimeEvent;
 		let core_index = CoreIndex::from(1_u16);
 		let assignment = vec![(CoreAssignment::Idle, PartsOf57600::from(1_u8))];
 

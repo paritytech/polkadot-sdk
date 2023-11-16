@@ -3268,7 +3268,6 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-broker",
- "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
