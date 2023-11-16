@@ -22,11 +22,11 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
-use test_parachain_undying_collator::Collator;
 use std::{
 	fs,
 	io::{self, Write},
 };
+use test_parachain_undying_collator::Collator;
 
 mod cli;
 use cli::Cli;
@@ -55,7 +55,8 @@ fn main() -> Result<()> {
 			// We pass some dummy values for `pov_size` and `pvf_complexity` as these don't
 			// matter for `wasm` export.
 			let output_buf =
-				format!("0x{:?}", HexDisplay::from(&Collator::default().validation_code())).into_bytes();
+				format!("0x{:?}", HexDisplay::from(&Collator::default().validation_code()))
+					.into_bytes();
 
 			if let Some(output) = params.output {
 				fs::write(output, output_buf)?;
