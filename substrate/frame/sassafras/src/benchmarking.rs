@@ -262,7 +262,7 @@ mod benchmarks {
 		log::debug!(target: LOG_TARGET, "Before sort: {:?}", meta);
 		#[block]
 		{
-			Pallet::<T>::sort_tickets(u32::MAX, 0, &mut meta);
+			Pallet::<T>::sort_segments(u32::MAX, 0, &mut meta);
 		}
 		log::debug!(target: LOG_TARGET, "After sort: {:?}", meta);
 	}
