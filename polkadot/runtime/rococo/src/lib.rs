@@ -153,7 +153,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_version: 1_004_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 22,
+	transaction_version: 24,
 	state_version: 1,
 };
 
@@ -1617,7 +1617,7 @@ mod benches {
 		[pallet_asset_rate, AssetRate]
 		[pallet_whitelist, Whitelist]
 		// XCM
-		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
+		[pallet_xcm, PalletXcmExtrinsiscsBenchmark::<Runtime>]
 		[pallet_xcm_benchmarks::fungible, pallet_xcm_benchmarks::fungible::Pallet::<Runtime>]
 		[pallet_xcm_benchmarks::generic, pallet_xcm_benchmarks::generic::Pallet::<Runtime>]
 	);
@@ -2096,7 +2096,7 @@ sp_api::impl_runtime_apis! {
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
 
-			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -2115,7 +2115,7 @@ sp_api::impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
-			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 			use sp_storage::TrackedStorageKey;
 			use xcm::latest::prelude::*;
 			use xcm_config::{
