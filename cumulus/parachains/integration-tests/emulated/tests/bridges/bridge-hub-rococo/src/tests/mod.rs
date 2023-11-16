@@ -13,5 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod example;
+mod asset_transfers;
+mod send_xcm;
 mod teleport;

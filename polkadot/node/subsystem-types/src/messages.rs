@@ -42,12 +42,12 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent,
-	CandidateHash, CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt,
-	CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	async_backing, slashing, vstaging::NodeFeatures, AuthorityDiscoveryId, BackedCandidate,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
@@ -718,6 +718,8 @@ pub enum RuntimeApiRequest {
 	///
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
 	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
+	/// Get the node features.
+	NodeFeatures(SessionIndex, RuntimeApiSender<NodeFeatures>),
 }
 
 impl RuntimeApiRequest {
@@ -746,6 +748,9 @@ impl RuntimeApiRequest {
 
 	/// `DisabledValidators`
 	pub const DISABLED_VALIDATORS_RUNTIME_REQUIREMENT: u32 = 8;
+
+	/// `Node features`
+	pub const NODE_FEATURES_RUNTIME_REQUIREMENT: u32 = 9;
 }
 
 /// A message to the Runtime API subsystem.

@@ -19,23 +19,23 @@
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
-	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareError,
+	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
 	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
 	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};
-#[cfg(target_os = "linux")]
-use rusty_fork::rusty_fork_test;
 
 use std::time::Duration;
 use tokio::sync::Mutex;
 
 mod adder;
+#[cfg(target_os = "linux")]
+mod process;
 mod worker_common;
 
-const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
-const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(3);
+const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
+const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 struct TestHost {
 	cache_dir: tempfile::TempDir,
@@ -51,7 +51,7 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = get_and_check_worker_paths();
+		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths(false);
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
@@ -61,7 +61,7 @@ impl TestHost {
 			execute_worker_path,
 		);
 		f(&mut config);
-		let (host, task) = start(config, Metrics::default()).await;
+		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = tokio::task::spawn(task);
 		Self { cache_dir, host: Mutex::new(host) }
 	}
@@ -126,7 +126,26 @@ impl TestHost {
 }
 
 #[tokio::test]
-async fn terminates_on_timeout() {
+async fn prepare_job_terminates_on_timeout() {
+	let host = TestHost::new().await;
+
+	let start = std::time::Instant::now();
+	let result = host
+		.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default())
+		.await;
+
+	match result {
+		Err(PrepareError::TimedOut) => {},
+		r => panic!("{:?}", r),
+	}
+
+	let duration = std::time::Instant::now().duration_since(start);
+	assert!(duration >= TEST_PREPARATION_TIMEOUT);
+	assert!(duration < TEST_PREPARATION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
+}
+
+#[tokio::test]
+async fn execute_job_terminates_on_timeout() {
 	let host = TestHost::new().await;
 
 	let start = std::time::Instant::now();
@@ -151,108 +170,6 @@ async fn terminates_on_timeout() {
 	let duration = std::time::Instant::now().duration_since(start);
 	assert!(duration >= TEST_EXECUTION_TIMEOUT);
 	assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
-}
-
-#[cfg(target_os = "linux")]
-fn kill_by_sid_and_name(sid: i32, exe_name: &'static str) {
-	use procfs::process;
-
-	let all_processes: Vec<process::Process> = process::all_processes()
-		.expect("Can't read /proc")
-		.filter_map(|p| match p {
-			Ok(p) => Some(p), // happy path
-			Err(e) => match e {
-				// process vanished during iteration, ignore it
-				procfs::ProcError::NotFound(_) => None,
-				x => {
-					panic!("some unknown error: {}", x);
-				},
-			},
-		})
-		.collect();
-
-	for process in all_processes {
-		if process.stat().unwrap().session == sid &&
-			process.exe().unwrap().to_str().unwrap().contains(exe_name)
-		{
-			assert_eq!(unsafe { libc::kill(process.pid(), 9) }, 0);
-		}
-	}
-}
-
-// Run these tests in their own processes with rusty-fork. They work by each creating a new session,
-// then killing the worker process that matches the session ID and expected worker name.
-#[cfg(target_os = "linux")]
-rusty_fork_test! {
-	// What happens when the prepare worker dies in the middle of a job?
-	#[test]
-	fn prepare_worker_killed_during_job() {
-		const PROCESS_NAME: &'static str = "polkadot-prepare-worker";
-
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
-			let (result, _) = futures::join!(
-				// Choose a job that would normally take the entire timeout.
-				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
-				// Run a future that kills the job in the middle of the timeout.
-				async {
-					tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
-					kill_by_sid_and_name(sid, PROCESS_NAME);
-				}
-			);
-
-			assert_matches!(result, Err(PrepareError::IoErr(_)));
-		})
-	}
-
-	// What happens when the execute worker dies in the middle of a job?
-	#[test]
-	fn execute_worker_killed_during_job() {
-		const PROCESS_NAME: &'static str = "polkadot-execute-worker";
-
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
-			// Prepare the artifact ahead of time.
-			let binary = halt::wasm_binary_unwrap();
-			host.precheck_pvf(binary, Default::default()).await.unwrap();
-
-			let (result, _) = futures::join!(
-				// Choose an job that would normally take the entire timeout.
-				host.validate_candidate(
-					binary,
-					ValidationParams {
-						block_data: BlockData(Vec::new()),
-						parent_head: Default::default(),
-						relay_parent_number: 1,
-						relay_parent_storage_root: Default::default(),
-					},
-					Default::default(),
-				),
-				// Run a future that kills the job in the middle of the timeout.
-				async {
-					tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
-					kill_by_sid_and_name(sid, PROCESS_NAME);
-				}
-			);
-
-			assert_matches!(
-				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
-			);
-		})
-	}
 }
 
 #[cfg(feature = "ci-only-tests")]
