@@ -23,6 +23,10 @@ use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
 use test_parachain_undying_collator::Collator;
+use std::{
+	fs,
+	io::{self, Write},
+};
 
 mod cli;
 use cli::Cli;
@@ -35,14 +39,29 @@ fn main() -> Result<()> {
 			// `pov_size` and `pvf_complexity` need to match the ones that we start the collator
 			// with.
 			let collator = Collator::new(params.pov_size, params.pvf_complexity);
-			println!("0x{:?}", HexDisplay::from(&collator.genesis_head()));
+
+			let output_buf =
+				format!("0x{:?}", HexDisplay::from(&collator.genesis_head())).into_bytes();
+
+			if let Some(output) = params.output {
+				std::fs::write(output, output_buf)?;
+			} else {
+				std::io::stdout().write_all(&output_buf)?;
+			}
 
 			Ok::<_, Error>(())
 		},
-		Some(cli::Subcommand::ExportGenesisWasm(_params)) => {
+		Some(cli::Subcommand::ExportGenesisWasm(params)) => {
 			// We pass some dummy values for `pov_size` and `pvf_complexity` as these don't
 			// matter for `wasm` export.
-			println!("0x{:?}", HexDisplay::from(&Collator::default().validation_code()));
+			let output_buf =
+				format!("0x{:?}", HexDisplay::from(&Collator::default().validation_code())).into_bytes();
+
+			if let Some(output) = params.output {
+				fs::write(output, output_buf)?;
+			} else {
+				io::stdout().write_all(&output_buf)?;
+			}
 
 			Ok(())
 		},
