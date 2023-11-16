@@ -11,7 +11,9 @@ publish = false
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 
 # Substrate
-frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false}
+frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
+pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
 
 # Polkadot
@@ -30,4 +32,4 @@ cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", def
 cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", default-features = false}
 bridge-hub-westend-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}
-westend-system-emulated-network ={ path = "../../../networks/westend-system" }
+rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
