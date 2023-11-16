@@ -71,8 +71,8 @@ publish-rustdoc:
     DOCKERFILE: "" # docker/path-to.Dockerfile
     IMAGE_NAME: "" # docker.io/paritypr/image_name
   script:
-    # - test "$PARITYPR_USER" -a "$PARITYPR_PASS" ||
-    #   ( echo "no docker credentials provided"; exit 1 )
+    # Exit if the job is not running in a merge queue
+    - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - $BUILDAH_COMMAND build
       --format=docker
       --build-arg VCS_REF="${CI_COMMIT_SHA}"
