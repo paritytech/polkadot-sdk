@@ -165,8 +165,13 @@ async fn handle_validation_message<AD>(
 	AD: validator_discovery::AuthorityDiscovery + Send,
 {
 	match event {
-		NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
-			let _ = result_tx.send(ValidationResult::Accept);
+		NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
+			// only accept peers whose role can be determined
+			let result = self
+				.network
+				.peer_role(peer, handshake)
+				.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
+			let _ = result_tx.send(result);
 		},
 		NotificationEvent::NotificationStreamOpened {
 			peer,
@@ -424,7 +429,12 @@ async fn handle_collation_message<AD>(
 {
 	match event {
 		NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
-			let _ = result_tx.send(ValidationResult::Accept);
+			// only accept peers whose role can be determined
+			let result = self
+				.network
+				.peer_role(peer, handshake)
+				.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
+			let _ = result_tx.send(result);
 		},
 		NotificationEvent::NotificationStreamOpened {
 			peer,

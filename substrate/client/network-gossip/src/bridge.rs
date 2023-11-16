@@ -206,7 +206,12 @@ impl<B: BlockT> Future for GossipEngine<B> {
 					match next_notification_event {
 						Poll::Ready(Some(event)) => match event {
 							NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
-								let _ = result_tx.send(ValidationResult::Accept);
+								// only accept peers whose role can be determined
+								let result = self
+									.network
+									.peer_role(peer, handshake)
+									.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
+								let _ = result_tx.send(result);
 							},
 							NotificationEvent::NotificationStreamOpened {
 								peer, handshake, ..
