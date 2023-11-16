@@ -83,6 +83,11 @@ impl Error {
 	}
 }
 
+/// Complementary error information.
+///
+/// Strucutre contains complementary information about parsing address URI string.
+/// String contains a copy of an original URI string, 0-based integer indicates position of invalid
+/// character.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct InvalidCharacterInfo(String, usize);
 
@@ -94,8 +99,8 @@ impl InvalidCharacterInfo {
 
 impl sp_std::fmt::Display for InvalidCharacterInfo {
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let (s, width) = escape_string(&self.0, self.1);
-		write!(f, "{s}\n{i: >width$}", i = '^')
+		let (s, pos) = escape_string(&self.0, self.1);
+		write!(f, "{s}\n{i}^", i = sp_std::iter::repeat(" ").take(pos).collect::<String>())
 	}
 }
 
@@ -163,21 +168,22 @@ impl<'a> AddressUri<'a> {
 			if strip_prefix(&mut input, "///") {
 				pass = Some(extract_prefix(&mut input, &|ch: char| ch != '\n').unwrap_or(""));
 			} else if strip_prefix(&mut input, "//") {
-				let path = extract_prefix(&mut input, &|ch: char| ch != '/').ok_or(
-					Error::in_hard_path(initial_input, initial_input_len - input.len() + 1),
-				)?;
+				let path = extract_prefix(&mut input, &|ch: char| ch != '/')
+					.ok_or(Error::in_hard_path(initial_input, initial_input_len - input.len()))?;
 				assert!(path.len() > 0);
 				// hard path shall contain leading '/', so take it from unstripped input.
 				paths.push(&unstripped_input[1..path.len() + 2]);
 			} else if strip_prefix(&mut input, "/") {
-				paths.push(extract_prefix(&mut input, &|ch: char| ch != '/').ok_or(
-					Error::in_soft_path(initial_input, initial_input_len - input.len() + 1),
-				)?);
+				paths.push(
+					extract_prefix(&mut input, &|ch: char| ch != '/').ok_or(
+						Error::in_soft_path(initial_input, initial_input_len - input.len()),
+					)?,
+				);
 			} else {
 				return Err(if pass.is_some() {
-					Error::in_pass(initial_input, initial_input_len - input.len() + 1)
+					Error::in_pass(initial_input, initial_input_len - input.len())
 				} else {
-					Error::in_phrase(initial_input, initial_input_len - input.len() + 1)
+					Error::in_phrase(initial_input, initial_input_len - input.len())
 				});
 			}
 		}
@@ -261,7 +267,7 @@ mod tests {
 	#[test]
 	fn test05() {
 		let input = "sdasd//";
-		check(input, Err(Error::in_hard_path(input, 8)));
+		check(input, Err(Error::in_hard_path(input, 7)));
 	}
 
 	#[test]
@@ -295,7 +301,7 @@ mod tests {
 	#[test]
 	fn test09() {
 		let input = "sdasd/xx//";
-		check(input, Err(Error::in_hard_path(input, 11)));
+		check(input, Err(Error::in_hard_path(input, 10)));
 	}
 
 	#[test]
@@ -322,7 +328,7 @@ mod tests {
 	#[test]
 	fn test13() {
 		let input = "sdasd/";
-		check(input, Err(Error::in_soft_path(input, 7)));
+		check(input, Err(Error::in_soft_path(input, 6)));
 	}
 
 	#[test]
@@ -333,19 +339,19 @@ mod tests {
 	#[test]
 	fn test15() {
 		let input = "sdasd.";
-		check(input, Err(Error::in_phrase(input, 6)));
+		check(input, Err(Error::in_phrase(input, 5)));
 	}
 
 	#[test]
 	fn test16() {
 		let input = "sd.asd/asd.a";
-		check(input, Err(Error::in_phrase(input, 3)));
+		check(input, Err(Error::in_phrase(input, 2)));
 	}
 
 	#[test]
 	fn test17() {
 		let input = "sd.asd//asd.a";
-		check(input, Err(Error::in_phrase(input, 3)));
+		check(input, Err(Error::in_phrase(input, 2)));
 	}
 
 	#[test]
@@ -367,60 +373,60 @@ mod tests {
 	#[test]
 	fn test20() {
 		let input = "///\n";
-		check(input, Err(Error::in_pass(input, 4)));
+		check(input, Err(Error::in_pass(input, 3)));
 	}
 
 	#[test]
 	fn test21() {
 		let input = "///a\n";
-		check(input, Err(Error::in_pass(input, 5)));
+		check(input, Err(Error::in_pass(input, 4)));
 	}
 
 	#[test]
 	fn test22() {
 		let input = "sd asd///asd.a\n";
-		check(input, Err(Error::in_pass(input, 15)));
+		check(input, Err(Error::in_pass(input, 14)));
 	}
 
 	#[test]
 	fn test_invalid_char_info_1() {
-		let expected = "12345\n^";
-		let f = format!("{}", InvalidCharacterInfo::new("12345", 1));
+		let expected = "01234\n^";
+		let f = format!("{}", InvalidCharacterInfo::new("01234", 0));
 		assert_eq!(expected, f);
 	}
 
 	#[test]
 	fn test_invalid_char_info_2() {
-		let expected = "1\n^";
-		let f = format!("{}", InvalidCharacterInfo::new("1", 1));
+		let expected = "01\n ^";
+		let f = format!("{}", InvalidCharacterInfo::new("01", 1));
 		assert_eq!(expected, f);
 	}
 
 	#[test]
 	fn test_invalid_char_info_3() {
-		let expected = "12345\n  ^";
-		let f = format!("{}", InvalidCharacterInfo::new("12345", 3));
+		let expected = "01234\n  ^";
+		let f = format!("{}", InvalidCharacterInfo::new("01234", 2));
 		assert_eq!(expected, f);
 	}
 
 	#[test]
 	fn test_invalid_char_info_4() {
-		let expected = "123\\n567\n    ^";
-		let f = format!("{}", InvalidCharacterInfo::new("123\n567", 4));
+		let expected = "012\\n456\n   ^";
+		let f = format!("{}", InvalidCharacterInfo::new("012\n456", 3));
 		assert_eq!(expected, f);
 	}
 
 	#[test]
 	fn test_invalid_char_info_5() {
-		let expected = "123\\n567\n       ^";
-		let f = format!("{}", InvalidCharacterInfo::new("123\n567", 7));
+		let expected = "012\\n456\n      ^";
+		let f = format!("{}", InvalidCharacterInfo::new("012\n456", 5));
 		assert_eq!(expected, f);
 	}
 
 	#[test]
 	fn test_invalid_char_info_6() {
-		let expected = "123\\f567\\t90\n           ^";
-		let f = format!("{}", InvalidCharacterInfo::new("123\x0c567\t90", 10));
+		let expected = "012\\f456\\t89\n           ^";
+		let f = format!("{}", InvalidCharacterInfo::new("012\x0c456\t89", 9));
 		assert_eq!(expected, f);
 	}
 }
