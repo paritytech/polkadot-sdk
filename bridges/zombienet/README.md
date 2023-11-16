@@ -1,4 +1,4 @@
-# Bridges Tests for Local Rococo <> Wococo Bridge
+# Bridges Tests for Local Rococo <> Westend Bridge
 
 This folder contains [zombienet](https://github.com/paritytech/zombienet/) based integration tests for both
 onchain and offchain bridges code. Due to some
@@ -9,7 +9,7 @@ To start those tests, you need to:
 
 - download latest [zombienet release](https://github.com/paritytech/zombienet/releases);
 
-- build Polkadot binary by running `cargo build -p polkadot --release` command in the
+- build Polkadot binary by running `cargo build -p polkadot --release  --features fast-runtime` command in the
 [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
 
 - build Polkadot Parachain binary by running `cargo build -p polkadot-parachain-bin --release` command in the
