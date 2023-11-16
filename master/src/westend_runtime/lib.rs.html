@@ -2411,54 +2411,6 @@
 <a href="#2411" id="2411">2411</a>
 <a href="#2412" id="2412">2412</a>
 <a href="#2413" id="2413">2413</a>
-<a href="#2414" id="2414">2414</a>
-<a href="#2415" id="2415">2415</a>
-<a href="#2416" id="2416">2416</a>
-<a href="#2417" id="2417">2417</a>
-<a href="#2418" id="2418">2418</a>
-<a href="#2419" id="2419">2419</a>
-<a href="#2420" id="2420">2420</a>
-<a href="#2421" id="2421">2421</a>
-<a href="#2422" id="2422">2422</a>
-<a href="#2423" id="2423">2423</a>
-<a href="#2424" id="2424">2424</a>
-<a href="#2425" id="2425">2425</a>
-<a href="#2426" id="2426">2426</a>
-<a href="#2427" id="2427">2427</a>
-<a href="#2428" id="2428">2428</a>
-<a href="#2429" id="2429">2429</a>
-<a href="#2430" id="2430">2430</a>
-<a href="#2431" id="2431">2431</a>
-<a href="#2432" id="2432">2432</a>
-<a href="#2433" id="2433">2433</a>
-<a href="#2434" id="2434">2434</a>
-<a href="#2435" id="2435">2435</a>
-<a href="#2436" id="2436">2436</a>
-<a href="#2437" id="2437">2437</a>
-<a href="#2438" id="2438">2438</a>
-<a href="#2439" id="2439">2439</a>
-<a href="#2440" id="2440">2440</a>
-<a href="#2441" id="2441">2441</a>
-<a href="#2442" id="2442">2442</a>
-<a href="#2443" id="2443">2443</a>
-<a href="#2444" id="2444">2444</a>
-<a href="#2445" id="2445">2445</a>
-<a href="#2446" id="2446">2446</a>
-<a href="#2447" id="2447">2447</a>
-<a href="#2448" id="2448">2448</a>
-<a href="#2449" id="2449">2449</a>
-<a href="#2450" id="2450">2450</a>
-<a href="#2451" id="2451">2451</a>
-<a href="#2452" id="2452">2452</a>
-<a href="#2453" id="2453">2453</a>
-<a href="#2454" id="2454">2454</a>
-<a href="#2455" id="2455">2455</a>
-<a href="#2456" id="2456">2456</a>
-<a href="#2457" id="2457">2457</a>
-<a href="#2458" id="2458">2458</a>
-<a href="#2459" id="2459">2459</a>
-<a href="#2460" id="2460">2460</a>
-<a href="#2461" id="2461">2461</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2887,17 +2839,6 @@
 }
 
 <span class="macro">impl_opaque_keys! </span>{
-	<span class="kw">pub struct </span>OldSessionKeys {
-		<span class="kw">pub </span>grandpa: Grandpa,
-		<span class="kw">pub </span>babe: Babe,
-		<span class="kw">pub </span>im_online: ImOnline,
-		<span class="kw">pub </span>para_validator: Initializer,
-		<span class="kw">pub </span>para_assignment: ParaSessionInfo,
-		<span class="kw">pub </span>authority_discovery: AuthorityDiscovery,
-	}
-}
-
-<span class="macro">impl_opaque_keys! </span>{
 	<span class="kw">pub struct </span>SessionKeys {
 		<span class="kw">pub </span>grandpa: Grandpa,
 		<span class="kw">pub </span>babe: Babe,
@@ -2906,32 +2847,6 @@
 		<span class="kw">pub </span>para_assignment: ParaSessionInfo,
 		<span class="kw">pub </span>authority_discovery: AuthorityDiscovery,
 		<span class="kw">pub </span>beefy: Beefy,
-	}
-}
-
-<span class="comment">// remove this when removing `OldSessionKeys`
-</span><span class="kw">fn </span>transform_session_keys(v: AccountId, old: OldSessionKeys) -&gt; SessionKeys {
-	SessionKeys {
-		grandpa: old.grandpa,
-		babe: old.babe,
-		im_online: old.im_online,
-		para_validator: old.para_validator,
-		para_assignment: old.para_assignment,
-		authority_discovery: old.authority_discovery,
-		beefy: {
-			<span class="comment">// From Session::upgrade_keys():
-			//
-			// Care should be taken that the raw versions of the
-			// added keys are unique for every `ValidatorId, KeyTypeId` combination.
-			// This is an invariant that the session pallet typically maintains internally.
-			//
-			// So, produce a dummy value that&#39;s unique for the `ValidatorId, KeyTypeId` combination.
-			</span><span class="kw">let </span><span class="kw-2">mut </span>id: BeefyId = sp_application_crypto::ecdsa::Public::from_raw([<span class="number">0u8</span>; <span class="number">33</span>]).into();
-			<span class="kw">let </span>id_raw: <span class="kw-2">&amp;mut </span>[u8] = id.as_mut();
-			id_raw[<span class="number">1</span>..<span class="number">33</span>].copy_from_slice(v.as_ref());
-			id_raw[<span class="number">0</span>..<span class="number">4</span>].copy_from_slice(<span class="string">b&quot;beef&quot;</span>);
-			id
-		},
 	}
 }
 
@@ -4021,16 +3936,6 @@
 </span><span class="kw">pub mod </span>migrations {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-	<span class="doccomment">/// Upgrade Session keys to include BEEFY key.
-	/// When this is removed, should also remove `OldSessionKeys`.
-	</span><span class="kw">pub struct </span>UpgradeSessionKeys;
-	<span class="kw">impl </span>frame_support::traits::OnRuntimeUpgrade <span class="kw">for </span>UpgradeSessionKeys {
-		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-			Session::upgrade_keys::&lt;OldSessionKeys, <span class="kw">_</span>&gt;(transform_session_keys);
-			Perbill::from_percent(<span class="number">50</span>) * BlockWeights::get().max_block
-		}
-	}
-
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
 		pallet_im_online::migration::v1::Migration&lt;Runtime&gt;,
@@ -4039,7 +3944,6 @@
 		assigned_slots::migration::v1::MigrateToV1&lt;Runtime&gt;,
 		parachains_scheduler::migration::v1::MigrateToV1&lt;Runtime&gt;,
 		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
-		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
 		paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6&lt;Runtime&gt;,
