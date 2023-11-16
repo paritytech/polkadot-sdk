@@ -34,6 +34,9 @@ fuzz_target!(|input: &str| {
 	let regex_result = SECRET_PHRASE_REGEX.captures(input);
 	let manual_result = AddressUri::parse(input);
 	assert_eq!(regex_result.is_some(), manual_result.is_ok());
+	if manual_result.is_err() {
+		let _ = format!("{}", manual_result.as_ref().err().unwrap());
+	}
 	if let (Some(regex_result), Ok(manual_result)) = (regex_result, manual_result) {
 		assert_eq!(regex_result.name("phrase").map(|p| p.as_str()), manual_result.phrase);
 

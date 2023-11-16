@@ -218,7 +218,7 @@ impl<T: AsRef<str>> From<T> for DeriveJunction {
 /// An error type for SS58 decoding.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[cfg_attr(not(feature = "std"), derive(Debug))]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 #[allow(missing_docs)]
 #[cfg(any(feature = "full_crypto", feature = "serde"))]
 pub enum PublicError {

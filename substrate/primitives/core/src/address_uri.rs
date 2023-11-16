@@ -48,16 +48,82 @@ pub struct AddressUri<'a> {
 /// Errors that are possible during parsing the address URI.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Error {
-	#[cfg_attr(feature = "std", error("Invalid character in phrase"))]
-	InvalidCharacterInPhrase,
-	#[cfg_attr(feature = "std", error("Invalid character in password"))]
-	InvalidCharacterInPass,
-	#[cfg_attr(feature = "std", error("Invalid character in hard path"))]
-	InvalidCharacterInHardPath,
-	#[cfg_attr(feature = "std", error("Invalid character in soft path"))]
-	InvalidCharacterInSoftPath,
+	#[cfg_attr(feature = "std", error("Invalid character in phrase:\n{0}"))]
+	InvalidCharacterInPhrase(InvalidCharacterInfo),
+	#[cfg_attr(feature = "std", error("Invalid character in password:\n{0}"))]
+	InvalidCharacterInPass(InvalidCharacterInfo),
+	#[cfg_attr(feature = "std", error("Missing character in hard path:\n{0}"))]
+	MissingCharacterInHardPath(InvalidCharacterInfo),
+	#[cfg_attr(feature = "std", error("Missing character in soft path:\n{0}"))]
+	MissingCharacterInSoftPath(InvalidCharacterInfo),
+}
+
+impl Error {
+	/// Creates an instance of `Error::InvalidCharacterInPhrase` using given parameters.
+	pub fn in_phrase(input: &str, pos: usize) -> Self {
+		Self::InvalidCharacterInPhrase(InvalidCharacterInfo::new(input, pos))
+	}
+	/// Creates an instance of `Error::InvalidCharacterInPass` using given parameters.
+	pub fn in_pass(input: &str, pos: usize) -> Self {
+		Self::InvalidCharacterInPass(InvalidCharacterInfo::new(input, pos))
+	}
+	/// Creates an instance of `Error::MissingCharacterInHardPath` using given parameters.
+	pub fn in_hard_path(input: &str, pos: usize) -> Self {
+		Self::MissingCharacterInHardPath(InvalidCharacterInfo::new(input, pos))
+	}
+	/// Creates an instance of `Error::MissingCharacterInSoftPath` using given parameters.
+	pub fn in_soft_path(input: &str, pos: usize) -> Self {
+		Self::MissingCharacterInSoftPath(InvalidCharacterInfo::new(input, pos))
+	}
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct InvalidCharacterInfo(String, usize);
+
+impl InvalidCharacterInfo {
+	fn new(info: &str, pos: usize) -> Self {
+		Self(info.to_string(), pos)
+	}
+}
+
+impl sp_std::fmt::Display for InvalidCharacterInfo {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		let (s, width) = escape_string(&self.0, self.1);
+		write!(f, "{s}\n{i: >width$}", i = '^')
+	}
+}
+
+/// Escapes the control characters in given string, and recomputes the position if some characters
+/// were actually escaped.
+fn escape_string(input: &str, pos: usize) -> (String, usize) {
+	let mut out = String::with_capacity(2 * input.len());
+	let mut out_pos = 0;
+	input
+		.chars()
+		.enumerate()
+		.map(|(i, c)| {
+			let esc = |c| (i, Some('\\'), c, 2);
+			match c {
+				'\t' => esc('t'),
+				'\n' => esc('n'),
+				'\r' => esc('r'),
+				'\x07' => esc('a'),
+				'\x08' => esc('b'),
+				'\x0b' => esc('v'),
+				'\x0c' => esc('f'),
+				_ => (i, None, c, 1),
+			}
+		})
+		.for_each(|(i, maybe_escape, c, increment)| {
+			maybe_escape.map(|e| out.push(e));
+			out.push(c);
+			if i < pos {
+				out_pos += increment;
+			}
+		});
+	(out, out_pos)
 }
 
 fn extract_prefix<'a>(input: &mut &'a str, is_allowed: &dyn Fn(char) -> bool) -> Option<&'a str> {
@@ -80,6 +146,8 @@ fn strip_prefix(input: &mut &str, prefix: &str) -> bool {
 impl<'a> AddressUri<'a> {
 	/// Parses the given string.
 	pub fn parse(mut input: &'a str) -> Result<Self, Error> {
+		let initial_input = input;
+		let initial_input_len = input.len();
 		let phrase = extract_prefix(&mut input, &|ch: char| {
 			ch.is_ascii_digit() || ch.is_ascii_alphabetic() || ch == ' '
 		});
@@ -91,22 +159,22 @@ impl<'a> AddressUri<'a> {
 			if strip_prefix(&mut input, "///") {
 				pass = Some(extract_prefix(&mut input, &|ch: char| ch != '\n').unwrap_or(""));
 			} else if strip_prefix(&mut input, "//") {
-				let path = extract_prefix(&mut input, &|ch: char| ch != '/')
-					.ok_or(Error::InvalidCharacterInHardPath)?;
+				let path = extract_prefix(&mut input, &|ch: char| ch != '/').ok_or(
+					Error::in_hard_path(initial_input, initial_input_len - input.len() + 1),
+				)?;
 				assert!(path.len() > 0);
 				// hard path shall contain leading '/', so take it from unstripped input.
 				paths.push(&unstripped_input[1..path.len() + 2]);
 			} else if strip_prefix(&mut input, "/") {
-				paths.push(
-					extract_prefix(&mut input, &|ch: char| ch != '/')
-						.ok_or(Error::InvalidCharacterInSoftPath)?,
-				);
+				paths.push(extract_prefix(&mut input, &|ch: char| ch != '/').ok_or(
+					Error::in_soft_path(initial_input, initial_input_len - input.len() + 1),
+				)?);
 			} else {
-				return if pass.is_some() {
-					Err(Error::InvalidCharacterInPass)
+				return Err(if pass.is_some() {
+					Error::in_pass(initial_input, initial_input_len - input.len() + 1)
 				} else {
-					Err(Error::InvalidCharacterInPhrase)
-				};
+					Error::in_phrase(initial_input, initial_input_len - input.len() + 1)
+				});
 			}
 		}
 
@@ -188,7 +256,8 @@ mod tests {
 
 	#[test]
 	fn test05() {
-		check("sdasd//", Err(Error::InvalidCharacterInHardPath));
+		let input = "sdasd//";
+		check(input, Err(Error::in_hard_path(input, 8)));
 	}
 
 	#[test]
@@ -221,7 +290,8 @@ mod tests {
 
 	#[test]
 	fn test09() {
-		check("sdasd/xx//", Err(Error::InvalidCharacterInHardPath));
+		let input = "sdasd/xx//";
+		check(input, Err(Error::in_hard_path(input, 11)));
 	}
 
 	#[test]
@@ -247,7 +317,8 @@ mod tests {
 
 	#[test]
 	fn test13() {
-		check("sdasd/", Err(Error::InvalidCharacterInSoftPath));
+		let input = "sdasd/";
+		check(input, Err(Error::in_soft_path(input, 7)));
 	}
 
 	#[test]
@@ -257,17 +328,20 @@ mod tests {
 
 	#[test]
 	fn test15() {
-		check("sd.asd", Err(Error::InvalidCharacterInPhrase));
+		let input = "sdasd.";
+		check(input, Err(Error::in_phrase(input, 6)));
 	}
 
 	#[test]
 	fn test16() {
-		check("sd.asd/asd.a", Err(Error::InvalidCharacterInPhrase));
+		let input = "sd.asd/asd.a";
+		check(input, Err(Error::in_phrase(input, 3)));
 	}
 
 	#[test]
 	fn test17() {
-		check("sd.asd//asd.a", Err(Error::InvalidCharacterInPhrase));
+		let input = "sd.asd//asd.a";
+		check(input, Err(Error::in_phrase(input, 3)));
 	}
 
 	#[test]
@@ -288,16 +362,61 @@ mod tests {
 
 	#[test]
 	fn test20() {
-		check("///\n", Err(Error::InvalidCharacterInPass));
+		let input = "///\n";
+		check(input, Err(Error::in_pass(input, 4)));
 	}
 
 	#[test]
 	fn test21() {
-		check("///a\n", Err(Error::InvalidCharacterInPass));
+		let input = "///a\n";
+		check(input, Err(Error::in_pass(input, 5)));
 	}
 
 	#[test]
 	fn test22() {
-		check("sd.asd///asd.a\n", Err(Error::InvalidCharacterInPhrase));
+		let input = "sd asd///asd.a\n";
+		check(input, Err(Error::in_pass(input, 15)));
+	}
+
+	#[test]
+	fn test_invalid_char_info_1() {
+		let expected = "12345\n^";
+		let f = format!("{}", InvalidCharacterInfo::new("12345", 1));
+		assert_eq!(expected, f);
+	}
+
+	#[test]
+	fn test_invalid_char_info_2() {
+		let expected = "1\n^";
+		let f = format!("{}", InvalidCharacterInfo::new("1", 1));
+		assert_eq!(expected, f);
+	}
+
+	#[test]
+	fn test_invalid_char_info_3() {
+		let expected = "12345\n  ^";
+		let f = format!("{}", InvalidCharacterInfo::new("12345", 3));
+		assert_eq!(expected, f);
+	}
+
+	#[test]
+	fn test_invalid_char_info_4() {
+		let expected = "123\\n567\n    ^";
+		let f = format!("{}", InvalidCharacterInfo::new("123\n567", 4));
+		assert_eq!(expected, f);
+	}
+
+	#[test]
+	fn test_invalid_char_info_5() {
+		let expected = "123\\n567\n       ^";
+		let f = format!("{}", InvalidCharacterInfo::new("123\n567", 7));
+		assert_eq!(expected, f);
+	}
+
+	#[test]
+	fn test_invalid_char_info_6() {
+		let expected = "123\\f567\\t90\n           ^";
+		let f = format!("{}", InvalidCharacterInfo::new("123\x0c567\t90", 10));
+		assert_eq!(expected, f);
 	}
 }
