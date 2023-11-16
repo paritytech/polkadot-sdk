@@ -17,7 +17,10 @@
 
 //! Little util for parsing an address URI. Replaces regular expressions.
 
-use sp_std::vec::Vec;
+use sp_std::{
+	alloc::string::{String, ToString},
+	vec::Vec,
+};
 
 /// A container for results of parsing the address uri string.
 ///
