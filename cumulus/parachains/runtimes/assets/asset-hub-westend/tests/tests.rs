@@ -20,7 +20,7 @@
 use asset_hub_westend_runtime::{
 	xcm_config::{
 		AssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
-		RelayTreasuryAccount, WestendLocation,
+		WestendLocation,
 	},
 	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, RuntimeCall,
 	RuntimeEvent,
@@ -143,7 +143,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
-			let treasury_account = RelayTreasuryAccount::get();
+			let staking_pot = CollatorSelection::account_id();
 			let asset_1: u32 = 1;
 			let native_location = WestendLocation::get();
 			let asset_1_location =
@@ -158,7 +158,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 
 			assert_ok!(Assets::mint_into(asset_1, &bob, initial_balance));
 			assert_ok!(Balances::mint_into(&bob, initial_balance));
-			assert_ok!(Balances::mint_into(&treasury_account, initial_balance));
+			assert_ok!(Balances::mint_into(&staking_pot, initial_balance));
 
 			assert_ok!(AssetConversion::create_pool(
 				RuntimeHelper::origin_of(bob.clone()),
@@ -214,11 +214,11 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			assert_eq!(actual_refund, (asset_1_location, asset_refund).into());
 
 			// assert.
-			assert_eq!(Balances::balance(&treasury_account), initial_balance);
+			assert_eq!(Balances::balance(&staking_pot), initial_balance);
 			// only after `trader` is dropped we expect the fee to be resolved into the treasury
 			// account.
 			drop(trader);
-			assert_eq!(Balances::balance(&treasury_account), initial_balance + fee - refund);
+			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
 			assert_eq!(
 				Assets::total_issuance(asset_1),
 				asset_total_issuance + asset_fee - asset_refund
@@ -239,7 +239,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
-			let treasury_account = RelayTreasuryAccount::get();
+			let staking_pot = CollatorSelection::account_id();
 			let native_location = WestendLocation::get();
 			let foreign_location =
 				MultiLocation { parents: 1, interior: X2(Parachain(1234), GeneralIndex(12345)) };
@@ -258,7 +258,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 
 			assert_ok!(ForeignAssets::mint_into(foreign_location, &bob, initial_balance));
 			assert_ok!(Balances::mint_into(&bob, initial_balance));
-			assert_ok!(Balances::mint_into(&treasury_account, initial_balance));
+			assert_ok!(Balances::mint_into(&staking_pot, initial_balance));
 
 			assert_ok!(AssetConversion::create_pool(
 				RuntimeHelper::origin_of(bob.clone()),
@@ -317,11 +317,11 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			assert_eq!(actual_refund, (foreign_location, asset_refund).into());
 
 			// assert.
-			assert_eq!(Balances::balance(&treasury_account), initial_balance);
+			assert_eq!(Balances::balance(&staking_pot), initial_balance);
 			// only after `trader` is dropped we expect the fee to be resolved into the treasury
 			// account.
 			drop(trader);
-			assert_eq!(Balances::balance(&treasury_account), initial_balance + fee - refund);
+			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
 			assert_eq!(
 				ForeignAssets::total_issuance(foreign_location),
 				asset_total_issuance + asset_fee - asset_refund

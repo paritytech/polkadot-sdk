@@ -15,11 +15,10 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	FeeAssetId, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, TransactionByteFee, TrustBackedAssetsInstance, WeightToFee,
-	XcmpQueue,
+	CollatorSelection, FeeAssetId, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm,
+	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee,
+	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
-use crate::ForeignAssets;
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
@@ -74,10 +73,7 @@ parameter_types! {
 	pub PoolAssetsPalletLocation: MultiLocation =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	/// The Relay Chain Treasury pallet's account on the current chain, derived using [`PalletLocationToAccountId`].
-	// Proof of correctness: [`self::ensure_relay_treasury_account_correct()`].
-	pub RelayTreasuryAccount: AccountId =
-		AccountId::from(hex_literal::hex!("8bb46fbc6413c0f273b1b09af7b83f30695801958b9151a8f899f468f80064b1"));
+	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
 }
 
@@ -569,7 +565,7 @@ impl xcm_executor::Config for XcmConfig {
 				TrustBackedAssetsAsMultiLocation<TrustBackedAssetsPalletLocation, Balance>,
 				ForeignAssetsConvertedConcreteId,
 			),
-			ResolveAssetTo<RelayTreasuryAccount, crate::NativeAndAssets>,
+			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
 			AccountId,
 		>,
 	);
@@ -659,12 +655,4 @@ impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> MultiLocation {
 		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
 	}
-}
-
-#[test]
-fn ensure_relay_treasury_account_correct() {
-	use xcm_executor::traits::ConvertLocation;
-	let location = MultiLocation::new(1, X1(Junction::PalletInstance(37)));
-	let account = PalletLocationToAccountId::convert_location(&location).unwrap();
-	assert_eq!(account, RelayTreasuryAccount::get());
 }
