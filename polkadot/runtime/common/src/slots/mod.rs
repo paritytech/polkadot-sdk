@@ -34,7 +34,6 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
-use sp_api::codec;
 use sp_runtime::traits::{CheckedAdd, CheckedConversion, CheckedSub, Saturating, Zero};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -140,11 +139,6 @@ pub mod pallet {
 	#[pallet::getter(fn lease)]
 	pub type Leases<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<Option<(T::AccountId, BalanceOf<T>)>>, ValueQuery>;
-
-	/// Amounts currently reserved for the leased slot by the parachain.
-	#[pallet::storage]
-	pub type ReservedAmounts<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, ParaId, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// Information about the current leased slot by the leaser.
 	///
@@ -292,6 +286,13 @@ pub mod pallet {
 						.map_err(|_| Error::<T>::NoPermission.into())
 				})?;
 
+			let min_lease_period_required = T::MinLeasePeriodForEarlyRefund::get();
+			ensure!(
+				min_lease_period_required > 0u32.into(),
+				// if set to 0, we never allow early refund of slot deposit.
+				Error::<T>::PreconditionNotMet
+			);
+
 			// check if lease is ending soon.
 			ensure!(
 				Self::lease_period_ending_soon(frame_system::Pallet::<T>::block_number()),
@@ -302,8 +303,17 @@ pub mod pallet {
 			let leases = Leases::<T>::get(para);
 			ensure!(leases.len() == 1, Error::<T>::PreconditionNotMet);
 			if let Some((who, value)) = &leases[0] {
+
+				let (_, period_count) = LeaseInfo::<T>::get(para, who).ok_or(Error::<T>::LeaseError)?;
+
+				ensure!(
+					period_count >= min_lease_period_required,
+					Error::<T>::PreconditionNotMet
+				);
+
 				// unreserve the deposit for the soon to be ending lease.
 				Self::unreserve(para, &who, *value);
+
 			} else {
 				// This should never happen.
 				defensive!("lease period should never be empty");
@@ -1187,8 +1197,8 @@ mod tests {
 			));
 
 			// lease out two slots with interruption.
-			assert_ok!(Slots::lease_out(1.into(), &1, 3, 1, 1));
-			assert_ok!(Slots::lease_out(1.into(), &1, 2, 3, 1));
+			assert_ok!(Slots::lease_out(1.into(), &1, 3, 1, 2));
+			assert_ok!(Slots::lease_out(1.into(), &1, 2, 4, 3));
 
 			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
 			assert_eq!(Slots::required_deposit(1.into(), &1), 3);
@@ -1201,7 +1211,7 @@ mod tests {
 
 			// 1 block before current lease expires but there are upcoming leases so refund is not
 			// allowed.
-			run_to_block(19);
+			run_to_block(29);
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
@@ -1210,7 +1220,7 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
 
 			// 1 block before new lease begins. Still not allowed.
-			run_to_block(29);
+			run_to_block(49);
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
@@ -1219,7 +1229,7 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
 
 			// 3 blocks before the lease ends and no upcoming leases
-			run_to_block(37);
+			run_to_block(67);
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			// EarliestRefundPeriod is 2 blocks, so this should still fail.
 			assert_noop!(
@@ -1229,7 +1239,7 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
 
 			// 2 blocks before lease ends, should be able to refund deposit now.
-			run_to_block(38);
+			run_to_block(68);
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_ok!(Slots::early_lease_refund(RuntimeOrigin::signed(1), ParaId::from(1)));
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
@@ -1237,7 +1247,7 @@ mod tests {
 			// required deposit is still two since lease period is not over yet.
 			assert_eq!(Slots::required_deposit(1.into(), &1), 2);
 
-			run_to_block(40);
+			run_to_block(70);
 			assert!(Slots::lease(ParaId::from(1)).is_empty());
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
@@ -1249,9 +1259,9 @@ mod tests {
 				vec![
 					// (para_id, block, is_parachain)
 					(1.into(), 10, true),
-					(1.into(), 20, false),
-					(1.into(), 30, true),
-					(1.into(), 40, false),
+					(1.into(), 30, false),
+					(1.into(), 40, true),
+					(1.into(), 70, false),
 				]
 			);
 		});
