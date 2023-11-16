@@ -1160,7 +1160,6 @@ pub trait BlockNumber:
 	+ MaybeDisplay
 	+ AtLeast32BitUnsigned
 	+ Into<U256>
-	+ Into<u64>
 	+ TryFrom<U256>
 	+ TryFrom<u64>
 	+ Default
@@ -1180,7 +1179,6 @@ impl<
 			+ MaybeDisplay
 			+ AtLeast32BitUnsigned
 			+ Into<U256>
-			+ Into<u64>
 			+ TryFrom<U256>
 			+ TryFrom<u64>
 			+ Default
