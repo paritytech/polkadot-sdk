@@ -17,8 +17,9 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
-	fungibles::{self, Balanced, Credit},
-	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
+	fungible::{self, Balanced as FungibleBalanced},
+	fungibles::{self, Balanced as FungiblesBalanced},
+	Contains, ContainsPair, Currency, Defensive, Get, Imbalance, OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
@@ -35,28 +36,33 @@ pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 
 /// Implementation of `OnUnbalanced` that deposits the fees into a staking pot for later payout.
 pub struct ToStakingPot<R>(PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for ToStakingPot<R>
+impl<R> OnUnbalanced<fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToStakingPot<R>
 where
 	R: pallet_balances::Config + pallet_collator_selection::Config,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+	fn on_nonzero_unbalanced(amount: fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>) {
 		let staking_pot = <pallet_collator_selection::Pallet<R>>::account_id();
-		<pallet_balances::Pallet<R>>::resolve_creating(&staking_pot, amount);
+		// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
+		let _ = <pallet_balances::Pallet<R>>::resolve(&staking_pot, amount).defensive();
 	}
 }
 
 /// Implementation of `OnUnbalanced` that deals with the fees by combining tip and fee and passing
 /// the result on to `ToStakingPot`.
 pub struct DealWithFees<R>(PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
+impl<R> OnUnbalanced<fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
 	R: pallet_balances::Config + pallet_collator_selection::Config,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
+	fn on_unbalanceds<B>(
+		mut fees_then_tips: impl Iterator<
+			Item = fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>,
+		>,
+	) {
 		if let Some(mut fees) = fees_then_tips.next() {
 			if let Some(tips) = fees_then_tips.next() {
 				tips.merge_into(&mut fees);
@@ -75,10 +81,10 @@ where
 	R: pallet_authorship::Config + pallet_assets::Config<I>,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
-	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
+	fn handle_credit(credit: fungibles::Credit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit);
+			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit).defensive();
 		}
 	}
 }

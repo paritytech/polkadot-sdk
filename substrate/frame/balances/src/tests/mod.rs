@@ -32,7 +32,7 @@ use frame_support::{
 	weights::{IdentityFee, Weight},
 };
 use frame_system::{self as system, RawOrigin};
-use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter, Multiplier};
 use scale_info::TypeInfo;
 use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_io;
@@ -118,7 +118,7 @@ impl frame_system::Config for Test {
 
 impl pallet_transaction_payment::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Pallet<Test>, ()>;
+	type OnChargeTransaction = FungibleAdapter<Pallet<Test>, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;

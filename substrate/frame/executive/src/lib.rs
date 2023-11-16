@@ -757,7 +757,7 @@ mod tests {
 	};
 	use frame_system::{ChainContext, LastRuntimeUpgradeInfo};
 	use pallet_balances::Call as BalancesCall;
-	use pallet_transaction_payment::CurrencyAdapter;
+	use pallet_transaction_payment::FungibleAdapter;
 
 	const TEST_KEY: &[u8] = b":test:key:";
 
@@ -956,7 +956,7 @@ mod tests {
 	}
 	impl pallet_transaction_payment::Config for Runtime {
 		type RuntimeEvent = RuntimeEvent;
-		type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+		type OnChargeTransaction = FungibleAdapter<Balances, ()>;
 		type OperationalFeeMultiplier = ConstU8<5>;
 		type WeightToFee = IdentityFee<Balance>;
 		type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
