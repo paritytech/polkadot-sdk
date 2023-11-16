@@ -90,8 +90,11 @@ const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
 // Max length for segments holding unsorted tickets.
 const SEGMENT_MAX_SIZE: u32 = 128;
 
-// Convenience type
-type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAuthorities>;
+/// Authorities bounded vector convenience type.
+pub type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAuthorities>;
+
+/// Epoch length defined by the configuration.
+pub type EpochLengthFor<T> = <T as Config>::EpochLength;
 
 /// Tickets metadata.
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy)]
@@ -125,7 +128,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
-		type EpochLength: Get<u64>;
+		type EpochLength: Get<u32>;
 
 		/// Max number of authorities allowed.
 		#[pallet::constant]
@@ -139,17 +142,6 @@ pub mod pallet {
 
 		/// Weight information for all calls of this pallet.
 		type WeightInfo: WeightInfo;
-	}
-
-	/// Max number of tickets allowed by the configuration.
-	///
-	/// In practice trims down the `Config::EpochLength` value to at most u32::MAX.
-	pub struct MaxTicketsFor<T: Config>(sp_std::marker::PhantomData<T>);
-
-	impl<T: Config> Get<u32> for MaxTicketsFor<T> {
-		fn get() -> u32 {
-			T::EpochLength::get().try_into().unwrap_or(u32::MAX)
-		}
 	}
 
 	/// Sassafras runtime errors.
@@ -262,7 +254,7 @@ pub mod pallet {
 	/// epoch tickets.
 	#[pallet::storage]
 	pub type SortedCandidates<T> =
-		StorageValue<_, BoundedVec<TicketId, MaxTicketsFor<T>>, ValueQuery>;
+		StorageValue<_, BoundedVec<TicketId, EpochLengthFor<T>>, ValueQuery>;
 
 	/// Parameters used to construct the epoch's ring verifier.
 	///
@@ -395,7 +387,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(
 			origin: OriginFor<T>,
-			tickets: BoundedVec<TicketEnvelope, MaxTicketsFor<T>>,
+			tickets: BoundedVec<TicketEnvelope, EpochLengthFor<T>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 
@@ -529,7 +521,7 @@ pub mod pallet {
 
 			ValidTransaction::with_tag_prefix("Sassafras")
 				.priority(TransactionPriority::max_value())
-				.longevity(tickets_longevity)
+				.longevity(tickets_longevity as u64)
 				.and_provides(tickets_tag)
 				.propagate(true)
 				.build()
@@ -554,13 +546,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Current slot index relative to the current epoch.
-	fn current_slot_index() -> u64 {
+	fn current_slot_index() -> u32 {
 		Self::slot_index(CurrentSlot::<T>::get())
 	}
 
-	/// Slot index with respect to current epoch.
-	fn slot_index(slot: Slot) -> u64 {
-		slot.checked_sub(Self::current_epoch_start().into()).unwrap_or(u64::MAX)
+	/// Slot index relative to the current epoch.
+	fn slot_index(slot: Slot) -> u32 {
+		slot.checked_sub(*Self::current_epoch_start())
+			.map(|v| v.try_into().ok())
+			.flatten()
+			.unwrap_or(u32::MAX)
 	}
 
 	/// Finds the start slot of the current epoch.
@@ -576,8 +571,8 @@ impl<T: Config> Pallet<T> {
 		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
 							 if u64 is not enough we should crash for safety; qed.";
 
-		let epoch_start = epoch_index.checked_mul(T::EpochLength::get()).expect(PROOF);
-		epoch_start.checked_add(*GenesisSlot::<T>::get()).expect(PROOF).into()
+		let epoch_start = epoch_index.checked_mul(T::EpochLength::get() as u64).expect(PROOF);
+		GenesisSlot::<T>::get().checked_add(epoch_start).expect(PROOF).into()
 	}
 
 	pub(crate) fn update_ring_verifier(authorities: &[AuthorityId]) {
@@ -628,7 +623,7 @@ impl<T: Config> Pallet<T> {
 		if slot_idx >= T::EpochLength::get() {
 			// Detected one or more skipped epochs, clear tickets data and recompute epoch index.
 			Self::reset_tickets_data();
-			let skipped_epochs = u64::from(slot_idx) / T::EpochLength::get();
+			let skipped_epochs = *slot_idx / T::EpochLength::get() as u64;
 			epoch_idx += skipped_epochs;
 			warn!(
 				target: LOG_TARGET,
@@ -874,7 +869,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn sort_segments(max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
 		let unsorted_segments_count = metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
 		let max_segments = max_segments.min(unsorted_segments_count);
-		let max_tickets = MaxTicketsFor::<T>::get() as usize;
+		let max_tickets = Self::epoch_length() as usize;
 
 		// Fetch the sorted candidates (if any).
 		let mut candidates = SortedCandidates::<T>::take().into_inner();
@@ -935,7 +930,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Append a set of tickets to the segments map.
-	pub(crate) fn append_tickets(tickets: BoundedVec<TicketId, MaxTicketsFor<T>>) {
+	pub(crate) fn append_tickets(tickets: BoundedVec<TicketId, EpochLengthFor<T>>) {
 		debug!(target: LOG_TARGET, "Appending batch with {} tickets", tickets.len());
 		tickets.iter().for_each(|t| trace!(target: LOG_TARGET, "  + {t:032x}"));
 
@@ -995,7 +990,6 @@ impl<T: Config> Pallet<T> {
 	/// The submitted tickets are added to the next epoch outstanding tickets as long as the
 	/// extrinsic is called within the first half of the epoch. Tickets received during the
 	/// second half are dropped.
-	// TODO @davxy: directly use a bounded vector???
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
@@ -1008,14 +1002,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Configuration epoch length.
-	pub fn epoch_length() -> usize {
-		T::EpochLength::get() as usize
-	}
-
-	/// Configuration max authorities.
-	pub fn max_authorities() -> usize {
-		T::MaxAuthorities::get() as usize
+	/// Epoch length
+	pub fn epoch_length() -> u32 {
+		T::EpochLength::get()
 	}
 }
 
@@ -1055,7 +1044,7 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 			let next_authorities = authorities.clone();
 			let len = next_authorities.len() as u32;
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
-			Some(T::WeightInfo::enact_epoch_change(len, Pallet::<T>::epoch_length() as u32))
+			Some(T::WeightInfo::enact_epoch_change(len, T::EpochLength::get()))
 		} else {
 			None
 		}

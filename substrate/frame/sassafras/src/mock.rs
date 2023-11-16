@@ -38,7 +38,7 @@ use sp_runtime::{
 
 const LOG_TARGET: &str = "sassafras::tests";
 
-const EPOCH_LENGTH: u64 = 10;
+const EPOCH_LENGTH: u32 = 10;
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -75,7 +75,7 @@ where
 }
 
 impl pallet_sassafras::Config for Test {
-	type EpochLength = ConstU64<EPOCH_LENGTH>;
+	type EpochLength = ConstU32<EPOCH_LENGTH>;
 	type MaxAuthorities = ConstU32<100>;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
@@ -258,22 +258,26 @@ pub fn make_ticket_bodies(
 		.collect()
 }
 
-/// Persist the given tickets in `segments_count` separated segments by appending
-/// them to the storage segments list.
+/// Persist the given tickets in the unsorted segments buffer.
 ///
-/// If segments_count > tickets.len() => segments_count = tickets.len()
+/// This function skips all the checks performed by the `submit_tickets` extrinsic and
+/// directly appends the tickets to the `UnsortedSegments` structure.
 pub fn persist_next_epoch_tickets_as_segments(tickets: &[(TicketId, TicketBody)]) {
 	let mut ids = Vec::with_capacity(tickets.len());
 	tickets.iter().for_each(|(id, body)| {
 		TicketsData::<Test>::set(id, Some(body.clone()));
 		ids.push(*id);
 	});
-	let max_chunk_size = MaxTicketsFor::<Test>::get() as usize;
+	let max_chunk_size = Sassafras::epoch_length() as usize;
 	ids.chunks(max_chunk_size).for_each(|chunk| {
 		Sassafras::append_tickets(BoundedVec::truncate_from(chunk.to_vec()));
 	})
 }
 
+/// Calls the [`persist_next_epoch_tickets_as_segments`] and then proceeds to the
+/// sorting of the candidates.
+///
+/// Only "winning" tickets are left.
 pub fn persist_next_epoch_tickets(tickets: &[(TicketId, TicketBody)]) {
 	persist_next_epoch_tickets_as_segments(tickets);
 	// Force sorting of next epoch tickets (enactment) by explicitly querying the first of them.
@@ -289,8 +293,9 @@ fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {
 
 	// Check if epoch is going to change on initialization.
 	let epoch_start = Sassafras::current_epoch_start();
-	if epoch_start != 0_u64 && slot >= epoch_start + EPOCH_LENGTH {
-		epoch += slot.saturating_sub(epoch_start).saturating_div(EPOCH_LENGTH);
+	let epoch_length = EPOCH_LENGTH.into();
+	if epoch_start != 0_u64 && slot >= epoch_start + epoch_length {
+		epoch += slot.saturating_sub(epoch_start).saturating_div(epoch_length);
 		randomness = crate::NextRandomness::<Test>::get();
 	}
 

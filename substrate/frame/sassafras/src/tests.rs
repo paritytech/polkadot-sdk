@@ -21,7 +21,6 @@ use crate::*;
 use mock::*;
 
 use sp_consensus_sassafras::Slot;
-use sp_runtime::traits::Get;
 
 fn h2b<const N: usize>(hex: &str) -> [u8; N] {
 	array_bytes::hex2array_unchecked(hex)
@@ -230,7 +229,7 @@ fn on_normal_block() {
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		// We don't want to trigger an epoch change in this test.
-		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let epoch_length = Sassafras::epoch_length() as u64;
 		assert!(epoch_length > end_block);
 
 		// Progress to block 2
@@ -286,7 +285,7 @@ fn produce_epoch_change_digest_no_config() {
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		// We want to trigger an epoch change in this test.
-		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let epoch_length = Sassafras::epoch_length() as u64;
 		let end_block = start_block + epoch_length;
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
@@ -363,7 +362,7 @@ fn produce_epoch_change_digest_with_config() {
 		Sassafras::plan_config_change(RuntimeOrigin::root(), config).unwrap();
 
 		// We want to trigger an epoch change in this test.
-		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let epoch_length = Sassafras::epoch_length() as u64;
 		let end_block = start_block + epoch_length;
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
@@ -397,7 +396,7 @@ fn segments_incremental_sort_works() {
 	let start_block = 1;
 
 	ext.execute_with(|| {
-		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let epoch_length = Sassafras::epoch_length() as u64;
 		// -3 just to have the last segment not full...
 		let submitted_tickets_count = segments_count * SEGMENT_MAX_SIZE - 3;
 
@@ -495,7 +494,7 @@ fn tickets_fetch_works_after_epoch_change() {
 		initialize_block(start_block, start_slot, Default::default(), pair);
 
 		// We don't want to trigger an epoch change in this test.
-		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let epoch_length = Sassafras::epoch_length() as u64;
 		assert!(epoch_length > 2);
 		progress_to_block(2, &pairs[0]).unwrap();
 
@@ -568,7 +567,7 @@ fn block_allowed_to_skip_epochs() {
 	let start_block = 1;
 
 	ext.execute_with(|| {
-		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let epoch_length = Sassafras::epoch_length() as u64;
 
 		initialize_block(start_block, start_slot, Default::default(), pair);
 
@@ -608,7 +607,7 @@ fn obsolete_tickets_are_removed_on_epoch_change() {
 	let start_block = 1;
 
 	ext.execute_with(|| {
-		let epoch_length: u64 = <Test as Config>::EpochLength::get();
+		let epoch_length = Sassafras::epoch_length() as u64;
 
 		initialize_block(start_block, start_slot, Default::default(), pair);
 
@@ -733,10 +732,8 @@ fn submit_tickets_with_ring_proof_check_works() {
 		);
 
 		// Submit the tickets
-		let max_tickets_per_call = MaxTicketsFor::<Test>::get();
-		// let submit_calls_count = tickets.len().div_ceil(max_tickets_per_call as usize);
-		// let chunk_len = tickets.len().div_ceil(submit_calls_count);
-		tickets.chunks(max_tickets_per_call as usize).for_each(|chunk| {
+		let max_tickets_per_call = Sassafras::epoch_length() as usize;
+		tickets.chunks(max_tickets_per_call).for_each(|chunk| {
 			let chunk = BoundedVec::truncate_from(chunk.to_vec());
 			Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap();
 		});
