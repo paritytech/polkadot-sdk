@@ -36,7 +36,7 @@ use sp_std::{prelude::*, result};
 
 use crate::traits::{OnSwap, Registrar};
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -711,7 +711,8 @@ impl<T: Config> Pallet<T> {
 				// An additional deposit is required to cover for the new validation code which has
 				// a greater size compared to the old one.
 
-				// NOTE: what if the upgrade fails? This should be removed or moved to another place.
+				// NOTE: what if the upgrade fails? This should be removed or moved to another
+				// place.
 				let excess = new_deposit.saturating_sub(current_deposit);
 				<T as Config>::Currency::reserve(&payer, excess)?;
 			}
@@ -802,9 +803,14 @@ mod tests {
 		BuildStorage, Perbill,
 	};
 	use sp_std::collections::btree_map::BTreeMap;
+	use xcm::opaque::lts::NetworkId;
+	use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;
+
+	#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	struct AccountId([u8; 32]);
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -843,7 +849,7 @@ mod tests {
 		type Nonce = u64;
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
-		type AccountId = u64;
+		type AccountId = AccountId;
 		type Lookup = IdentityLookup<u64>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
@@ -908,7 +914,15 @@ mod tests {
 		pub const ParaDeposit: Balance = 10;
 		pub const DataDepositPerByte: Balance = 1;
 		pub const MaxRetries: u32 = 3;
+		pub const UpgradeFee: Balance = 2;
+		pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 	}
+
+	pub type LocationToAccountId = (
+		ChildParachainConvertsVia<ParaId, AccountId>,
+		AccountId32Aliases<RelayNetwork, AccountId>,
+		Account32Hash<(), AccountId>,
+	);
 
 	impl Config for Test {
 		type RuntimeOrigin = RuntimeOrigin;
@@ -917,6 +931,9 @@ mod tests {
 		type OnSwap = MockSwap;
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
+		type UpgradeFee = UpgradeFee;
+		type FeeReceiver = ();
+		type SovereignAccountOf = LocationToAccountId;
 		type WeightInfo = TestWeightInfo;
 	}
 
