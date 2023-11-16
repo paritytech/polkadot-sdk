@@ -21,6 +21,7 @@
 #![recursion_limit = "512"]
 
 use pallet_nis::WithMaximumOf;
+use pallet_xcm::EnsureXcm;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
 	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
@@ -120,6 +121,7 @@ use governance::{
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
+use xcm_config::Broker;
 
 #[cfg(test)]
 mod tests;
@@ -979,6 +981,7 @@ impl parachains_assigner_bulk::Config for Runtime {
 	// FIXME: Proper weights:
 	type WeightInfo = ();
 	// type WeightInfo = weights::runtime_parachains_assigner_bulk::WeightInfo<Runtime>;
+	type ExternalBrokerOrigin = EnsureXcm<Broker>;
 }
 
 impl parachains_assigner_parachains::Config for Runtime {}
