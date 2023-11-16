@@ -1873,8 +1873,7 @@ where
 	/// A batch of blocks have been processed, with or without errors.
 	///
 	/// Call this when a batch of blocks have been processed by the import
-	/// queue, with or without errors. If an error is returned, the pending response
-	/// from the peer must be dropped.
+	/// queue, with or without errors.
 	pub fn on_blocks_processed(
 		&mut self,
 		imported: usize,
@@ -2324,7 +2323,7 @@ where
 /// Returns the number of the first block in the sequence.
 ///
 /// It is expected that `blocks` are in ascending order.
-fn validate_blocks<Block: BlockT>(
+pub fn validate_blocks<Block: BlockT>(
 	blocks: &Vec<BlockData<Block>>,
 	peer_id: &PeerId,
 	request: Option<BlockRequest<Block>>,
