@@ -50,9 +50,53 @@ pub use rococo_system_emulated_network::{
 	},
 	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 	CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
-	CoretimeRococoParaSender as CoretimeRococSender, RococoRelay as Rococo,
-	RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
+	CoretimeRococoParaSender as CoretimeRococoSender, PenpalAPara as PenpalA,
+	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
+	RococoRelaySender as RococoSender,
 };
+
+/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
+pub fn relay_test_args(
+	dest: MultiLocation,
+	beneficiary_id: AccountId32,
+	amount: Balance,
+) -> TestArgs {
+	TestArgs {
+		dest,
+		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+		amount,
+		assets: (Here, amount).into(),
+		asset_id: None,
+		fee_asset_item: 0,
+		weight_limit: WeightLimit::Unlimited,
+	}
+}
+
+/// Returns a `TestArgs` instance to be used by parachains across integration tests
+pub fn para_test_args(
+	dest: MultiLocation,
+	beneficiary_id: AccountId32,
+	amount: Balance,
+	assets: MultiAssets,
+	asset_id: Option<u32>,
+	fee_asset_item: u32,
+) -> TestArgs {
+	TestArgs {
+		dest,
+		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+		amount,
+		assets,
+		asset_id,
+		fee_asset_item,
+		weight_limit: WeightLimit::Unlimited,
+	}
+}
+
+pub type RelayToSystemParaTest = Test<Rococo, CoretimeRococo>;
+pub type RelayToParaTest = Test<Rococo, PenpalA>;
+pub type SystemParaToRelayTest = Test<CoretimeRococo, Rococo>;
+pub type SystemParaToParaTest = Test<CoretimeRococo, PenpalA>;
+pub type ParaToSystemParaTest = Test<PenpalA, CoretimeRococo>;
 
 #[cfg(test)]
 mod tests;
