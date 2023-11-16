@@ -118,7 +118,6 @@ fn construct_block<E: Externalities>(
 			&runtime_code,
 			"Core_initialize_block",
 			&header.encode(),
-			true,
 			CallContext::Offchain,
 		)
 		.0
@@ -131,7 +130,6 @@ fn construct_block<E: Externalities>(
 				&runtime_code,
 				"BlockBuilder_apply_extrinsic",
 				&i.encode(),
-				true,
 				CallContext::Offchain,
 			)
 			.0
@@ -145,7 +143,6 @@ fn construct_block<E: Externalities>(
 				&runtime_code,
 				"BlockBuilder_finalize_block",
 				&[0u8; 0],
-				true,
 				CallContext::Offchain,
 			)
 			.0
@@ -194,7 +191,7 @@ fn bench_execute_block(c: &mut Criterion) {
 			let mut executor =
 				NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build());
 			match strategy {
-				ExecutionMethod::Native => true,
+				ExecutionMethod::Native => {},
 				ExecutionMethod::Wasm(..) => executor.disable_use_native(),
 			};
 			let runtime_code = RuntimeCode {
