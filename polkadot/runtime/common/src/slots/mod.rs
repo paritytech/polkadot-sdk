@@ -260,12 +260,12 @@ pub mod pallet {
 
 		/// Try to refund the lease deposit before the actual end of the lease.
 		///
-		/// This is only allowed if lease is ending within [`Config::EarliestRefundPeriod`] and the
-		/// parachain has no new lease periods coming up. This is useful for parachains who want to
-		/// get access to their funds they used in the last lease and rebid using same for the
-		/// next lease.
+		/// This is only allowed if para is in its last lease and the original count of lease
+		/// periods was at least [`Config::MinLeasePeriodsForEarlyRefund`]. This is useful for
+		/// parachains who want to get access to their funds they used in the last lease and rebid
+		/// using same for the next lease.
 		///
-		/// Can only be called by the parachain manager.
+		/// Can only be called by the Lease Admin or Parachain manager.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::early_lease_refund())]
 		pub fn early_lease_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
@@ -293,17 +293,13 @@ pub mod pallet {
 			let leases = Leases::<T>::get(para);
 			ensure!(leases.len() == 1, Error::<T>::PreconditionNotMet);
 			if let Some((who, value)) = &leases[0] {
+				let (_, period_count) =
+					LeaseInfo::<T>::get(para, who).ok_or(Error::<T>::LeaseError)?;
 
-				let (_, period_count) = LeaseInfo::<T>::get(para, who).ok_or(Error::<T>::LeaseError)?;
-
-				ensure!(
-					period_count >= min_lease_period_required,
-					Error::<T>::PreconditionNotMet
-				);
+				ensure!(period_count >= min_lease_period_required, Error::<T>::PreconditionNotMet);
 
 				// unreserve the deposit for the soon to be ending lease.
 				Self::unreserve(para, &who, *value);
-
 			} else {
 				// This should never happen.
 				defensive!("lease period should never be empty");
