@@ -1,6 +1,7 @@
 [package]
 name = "polkadot-approval-distribution"
 version = "1.0.0"
+description = "Polkadot Approval Distribution subsystem for the distribution of assignments and approvals for approval checks on candidates over the network."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,10 +15,12 @@ polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-jaeger = { path = "../../jaeger" }
 rand = "0.8"
+itertools = "0.10.5"
 
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
