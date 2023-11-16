@@ -162,6 +162,7 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		},
+		Some(Subcommand::ExportGenesisHead(cmd)) |
 		Some(Subcommand::ExportGenesisState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
