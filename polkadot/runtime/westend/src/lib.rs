@@ -31,7 +31,7 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, EitherOf, EitherOfDiverse, Everything,
+		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, WithdrawReasons,
 	},
@@ -46,17 +46,17 @@ use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
-	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
 	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
-	impl_runtime_weights,
+	identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
@@ -119,6 +119,10 @@ mod bag_thresholds;
 mod weights;
 pub mod xcm_config;
 
+// Implemented types.
+mod impls;
+use impls::ToParachainIdentityReaper;
+
 // Governance and configurations.
 pub mod governance;
 use governance::{
@@ -161,13 +165,24 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
+/// locking the state of the pallet and preventing further updates to identities and sub-identities.
+/// The locked state will be the genesis state of a new system chain and then removed from the Relay
+/// Chain.
+pub struct IsIdentityCall;
+impl Contains<RuntimeCall> for IsIdentityCall {
+	fn contains(c: &RuntimeCall) -> bool {
+		matches!(c, RuntimeCall::Identity(_))
+	}
+}
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = Everything;
+	type BaseCallFilter = EverythingBut<IsIdentityCall>;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -1328,6 +1343,14 @@ impl auctions::Config for Runtime {
 	type WeightInfo = weights::runtime_common_auctions::WeightInfo<Runtime>;
 }
 
+impl identity_migrator::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
+	type Reaper = EnsureRoot<AccountId>;
+	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime, Self::AccountId>;
+	type WeightInfo = weights::runtime_common_identity_migrator::WeightInfo<Runtime>;
+}
+
 parameter_types! {
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
@@ -1491,6 +1514,9 @@ construct_runtime! {
 
 		// Root testing pallet.
 		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 102,
+
+		// Pallet for migrating Identity to a parachain. To be removed post-migration.
+		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
 	}
 }
 
@@ -1549,15 +1575,17 @@ pub mod migrations {
 		pallet_im_online::migration::v1::Migration<Runtime>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
-		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
+		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
+		paras_registrar::migration::MigrateToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
+		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 	);
 }
 
@@ -1585,6 +1613,7 @@ mod benches {
 		[runtime_common::assigned_slots, AssignedSlots]
 		[runtime_common::auctions, Auctions]
 		[runtime_common::crowdloan, Crowdloan]
+		[runtime_common::identity_migrator, IdentityMigrator]
 		[runtime_common::paras_registrar, Registrar]
 		[runtime_common::slots, Slots]
 		[runtime_parachains::configuration, Configuration]
@@ -1625,7 +1654,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_asset_rate, AssetRate]
 		// XCM
-		[pallet_xcm, XcmPallet]
+		[pallet_xcm, PalletXcmExtrinsiscsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
@@ -1698,7 +1727,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(8)]
+	#[api_version(9)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1844,6 +1873,10 @@ sp_api::impl_runtime_apis! {
 
 		fn disabled_validators() -> Vec<ValidatorIndex> {
 			parachains_staging_runtime_api_impl::disabled_validators::<Runtime>()
+		}
+
+		fn node_features() -> NodeFeatures {
+			parachains_staging_runtime_api_impl::node_features::<Runtime>()
 		}
 	}
 
@@ -2144,6 +2177,7 @@ sp_api::impl_runtime_apis! {
 			use pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as ElectionProviderBench;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
@@ -2171,12 +2205,37 @@ sp_api::impl_runtime_apis! {
 			use pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as ElectionProviderBench;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
 			impl pallet_session_benchmarking::Config for Runtime {}
 			impl pallet_offences_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
+			impl pallet_xcm::benchmarking::Config for Runtime {
+				fn reachable_dest() -> Option<MultiLocation> {
+					Some(crate::xcm_config::AssetHub::get())
+				}
+
+				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+					// Relay/native token can be teleported to/from AH.
+					Some((
+						MultiAsset { fun: Fungible(EXISTENTIAL_DEPOSIT), id: Concrete(Here.into()) },
+						crate::xcm_config::AssetHub::get(),
+					))
+				}
+
+				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+					// Relay can reserve transfer native token to some random parachain.
+					Some((
+						MultiAsset {
+							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							id: Concrete(Here.into())
+						},
+						crate::Junction::Parachain(43211234).into(),
+					))
+				}
+			}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 			impl runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
