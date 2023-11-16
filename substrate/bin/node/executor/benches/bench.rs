@@ -191,13 +191,12 @@ fn bench_execute_block(c: &mut Criterion) {
 	for strategy in execution_methods {
 		group.bench_function(format!("{:?}", strategy), |b| {
 			let genesis_config = node_testing::genesis::config();
-			let use_native = match strategy {
-				ExecutionMethod::Native => true,
-				ExecutionMethod::Wasm(..) => false,
-			};
-
-			let executor =
+			let mut executor =
 				NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build());
+			match strategy {
+				ExecutionMethod::Native => true,
+				ExecutionMethod::Wasm(..) => executor.disable_use_native(),
+			};
 			let runtime_code = RuntimeCode {
 				code_fetcher: &sp_core::traits::WrappedRuntimeCode(compact_code_unwrap().into()),
 				hash: vec![1, 2, 3],
@@ -222,7 +221,6 @@ fn bench_execute_block(c: &mut Criterion) {
 								&runtime_code,
 								"Core_execute_block",
 								&block.0,
-								use_native,
 								CallContext::Offchain,
 							)
 							.0
