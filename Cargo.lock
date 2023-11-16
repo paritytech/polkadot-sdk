@@ -3630,6 +3630,7 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-service",
+ "sp-blockchain",
  "sp-core",
  "sp-runtime",
  "url",

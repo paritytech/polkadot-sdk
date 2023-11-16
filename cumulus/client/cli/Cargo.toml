@@ -18,3 +18,4 @@ sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
 sc-service = { path = "../../../substrate/client/service" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }

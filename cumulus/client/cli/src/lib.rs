@@ -26,7 +26,7 @@ use std::{
 };
 
 use codec::Encode;
-use sc_chain_spec::{ChainSpec};
+use sc_chain_spec::ChainSpec;
 use sc_client_api::{HeaderBackend, BlockBackend};
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
@@ -34,8 +34,7 @@ use sc_service::{
 };
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
-	traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero},
-	StateVersion,
+	traits::{Block as BlockT, Zero},
 };
 use url::Url;
 
@@ -129,6 +128,7 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
+//TODO rename this command
 /// Command for exporting the genesis state of the parachain
 #[derive(Debug, clap::Parser)]
 pub struct ExportGenesisStateCommand {
@@ -152,13 +152,10 @@ impl ExportGenesisStateCommand {
 		B: BlockT,
 		C: HeaderBackend<B> + BlockBackend<B> + 'static,
 	{
-		let genesis_hash = client.hash(Zero::zero())?.expect("Not sure what this option means.");
-		eprintln!("🤵🤵🤵🤵🤵🤵🤵 In Command. Genesis Hash is {:?}", genesis_hash);
-		let genesis_header = client.header(genesis_hash)?.expect("again with the option.");
-		
-		//TODO querying the ful lblock is not necessary for the command itself, it is just for debugging purposes.
-		let genesis_block = client.block(genesis_hash)?.unwrap();
-		eprintln!("🤵🤵🤵🤵🤵🤵🤵 In Command. Genesis Hash is {:#?}", genesis_block);
+		let genesis_hash = client.hash(Zero::zero())?.ok_or(
+			sc_cli::Error::Client(sp_blockchain::Error::Backend("Filed to lookup genesis block hash when exporting genesis head data.".into())))?;
+		let genesis_header = client.header(genesis_hash)?.ok_or(
+			sc_cli::Error::Client(sp_blockchain::Error::Backend("Filed to lookup genesis header by hash when exporting genesis head data.".into())))?;
 
 		let raw_header = genesis_header.encode();
 		let output_buf = if self.raw {
