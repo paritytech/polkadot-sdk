@@ -24,7 +24,7 @@ use sc_cli::SubstrateCli;
 pub enum Subcommand {
 	/// Export the genesis state of the parachain.
 	#[command(name = "export-genesis-state")]
-	ExportGenesisState(ExportGenesisStateCommand),
+	ExportGenesisState(ExportGenesisHeadCommand),
 
 	/// Export the genesis wasm of the parachain.
 	#[command(name = "export-genesis-wasm")]
@@ -33,7 +33,7 @@ pub enum Subcommand {
 
 /// Command for exporting the genesis state of the parachain
 #[derive(Debug, Parser)]
-pub struct ExportGenesisStateCommand {
+pub struct ExportGenesisHeadCommand {
 	/// Id of the parachain this collator collates for.
 	#[arg(long, default_value_t = 100)]
 	pub parachain_id: u32,
