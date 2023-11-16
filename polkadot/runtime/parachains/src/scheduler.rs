@@ -446,7 +446,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let rotations_since_session_start: BlockNumberFor<T> =
-			(at - session_start_block) / config.group_rotation_frequency.into();
+			(at - session_start_block) / config.group_rotation_frequency;
 
 		let rotations_since_session_start =
 			<BlockNumberFor<T> as TryInto<u32>>::try_into(rotations_since_session_start)
