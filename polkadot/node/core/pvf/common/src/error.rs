@@ -35,9 +35,9 @@ pub enum PrepareError {
 	/// Instantiation of the WASM module instance failed.
 	#[codec(index = 2)]
 	RuntimeConstruction(String),
-	/// An unexpected panic has occurred in the preparation worker.
+	/// An unexpected error has occurred in the preparation job.
 	#[codec(index = 3)]
-	Panic(String),
+	JobError(String),
 	/// Failed to prepare the PVF due to the time limit.
 	#[codec(index = 4)]
 	TimedOut,
@@ -48,12 +48,12 @@ pub enum PrepareError {
 	/// The temporary file for the artifact could not be created at the given cache path. This
 	/// state is reported by the validation host (not by the worker).
 	#[codec(index = 6)]
-	CreateTmpFileErr(String),
+	CreateTmpFile(String),
 	/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
 	#[codec(index = 7)]
-	RenameTmpFileErr {
+	RenameTmpFile {
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -68,10 +68,13 @@ pub enum PrepareError {
 	/// reported by the validation host (not by the worker).
 	#[codec(index = 9)]
 	ClearWorkerDir(String),
+	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	JobDied(String),
+	#[codec(index = 10)]
+	/// Some error occurred when interfacing with the kernel.
+	#[codec(index = 11)]
+	Kernel(String),
 }
-
-/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
-pub const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 impl PrepareError {
 	/// Returns whether this is a deterministic error, i.e. one that should trigger reliably. Those
@@ -83,12 +86,15 @@ impl PrepareError {
 	pub fn is_deterministic(&self) -> bool {
 		use PrepareError::*;
 		match self {
-			Prevalidation(_) | Preparation(_) | Panic(_) | OutOfMemory => true,
-			TimedOut |
+			Prevalidation(_) | Preparation(_) | JobError(_) | OutOfMemory => true,
 			IoErr(_) |
-			CreateTmpFileErr(_) |
-			RenameTmpFileErr { .. } |
-			ClearWorkerDir(_) => false,
+			JobDied(_) |
+			CreateTmpFile(_) |
+			RenameTmpFile { .. } |
+			ClearWorkerDir(_) |
+			Kernel(_) => false,
+			// Can occur due to issues with the PVF, but also due to factors like local load.
+			TimedOut => false,
 			// Can occur due to issues with the PVF, but also due to local errors.
 			RuntimeConstruction(_) => false,
 		}
@@ -102,14 +108,16 @@ impl fmt::Display for PrepareError {
 			Prevalidation(err) => write!(f, "prevalidation: {}", err),
 			Preparation(err) => write!(f, "preparation: {}", err),
 			RuntimeConstruction(err) => write!(f, "runtime construction: {}", err),
-			Panic(err) => write!(f, "panic: {}", err),
+			JobError(err) => write!(f, "panic: {}", err),
 			TimedOut => write!(f, "prepare: timeout"),
 			IoErr(err) => write!(f, "prepare: io error while receiving response: {}", err),
-			CreateTmpFileErr(err) => write!(f, "prepare: error creating tmp file: {}", err),
-			RenameTmpFileErr { err, src, dest } =>
+			JobDied(err) => write!(f, "prepare: prepare job died: {}", err),
+			CreateTmpFile(err) => write!(f, "prepare: error creating tmp file: {}", err),
+			RenameTmpFile { err, src, dest } =>
 				write!(f, "prepare: error renaming tmp file ({:?} -> {:?}): {}", src, dest, err),
 			OutOfMemory => write!(f, "prepare: out of memory"),
 			ClearWorkerDir(err) => write!(f, "prepare: error clearing worker cache: {}", err),
+			Kernel(err) => write!(f, "prepare: error interfacing with the kernel: {}", err),
 		}
 	}
 }
@@ -133,9 +141,9 @@ pub enum InternalValidationError {
 		// conversion to `Option<String>`.
 		path: Option<String>,
 	},
-	/// An error occurred in the CPU time monitor thread. Should be totally unrelated to
-	/// validation.
-	CpuTimeMonitorThread(String),
+	/// Some error occurred when interfacing with the kernel.
+	Kernel(String),
+
 	/// Some non-deterministic preparation error occurred.
 	NonDeterministicPrepareError(PrepareError),
 }
@@ -158,17 +166,8 @@ impl fmt::Display for InternalValidationError {
 				"validation: host could not clear the worker cache ({:?}) after a job: {}",
 				path, err
 			),
-			CpuTimeMonitorThread(err) =>
-				write!(f, "validation: an error occurred in the CPU time monitor thread: {}", err),
+			Kernel(err) => write!(f, "validation: error interfacing with the kernel: {}", err),
 			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),
 		}
 	}
-}
-
-#[test]
-fn pre_encoded_payloads() {
-	let oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
-	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
-	oom_payload.extend(oom_enc);
-	assert_eq!(oom_payload, OOM_PAYLOAD);
 }
