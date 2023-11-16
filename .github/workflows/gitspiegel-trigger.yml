@@ -13,6 +13,7 @@ on:
       - unlocked
       - ready_for_review
       - reopened
+  merge_group:
 
 jobs:
   sync:
