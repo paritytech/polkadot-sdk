@@ -1,0 +1,28 @@
+name: Auto Merge Bot
+
+on:
+  # GitHub considers PRs as issues
+  issue_comment:
+    types: [created]
+
+jobs:
+  set-auto-merge:
+    runs-on: ubuntu-latest
+    # Important! This forces the job to run only on comments on Pull Requests that starts with '/merge'
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/merge') }}
+    steps:
+      - name: Get the GitHub handle of the fellows
+        uses: paritytech/get-fellows-action@v1.0.0
+        id: fellows
+      - name: Generate token
+        id: merge_token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.REVIEW_APP_ID }}
+          private_key: ${{ secrets.REVIEW_APP_KEY }}
+      - name: Set auto merge
+        uses: paritytech/auto-merge-bot@v1.0.0
+        with:
+          GITHUB_TOKEN: ${{ steps.merge_token.outputs.token }}
+          MERGE_METHOD: "SQUASH"
+          ALLOWLIST: ${{ steps.fellows.outputs.github-handles }}
