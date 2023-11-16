@@ -177,7 +177,6 @@ impl pallet_staking::Config for Test {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
