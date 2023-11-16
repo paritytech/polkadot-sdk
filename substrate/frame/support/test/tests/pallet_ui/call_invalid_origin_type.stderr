@@ -3,9 +3,3 @@ error: Invalid type: expected `OriginFor<T>`
    |
 34 |         pub fn foo(origin: u8) {}
    |                            ^^
-
-error: expected `OriginFor`
-  --> tests/pallet_ui/call_invalid_origin_type.rs:34:22
-   |
-34 |         pub fn foo(origin: u8) {}
-   |                            ^^

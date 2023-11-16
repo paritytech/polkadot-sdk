@@ -625,8 +625,10 @@ fn candidate_validation_retry_internal_errors() {
 		PvfExecKind::Approval,
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
-			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			// Throw an AJD error, we should still retry again.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(
+				"baz".into(),
+			))),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
 		],
@@ -657,11 +659,11 @@ fn candidate_validation_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
 		PvfExecKind::Approval,
 		vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
 		],
 	);
 
@@ -674,11 +676,11 @@ fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
 		PvfExecKind::Backing,
 		vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
 			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
 		],
 	);
 
@@ -1230,7 +1232,7 @@ fn precheck_properly_classifies_outcomes() {
 
 	inner(Err(PrepareError::Prevalidation("foo".to_owned())), PreCheckOutcome::Invalid);
 	inner(Err(PrepareError::Preparation("bar".to_owned())), PreCheckOutcome::Invalid);
-	inner(Err(PrepareError::Panic("baz".to_owned())), PreCheckOutcome::Invalid);
+	inner(Err(PrepareError::JobError("baz".to_owned())), PreCheckOutcome::Invalid);
 
 	inner(Err(PrepareError::TimedOut), PreCheckOutcome::Failed);
 	inner(Err(PrepareError::IoErr("fizz".to_owned())), PreCheckOutcome::Failed);
