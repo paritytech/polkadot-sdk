@@ -34,7 +34,7 @@ No PR should be merged until all reviews' comments are addressed. It is expected
 there is no PR merged that is not ready. It is only allowed to merge such a PR if 
 the code is disabled, not used or in any other way clearly tagged as experimental. 
 It is expected that master is always releasable and that all PRs got tested well 
-enough that they likelyhood of critical bugs is quite small.
+enough that the likelihood of critical bugs is quite small.
 
 ### Labels
 
@@ -138,11 +138,11 @@ Please label issues with the following labels:
 ## Release Process
 
 We are aiming for a **two week** release process of the `polkadot-sdk` repository. The output of a release
-are the Parity `polkadot` node implementation, the runtimes for the Westend & Rococo and new versions 
+are the Parity `polkadot` node implementation, the runtimes for the Westend & Rococo networks and new versions 
 of the crates. Given the cadence of two weeks, there is no need to halt a release process for any kind 
 of PR (no BRAKES for the release train). There is only to be made an exception for high security issues 
 for code that is already running in production. However, these critical bug fixes may warrant an out of 
-band release any way, but this should be decided based on the severity on a case by case basis.
+band release anyway, but this should be decided based on the severity on a case by case basis.
 
 ### Versioning
 
@@ -193,7 +193,7 @@ version bump doesn't ripple and only requires a `minor`/`patch` bump.
 
 ### Backports
 
-Backports should most of the time not required. We should only backport critical 
+Backports should most of the time not be required. We should only backport critical 
 bug fixes and then release the fixed crates. There should be no need to backport 
 anything from a release branch. Bumping the `NODE_VERSION` and `spec_version` of 
 the test networks should be done before the release process is started on master.
