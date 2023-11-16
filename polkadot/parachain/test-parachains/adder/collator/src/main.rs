@@ -22,11 +22,11 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
-use test_parachain_adder_collator::Collator;
 use std::{
 	fs,
 	io::{self, Write},
 };
+use test_parachain_adder_collator::Collator;
 
 /// The parachain ID to collate for in case it wasn't set explicitly through CLI.
 const DEFAULT_PARA_ID: ParaId = ParaId::new(100);
@@ -40,7 +40,8 @@ fn main() -> Result<()> {
 	match cli.subcommand {
 		Some(cli::Subcommand::ExportGenesisState(params)) => {
 			let collator = Collator::new();
-			let output_buf = format!("0x{:?}", HexDisplay::from(&collator.genesis_head())).into_bytes();
+			let output_buf =
+				format!("0x{:?}", HexDisplay::from(&collator.genesis_head())).into_bytes();
 
 			if let Some(output) = params.output {
 				std::fs::write(output, output_buf)?;
@@ -52,7 +53,8 @@ fn main() -> Result<()> {
 		},
 		Some(cli::Subcommand::ExportGenesisWasm(params)) => {
 			let collator = Collator::new();
-			let output_buf = format!("0x{:?}", HexDisplay::from(&collator.validation_code())).into_bytes();
+			let output_buf =
+				format!("0x{:?}", HexDisplay::from(&collator.validation_code())).into_bytes();
 
 			if let Some(output) = params.output {
 				fs::write(output, output_buf)?;
