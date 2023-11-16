@@ -156,19 +156,22 @@ impl ToTokens for TasksDef {
 
 				fn iter() -> Self::Enumeration {
 					let mut all_tasks = #sp_std::vec![];
-					#(all_tasks.extend(#task_iters.map(|i| #enum_ident::#task_fn_idents { i }).collect::<#sp_std::vec::Vec<_>>());)*
+					#(all_tasks
+						.extend(#task_iters.map(|#(#task_arg_names),*| #enum_ident::#task_fn_idents { #(#task_arg_names: #task_arg_names.clone()),* })
+						.collect::<#sp_std::vec::Vec<_>>());
+					)*
 					all_tasks.into_iter()
 				}
 
 				fn task_index(&self) -> u32 {
-					match self {
+					match self.clone() {
 						#(#enum_ident::#task_fn_idents { .. } => #task_indices,)*
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
 
 				fn is_valid(&self) -> bool {
-					match self {
+					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => (#task_conditions)(#(#task_arg_names),* ),)*
 						Task::__Ignore(_, _) => unreachable!(),
 					}

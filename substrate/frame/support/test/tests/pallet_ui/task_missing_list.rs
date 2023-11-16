@@ -29,7 +29,7 @@ mod pallet {
     #[pallet::tasks]
 	impl<T: Config> Pallet<T> {
 		#[pallet::task_index(0)]
-		#[pallet::task_condition(|_| true)]
+		#[pallet::task_condition(|| true)]
 		fn foo() -> DispatchResult {
 			Ok(())
 		}

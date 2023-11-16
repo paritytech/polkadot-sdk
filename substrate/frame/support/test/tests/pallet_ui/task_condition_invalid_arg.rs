@@ -29,9 +29,10 @@ mod pallet {
     #[pallet::tasks]
 	impl<T: Config> Pallet<T> {
 		#[pallet::task_index(0)]
-		#[pallet::task_condition(|| true)]
+		#[pallet::task_condition(|flag: bool| flag)]
 		#[pallet::task_list(vec![1, 2].iter())]
-		fn foo() -> DispatchResult {
+		#[pallet::task_weight(0.into())]
+		fn foo(_i: u32) -> DispatchResult {
 			Ok(())
 		}
 	}
