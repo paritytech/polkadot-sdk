@@ -1782,7 +1782,7 @@
 		[cumulus_pallet_dmp_queue, DmpQueue]
 		[pallet_alliance, Alliance]
 		[pallet_collective, AllianceMotion]
-		[pallet_xcm, PalletXcmExtrinsiscsBenchmark::&lt;Runtime&gt;]
+		[pallet_xcm, PalletXcmExtrinsicsBenchmark::&lt;Runtime&gt;]
 		[pallet_preimage, Preimage]
 		[pallet_scheduler, Scheduler]
 		[pallet_referenda, FellowshipReferenda]
@@ -1970,7 +1970,7 @@
 			<span class="kw">use </span>frame_support::traits::StorageInfoTrait;
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
 			<span class="kw">use </span>cumulus_pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
-			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsiscsBenchmark;
+			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>list = Vec::&lt;BenchmarkList&gt;::new();
 			<span class="macro">list_benchmarks!</span>(list, extra);
@@ -2000,7 +2000,7 @@
 			<span class="kw">use </span>cumulus_pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
 			<span class="kw">impl </span>cumulus_pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {}
 
-			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsiscsBenchmark;
+			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
 				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())

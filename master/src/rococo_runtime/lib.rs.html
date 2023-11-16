@@ -3935,7 +3935,7 @@
 		[pallet_asset_rate, AssetRate]
 		[pallet_whitelist, Whitelist]
 		<span class="comment">// XCM
-		</span>[pallet_xcm, PalletXcmExtrinsiscsBenchmark::&lt;Runtime&gt;]
+		</span>[pallet_xcm, PalletXcmExtrinsicsBenchmark::&lt;Runtime&gt;]
 		[pallet_xcm_benchmarks::fungible, pallet_xcm_benchmarks::fungible::Pallet::&lt;Runtime&gt;]
 		[pallet_xcm_benchmarks::generic, pallet_xcm_benchmarks::generic::Pallet::&lt;Runtime&gt;]
 	);
@@ -4414,7 +4414,7 @@
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
 			<span class="kw">use </span>frame_benchmarking::baseline::Pallet <span class="kw">as </span>Baseline;
 
-			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsiscsBenchmark;
+			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>list = Vec::&lt;BenchmarkList&gt;::new();
 			<span class="macro">list_benchmarks!</span>(list, extra);
@@ -4433,7 +4433,7 @@
 			<span class="kw">use </span>frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
 			<span class="kw">use </span>frame_benchmarking::baseline::Pallet <span class="kw">as </span>Baseline;
-			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsiscsBenchmark;
+			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">use </span>sp_storage::TrackedStorageKey;
 			<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 			<span class="kw">use </span>xcm_config::{
