@@ -1881,6 +1881,35 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			Self::do_payout_stakers_by_page(validator_stash, era, page)
 		}
+
+		/// Migrates an account's `RewardDestination::Controller` to
+		/// `RewardDestination::Account(controller)`.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// This will waive the transaction fee if the `payee` is successfully migrated.
+		#[pallet::call_index(27)]
+		#[pallet::weight(0)]
+		pub fn update_payee(
+			origin: OriginFor<T>,
+			controller: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+
+			if !Payee::<T>::contains_key(&ledger.stash) {
+				return Ok(Pays::Yes.into())
+			}
+			if Payee::<T>::get(&ledger.stash) != RewardDestination::DeprecatedController {
+				return Ok(Pays::Yes.into())
+			}
+
+			let _ = ledger
+				.set_payee(RewardDestination::Account(controller))
+				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+
+			Ok(Pays::No.into())
+		}
 	}
 }
 
