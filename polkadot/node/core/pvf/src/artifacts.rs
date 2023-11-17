@@ -227,7 +227,7 @@ impl Artifacts {
 					return !file_name.ends_with(checksum.to_hex().as_str())
 				}
 			}
-			false
+			true
 		}
 
 		// Insert the entry into the artifacts table if it is valid.
@@ -517,7 +517,7 @@ mod tests {
 		let new_path = concluded_path(&path, &checksum);
 		fs::rename(&path, &new_path).unwrap();
 
-		// checksum reversed
+		// checksum tampered
 		let (path, checksum) = create_rand_artifact(&cache_dir, &prefix);
 		let new_path = concluded_path(&path, checksum.chars().rev().collect::<String>().as_str());
 		fs::rename(&path, &new_path).unwrap();
