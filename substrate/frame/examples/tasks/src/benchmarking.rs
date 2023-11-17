@@ -38,5 +38,5 @@ mod benchmarks {
 		assert_eq!(Numbers::<T>::get(0), None);
 	}
 
-	impl_benchmark_test_suite!(TasksExample, crate::tests::new_test_ext(), crate::mock::Runtime);
+	impl_benchmark_test_suite!(Pallet, crate::tests::new_test_ext(), crate::mock::Runtime);
 }
