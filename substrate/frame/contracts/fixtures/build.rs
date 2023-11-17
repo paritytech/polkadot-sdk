@@ -25,7 +25,7 @@ use std::{
 };
 use twox_hash::XxHash32;
 
-/// Salt used for hashing the contract source files.
+/// Salt used for hashing contract source files.
 const SALT: &[u8] = &[0u8];
 
 /// Read the file at `path` and return its hash as a hex string.
