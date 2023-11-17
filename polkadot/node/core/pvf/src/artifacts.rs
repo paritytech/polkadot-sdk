@@ -222,7 +222,7 @@ impl Artifacts {
 				},
 			};
 
-			if let Some(file_name) = path.file_name {
+			if let Some(file_name) = path.file_name() {
 				if let Some(file_name) = file_name.to_str() {
 					return !file_name.ends_with(checksum.to_hex().as_str())
 				}
