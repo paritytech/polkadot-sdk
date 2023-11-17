@@ -761,7 +761,7 @@ mod test {
 		let msg = [0u8; 32];
 		let sig1 = pair.sign_prehashed(&msg);
 		let sig2: Signature = {
-			let message = Message::from_slice(&msg).unwrap();
+			let message = Message::from_digest_slice(&msg).unwrap();
 			SECP256K1.sign_ecdsa_recoverable(&message, &pair.secret).into()
 		};
 		assert_eq!(sig1, sig2);
