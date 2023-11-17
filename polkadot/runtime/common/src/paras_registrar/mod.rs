@@ -23,7 +23,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
-	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency},
+	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency, WithdrawReasons},
 };
 use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
@@ -36,7 +36,7 @@ use sp_std::{prelude::*, result};
 
 use crate::traits::{OnSwap, Registrar};
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode};
 use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -150,15 +150,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type UpgradeFee: Get<BalanceOf<Self>>;
 
-		/// Since the fees paid are not reserved, but are actually removed from the initializer of
-		/// the upgrade this specifies the location to which the tokens will be moved.
-		///
-		/// NOTE: In most cases this will either go to treasury or simply get burned.
-		#[pallet::constant]
-		type FeeReceiver: Get<Self::AccountId>;
-
-		/// Type used to get the sovereign account of a parachain.
-		///
+		/// Type used to get the sovereign account of a parachain.  ///
 		/// This is used to enable reserving a deposit from parachains.
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
@@ -717,10 +709,10 @@ impl<T: Config> Pallet<T> {
 				<T as Config>::Currency::reserve(&payer, excess)?;
 			}
 
-			<T as Config>::Currency::transfer(
+			<T as Config>::Currency::withdraw(
 				&payer,
-				&T::FeeReceiver::get(),
 				T::UpgradeFee::get(),
+				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
 			)?;
 		}
@@ -804,13 +796,9 @@ mod tests {
 	};
 	use sp_std::collections::btree_map::BTreeMap;
 	use xcm::opaque::lts::NetworkId;
-	use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;
-
-	#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
-	struct AccountId([u8; 32]);
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -849,7 +837,7 @@ mod tests {
 		type Nonce = u64;
 		type Hash = H256;
 		type Hashing = BlakeTwo256;
-		type AccountId = AccountId;
+		type AccountId = u64;
 		type Lookup = IdentityLookup<u64>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
@@ -918,12 +906,6 @@ mod tests {
 		pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 	}
 
-	pub type LocationToAccountId = (
-		ChildParachainConvertsVia<ParaId, AccountId>,
-		AccountId32Aliases<RelayNetwork, AccountId>,
-		Account32Hash<(), AccountId>,
-	);
-
 	impl Config for Test {
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeEvent = RuntimeEvent;
@@ -932,8 +914,7 @@ mod tests {
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
 		type UpgradeFee = UpgradeFee;
-		type FeeReceiver = ();
-		type SovereignAccountOf = LocationToAccountId;
+		type SovereignAccountOf = ();
 		type WeightInfo = TestWeightInfo;
 	}
 
