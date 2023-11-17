@@ -24,7 +24,8 @@ const LOG_TARGET: &str = "subsystem-bench::core";
 use polkadot_primitives::AuthorityDiscoveryId;
 use sc_service::SpawnTaskHandle;
 
+pub mod configuration;
 pub mod display;
+pub mod environment;
 pub mod keyring;
 pub mod network;
-pub mod test_env;

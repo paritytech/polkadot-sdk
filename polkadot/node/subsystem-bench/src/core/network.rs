@@ -113,7 +113,6 @@ mod tests {
 
 		let end = Instant::now();
 
-		// assert_eq!(end - start, Duration::from_secs(1));
 		println!("duration: {}", (end - start).as_millis());
 
 		// Allow up to `budget/max_refill` error tolerance

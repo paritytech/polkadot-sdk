@@ -53,12 +53,18 @@ use polkadot_node_subsystem::{
 };
 use std::net::{Ipv4Addr, SocketAddr};
 
-use super::core::{keyring::Keyring, network::*, test_env::TestEnvironmentMetrics};
+use super::core::{
+	configuration::{PeerLatency, TestConfiguration},
+	environment::TestEnvironmentMetrics,
+	keyring::Keyring,
+	network::*,
+};
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
+use super::cli::TestObjective;
 use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
@@ -70,9 +76,10 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
 
+mod cli;
 pub mod configuration;
-
-pub use configuration::{PeerLatency, TestConfiguration, TestSequence};
+pub use cli::{DataAvailabilityReadOptions, NetworkEmulation, NetworkOptions};
+pub use configuration::AvailabilityRecoveryConfiguration;
 
 // Deterministic genesis hash for protocol names
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
@@ -137,7 +144,10 @@ impl TestEnvironment {
 		let (instance, virtual_overseer) = AvailabilityRecoverySubsystemInstance::new(
 			&registry,
 			task_manager.spawn_handle(),
-			state.config().use_fast_path,
+			match &state.config().objective {
+				TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
+				_ => panic!("Unexpected objective"),
+			},
 		);
 
 		let metrics =
@@ -162,7 +172,7 @@ impl TestEnvironment {
 		let (ingress_tx, mut ingress_rx) = tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
 		let our_network_stats = network.peer_stats(0);
 
-		spawn_handle.spawn_blocking("our-node-rx", "test-environment", async move {
+		spawn_handle.spawn_blocking("node0-rx", "test-environment", async move {
 			while let Some(action) = ingress_rx.recv().await {
 				let size = action.size();
 
@@ -490,16 +500,6 @@ impl AvailabilityRecoverySubsystemInstance {
 	}
 }
 
-pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
-	random_uniform_sample(min_pov_size, max_pov_size)
-}
-
-fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: T) -> T {
-	Uniform::from(min_value.into()..=max_value.into())
-		.sample(&mut thread_rng())
-		.into()
-}
-
 // We use this to bail out sending messages to the subsystem if it is overloaded such that
 // the time of flight is breaches 5s.
 // This should eventually be a test parameter.
@@ -507,6 +507,9 @@ const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
 #[derive(Clone)]
 pub struct TestState {
+	// Full test configuration
+	config: TestConfiguration,
+	// State starts here.
 	validator_public: Vec<ValidatorId>,
 	validator_authority_id: Vec<AuthorityDiscoveryId>,
 	// The test node validator index.
@@ -526,8 +529,6 @@ pub struct TestState {
 	candidate_receipts: Vec<CandidateReceipt>,
 	available_data: Vec<AvailableData>,
 	chunks: Vec<Vec<ErasureChunk>>,
-	/// Next candidate index in
-	config: TestConfiguration,
 }
 
 impl TestState {
@@ -686,6 +687,7 @@ impl TestState {
 		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
 
 		Self {
+			config,
 			validator_public,
 			validator_authority_id,
 			validator_index,
@@ -694,7 +696,6 @@ impl TestState {
 			available_data,
 			candidate_receipts,
 			chunks,
-			config,
 			pov_size_to_candidate,
 			pov_sizes,
 			candidates_generated: 0,

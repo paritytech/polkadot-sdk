@@ -14,4 +14,27 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
+use serde::{Deserialize, Serialize};
+#[derive(Debug, clap::Parser, Clone)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct NetworkOptions {}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+#[value(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum NetworkEmulation {
+	Ideal,
+	Healthy,
+	Degraded,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct DataAvailabilityReadOptions {
+	#[clap(short, long, default_value_t = false)]
+	/// Turbo boost AD Read by fetching from backers first. Tipically this is only faster if nodes
+	/// have enough bandwidth.
+	pub fetch_from_backers: bool,
+}
