@@ -184,7 +184,7 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 }
 
 fn main() -> Result<()> {
-	let input_dir: PathBuf = env::var("INPUT_DIR").unwrap_or(".".to_string()).into();
+	let input_dir: PathBuf = ".".into();
 	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
 
 	let entries = collect_entries(&input_dir.join("contracts").canonicalize()?, &out_dir);
