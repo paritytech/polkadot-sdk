@@ -26,7 +26,7 @@ use std::{
 use twox_hash::XxHash32;
 
 /// Salt used for hashing contract source files.
-const SALT: &[u8] = &[0u8];
+const SALT: &[u8] = &[1u8];
 
 /// Read the file at `path` and return its hash as a hex string.
 fn file_hash(path: &Path) -> String {
@@ -132,11 +132,11 @@ codegen-units = 1
 
 /// Invoke `cargo build` to compile the contracts.
 fn invoke_build(current_dir: &Path) -> Result<()> {
-	let path = env::var("PATH").unwrap_or_default();
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env_clear()
-		.env("PATH", path)
+		.env("PATH", env::var("PATH").unwrap_or_default())
+		.env("HOME", env::var("HOME").unwrap_or_default())
 		.env(
 			"RUSTFLAGS",
 			"-C link-arg=-zstack-size=65536 -C link-arg=--import-memory -Clinker-plugin-lto -C target-cpu=mvp",
