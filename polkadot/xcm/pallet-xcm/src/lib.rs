@@ -1332,7 +1332,7 @@ impl<T: Config> Pallet<T> {
 		let beneficiary: MultiLocation =
 			(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
 		let assets: MultiAssets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
-		log::trace!(
+		log::debug!(
 			target: "xcm::pallet_xcm::do_reserve_transfer_assets",
 			"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}",
 			origin_location, dest, beneficiary, assets, fee_asset_item,
@@ -1341,7 +1341,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 		let value = (origin_location, assets.into_inner());
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
-		let (origin_location, mut assets) = value;
+		let (origin, mut assets) = value;
 
 		if fee_asset_item as usize >= assets.len() {
 			return Err(Error::<T>::Empty.into())
@@ -1381,18 +1381,18 @@ impl<T: Config> Pallet<T> {
 			// build fees transfer instructions to be added to assets transfers XCM programs
 			separate_fees_instructions = Some(match fees_transfer_type {
 				TransferType::LocalReserve =>
-					Self::local_reserve_fees_instructions(dest, fees, weight_limit)?,
+					Self::local_reserve_fees_instructions(origin, dest, fees, weight_limit)?,
 				TransferType::DestinationReserve =>
-					Self::destination_reserve_fees_instructions(dest, fees, weight_limit)?,
+					Self::destination_reserve_fees_instructions(origin, dest, fees, weight_limit)?,
 				TransferType::Teleport =>
-					Self::teleport_fees_instructions(origin_location, dest, fees, weight_limit)?,
+					Self::teleport_fees_instructions(origin, dest, fees, weight_limit)?,
 				TransferType::RemoteReserve(_) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 			});
 		};
 
 		Self::build_and_execute_xcm_transfer_type(
-			origin_location,
+			origin,
 			dest,
 			beneficiary,
 			assets,
@@ -1416,6 +1416,11 @@ impl<T: Config> Pallet<T> {
 		let beneficiary: MultiLocation =
 			(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
 		let assets: MultiAssets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
+		log::debug!(
+			target: "xcm::pallet_xcm::do_teleport_assets",
+			"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}, weight_limit {:?}",
+			origin_location, dest, beneficiary, assets, fee_asset_item, weight_limit,
+		);
 
 		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 		let value = (origin_location, assets.into_inner());
@@ -1450,7 +1455,7 @@ impl<T: Config> Pallet<T> {
 		separate_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
-		log::trace!(
+		log::debug!(
 			target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
 			"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, transfer_type {:?}, \
 			fees {:?}, fees_xcm: {:?}, weight_limit: {:?}",
@@ -1459,6 +1464,7 @@ impl<T: Config> Pallet<T> {
 		let (mut local_xcm, remote_xcm) = match transfer_type {
 			TransferType::LocalReserve => {
 				let (local, remote) = Self::local_reserve_transfer_programs(
+					origin,
 					dest,
 					beneficiary,
 					assets,
@@ -1470,6 +1476,7 @@ impl<T: Config> Pallet<T> {
 			},
 			TransferType::DestinationReserve => {
 				let (local, remote) = Self::destination_reserve_transfer_programs(
+					origin,
 					dest,
 					beneficiary,
 					assets,
@@ -1481,6 +1488,7 @@ impl<T: Config> Pallet<T> {
 			},
 			TransferType::RemoteReserve(reserve) => (
 				Self::remote_reserve_transfer_program(
+					origin,
 					reserve,
 					dest,
 					beneficiary,
@@ -1491,7 +1499,14 @@ impl<T: Config> Pallet<T> {
 				None,
 			),
 			TransferType::Teleport => (
-				Self::teleport_assets_program(dest, beneficiary, assets, fees, weight_limit)?,
+				Self::teleport_assets_program(
+					origin,
+					dest,
+					beneficiary,
+					assets,
+					fees,
+					weight_limit,
+				)?,
 				None,
 			),
 		};
@@ -1530,10 +1545,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn local_reserve_fees_instructions(
+		origin: MultiLocation,
 		dest: MultiLocation,
 		fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let value = (origin, vec![fees.clone()]);
+		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
+
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
 			.clone()
@@ -1554,6 +1573,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn local_reserve_transfer_programs(
+		origin: MultiLocation,
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
@@ -1561,6 +1581,10 @@ impl<T: Config> Pallet<T> {
 		separate_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let value = (origin, assets);
+		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
+		let (_, assets) = value;
+
 		// max assets is `assets` (+ potentially separately handled fee)
 		let max_assets =
 			assets.len() as u32 + separate_fees_instructions.as_ref().map(|_| 1).unwrap_or(0);
@@ -1606,10 +1630,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn destination_reserve_fees_instructions(
+		origin: MultiLocation,
 		dest: MultiLocation,
 		fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let value = (origin, vec![fees.clone()]);
+		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
+
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
 			.clone()
@@ -1633,6 +1661,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn destination_reserve_transfer_programs(
+		origin: MultiLocation,
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
@@ -1640,6 +1669,10 @@ impl<T: Config> Pallet<T> {
 		separate_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let value = (origin, assets);
+		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
+		let (_, assets) = value;
+
 		// max assets is `assets` (+ potentially separately handled fee)
 		let max_assets =
 			assets.len() as u32 + separate_fees_instructions.as_ref().map(|_| 1).unwrap_or(0);
@@ -1691,6 +1724,7 @@ impl<T: Config> Pallet<T> {
 
 	// function assumes fees and assets have the same remote reserve
 	fn remote_reserve_transfer_program(
+		origin: MultiLocation,
 		reserve: MultiLocation,
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
@@ -1698,6 +1732,10 @@ impl<T: Config> Pallet<T> {
 		fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+		let value = (origin, assets);
+		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
+		let (_, assets) = value;
+
 		let max_assets = assets.len() as u32;
 		let context = T::UniversalLocation::get();
 		// we spend up to half of fees for execution on reserve and other half for execution on
@@ -1783,12 +1821,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn teleport_assets_program(
+		origin: MultiLocation,
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		mut fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+		let value = (origin, assets);
+		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
+		let (_, assets) = value;
 		let context = T::UniversalLocation::get();
 		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
