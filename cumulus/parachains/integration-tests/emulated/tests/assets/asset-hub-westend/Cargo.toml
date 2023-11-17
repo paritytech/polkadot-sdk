@@ -39,3 +39,6 @@ cumulus-pallet-dmp-queue = { default-features = false, path = "../../../../../..
 cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}
 westend-system-emulated-network ={ path = "../../../networks/westend-system" }
+
+[features]
+experimental = []

@@ -30,3 +30,6 @@ frame-support = { path = "../../../support" }
 [[bin]]
 name = "compact"
 path = "src/compact.rs"
+
+[features]
+experimental = []

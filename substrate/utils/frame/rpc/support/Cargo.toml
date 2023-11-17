@@ -26,3 +26,6 @@ tokio = "1.22.0"
 sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 frame-system = { path = "../../../../frame/system" }
+
+[features]
+experimental = []

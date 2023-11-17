@@ -27,3 +27,4 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 [features]
 default = [ "std" ]
 std = [ "frame-support/std", "sp-runtime/std", "xcm/std" ]
+experimental = []

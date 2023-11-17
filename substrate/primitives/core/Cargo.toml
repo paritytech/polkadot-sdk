@@ -161,3 +161,4 @@ bls-experimental = [ "w3f-bls" ]
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bandersnatch-experimental = [ "bandersnatch_vrfs" ]
+experimental = []

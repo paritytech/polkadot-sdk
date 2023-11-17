@@ -77,4 +77,8 @@ std = [
 	"substrate-wasm-builder",
 ]
 
-experimental = [ "pallet-aura/experimental" ]
+experimental = [
+	"frame-support/experimental",
+	"frame-system/experimental",
+	"pallet-aura/experimental",
+]

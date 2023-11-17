@@ -119,4 +119,8 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = [ "pallet-aura/experimental" ]
+experimental = [
+	"frame-support/experimental",
+	"frame-system/experimental",
+	"pallet-aura/experimental",
+]

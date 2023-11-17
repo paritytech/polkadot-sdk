@@ -31,3 +31,6 @@ log = "0.4.17"
 [[bin]]
 name = "call"
 path = "src/call.rs"
+
+[features]
+experimental = []

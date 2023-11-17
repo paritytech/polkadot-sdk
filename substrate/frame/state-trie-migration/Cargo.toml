@@ -72,3 +72,4 @@ remote-test = [
 	"thousands",
 	"zstd",
 ]
+experimental = []

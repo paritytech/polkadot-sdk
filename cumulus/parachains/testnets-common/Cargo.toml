@@ -42,3 +42,4 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
+experimental = []

@@ -93,3 +93,4 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 ]
 integrity-test = [ "static_assertions" ]
+experimental = []

@@ -13,3 +13,6 @@ readme = "README.md"
 [dependencies]
 thiserror = "1.0"
 zstd = { version = "0.12.4", default-features = false }
+
+[features]
+experimental = []
