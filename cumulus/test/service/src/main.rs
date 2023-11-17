@@ -19,7 +19,6 @@ mod cli;
 use std::{io::Write, sync::Arc};
 
 use cli::{RelayChainCli, Subcommand, TestCollatorCli};
-use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
 use cumulus_test_service::AnnounceBlockFn;
 use polkadot_service::runtime_traits::AccountIdConversion;
@@ -53,7 +52,7 @@ fn main() -> Result<(), sc_cli::Error> {
 				cli.load_spec(&params.base.shared_params.chain.clone().unwrap_or_default())?;
 			let state_version = cumulus_test_service::runtime::VERSION.state_version();
 
-			let block: parachains_common::Block = generate_genesis_block(&*spec, state_version)?;
+			let block: parachains_common::Block = genesis::generate_genesis_block(&*spec, state_version)?;
 			let raw_header = block.header().encode();
 			let output_buf = if params.base.raw {
 				raw_header
