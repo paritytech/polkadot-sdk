@@ -79,12 +79,13 @@ mod tests;
 mod types;
 pub mod weights;
 
-use crate::types::{Username, SUFFIX_MAX_LENGTH, USERNAME_MAX_LENGTH};
+use crate::types::{AuthorityProperties, Suffix, Username, USERNAME_MAX_LENGTH};
 use codec::Encode;
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
+	BoundedVec,
 };
 pub use pallet::*;
 use sp_runtime::{
@@ -157,16 +158,11 @@ pub mod pallet {
 		/// Type that can both sign messages and be converted into an AccountId of the runtime.
 		type Signer: SignerProvider<Self::AccountId>;
 
-		/// The amount held on deposit for each username.
-		///
-		/// Guide: 1 storage item, 32 bytes.
-		type UsernameDeposit: Get<BalanceOf<Self>>;
-
 		/// The origin which may add or remove username authorities. Root can always do this.
 		type UsernameAuthorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The number of blocks within which a username authorization must be validated.
-		type PreapprovalExpiration: Get<BlockNumberFor<Self>>;
+		/// The number of blocks within which a username grant must be accepted.
+		type PendingUsernameExpiration: Get<BlockNumberFor<Self>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -238,23 +234,14 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// A map of the accounts who are authorized to grant usernames. The value is a byte vector that
-	/// represents a suffix appended to the username (e.g. ".wallet"). Suffixes should be unique and
-	/// start with a `.`, but it is up to the authority selection process (nominally, governance) to
-	/// enforce that.
+	/// A map of the accounts who are authorized to grant usernames.
 	#[pallet::storage]
 	#[pallet::getter(fn authority)]
-	pub(super) type UsernameAuthorities<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		BoundedVec<u8, ConstU32<SUFFIX_MAX_LENGTH>>,
-		OptionQuery,
-	>;
+	pub(super) type UsernameAuthorities<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, AuthorityProperties, OptionQuery>;
 
 	/// Reverse lookup from `username` to the `AccountId` that has registered it. The value should
-	/// be a key in the `IdentityOf` map. May return `None` in the case that an Identity owner has
-	/// not registered a username.
+	/// be a key in the `IdentityOf` map, but it may not if the user has cleared their identity.
 	///
 	/// Multiple usernames may map to the same `AccountId`, but `IdentityOf` will only map to one
 	/// primary username.
@@ -263,19 +250,16 @@ pub mod pallet {
 	pub(super) type AccountOfUsername<T: Config> =
 		StorageMap<_, Twox64Concat, Username, T::AccountId, OptionQuery>;
 
-	/// Check if a user has pre-approved a username. Used primarily in cases where the `AccountId`
-	/// cannot provide a signature because they are a pure proxy, multisig, etc.
+	/// Usernames that an authority has granted, but that the account controller has not confirmed
+	/// that they want it. Used primarily in cases where the `AccountId` cannot provide a signature
+	/// because they are a pure proxy, multisig, etc. In order to confirm it, they should call
+	/// `accept_username`.
 	///
-	/// First tuple item is the username, second is the deposit held, and third is its expiration.
+	/// First tuple item is the account and second is the acceptance deadline.
 	#[pallet::storage]
 	#[pallet::getter(fn preapproved_usernames)]
-	pub(super) type PreapprovedUsernames<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		(Username, BalanceOf<T>, BlockNumberFor<T>),
-		OptionQuery,
-	>;
+	pub(super) type PendingUsernames<T: Config> =
+		StorageMap<_, Twox64Concat, Username, (T::AccountId, BlockNumberFor<T>), OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -317,6 +301,8 @@ pub mod pallet {
 		InvalidSuffix,
 		/// The sender does not have permission to issue a username.
 		NotUsernameAuthority,
+		/// The authority cannot allocate any more usernames.
+		NoAllocation,
 		/// The signature on a username was not valid.
 		InvalidSignature,
 		/// Setting this username requires a signature, but none was provided.
@@ -327,7 +313,7 @@ pub mod pallet {
 		UsernameTaken,
 		/// The requested username does not exist.
 		NoUsername,
-		/// The username cannot be forcefully removed because its preapproval has not expired.
+		/// The username cannot be forcefully removed because it can still be accepted.
 		NotExpired,
 	}
 
@@ -968,21 +954,26 @@ pub mod pallet {
 		}
 
 		/// Add an `AccountId` with permission to grant usernames with a given `suffix` appended.
+		/// The authority can grant up to `allocation` usernames. To top up their allocation, they
+		/// should just issue (or request via governance) a new `add_username_authority` call.
 		#[pallet::call_index(15)]
 		#[pallet::weight(1)]
 		pub fn add_username_authority(
 			origin: OriginFor<T>,
 			authority: AccountIdLookupOf<T>,
 			suffix: Vec<u8>,
+			allocation: u32,
 		) -> DispatchResult {
 			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
 			let authority = T::Lookup::lookup(authority)?;
 			Self::validate_username(&suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
-			let suffix = BoundedVec::<u8, ConstU32<SUFFIX_MAX_LENGTH>>::try_from(suffix)
-				.map_err(|_| Error::<T>::InvalidSuffix)?;
+			let suffix = Suffix::try_from(suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
 			// The authority may already exist, but we don't need to check. They might be changing
-			// their suffix, so we just want to overwrite whatever was there.
-			UsernameAuthorities::<T>::insert(&authority, suffix);
+			// their suffix or adding allocation, so we just want to overwrite whatever was there.
+			UsernameAuthorities::<T>::insert(
+				&authority,
+				AuthorityProperties { suffix, allocation },
+			);
 			Ok(())
 		}
 
@@ -1008,10 +999,19 @@ pub mod pallet {
 			username: Vec<u8>,
 			signature: Option<MultiSignature>,
 		) -> DispatchResult {
-			// Ensure origin is a Username Authority.
+			// Ensure origin is a Username Authority and has an allocation. Decrement their
+			// allocation by one.
 			let sender = ensure_signed(origin)?;
-			let suffix =
-				UsernameAuthorities::<T>::get(&sender).ok_or(Error::<T>::NotUsernameAuthority)?;
+			let suffix = UsernameAuthorities::<T>::try_mutate(
+				&sender,
+				|maybe_authority| -> Result<Suffix, DispatchError> {
+					let properties =
+						maybe_authority.as_mut().ok_or(Error::<T>::NotUsernameAuthority)?;
+					ensure!(properties.allocation > 0, Error::<T>::NoAllocation);
+					properties.allocation.saturating_dec();
+					Ok(properties.suffix.clone())
+				},
+			)?;
 
 			// Verify input length before allocating a Vec with the user's input.
 			// `<` instead of `<=` because it needs one element for the point
@@ -1041,133 +1041,56 @@ pub mod pallet {
 				Error::<T>::UsernameTaken
 			);
 
-			// Verify that `who` has approved their `username` (i.e. have either signed it or
-			// requested it themselves).
-			let (who, requires_deposit) = match who {
-				// Ensure the account has preapproved this username.
+			// Queue or insert username.
+			match who {
+				// The user must accept the username, therefore, queue it.
 				AccountIdentifier::Abstract(a) => {
 					ensure!(signature.is_none(), Error::<T>::InvalidSignature);
-					if let Some((u, _, _)) = PreapprovedUsernames::<T>::take(&a) {
-						// username may have expired, but it's there and hasn't been reaped. we are
-						// cleaning the storage and keeping the deposit, so no harm.
-						ensure!(u == bounded_username, Error::<T>::InvalidUsername);
-					} else {
-						return Err(Error::<T>::NoUsername.into())
-					}
-					(a, false)
-					//  ^^^^^
-					// the account has already placed a deposit
+					Self::queue_acceptance(&a, bounded_username);
 				},
 
-				// Account has pre-signed an authorization. Verify the signature provided.
+				// Account has pre-signed an authorization. Verify the signature provided and grant
+				// the username directly.
 				AccountIdentifier::Keyed(signer) => {
 					let signature = signature.ok_or(Error::<T>::RequiresSignature)?;
 					let valid = bounded_username
 						.to_vec()
 						.using_encoded(|encoded| signer.verify_signature(&signature, encoded));
 					ensure!(valid, Error::<T>::InvalidSignature);
-					(signer.into_account_truncating(), true)
-					//                                 ^^^^
-					// the account must place a deposit
+					Self::insert_username(&signer.into_account_truncating(), bounded_username);
 				},
 			};
-
-			// Check if they already have a primary. If so, leave it. If not, set it.
-			// Likewise, check if they have an identity. If not, give them a minimal one.
-			let (mut reg, primary_username) = match <IdentityOf<T>>::get(&who) {
-				// User has an existing Identity and a primary username. Leave it.
-				Some((reg, Some(primary))) => (reg, primary),
-				// User has an Identity but no primary. Set the new one as primary.
-				Some((reg, None)) => (reg, bounded_username.clone()),
-				// User does not have an existing Identity. Give them a fresh default one and set
-				// their username as primary.
-				None => (
-					Registration {
-						info: T::IdentityInformation::default(),
-						judgements: BoundedVec::default(),
-						deposit: Zero::zero(),
-					},
-					bounded_username.clone(),
-				),
-			};
-
-			// Correct deposit for IdentityInfo
-			let new_id_deposit = Self::calculate_identity_deposit(&reg.info);
-			Self::rejig_deposit(&who, reg.deposit, new_id_deposit)?;
-			reg.deposit = new_id_deposit;
-
-			// Take deposit for username (if not already taken in preapproval).
-			if requires_deposit {
-				let deposit = T::UsernameDeposit::get();
-				T::Currency::reserve(&who, deposit)?;
-			}
-
-			// Enter in identity map.
-			IdentityOf::<T>::insert(&who, (reg, Some(primary_username)));
-			// Enter in username map.
-			AccountOfUsername::<T>::insert(bounded_username, &who);
-
 			Ok(())
 		}
 
-		/// Approve a `username` for `origin`. For accounts corresponding to cryptographic key
-		/// pairs, this call is optional, as they can just provide a signature on their desired
-		/// username for the authority to include in `set_username_for`.
-		///
-		/// The preapproval call is meant for accounts that do _not_ correspond to a cryptographic
-		/// key pair, e.g. a pure proxy or multisig. These accounts can use the preapproval to
-		/// register a desired username that an authority can then grant.
-		///
-		/// Preapproving does not guarantee a claim on the `username`.
-		///
-		/// The username _must_ include a suffix as a means to designate the approver.
+		/// Accept a given username that an `authority` granted. The call must include the full
+		/// username, as in `username.suffix`.
 		#[pallet::call_index(18)]
 		#[pallet::weight(1)]
-		pub fn preapprove_username(origin: OriginFor<T>, username: Vec<u8>) -> DispatchResult {
+		pub fn accept_username(
+			origin: OriginFor<T>,
+			username: Username,
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let bounded_username =
-				Username::try_from(username).map_err(|_| Error::<T>::InvalidUsername)?;
-
-			let now = frame_system::Pallet::<T>::block_number();
-			let expiration = now.saturating_add(T::PreapprovalExpiration::get());
-
-			let deposit = T::UsernameDeposit::get();
-			T::Currency::reserve(&who, deposit)?;
-
-			PreapprovedUsernames::<T>::insert(&who, (bounded_username, deposit, expiration));
-			Ok(())
+			let (approved_for, _) =
+				PendingUsernames::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
+			ensure!(approved_for == who.clone(), Error::<T>::InvalidUsername);
+			Self::insert_username(&who, username);
+			Ok(Pays::No.into())
 		}
 
-		/// Remove a preapproval for a username.
+		/// Remove an expired username approval. The call must include the full username, as in
+		/// `username.suffix`.
 		#[pallet::call_index(19)]
 		#[pallet::weight(1)]
-		pub fn remove_preapproval(origin: OriginFor<T>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			if let Some((_, deposit, _)) = PreapprovedUsernames::<T>::take(&who) {
-				let err_amount = T::Currency::unreserve(&who, deposit);
-				debug_assert!(err_amount.is_zero());
-				Ok(())
-			} else {
-				Err(Error::<T>::NoUsername.into())
-			}
-		}
-
-		/// Remove an expired username preapproval.
-		#[pallet::call_index(20)]
-		#[pallet::weight(1)]
-		pub fn remove_expired_preapproval(
+		pub fn remove_expired_approval(
 			origin: OriginFor<T>,
-			who: AccountIdLookupOf<T>,
+			username: Username,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			let who = T::Lookup::lookup(who)?;
-			if let Some((_, deposit, expiration)) = PreapprovedUsernames::<T>::take(&who) {
+			if let Some((_, expiration)) = PendingUsernames::<T>::take(&username) {
 				let now = frame_system::Pallet::<T>::block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
-
-				let err_amount = T::Currency::unreserve(&who, deposit);
-				debug_assert!(err_amount.is_zero());
-
 				Ok(Pays::No.into())
 			} else {
 				Err(Error::<T>::NoUsername.into())
@@ -1175,22 +1098,35 @@ pub mod pallet {
 		}
 
 		/// Set a given username as the primary. The username should include the suffix.
-		#[pallet::call_index(21)]
+		#[pallet::call_index(20)]
 		#[pallet::weight(1)]
-		pub fn set_primary_username(origin: OriginFor<T>, username: Vec<u8>) -> DispatchResult {
+		pub fn set_primary_username(origin: OriginFor<T>, username: Username) -> DispatchResult {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
 			let who = ensure_signed(origin)?;
-			let bounded_username =
-				Username::try_from(username).map_err(|_| Error::<T>::InvalidUsername)?;
 			ensure!(
-				AccountOfUsername::<T>::get(bounded_username.clone()).is_some(),
+				AccountOfUsername::<T>::get(username.clone()).is_some(),
 				Error::<T>::NoUsername
 			);
 			// todo: mutate_extant?
 			let (registration, _maybe_username) =
 				IdentityOf::<T>::get(&who).ok_or(Error::<T>::NoIdentity)?;
-			IdentityOf::<T>::insert(&who, (registration, Some(bounded_username)));
+			IdentityOf::<T>::insert(&who, (registration, Some(username)));
 			Ok(())
+		}
+
+		/// Remove a username that corresponds to an account with no identity. Exists when a user
+		/// gets a username but then calls `clear_identity`.
+		#[pallet::call_index(21)]
+		#[pallet::weight(1)]
+		pub fn remove_dangling_username(
+			origin: OriginFor<T>,
+			username: Username,
+		) -> DispatchResultWithPostInfo {
+			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
+			let _ = ensure_signed(origin)?;
+			let who = AccountOfUsername::<T>::take(username).ok_or(Error::<T>::NoUsername)?;
+			ensure!(!IdentityOf::<T>::contains_key(&who), Error::<T>::InvalidUsername);
+			Ok(Pays::No.into())
 		}
 	}
 }
@@ -1248,6 +1184,44 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::InvalidUsername
 		);
 		Ok(())
+	}
+
+	/// A username has met all conditions. Insert the relevant storage items.
+	fn insert_username(who: &T::AccountId, username: Username) {
+		// Check if they already have a primary. If so, leave it. If not, set it.
+		// Likewise, check if they have an identity. If not, give them a minimal one.
+		let (reg, primary_username) = match <IdentityOf<T>>::get(&who) {
+			// User has an existing Identity and a primary username. Leave it.
+			Some((reg, Some(primary))) => (reg, primary),
+			// User has an Identity but no primary. Set the new one as primary.
+			Some((reg, None)) => (reg, username.clone()),
+			// User does not have an existing Identity. Give them a fresh default one and set
+			// their username as primary.
+			None => (
+				Registration {
+					info: T::IdentityInformation::default(),
+					judgements: Default::default(),
+					deposit: Zero::zero(),
+				},
+				username.clone(),
+			),
+		};
+
+		// Enter in identity map. Note: In the case that the user did not have a pre-existing
+		// Identity, we have given them the storage item for free. If they ever call
+		// `set_identity` with identity info, then they will need to place the normal identity
+		// deposit.
+		IdentityOf::<T>::insert(&who, (reg, Some(primary_username)));
+		// Enter in username map.
+		AccountOfUsername::<T>::insert(username, &who);
+	}
+
+	/// A username was granted by an authority, but required approval from `who`. Put the username
+	/// into a queue for approval.
+	fn queue_acceptance(who: &T::AccountId, username: Username) {
+		let now = frame_system::Pallet::<T>::block_number();
+		let expiration = now.saturating_add(T::PendingUsernameExpiration::get());
+		PendingUsernames::<T>::insert(&username, (who, expiration));
 	}
 
 	/// Reap an identity, clearing associated storage items and refunding any deposits. This
