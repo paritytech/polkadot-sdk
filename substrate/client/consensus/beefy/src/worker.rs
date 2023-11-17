@@ -456,6 +456,7 @@ where
 			.filter(|genesis| *genesis == self.persisted_state.pallet_genesis)
 			.ok_or(Error::ConsensusReset)?;
 
+		let mut new_session_added = false;
 		if *header.number() > self.best_grandpa_block() {
 			// update best GRANDPA finalized block we have seen
 			self.persisted_state.set_best_grandpa(header.clone());
@@ -475,11 +476,14 @@ where
 			{
 				if let Some(new_validator_set) = find_authorities_change::<B>(&header) {
 					self.init_session_at(new_validator_set, *header.number());
+					new_session_added = true;
 				}
 			}
 
-			crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
-				.map_err(|e| Error::Backend(e.to_string()))?;
+			if new_session_added {
+				crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
+					.map_err(|e| Error::Backend(e.to_string()))?;
+			}
 
 			// Update gossip validator votes filter.
 			if let Err(e) = self
