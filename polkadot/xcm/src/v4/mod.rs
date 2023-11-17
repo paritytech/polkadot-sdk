@@ -1188,7 +1188,6 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(old_instruction: OldInstruction<Call>) -> result::Result<Self, Self::Error> {
-		dbg!(&old_instruction);
 		use OldInstruction::*;
 		Ok(match old_instruction {
 			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
