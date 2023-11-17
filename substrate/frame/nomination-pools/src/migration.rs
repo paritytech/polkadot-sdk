@@ -24,7 +24,7 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use sp_runtime::TryRuntimeError;
 
 /// Exports for versioned migration `type`s for this pallet.
-pub mod versioned_migrations {
+pub mod versioned {
 	use super::*;
 
 	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
