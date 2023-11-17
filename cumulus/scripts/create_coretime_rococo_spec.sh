@@ -23,7 +23,7 @@ para_id=$2
 
 echo "Generating chain spec for runtime: $rt_path and para_id: $para_id"
 
-binary="./target/release/rococo-parachain"
+binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
 $binary build-spec --chain coretime-rococo-dev > chain-spec-plain.json
