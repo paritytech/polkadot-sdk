@@ -294,6 +294,7 @@ members = [
 	"substrate/frame/collective",
 	"substrate/frame/contracts",
 	"substrate/frame/contracts/fixtures",
+	"substrate/frame/contracts/fixtures/common",
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/contracts/primitives",
 	"substrate/frame/contracts/proc-macro",

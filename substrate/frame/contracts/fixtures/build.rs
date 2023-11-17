@@ -93,6 +93,7 @@ fn create_cargo_toml<'a>(
 	output_dir: &Path,
 ) -> Result<()> {
 	let uapi_path = input_dir.join("../uapi").canonicalize()?;
+	let common_path = input_dir.join("./common").canonicalize()?;
 	let mut cargo_toml: toml::Value = toml::from_str(&format!(
 		"
 [package]
@@ -103,6 +104,7 @@ version = '0.1.0'
 
 [dependencies]
 uapi = {{ package = 'pallet-contracts-uapi',  path = {uapi_path:?}}}
+common = {{ package = 'pallet-contracts-fixtures-common',  path = {common_path:?}}}
 cfg-if = {{ version = '1.0', default-features = false }}
 
 [profile.release]
