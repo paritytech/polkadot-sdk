@@ -284,7 +284,7 @@ fn into_multiassets_checked(
 ///    \------------------------------------------>
 /// ```
 #[test]
-fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
+fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
@@ -348,7 +348,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 	});
 }
 
-/// Test `reserve_transfer_assets` with destination asset reserve and local fee reserve.
+/// Test `transfer_assets` with destination asset reserve and local fee reserve.
 ///
 /// Transferring foreign asset (`FOREIGN_ASSET_RESERVE_PARA_ID` reserve) to
 /// `FOREIGN_ASSET_RESERVE_PARA_ID` (no teleport trust).
@@ -368,7 +368,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 /// Asserts that the sender's balance is decreased and the beneficiary's balance
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
-fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() {
+fn transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() {
 	let weight = BaseXcmWeight::get() * 3;
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
@@ -404,7 +404,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+		assert_ok!(XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -465,12 +465,12 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 	});
 }
 
-/// Test `reserve_transfer_assets` with remote asset reserve and local fee reserve.
+/// Test `transfer_assets` with remote asset reserve and local fee reserve.
 ///
 /// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to `OTHER_PARA_ID`.
 /// Using native (local reserve) as fee should be disallowed.
 #[test]
-fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
+fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -500,7 +500,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disal
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// try the transfer
-		let result = XcmPallet::limited_reserve_transfer_assets(
+		let result = XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -529,7 +529,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disal
 	});
 }
 
-/// Test `reserve_transfer_assets` with local asset reserve and destination fee reserve.
+/// Test `transfer_assets` with local asset reserve and destination fee reserve.
 ///
 /// Transferring native asset (local reserve) to `USDC_RESERVE_PARA_ID` (no teleport trust). Using
 /// foreign asset (`USDC_RESERVE_PARA_ID` reserve) for fees.
@@ -545,7 +545,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disal
 ///    \------------------------------------------>
 /// ```
 #[test]
-fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() {
+fn transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -580,7 +580,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+		assert_ok!(XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -743,13 +743,12 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 	});
 }
 
-/// Test `reserve_transfer_assets` with remote asset reserve and destination fee reserve is
-/// disallowed.
+/// Test `transfer_assets` with remote asset reserve and destination fee reserve is disallowed.
 ///
 /// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to
 /// `USDC_RESERVE_PARA_ID`. Using USDC (destination reserve) as fee.
 #[test]
-fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
+fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -789,7 +788,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		let result = XcmPallet::limited_reserve_transfer_assets(
+		let result = XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -819,12 +818,12 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 	});
 }
 
-/// Test `reserve_transfer_assets` with local asset reserve and remote fee reserve is disallowed.
+/// Test `transfer_assets` with local asset reserve and remote fee reserve is disallowed.
 ///
 /// Transferring native asset (local reserve) to `OTHER_PARA_ID` (no teleport trust). Using foreign
 /// asset (`USDC_RESERVE_PARA_ID` remote reserve) for fees.
 #[test]
-fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
+fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -854,7 +853,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disal
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		let result = XcmPallet::limited_reserve_transfer_assets(
+		let result = XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -882,13 +881,12 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disal
 	});
 }
 
-/// Test `reserve_transfer_assets` with destination asset reserve and remote fee reserve is
-/// disallowed.
+/// Test `transfer_assets` with destination asset reserve and remote fee reserve is disallowed.
 ///
 /// Transferring native asset (local reserve) to `OTHER_PARA_ID` (no teleport trust). Using foreign
 /// asset (`USDC_RESERVE_PARA_ID` remote reserve) for fees.
 #[test]
-fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
+fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -928,7 +926,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		let result = XcmPallet::limited_reserve_transfer_assets(
+		let result = XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -1067,7 +1065,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 	});
 }
 
-/// Test `reserve_transfer_assets` with local asset reserve and teleported fee.
+/// Test `transfer_assets` with local asset reserve and teleported fee.
 ///
 /// Transferring native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 /// fees.
@@ -1083,7 +1081,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 ///    \------------------------------------------>
 /// ```
 #[test]
-fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
+fn transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -1113,7 +1111,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+		assert_ok!(XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -1173,7 +1171,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 	});
 }
 
-/// Test `reserve_transfer_assets` with destination asset reserve and teleported fee.
+/// Test `transfer_assets` with destination asset reserve and teleported fee.
 ///
 /// Transferring foreign asset (destination reserve) to `FOREIGN_ASSET_RESERVE_PARA_ID`. Using
 /// teleport-trusted USDT for fees.
@@ -1190,7 +1188,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 ///    \------------------------------------------>
 /// ```
 #[test]
-fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
+fn transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -1231,7 +1229,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+		assert_ok!(XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -1303,12 +1301,12 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 	});
 }
 
-/// Test `reserve_transfer_assets` with remote asset reserve and teleported fee is disallowed.
+/// Test `transfer_assets` with remote asset reserve and teleported fee is disallowed.
 ///
 /// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to `USDT_PARA_ID`.
 /// Using teleport-trusted USDT for fees.
 #[test]
-fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
+fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -1342,7 +1340,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallow
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		let result = XcmPallet::limited_reserve_transfer_assets(
+		let result = XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -1428,9 +1426,9 @@ fn reserve_transfer_assets_with_teleportable_asset_fails() {
 	});
 }
 
-/// Test `reserve_transfer_assets` with teleportable fee that is filtered - should fail.
+/// Test `transfer_assets` with teleportable fee that is filtered - should fail.
 #[test]
-fn reserve_transfer_assets_with_filtered_teleported_fee_disallowed() {
+fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
 	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
 		let (assets, fee_index, _, _) = into_multiassets_checked(
@@ -1439,7 +1437,7 @@ fn reserve_transfer_assets_with_filtered_teleported_fee_disallowed() {
 			// native asset to transfer (not used for fees) - local reserve
 			(MultiLocation::here(), SEND_AMOUNT).into(),
 		);
-		let result = XcmPallet::limited_reserve_transfer_assets(
+		let result = XcmPallet::transfer_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(FilteredTeleportLocation::get().into()),
 			Box::new(beneficiary.into()),
