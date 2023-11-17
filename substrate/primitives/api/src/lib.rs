@@ -486,13 +486,13 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 /// //         #[advanced]
 /// //         fn get_balance(&self, at: <Block as BlockT>::Hash) -> Result<u64, sp_api::ApiError> {
 /// //             println!("Being called at: {}", at);
-/// 	//
+/// //
 /// //             Ok(self.balance.into())
 /// //         }
 /// //         #[advanced]
 /// //         fn set_balance(at: <Block as BlockT>::Hash, val: u64) -> Result<(), sp_api::ApiError> {
 /// //             println!("Being called at: {}", at);
-/// 	//
+/// //
 /// //             Ok(().into())
 /// //         }
 /// //     }
@@ -647,7 +647,7 @@ pub struct CallApiAtParams<'a, Block: BlockT> {
 #[cfg(feature = "std")]
 pub trait CallApiAt<Block: BlockT> {
 	/// The state backend that is used to store the block states.
-	type StateBackend: StateBackend<HashingFor<Block>> + AsTrieBackend<HashingFor<Block>>;
+	type StateBackend: StateBackend<HashingFor<Block>>;
 
 	/// Calls the given api function with the given encoded arguments at the given block and returns
 	/// the encoded result.

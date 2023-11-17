@@ -65,92 +65,36 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 	let crate_ = generate_crate_access();
 
 	Ok(quote!(
-		impl #crate_::ApiExt<#block_type> for #self_ty {
-			fn execute_in_transaction<F: FnOnce(&Self) -> #crate_::TransactionOutcome<R>, R>(
+		impl #crate_::CallApiAt<#block_type> for #self_ty {
+			type StateBackend = #crate_::InMemoryBackend<#crate_::HashingFor<#block_type>>;
+
+			fn call_api_at(
 				&self,
-				call: F,
-			) -> R where Self: Sized {
-				call(self).into_inner()
+				params: #crate_::CallApiAtParams<#block_type>,
+			) -> std::result::Result<Vec<u8>, #crate_::ApiError> {
+
 			}
 
-			fn has_api<A: #crate_::RuntimeApiInfo + ?Sized>(
-				&self,
-				_: <Block as #crate_::BlockT>::Hash,
-			) -> std::result::Result<bool, #crate_::ApiError> where Self: Sized {
-				Ok(true)
-			}
-
-			fn has_api_with<A: #crate_::RuntimeApiInfo + ?Sized, P: Fn(u32) -> bool>(
-				&self,
-				_: <Block as #crate_::BlockT>::Hash,
-				pred: P,
-			) -> std::result::Result<bool, #crate_::ApiError> where Self: Sized {
-				Ok(pred(A::VERSION))
-			}
-
-			fn api_version<A: #crate_::RuntimeApiInfo + ?Sized>(
-				&self,
-				_: <Block as #crate_::BlockT>::Hash,
-			) -> std::result::Result<Option<u32>, #crate_::ApiError> where Self: Sized {
-				Ok(Some(A::VERSION))
-			}
-
-			fn record_proof(&mut self) {
-				unimplemented!("`record_proof` not implemented for runtime api mocks")
-			}
-
-			fn extract_proof(
-				&mut self,
-			) -> Option<#crate_::StorageProof> {
-				unimplemented!("`extract_proof` not implemented for runtime api mocks")
-			}
-
-			fn proof_recorder(&self) -> Option<#crate_::ProofRecorder<#block_type>> {
-				unimplemented!("`proof_recorder` not implemented for runtime api mocks")
-			}
-
-			fn into_storage_changes<B: #crate_::StateBackend<#crate_::HashingFor<#block_type>>>(
-				&self,
-				_: &B,
-				_: <#block_type as #crate_::BlockT>::Hash,
-			) -> std::result::Result<
-				#crate_::StorageChanges<#block_type>,
-				String
-			> where Self: Sized {
-				unimplemented!("`into_storage_changes` not implemented for runtime api mocks")
-			}
-
-			fn set_call_context(&mut self, _: #crate_::CallContext) {
-				unimplemented!("`set_call_context` not implemented for runtime api mocks")
-			}
-
-			fn register_extension<E: #crate_::Extension>(&mut self, _: E) {
-				unimplemented!("`register_extension` not implemented for runtime api mocks")
-			}
-		}
-
-		impl #crate_::Core<#block_type> for #self_ty {
-			fn version(
+			fn runtime_version_at(
 				&self,
 				_: <#block_type as #crate_::BlockT>::Hash,
 			) -> std::result::Result<#crate_::RuntimeVersion, #crate_::ApiError> {
-				unimplemented!("`Core::version` not implemented for runtime api mocks")
+				unimplemented!("`runtime_version_at` not implemented for mocks")
 			}
 
-			fn execute_block(
+			fn state_at(
 				&self,
 				_: <#block_type as #crate_::BlockT>::Hash,
-				_: #block_type,
-			) -> std::result::Result<(), #crate_::ApiError> {
-				unimplemented!("`Core::execute_block` not implemented for runtime api mocks")
+			) -> std::result::Result<Self::StateBackend, #crate_::ApiError> {
+				unimplemented!("`state_at` not implemented for mocks")
 			}
 
-			fn initialize_block(
+			fn initialize_extensions(
 				&self,
 				_: <#block_type as #crate_::BlockT>::Hash,
-				_: &<#block_type as #crate_::BlockT>::Header,
+				_: &mut Extensions,
 			) -> std::result::Result<(), #crate_::ApiError> {
-				unimplemented!("`Core::initialize_block` not implemented for runtime api mocks")
+				unimplemented!("`initialize_extensions` not implemented for mocks")
 			}
 		}
 	))

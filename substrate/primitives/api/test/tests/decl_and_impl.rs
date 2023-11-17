@@ -275,10 +275,10 @@ fn mock_runtime_api_panics_on_calling_old_version() {
 fn mock_runtime_api_works_with_advanced() {
 	let mock = MockApi { block: None };
 
-	Api::<Block>::same_name(&mock, Hash::default()).unwrap();
-	mock.wild_card(Hash::repeat_byte(0x0f), 1).unwrap();
+	Api::<Block>::same_name(&mock).unwrap();
+	Api::<Block>::wild_card(&mock, 1).unwrap();
 	assert_eq!(
 		"Test error".to_string(),
-		mock.wild_card(Hash::repeat_byte(0x01), 1).unwrap_err().to_string(),
+		Api::<Block>::wild_card(&mock, 1).unwrap_err().to_string(),
 	);
 }
