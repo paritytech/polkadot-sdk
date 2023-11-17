@@ -119,7 +119,7 @@ impl Config for Test {
 /// Processing all remaining 28639 messages
 /// ```
 #[test]
-#[ignore] // Only run in the CI.
+#[ignore] // Only run in the CI, otherwise its too slow.
 fn stress_test_enqueue_and_service() {
 	let blocks = 20;
 	let max_queues = 10_000;
@@ -149,7 +149,7 @@ fn stress_test_enqueue_and_service() {
 
 /// Very similar to `stress_test_enqueue_and_service`, but enqueues messages while processing them.
 #[test]
-#[ignore] // Only run in the CI.
+#[ignore] // Only run in the CI, otherwise its too slow.
 fn stress_test_recursive() {
 	let blocks = 20;
 	let mut rng = StdRng::seed_from_u64(gen_seed());
@@ -231,7 +231,7 @@ fn stress_test_recursive() {
 /// Processing all remaining 430 messages
 /// ```
 #[test]
-#[ignore] // Only run in the CI.
+#[ignore] // Only run in the CI, otherwise its too slow.
 fn stress_test_queue_suspension() {
 	let blocks = 20;
 	let max_queues = 10_000;
