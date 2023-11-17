@@ -68,7 +68,7 @@ pub fn generate_wasmtime_version() {
 fn generate_dependency_version(dep: &str, env_var: &str) {
 	// we only care about the root
 	match std::process::Command::new("cargo")
-		.args(["tree", "--depth=0", "--package", dep])
+		.args(["tree", "--depth=0", "--locked", "--package", dep])
 		.output()
 	{
 		Ok(output) if output.status.success() => {
@@ -82,7 +82,7 @@ fn generate_dependency_version(dep: &str, env_var: &str) {
 			}
 		},
 
-		// command errors out when could not find the given dependency
+		// command errors out when it could not find the given dependency
 		// or when having multiple versions of it
 		Ok(output) =>
 			println!("cargo:warning=`cargo tree` {}", String::from_utf8_lossy(&output.stderr)),
