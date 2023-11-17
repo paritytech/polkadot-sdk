@@ -25,6 +25,6 @@ use polkadot_primitives::AuthorityDiscoveryId;
 use sc_service::SpawnTaskHandle;
 
 pub mod display;
+pub mod environment;
 pub mod keyring;
 pub mod network;
-pub mod test_env;

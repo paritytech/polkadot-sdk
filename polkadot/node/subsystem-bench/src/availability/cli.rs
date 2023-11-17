@@ -14,4 +14,46 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
+#[derive(Debug, clap::Parser, Clone)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct NetworkOptions {}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+#[value(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum NetworkEmulation {
+	Ideal,
+	Healthy,
+	Degraded,
+}
+
+#[derive(Debug, clap::Parser)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct DataAvailabilityReadOptions {
+	#[clap(long, ignore_case = true, default_value_t = 100)]
+	/// Number of cores to fetch availability for.
+	pub n_cores: usize,
+
+	#[clap(long, ignore_case = true, default_value_t = 500)]
+	/// Number of validators to fetch chunks from.
+	pub n_validators: usize,
+
+	#[clap(long, ignore_case = true, default_value_t = 5120)]
+	/// The minimum pov size in KiB
+	pub min_pov_size: usize,
+
+	#[clap(long, ignore_case = true, default_value_t = 5120)]
+	/// The maximum pov size bytes
+	pub max_pov_size: usize,
+
+	#[clap(short, long, default_value_t = false)]
+	/// Turbo boost AD Read by fetching from backers first. Tipically this is only faster if nodes
+	/// have enough bandwidth.
+	pub fetch_from_backers: bool,
+
+	#[clap(short, long, ignore_case = true, default_value_t = 1)]
+	/// Number of times to block fetching for each core.
+	pub num_blocks: usize,
+}

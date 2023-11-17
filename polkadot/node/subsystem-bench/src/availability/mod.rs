@@ -53,7 +53,7 @@ use polkadot_node_subsystem::{
 };
 use std::net::{Ipv4Addr, SocketAddr};
 
-use super::core::{keyring::Keyring, network::*, test_env::TestEnvironmentMetrics};
+use super::core::{environment::TestEnvironmentMetrics, keyring::Keyring, network::*};
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
@@ -70,8 +70,9 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
 
+mod cli;
 pub mod configuration;
-
+pub use cli::{DataAvailabilityReadOptions, NetworkEmulation, NetworkOptions};
 pub use configuration::{PeerLatency, TestConfiguration, TestSequence};
 
 // Deterministic genesis hash for protocol names
@@ -162,7 +163,7 @@ impl TestEnvironment {
 		let (ingress_tx, mut ingress_rx) = tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
 		let our_network_stats = network.peer_stats(0);
 
-		spawn_handle.spawn_blocking("our-node-rx", "test-environment", async move {
+		spawn_handle.spawn_blocking("node0-rx", "test-environment", async move {
 			while let Some(action) = ingress_rx.recv().await {
 				let size = action.size();
 
