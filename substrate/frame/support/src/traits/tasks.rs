@@ -56,3 +56,27 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	/// in other pallets.
 	fn task_index(&self) -> u32;
 }
+
+impl Task for () {
+	type Enumeration = IntoIter<Self>;
+
+	fn iter() -> Self::Enumeration {
+		vec![].into_iter()
+	}
+
+	fn is_valid(&self) -> bool {
+		true
+	}
+
+	fn run(&self) -> Result<(), DispatchError> {
+		Ok(())
+	}
+
+	fn weight(&self) -> Weight {
+		0.into()
+	}
+
+	fn task_index(&self) -> u32 {
+		0
+	}
+}

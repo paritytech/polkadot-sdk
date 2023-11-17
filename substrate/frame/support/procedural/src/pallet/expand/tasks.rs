@@ -86,13 +86,16 @@ impl ToTokens for TaskEnumDef {
 			tokens.extend(quote! {
 				#(#attrs)*
 				#[derive(
-					Clone,
-					PartialEq,
-					Eq,
+					#scrate::CloneNoBound,
+					#scrate::EqNoBound,
+					#scrate::PartialEqNoBound,
 					#scrate::pallet_prelude::Encode,
 					#scrate::pallet_prelude::Decode,
 					#scrate::pallet_prelude::TypeInfo,
 				)]
+				#[codec(encode_bound())]
+				#[codec(decode_bound())]
+				#[scale_info(skip_type_params(#type_use_generics))]
 				#vis enum #ident #generics {
 					#variants
 					#[doc(hidden)]
@@ -155,8 +158,6 @@ impl ToTokens for TasksDef {
 			}
 
 			impl #impl_generics #scrate::traits::Task for #enum_use
-			where
-				T: #scrate::pallet_prelude::TypeInfo,
 			{
 				type Enumeration = #sp_std::vec::IntoIter<#enum_use>;
 
