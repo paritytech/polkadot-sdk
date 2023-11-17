@@ -296,11 +296,11 @@ pub struct RunCmd {
 	#[arg(long, conflicts_with = "validator")]
 	pub collator: bool,
 
-	/// Creates a node that uses fewer resources by retrieving relay chain data from a remote node.
-	/// The provided URLs should point to RPC endpoints of the relay chain.
+	/// Creates a less resource-hungry node that retrieves relay chain data from an RPC endpoint.
 	///
+	/// The provided URLs should point to RPC endpoints of the relay chain.
 	/// This node connects to the remote nodes following the order they were specified in. If the
-	/// connection to one fails, it attempts to connect to the next in the list.
+	/// connection fails, it attempts to connect to the next endpoint in the list.
 	///
 	/// Note: This option doesn't stop the node from connecting to the relay chain network but
 	/// reduces bandwidth use.
