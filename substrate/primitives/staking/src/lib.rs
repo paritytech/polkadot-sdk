@@ -25,7 +25,7 @@ use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, RuntimeDebug, Saturating,
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 
@@ -56,6 +56,27 @@ impl<AccountId> From<AccountId> for StakingAccount<AccountId> {
 	fn from(account: AccountId) -> Self {
 		StakingAccount::Stash(account)
 	}
+}
+
+// A enum contaning payout destination aliases. Used for configuring a payout destination without
+// knowing the stash and controller accounts.
+#[derive(PartialEq, Copy, Clone)]
+pub enum PayoutDestinationAlias {
+	/// Alias for the controller account.
+	Controller,
+	// Alias for a split payout destination either for the stash or controller account.
+	Split((Perbill, PayoutSplitOpt)),
+}
+
+// Options for aliased payouts. Used to alias stash and controller accounts, which are assumed not
+// to be known at the time at usage.
+//
+// NOTE: This enum can be discontinued after the `PayoutDestination` lazy migration, as the only
+// valid split alias would be to the stash account.
+#[derive(PartialEq, Copy, Clone)]
+pub enum PayoutSplitOpt {
+	Stash,
+	Controller,
 }
 
 /// Representation of the status of a staker.
