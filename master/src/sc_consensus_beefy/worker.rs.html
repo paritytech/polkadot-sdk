@@ -1672,6 +1672,16 @@
 <a href="#1672" id="1672">1672</a>
 <a href="#1673" id="1673">1673</a>
 <a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2130,6 +2140,7 @@
 			.filter(|genesis| <span class="kw-2">*</span>genesis == <span class="self">self</span>.persisted_state.pallet_genesis)
 			.ok_or(Error::ConsensusReset)<span class="question-mark">?</span>;
 
+		<span class="kw">let </span><span class="kw-2">mut </span>new_session_added = <span class="bool-val">false</span>;
 		<span class="kw">if </span><span class="kw-2">*</span>header.number() &gt; <span class="self">self</span>.best_grandpa_block() {
 			<span class="comment">// update best GRANDPA finalized block we have seen
 			</span><span class="self">self</span>.persisted_state.set_best_grandpa(header.clone());
@@ -2149,7 +2160,13 @@
 			{
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(new_validator_set) = find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
 					<span class="self">self</span>.init_session_at(new_validator_set, <span class="kw-2">*</span>header.number());
+					new_session_added = <span class="bool-val">true</span>;
 				}
+			}
+
+			<span class="kw">if </span>new_session_added {
+				<span class="kw">crate</span>::aux_schema::write_voter_state(<span class="kw-2">&amp;*</span><span class="self">self</span>.backend, <span class="kw-2">&amp;</span><span class="self">self</span>.persisted_state)
+					.map_err(|e| Error::Backend(e.to_string()))<span class="question-mark">?</span>;
 			}
 
 			<span class="comment">// Update gossip validator votes filter.
@@ -2522,15 +2539,10 @@
 				.fuse(),
 		);
 
+		<span class="self">self</span>.process_new_state();
 		<span class="kw">let </span>error = <span class="kw">loop </span>{
-			<span class="comment">// Act on changed &#39;state&#39;.
-			</span><span class="self">self</span>.process_new_state();
-
 			<span class="comment">// Mutable reference used to drive the gossip engine.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>gossip_engine = <span class="kw-2">&amp;mut </span><span class="self">self</span>.comms.gossip_engine;
-			<span class="comment">// Use temp val and report after async section,
-			// to avoid having to Mutex-wrap `gossip_engine`.
-			</span><span class="kw">let </span><span class="kw-2">mut </span>gossip_report: <span class="prelude-ty">Option</span>&lt;PeerReport&gt; = <span class="prelude-val">None</span>;
 
 			<span class="comment">// Wait for, and handle external events.
 			// The branches below only change &#39;state&#39;, actual voting happens afterwards,
@@ -2558,10 +2570,15 @@
 							<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.triage_incoming_justif(justif) {
 								<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
 							}
-							gossip_report = <span class="prelude-val">Some</span>(peer_report);
+							<span class="self">self</span>.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
 						},
-						ResponseInfo::PeerReport(peer_report) =&gt; gossip_report = <span class="prelude-val">Some</span>(peer_report),
-						ResponseInfo::Pending =&gt; (),
+						ResponseInfo::PeerReport(peer_report) =&gt; {
+							<span class="self">self</span>.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
+							<span class="kw">continue</span>;
+						},
+						ResponseInfo::Pending =&gt; {
+							<span class="kw">continue</span>;
+						},
 					}
 				},
 				justif = block_import_justif.next() =&gt; {
@@ -2598,12 +2615,15 @@
 				},
 				<span class="comment">// Process peer reports.
 				</span>report = <span class="self">self</span>.comms.gossip_report_stream.next() =&gt; {
-					gossip_report = report;
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(PeerReport { who, cost_benefit }) = report {
+						<span class="self">self</span>.comms.gossip_engine.report(who, cost_benefit);
+					}
+					<span class="kw">continue</span>;
 				},
 			}
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(PeerReport { who, cost_benefit }) = gossip_report {
-				<span class="self">self</span>.comms.gossip_engine.report(who, cost_benefit);
-			}
+
+			<span class="comment">// Act on changed &#39;state&#39;.
+			</span><span class="self">self</span>.process_new_state();
 		};
 
 		<span class="comment">// return error _and_ `comms` that can be reused
