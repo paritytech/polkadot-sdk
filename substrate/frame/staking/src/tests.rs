@@ -6835,6 +6835,7 @@ mod ledger {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn update_payee_migration_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// migrate a `Controller` variant to `Account` variant.

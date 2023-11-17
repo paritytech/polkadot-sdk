@@ -404,7 +404,9 @@ pub enum RewardDestination<AccountId> {
 	Staked,
 	/// Pay into the stash account, not increasing the amount at stake.
 	Stash,
-	// Controller accounts are deprecated. This variant now behaves the same as `Stash` variant".
+	#[deprecated(
+		note = "Controller accounts are deprecated. This variant now behaves the same as `Stash` variant"
+	)]
 	DeprecatedController,
 	/// Pay into a specified account.
 	Account(AccountId),
