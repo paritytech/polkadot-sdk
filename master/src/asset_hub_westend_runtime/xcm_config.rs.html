@@ -851,6 +851,8 @@
 <a href="#851" id="851">851</a>
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1125,13 +1127,15 @@
 
 		<span class="macro">matches!</span>(
 			call,
-			RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-				RuntimeCall::System(
-					frame_system::Call::set_heap_pages { .. } |
-						frame_system::Call::set_code { .. } |
-						frame_system::Call::set_code_without_checks { .. } |
-						frame_system::Call::kill_prefix { .. },
-				) | RuntimeCall::ParachainSystem(..) |
+			RuntimeCall::PolkadotXcm(
+				pallet_xcm::Call::force_xcm_version { .. } |
+					pallet_xcm::Call::force_default_xcm_version { .. }
+			) | RuntimeCall::System(
+				frame_system::Call::set_heap_pages { .. } |
+					frame_system::Call::set_code { .. } |
+					frame_system::Call::set_code_without_checks { .. } |
+					frame_system::Call::kill_prefix { .. },
+			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
 				RuntimeCall::CollatorSelection(
