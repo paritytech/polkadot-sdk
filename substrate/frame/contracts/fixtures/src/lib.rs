@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use sp_runtime::traits::Hash;
-use std::{fs, env::var, path::PathBuf};
+use std::{env::var, fs, path::PathBuf};
 
 fn wat_root_dir() -> PathBuf {
 	match (var("CARGO_MANIFEST_DIR"), var("CARGO_PKG_NAME")) {
@@ -31,7 +31,9 @@ fn wat_root_dir() -> PathBuf {
 /// with it's hash.
 ///
 /// The fixture files are located under the `fixtures/` directory.
-pub fn legacy_compile_module<T>(fixture_name: &str) -> anyhow::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
+pub fn legacy_compile_module<T>(
+	fixture_name: &str,
+) -> anyhow::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
 where
 	T: frame_system::Config,
 {
@@ -43,7 +45,9 @@ where
 
 /// Load a given wasm module and returns a wasm binary contents along with it's hash.
 /// Use the legacy compile_module as fallback, if the rust fixture does not exist yet.
-pub fn compile_module<T>(fixture_name: &str) -> anyhow::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
+pub fn compile_module<T>(
+	fixture_name: &str,
+) -> anyhow::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
 where
 	T: frame_system::Config,
 {
@@ -61,10 +65,10 @@ where
 #[cfg(test)]
 mod test {
 	#[test]
-	fn dummy_mock_should_be_compiled() {
+	fn out_dir_should_have_compiled_mocks() {
 		let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
 		let dummy_wasm = out_dir.join("dummy.wasm");
+		println!("dummy_wasm: {:?}", dummy_wasm);
 		assert!(dummy_wasm.exists());
 	}
 }
-

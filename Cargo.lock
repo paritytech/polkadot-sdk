@@ -9732,7 +9732,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts-fixtures"
-version = "1.0.2"
+version = "1.0.5"
 dependencies = [
  "anyhow",
  "frame-system",
@@ -9763,19 +9763,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
-]
-
-[[package]]
-name = "pallet-contracts-test-contracts"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "frame-system",
- "parity-wasm",
- "sp-runtime",
- "tempfile",
- "toml 0.8.8",
- "twox-hash",
 ]
 
 [[package]]

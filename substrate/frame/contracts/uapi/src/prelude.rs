@@ -19,15 +19,14 @@
 //! crates. If needed we shall instead enhance the exposed types here.
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "std")] {
-        pub use std::{
-            format,
-        };
-    } else {
+	if #[cfg(feature = "std")] {
+		pub use std::{
+			format,
+		};
+	} else {
 		extern crate alloc;
-        pub use alloc::{
-            format,
-        };
-    }
+		pub use alloc::{
+			format,
+		};
+	}
 }
-

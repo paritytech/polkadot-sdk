@@ -106,9 +106,6 @@ version = '0.1.0'
 [dependencies]
 uapi = {{ package = 'pallet-contracts-uapi',  path = {uapi_path:?}, default-features = false}}
 
-[features]
-# default = [ 'uapi/ink-debug' ]
-
 [profile.release]
 opt-level = 3
 lto = true
@@ -135,15 +132,18 @@ codegen-units = 1
 
 /// Invoke `cargo build` to compile the contracts.
 fn invoke_build(current_dir: &Path) -> Result<()> {
-	let build_res = Command::new("cargo")
+	let path = env::var("PATH").unwrap_or_default();
+	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
+		.env_clear()
+		.env("PATH", path)
 		.env(
 			"RUSTFLAGS",
 			"-C link-arg=-zstack-size=65536 -C link-arg=--import-memory -Clinker-plugin-lto -C target-cpu=mvp",
 		)
 		.arg("build")
 		.arg("--release")
-		.arg("--target=wasm32-unknown-unknown") // todo pass risc-v target here as well
+		.arg("--target=wasm32-unknown-unknown") // TODO pass risc-v target here as well
 		.output()
 		.unwrap();
 
