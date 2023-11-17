@@ -701,10 +701,6 @@ fn nominating_and_rewards_should_work() {
 		});
 }
 
-// TODO: test cannot set_payee to controller
-
-// TODO: test update_payee to migrate `Controller` to `Account(controller)`.
-
 #[test]
 fn nominators_also_get_slashed_pro_rata() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -6874,6 +6870,23 @@ mod ledger {
 			assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Controller(11)));
 
 			<Bonded<Test>>::remove(42); // ensures try-state checks pass.
+		})
+	}
+
+	#[test]
+	fn update_payee_migration_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// migrate a `Controller` variant to `Account` variant.
+			Payee::<Test>::insert(11, RewardDestination::DeprecatedController);
+			assert_eq!(Payee::<Test>::get(&11), RewardDestination::DeprecatedController);
+			assert_ok!(Staking::update_payee(RuntimeOrigin::signed(11), 11));
+			assert_eq!(Payee::<Test>::get(&11), RewardDestination::Account(11));
+
+			// Do not migrate a variant if not `Controller`.
+			Payee::<Test>::insert(21, RewardDestination::Stash);
+			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
+			assert_ok!(Staking::update_payee(RuntimeOrigin::signed(11), 21));
+			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
 		})
 	}
 }

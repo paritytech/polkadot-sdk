@@ -1285,8 +1285,9 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller.clone()))?;
 
-			// Ensure that the `Controller` variant is not assigned.
-			// Controller accounts are being deprecated, and `Controller
+			// Ensure that the `DeprecatedController` variant is not assigned. Controller accounts
+			// are being deprecated and the `DeprecatedController` variant is being phased out via
+			// the `update_payee` call.
 			let payee_final = if payee == RewardDestination::DeprecatedController {
 				RewardDestination::Account(controller)
 			} else {
