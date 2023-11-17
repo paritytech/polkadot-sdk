@@ -19,7 +19,3 @@ paste = { version = "1.0", default-features = false }
 [features]
 default = [ "std" ]
 std = [ "scale/std" ]
-
-# Enable contract debug messages via `debug_print!` and `debug_println!`.
-ink-debug = []
-

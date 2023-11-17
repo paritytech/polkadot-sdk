@@ -9735,6 +9735,7 @@ name = "pallet-contracts-fixtures"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "cfg-if",
  "frame-system",
  "parity-wasm",
  "sp-runtime",

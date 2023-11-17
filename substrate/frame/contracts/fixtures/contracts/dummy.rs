@@ -17,12 +17,28 @@
 #![no_std]
 #![no_main]
 
+// TODO move shared boiler plate outside of fixtures
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+	cfg_if::cfg_if! {
+		if #[cfg(target_arch = "wasm32")] {
+			core::arch::wasm32::unreachable();
+		} else if #[cfg(target_arch = "riscv32")] {
+			// Safety: The unimp instruction is guaranteed to trap
+			unsafe {
+				core::arch::asm!("unimp");
+				core::hint::unreachable_unchecked();
+			}
+		} else {
+			core::compile_error!("only supports wasm32 and riscv32");
+		}
+	}
+}
+
 #[no_mangle]
 pub fn deploy() {
-    uapi::debug_message("contract deployed");
 }
 
 #[no_mangle]
 pub fn call() {
-	uapi::debug_message("contract called");
 }

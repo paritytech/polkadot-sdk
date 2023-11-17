@@ -26,7 +26,7 @@ use std::{
 use twox_hash::XxHash32;
 
 /// Salt used for hashing contract source files.
-const SALT: &[u8] = &[2u8];
+const SALT: &[u8] = &[10u8];
 
 /// Read the file at `path` and return its hash as a hex string.
 fn file_hash(path: &Path) -> String {
@@ -106,6 +106,7 @@ version = '0.1.0'
 
 [dependencies]
 uapi = {{ package = 'pallet-contracts-uapi',  path = {uapi_path:?}, default-features = false}}
+cfg-if = {{ version = '1.0', default-features = false }}
 
 [profile.release]
 opt-level = 3
