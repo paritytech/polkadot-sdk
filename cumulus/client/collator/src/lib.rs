@@ -100,16 +100,11 @@ where
 		};
 
 		let last_head_hash = last_head.hash();
-		println!("🤵🤵🤵🤵🤵🤵🤵 In Collator about to call check block status");
-		println!("🤵🤵🤵🤵🤵🤵🤵 Last header is\n{:?}", last_head);
 
 		// Here is where we call the checks that fail.
 		if !self.service.check_block_status(last_head_hash, &last_head) {
-			println!("🤵🤵🤵🤵🤵🤵🤵 In Collator returning None");
 			return None
 		}
-
-		println!("🤵🤵🤵🤵🤵🤵🤵 In Collator made it past check");
 
 		tracing::info!(
 			target: LOG_TARGET,
