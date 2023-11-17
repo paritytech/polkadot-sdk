@@ -144,7 +144,7 @@ pub struct ExportGenesisHeadCommand {
 }
 
 impl ExportGenesisHeadCommand {
-	/// Run the export-genesis-state command
+	/// Run the export-genesis-head command
 	pub fn run<B, C>(&self, client: Arc<C>) -> sc_cli::Result<()>
 	where
 		B: BlockT,
