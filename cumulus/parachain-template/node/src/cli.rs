@@ -26,7 +26,7 @@ pub enum Subcommand {
 
 	/// Export the genesis head data (not state!) of the parachain.
 	/// This command has a terrible name and we only keep it because some existing tools and
-	/// scripts expect it. You should use --export-genesis-head instead whenever possible.
+	/// scripts expect it. You should use export-genesis-head instead whenever possible.
 	#[clap(hide = true)]
 	ExportGenesisState(cumulus_client_cli::ExportGenesisHeadCommand),
 
