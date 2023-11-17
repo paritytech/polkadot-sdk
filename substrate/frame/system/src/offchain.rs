@@ -79,6 +79,9 @@ pub struct SubmitTransaction<T: SendTransactionTypes<OverarchingCall>, Overarchi
 	_phantom: sp_std::marker::PhantomData<(T, OverarchingCall)>,
 }
 
+// TODO: Avoid splitting call and the totally opaque `signature`; `CreateTransaction` trait should
+// provide something which impls `Encode`, which can be sent onwards to
+// `sp_io::offchain::submit_transaction`. There's no great need to split things up as in here.
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
 where
 	T: SendTransactionTypes<LocalCall>,
@@ -89,6 +92,7 @@ where
 		signature: Option<<T::Extrinsic as ExtrinsicT>::SignaturePayload>,
 	) -> Result<(), ()> {
 		// TODO: Use regular transaction API instead.
+		#[allow(deprecated)]
 		let xt = T::Extrinsic::new(call, signature).ok_or(())?;
 		sp_io::offchain::submit_transaction(xt.encode())
 	}

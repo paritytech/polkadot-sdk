@@ -109,7 +109,7 @@ where
 				#[allow(deprecated)]
 				Extension::validate_no_self_compat(&self.function, info, len)?;
 				#[allow(deprecated)]
-				Extension::prepare_no_self_compat(&self.function, info, len)?;
+				Extension::pre_dispatch_no_self_compat(&self.function, info, len)?;
 				let res = self.function.dispatch(None.into());
 				let post_info = match res {
 					Ok(info) => info,

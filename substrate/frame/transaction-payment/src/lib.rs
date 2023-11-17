@@ -507,11 +507,11 @@ impl<T: Config> Pallet<T> {
 		// a very very little potential gain in the future.
 		let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
-		let partial_fee = if unchecked_extrinsic.is_signed().unwrap_or(false) {
-			Self::compute_fee(len, &dispatch_info, 0u32.into())
-		} else {
-			// Unsigned extrinsics have no partial fee.
+		let partial_fee = if unchecked_extrinsic.is_bare() {
+			// Bare extrinsics have no partial fee.
 			0u32.into()
+		} else {
+			Self::compute_fee(len, &dispatch_info, 0u32.into())
 		};
 
 		let DispatchInfo { weight, class, .. } = dispatch_info;
@@ -531,11 +531,11 @@ impl<T: Config> Pallet<T> {
 
 		let tip = 0u32.into();
 
-		if unchecked_extrinsic.is_signed().unwrap_or(false) {
-			Self::compute_fee_details(len, &dispatch_info, tip)
-		} else {
-			// Unsigned extrinsics have no inclusion fee.
+		if unchecked_extrinsic.is_bare() {
+			// Bare extrinsics have no inclusion fee.
 			FeeDetails { inclusion_fee: None, tip }
+		} else {
+			Self::compute_fee_details(len, &dispatch_info, tip)
 		}
 	}
 

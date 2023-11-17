@@ -948,18 +948,8 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 impl traits::Extrinsic for OpaqueExtrinsic {
 	type Call = ();
 	type SignaturePayload = ();
-	fn is_inherent(&self) -> bool {
+	fn is_bare(&self) -> bool {
 		false
-	}
-	fn from_parts(
-		_call: Self::Call,
-		_preamble: generic::Preamble<
-			<Self::SignaturePayload as traits::SignaturePayload>::SignatureAddress,
-			<Self::SignaturePayload as traits::SignaturePayload>::Signature,
-			<Self::SignaturePayload as traits::SignaturePayload>::SignatureExtra,
-		>,
-	) -> Self {
-		panic!()
 	}
 }
 

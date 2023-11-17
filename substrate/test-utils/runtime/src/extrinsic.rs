@@ -70,7 +70,7 @@ impl TryFrom<&Extrinsic> for TransferData {
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
 			Extrinsic {
 				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),
-				preamble: Preamble::Inherent,
+				preamble: Preamble::Bare,
 			} => Ok(transfer.clone()),
 			_ => Err(()),
 		}
@@ -201,7 +201,7 @@ impl ExtrinsicBuilder {
 
 			Extrinsic::new_signed(self.function, signer.public(), signature, extra)
 		} else {
-			Extrinsic::new_unsigned(self.function)
+			Extrinsic::new_bare(self.function)
 		}
 	}
 }

@@ -139,7 +139,7 @@ pub trait TransactionExtension:
 
 	/// TODO: docs
 	#[deprecated = "Only for compatibility. DO NOT USE."]
-	fn prepare_no_self_compat(
+	fn pre_dispatch_no_self_compat(
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
@@ -397,7 +397,7 @@ impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> wh
 		SE::validate_unsigned(call, info, len)
 	}
 
-	fn prepare_no_self_compat(
+	fn pre_dispatch_no_self_compat(
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,

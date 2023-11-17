@@ -56,10 +56,14 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extra: TypeInfo> SignaturePayload
 /// TODO: docs
 #[derive(Eq, PartialEq, Clone, Encode, Decode)]
 pub enum Preamble<Address, Signature, Extra> {
-	/// An inherent extrinsic whose validation is determined by the runtime aggregated
-	/// `ValidateInherent`.
+	/// An extrinsic without a signature or any extension. This means it's either an inherent or
+	/// an old-school "Unsigned" (we don't use that terminology any more since it's confusable with
+	/// the general transaction which is without a signature but does have an extension).
+	///
+	/// NOTE: In the future, once we remove `ValidateUnsigned`, this will only serve Inherent
+	/// extrinsics and thus can be renamed to `Inherent`.
 	#[codec(index = 0b00000100)]
-	Inherent,
+	Bare,
 	/// An old-school transaction extrinsic which includes a signature of some hard-coded crypto.
 	#[codec(index = 0b10000100)]
 	Signed(Address, Signature, Extra),
@@ -74,7 +78,7 @@ impl<Address, Signature, Extra> fmt::Debug for Preamble<Address, Signature, Extr
 {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::Inherent => write!(f, "Inherent"),
+			Self::Bare => write!(f, "Bare"),
 			Self::Signed(address, _, extra) => write!(f, "Signed({:?}, {:?})", address, extra),
 			Self::General(extra) => write!(f, "General({:?})", extra),
 		}
@@ -132,15 +136,17 @@ where
 impl<Address, Call, Signature, Extra: TransactionExtension>
 	UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
-	/// New instance of an unsigned extrinsic aka "inherent".
-	#[deprecated = "Use new_inherent instead"]
+	/// New instance of a bare (ne unsigned) extrinsic. This could be used for an inherent or an
+	/// old-school "unsigned transaction" (which are new being deprecated in favour of general
+	/// transactions).
+	#[deprecated = "Use new_bare instead"]
 	pub fn new_unsigned(function: Call) -> Self {
-		Self::new_inherent(function)
+		Self::new_bare(function)
 	}
 
 	/// TODO: docs
 	pub fn is_inherent(&self) -> bool {
-		matches!(self.preamble, Preamble::Inherent)
+		matches!(self.preamble, Preamble::Bare)
 	}
 
 	/// TODO: docs
@@ -148,9 +154,9 @@ impl<Address, Call, Signature, Extra: TransactionExtension>
 		Self { preamble, function }
 	}
 
-	/// New instance of an unsigned extrinsic aka "inherent".
-	pub fn new_inherent(function: Call) -> Self {
-		Self { preamble: Preamble::Inherent, function }
+	/// New instance of a bare (ne unsigned) extrinsic.
+	pub fn new_bare(function: Call) -> Self {
+		Self { preamble: Preamble::Bare, function }
 	}
 
 	/// New instance of an old-school signed transaction.
@@ -173,23 +179,24 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extra: TransactionE
 
 	type SignaturePayload = UncheckedSignaturePayload<Address, Signature, Extra>;
 
-	fn is_inherent(&self) -> bool {
-		matches!(self.preamble, Preamble::Inherent)
+	fn is_bare(&self) -> bool {
+		matches!(self.preamble, Preamble::Bare)
 	}
 
-	fn from_parts(
-		function: Self::Call,
-		preamble: Preamble<Address, Signature, Extra>,
-	) -> Self {
-		Self { preamble, function }
+	fn is_signed(&self) -> Option<bool> {
+		Some(matches!(self.preamble, Preamble::Signed(..)))
 	}
 
 	fn new(function: Call, signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
 		Some(if let Some((address, signature, extra)) = signed_data {
 			Self::new_signed(function, address, signature, extra)
 		} else {
-			Self::new_inherent(function)
+			Self::new_bare(function)
 		})
+	}
+
+	fn new_inherent(function: Call) -> Self {
+		Self::new_bare(function)
 	}
 }
 
@@ -221,7 +228,7 @@ where
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
 			},
-			Preamble::Inherent => CheckedExtrinsic {
+			Preamble::Bare => CheckedExtrinsic {
 				format: ExtrinsicFormat::Inherent,
 				function: self.function,
 			},
@@ -242,7 +249,7 @@ where
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
 			},
-			Preamble::Inherent => CheckedExtrinsic {
+			Preamble::Bare => CheckedExtrinsic {
 				format: ExtrinsicFormat::Inherent,
 				function: self.function,
 			},
@@ -440,15 +447,15 @@ mod tests {
 
 	// NOTE: this is demonstration. One can simply use `()` for testing.
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
-	struct TestExtra;
-	impl AdditionalSigned for TestExtra {
+	struct DummyExtension;
+	impl AdditionalSigned for DummyExtension {
 		type Data = ();
 		fn data(&self) -> sp_std::result::Result<(), TransactionValidityError> {
 			Ok(())
 		}
 	}
-	impl TransactionExtension for TestExtra {
-		const IDENTIFIER: &'static str = "TestExtra";
+	impl TransactionExtension for DummyExtension {
+		const IDENTIFIER: &'static str = "DummyExtension";
 		type Call = ();
 		type Val = ();
 		type Pre = ();
@@ -456,9 +463,9 @@ mod tests {
 		fn validate(
 			&self,
 			who: <Self::Call as traits::Dispatchable>::RuntimeOrigin,
-			call: &Self::Call,
-			info: &DispatchInfoOf<Self::Call>,
-			len: usize,
+			_call: &Self::Call,
+			_info: &DispatchInfoOf<Self::Call>,
+			_len: usize,
 		) -> Result<
 			(crate::transaction_validity::ValidTransaction, Self::Val, <Self::Call as traits::Dispatchable>::RuntimeOrigin),
 			TransactionValidityError
@@ -468,18 +475,18 @@ mod tests {
 
 		fn prepare(
 			self,
-			val: (),
-			who: &<Self::Call as traits::Dispatchable>::RuntimeOrigin,
-			call: &Self::Call,
-			info: &DispatchInfoOf<Self::Call>,
-			len: usize,
+			_val: (),
+			_who: &<Self::Call as traits::Dispatchable>::RuntimeOrigin,
+			_call: &Self::Call,
+			_info: &DispatchInfoOf<Self::Call>,
+			_len: usize,
 		) -> Result<(), TransactionValidityError> {
 			Ok(())
 		}
 	}
 
-	type Ex = UncheckedExtrinsic<TestAccountId, TestCall, TestSig, TestExtra>;
-	type CEx = CheckedExtrinsic<TestAccountId, TestCall, TestExtra>;
+	type Ex = UncheckedExtrinsic<TestAccountId, TestCall, TestSig, DummyExtension>;
+	type CEx = CheckedExtrinsic<TestAccountId, TestCall, DummyExtension>;
 
 	#[test]
 	fn unsigned_codec_should_work() {
@@ -501,7 +508,7 @@ mod tests {
 
 	#[test]
 	fn transaction_codec_should_work() {
-		let ux = Ex::new_transaction(vec![0u8; 0], TestExtra);
+		let ux = Ex::new_transaction(vec![0u8; 0], DummyExtension);
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 	}
@@ -511,8 +518,8 @@ mod tests {
 		let ux = Ex::new_signed(
 			vec![0u8; 0],
 			TEST_ACCOUNT,
-			TestSig(TEST_ACCOUNT, (vec![0u8; 0], TestExtra).encode()),
-			TestExtra,
+			TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode()),
+			DummyExtension,
 		);
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
@@ -525,9 +532,9 @@ mod tests {
 			TEST_ACCOUNT,
 			TestSig(
 				TEST_ACCOUNT,
-				(vec![0u8; 257], TestExtra).using_encoded(blake2_256)[..].to_owned(),
+				(vec![0u8; 257], DummyExtension).using_encoded(blake2_256)[..].to_owned(),
 			),
-			TestExtra,
+			DummyExtension,
 		);
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
@@ -549,7 +556,7 @@ mod tests {
 			vec![0u8; 0],
 			TEST_ACCOUNT,
 			TestSig(TEST_ACCOUNT, vec![0u8; 0]),
-			TestExtra,
+			DummyExtension,
 		);
 		assert!(!ux.is_inherent());
 		assert_eq!(
@@ -560,11 +567,11 @@ mod tests {
 
 	#[test]
 	fn transaction_check_should_work() {
-		let ux = Ex::new_transaction(vec![0u8; 0], TestExtra);
+		let ux = Ex::new_transaction(vec![0u8; 0], DummyExtension);
 		assert!(!ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::General(TestExtra), function: vec![0u8; 0] }),
+			Ok(CEx { format: ExtrinsicFormat::General(DummyExtension), function: vec![0u8; 0] }),
 		);
 	}
 
@@ -573,13 +580,13 @@ mod tests {
 		let ux = Ex::new_signed(
 			vec![0u8; 0],
 			TEST_ACCOUNT,
-			TestSig(TEST_ACCOUNT, (vec![0u8; 0], TestExtra).encode()),
-			TestExtra,
+			TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode()),
+			DummyExtension,
 		);
 		assert!(!ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::Signed(TEST_ACCOUNT, TestExtra), function: vec![0u8; 0] }),
+			Ok(CEx { format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension), function: vec![0u8; 0] }),
 		);
 	}
 
@@ -604,7 +611,7 @@ mod tests {
 
 	#[test]
 	fn large_bad_prefix_should_work() {
-		let encoded = (Compact::<u32>::from(u32::MAX), Preamble::<(), (), ()>::Inherent).encode();
+		let encoded = (Compact::<u32>::from(u32::MAX), Preamble::<(), (), ()>::Bare).encode();
 		assert_eq!(
 			Ex::decode(&mut &encoded[..]),
 			Err(Error::from("Not enough data to fill buffer"))

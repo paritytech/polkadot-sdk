@@ -19,7 +19,7 @@
 
 use crate::{
 	codec::{Codec, Decode, Encode, MaxEncodedLen},
-	generic::{self, Preamble},
+	generic,
 	scale_info::TypeInfo,
 	traits::{
 		self, Applyable, BlakeTwo256, Checkable, DispatchInfoOf, Dispatchable, OpaqueKeys,
@@ -208,18 +208,8 @@ impl<Xt> traits::Extrinsic for ExtrinsicWrapper<Xt> {
 	type Call = ();
 	type SignaturePayload = ();
 
-	fn is_inherent(&self) -> bool {
+	fn is_bare(&self) -> bool {
 		false
-	}
-	fn from_parts(
-		_call: Self::Call,
-		_preamble: generic::Preamble<
-			<Self::SignaturePayload as SignaturePayload>::SignatureAddress,
-			<Self::SignaturePayload as SignaturePayload>::Signature,
-			<Self::SignaturePayload as SignaturePayload>::SignatureExtra,
-		>,
-	) -> Self {
-		panic!()
 	}
 }
 
@@ -365,27 +355,10 @@ impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
 	type Call = Call;
 	type SignaturePayload = TxSignaturePayload<Extra>;
 
-	fn is_inherent(&self) -> bool {
+	fn is_bare(&self) -> bool {
 		!self.signature.is_some()
 	}
 
-	fn from_parts(
-		call: Self::Call,
-		preamble: generic::Preamble<
-			<Self::SignaturePayload as SignaturePayload>::SignatureAddress,
-			<Self::SignaturePayload as SignaturePayload>::Signature,
-			<Self::SignaturePayload as SignaturePayload>::SignatureExtra,
-		>,
-	) -> Self {
-		Self {
-			call,
-			signature: match preamble {
-				Preamble::Signed(address, _, extra) => Some((address, extra)),
-				Preamble::Inherent | Preamble::General(_) => None,
-			},
-		}
-	}
-	
 	fn new(c: Call, sig: Option<Self::SignaturePayload>) -> Option<Self> {
 		Some(TestXt { signature: sig, call: c })
 	}
@@ -427,7 +400,10 @@ where
 		if let Some((ref id, ref extra)) = self.signature {
 			extra.validate(Some(id.clone()).into(), &self.call, info, len).map(|x| x.0)
 		} else {
-			U::validate_unsigned(source, &self.call)
+			#[allow(deprecated)]
+			let valid = Extra::validate_no_self_compat(&self.call, info, len)?;
+			let unsigned_validation = U::validate_unsigned(source, &self.call)?;
+			Ok(valid.combine_with(unsigned_validation))
 		}
 	}
 
@@ -441,6 +417,8 @@ where
 		if let Some((who, extra)) = self.signature {
 			extra.dispatch_transaction(Some(who).into(), self.call, info, len)
 		} else {
+			#[allow(deprecated)]
+			Extra::pre_dispatch_no_self_compat(&self.call, info, len)?;
 			U::pre_dispatch(&self.call)?;
 			Ok(self.call.dispatch(None.into()))
 		}

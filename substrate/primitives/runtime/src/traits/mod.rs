@@ -18,7 +18,7 @@
 //! Primitives for the runtime modules.
 
 use crate::{
-	generic::{Digest, Preamble},
+	generic::{Digest},
 	scale_info::{StaticTypeInfo, TypeInfo},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, UnknownTransaction,
@@ -1296,34 +1296,28 @@ pub trait Extrinsic: Sized {
 
 	/// Is this `Extrinsic` signed?
 	/// If no information are available about signed/unsigned, `None` should be returned.
-	#[deprecated = "Use `!is_inherent()` instead"]
+	#[deprecated = "Use and implement `!is_bare()` instead"]
 	fn is_signed(&self) -> Option<bool> {
-		Some(!self.is_inherent())
+		None
 	}
 
-	/// Is this `Extrinsic` an inherent?
-	/// If no information is available about this, `None` should be returned.
-	fn is_inherent(&self) -> bool;
+	/// Returns `true` if this `Extrinsic` is bare.
+	fn is_bare(&self) -> bool {
+		#[allow(deprecated)]
+		!self.is_signed().expect("`is_signed` must return `Some` on production extrinsics; qed")
+	}
 
-	/// Create new instance of the extrinsic.
-	///
-	/// Extrinsics can be split into:
-	/// 1. Inherents (no signature; created by validators during block production, validated with
-	///    ValidateInherent)
-	/// 2. Transactions (maybe a signature, validated with TransactionExtension)
-	fn from_parts(
-		call: Self::Call,
-		preamble: Preamble<
-			<Self::SignaturePayload as SignaturePayload>::SignatureAddress,
-			<Self::SignaturePayload as SignaturePayload>::Signature,
-			<Self::SignaturePayload as SignaturePayload>::SignatureExtra,
-		>,
-	) -> Self;
-
-	/// TODO
-	#[deprecated = "Use `from_parts` instead"]
+	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
+	/// a signed transaction is it is `Some`.
+	#[deprecated = "Use `new_inherent` or the `CreateTransaction` trait instead"]
 	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
 		None
+	}
+
+	/// Create a new inherent extrinsic.
+	fn new_inherent(function: Self::Call) -> Self {
+		#[allow(deprecated)]
+		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
 	}
 }
 
@@ -1756,6 +1750,7 @@ pub trait GetNodeBlockType {
 /// function is called right before dispatching the call wrapped by an unsigned extrinsic. The
 /// [`validate_unsigned`](Self::validate_unsigned) function is mainly being used in the context of
 /// the transaction pool to check the validity of the call wrapped by an unsigned extrinsic.
+// TODO: Rename to ValidateBareTransaction (or just remove).
 pub trait ValidateUnsigned {
 	/// The call to validate
 	type Call;

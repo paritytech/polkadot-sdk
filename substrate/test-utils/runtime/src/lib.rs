@@ -675,7 +675,7 @@ impl_runtime_apis! {
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			let ext = Extrinsic::new_unsigned(
+			let ext = Extrinsic::new_bare(
 				substrate_test_pallet::pallet::Call::storage_change{
 					key:b"some_key".encode(),
 					value:Some(header.number.encode())
