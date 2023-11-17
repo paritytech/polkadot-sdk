@@ -181,7 +181,7 @@ fn service_queues_failing_messages_works() {
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
 			Event::ProcessingFailed {
-				id: blake2_256(b"badformat"),
+				id: blake2_256(b"badformat").into(),
 				origin: MessageOrigin::Here,
 				error: ProcessMessageError::BadFormat,
 			}
@@ -190,7 +190,7 @@ fn service_queues_failing_messages_works() {
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
 			Event::ProcessingFailed {
-				id: blake2_256(b"corrupt"),
+				id: blake2_256(b"corrupt").into(),
 				origin: MessageOrigin::Here,
 				error: ProcessMessageError::Corrupt,
 			}
@@ -199,7 +199,7 @@ fn service_queues_failing_messages_works() {
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
 			Event::ProcessingFailed {
-				id: blake2_256(b"unsupported"),
+				id: blake2_256(b"unsupported").into(),
 				origin: MessageOrigin::Here,
 				error: ProcessMessageError::Unsupported,
 			}
@@ -1264,7 +1264,7 @@ fn permanently_overweight_limit_is_valid_basic() {
 					RuntimeEvent::MessageQueue(Event::Processed {
 						origin: Here,
 						weight_used: 200.into(),
-						id: blake2_256(m.as_bytes()),
+						id: blake2_256(m.as_bytes()).into(),
 						success: true,
 					})
 				);
@@ -1321,7 +1321,7 @@ fn permanently_overweight_limit_is_valid_fuzzy() {
 						RuntimeEvent::MessageQueue(Event::Processed {
 							origin: Here,
 							weight_used: 200.into(),
-							id: blake2_256(m.as_bytes()),
+							id: blake2_256(m.as_bytes()).into(),
 							success: true,
 						})
 					);
@@ -1592,7 +1592,7 @@ fn execute_overweight_respects_suspension() {
 
 		assert_last_event::<Test>(
 			Event::Processed {
-				id: blake2_256(b"weight=5"),
+				id: blake2_256(b"weight=5").into(),
 				origin,
 				weight_used: 5.into_weight(),
 				success: true,
@@ -1619,7 +1619,7 @@ fn service_queue_suspension_ready_ring_works() {
 		MessageQueue::service_queues(Weight::MAX);
 		assert_last_event::<Test>(
 			Event::Processed {
-				id: blake2_256(b"weight=5"),
+				id: blake2_256(b"weight=5").into(),
 				origin,
 				weight_used: 5.into_weight(),
 				success: true,

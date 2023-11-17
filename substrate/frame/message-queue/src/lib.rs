@@ -218,7 +218,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_core::defer;
+use sp_core::{defer, H256};
 use sp_runtime::{
 	traits::{One, Zero},
 	SaturatedConversion, Saturating,
@@ -539,7 +539,7 @@ pub mod pallet {
 		/// Message discarded due to an error in the `MessageProcessor` (usually a format error).
 		ProcessingFailed {
 			/// The `blake2_256` hash of the message.
-			id: [u8; 32],
+			id: H256,
 			/// The queue of the message.
 			origin: MessageOriginOf<T>,
 			/// The error that occurred.
@@ -551,7 +551,7 @@ pub mod pallet {
 		/// Message is processed.
 		Processed {
 			/// The `blake2_256` hash of the message.
-			id: [u8; 32],
+			id: H256,
 			/// The queue of the message.
 			origin: MessageOriginOf<T>,
 			/// How much weight was used to process the message.
@@ -1438,13 +1438,18 @@ impl<T: Config> Pallet<T> {
 			},
 			Err(error @ BadFormat | error @ Corrupt | error @ Unsupported) => {
 				// Permanent error - drop
-				Self::deposit_event(Event::<T>::ProcessingFailed { id, origin, error });
+				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
 				MessageExecutionStatus::Unprocessable { permanent: true }
 			},
 			Ok(success) => {
 				// Success
 				let weight_used = meter.consumed().saturating_sub(prev_consumed);
-				Self::deposit_event(Event::<T>::Processed { id, origin, weight_used, success });
+				Self::deposit_event(Event::<T>::Processed {
+					id: id.into(),
+					origin,
+					weight_used,
+					success,
+				});
 				MessageExecutionStatus::Processed
 			},
 		}
