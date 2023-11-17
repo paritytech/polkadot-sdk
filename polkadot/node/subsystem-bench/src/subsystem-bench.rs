@@ -23,12 +23,16 @@ use colored::Colorize;
 use std::{path::Path, time::Duration};
 
 pub(crate) mod availability;
+pub(crate) mod cli;
 pub(crate) mod core;
 
 use availability::{
-	random_pov_size, DataAvailabilityReadOptions, NetworkEmulation, TestConfiguration,
+	AvailabilityRecoveryConfiguration, DataAvailabilityReadOptions, NetworkEmulation,
 	TestEnvironment, TestState,
 };
+use cli::TestObjective;
+
+use core::configuration::{PeerLatency, TestConfiguration, TestSequence};
 
 use clap_num::number_range;
 const LOG_TARGET: &str = "subsystem-bench";
@@ -40,23 +44,6 @@ fn le_100(s: &str) -> Result<usize, String> {
 fn le_5000(s: &str) -> Result<usize, String> {
 	number_range(s, 0, 5000)
 }
-#[derive(Debug, clap::Parser)]
-#[clap(rename_all = "kebab-case")]
-#[allow(missing_docs)]
-pub struct TestSequenceOptions {
-	#[clap(short, long, ignore_case = true)]
-	pub path: String,
-}
-
-/// Define the supported benchmarks targets
-#[derive(Debug, Parser)]
-#[command(about = "Test objectives", version, rename_all = "kebab-case")]
-enum TestObjective {
-	/// Benchmark availability recovery strategies.
-	DataAvailabilityRead(DataAvailabilityReadOptions),
-	/// Run a test sequence specified in a file
-	TestSequence(TestSequenceOptions),
-}
 
 #[derive(Debug, Parser)]
 #[allow(missing_docs)]
@@ -64,6 +51,9 @@ struct BenchCli {
 	#[arg(long, value_enum, ignore_case = true, default_value_t = NetworkEmulation::Ideal)]
 	/// The type of network to be emulated
 	pub network: NetworkEmulation,
+
+	#[clap(flatten)]
+	pub standard_configuration: cli::StandardTestOptions,
 
 	#[clap(short, long)]
 	/// The bandwidth of simulated remote peers in KiB
@@ -86,7 +76,7 @@ struct BenchCli {
 	pub peer_max_latency: Option<u64>,
 
 	#[command(subcommand)]
-	pub objective: TestObjective,
+	pub objective: cli::TestObjective,
 }
 
 fn new_runtime() -> tokio::runtime::Runtime {
@@ -104,10 +94,11 @@ impl BenchCli {
 
 		let runtime = new_runtime();
 
+		let configuration = self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
 				let test_sequence =
-					availability::TestSequence::new_from_file(Path::new(&options.path))
+					core::configuration::TestSequence::new_from_file(Path::new(&options.path))
 						.expect("File exists")
 						.to_vec();
 				let num_steps = test_sequence.len();
@@ -117,8 +108,17 @@ impl BenchCli {
 				);
 				for (index, test_config) in test_sequence.into_iter().enumerate() {
 					gum::info!(
-						"{}",
-						format!("Current step {}/{}", index + 1, num_steps).bright_purple()
+						"{}, {}, {}, {}, {}, {}",
+						format!("Step {}/{}", index + 1, num_steps).bright_purple(),
+						format!("n_validators = {}", test_config.n_validators).blue(),
+						format!("n_cores = {}", test_config.n_cores).blue(),
+						format!(
+							"pov_size = {} - {}",
+							test_config.min_pov_size, test_config.max_pov_size
+						)
+						.bright_black(),
+						format!("error = {}", test_config.error).bright_black(),
+						format!("latency = {:?}", test_config.latency).bright_black(),
 					);
 
 					let candidate_count = test_config.n_cores * test_config.num_blocks;
@@ -132,48 +132,30 @@ impl BenchCli {
 				}
 				return Ok(())
 			},
-			TestObjective::DataAvailabilityRead(options) => match self.network {
+			TestObjective::DataAvailabilityRead(ref options) => match self.network {
 				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
-					options.num_blocks,
-					options.fetch_from_backers,
-					options.n_validators,
-					options.n_cores,
-					(0..options.n_cores)
-						.map(|_| {
-							random_pov_size(
-								options.min_pov_size * 1024,
-								options.max_pov_size * 1024,
-							)
-						})
-						.collect(),
+					self.objective,
+					configuration.num_blocks,
+					configuration.n_validators,
+					configuration.n_cores,
+					configuration.min_pov_size,
+					configuration.max_pov_size,
 				),
 				NetworkEmulation::Degraded => TestConfiguration::degraded_network(
-					options.num_blocks,
-					options.fetch_from_backers,
-					options.n_validators,
-					options.n_cores,
-					(0..options.n_cores)
-						.map(|_| {
-							random_pov_size(
-								options.min_pov_size * 1024,
-								options.max_pov_size * 1024,
-							)
-						})
-						.collect(),
+					self.objective,
+					configuration.num_blocks,
+					configuration.n_validators,
+					configuration.n_cores,
+					configuration.min_pov_size,
+					configuration.max_pov_size,
 				),
 				NetworkEmulation::Ideal => TestConfiguration::ideal_network(
-					options.num_blocks,
-					options.fetch_from_backers,
-					options.n_validators,
-					options.n_cores,
-					(0..options.n_cores)
-						.map(|_| {
-							random_pov_size(
-								options.min_pov_size * 1024,
-								options.max_pov_size * 1024,
-							)
-						})
-						.collect(),
+					self.objective,
+					configuration.num_blocks,
+					configuration.n_validators,
+					configuration.n_cores,
+					configuration.min_pov_size,
+					configuration.max_pov_size,
 				),
 			},
 		};
