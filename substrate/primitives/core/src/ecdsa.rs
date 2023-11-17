@@ -19,6 +19,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use secp256k1::ffi::CPtr;
 use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
@@ -336,7 +337,7 @@ impl Signature {
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 		let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
-		let message = Message::from_slice(message).expect("Message is 32 bytes; qed");
+		let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
 		#[cfg(feature = "std")]
 		let context = SECP256K1;
@@ -458,7 +459,7 @@ impl Pair {
 
 	/// Sign a pre-hashed message
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
-		let message = Message::from_slice(message).expect("Message is 32 bytes; qed");
+		let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
 		#[cfg(feature = "std")]
 		let context = SECP256K1;
@@ -508,8 +509,8 @@ impl Pair {
 #[cfg(feature = "full_crypto")]
 impl Drop for Pair {
 	fn drop(&mut self) {
-		let ptr = self.secret.as_mut_ptr();
-		for off in 0..self.secret.len() {
+		let ptr = self.secret.as_mut_c_ptr();
+		for off in 0..self.secret.as_ref().len() {
 			unsafe {
 				core::ptr::write_volatile(ptr.add(off), 0);
 			}
