@@ -1933,6 +1933,78 @@
 <a href="#1933" id="1933">1933</a>
 <a href="#1934" id="1934">1934</a>
 <a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
+<a href="#1993" id="1993">1993</a>
+<a href="#1994" id="1994">1994</a>
+<a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2729,7 +2801,7 @@
 		stash: T::AccountId,
 		exposure: Exposure&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;,
 	) {
-		&lt;ErasStakers&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>current_era, <span class="kw-2">&amp;</span>stash, <span class="kw-2">&amp;</span>exposure);
+		EraInfo::&lt;T&gt;::set_exposure(current_era, <span class="kw-2">&amp;</span>stash, exposure);
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
@@ -3680,8 +3752,15 @@
 	}
 
 	<span class="kw">fn </span>is_exposed_in_era(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, era: <span class="kw-2">&amp;</span>EraIndex) -&gt; bool {
-		ErasStakers::&lt;T&gt;::iter_prefix(era).any(|(validator, exposures)| {
+		<span class="comment">// look in the non paged exposures
+		// FIXME: Can be cleaned up once non paged exposures are cleared (https://github.com/paritytech/polkadot-sdk/issues/433)
+		</span>ErasStakers::&lt;T&gt;::iter_prefix(era).any(|(validator, exposures)| {
 			validator == <span class="kw-2">*</span>who || exposures.others.iter().any(|i| i.who == <span class="kw-2">*</span>who)
+		})
+			||
+		<span class="comment">// look in the paged exposures
+		</span>ErasStakersPaged::&lt;T&gt;::iter_prefix((era,)).any(|((validator, <span class="kw">_</span>), exposure_page)| {
+			validator == <span class="kw-2">*</span>who || exposure_page.others.iter().any(|i| i.who == <span class="kw-2">*</span>who)
 		})
 	}
 	<span class="kw">fn </span>status(
@@ -3747,6 +3826,7 @@
 
 		<span class="self">Self</span>::check_nominators()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_exposures()<span class="question-mark">?</span>;
+		<span class="self">Self</span>::check_paged_exposures()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_ledgers()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_count()
 	}
@@ -3790,6 +3870,70 @@
 								.fold(Zero::zero(), |acc, x| acc + x),
 					<span class="string">&quot;wrong total exposure.&quot;</span>,
 				);
+				<span class="prelude-val">Ok</span>(())
+			})
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt;&gt;()
+	}
+
+	<span class="kw">fn </span>check_paged_exposures() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="kw">use </span>sp_staking::PagedExposureMetadata;
+		<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
+
+		<span class="comment">// Sanity check for the paged exposure of the active era.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>exposures: BTreeMap&lt;T::AccountId, PagedExposureMetadata&lt;BalanceOf&lt;T&gt;&gt;&gt; =
+			BTreeMap::new();
+		<span class="kw">let </span>era = <span class="self">Self</span>::active_era().unwrap().index;
+		<span class="kw">let </span>accumulator_default = PagedExposureMetadata {
+			total: Zero::zero(),
+			own: Zero::zero(),
+			nominator_count: <span class="number">0</span>,
+			page_count: <span class="number">0</span>,
+		};
+
+		ErasStakersPaged::&lt;T&gt;::iter_prefix((era,))
+			.map(|((validator, _page), expo)| {
+				<span class="macro">ensure!</span>(
+					expo.page_total ==
+						expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
+					<span class="string">&quot;wrong total exposure for the page.&quot;</span>,
+				);
+
+				<span class="kw">let </span>metadata = exposures.get(<span class="kw-2">&amp;</span>validator).unwrap_or(<span class="kw-2">&amp;</span>accumulator_default);
+				exposures.insert(
+					validator,
+					PagedExposureMetadata {
+						total: metadata.total + expo.page_total,
+						own: metadata.own,
+						nominator_count: metadata.nominator_count + expo.others.len() <span class="kw">as </span>u32,
+						page_count: metadata.page_count + <span class="number">1</span>,
+					},
+				);
+
+				<span class="prelude-val">Ok</span>(())
+			})
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt;&gt;()<span class="question-mark">?</span>;
+
+		exposures
+			.iter()
+			.map(|(validator, metadata)| {
+				<span class="kw">let </span>actual_overview = ErasStakersOverview::&lt;T&gt;::get(era, validator);
+
+				<span class="macro">ensure!</span>(actual_overview.is_some(), <span class="string">&quot;No overview found for a paged exposure&quot;</span>);
+				<span class="kw">let </span>actual_overview = actual_overview.unwrap();
+
+				<span class="macro">ensure!</span>(
+					actual_overview.total == metadata.total + actual_overview.own,
+					<span class="string">&quot;Exposure metadata does not have correct total exposed stake.&quot;
+				</span>);
+				<span class="macro">ensure!</span>(
+					actual_overview.nominator_count == metadata.nominator_count,
+					<span class="string">&quot;Exposure metadata does not have correct count of nominators.&quot;
+				</span>);
+				<span class="macro">ensure!</span>(
+					actual_overview.page_count == metadata.page_count,
+					<span class="string">&quot;Exposure metadata does not have correct count of pages.&quot;
+				</span>);
+
 				<span class="prelude-val">Ok</span>(())
 			})
 			.collect::&lt;<span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt;&gt;()
