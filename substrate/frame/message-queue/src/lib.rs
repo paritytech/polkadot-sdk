@@ -208,9 +208,8 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
-		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
-		QueuePausedQuery, ServiceQueues,
+		Defensive, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint,
+		ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -443,7 +442,6 @@ impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
 	fn from(book: BookState<MessageOrigin>) -> Self {
 		QueueFootprint {
 			pages: book.count,
-			active_pages: book.end.defensive_saturating_sub(book.begin),
 			storage: Footprint { count: book.message_count, size: book.size },
 		}
 	}

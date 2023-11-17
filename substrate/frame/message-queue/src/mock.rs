@@ -382,8 +382,8 @@ pub fn num_overweight_enqueued_events() -> u32 {
 		.count() as u32
 }
 
-pub fn fp(active_pages: u32, pages: u32, count: u64, size: u64) -> QueueFootprint {
-	QueueFootprint { storage: Footprint { count, size }, pages, active_pages }
+pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
+	QueueFootprint { storage: Footprint { count, size }, pages }
 }
 
 /// A random seed that can be overwritten with `MQ_SEED`.
