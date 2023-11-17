@@ -41,7 +41,7 @@ fn sending_to_bridged_chain_works() {
 		let msg = Xcm(vec![Trap(1)]);
 		assert_eq!(
 			send_xcm::<Router>((Parent, Remote::get()).into(), msg).unwrap().1,
-			(Here, 100).into()
+			Price::get()
 		);
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
@@ -68,7 +68,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 	maybe_with_topic(|| {
 		let msg = Xcm(vec![Trap(1)]);
 		let dest = (Parent, Remote::get(), Parachain(1000)).into();
-		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, (Here, 100).into());
+		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, Price::get());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
 			Parachain(1000).into(),

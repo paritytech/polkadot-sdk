@@ -306,7 +306,6 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 				WithdrawAsset(fees.clone().into()),
 				BuyExecution { fees, weight_limit: Unlimited },
 				export_instruction,
-				RefundSurplus,
 				DepositAsset { assets: All.into(), beneficiary: local_from_bridge },
 			]
 		} else {

@@ -901,7 +901,6 @@ where
 				]),
 			]),
 		},
-		RefundSurplus,
 		DepositAsset {
 			assets: Wild(All),
 			beneficiary: Location::new(1, [Parachain(1000)]),

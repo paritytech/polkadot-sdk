@@ -119,5 +119,5 @@ pub use pay::{FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, Pay
 mod controller;
 pub use controller::{
 	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
-	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
+	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };

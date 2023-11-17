@@ -1356,7 +1356,7 @@ impl<T: Config> Pallet<T> {
 				TransferType::DestinationReserve =>
 					Self::destination_reserve_fees_instructions(dest.clone(), fees, weight_limit)?,
 				TransferType::Teleport =>
-					Self::teleport_fees_instructions(dest.clone(), fees, weight_limit)?,
+					Self::teleport_fees_instructions(origin_location.clone(), dest.clone(), fees, weight_limit)?,
 				TransferType::RemoteReserve(_) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 			});
@@ -1691,10 +1691,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn teleport_fees_instructions(
+		origin: Location,
 		dest: Location,
 		fees: Asset,
 		weight_limit: WeightLimit,
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let value = (origin, vec![fees.clone()]);
+		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
+
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
 			.clone()

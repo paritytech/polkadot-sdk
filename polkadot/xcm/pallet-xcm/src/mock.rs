@@ -18,7 +18,8 @@ use codec::Encode;
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Equals, Everything, EverythingBut, Nothing, Contains
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
+		Nothing,
 	},
 	weights::Weight,
 };
@@ -338,6 +339,9 @@ pub const USDT_PARA_ID: u32 = 2003;
 // This child parachain is not configured as trusted reserve or teleport location for any assets.
 pub const OTHER_PARA_ID: u32 = 2009;
 
+// This child parachain is used for filtered/disallowed assets.
+pub const FILTERED_PARA_ID: u32 = 2010;
+
 parameter_types! {
 	pub const RelayLocation: Location = Here.into_location();
 	pub const NativeAsset: Asset = Asset {
@@ -381,7 +385,18 @@ parameter_types! {
 			[Parachain(USDT_PARA_ID)],
 		)),
 	};
-	pub AnyNetwork: Option<NetworkId> = None;
+	pub const FilteredTeleportLocation: Location = Location::new(
+		0,
+		[Parachain(FILTERED_PARA_ID)]
+	);
+	pub const FilteredTeleportAsset: Asset = Asset {
+		fun: Fungible(10),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(FILTERED_PARA_ID)],
+		)),
+	};
+	pub const AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
@@ -427,6 +442,7 @@ parameter_types! {
 	pub TrustedLocal: (AssetFilter, Location) = (All.into(), Here.into());
 	pub TrustedSystemPara: (AssetFilter, Location) = (NativeAsset::get().into(), SystemParachainLocation::get());
 	pub TrustedUsdt: (AssetFilter, Location) = (Usdt::get().into(), UsdtTeleportLocation::get());
+	pub TrustedFilteredTeleport: (AssetFilter, Location) = (FilteredTeleportAsset::get().into(), FilteredTeleportLocation::get());
 	pub TeleportUsdtToForeign: (AssetFilter, Location) = (Usdt::get().into(), ForeignReserveLocation::get());
 	pub TrustedForeign: (AssetFilter, Location) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
 	pub TrustedUsdc: (AssetFilter, Location) = (Usdc::get().into(), UsdcReserveLocation::get());
@@ -465,6 +481,7 @@ impl xcm_executor::Config for XcmConfig {
 		Case<TrustedSystemPara>,
 		Case<TrustedUsdt>,
 		Case<TeleportUsdtToForeign>,
+		Case<TrustedFilteredTeleport>,
 	);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -495,6 +512,14 @@ parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
 }
 
+pub struct XcmTeleportFiltered;
+impl Contains<(MultiLocation, Vec<MultiAsset>)> for XcmTeleportFiltered {
+	fn contains(t: &(MultiLocation, Vec<MultiAsset>)) -> bool {
+		let filtered = FilteredTeleportAsset::get();
+		t.1.iter().any(|asset| asset == &filtered)
+	}
+}
+
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -502,7 +527,7 @@ impl pallet_xcm::Config for Test {
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type XcmTeleportFilter = Everything;
+	type XcmTeleportFilter = EverythingBut<XcmTeleportFiltered>;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
