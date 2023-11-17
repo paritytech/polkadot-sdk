@@ -339,7 +339,7 @@ impl<T: Config> Pallet<T> {
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
 		let maybe_imbalance = match dest {
 			#[allow(deprecated)]
-			RewardDestination::Stash | RewardDestination::DeprecatedController =>
+			RewardDestination::Stash | RewardDestination::Controller =>
 				T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {

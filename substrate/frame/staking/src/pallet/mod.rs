@@ -1285,9 +1285,9 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller.clone()))?;
 
-			// Ensure that the `DeprecatedController` variant is not assigned.
+			// Ensure that the `Controller` variant is not assigned.
 			#[allow(deprecated)]
-			let payee_final = if payee == RewardDestination::DeprecatedController {
+			let payee_final = if payee == RewardDestination::Controller {
 				RewardDestination::Account(controller)
 			} else {
 				payee
@@ -1898,7 +1898,7 @@ pub mod pallet {
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
 			#[allow(deprecated)]
-			if Payee::<T>::get(&ledger.stash) != RewardDestination::DeprecatedController {
+			if Payee::<T>::get(&ledger.stash) != RewardDestination::Controller {
 				return Ok(Pays::Yes.into())
 			}
 

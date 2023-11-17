@@ -407,7 +407,7 @@ pub enum RewardDestination<AccountId> {
 	#[deprecated(
 		note = "Controller accounts are deprecated. This variant now behaves the same as `Stash` variant"
 	)]
-	DeprecatedController,
+	Controller,
 	/// Pay into a specified account.
 	Account(AccountId),
 	/// Receive no reward.

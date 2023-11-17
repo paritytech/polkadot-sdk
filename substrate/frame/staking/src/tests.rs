@@ -6839,8 +6839,8 @@ mod ledger {
 	fn update_payee_migration_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// migrate a `Controller` variant to `Account` variant.
-			Payee::<Test>::insert(11, RewardDestination::DeprecatedController);
-			assert_eq!(Payee::<Test>::get(&11), RewardDestination::DeprecatedController);
+			Payee::<Test>::insert(11, RewardDestination::Controller);
+			assert_eq!(Payee::<Test>::get(&11), RewardDestination::Controller);
 			assert_ok!(Staking::update_payee(RuntimeOrigin::signed(11), 11));
 			assert_eq!(Payee::<Test>::get(&11), RewardDestination::Account(11));
 
