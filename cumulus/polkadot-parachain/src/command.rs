@@ -806,7 +806,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				construct_partials!(config, |partials| cmd.run(&*config.chain_spec, &*partials.client))
+				construct_partials!(config, |partials| cmd.run(partials.client))
 			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
