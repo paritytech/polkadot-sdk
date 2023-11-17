@@ -632,6 +632,17 @@
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1239,14 +1250,25 @@
 
 		logger.init()<span class="question-mark">?</span>;
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(new_limit) = fdlimit::raise_fd_limit() {
-			<span class="kw">if </span>new_limit &lt; RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+		<span class="kw">match </span>fdlimit::raise_fd_limit() {
+			<span class="prelude-val">Ok</span>(fdlimit::Outcome::LimitRaised { to, .. }) =&gt;
+				<span class="kw">if </span>to &lt; RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+					<span class="macro">warn!</span>(
+						<span class="string">&quot;Low open file descriptor limit configured for the process. \
+						Current value: {:?}, recommended value: {:?}.&quot;</span>,
+						to, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					);
+				},
+			<span class="prelude-val">Ok</span>(fdlimit::Outcome::Unsupported) =&gt; {
+				<span class="comment">// Unsupported platform (non-Linux)
+			</span>},
+			<span class="prelude-val">Err</span>(error) =&gt; {
 				<span class="macro">warn!</span>(
-					<span class="string">&quot;Low open file descriptor limit configured for the process. \
-					Current value: {:?}, recommended value: {:?}.&quot;</span>,
-					new_limit, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					<span class="string">&quot;Failed to configure file descriptor limit for the process: \
+					{}, recommended value: {:?}.&quot;</span>,
+					error, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 				);
-			}
+			},
 		}
 
 		<span class="prelude-val">Ok</span>(())
