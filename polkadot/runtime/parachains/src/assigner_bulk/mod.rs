@@ -25,6 +25,7 @@
 //! currently active assignments.
 
 mod mock_helpers;
+mod benchmarking;
 #[cfg(test)]
 mod tests;
 
@@ -238,7 +239,8 @@ pub mod pallet {
 		///    the end of already existing ones.
 		/// - `DuplicateInsert`
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
+		//#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 5))]
 		pub fn assign_core(
 			origin: OriginFor<T>,
 			core_idx: CoreIndex,
@@ -246,8 +248,8 @@ pub mod pallet {
 			assignments: Vec<(CoreAssignment, PartsOf57600)>,
 			end_hint: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
-			//TODO: Find the desired origin if not root
-			ensure_root(origin)?;
+			let _sender = ensure_signed(origin)?;
+			//TODO: Check that sender is the broker parachain
 			Pallet::<T>::do_assign_core(core_idx, begin, assignments, end_hint)
 		}
 	}
