@@ -21,7 +21,6 @@
 #![recursion_limit = "512"]
 
 use pallet_nis::WithMaximumOf;
-use pallet_xcm::EnsureXcm;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
 	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
@@ -121,7 +120,6 @@ use governance::{
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
-use xcm_config::Broker;
 
 #[cfg(test)]
 mod tests;
@@ -977,12 +975,8 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 }
-impl parachains_assigner_bulk::Config for Runtime {
-	// FIXME: Proper weights:
-	type WeightInfo = ();
-	// type WeightInfo = weights::runtime_parachains_assigner_bulk::WeightInfo<Runtime>;
-	type ExternalBrokerOrigin = EnsureXcm<Broker>;
-}
+
+impl parachains_assigner_bulk::Config for Runtime {}
 
 impl parachains_assigner_parachains::Config for Runtime {}
 
@@ -1368,6 +1362,7 @@ construct_runtime! {
 		ParaAssignmentProvider: parachains_assigner_v1::{Pallet, Storage} = 65,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 66,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 67,
+		CoreTimeAssignmentProvider: parachains_assigner_bulk::{Pallet} = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 70,
@@ -1512,7 +1507,7 @@ pub mod migrations {
 	);
 
 	/// We are swapping out the assignment type in the scheduler for coretime.
-	struct SchedulerAssignmentMigration<T>(sp_std::marker::PhantomData<T>);
+	pub struct SchedulerAssignmentMigration<T>(sp_std::marker::PhantomData<T>);
 	impl parachains_scheduler::migration::assignment_version::AssignmentMigration
 		for SchedulerAssignmentMigration<Runtime>
 	{
