@@ -472,6 +472,16 @@ benchmarks! {
 		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Account(controller));
 	}
 
+	update_payee {
+		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, Default::default())?;
+		Payee::<T>::insert(&stash, RewardDestination::Controller);
+		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Controller);
+		whitelist_account!(controller);
+	}: _(RawOrigin::Signed(controller.clone()), controller.clone())
+	verify {
+		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Account(controller));
+	}
+
 	set_controller {
 		let (stash, ctlr) = create_unique_stash_controller::<T>(9000, 100, Default::default(), false)?;
 		// ensure `ctlr` is the currently stored controller.
