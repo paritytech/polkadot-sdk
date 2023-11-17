@@ -246,7 +246,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 				.starts_with(chain_spec::coretime::CoretimeRuntimeType::ID_PREFIX) =>
 			coretime_like_id
 				.parse::<chain_spec::coretime::CoretimeRuntimeType>()
-				.expect(",invalid value")
+				.expect("invalid value")
 				.load_config()?,
 
 		// -- Penpal
@@ -543,8 +543,7 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
-				chain_spec::coretime::CoretimeRuntimeType::Rococo |
-				chain_spec::coretime::CoretimeRuntimeType::RococoLocal => {
+				chain_spec::coretime::CoretimeRuntimeType::Rococo => {
 					let $partials = new_partial::<chain_spec::coretime::rococo::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
@@ -750,8 +749,7 @@ macro_rules! construct_async_run {
 			},
 			Runtime::Coretime(coretime_runtime_type) => {
 				match coretime_runtime_type {
-					chain_spec::coretime::CoretimeRuntimeType::Rococo |
-					chain_spec::coretime::CoretimeRuntimeType::RococoLocal => {
+					chain_spec::coretime::CoretimeRuntimeType::Rococo => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::coretime::rococo::RuntimeApi, _>(
 								&$config,
@@ -1104,8 +1102,7 @@ chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 					.map_err(Into::into),
 
 					Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
-						chain_spec::coretime::CoretimeRuntimeType::Rococo |
-						chain_spec::coretime::CoretimeRuntimeType::RococoLocal =>
+						chain_spec::coretime::CoretimeRuntimeType::Rococo =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::coretime::rococo::RuntimeApi,
 								AuraId,

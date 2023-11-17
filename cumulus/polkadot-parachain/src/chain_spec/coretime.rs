@@ -21,7 +21,6 @@ use std::{path::PathBuf, str::FromStr};
 #[derive(Debug, PartialEq)]
 pub enum CoretimeRuntimeType {
 	Rococo,
-	RococoLocal,
 	Westend,
 }
 
@@ -31,7 +30,6 @@ impl FromStr for CoretimeRuntimeType {
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
 			rococo::CORETIME_ROCOCO => Ok(CoretimeRuntimeType::Rococo),
-			rococo::CORETIME_ROCOCO_LOCAL => Ok(CoretimeRuntimeType::RococoLocal),
 			westend::CORETIME_WESTEND => Ok(CoretimeRuntimeType::Westend),
 			_ => Err(format!("Value '{}' is not configured yet", value)),
 		}
@@ -45,8 +43,6 @@ impl CoretimeRuntimeType {
 		match self {
 			CoretimeRuntimeType::Rococo =>
 				Ok(Box::new(rococo::CoretimeChainSpec::from_json_file(path)?)),
-			CoretimeRuntimeType::RococoLocal =>
-				Ok(Box::new(rococo::CoretimeChainSpec::from_json_file(path)?)),
 			CoretimeRuntimeType::Westend =>
 				Ok(Box::new(westend::CoretimeChainSpec::from_json_file(path)?)),
 		}
@@ -55,10 +51,6 @@ impl CoretimeRuntimeType {
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
 			CoretimeRuntimeType::Rococo =>
-				Ok(Box::new(rococo::CoretimeChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
-				)?)),
-			CoretimeRuntimeType::RococoLocal =>
 				Ok(Box::new(rococo::CoretimeChainSpec::from_json_bytes(
 					&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
 				)?)),
@@ -75,7 +67,6 @@ pub mod rococo {
 	use crate::chain_spec::Extensions;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
-	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
 	pub type CoretimeChainSpec =
 		sc_service::GenericChainSpec<coretime_rococo_runtime::RuntimeGenesisConfig, Extensions>;
 	pub type RuntimeApi = coretime_rococo_runtime::RuntimeApi;
