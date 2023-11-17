@@ -19,7 +19,6 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use secp256k1::ffi::CPtr;
 use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
@@ -509,6 +508,7 @@ impl Pair {
 #[cfg(feature = "full_crypto")]
 impl Drop for Pair {
 	fn drop(&mut self) {
+		use secp256k1::ffi::CPtr;
 		let ptr = self.secret.as_mut_c_ptr();
 		for off in 0..self.secret.as_ref().len() {
 			unsafe {
