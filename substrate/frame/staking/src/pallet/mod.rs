@@ -1898,9 +1898,6 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			if !Payee::<T>::contains_key(&ledger.stash) {
-				return Ok(Pays::Yes.into())
-			}
 			if Payee::<T>::get(&ledger.stash) != RewardDestination::DeprecatedController {
 				return Ok(Pays::Yes.into())
 			}
