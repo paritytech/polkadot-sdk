@@ -1,4 +1,3 @@
-#![cfg_attr(not(feature = "std"), no_std)]
 // Copyright (C) Parity Technologies (UK) Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +16,7 @@
 //!
 //! Refer to substrate FRAME contract module for more documentation.
 
+#![cfg_attr(not(feature = "std"), no_std)]
 use core::marker::PhantomData;
 use scale::Encode;
 
