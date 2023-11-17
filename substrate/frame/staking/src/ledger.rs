@@ -184,10 +184,7 @@ impl<T: Config> StakingLedger<T> {
 		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
 		Ledger::<T>::insert(controller, &self);
 
-		<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_stake_update(
-			&self.stash,
-			prev_stake,
-		);
+		T::EventListeners::on_stake_update(&self.stash, prev_stake);
 
 		Ok(())
 	}
@@ -222,13 +219,10 @@ impl<T: Config> StakingLedger<T> {
 
 		// call on validator remove or on nominator remove.
 		match crate::Pallet::<T>::status(stash).defensive_unwrap_or(StakerStatus::Idle) {
-			StakerStatus::Validator => <T::EventListeners as OnStakingUpdate<
-				T::AccountId,
-				BalanceOf<T>,
-			>>::on_validator_remove(stash),
+			StakerStatus::Validator => T::EventListeners::on_validator_remove(stash),
 			StakerStatus::Nominator(_) => {
 				let nominations = crate::Pallet::<T>::nominations(stash).unwrap_or_default();
-				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_remove(stash, nominations)
+				T::EventListeners::on_nominator_remove(stash, nominations)
 			},
 			StakerStatus::Idle => (),
 		};
