@@ -71,47 +71,12 @@ use std::{
 	time::{Duration, SystemTime},
 };
 
-// A workaround for defining a `const` that is a concatenation of other constants.
-macro_rules! concat_const {
-    ($($arg:expr),*) => {{
-        // ensure inputs to be strings
-        $(const _: &str = $arg;)*
-
-        const LEN: usize = 0 $(+ $arg.len())*;
-
-        // concatenate strings as byte slices
-        const CAT: [u8; LEN] = {
-            let mut cat = [0u8; LEN];
-            let mut _offset = 0;
-
-            $({
-                const BYTES: &[u8] = $arg.as_bytes();
-
-                let mut i = 0;
-                let len = BYTES.len();
-                while i < len {
-                    cat[_offset + i] = BYTES[i];
-                    i += 1;
-                }
-                _offset += len;
-            })*
-
-            cat
-        };
-
-		// The concatenation of two string slices is guaranteed to be valid UTF8,
-		// so are the byte slices as they have the same memory layout.
-        match std::str::from_utf8(&CAT) {
-            Ok(s) => s,
-            Err(_) => panic!("Error converting bytes to str"),
-        }
-    }}
-}
-
 const RUNTIME_PREFIX: &str = "wasmtime_v";
 const NODE_PREFIX: &str = "polkadot_v";
-const ARTIFACT_PREFIX: &str =
-	concat_const!(RUNTIME_PREFIX, RUNTIME_VERSION, "_", NODE_PREFIX, NODE_VERSION);
+
+fn artifact_prefix() -> String {
+	format!("{}{}_{}{}", RUNTIME_PREFIX, RUNTIME_VERSION, NODE_PREFIX, NODE_VERSION)
+}
 
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -135,7 +100,10 @@ impl ArtifactId {
 	pub(crate) fn path(&self, cache_path: &Path, checksum: &str) -> PathBuf {
 		let file_name = format!(
 			"{}_{:#x}_{:#x}_0x{}",
-			ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash, checksum
+			artifact_prefix(),
+			self.code_hash,
+			self.executor_params_hash,
+			checksum
 		);
 		cache_path.join(file_name)
 	}
@@ -144,7 +112,7 @@ impl ArtifactId {
 	/// Return `None` if the given file name is invalid.
 	/// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <CHECKSUM>
 	fn from_file_name(file_name: &str) -> Option<Self> {
-		let file_name = file_name.strip_prefix(ARTIFACT_PREFIX)?.strip_prefix('_')?;
+		let file_name = file_name.strip_prefix(&artifact_prefix())?.strip_prefix('_')?;
 		let parts: Vec<&str> = file_name.split('_').collect();
 
 		if let [code_hash, param_hash, _checksum] = parts[..] {
@@ -240,11 +208,6 @@ impl Artifacts {
 
 	async fn insert_and_prune(&mut self, cache_path: &Path) {
 		async fn is_corrupted(path: &Path) -> bool {
-			let file_name = path
-				.file_name()
-				.expect("path should never terminate in '..'")
-				.to_str()
-				.expect("file name must be valid UTF-8");
 			let checksum = match tokio::fs::read(path).await {
 				Ok(bytes) => blake3::hash(&bytes),
 				Err(err) => {
@@ -258,7 +221,13 @@ impl Artifacts {
 					return true
 				},
 			};
-			!file_name.ends_with(checksum.to_hex().as_str())
+
+			if let Some(file_name) = path.file_name {
+				if let Some(file_name) = file_name.to_str() {
+					return !file_name.ends_with(checksum.to_hex().as_str())
+				}
+			}
+			false
 		}
 
 		// Insert the entry into the artifacts table if it is valid.
@@ -375,6 +344,9 @@ impl Artifacts {
 	}
 
 	/// Insert an artifact with the given ID as "prepared".
+	///
+	/// This function should only be used to build the artifact table at startup with valid
+	/// artifact caches.
 	pub(crate) fn insert_prepared(
 		&mut self,
 		artifact_id: ArtifactId,
@@ -416,7 +388,7 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
-	use super::{ArtifactId, Artifacts, ARTIFACT_PREFIX, NODE_VERSION, RUNTIME_VERSION};
+	use super::{artifact_prefix as prefix, ArtifactId, Artifacts, NODE_VERSION, RUNTIME_VERSION};
 	use polkadot_primitives::ExecutorParamsHash;
 	use rand::Rng;
 	use sp_core::H256;
@@ -434,7 +406,7 @@ mod tests {
 	}
 
 	fn file_name(code_hash: &str, param_hash: &str, checksum: &str) -> String {
-		format!("{}_0x{}_0x{}_0x{}", ARTIFACT_PREFIX, code_hash, param_hash, checksum)
+		format!("{}_0x{}_0x{}_0x{}", prefix(), code_hash, param_hash, checksum)
 	}
 
 	fn create_artifact(
@@ -481,10 +453,7 @@ mod tests {
 
 	#[test]
 	fn artifact_prefix() {
-		assert_eq!(
-			ARTIFACT_PREFIX,
-			format!("wasmtime_v{}_polkadot_v{}", RUNTIME_VERSION, NODE_VERSION)
-		);
+		assert_eq!(prefix(), format!("wasmtime_v{}_polkadot_v{}", RUNTIME_VERSION, NODE_VERSION));
 	}
 
 	#[test]
@@ -533,29 +502,28 @@ mod tests {
 		let cache_dir = crate::worker_intf::tmppath("test-cache").await.unwrap();
 		fs::create_dir_all(&cache_dir).unwrap();
 
-		// 6 invalid
-
 		// invalid prefix
 		create_rand_artifact(&cache_dir, "");
 		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v");
 		create_rand_artifact(&cache_dir, "wasmtime_v8.0.0_polkadot_v1.0.0");
 
+		let prefix = prefix();
+
 		// no checksum
-		create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
+		create_rand_artifact(&cache_dir, &prefix);
 
 		// invalid hashes
-		let (path, checksum) = create_artifact(&cache_dir, ARTIFACT_PREFIX, "000", "000001");
+		let (path, checksum) = create_artifact(&cache_dir, &prefix, "000", "000001");
 		let new_path = concluded_path(&path, &checksum);
 		fs::rename(&path, &new_path).unwrap();
 
 		// checksum reversed
-		let (path, checksum) = create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
+		let (path, checksum) = create_rand_artifact(&cache_dir, &prefix);
 		let new_path = concluded_path(&path, checksum.chars().rev().collect::<String>().as_str());
 		fs::rename(&path, &new_path).unwrap();
 
-		// 1 valid
-
-		let (path, checksum) = create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
+		// valid
+		let (path, checksum) = create_rand_artifact(&cache_dir, &prefix);
 		let new_path = concluded_path(&path, &checksum);
 		fs::rename(&path, &new_path).unwrap();
 
