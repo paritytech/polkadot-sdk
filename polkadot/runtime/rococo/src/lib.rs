@@ -1536,7 +1536,7 @@ pub mod migrations {
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 		fn on_runtime_upgrade() -> Weight {
 			if System::last_runtime_upgrade_spec_version() > 103001 {
-				log::warn!("Skipping session keys upgrade: already applied");
+				log::info!("Skipping session keys upgrade: already applied");
 			}
 			log::trace!("Upgrading session keys");
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);

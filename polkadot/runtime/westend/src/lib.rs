@@ -1570,7 +1570,7 @@ pub mod migrations {
 			if System::last_runtime_upgrade_spec_version() > 103000 {
 				log::warn!("Skipping session keys upgrade: already applied");
 			}
-			log::trace!("Upgrading session keys");
+			log::info!("Upgrading session keys");
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
 			Perbill::from_percent(50) * BlockWeights::get().max_block
 		}
