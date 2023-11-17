@@ -296,7 +296,14 @@ pub struct RunCmd {
 	#[arg(long, conflicts_with = "validator")]
 	pub collator: bool,
 
-	/// EXPERIMENTAL: Specify an URL to a relay chain full node to communicate with.
+	/// Creates a node that uses fewer resources by retrieving relay chain data from a remote node.
+	/// The provided URLs should point to RPC endpoints of the relay chain.
+	///
+	/// This node connects to the remote nodes following the order they were specified in. If the
+	/// connection to one fails, it attempts to connect to the next in the list.
+	///
+	/// Note: This option doesn't stop the node from connecting to the relay chain network but
+	/// reduces bandwidth use.
 	#[arg(
 		long,
 		value_parser = validate_relay_chain_url,
