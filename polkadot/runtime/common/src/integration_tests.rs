@@ -576,7 +576,6 @@ fn para_upgrade_initiated_by_manager_works() {
 		let para_1 = LOWEST_PUBLIC_ID;
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
-		let start_block = System::block_number();
 
 		// User 1 will own parachains
 		let free_balance = 1_000_000_000;

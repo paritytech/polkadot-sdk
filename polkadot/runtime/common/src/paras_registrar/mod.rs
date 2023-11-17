@@ -64,6 +64,15 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 	}
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
+struct RefundInfo<Balance> {
+	/// Potential refund that is awaiting the code upgrade to successfully execute. 
+	pending: Balance,
+	/// Refund for reducing the validation code size. Refund becomes 'active' once the upgrade
+	/// executes successfully.
+	active: Balance,
+}
+
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -216,6 +225,12 @@ pub mod pallet {
 	/// The next free `ParaId`.
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
+
+	/// All the pending and active refunds of a parachain.
+	///
+	/// A parachain is eligable for a refund whenever it reduces its associated validation code.
+	#[pallet::storage]
+	pub type Refunds<T: Config> = StorageMap<_, Twox64Concat, ParaId, RefundInfo<BalanceOf<T>>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -680,6 +695,10 @@ impl<T: Config> Pallet<T> {
 		new_code: ValidationCode,
 		fee_payer: Option<T::AccountId>,
 	) -> DispatchResult {
+		// Before doing anything we ensure that a code upgrade is allowed at the moment for the specific
+		// parachain.
+		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
+
 		if let Some(payer) = fee_payer {
 			ensure!(paras::Pallet::<T>::para_head(para).is_some(), Error::<T>::NotRegistered);
 			let head = paras::Pallet::<T>::para_head(para)
@@ -695,16 +714,24 @@ impl<T: Config> Pallet<T> {
 				.deposit;
 
 			if current_deposit > new_deposit {
-				// In case the existing deposit exceeds the required amount (due to changes in the
-				// pallet's configuration), any excess deposit will be removed.
+				// In case the existing deposit exceeds the required amount due to validation code reduction,
+				// the excess deposit will be returned to the caller.
+
+				// The reason why the deposit is not instantly refunded is because schedule a code upgrade
+				// doesn't guarante the success of an upgrade.
+				//
+				// If we returned the depoist here a possible attack scenario would be to register the
+				//  validation code of a parachain and then schedule a code upgrade to set the code to
+				// an empty blob. In such case the pre-checking process would fail so the old code would
+				// remain on-chain even though there is no deposit to cover it.
 				let rebate = current_deposit.saturating_sub(new_deposit);
-				<T as Config>::Currency::unreserve(&payer, rebate);
+				let mut refund = Refunds::<T>::get(para);
+				refund.pending = rebate.saturating_add(refund.pending);
+				Refunds::<T>::insert(para, refund);
 			} else if current_deposit < new_deposit {
 				// An additional deposit is required to cover for the new validation code which has
 				// a greater size compared to the old one.
 
-				// NOTE: what if the upgrade fails? This should be removed or moved to another
-				// place.
 				let excess = new_deposit.saturating_sub(current_deposit);
 				<T as Config>::Currency::reserve(&payer, excess)?;
 			}

@@ -2130,7 +2130,7 @@ impl<T: Config> Pallet<T> {
 
 	/// If a candidate from the specified parachain were submitted at the current block, this
 	/// function returns if that candidate passes the acceptance criteria.
-	pub(crate) fn can_upgrade_validation_code(id: ParaId) -> bool {
+	pub fn can_upgrade_validation_code(id: ParaId) -> bool {
 		FutureCodeHash::<T>::get(&id).is_none() && UpgradeRestrictionSignal::<T>::get(&id).is_none()
 	}
 
