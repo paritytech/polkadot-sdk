@@ -16,9 +16,9 @@
 
 use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 use cumulus_primitives_core::ParaId;
+use parachains_common::Balance as CoretimeBalance;
 use sc_chain_spec::ChainSpec;
 use sp_core::sr25519;
-
 use std::{path::PathBuf, str::FromStr};
 
 /// Collects all supported Coretime configurations.
@@ -67,6 +67,8 @@ impl CoretimeRuntimeType {
 				"Coretime Rococo Local",
 				"rococo-local",
 				ParaId::new(1004),
+				Some("Bob".to_string()),
+				|_| (),
 			))),
 			CoretimeRuntimeType::Westend =>
 				Ok(Box::new(westend::CoretimeChainSpec::from_json_bytes(
@@ -91,13 +93,17 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::Extensions;
+	use super::{
+		get_account_id_from_seed, get_collator_keys_from_seed, sr25519, CoretimeBalance, ParaId,
+	};
+	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
+	const BRIDGE_HUB_ROCOCO_ED: CoretimeBalance =
+		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 	pub type CoretimeChainSpec =
 		sc_service::GenericChainSpec<coretime_rococo_runtime::RuntimeGenesisConfig, Extensions>;
 	pub type RuntimeApi = coretime_rococo_runtime::RuntimeApi;
