@@ -31,6 +31,9 @@ const PAGE_SIZE: usize = 64 * 1024;
 
 static mut INNER: Option<InnerAlloc> = None;
 
+#[cfg(target_arch = "riscv32")]
+static mut RISCV_HEAP: [u8; 1024 * 1024] = [0; 1024 * 1024];
+
 /// A bump allocator suitable for use in a Wasm environment.
 pub struct BumpAllocator;
 
@@ -148,15 +151,14 @@ impl InnerAlloc {
                 Some(prev_page * PAGE_SIZE)
             }
         } else if #[cfg(target_arch = "riscv32")] {
-            const fn heap_start() -> usize {
-                // Placeholder value until we specified our riscv VM
-                0x7000_0000
+            fn heap_start() -> usize {
+                unsafe {
+                    RISCV_HEAP.as_mut_ptr() as usize
+                }
             }
 
-            const fn heap_end() -> usize {
-                // Placeholder value until we specified our riscv VM
-                // Let's just assume a cool megabyte of mem for now
-                0x7000_0400
+            fn heap_end() -> usize {
+                Self::heap_start() + unsafe { RISCV_HEAP.len() }
             }
 
             fn request_pages(&mut self, _pages: usize) -> Option<usize> {
@@ -552,3 +554,4 @@ mod fuzz_tests {
         TestResult::passed()
     }
 }
+
