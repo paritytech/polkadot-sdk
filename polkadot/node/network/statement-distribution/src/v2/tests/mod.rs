@@ -377,6 +377,97 @@ impl TestLeaf {
 	}
 }
 
+struct TestSetupInfo {
+	local_validator: TestLocalValidator,
+	local_group: GroupIndex,
+	local_para: ParaId,
+	other_group: GroupIndex,
+	other_para: ParaId,
+	relay_parent: Hash,
+	test_leaf: TestLeaf,
+	peers: Vec<PeerId>,
+	validators: Vec<ValidatorIndex>,
+}
+
+struct TestPeerToConnect {
+	local: bool,
+	relay_parent_in_view: bool,
+}
+
+// TODO: Generalize, use in more places.
+/// Sets up some test info that is common to most tests, and connects the requested peers.
+async fn setup_test_and_connect_peers(
+	state: &TestState,
+	overseer: &mut VirtualOverseer,
+	validator_count: usize,
+	group_size: usize,
+	peers_to_connect: &[TestPeerToConnect],
+) -> TestSetupInfo {
+	let local_validator = state.local.clone().unwrap();
+	let local_group = local_validator.group_index.unwrap();
+	let local_para = ParaId::from(local_group.0);
+
+	let other_group = next_group_index(local_group, validator_count, group_size);
+	let other_para = ParaId::from(other_group.0);
+
+	let relay_parent = Hash::repeat_byte(1);
+	let test_leaf = state.make_dummy_leaf(relay_parent);
+
+	// TODO: change based on `LocalRole`?
+	let our_group_validators = state.group_validators(local_group, true);
+	let outside_group_validators = state.group_validators(other_group, true);
+
+	let mut peers = vec![];
+	let mut validators = vec![];
+	let mut our_group_idx = 0;
+	let mut outside_group_idx = 0;
+	for peer_to_connect in peers_to_connect {
+		let peer = PeerId::random();
+		peers.push(peer);
+
+		let v = if peer_to_connect.local {
+			let v = our_group_validators[our_group_idx];
+			our_group_idx += 1;
+			v
+		} else {
+			let v = outside_group_validators[outside_group_idx];
+			outside_group_idx += 1;
+			v
+		};
+		validators.push(v);
+
+		connect_peer(
+			overseer,
+			peer.clone(),
+			Some(vec![state.discovery_id(v)].into_iter().collect()),
+		)
+		.await;
+
+		if peer_to_connect.relay_parent_in_view {
+			send_peer_view_change(overseer, peer.clone(), view![relay_parent]).await;
+		}
+	}
+
+	activate_leaf(overseer, &test_leaf, &state, true).await;
+
+	answer_expected_hypothetical_depth_request(overseer, vec![], Some(relay_parent), false).await;
+
+	// Send gossip topology.
+	send_new_topology(overseer, state.make_dummy_topology()).await;
+
+	TestSetupInfo {
+		local_validator,
+		local_group,
+		local_para,
+		other_group,
+		other_para,
+		test_leaf,
+		relay_parent,
+		peers,
+		validators,
+	}
+}
+
 async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,

@@ -44,6 +44,8 @@ fn backed_candidate_leads_to_advertisement() {
 		let local_group_index = local_validator.group_index.unwrap();
 		let local_para = ParaId::from(local_group_index.0);
 
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
+
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
 		let (candidate, pvd) = make_candidate(
@@ -57,8 +59,7 @@ fn backed_candidate_leads_to_advertisement() {
 		let candidate_hash = candidate.hash();
 
 		let other_group_validators = state.group_validators(local_group_index, true);
-		let target_group_validators =
-			state.group_validators((local_group_index.0 + 1).into(), true);
+		let target_group_validators = state.group_validators(other_group, true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 		let v_c = target_group_validators[0];
@@ -658,6 +659,468 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 						)) if *ack == expected_ack
 					);
 				}
+			);
+		}
+
+		overseer
+	});
+}
+
+#[test]
+fn receive_ack_for_unconfirmed_candidate() {
+	let validator_count = 6;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	test_harness(config, |state, mut overseer| async move {
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: true },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: false },
+		];
+		let TestSetupInfo {
+			local_validator,
+			local_group,
+			local_para,
+			relay_parent,
+			test_leaf,
+			peers,
+			validators,
+			..
+		} = setup_test_and_connect_peers(
+			&state,
+			&mut overseer,
+			validator_count,
+			group_size,
+			&peers_to_connect,
+		)
+		.await;
+		let [peer_a, peer_b, peer_c, peer_d] = peers[..] else { panic!() };
+		let [v_a, v_b, v_c, v_d] = validators[..] else { panic!() };
+
+		let (candidate, pvd) = make_candidate(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let ack = BackedCandidateAcknowledgement {
+			candidate_hash,
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		// Receive an acknowledgement from a peer before the candidate is confirmed.
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_c.clone(),
+				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack.clone()),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_c && r == COST_UNEXPECTED_ACKNOWLEDGEMENT_UNKNOWN_CANDIDATE.into()
+			);
+		}
+
+		overseer
+	});
+}
+
+// Test receiving unexpected and expected acknowledgements for a locally confirmed candidate.
+#[test]
+fn received_acknowledgements_for_locally_confirmed() {
+	let validator_count = 6;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	test_harness(config, |state, mut overseer| async move {
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: true },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: false },
+		];
+		let TestSetupInfo {
+			local_validator,
+			local_group,
+			local_para,
+			relay_parent,
+			test_leaf,
+			peers,
+			validators,
+			..
+		} = setup_test_and_connect_peers(
+			&state,
+			&mut overseer,
+			validator_count,
+			group_size,
+			&peers_to_connect,
+		)
+		.await;
+		let [peer_a, peer_b, peer_c, peer_d] = peers[..] else { panic!() };
+		let [v_a, v_b, v_c, v_d] = validators[..] else { panic!() };
+
+		let (candidate, pvd) = make_candidate(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let ack = BackedCandidateAcknowledgement {
+			candidate_hash,
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		// Confirm the candidate locally so that we don't send out requests.
+		{
+			let statement = state
+				.sign_full_statement(
+					local_validator.validator_index,
+					Statement::Seconded(candidate.clone()),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+					pvd.clone(),
+				)
+				.clone();
+
+			overseer
+				.send(FromOrchestra::Communication {
+					msg: StatementDistributionMessage::Share(relay_parent, statement),
+				})
+				.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
+			);
+
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		}
+
+		// Receive an unexpected acknowledgement from peer D.
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_d.clone(),
+				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack.clone()),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_d && r == COST_UNEXPECTED_MANIFEST_DISALLOWED.into()
+			);
+		}
+
+		// Send statement from peer B.
+		{
+			let statement = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_b.clone(),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_b && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
+			);
+		}
+
+		// Send Backed notification.
+		{
+			overseer
+				.send(FromOrchestra::Communication {
+					msg: StatementDistributionMessage::Backed(candidate_hash),
+				})
+				.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages:: NetworkBridgeTx(
+					NetworkBridgeTxMessage::SendValidationMessage(
+						peers,
+						Versioned::V2(
+							protocol_v2::ValidationProtocol::StatementDistribution(
+								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+							),
+						),
+					)
+				) => {
+					assert_eq!(peers, vec![peer_c]);
+					assert_eq!(manifest, BackedCandidateManifest {
+						relay_parent,
+						candidate_hash,
+						group_index: local_group,
+						para_id: local_para,
+						parent_head_data_hash: pvd.parent_head.hash(),
+						statement_knowledge: StatementFilter {
+							seconded_in_group: bitvec::bitvec![u8, Lsb0; 0, 1, 1],
+							validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+						},
+					});
+				}
+			);
+
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		}
+
+		// Receive an unexpected acknowledgement from peer D.
+		//
+		// It still shouldn't know this manifest.
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_d.clone(),
+				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack.clone()),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_d && r == COST_UNEXPECTED_MANIFEST_DISALLOWED.into()
+			);
+		}
+
+		// Receive an acknowledgement from peer C.
+		//
+		// It's OK, we know they know it because we sent them a manifest.
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_c.clone(),
+				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack.clone()),
+			)
+			.await;
+		}
+
+		overseer
+	});
+}
+
+// Test receiving unexpected acknowledgements for a candidate confirmed in a different group.
+#[test]
+fn received_acknowledgements_for_externally_confirmed() {
+	let validator_count = 6;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	let relay_parent = Hash::repeat_byte(1);
+
+	test_harness(config, |state, mut overseer| async move {
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: true },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+		];
+		let TestSetupInfo {
+			local_group,
+			local_para,
+			other_group,
+			other_para,
+			relay_parent,
+			test_leaf,
+			peers,
+			validators,
+			..
+		} = setup_test_and_connect_peers(
+			&state,
+			&mut overseer,
+			validator_count,
+			group_size,
+			&peers_to_connect,
+		)
+		.await;
+		let [peer_a, peer_b, peer_c, peer_d, peer_e] = peers[..] else { panic!() };
+		let [v_a, v_b, v_c, v_d, v_e] = validators[..] else { panic!() };
+
+		let (candidate, pvd) = make_candidate(
+			relay_parent,
+			1,
+			other_para,
+			test_leaf.para_data(other_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let manifest = BackedCandidateManifest {
+			relay_parent,
+			candidate_hash,
+			group_index: other_group,
+			para_id: other_para,
+			parent_head_data_hash: pvd.parent_head.hash(),
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 0, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		let statement_c = state
+			.sign_statement(
+				v_c,
+				CompactStatement::Seconded(candidate_hash),
+				&SigningContext { parent_hash: relay_parent, session_index: 1 },
+			)
+			.as_unchecked()
+			.clone();
+		let statement_d = state
+			.sign_statement(
+				v_d,
+				CompactStatement::Seconded(candidate_hash),
+				&SigningContext { parent_hash: relay_parent, session_index: 1 },
+			)
+			.as_unchecked()
+			.clone();
+
+		// Receive an advertisement from C, confirming the candidate.
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_c.clone(),
+				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+					manifest.clone(),
+				),
+			)
+			.await;
+
+			// Should send a request to C.
+			let statements = vec![
+				statement_c.clone(),
+				statement_d.clone(),
+				state
+					.sign_statement(
+						v_e,
+						CompactStatement::Seconded(candidate_hash),
+						&SigningContext { parent_hash: relay_parent, session_index: 1 },
+					)
+					.as_unchecked()
+					.clone(),
+			];
+			handle_sent_request(
+				&mut overseer,
+				peer_c,
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
+			);
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
+			);
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
+			);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
+			);
+
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		}
+
+		let ack = BackedCandidateAcknowledgement {
+			candidate_hash,
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		// Receive an unexpected acknowledgement from peer D.
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_d.clone(),
+				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack.clone()),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_d && r == COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN.into()
+			);
+		}
+
+		// Receive an unexpected acknowledgement from peer A.
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack.clone()),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == COST_UNEXPECTED_MANIFEST_DISALLOWED.into()
 			);
 		}
 
