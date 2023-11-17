@@ -325,7 +325,10 @@ mod list {
 			assert!(node.is_misplaced(20));
 
 			// move it to bag 20.
-			assert_eq!(List::<Runtime>::update_position_for(node.clone(), 20), Some((10, 20)));
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), 20, None),
+				Some((10, 20))
+			);
 			assert_eq!(Node::<Runtime>::get(&1).unwrap().score, 20);
 
 			assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![1]), (1_000, vec![2, 3, 4])]);
@@ -333,22 +336,114 @@ mod list {
 			// get the new updated node; try and update the position with no change in score.
 			let node = Node::<Runtime>::get(&1).unwrap();
 			assert_storage_noop!(assert_eq!(
-				List::<Runtime>::update_position_for(node.clone(), 20),
+				List::<Runtime>::update_position_for(node.clone(), 20, None),
 				None
 			));
 
 			// then move it to bag 1_000 by giving it score 500.
-			assert_eq!(List::<Runtime>::update_position_for(node.clone(), 500), Some((20, 1_000)));
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), 500, None),
+				Some((20, 1_000))
+			);
 			assert_eq!(Node::<Runtime>::get(&1).unwrap().score, 500);
 			assert_eq!(List::<Runtime>::get_bags(), vec![(1_000, vec![2, 3, 4, 1])]);
 
 			// moving within that bag again is a noop
 			let node = Node::<Runtime>::get(&1).unwrap();
-			assert_eq!(List::<Runtime>::update_position_for(node.clone(), 750), None);
+			assert_eq!(List::<Runtime>::update_position_for(node.clone(), 750, None), None);
 			assert_eq!(Node::<Runtime>::get(&1).unwrap().score, 750);
-			assert_eq!(List::<Runtime>::update_position_for(node.clone(), 1_000), None,);
+			assert_eq!(List::<Runtime>::update_position_for(node.clone(), 1_000, None), None,);
 			assert_eq!(Node::<Runtime>::get(&1).unwrap().score, 1_000);
 		});
+	}
+
+	#[test]
+	fn update_position_enforcing_rebag_works() {
+		ExtBuilder::default().add_ids(vec![(5, 15), (6, 20)]).build_and_execute(|| {
+			// check init bags state.
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (20, vec![5, 6]), (1_000, vec![2, 3, 4])]
+			);
+
+			// given a correctly placed account 2 at bag 1_000.
+			let node = Node::<Runtime>::get(&2).unwrap();
+			assert_eq!(node.score, 1000);
+			// node is misplaced if we consider a rebag as if it had 0 score.
+			assert!(node.is_misplaced(0));
+
+			// move it to tail bag (10), although the new score remains the same (1000).
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), node.score, Some(0)),
+				Some((1000, 10))
+			);
+			assert_eq!(Node::<Runtime>::get(&2).unwrap().score, 1000);
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1, 2]), (20, vec![5, 6]), (1_000, vec![3, 4])]
+			);
+
+			// now, move the node 5 which is currently part of the bag 20 to the bag 1_000, without
+			// changing his real score.
+			let node = Node::<Runtime>::get(&5).unwrap();
+			assert_eq!(node.score, 15);
+			// node is misplaced if considering the bag we want to rebag it to.
+			assert!(node.is_misplaced(1_000));
+
+			// rebag 5 *as if* it has score 900, without changing its real score.
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), node.score, Some(900)),
+				Some((20, 1000))
+			);
+			assert_eq!(Node::<Runtime>::get(&5).unwrap().score, 15);
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1, 2]), (20, vec![6]), (1_000, vec![3, 4, 5])]
+			);
+
+			// now, rebag 4 *as if* it has score 20, withough changing its real score.
+			let node = Node::<Runtime>::get(&4).unwrap();
+			assert_eq!(node.score, 1000);
+			// node is misplaced if considering the bag we want to rebag it to.
+			assert!(node.is_misplaced(20));
+
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), node.score, Some(20)),
+				Some((1000, 20))
+			);
+			assert_eq!(Node::<Runtime>::get(&4).unwrap().score, 1000);
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1, 2]), (20, vec![6, 4]), (1_000, vec![3, 5])]
+			);
+
+			// finally, let's rebag all displaced nodes back to their correct bags.
+			let node = Node::<Runtime>::get(&2).unwrap();
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), node.score, None),
+				Some((10, 1000))
+			);
+
+			let node = Node::<Runtime>::get(&5).unwrap();
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), node.score, None),
+				Some((1000, 20))
+			);
+
+			let node = Node::<Runtime>::get(&4).unwrap();
+			assert_eq!(
+				List::<Runtime>::update_position_for(node.clone(), node.score, None),
+				Some((20, 1000))
+			);
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (20, vec![6, 5]), (1_000, vec![3, 2, 4])]
+			);
+		})
 	}
 
 	#[test]
@@ -391,6 +486,19 @@ mod list {
 
 			let non_existent_ids = vec![&42, &666, &13];
 			assert!(non_existent_ids.iter().all(|id| !List::<Runtime>::contains(id)));
+		})
+	}
+
+	#[test]
+	fn put_in_fron_of_stale_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// set node 2 as stale.
+			set_stale(2);
+			assert!(StaleNodes::get().contains(&2));
+			assert_eq!(StakingMock::convert(2), NodeState::Stale);
+
+			// trying to move to front a stale node will fail.
+			assert_noop!(List::<Runtime>::put_in_front_of(&11, &2), ListError::StaleNode);
 		})
 	}
 

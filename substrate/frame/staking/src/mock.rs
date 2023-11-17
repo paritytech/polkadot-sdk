@@ -31,12 +31,13 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use pallet_bags_list::NodeState as BagsNodeState;
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	testing::UintAuthorityId,
-	traits::{IdentityLookup, Zero},
+	traits::{Convert, IdentityLookup, Zero},
 	BuildStorage,
 };
 use sp_staking::{
@@ -255,8 +256,16 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type WeightInfo = ();
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
+	type StateProvider = AlwaysActive;
 	type BagThresholds = VoterBagThresholds;
 	type Score = VoteWeight;
+}
+
+pub struct AlwaysActive;
+impl Convert<AccountId, BagsNodeState> for AlwaysActive {
+	fn convert(_id: AccountId) -> BagsNodeState {
+		BagsNodeState::Active
+	}
 }
 
 type TargetBagsListInstance = pallet_bags_list::Instance2;
@@ -264,6 +273,7 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
+	type StateProvider = Staking;
 	type BagThresholds = TargetBagThresholds;
 	type Score = Balance;
 }

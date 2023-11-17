@@ -125,7 +125,7 @@ pub mod example {}
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_system::ensure_signed;
-use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
+use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, Convert, StaticLookup};
 use sp_std::prelude::*;
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
@@ -142,7 +142,7 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
-pub use list::{notional_bag_for, Bag, List, ListError, Node};
+pub use list::{notional_bag_for, Bag, List, ListError, Node, NodeState};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -184,6 +184,17 @@ pub mod pallet {
 
 		/// Something that provides the scores of ids.
 		type ScoreProvider: ScoreProvider<Self::AccountId, Score = Self::Score>;
+
+		/// Something that provides the state of ids.
+		///
+		/// An id may be in one of two states:
+		/// - `NodeState::Active`: in which case the node may be rebagged when the score is
+		/// updated.
+		/// - `NodeState::Stale`: in which case the node is not rebagged based on its current
+		/// score. A stale node must *always* be at the end of the tail, which must enforced by the
+		/// [`SortedListProvider`] implementor. Although a stale node is rebagged to the tail of
+		/// the list, the node's score should be updated.
+		type StateProvider: Convert<Self::AccountId, NodeState>;
 
 		/// The list of thresholds separating the various bags.
 		///
@@ -301,7 +312,7 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
-			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
+			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score, None)
 				.map_err::<Error<T, I>, _>(Into::into)?;
 			Ok(())
 		}
@@ -379,10 +390,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn do_rebag(
 		account: &T::AccountId,
 		new_score: T::Score,
+		rebag_as_score: Option<T::Score>,
 	) -> Result<Option<(T::Score, T::Score)>, ListError> {
 		// If no voter at that node, don't do anything. the caller just wasted the fee to call this.
 		let node = list::Node::<T, I>::get(&account).ok_or(ListError::NodeNotFound)?;
-		let maybe_movement = List::update_position_for(node, new_score);
+		let maybe_movement = List::update_position_for(node, new_score, rebag_as_score);
 		if let Some((from, to)) = maybe_movement {
 			Self::deposit_event(Event::<T, I>::Rebagged { who: account.clone(), from, to });
 		};
@@ -429,7 +441,14 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
+		let score_as = match T::StateProvider::convert(id.clone()) {
+			NodeState::Active => None,
+			// if the node is stale, try to rebag node to tail of the list without changing its
+			// score.
+			NodeState::Stale => Some(0u32.into()),
+		};
+
+		Pallet::<T, I>::do_rebag(id, new_score, score_as).map(|_| ())
 	}
 
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
@@ -499,5 +518,11 @@ impl<T: Config<I>, I: 'static> ScoreProvider<T::AccountId> for Pallet<T, I> {
 				}
 			})
 		}
+	}
+}
+
+impl<T: Config<I>, I: 'static> Convert<T::AccountId, NodeState> for Pallet<T, I> {
+	fn convert(_id: T::AccountId) -> NodeState {
+		Default::default()
 	}
 }

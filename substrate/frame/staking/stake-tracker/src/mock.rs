@@ -21,7 +21,8 @@ use crate::{self as pallet_stake_tracker, *};
 
 use frame_election_provider_support::{ScoreProvider, VoteWeight};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use sp_runtime::BuildStorage;
+use pallet_bags_list::NodeState;
+use sp_runtime::{traits::Convert, BuildStorage};
 use sp_staking::{Stake, StakingInterface};
 
 pub(crate) type AccountId = u64;
@@ -82,6 +83,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = StakingMock;
+	type StateProvider = StakingMock;
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
 }
@@ -91,6 +93,7 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
+	type StateProvider = StakingMock;
 	type BagThresholds = BagThresholds;
 	type Score = <StakingMock as StakingInterface>::Balance;
 }
@@ -115,6 +118,16 @@ impl ScoreProvider<AccountId> for StakingMock {
 
 	fn set_score_of(_: &AccountId, _: Self::Score) {
 		unreachable!();
+	}
+}
+
+impl Convert<AccountId, NodeState> for StakingMock {
+	fn convert(id: AccountId) -> NodeState {
+		match Self::status(&id) {
+			Ok(StakerStatus::Idle) => NodeState::Stale,
+			Err(err) => panic!("status of a staker should exist: {:?}", err),
+			_ => NodeState::Active,
+		}
 	}
 }
 

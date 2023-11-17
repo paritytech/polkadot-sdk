@@ -28,6 +28,7 @@ pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
 ]}
 pallet-authorship = { path = "../authorship", default-features = false}
+pallet-bags-list = { path = "../bags-list" }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false}
 log = { version = "0.4.17", default-features = false }
@@ -44,7 +45,6 @@ pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-stake-tracker = { path = "./stake-tracker" }
 pallet-staking-reward-curve = { path = "reward-curve" }
-pallet-bags-list = { path = "../bags-list" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }

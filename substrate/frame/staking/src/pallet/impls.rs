@@ -33,6 +33,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use pallet_bags_list::NodeState as BagsNodeState;
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
@@ -1674,6 +1675,15 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	#[cfg(feature = "runtime-benchmarks")]
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
+	}
+}
+
+impl<T: Config> Convert<T::AccountId, BagsNodeState> for Pallet<T> {
+	fn convert(id: T::AccountId) -> BagsNodeState {
+		match Self::status(&id) {
+			Ok(StakerStatus::Validator) | Ok(StakerStatus::Nominator(_)) => BagsNodeState::Active,
+			Ok(StakerStatus::Idle) | Err(_) => BagsNodeState::Stale,
+		}
 	}
 }
 

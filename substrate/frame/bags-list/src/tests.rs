@@ -685,6 +685,56 @@ mod sorted_list_provider {
 	}
 
 	#[test]
+	fn on_update_stale_node_works() {
+		ExtBuilder::default().add_ids(vec![(42, 20)]).build_and_execute(|| {
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (20, vec![42]), (1_000, vec![2, 3, 4])]
+			);
+
+			let initial_score = BagsList::score(&2);
+			assert_eq!(initial_score, 1000);
+
+			// set node 2 as stale.
+			set_stale(2);
+			assert!(StaleNodes::get().contains(&2));
+			assert_eq!(StakingMock::convert(2), NodeState::Stale);
+
+			// not that 2 is stale, let's try to update its score to `initial_score` * 2.
+			assert_ok!(BagsList::on_update(&2, initial_score * 2));
+
+			// the score was updated as expected.
+			assert_eq!(BagsList::score(&2), initial_score * 2);
+
+			// however, the node was rebagged to the tail of the list, since the ``
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1, 2]), (20, vec![42]), (1_000, vec![3, 4])]
+			);
+
+			// and the id position is updated in the list is the expected.
+			assert_eq!(BagsList::iter().collect::<Vec<_>>(), vec![3, 4, 42, 1, 2]);
+
+			// now, let's set node 2 as active again.
+			set_active(2);
+			assert!(!StaleNodes::get().contains(&2));
+			assert_eq!(StakingMock::convert(2), NodeState::Active);
+
+			// if we try to update the node's score, it works as expected.
+			assert_ok!(BagsList::on_update(&2, initial_score * 3));
+			assert_eq!(BagsList::score(&2), initial_score * 3);
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (20, vec![42]), (1_000, vec![3, 4]), (10_000, vec![2])]
+			);
+
+			// and the id position is updated in the list is the expected.
+			assert_eq!(BagsList::iter().collect::<Vec<_>>(), vec![2, 3, 4, 42, 1]);
+		})
+	}
+
+	#[test]
 	fn on_remove_works() {
 		let ensure_left = |id, counter| {
 			assert!(!ListNodes::<Runtime>::contains_key(id));

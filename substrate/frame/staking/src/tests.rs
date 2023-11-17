@@ -7343,6 +7343,29 @@ mod stake_tracker {
 	}
 
 	#[test]
+	fn chill_and_validate_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
+
+			// 101 nominates 11.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+
+			// score before chilling and re-validate.
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 1500);
+
+			// 11 chill and re-set intention to validate.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
+			//assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 0); // PROBLEM??
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), Default::default()));
+
+			// 101 still nominates 11, as expected.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+			// and the target score of 11 is the same as before chilling.
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 1500);
+		})
+	}
+
+	#[test]
 	fn kick_works() {
 		// Test case: kicking a nominator affects the target list score and rebagging may happen.
 		// Call paths covered:

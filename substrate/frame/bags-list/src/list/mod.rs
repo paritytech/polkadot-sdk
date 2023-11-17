@@ -33,7 +33,7 @@ use frame_support::{
 	DefaultNoBound, PalletError,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{Bounded, Zero};
+use sp_runtime::traits::{Bounded, Convert, Zero};
 use sp_std::{
 	boxed::Box,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
@@ -55,6 +55,8 @@ pub enum ListError {
 	NotInSameBag,
 	/// Given node id was not found.
 	NodeNotFound,
+	/// Node is stale.
+	StaleNode,
 }
 
 #[cfg(test)]
@@ -398,9 +400,11 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	pub(crate) fn update_position_for(
 		mut node: Node<T, I>,
 		new_score: T::Score,
+		rebag_as_score: Option<T::Score>,
 	) -> Option<(T::Score, T::Score)> {
-		node.score = new_score;
-		if node.is_misplaced(new_score) {
+		node.score = rebag_as_score.unwrap_or(new_score);
+
+		if node.is_misplaced(node.score) {
 			let old_bag_upper = node.bag_upper;
 
 			if !node.is_terminal() {
@@ -417,9 +421,16 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 				);
 			}
 
+			if rebag_as_score.is_some() {
+				// if the score used for rebaging was enforced by the caller, set the real
+				// `new_score` of the node before inserting the node in the bag.
+				node.score = new_score;
+			}
+
 			// put the node into the appropriate new bag.
-			let new_bag_upper = notional_bag_for::<T, I>(new_score);
+			let new_bag_upper = notional_bag_for::<T, I>(rebag_as_score.unwrap_or(new_score));
 			let mut bag = Bag::<T, I>::get_or_make(new_bag_upper);
+
 			// prev, next, and bag_upper of the node are updated inside `insert_node`, also
 			// `node.put` is in there.
 			bag.insert_node_unchecked(node);
@@ -428,6 +439,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			Some((old_bag_upper, new_bag_upper))
 		} else {
 			// just write the new score.
+			node.score = new_score;
 			node.put();
 			None
 		}
@@ -435,12 +447,19 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 
 	/// Put `heavier_id` to the position directly in front of `lighter_id`. Both ids must be in the
 	/// same bag and the `score_of` `lighter_id` must be less than that of `heavier_id`.
+	///
+	/// If the heavier id is in stale state, return earlier and do not change the order of the ids.
 	pub(crate) fn put_in_front_of(
 		lighter_id: &T::AccountId,
 		heavier_id: &T::AccountId,
 	) -> Result<(), ListError> {
-		let lighter_node = Node::<T, I>::get(&lighter_id).ok_or(ListError::NodeNotFound)?;
 		let heavier_node = Node::<T, I>::get(&heavier_id).ok_or(ListError::NodeNotFound)?;
+		ensure!(
+			T::StateProvider::convert(heavier_id.clone()) != NodeState::Stale,
+			ListError::StaleNode
+		);
+
+		let lighter_node = Node::<T, I>::get(&lighter_id).ok_or(ListError::NodeNotFound)?;
 
 		ensure!(lighter_node.bag_upper == heavier_node.bag_upper, ListError::NotInSameBag);
 
@@ -805,6 +824,23 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	#[allow(dead_code)]
 	pub fn std_iter(&self) -> impl Iterator<Item = Node<T, I>> {
 		sp_std::iter::successors(self.head(), |prev| prev.next())
+	}
+}
+
+/// Represents the state of a node, as returned by something that implements the trait
+/// [`StateProvider`].
+#[derive(Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub enum NodeState {
+	/// A node is active. Updates to the score of the node may result in a rebag.
+	Active,
+	/// A node is stale. As a consequence, the node should always be in the tail bag of the list
+    /// regardless of the new score update.
+	Stale,
+}
+
+impl Default for NodeState {
+	fn default() -> Self {
+		NodeState::Active
 	}
 }
 

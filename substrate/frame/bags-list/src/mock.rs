@@ -31,6 +31,7 @@ parameter_types! {
 	// Set the vote weight for any id who's weight has _not_ been set with `set_score_of`.
 	pub static NextVoteWeight: VoteWeight = 0;
 	pub static NextVoteWeightMap: HashMap<AccountId, VoteWeight> = Default::default();
+	pub static StaleNodes: Vec<AccountId> = Default::default();
 }
 
 pub struct StakingMock;
@@ -44,6 +45,15 @@ impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
 	frame_election_provider_support::runtime_benchmarks_fuzz_or_std_enabled! {
 		fn set_score_of(id: &AccountId, weight: Self::Score) {
 			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(*id, weight));
+		}
+	}
+}
+
+impl Convert<AccountId, NodeState> for StakingMock {
+	fn convert(id: AccountId) -> NodeState {
+		match StaleNodes::get().contains(&id) {
+			true => NodeState::Stale,
+			false => NodeState::Active,
 		}
 	}
 }
@@ -63,6 +73,7 @@ impl bags_list::Config for Runtime {
 	type WeightInfo = ();
 	type BagThresholds = BagThresholds;
 	type ScoreProvider = StakingMock;
+	type StateProvider = StakingMock;
 	type Score = VoteWeight;
 }
 
@@ -148,5 +159,17 @@ pub(crate) mod test_utils {
 	/// Returns the ordered ids from the list.
 	pub(crate) fn get_list_as_ids() -> Vec<AccountId> {
 		List::<Runtime>::iter().map(|n| *n.id()).collect::<Vec<_>>()
+	}
+
+	/// Sets a node id as stale.
+	pub(crate) fn set_stale(id: AccountId) {
+		StaleNodes::mutate(|nodes| {
+			nodes.push(id);
+		});
+	}
+
+	/// Sets a node id as active.
+	pub(crate) fn set_active(id: AccountId) {
+		StaleNodes::mutate(|nodes| nodes.retain(|n| *n != id));
 	}
 }
