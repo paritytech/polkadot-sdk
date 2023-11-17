@@ -25,15 +25,12 @@ use std::{
 };
 use twox_hash::XxHash32;
 
-/// Salt used for hashing contract source files.
-const SALT: &[u8] = &[11u8];
-
 /// Read the file at `path` and return its hash as a hex string.
 fn file_hash(path: &Path) -> String {
 	let data = fs::read(path).expect("file exists; qed");
 	let mut hasher = XxHash32::default();
 	hasher.write(&data);
-	hasher.write(SALT);
+	hasher.write(include_bytes!("build.rs"));
 	let hash = hasher.finish();
 	format!("{:x}", hash)
 }
