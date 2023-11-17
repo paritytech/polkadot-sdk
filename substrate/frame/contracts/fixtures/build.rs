@@ -127,8 +127,7 @@ codegen-units = 1
 
 	cargo_toml["bin"] = toml::Value::Array(binaries);
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
-	let cargo_toml_path = output_dir.join("Cargo.toml");
-	fs::write(cargo_toml_path, cargo_toml).map_err(Into::into)
+	fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
 }
 
 /// Invoke `cargo build` to compile the contracts.
