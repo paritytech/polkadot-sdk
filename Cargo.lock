@@ -17696,6 +17696,8 @@ dependencies = [
 name = "sp-keyring"
 version = "24.0.0"
 dependencies = [
+ "array-bytes 6.1.0",
+ "hex-literal",
  "lazy_static",
  "sp-core",
  "sp-runtime",
