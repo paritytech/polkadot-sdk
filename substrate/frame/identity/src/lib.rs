@@ -1010,11 +1010,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Ensure origin is a Username Authority.
 			let sender = ensure_signed(origin)?;
-			let suffix = if let Some(s) = UsernameAuthorities::<T>::get(&sender) {
-				s
-			} else {
-				return Err(Error::<T>::NotUsernameAuthority.into())
-			};
+			let suffix =
+				UsernameAuthorities::<T>::get(&sender).ok_or(Error::<T>::NotUsernameAuthority)?;
 
 			// Verify input length before allocating a Vec with the user's input.
 			// `<` instead of `<=` because it needs one element for the point
@@ -1048,15 +1045,12 @@ pub mod pallet {
 			// requested it themselves).
 			let (who, requires_deposit) = match who {
 				// Ensure the account has preapproved this username.
-				AccountIdentifier::AbstractAccount(a) => {
+				AccountIdentifier::Abstract(a) => {
 					ensure!(signature.is_none(), Error::<T>::InvalidSignature);
 					if let Some((u, _, _)) = PreapprovedUsernames::<T>::take(&a) {
 						// username may have expired, but it's there and hasn't been reaped. we are
 						// cleaning the storage and keeping the deposit, so no harm.
-						ensure!(
-							u.to_vec() == bounded_username.to_vec(),
-							Error::<T>::InvalidUsername
-						);
+						ensure!(u == bounded_username, Error::<T>::InvalidUsername);
 					} else {
 						return Err(Error::<T>::NoUsername.into())
 					}
@@ -1066,7 +1060,7 @@ pub mod pallet {
 				},
 
 				// Account has pre-signed an authorization. Verify the signature provided.
-				AccountIdentifier::KeyedAccount(signer) => {
+				AccountIdentifier::Keyed(signer) => {
 					let signature = signature.ok_or(Error::<T>::RequiresSignature)?;
 					let valid = bounded_username
 						.to_vec()
@@ -1080,7 +1074,7 @@ pub mod pallet {
 
 			// Check if they already have a primary. If so, leave it. If not, set it.
 			// Likewise, check if they have an identity. If not, give them a minimal one.
-			let (reg, primary_username) = match <IdentityOf<T>>::get(&who) {
+			let (mut reg, primary_username) = match <IdentityOf<T>>::get(&who) {
 				// User has an existing Identity and a primary username. Leave it.
 				Some((reg, Some(primary))) => (reg, primary),
 				// User has an Identity but no primary. Set the new one as primary.
@@ -1100,6 +1094,7 @@ pub mod pallet {
 			// Correct deposit for IdentityInfo
 			let new_id_deposit = Self::calculate_identity_deposit(&reg.info);
 			Self::rejig_deposit(&who, reg.deposit, new_id_deposit)?;
+			reg.deposit = new_id_deposit;
 
 			// Take deposit for username (if not already taken in preapproval).
 			if requires_deposit {

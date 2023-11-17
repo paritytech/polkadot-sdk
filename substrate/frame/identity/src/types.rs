@@ -348,8 +348,8 @@ pub enum AccountIdentifier<
 	AccountId: Clone + Decode + Debug + Encode + PartialEq + TypeInfo,
 	S: SignerProvider<AccountId>,
 > {
-	AbstractAccount(AccountId),
-	KeyedAccount(S),
+	Abstract(AccountId),
+	Keyed(S),
 }
 
 /// Cryptographic keys used with this pallet must have verifiable signatures and be able to be
