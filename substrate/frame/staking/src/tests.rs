@@ -6637,6 +6637,14 @@ fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout(
 		);
 		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 2);
 
+		// validator is exposed
+		assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&11, &1));
+		// nominators are exposed
+		for i in 10..15 {
+			let who: AccountId = 1000 + i;
+			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
+		}
+
 		// case 2: exposure exist in ErasStakers and ErasStakersClipped (legacy).
 		// delete paged storage and add exposure to clipped storage
 		<ErasStakersPaged<Test>>::remove((1, 11, 0));
@@ -6671,6 +6679,14 @@ fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout(
 		assert_eq!(actual_exposure_full.others, expected_individual_exposures);
 		assert_eq!(actual_exposure_full.own, 1000);
 		assert_eq!(actual_exposure_full.total, total_exposure);
+
+		// validator is exposed
+		assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&11, &1));
+		// nominators are exposed
+		for i in 10..15 {
+			let who: AccountId = 1000 + i;
+			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
+		}
 
 		// for pages other than 0, clipped storage returns empty exposure
 		assert_eq!(EraInfo::<Test>::get_paged_exposure(1, &11, 1), None);
