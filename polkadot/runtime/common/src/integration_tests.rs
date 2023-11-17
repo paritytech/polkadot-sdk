@@ -374,6 +374,12 @@ fn contains_event(event: RuntimeEvent) -> bool {
 	System::events().iter().any(|x| x.event == event)
 }
 
+/// Helper function for getting a custom size validation code.
+fn validation_code(size: usize) -> ValidationCode {
+	let validation_code = vec![0u8; size];
+	validation_code.into()
+}
+
 // Runs an end to end test of the auction, crowdloan, slots, and onboarding process over varying
 // lease period offsets.
 #[test]
@@ -561,6 +567,64 @@ fn basic_end_to_end_works() {
 			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parathread));
 		});
 	}
+}
+
+#[test]
+fn para_upgrade_initiated_by_manager_works() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_1 = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+		let start_block = System::block_number();
+
+		// User 1 will own parachains
+		let free_balance = 1_000_000_000;
+		Balances::make_free_balance_be(&account_id(1), 1_000_000_000);
+		// Register an on demand parachain
+		let code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let validation_code = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_1),
+			genesis_head.clone(),
+			validation_code.clone(),
+		));
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parathread));
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + genesis_head.0.len() as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// Schedule a para upgrade to set the validation code to a new one which is twice the size.
+		// The only reason why this is callable by the para manager is because the parachain isn't
+		// locked.
+		let validation_code = Registrar::worst_validation_code();
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_1),
+			validation_code.clone(),
+		));
+		// The reserved deposit should cover for the size difference of the new validation code.
+		let total_bytes_stored = 2 * code_size as u32 + genesis_head.0.len() as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		// An additional upgrade fee should also be deducted from the caller's balance.
+		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - UpgradeFee::get());
+	});
 }
 
 #[test]
