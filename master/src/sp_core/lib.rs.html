@@ -485,6 +485,8 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -542,6 +544,8 @@
 <span class="kw">pub mod </span>hexdisplay;
 <span class="kw">pub use </span>paste;
 
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;full_crypto&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="kw">mod </span>address_uri;
 <span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
 </span><span class="kw">pub mod </span>bandersnatch;
 <span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]

@@ -1519,6 +1519,7 @@
 <a href="#1519" id="1519">1519</a>
 <a href="#1520" id="1520">1520</a>
 <a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1546,8 +1547,6 @@
 </span><span class="kw">use </span>itertools::Itertools;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>rand::{rngs::OsRng, RngCore};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">use </span>regex::Regex;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub use </span>secrecy::{ExposeSecret, SecretString};
@@ -1563,6 +1562,11 @@
 <span class="kw">pub use </span>ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 <span class="doccomment">/// Trait to zeroize a memory buffer.
 </span><span class="kw">pub use </span>zeroize::Zeroize;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::address_uri::AddressUri;
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>))]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::address_uri::Error <span class="kw">as </span>AddressUriError;
 
 <span class="doccomment">/// The root phrase for our publicly known keys.
 </span><span class="kw">pub const </span>DEV_PHRASE: <span class="kw-2">&amp;</span>str =
@@ -1603,8 +1607,8 @@
 #[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">pub enum </span>SecretStringError {
 	<span class="doccomment">/// The overall format was invalid (e.g. the seed phrase contained symbols).
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid format&quot;</span>))]
-	</span>InvalidFormat,
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid format {0}&quot;</span>))]
+	</span>InvalidFormat(AddressUriError),
 	<span class="doccomment">/// The seed phrase provided is not a valid BIP39 phrase.
 	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid phrase&quot;</span>))]
 	</span>InvalidPhrase,
@@ -1620,6 +1624,13 @@
 	<span class="doccomment">/// The derivation path was invalid (e.g. contains soft junctions when they are not supported).
 	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid path&quot;</span>))]
 	</span>InvalidPath,
+}
+
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;full_crypto&quot;</span>))]
+</span><span class="kw">impl </span>From&lt;AddressUriError&gt; <span class="kw">for </span>SecretStringError {
+	<span class="kw">fn </span>from(e: AddressUriError) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::InvalidFormat(e)
+	}
 }
 
 <span class="doccomment">/// An error when deriving a key.
@@ -1729,7 +1740,7 @@
 <span class="doccomment">/// An error type for SS58 decoding.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
 #[cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), derive(Debug))]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 #[allow(missing_docs)]
 #[cfg(any(feature = <span class="string">&quot;full_crypto&quot;</span>, feature = <span class="string">&quot;serde&quot;</span>))]
 </span><span class="kw">pub enum </span>PublicError {
@@ -1756,6 +1767,11 @@
 	</span>InvalidPath,
 	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Disallowed SS58 Address Format for this datatype.&quot;</span>))]
 	</span>FormatNotAllowed,
+	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Password not allowed.&quot;</span>))]
+	</span>PasswordNotAllowed,
+	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Incorrect URI syntax {0}.&quot;</span>))]
+	</span>MalformedUri(<span class="attr">#[from] </span>AddressUriError),
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -1936,46 +1952,39 @@
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="macro">lazy_static::lazy_static! </span>{
-	<span class="kw">static </span><span class="kw-2">ref </span>SS58_REGEX: Regex = Regex::new(<span class="string">r&quot;^(?P&lt;ss58&gt;[\w\d ]+)?(?P&lt;path&gt;(//?[^/]+)*)$&quot;</span>)
-		.expect(<span class="string">&quot;constructed from known-good static value; qed&quot;</span>);
-	<span class="kw">static </span><span class="kw-2">ref </span>SECRET_PHRASE_REGEX: Regex = Regex::new(<span class="string">r&quot;^(?P&lt;phrase&gt;[\d\w ]+)?(?P&lt;path&gt;(//?[^/]+)*)(///(?P&lt;password&gt;.*))?$&quot;</span>)
-		.expect(<span class="string">&quot;constructed from known-good static value; qed&quot;</span>);
-	<span class="kw">static </span><span class="kw-2">ref </span>JUNCTION_REGEX: Regex = Regex::new(<span class="string">r&quot;/(/?[^/]+)&quot;</span>)
-		.expect(<span class="string">&quot;constructed from known-good static value; qed&quot;</span>);
-}
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">impl</span>&lt;T: Sized + AsMut&lt;[u8]&gt; + AsRef&lt;[u8]&gt; + Public + Derive&gt; Ss58Codec <span class="kw">for </span>T {
 	<span class="kw">fn </span>from_string(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PublicError&gt; {
-		<span class="kw">let </span>cap = SS58_REGEX.captures(s).ok_or(PublicError::InvalidFormat)<span class="question-mark">?</span>;
-		<span class="kw">let </span>s = cap.name(<span class="string">&quot;ss58&quot;</span>).map(|r| r.as_str()).unwrap_or(DEV_ADDRESS);
+		<span class="kw">let </span>cap = AddressUri::parse(s)<span class="question-mark">?</span>;
+		<span class="kw">if </span>cap.pass.is_some() {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(PublicError::PasswordNotAllowed);
+		}
+		<span class="kw">let </span>s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		<span class="kw">let </span>addr = <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = s.strip_prefix(<span class="string">&quot;0x&quot;</span>) {
 			<span class="kw">let </span>d = array_bytes::hex2bytes(stripped).map_err(|<span class="kw">_</span>| PublicError::InvalidFormat)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::from_slice(<span class="kw-2">&amp;</span>d).map_err(|()| PublicError::BadLength)<span class="question-mark">?
 		</span>} <span class="kw">else </span>{
 			<span class="self">Self</span>::from_ss58check(s)<span class="question-mark">?
 		</span>};
-		<span class="kw">if </span>cap[<span class="string">&quot;path&quot;</span>].is_empty() {
+		<span class="kw">if </span>cap.paths.is_empty() {
 			<span class="prelude-val">Ok</span>(addr)
 		} <span class="kw">else </span>{
-			<span class="kw">let </span>path =
-				JUNCTION_REGEX.captures_iter(<span class="kw-2">&amp;</span>cap[<span class="string">&quot;path&quot;</span>]).map(|f| DeriveJunction::from(<span class="kw-2">&amp;</span>f[<span class="number">1</span>]));
-			addr.derive(path).ok_or(PublicError::InvalidPath)
+			addr.derive(cap.paths.iter().map(DeriveJunction::from))
+				.ok_or(PublicError::InvalidPath)
 		}
 	}
 
 	<span class="kw">fn </span>from_string_with_version(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Ss58AddressFormat), PublicError&gt; {
-		<span class="kw">let </span>cap = SS58_REGEX.captures(s).ok_or(PublicError::InvalidFormat)<span class="question-mark">?</span>;
-		<span class="kw">let </span>(addr, v) = <span class="self">Self</span>::from_ss58check_with_version(
-			cap.name(<span class="string">&quot;ss58&quot;</span>).map(|r| r.as_str()).unwrap_or(DEV_ADDRESS),
-		)<span class="question-mark">?</span>;
-		<span class="kw">if </span>cap[<span class="string">&quot;path&quot;</span>].is_empty() {
+		<span class="kw">let </span>cap = AddressUri::parse(s)<span class="question-mark">?</span>;
+		<span class="kw">if </span>cap.pass.is_some() {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(PublicError::PasswordNotAllowed);
+		}
+		<span class="kw">let </span>(addr, v) = <span class="self">Self</span>::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))<span class="question-mark">?</span>;
+		<span class="kw">if </span>cap.paths.is_empty() {
 			<span class="prelude-val">Ok</span>((addr, v))
 		} <span class="kw">else </span>{
-			<span class="kw">let </span>path =
-				JUNCTION_REGEX.captures_iter(<span class="kw-2">&amp;</span>cap[<span class="string">&quot;path&quot;</span>]).map(|f| DeriveJunction::from(<span class="kw-2">&amp;</span>f[<span class="number">1</span>]));
-			addr.derive(path).ok_or(PublicError::InvalidPath).map(|a| (a, v))
+			addr.derive(cap.paths.iter().map(DeriveJunction::from))
+				.ok_or(PublicError::InvalidPath)
+				.map(|a| (a, v))
 		}
 	}
 }
@@ -2338,22 +2347,15 @@
 	<span class="kw">type </span><span class="prelude-val">Err </span>= SecretStringError;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-		<span class="kw">let </span>cap = SECRET_PHRASE_REGEX.captures(s).ok_or(SecretStringError::InvalidFormat)<span class="question-mark">?</span>;
-
-		<span class="kw">let </span>junctions = JUNCTION_REGEX
-			.captures_iter(<span class="kw-2">&amp;</span>cap[<span class="string">&quot;path&quot;</span>])
-			.map(|f| DeriveJunction::from(<span class="kw-2">&amp;</span>f[<span class="number">1</span>]))
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-		<span class="kw">let </span>phrase = cap.name(<span class="string">&quot;phrase&quot;</span>).map(|r| r.as_str()).unwrap_or(DEV_PHRASE);
-		<span class="kw">let </span>password = cap.name(<span class="string">&quot;password&quot;</span>);
+		<span class="kw">let </span>cap = AddressUri::parse(s)<span class="question-mark">?</span>;
+		<span class="kw">let </span>phrase = cap.phrase.unwrap_or(DEV_PHRASE);
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			phrase: SecretString::from_str(phrase).expect(<span class="string">&quot;Returns infallible error; qed&quot;</span>),
-			password: password.map(|v| {
-				SecretString::from_str(v.as_str()).expect(<span class="string">&quot;Returns infallible error; qed&quot;</span>)
-			}),
-			junctions,
+			password: cap
+				.pass
+				.map(|v| SecretString::from_str(v).expect(<span class="string">&quot;Returns infallible error; qed&quot;</span>)),
+			junctions: cap.paths.iter().map(DeriveJunction::from).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		})
 	}
 }
