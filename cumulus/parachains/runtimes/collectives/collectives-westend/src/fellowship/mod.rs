@@ -196,7 +196,7 @@ use xcm::prelude::*;
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
-	pub Interior: InteriorMultiLocation = PalletInstance(64).into();
+	pub Interior: InteriorLocation = PalletInstance(64).into();
 }
 
 const USDT_UNITS: u128 = 1_000_000;

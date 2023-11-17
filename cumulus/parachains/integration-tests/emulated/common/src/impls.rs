@@ -400,13 +400,13 @@ macro_rules! impl_accounts_helpers_for_parachain {
 					network_id: $crate::impls::NetworkId,
 					para_id: $crate::impls::ParaId,
 				) -> $crate::impls::AccountId {
-					let remote_location = $crate::impls::MultiLocation {
-						parents: 2,
-						interior: $crate::impls::Junctions::X2(
+					let remote_location = $crate::impls::Location::new(
+						2,
+						[
 							$crate::impls::Junction::GlobalConsensus(network_id),
 							$crate::impls::Junction::Parachain(para_id.into()),
-						),
-					};
+						],
+					);
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						Self::sovereign_account_id_of(remote_location)
 					})
@@ -623,7 +623,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Assets::mint(
 							signed_origin,
-							id.into(),
+							id.clone().into(),
 							beneficiary.clone().into(),
 							amount_to_mint
 						));
@@ -701,7 +701,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 							]
 						);
 
-						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.into()));
+						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.clone().into()));
 					});
 				}
 			}
@@ -716,7 +716,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
 				pub fn force_create_foreign_asset(
-					id: $crate::impls::MultiLocation,
+					id: $crate::impls::Location,
 					owner: $crate::impls::AccountId,
 					is_sufficient: bool,
 					min_balance: u128,
@@ -728,13 +728,13 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 						$crate::impls::assert_ok!(
 							<Self as [<$chain ParaPallet>]>::ForeignAssets::force_create(
 								sudo_origin,
-								id,
+								id.clone(),
 								owner.clone().into(),
 								is_sufficient,
 								min_balance,
 							)
 						);
-						assert!(<Self as [<$chain ParaPallet>]>::ForeignAssets::asset_exists(id));
+						assert!(<Self as [<$chain ParaPallet>]>::ForeignAssets::asset_exists(id.clone()));
 						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 						$crate::impls::assert_expected_events!(
 							Self,
@@ -751,21 +751,21 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 					for (beneficiary, amount) in prefund_accounts.into_iter() {
 						let signed_origin =
 							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
-						Self::mint_foreign_asset(signed_origin, id, beneficiary, amount);
+						Self::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
 					}
 				}
 
 				/// Mint assets making use of the ForeignAssets pallet-assets instance
 				pub fn mint_foreign_asset(
 					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-					id: $crate::impls::MultiLocation,
+					id: $crate::impls::Location,
 					beneficiary: $crate::impls::AccountId,
 					amount_to_mint: u128,
 				) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::ForeignAssets::mint(
 							signed_origin,
-							id.into(),
+							id.clone().into(),
 							beneficiary.clone().into(),
 							amount_to_mint
 						));

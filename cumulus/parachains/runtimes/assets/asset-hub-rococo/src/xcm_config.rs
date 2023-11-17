@@ -25,7 +25,7 @@ use assets_common::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Get, Nothing, PalletInfoAccess},
+	traits::{ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;

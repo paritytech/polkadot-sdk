@@ -385,11 +385,11 @@ parameter_types! {
 			[Parachain(USDT_PARA_ID)],
 		)),
 	};
-	pub const FilteredTeleportLocation: Location = Location::new(
+	pub FilteredTeleportLocation: Location = Location::new(
 		0,
 		[Parachain(FILTERED_PARA_ID)]
 	);
-	pub const FilteredTeleportAsset: Asset = Asset {
+	pub FilteredTeleportAsset: Asset = Asset {
 		fun: Fungible(10),
 		id: AssetId(Location::new(
 			0,
@@ -513,8 +513,8 @@ parameter_types! {
 }
 
 pub struct XcmTeleportFiltered;
-impl Contains<(MultiLocation, Vec<MultiAsset>)> for XcmTeleportFiltered {
-	fn contains(t: &(MultiLocation, Vec<MultiAsset>)) -> bool {
+impl Contains<(Location, Vec<Asset>)> for XcmTeleportFiltered {
+	fn contains(t: &(Location, Vec<Asset>)) -> bool {
 		let filtered = FilteredTeleportAsset::get();
 		t.1.iter().any(|asset| asset == &filtered)
 	}

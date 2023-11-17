@@ -120,7 +120,7 @@ fn limited_teleport_assets_works() {
 /// `limited_teleport_assets` should fail for filtered assets
 #[test]
 fn limited_teleport_filtered_assets_disallowed() {
-	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
 	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
 		let result = XcmPallet::limited_teleport_assets(
 			RuntimeOrigin::signed(ALICE),
@@ -1431,13 +1431,13 @@ fn reserve_transfer_assets_with_teleportable_asset_fails() {
 /// Test `reserve_transfer_assets` with teleportable fee that is filtered - should fail.
 #[test]
 fn reserve_transfer_assets_with_filtered_teleported_fee_disallowed() {
-	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
 	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
-		let (assets, fee_index, _, _) = into_multiassets_checked(
+		let (assets, fee_index, _, _) = into_assets_checked(
 			// FilteredTeleportAsset for fees - teleportable but filtered
 			FilteredTeleportAsset::get().into(),
 			// native asset to transfer (not used for fees) - local reserve
-			(MultiLocation::here(), SEND_AMOUNT).into(),
+			(Location::here(), SEND_AMOUNT).into(),
 		);
 		let result = XcmPallet::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(ALICE),

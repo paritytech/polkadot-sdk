@@ -24,7 +24,7 @@ mod tests;
 
 use crate::primitives::{AccountId, UNITS};
 use sp_runtime::BuildStorage;
-use xcm::latest::{prelude::*, MultiLocation};
+use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
@@ -67,12 +67,12 @@ decl_test_network! {
 }
 
 pub fn relay_sovereign_account_id() -> AccountId {
-	let location: MultiLocation = (Parent,).into();
+	let location: Location = (Parent,).into();
 	parachain::SovereignAccountOf::convert_location(&location).unwrap()
 }
 
 pub fn parachain_sovereign_account_id(para: u32) -> AccountId {
-	let location: MultiLocation = (Parachain(para),).into();
+	let location: Location = (Parachain(para),).into();
 	relay_chain::SovereignAccountOf::convert_location(&location).unwrap()
 }
 
@@ -80,7 +80,7 @@ pub fn parachain_account_sovereign_account_id(
 	para: u32,
 	who: sp_runtime::AccountId32,
 ) -> AccountId {
-	let location: MultiLocation = (
+	let location: Location = (
 		Parachain(para),
 		AccountId32 { network: Some(relay_chain::RelayNetwork::get()), id: who.into() },
 	)
