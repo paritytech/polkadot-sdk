@@ -543,7 +543,8 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
-				chain_spec::coretime::CoretimeRuntimeType::Rococo => {
+				chain_spec::coretime::CoretimeRuntimeType::Rococo |
+				chain_spec::coretime::CoretimeRuntimeType::RococoLocal => {
 					let $partials = new_partial::<chain_spec::coretime::rococo::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
@@ -749,7 +750,8 @@ macro_rules! construct_async_run {
 			},
 			Runtime::Coretime(coretime_runtime_type) => {
 				match coretime_runtime_type {
-					chain_spec::coretime::CoretimeRuntimeType::Rococo => {
+					chain_spec::coretime::CoretimeRuntimeType::Rococo |
+					chain_spec::coretime::CoretimeRuntimeType::RococoLocal => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::coretime::rococo::RuntimeApi, _>(
 								&$config,
@@ -1102,7 +1104,8 @@ chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 					.map_err(Into::into),
 
 					Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
-						chain_spec::coretime::CoretimeRuntimeType::Rococo =>
+						chain_spec::coretime::CoretimeRuntimeType::Rococo |
+						chain_spec::coretime::CoretimeRuntimeType::RococoLocal =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::coretime::rococo::RuntimeApi,
 								AuraId,

@@ -49,6 +49,8 @@ impl CoretimeRuntimeType {
 				Ok(Box::new(rococo::CoretimeChainSpec::from_json_file(path)?)),
 			CoretimeRuntimeType::Westend =>
 				Ok(Box::new(westend::CoretimeChainSpec::from_json_file(path)?)),
+			_ =>
+				Err("Chain spec from json file is not supported for this runtime type".to_string()),
 		}
 	}
 
