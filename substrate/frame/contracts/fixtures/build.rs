@@ -132,17 +132,6 @@ codegen-units = 1
 
 /// Invoke `cargo build` to compile the contracts.
 fn invoke_build(current_dir: &Path) -> Result<()> {
-
-
-	// panic and print all env vars
-	eprintln!("env vars:");
-	eprintln!("{:#?}", env::vars());
-
-	if let Ok(_) = env::var("PATH") {
-		panic!("done printing env vars");
-	}
-
-
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env_clear()
