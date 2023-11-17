@@ -9,6 +9,9 @@ edition.workspace = true
 version = "1.0.0"
 publish = false
 
+[lints]
+workspace = true
+
 # The dependencies are only needed for docs.
 [dependencies]
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }

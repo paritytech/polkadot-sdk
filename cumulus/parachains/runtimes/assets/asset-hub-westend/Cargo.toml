@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1", optional = true }

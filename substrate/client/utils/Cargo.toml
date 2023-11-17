@@ -9,6 +9,9 @@ repository.workspace = true
 description = "I/O for Substrate runtimes"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [dependencies]
 async-channel = "1.8.0"
 futures = "0.3.21"

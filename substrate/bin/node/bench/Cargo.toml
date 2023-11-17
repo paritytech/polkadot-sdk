@@ -9,6 +9,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

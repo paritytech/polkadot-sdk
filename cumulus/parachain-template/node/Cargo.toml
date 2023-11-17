@@ -10,6 +10,9 @@ edition.workspace = true
 build = "build.rs"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 clap = { version = "4.4.6", features = ["derive"] }
 log = "0.4.20"
@@ -91,4 +94,3 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-

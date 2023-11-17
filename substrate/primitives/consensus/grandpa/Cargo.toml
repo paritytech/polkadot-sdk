@@ -10,6 +10,9 @@ description = "Primitives for GRANDPA integration, suitable for WASM compilation
 documentation = "https://docs.rs/sp-consensus-grandpa"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

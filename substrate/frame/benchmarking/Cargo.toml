@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Macro for benchmarking a FRAME runtime."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

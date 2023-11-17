@@ -6,6 +6,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 cfg-if = "1.0"
 cpu-time = "1.0.0"

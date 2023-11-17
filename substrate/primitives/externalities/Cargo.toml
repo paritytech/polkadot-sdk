@@ -10,6 +10,9 @@ description = "Substrate externalities abstraction"
 documentation = "https://docs.rs/sp-externalities"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

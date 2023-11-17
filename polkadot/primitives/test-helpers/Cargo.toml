@@ -6,6 +6,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { package = "sp-application-crypto", path = "../../../substrate/primitives/application-crypto", default-features = false }

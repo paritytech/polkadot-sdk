@@ -7,6 +7,9 @@ edition.workspace = true
 license.workspace = true
 description = "Fixtures for testing contracts pallet."
 
+[lints]
+workspace = true
+
 [dependencies]
 wat = "1"
 frame-system = { path = "../../system", default-features = false}
@@ -15,4 +18,3 @@ sp-runtime = { path = "../../../primitives/runtime", default-features = false}
 [features]
 default = [ "std" ]
 std = [ "frame-system/std", "sp-runtime/std" ]
-

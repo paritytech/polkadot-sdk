@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Rococo's BridgeHub  parachain runtime"
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 

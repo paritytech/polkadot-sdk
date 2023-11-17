@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Defines a `WasmRuntime` that uses the Wasmtime JIT to execute."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

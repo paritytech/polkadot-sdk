@@ -9,6 +9,9 @@ license = "MIT-0"
 publish = false
 repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

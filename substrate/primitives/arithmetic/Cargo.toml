@@ -10,6 +10,9 @@ description = "Minimal fixed point arithmetic primitives and types for runtime."
 documentation = "https://docs.rs/sp-arithmetic"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

@@ -8,6 +8,9 @@ license.workspace = true
 readme = "README.md"
 publish = false
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "malus"
 path = "src/malus.rs"

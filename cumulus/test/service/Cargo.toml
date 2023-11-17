@@ -5,6 +5,9 @@ authors.workspace = true
 edition.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "test-parachain"
 path = "src/main.rs"

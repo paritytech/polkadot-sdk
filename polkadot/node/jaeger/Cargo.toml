@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 description = "Polkadot Jaeger primitives, but equally useful for Grafana/Tempo"
 
+[lints]
+workspace = true
+
 [dependencies]
 mick-jaeger = "0.1.8"
 lazy_static = "1.4"

@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 description = "Bitfield signing subsystem for the Polkadot node"
 
+[lints]
+workspace = true
+
 [dependencies]
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }

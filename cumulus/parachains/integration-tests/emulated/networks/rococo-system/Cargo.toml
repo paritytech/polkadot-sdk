@@ -7,6 +7,9 @@ license = "Apache-2.0"
 description = "Rococo System emulated network"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 # Cumulus
 emulated-integration-tests-common = { path = "../../common", default-features = false }

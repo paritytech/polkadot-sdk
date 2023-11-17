@@ -10,6 +10,9 @@ repository.workspace = true
 description = "Substrate authority discovery."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

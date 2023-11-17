@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 polkadot-erasure-coding = { path = ".." }
 honggfuzz = "0.5"

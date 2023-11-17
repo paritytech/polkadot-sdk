@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Types and traits for interfacing between the host and the wasm runtime."
 documentation = "https://docs.rs/sp-wasm-interface"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
