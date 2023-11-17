@@ -304,9 +304,3 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 parameter_types! {
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
-
-impl cumulus_pallet_dmp_queue::Config for Runtime {
-	type WeightInfo = cumulus_pallet_dmp_queue::weights::SubstrateWeight<Runtime>;
-	type RuntimeEvent = crate::RuntimeEvent;
-	type DmpSink = frame_support::traits::EnqueueWithOrigin<crate::MessageQueue, RelayOrigin>;
-}
