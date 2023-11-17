@@ -1889,7 +1889,7 @@ pub mod pallet {
 		///
 		/// This will waive the transaction fee if the `payee` is successfully migrated.
 		#[pallet::call_index(27)]
-		#[pallet::weight(T::WeightInfo::set_payee())]
+		#[pallet::weight(T::WeightInfo::update_payee())]
 		pub fn update_payee(
 			origin: OriginFor<T>,
 			controller: T::AccountId,
