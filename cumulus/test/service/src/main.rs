@@ -52,7 +52,8 @@ fn main() -> Result<(), sc_cli::Error> {
 				cli.load_spec(&params.base.shared_params.chain.clone().unwrap_or_default())?;
 			let state_version = cumulus_test_service::runtime::VERSION.state_version();
 
-			let block: parachains_common::Block = genesis::generate_genesis_block(&*spec, state_version)?;
+			let block: parachains_common::Block =
+				genesis::generate_genesis_block(&*spec, state_version)?;
 			let raw_header = block.header().encode();
 			let output_buf = if params.base.raw {
 				raw_header
