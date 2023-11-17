@@ -243,7 +243,7 @@ impl ExecutorParams {
 				PrecheckingMaxMemory(_) => "PrecheckingMaxMemory",
 				PvfPrepTimeout(kind, _) => match kind {
 					PvfPrepKind::Precheck => "PvfPrepKind::Precheck",
-					PvfPrepKind::Lenient => "PvfPrepKind::Lenient",
+					PvfPrepKind::Prepare => "PvfPrepKind::Prepare",
 				},
 				PvfExecTimeout(kind, _) => match kind {
 					PvfExecKind::Backing => "PvfExecKind::Backing",
@@ -299,11 +299,11 @@ impl ExecutorParams {
 		if let (Some(precheck), Some(lenient)) = (
 			seen.get("PvfPrepKind::Precheck")
 				.or(Some(&DEFAULT_PRECHECK_PREPARATION_TIMEOUT_MS)),
-			seen.get("PvfPrepKind::Lenient")
+			seen.get("PvfPrepKind::Prepare")
 				.or(Some(&DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			if *precheck >= *lenient {
-				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Lenient"))
+				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Prepare"))
 			}
 		}
 

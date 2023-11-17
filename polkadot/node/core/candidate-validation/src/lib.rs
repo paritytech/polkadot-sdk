@@ -612,7 +612,7 @@ async fn validate_candidate_exhaustive(
 
 	let result = match exec_kind {
 		PvfExecKind::Backing => {
-			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Lenient);
+			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
 			let pvf = PvfPrepData::from_code(
 				raw_validation_code.to_vec(),
@@ -731,7 +731,7 @@ trait ValidationBackend {
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
 	) -> Result<WasmValidationResult, ValidationError> {
-		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Lenient);
+		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
 			raw_validation_code,
@@ -877,7 +877,7 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Dura
 	}
 	match kind {
 		PvfPrepKind::Precheck => DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
-		PvfPrepKind::Lenient => DEFAULT_LENIENT_PREPARATION_TIMEOUT,
+		PvfPrepKind::Prepare => DEFAULT_LENIENT_PREPARATION_TIMEOUT,
 	}
 }
 

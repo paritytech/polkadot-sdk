@@ -1791,7 +1791,7 @@ pub enum PvfPrepKind {
 	/// For execution and heads-up requests, the time period after which the preparation worker is
 	/// considered unresponsive and will be killed. More lenient than the timeout for prechecking
 	/// to prevent honest validators from timing out on valid PVFs.
-	Lenient,
+	Prepare,
 }
 
 /// Type discriminator for PVF execution timeouts and retries

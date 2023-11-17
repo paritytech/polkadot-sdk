@@ -42,7 +42,7 @@ benchmarks! {
 		ExecutorParam::WasmExtBulkMemory,
 		ExecutorParam::PrecheckingMaxMemory(2 * 1024 * 1024 * 1024),
 		ExecutorParam::PvfPrepTimeout(PvfPrepKind::Precheck, 60_000),
-		ExecutorParam::PvfPrepTimeout(PvfPrepKind::Lenient, 360_000),
+		ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 360_000),
 		ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2_000),
 		ExecutorParam::PvfExecTimeout(PvfExecKind::Approval, 12_000),
 	][..]))
