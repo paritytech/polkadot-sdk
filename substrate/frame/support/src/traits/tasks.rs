@@ -73,7 +73,7 @@ impl Task for () {
 	}
 
 	fn weight(&self) -> Weight {
-		0.into()
+		Weight::default()
 	}
 
 	fn task_index(&self) -> u32 {
