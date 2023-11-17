@@ -217,15 +217,27 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		// call on validator remove or on nominator remove.
-		match crate::Pallet::<T>::status(stash).defensive_unwrap_or(StakerStatus::Idle) {
-			StakerStatus::Validator => T::EventListeners::on_validator_remove(stash),
-			StakerStatus::Nominator(_) => {
-				let nominations = crate::Pallet::<T>::nominations(stash).unwrap_or_default();
-				T::EventListeners::on_nominator_remove(stash, nominations)
-			},
-			StakerStatus::Idle => (),
-		};
+		// Note: by now, we expect that the caller has already called `on_nominator_remove` and/or
+		// `on_validator_remove`. However, we check here again and make sure the owner of the ledger
+		// is idle before clearing all the storage items of its ledger.
+		let was_cleared =
+			match crate::Pallet::<T>::status(stash).defensive_unwrap_or(StakerStatus::Idle) {
+				StakerStatus::Validator => {
+					T::EventListeners::on_validator_remove(stash);
+					false
+				},
+				StakerStatus::Nominator(nominations) => {
+					T::EventListeners::on_nominator_remove(stash, nominations);
+					false
+				},
+				StakerStatus::Idle => true,
+			};
+
+		if !was_cleared {
+			defensive!(
+				"`ledger.kill()` was called before removing the staker. this is likely a bug."
+			);
+		}
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
 			T::Currency::remove_lock(STAKING_ID, &ledger.stash);

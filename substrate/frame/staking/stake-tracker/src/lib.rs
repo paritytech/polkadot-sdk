@@ -132,12 +132,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Returns the vote weight of a staker based on its current *active* stake, as returned by
+		/// Returns the balance of a staker based on its current *active* stake, as returned by
 		/// the staking interface.
 		pub(crate) fn active_vote_of(who: &T::AccountId) -> BalanceOf<T> {
 			T::Staking::stake(who).map(|s| s.active).defensive_unwrap_or_default()
 		}
 
+		/// Converts a balance into the staker's vote weight.
 		pub(crate) fn weight_of(balance: BalanceOf<T>) -> VoteWeight {
 			<T::Staking as StakingInterface>::CurrencyToVote::to_vote(
 				balance,
