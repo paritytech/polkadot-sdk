@@ -963,7 +963,7 @@
 	</span>(),
 &gt;;
 
-<span class="doccomment">/// `AssetId`/`Balance` converter for `PoolAssets`.
+<span class="doccomment">/// `AssetId`/`Balance` converter for `TrustBackedAssets`.
 </span><span class="kw">pub type </span>TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId&lt;TrustBackedAssetsPalletLocation, Balance&gt;;
 
@@ -984,7 +984,7 @@
 	</span>CheckingAccount,
 &gt;;
 
-<span class="doccomment">/// `AssetId/Balance` converter for `TrustBackedAssets`
+<span class="doccomment">/// `AssetId`/`Balance` converter for `ForeignAssets`.
 </span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConvertedConcreteId&lt;
 	(
 		<span class="comment">// Ignore `TrustBackedAssets` explicitly
