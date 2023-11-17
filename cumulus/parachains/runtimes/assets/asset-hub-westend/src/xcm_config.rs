@@ -77,11 +77,6 @@ parameter_types! {
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
 }
 
-// Foreign chain account alias into local accounts according to a hash of their standard
-// description.
-pub type PalletLocationToAccountId =
-	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>;
-
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
@@ -94,7 +89,7 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign chain account alias into local accounts according to a hash of their standard
 	// description.
-	PalletLocationToAccountId,
+	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>,
 );
 
 /// Means for transacting the native currency on this chain.
