@@ -658,6 +658,24 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				default: vec![0],
 				docs: vec![],
 			},
+			StorageEntryMetadataIR {
+				name: "Total",
+				modifier: StorageEntryModifierIR::Default,
+				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<(u32, u32)>()),
+				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
+				docs: vec![" Some running total."],
+			},
+			StorageEntryMetadataIR {
+				name: "Numbers",
+				modifier: StorageEntryModifierIR::Optional,
+				ty: StorageEntryTypeIR::Map {
+					hashers: vec![StorageHasherIR::Twox64Concat],
+					key: scale_info::meta_type::<u32>(),
+					value: scale_info::meta_type::<u32>(),
+				},
+				default: vec![0],
+				docs: vec![" Numbers to be added into the total."],
+			},
 		],
 	}
 }
