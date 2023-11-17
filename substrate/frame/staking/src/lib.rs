@@ -240,9 +240,9 @@
 //! [`Payee`] storage item (see
 //! [`set_payee`](Call::set_payee)), to be one of the following:
 //!
-//! - Controller account, (obviously) not increasing the staked value.
 //! - Stash account, not increasing the staked value.
 //! - Stash account, also increasing the staked value.
+//! - Any other account, sent as free balance.
 //!
 //! ### Additional Fund Management Operations
 //!

@@ -338,8 +338,6 @@ impl<T: Config> Pallet<T> {
 
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
 		let maybe_imbalance = match dest {
-			// Note: Controller accounts are being deprecated and will no longer point to a separate
-			// account. `Controller` variant now points to the `stash`.
 			RewardDestination::Stash | RewardDestination::DeprecatedController =>
 				T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
