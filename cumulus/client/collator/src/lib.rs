@@ -100,7 +100,6 @@ where
 		};
 
 		let last_head_hash = last_head.hash();
-
 		if !self.service.check_block_status(last_head_hash, &last_head) {
 			return None
 		}
