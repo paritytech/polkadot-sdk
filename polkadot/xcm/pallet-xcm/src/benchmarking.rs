@@ -158,6 +158,47 @@ benchmarks! {
 		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
 	}
 
+	transfer_assets {
+		// TODO: compose this transfer from one reserve and one teleport
+
+		let (asset, destination) = T::reserve_transferable_asset_and_dest().ok_or(
+			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
+		)?;
+
+		let transferred_amount = match &asset.fun {
+			Fungible(amount) => *amount,
+			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
+		}.into();
+		let assets: MultiAssets = asset.into();
+
+		let existential_deposit = T::ExistentialDeposit::get();
+		let caller = whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		assert!(balance >= transferred_amount);
+		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
+		// verify initial balance
+		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
+
+		let send_origin = RawOrigin::Signed(caller.clone());
+		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+		}
+
+		let recipient = [0u8; 32];
+		let versioned_dest: VersionedMultiLocation = destination.into();
+		let versioned_beneficiary: VersionedMultiLocation =
+			AccountId32 { network: None, id: recipient.into() }.into();
+		let versioned_assets: VersionedMultiAssets = assets.into();
+	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	verify {
+		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
+		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+	}
+
 	execute {
 		let execute_origin =
 			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
