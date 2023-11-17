@@ -22,6 +22,8 @@
 pub mod bench_utils;
 
 pub mod chain_spec;
+
+/// Utilities for creating test genesis block and head data
 pub mod genesis;
 
 use runtime::AccountId;
