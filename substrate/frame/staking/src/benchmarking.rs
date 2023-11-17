@@ -51,7 +51,7 @@ fn controller_rewards_destination<T: Config>() -> RewardDestination<T::AccountId
 	#[allow(deprecated)]
 	RewardDestination::Controller
 }
-	
+
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
 // read and write operations.
 pub fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
