@@ -467,9 +467,9 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, Default::default())?;
 		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Staked);
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), RewardDestination::Controller)
+	}: _(RawOrigin::Signed(controller), RewardDestination::DeprecatedController)
 	verify {
-		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Controller);
+		assert_eq!(Payee::<T>::get(&stash), RewardDestination::DeprecatedController);
 	}
 
 	set_controller {
@@ -558,7 +558,7 @@ benchmarks! {
 			T::MaxExposurePageSize::get() as u32,
 			true,
 			true,
-			RewardDestination::Controller,
+			RewardDestination::DeprecatedController,
 		)?;
 
 		let current_era = CurrentEra::<T>::get().unwrap();

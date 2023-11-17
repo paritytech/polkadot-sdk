@@ -1283,10 +1283,19 @@ pub mod pallet {
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
 			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
+			let ledger = Self::ledger(Controller(controller.clone()))?;
+
+			// Ensure that the `Controller` variant is not assigned.
+			// Controller accounts are being deprecated, and `Controller
+			let payee_final = if payee == RewardDestination::DeprecatedController {
+				RewardDestination::Account(controller)
+			} else {
+				payee
+			};
+
 			let _ = ledger
-				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.");
+				.set_payee(payee_final)
+				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
 			Ok(())
 		}
