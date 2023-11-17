@@ -2526,6 +2526,31 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks`](`tasks`) to define the conditions for a given work item to be valid.
+	///
+	/// It takes a closure as input, which is then used to define the condition. The closure
+	/// should have the same signature as the function it is attached to, except that it should
+	/// return a `bool` instead.
+	pub use frame_support_procedural::task_condition;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks`](`tasks`) to define the index of a given work item.
+	///
+	/// It takes an integer literal as input, which is then used to define the index. This
+	/// index should be unique for each function in the `impl` block.
+	pub use frame_support_procedural::task_index;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks`](`tasks`) to define an iterator over the available work items for a
+	/// task.
+	///
+	/// It takes an iterator as input that yields a tuple with same types as the function
+	/// arguments.
+	pub use frame_support_procedural::task_list;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks`](`tasks`) define the weight of a given work item.
+	///
+	/// It takes a closure as input, which should return a `Weight` value.
+	pub use frame_support_procedural::task_weight;
 	/// Allows you to define some service work that can be recognized by a script or an
 	/// off-chain worker. Such a script can then create and submit all such work items at any
 	/// given time.
@@ -2553,29 +2578,6 @@ pub mod pallet_macros {
 	/// Now, this can be executed as follows:
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
 	pub use frame_support_procedural::tasks;
-	/// This attribute is attached to a function inside an `impl` block annoated with 
-	/// [`pallet::tasks`](`tasks`) to define the conditions for a given work item to be valid.
-	/// 
-	/// It takes a closure as input, which is then used to define the condition. The closure
-	/// should have the same signature as the function it is attached to, except that it should
-	/// return a `bool` instead.
-	pub use frame_support_procedural::task_condition;
-	/// This attribute is attached to a function inside an `impl` block annoated with 
-	/// [`pallet::tasks`](`tasks`) to define the index of a given work item. 
-	/// 
-	/// It takes an integer literal as input, which is then used to define the index. This index
-	/// should be unique for each function in the `impl` block.
-	pub use frame_support_procedural::task_index;
-	/// This attribute is attached to a function inside an `impl` block annoated with 
-	/// [`pallet::tasks`](`tasks`) to define an iterator over the available work items for a task.
-	/// 
-	/// It takes an iterator as input that yields a tuple with same types as the function arguments.
-	pub use frame_support_procedural::task_list;
-	/// This attribute is attached to a function inside an `impl` block annoated with 
-	/// [`pallet::tasks`](`tasks`) define the weight of a given work item.
-	/// 
-	/// It takes a closure as input, which should return a `Weight` value.
-	pub use frame_support_procedural::task_weight;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
