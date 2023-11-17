@@ -47,7 +47,7 @@ pub mod __private {
 	pub use sp_core::{OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
 	pub use sp_inherents;
-	pub use sp_io::{self, storage::root as storage_root};
+	pub use sp_io::{self, hashing, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
@@ -2227,9 +2227,10 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		call_index, compact, composite_enum, config, disable_frame_system_supertrait_check, error,
-		event, extra_constants, generate_deposit, generate_store, getter, hooks, import_section,
-		inherent, no_default, no_default_bounds, origin, pallet_section, storage_prefix,
-		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
+		event, extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
+		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
+		whitelist_storage,
 	};
 
 	/// Allows you to define the genesis configuration for the pallet.
