@@ -16,9 +16,7 @@
 //!
 //! Refer to substrate FRAME contract module for more documentation.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-use core::marker::PhantomData;
-use scale::Encode;
+#![no_std]
 
 cfg_if::cfg_if! {
 	if #[cfg(target_arch = "wasm32")] {
@@ -155,7 +153,6 @@ impl ReturnCode {
 
 type Result = core::result::Result<(), Error>;
 
-#[cfg(not(feature = "std"))]
 #[inline(always)]
 fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 	debug_assert!(new_len <= output.len());

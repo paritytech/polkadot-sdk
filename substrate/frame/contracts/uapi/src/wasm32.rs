@@ -14,8 +14,6 @@
 
 use super::{extract_from_slice, Result, ReturnCode};
 use crate::ReturnFlags;
-use core::marker::PhantomData;
-use scale::Encode;
 
 mod sys {
 	use super::ReturnCode;
@@ -96,10 +94,7 @@ mod sys {
 			output_ptr: *mut u8,
 		) -> ReturnCode;
 
-		pub fn ecdsa_to_eth_address(
-			public_key_ptr: *const u8,
-			output_ptr: *mut u8,
-		) -> ReturnCode;
+		pub fn ecdsa_to_eth_address(public_key_ptr: *const u8, output_ptr: *mut u8) -> ReturnCode;
 
 		/// **WARNING**: this function is from the [unstable interface](https://github.com/paritytech/substrate/tree/master/frame/contracts#unstable-interfaces),
 		/// which is unsafe and normally is not available on production chains.
@@ -310,12 +305,7 @@ pub fn transfer(account_id: &[u8], value: &[u8]) -> Result {
 
 pub fn deposit_event(topics: &[u8], data: &[u8]) {
 	unsafe {
-		sys::deposit_event(
-			topics.as_ptr(),
-			topics.len() as u32,
-			data.as_ptr(),
-			data.len() as u32,
-		)
+		sys::deposit_event(topics.as_ptr(), topics.len() as u32, data.as_ptr(), data.len() as u32)
 	}
 }
 
@@ -341,12 +331,7 @@ pub fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 	let mut output_len = output.len() as u32;
 	let ret_code = {
 		unsafe {
-			sys::get_storage(
-				key.as_ptr(),
-				key.len() as u32,
-				output.as_mut_ptr(),
-				&mut output_len,
-			)
+			sys::get_storage(key.as_ptr(), key.len() as u32, output.as_mut_ptr(), &mut output_len)
 		}
 	};
 	extract_from_slice(output, output_len as usize);
@@ -358,12 +343,7 @@ pub fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 	let mut output_len = output.len() as u32;
 	let ret_code = {
 		unsafe {
-			sys::take_storage(
-				key.as_ptr(),
-				key.len() as u32,
-				output.as_mut_ptr(),
-				&mut output_len,
-			)
+			sys::take_storage(key.as_ptr(), key.len() as u32, output.as_mut_ptr(), &mut output_len)
 		}
 	};
 	extract_from_slice(output, output_len as usize);
@@ -407,13 +387,7 @@ pub fn input(output: &mut &mut [u8]) {
 }
 
 pub fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
-	unsafe {
-		sys::seal_return(
-			flags.into_u32(),
-			return_value.as_ptr(),
-			return_value.len() as u32,
-		)
-	}
+	unsafe { sys::seal_return(flags.into_u32(), return_value.as_ptr(), return_value.len() as u32) }
 }
 
 pub fn call_runtime(call: &[u8]) -> Result {
@@ -454,13 +428,7 @@ impl_wrapper_for! {
 pub fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
 	let mut output_len = output.len() as u32;
 	{
-		unsafe {
-			sys::weight_to_fee(
-				gas,
-				output.as_mut_ptr(),
-				&mut output_len,
-			)
-		};
+		unsafe { sys::weight_to_fee(gas, output.as_mut_ptr(), &mut output_len) };
 	}
 	extract_from_slice(output, output_len as usize);
 }
@@ -529,19 +497,13 @@ pub fn ecdsa_recover(
 	output: &mut [u8; 33],
 ) -> Result {
 	let ret_code = unsafe {
-		sys::ecdsa_recover(
-			signature.as_ptr(),
-			message_hash.as_ptr(),
-			output.as_mut_ptr(),
-		)
+		sys::ecdsa_recover(signature.as_ptr(), message_hash.as_ptr(), output.as_mut_ptr())
 	};
 	ret_code.into()
 }
 
 pub fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
-	let ret_code = unsafe {
-		sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr())
-	};
+	let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 	ret_code.into()
 }
 
@@ -574,13 +536,8 @@ pub fn set_code_hash(code_hash: &[u8]) -> Result {
 
 pub fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result {
 	let mut output_len = output.len() as u32;
-	let ret_val = unsafe {
-		sys::code_hash(
-			account_id.as_ptr(),
-			output.as_mut_ptr(),
-			&mut output_len,
-		)
-	};
+	let ret_val =
+		unsafe { sys::code_hash(account_id.as_ptr(), output.as_mut_ptr(), &mut output_len) };
 	ret_val.into()
 }
 

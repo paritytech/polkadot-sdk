@@ -16,6 +16,3 @@ scale = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 cfg-if = { version = "1.0", default-features = false }
 paste = { version = "1.0", default-features = false }
 
-[features]
-default = [ "std" ]
-std = [ "scale/std" ]

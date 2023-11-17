@@ -102,7 +102,7 @@ version = '0.1.0'
 [[bin]]
 
 [dependencies]
-uapi = {{ package = 'pallet-contracts-uapi',  path = {uapi_path:?}, default-features = false}}
+uapi = {{ package = 'pallet-contracts-uapi',  path = {uapi_path:?}}}
 cfg-if = {{ version = '1.0', default-features = false }}
 
 [profile.release]
