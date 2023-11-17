@@ -17,7 +17,7 @@
 
 #[frame_support::pallet(dev_mode)]
 mod pallet {
-	use frame_support::pallet_prelude::DispatchResult;
+	use frame_support::{ensure, pallet_prelude::DispatchResult};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
@@ -28,11 +28,12 @@ mod pallet {
     #[pallet::tasks]
 	impl<T: Config> Pallet<T> {
 		#[pallet::task_index(0)]
-		#[pallet::task_condition(|i| i == 0u32)]
-		#[pallet::task_list(vec![1u32, 2u32].iter())]
+		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
+		#[pallet::task_list(vec![(0u32, 2u64), (2u32, 4u64)].iter())]
 		#[pallet::task_weight(0.into())]
-		fn foo(i: u32) -> DispatchResult {
-			frame_support::ensure!(i == 0, "i must be 0");
+		fn foo(i: u32, j: u64) -> DispatchResult {
+			ensure!(i == 0, "i must be 0");
+			ensure!(j == 2, "j must be 2");
 			Ok(())
 		}
 	}
