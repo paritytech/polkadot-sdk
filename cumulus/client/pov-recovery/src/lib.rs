@@ -51,7 +51,7 @@ use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
-use polkadot_node_primitives::{AvailableData, POV_BOMB_LIMIT};
+use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
@@ -346,15 +346,11 @@ where
 	}
 
 	/// Handle a recovered candidate.
-	async fn handle_candidate_recovered(
-		&mut self,
-		block_hash: Block::Hash,
-		available_data: Option<AvailableData>,
-	) {
-		let available_data = match available_data {
-			Some(data) => {
+	async fn handle_candidate_recovered(&mut self, block_hash: Block::Hash, pov: Option<&PoV>) {
+		let pov = match pov {
+			Some(pov) => {
 				self.candidates_in_retry.remove(&block_hash);
-				data
+				pov
 			},
 			None =>
 				if self.candidates_in_retry.insert(block_hash) {
@@ -373,18 +369,16 @@ where
 				},
 		};
 
-		let raw_block_data = match sp_maybe_compressed_blob::decompress(
-			&available_data.pov.block_data.0,
-			POV_BOMB_LIMIT,
-		) {
-			Ok(r) => r,
-			Err(error) => {
-				tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");
+		let raw_block_data =
+			match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
+				Ok(r) => r,
+				Err(error) => {
+					tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");
 
-				self.reset_candidate(block_hash);
-				return
-			},
-		};
+					self.reset_candidate(block_hash);
+					return
+				},
+			};
 
 		let block_data = match ParachainBlockData::<Block>::decode(&mut &raw_block_data[..]) {
 			Ok(d) => d,
@@ -595,10 +589,10 @@ where
 				next_to_recover = self.candidate_recovery_queue.next_recovery().fuse() => {
 						self.recover_candidate(next_to_recover).await;
 				},
-				(block_hash, available_data) =
+				(block_hash, pov) =
 					self.active_candidate_recovery.wait_for_recovery().fuse() =>
 				{
-					self.handle_candidate_recovered(block_hash, available_data).await;
+					self.handle_candidate_recovered(block_hash, pov.as_deref()).await;
 				},
 			}
 		}

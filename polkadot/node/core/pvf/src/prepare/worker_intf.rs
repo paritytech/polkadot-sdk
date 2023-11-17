@@ -18,6 +18,7 @@
 
 use crate::{
 	metrics::Metrics,
+	security,
 	worker_intf::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
 		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
@@ -78,7 +79,7 @@ pub enum Outcome {
 	CreateTmpFileErr { worker: IdleWorker, err: String },
 	/// The response from the worker is received, but the tmp file cannot be renamed (moved) to the
 	/// final destination location.
-	RenameTmpFileErr {
+	RenameTmpFile {
 		worker: IdleWorker,
 		result: PrepareResult,
 		err: String,
@@ -97,6 +98,12 @@ pub enum Outcome {
 	///
 	/// This doesn't return an idle worker instance, thus this worker is no longer usable.
 	IoErr(String),
+	/// The worker ran out of memory and is aborting. The worker should be ripped.
+	OutOfMemory,
+	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	///
+	/// The worker might still be usable, but we kill it just in case.
+	JobDied(String),
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -126,7 +133,9 @@ pub async fn start_work(
 		pid,
 		|tmp_artifact_file, mut stream, worker_dir| async move {
 			let preparation_timeout = pvf.prep_timeout();
-			if let Err(err) = send_request(&mut stream, pvf).await {
+			let audit_log_file = security::AuditLogFile::try_open_and_seek_to_end().await;
+
+			if let Err(err) = send_request(&mut stream, pvf.clone()).await {
 				gum::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
@@ -150,7 +159,19 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_result)) =>
+				Ok(Ok(prepare_result)) => {
+					// Check if any syscall violations occurred during the job. For now this is only
+					// informative, as we are not enforcing the seccomp policy yet.
+					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
+						gum::error!(
+							target: LOG_TARGET,
+							worker_pid = %pid,
+							%syscall,
+							?pvf,
+							"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
+						);
+					}
+
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
@@ -160,7 +181,8 @@ pub async fn start_work(
 						artifact_path,
 						preparation_timeout,
 					)
-					.await,
+					.await
+				},
 				Ok(Err(err)) => {
 					// Communication error within the time limit.
 					gum::warn!(
@@ -203,6 +225,8 @@ async fn handle_response(
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+		Err(PrepareError::JobDied(err)) => return Outcome::JobDied(err),
+		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(_) => return Outcome::Concluded { worker, result },
 	};
 
@@ -238,7 +262,7 @@ async fn handle_response(
 				artifact_path.display(),
 				err,
 			);
-			Outcome::RenameTmpFileErr {
+			Outcome::RenameTmpFile {
 				worker,
 				result,
 				err: format!("{:?}", err),

@@ -33,36 +33,37 @@ pub enum ValidationError {
 pub enum InvalidCandidate {
 	/// PVF preparation ended up with a deterministic error.
 	PrepareError(String),
-	/// The failure is reported by the execution worker. The string contains the error message.
-	WorkerReportedError(String),
-	/// The worker has died during validation of a candidate. That may fall in one of the following
-	/// categories, which we cannot distinguish programmatically:
+	/// The candidate is reported to be invalid by the execution worker. The string contains the
+	/// error message.
+	WorkerReportedInvalid(String),
+	/// The worker process (not the job) has died during validation of a candidate.
 	///
-	/// (a) Some sort of transient glitch caused the worker process to abort. An example would be
-	/// that the host machine ran out of free memory and the OOM killer started killing the
-	/// processes, and in order to save the parent it will "sacrifice child" first.
-	///
-	/// (b) The candidate triggered a code path that has lead to the process death. For example,
-	///     the PVF found a way to consume unbounded amount of resources and then it either
-	///     exceeded an `rlimit` (if set) or, again, invited OOM killer. Another possibility is a
-	///     bug in wasmtime allowed the PVF to gain control over the execution worker.
-	///
-	/// We attribute such an event to an *invalid candidate* in either case.
-	///
-	/// The rationale for this is that a glitch may lead to unfair rejecting candidate by a single
-	/// validator. If the glitch is somewhat more persistent the validator will reject all
-	/// candidate thrown at it and hopefully the operator notices it by decreased reward
-	/// performance of the validator. On the other hand, if the worker died because of (b) we would
-	/// have better chances to stop the attack.
+	/// It's unlikely that this is caused by malicious code since workers spawn separate job
+	/// processes, and those job processes are sandboxed. But, it is possible. We retry in this
+	/// case, and if the error persists, we assume it's caused by the candidate and vote against.
 	AmbiguousWorkerDeath,
 	/// PVF execution (compilation is not included) took more time than was allotted.
 	HardTimeout,
-	/// A panic occurred and we can't be sure whether the candidate is really invalid or some
-	/// internal glitch occurred. Whenever we are unsure, we can never treat an error as internal
-	/// as we would abstain from voting. This is bad because if the issue was due to the candidate,
-	/// then all validators would abstain, stalling finality on the chain. So we will first retry
-	/// the candidate, and if the issue persists we are forced to vote invalid.
-	Panic(String),
+	/// The job process (not the worker) has died for one of the following reasons:
+	///
+	/// (a) A seccomp violation occurred, most likely due to an attempt by malicious code to
+	/// execute arbitrary code. Note that there is no foolproof way to detect this if the operator
+	/// has seccomp auditing disabled.
+	///
+	/// (b) The host machine ran out of free memory and the OOM killer started killing the
+	/// processes, and in order to save the parent it will "sacrifice child" first.
+	///
+	/// (c) Some other reason, perhaps transient or perhaps caused by malicious code.
+	///
+	/// We cannot treat this as an internal error because malicious code may have caused this.
+	AmbiguousJobDeath(String),
+	/// An unexpected error occurred in the job process and we can't be sure whether the candidate
+	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
+	/// treat an error as internal as we would abstain from voting. This is bad because if the
+	/// issue was due to the candidate, then all validators would abstain, stalling finality on the
+	/// chain. So we will first retry the candidate, and if the issue persists we are forced to
+	/// vote invalid.
+	JobError(String),
 }
 
 impl From<InternalValidationError> for ValidationError {
