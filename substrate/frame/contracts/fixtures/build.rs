@@ -134,13 +134,9 @@ codegen-units = 1
 fn invoke_build(current_dir: &Path) -> Result<()> {
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
-		.env_clear()
-		.env("PATH", env::var("PATH").unwrap_or_default())
-		.env("HOME", env::var("HOME").unwrap_or_default())
-		.env("RUSTC", env::var("RUSTC").unwrap_or_default())
 		.env(
-			"RUSTFLAGS",
-			"-C link-arg=-zstack-size=65536 -C link-arg=--import-memory -Clinker-plugin-lto -C target-cpu=mvp",
+			"CARGO_ENCODED_RUSTFLAGS",
+			"-C\x1flink-arg=-zstack-size=65536\x1f-C\x1flink-arg=--import-memory\x1f-Clinker-plugin-lto\x1f-C\x1ftarget-cpu=mvp",
 		)
 		.arg("build")
 		.arg("--release")
