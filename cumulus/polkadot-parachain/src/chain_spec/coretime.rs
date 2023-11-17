@@ -102,7 +102,7 @@ pub mod rococo {
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
-	const BRIDGE_HUB_ROCOCO_ED: CoretimeBalance =
+	const CORETIME_ROCOCO_ED: CoretimeBalance =
 		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 	pub type CoretimeChainSpec =
 		sc_service::GenericChainSpec<coretime_rococo_runtime::RuntimeGenesisConfig, Extensions>;
@@ -181,7 +181,7 @@ pub mod rococo {
 			},
 			"collatorSelection": {
 				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": BRIDGE_HUB_ROCOCO_ED * 16,
+				"candidacyBond": CORETIME_ROCOCO_ED * 16,
 			},
 			"session": {
 				"keys": invulnerables
@@ -198,10 +198,10 @@ pub mod rococo {
 			"polkadotXcm": {
 				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
-			"bridgeWestendGrandpa": {
+			"bridgeRococoGrandpa": {
 				"owner": bridges_pallet_owner.clone(),
 			},
-			"bridgeWestendMessages": {
+			"bridgeRococoMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
 		})
