@@ -113,10 +113,12 @@ pub mod system_parachain {
 	pub const ENCOINTER_ID: u32 = 1003;
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1013;
+	/// Brokerage parachain ID.
+	pub const BROKER_ID: u32 = 1004;
 
 	frame_support::match_types! {
 		pub type SystemParachains: impl Contains<MultiLocation> = {
-			MultiLocation { parents: 0, interior: X1(Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID)) }
+			MultiLocation { parents: 0, interior: X1(Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID | BROKER_ID)) }
 		};
 	}
 }

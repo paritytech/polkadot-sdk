@@ -180,6 +180,10 @@ pub mod pallet {
 	{
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Origin from which coretime extrinsics may be called. This is generally the Broker
+		/// system parachain.
+		type ExternalBrokerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// Scheduled assignment sets.
@@ -212,8 +216,32 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
+	/// Receive instructions from the `ExternalBrokerOrigin`, detailing how a specific core is to be
+	/// used.
+	///
+	/// Parameters:
+	/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the Broker system parachain.
+	/// -`core`: The core that should be scheduled.
+	/// -`begin`: The starting blockheight of the instruction.
+	/// -`assignment`: How the blockspace should be utilised.
+	/// -`end_hint`: An optional hint as to when this particular set of instructions will end.
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
+	impl<T: Config> Pallet<T> {
+		//TODO: Weights
+		#[pallet::call_index(0)]
+		pub fn assign_core(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			begin: BlockNumberFor<T>,
+			assignment: Vec<(CoreAssignment, PartsOf57600)>,
+			end_hint: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the External Broker parachain.
+			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
+
+			Pallet::<T>::do_assign_core(core, begin, assignment, end_hint)
+		}
+	}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -407,7 +435,7 @@ impl<T: Config> Pallet<T> {
 	/// The problem is that insertion complexity then depends on the size of the existing queue,
 	/// which makes determining weights hard and could lead to issues like overweight blocks (at
 	/// least in theory).
-	pub fn assign_core(
+	pub fn do_assign_core(
 		core_idx: CoreIndex,
 		begin: BlockNumberFor<T>,
 		assignments: Vec<(CoreAssignment, PartsOf57600)>,
