@@ -377,44 +377,6 @@ pub fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
 	extract_from_slice(output, output_len as usize);
 }
 
-#[cfg(feature = "ink-debug")]
-/// Call `debug_message` with the supplied UTF-8 encoded message.
-///
-/// If debug message recording is disabled in the contracts pallet, the first call will
-/// return a `LoggingDisabled` error, and further calls will be a no-op to avoid the cost
-/// of calling into the supervisor.
-///
-/// # Note
-///
-/// This depends on the `debug_message` interface which requires the
-/// `"pallet-contracts/unstable-interface"` feature to be enabled in the target runtime.
-pub fn debug_message(message: &str) {
-	static mut DEBUG_ENABLED: bool = false;
-	static mut FIRST_RUN: bool = true;
-
-	// SAFETY: safe because executing in a single threaded context
-	// We need those two variables in order to make sure that the assignment is performed
-	// in the "logging enabled" case. This is because during RPC execution logging might
-	// be enabled while it is disabled during the actual execution as part of a
-	// transaction. The gas estimation takes place during RPC execution. We want to
-	// overestimate instead of underestimate gas usage. Otherwise using this estimate
-	// could lead to a out of gas error.
-	if unsafe { DEBUG_ENABLED || FIRST_RUN } {
-		let bytes = message.as_bytes();
-		let ret_val = unsafe { sys::debug_message(bytes.as_ptr(), bytes.len() as u32) };
-		if !matches!(ReturnCode(ret_val).into(), Err(super::Error::LoggingDisabled)) {
-			// SAFETY: safe because executing in a single threaded context
-			unsafe { DEBUG_ENABLED = true }
-		}
-		// SAFETY: safe because executing in a single threaded context
-		unsafe { FIRST_RUN = false }
-	}
-}
-
-#[cfg(not(feature = "ink-debug"))]
-/// A no-op. Enable the `ink-debug` feature for debug messages.
-pub fn debug_message(_message: &str) {}
-
 macro_rules! impl_hash_fn {
 	( $name:ident, $bytes_result:literal ) => {
 		paste::item! {
