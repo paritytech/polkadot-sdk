@@ -1292,31 +1292,45 @@ impl<T: Config> QueryHandler for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Validate `assets` to be reserve-transferred and return their reserve location.
-	fn validate_assets_and_find_reserve(
+	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_item`, when
+	/// transferring to `dest`.
+	///
+	/// Validate `assets` to all have same `TransferType`.
+	fn find_fee_and_assets_transfer_types(
 		assets: &[MultiAsset],
+		fee_asset_item: usize,
 		dest: &MultiLocation,
-	) -> Result<TransferType, Error<T>> {
-		let mut reserve = None;
-		for asset in assets.iter() {
+	) -> Result<(TransferType, TransferType), Error<T>> {
+		let mut fees_transfer_type = None;
+		let mut assets_transfer_type = None;
+		for (idx, asset) in assets.iter().enumerate() {
 			if let Fungible(x) = asset.fun {
 				// If fungible asset, ensure non-zero amount.
 				ensure!(!x.is_zero(), Error::<T>::Empty);
 			}
 			let transfer_type =
 				T::XcmExecutor::determine_for(&asset, dest).map_err(Error::<T>::from)?;
-			// Ensure asset is not teleportable to `dest`.
-			ensure!(transfer_type != TransferType::Teleport, Error::<T>::Filtered);
-			if let Some(reserve) = reserve.as_ref() {
-				// Ensure transfer for multiple assets uses same reserve location (only fee may have
-				// different reserve location)
-				ensure!(reserve == &transfer_type, Error::<T>::TooManyReserves);
+			if idx == fee_asset_item {
+				fees_transfer_type = Some(transfer_type);
 			} else {
-				// asset reserve identified
-				reserve = Some(transfer_type);
+				if let Some(existing) = assets_transfer_type.as_ref() {
+					// Ensure transfer for multiple assets uses same transfer type (only fee may
+					// have different transfer type/path)
+					ensure!(existing == &transfer_type, Error::<T>::TooManyReserves);
+				} else {
+					// asset reserve identified
+					assets_transfer_type = Some(transfer_type);
+				}
 			}
 		}
-		reserve.ok_or(Error::<T>::Empty)
+		// single asset also marked as fee item
+		if assets.len() == 1 {
+			assets_transfer_type = fees_transfer_type
+		}
+		Ok((
+			fees_transfer_type.ok_or(Error::<T>::Empty)?,
+			assets_transfer_type.ok_or(Error::<T>::Empty)?,
+		))
 	}
 
 	fn do_reserve_transfer_assets(
@@ -1343,43 +1357,31 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (origin, mut assets) = value;
 
-		if fee_asset_item as usize >= assets.len() {
-			return Err(Error::<T>::Empty.into())
-		}
-		let fees = assets.swap_remove(fee_asset_item as usize);
-		let fees_transfer_type =
-			T::XcmExecutor::determine_for(&fees, &dest).map_err(Error::<T>::from)?;
-		let assets_transfer_type = if assets.is_empty() {
-			// Single asset to transfer (one used for fees where transfer type is determined above).
-			ensure!(fees_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
-			fees_transfer_type
-		} else {
-			// Find reserve for non-fee assets.
-			Self::validate_assets_and_find_reserve(&assets, &dest)?
-		};
+		let fee_asset_item = fee_asset_item as usize;
+		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
+		// Find transfer types for fee and non-fee assets.
+		let (fees_transfer_type, assets_transfer_type) =
+			Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 
 		// local and remote XCM programs to potentially handle fees separately
-		let separate_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>;
-		if fees_transfer_type == assets_transfer_type {
-			// Same reserve location (fees not teleportable), we can batch together fees and assets
-			// in same reserve-based-transfer.
-			assets.push(fees.clone());
+		let separate_fees_instructions = if fees_transfer_type == assets_transfer_type {
 			// no need for custom fees instructions, fees are batched with assets
-			separate_fees_instructions = None;
+			None
 		} else {
-			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered by
-			// branch above). The reason for this is that we'd need to send XCMs to separate chains
-			// with no guarantee of delivery order on final destination; therefore we cannot
-			// guarantee to have fees in place on final destination chain to pay for assets
-			// transfer.
+			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered
+			// by branch above). The reason for this is that we'd need to send XCMs to separate
+			// chains with no guarantee of delivery order on final destination; therefore we
+			// cannot guarantee to have fees in place on final destination chain to pay for
+			// assets transfer.
 			ensure!(
 				!matches!(assets_transfer_type, TransferType::RemoteReserve(_)),
 				Error::<T>::InvalidAssetUnsupportedReserve
 			);
-			let fees = fees.clone();
 			let weight_limit = weight_limit.clone();
-			// build fees transfer instructions to be added to assets transfers XCM programs
-			separate_fees_instructions = Some(match fees_transfer_type {
+			// remove `fees` from `assets` and build separate fees transfer instructions to be
+			// added to assets transfers XCM programs
+			let fees = assets.remove(fee_asset_item);
+			Some(match fees_transfer_type {
 				TransferType::LocalReserve =>
 					Self::local_reserve_fees_instructions(origin, dest, fees, weight_limit)?,
 				TransferType::DestinationReserve =>
@@ -1388,9 +1390,11 @@ impl<T: Config> Pallet<T> {
 					Self::teleport_fees_instructions(origin, dest, fees, weight_limit)?,
 				TransferType::RemoteReserve(_) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
-			});
+			})
 		};
 
+		// Ensure assets are not teleportable to `dest`.
+		ensure!(assets_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
 		Self::build_and_execute_xcm_transfer_type(
 			origin,
 			dest,
