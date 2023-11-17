@@ -75,7 +75,9 @@ fn implement_common_api_traits(match_arms: Vec<TokenStream>, self_ty: Type) -> R
 				let function = params.function;
 				let arguments = params.arguments;
 
-
+				Ok(match function {
+					#( #match_arms )*
+				})
 			}
 
 			fn runtime_version_at(
@@ -177,21 +179,20 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 		let crate_ = generate_crate_access();
 		let mut errors = Vec::new();
 
-		let (param_names, param_types_and_borrows) =
-			match extract_parameter_names_types_and_borrows(
-				&input.sig,
-				AllowSelfRefInParameters::YesButIgnore,
-			) {
-				Ok(res) => (
-					res.iter().map(|v| v.0.clone()).collect::<Vec<_>>(),
-					res.iter().map(|v| (v.1.clone(), v.2.clone())).collect::<Vec<_>>(),
-				),
-				Err(e) => {
-					errors.push(e.to_compile_error());
+		let (param_names, param_types_and_borrows) = match extract_parameter_names_types_and_borrows(
+			&input.sig,
+			AllowSelfRefInParameters::YesButIgnore,
+		) {
+			Ok(res) => (
+				res.iter().map(|v| v.0.clone()).collect::<Vec<_>>(),
+				res.iter().map(|v| (v.1.clone(), v.2.clone())).collect::<Vec<_>>(),
+			),
+			Err(e) => {
+				errors.push(e.to_compile_error());
 
-					(Default::default(), Default::default())
-				},
-			};
+				(Default::default(), Default::default())
+			},
+		};
 
 		let match_str = prefix_function_with_trait(self.trait_, &input.sig.ident);
 
@@ -206,7 +207,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 					.expect("Parameters not correctly encoded for mock");
 
 			// Setup the types correctly with borrow.
-			#( let #param_names  = #param_borrows #param_names );*
+			#( let #param_names  = #param_borrows #param_names; )*
 
 			let __fn_implementation__ = move || #orig_block;
 
@@ -244,7 +245,6 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 			.last()
 			.ok_or_else(|| Error::new(impl_trait_path.span(), "Empty trait path not possible!"))?
 			.ident;
-		let block_type = extract_block_type_from_trait_path(impl_trait_path)?;
 
 		self_ty = match self_ty.take() {
 			Some(self_ty) =>
@@ -278,14 +278,20 @@ pub fn mock_impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro
 	// Parse all impl blocks
 	let RuntimeApiImpls { impls: api_impls } = parse_macro_input!(input as RuntimeApiImpls);
 
-	mock_impl_runtime_apis_impl_inner(&api_impls)
-		.unwrap_or_else(|e| e.to_compile_error())
-		.into()
+	let mock =
+		mock_impl_runtime_apis_impl_inner(&api_impls).unwrap_or_else(|e| e.to_compile_error());
+
+	let mock_expanded = expander::Expander::new("impl_runtime_apis")
+		.dry(std::env::var("SP_API_EXPAND").is_err())
+		.verbose(true)
+		.write_to_out_dir(mock)
+		.expect("Does not fail because of IO in OUT_DIR; qed");
+
+	mock_expanded.into()
 }
 
 fn mock_impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
-	let GeneratedRuntimeApiImpls { match_arms, self_ty } =
-		generate_runtime_api_impls(api_impls)?;
+	let GeneratedRuntimeApiImpls { match_arms, self_ty } = generate_runtime_api_impls(api_impls)?;
 	let api_traits = implement_common_api_traits(match_arms, self_ty)?;
 
 	Ok(quote!(

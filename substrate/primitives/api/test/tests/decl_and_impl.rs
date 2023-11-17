@@ -204,11 +204,11 @@ fn check_runtime_api_info() {
 	assert_eq!(<dyn ApiWithCustomVersion>::VERSION, 2);
 
 	// The stable version of the API
-	assert_eq!(<dyn ApiWithMultipleVersions::<Block>>::VERSION, 2);
+	assert_eq!(<dyn ApiWithMultipleVersions>::VERSION, 2);
 
-	assert_eq!(<dyn ApiWithStagingMethod::<Block>>::VERSION, 1);
-	assert_eq!(<dyn ApiWithStagingAndVersionedMethods::<Block>>::VERSION, 1);
-	assert_eq!(<dyn ApiWithStagingAndChangedBase::<Block>>::VERSION, 2);
+	assert_eq!(<dyn ApiWithStagingMethod>::VERSION, 1);
+	assert_eq!(<dyn ApiWithStagingAndVersionedMethods>::VERSION, 1);
+	assert_eq!(<dyn ApiWithStagingAndChangedBase>::VERSION, 2);
 }
 
 fn check_runtime_api_versions_contains<T: RuntimeApiInfo + ?Sized>() {
@@ -221,7 +221,7 @@ fn check_staging_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(_staging_ver: 
 	assert!(RUNTIME_API_VERSIONS.iter().any(|v| v == &(T::ID, _staging_ver)));
 	//... otherwise the base version should be set
 	#[cfg(not(feature = "enable-staging-api"))]
-	check_runtime_api_versions_contains::<dyn ApiWithStagingMethod<Block>>();
+	check_runtime_api_versions_contains::<dyn ApiWithStagingMethod>();
 }
 
 #[allow(unused_assignments)]
@@ -243,13 +243,13 @@ fn check_runtime_api_versions() {
 	check_runtime_api_versions_contains::<dyn ApiWithCustomVersion>();
 	assert!(RUNTIME_API_VERSIONS
 		.iter()
-		.any(|v| v == &(<dyn ApiWithMultipleVersions<Block>>::ID, 3)));
+		.any(|v| v == &(<dyn ApiWithMultipleVersions>::ID, 3)));
 
-	check_staging_runtime_api_versions::<dyn ApiWithStagingMethod<Block>>(99);
-	check_staging_multiver_runtime_api_versions::<dyn ApiWithStagingAndVersionedMethods<Block>>(
+	check_staging_runtime_api_versions::<dyn ApiWithStagingMethod>(99);
+	check_staging_multiver_runtime_api_versions::<dyn ApiWithStagingAndVersionedMethods>(
 		99, 2,
 	);
-	check_staging_runtime_api_versions::<dyn ApiWithStagingAndChangedBase<Block>>(99);
+	check_staging_runtime_api_versions::<dyn ApiWithStagingAndChangedBase>(99);
 
 	check_runtime_api_versions_contains::<dyn sp_api::Core<Block>>();
 }
