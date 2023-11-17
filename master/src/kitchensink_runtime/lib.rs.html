@@ -2880,6 +2880,7 @@
 <a href="#2880" id="2880">2880</a>
 <a href="#2881" id="2881">2881</a>
 <a href="#2882" id="2882">2882</a>
+<a href="#2883" id="2883">2883</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5076,9 +5077,10 @@
 &gt;;
 
 <span class="comment">// All migrations executed on runtime upgrade as a nested tuple of types implementing
-// `OnRuntimeUpgrade`.
+// `OnRuntimeUpgrade`. Note: These are examples and do not need to be run directly
+// after the genesis block.
 </span><span class="kw">type </span>Migrations = (
-	pallet_nomination_pools::migration::v2::MigrateToV2&lt;Runtime&gt;,
+	pallet_nomination_pools::migration::versioned::V6ToV7&lt;Runtime&gt;,
 	pallet_alliance::migration::Migration&lt;Runtime&gt;,
 	pallet_contracts::Migration&lt;Runtime&gt;,
 );
