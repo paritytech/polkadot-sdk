@@ -29,9 +29,6 @@ pub enum BridgeHubRuntimeType {
 	// used by benchmarks
 	RococoDevelopment,
 
-	Wococo,
-	WococoLocal,
-
 	Kusama,
 	KusamaLocal,
 	// used by benchmarks
@@ -66,8 +63,6 @@ impl FromStr for BridgeHubRuntimeType {
 			rococo::BRIDGE_HUB_ROCOCO => Ok(BridgeHubRuntimeType::Rococo),
 			rococo::BRIDGE_HUB_ROCOCO_LOCAL => Ok(BridgeHubRuntimeType::RococoLocal),
 			rococo::BRIDGE_HUB_ROCOCO_DEVELOPMENT => Ok(BridgeHubRuntimeType::RococoDevelopment),
-			wococo::BRIDGE_HUB_WOCOCO => Ok(BridgeHubRuntimeType::Wococo),
-			wococo::BRIDGE_HUB_WOCOCO_LOCAL => Ok(BridgeHubRuntimeType::WococoLocal),
 			_ => Err(format!("Value '{}' is not configured yet", value)),
 		}
 	}
@@ -94,8 +89,6 @@ impl BridgeHubRuntimeType {
 			BridgeHubRuntimeType::RococoLocal |
 			BridgeHubRuntimeType::RococoDevelopment =>
 				Ok(Box::new(rococo::BridgeHubChainSpec::from_json_file(path)?)),
-			BridgeHubRuntimeType::Wococo | BridgeHubRuntimeType::WococoLocal =>
-				Ok(Box::new(wococo::BridgeHubChainSpec::from_json_file(path)?)),
 		}
 	}
 
@@ -170,17 +163,6 @@ impl BridgeHubRuntimeType {
 				ParaId::new(1013),
 				Some("Bob".to_string()),
 				|_| (),
-			))),
-			BridgeHubRuntimeType::Wococo =>
-				Ok(Box::new(wococo::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../chain-specs/bridge-hub-wococo.json")[..],
-				)?)),
-			BridgeHubRuntimeType::WococoLocal => Ok(Box::new(wococo::local_config(
-				wococo::BRIDGE_HUB_WOCOCO_LOCAL,
-				"Wococo BridgeHub Local",
-				"wococo-local",
-				ParaId::new(1014),
-				Some("Bob".to_string()),
 			))),
 		}
 	}
@@ -309,57 +291,13 @@ pub mod rococo {
 			"polkadotXcm": {
 				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
-
-			"bridgeWococoGrandpa":  {
-				"owner": bridges_pallet_owner.clone(),
-			},
 			"bridgeWestendGrandpa": {
-				"owner": bridges_pallet_owner.clone(),
-			},
-			"bridgeRococoGrandpa": {
-				"owner": bridges_pallet_owner.clone(),
-			},
-			"bridgeRococoMessages": {
-				"owner": bridges_pallet_owner.clone(),
-			},
-			"bridgeWococoMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
 			"bridgeWestendMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
 		})
-	}
-}
-
-/// Sub-module for Wococo setup (reuses stuff from Rococo)
-pub mod wococo {
-	use super::ParaId;
-	use crate::chain_spec::bridge_hubs::rococo;
-
-	pub(crate) const BRIDGE_HUB_WOCOCO: &str = "bridge-hub-wococo";
-	pub(crate) const BRIDGE_HUB_WOCOCO_LOCAL: &str = "bridge-hub-wococo-local";
-
-	pub type BridgeHubChainSpec = rococo::BridgeHubChainSpec;
-	pub type RuntimeApi = rococo::RuntimeApi;
-
-	pub fn local_config(
-		id: &str,
-		chain_name: &str,
-		relay_chain: &str,
-		para_id: ParaId,
-		bridges_pallet_owner_seed: Option<String>,
-	) -> BridgeHubChainSpec {
-		rococo::local_config(
-			id,
-			chain_name,
-			relay_chain,
-			para_id,
-			bridges_pallet_owner_seed,
-			|properties| {
-				properties.insert("tokenSymbol".into(), "WOOK".into());
-			},
-		)
 	}
 }
 
