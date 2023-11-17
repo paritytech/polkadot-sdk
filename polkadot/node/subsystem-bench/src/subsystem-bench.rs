@@ -16,12 +16,16 @@
 
 //! A tool for running subsystem benchmark tests designed for development and
 //! CI regression testing.
+use approval::ApprovalSubsystemInstance;
 use clap::Parser;
 use color_eyre::eyre;
 
 use colored::Colorize;
+use prometheus::Registry;
+use sc_service::TaskManager;
 use std::{path::Path, time::Duration};
 
+pub(crate) mod approval;
 pub(crate) mod availability;
 pub(crate) mod core;
 
@@ -131,7 +135,7 @@ struct BenchCli {
 	pub objective: TestObjective,
 }
 
-fn new_runtime() -> tokio::runtime::Runtime {
+pub fn new_runtime() -> tokio::runtime::Runtime {
 	tokio::runtime::Builder::new_multi_thread()
 		.thread_name("subsystem-bench")
 		.enable_all()
@@ -265,8 +269,21 @@ fn main() -> eyre::Result<()> {
 		.try_init()
 		.unwrap();
 
-	let cli: BenchCli = BenchCli::parse();
-	cli.launch()?;
+	// let cli: BenchCli = BenchCli::parse();
+	// cli.launch()?;
+
+	let registry = Registry::new();
+	let runtime = new_runtime();
+	let task_manager: TaskManager =
+		TaskManager::new(runtime.handle().clone(), Some(&registry)).unwrap();
+
+	let approval_subsystem = ApprovalSubsystemInstance::new(task_manager.spawn_handle());
+
+	println!("RUNTIME ====");
+	runtime.block_on(async {
+		approval_subsystem.run_approval_voting().await;
+	});
+
 	Ok(())
 }
 

@@ -83,7 +83,7 @@ use time::{slot_number_to_tick, Clock, ClockExt, SystemClock, Tick};
 mod approval_checking;
 mod approval_db;
 mod backend;
-mod criteria;
+pub mod criteria;
 mod import;
 mod ops;
 mod persisted_entries;

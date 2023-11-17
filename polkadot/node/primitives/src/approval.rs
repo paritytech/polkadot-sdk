@@ -114,7 +114,7 @@ pub struct IndirectSignedApprovalVote {
 }
 
 /// Metadata about a block which is now live in the approval protocol.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockApprovalMeta {
 	/// The hash of the block.
 	pub hash: Hash,

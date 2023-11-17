@@ -45,7 +45,7 @@ pub struct OurAssignment {
 }
 
 impl OurAssignment {
-	pub(crate) fn cert(&self) -> &AssignmentCert {
+	pub fn cert(&self) -> &AssignmentCert {
 		&self.cert
 	}
 
@@ -135,13 +135,13 @@ fn assigned_core_transcript(core_index: CoreIndex) -> Transcript {
 
 /// Information about the world assignments are being produced in.
 #[derive(Clone)]
-pub(crate) struct Config {
+pub struct Config {
 	/// The assignment public keys for validators.
 	assignment_keys: Vec<AssignmentId>,
 	/// The groups of validators assigned to each core.
 	validator_groups: IndexedVec<GroupIndex, Vec<ValidatorIndex>>,
 	/// The number of availability cores used by the protocol during this session.
-	n_cores: u32,
+	pub n_cores: u32,
 	/// The zeroth delay tranche width.
 	zeroth_delay_tranche_width: u32,
 	/// The number of samples we do of `relay_vrf_modulo`.
@@ -313,7 +313,7 @@ pub(crate) fn compute_assignments(
 	assignments
 }
 
-fn compute_relay_vrf_modulo_assignments(
+pub fn compute_relay_vrf_modulo_assignments(
 	assignments_key: &schnorrkel::Keypair,
 	validator_index: ValidatorIndex,
 	config: &Config,
