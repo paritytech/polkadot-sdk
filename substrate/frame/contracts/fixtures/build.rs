@@ -136,6 +136,7 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 		.current_dir(current_dir)
 		.env_clear()
 		.env("PATH", env::var("PATH").unwrap_or_default())
+		.env("HOME", env::var("HOME").unwrap_or_default())
 		.env("RUSTC", env::var("RUSTC").unwrap_or_default())
 		.env(
 			"RUSTFLAGS",
