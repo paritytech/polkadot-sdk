@@ -25,14 +25,15 @@ use std::{
 };
 use twox_hash::XxHash32;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+/// Salt used for hashing the contract source files.
+const SALT: &[u8]= &[0u8];
 
 /// Read the file at `path` and return its hash as a hex string.
-fn file_hash(path: &PathBuf) -> String {
+fn file_hash(path: &Path) -> String {
 	let data = fs::read(path).expect("file exists; qed");
 	let mut hasher = XxHash32::default();
 	hasher.write(&data);
-	hasher.write(VERSION.as_bytes());
+	hasher.write(SALT);
 	let hash = hasher.finish();
 	format!("{:x}", hash)
 }
@@ -73,7 +74,7 @@ impl Entry {
 }
 
 /// Collect all contract entries from the given source directory.
-/// Entries are filtered by checking if the output wasm file already exists.
+/// Contracts that have already been compiled are filtered out.
 fn collect_entries(src_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 	fs::read_dir(&src_dir)
 		.expect("src dir exists; qed")
