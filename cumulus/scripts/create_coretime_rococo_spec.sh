@@ -23,10 +23,10 @@ para_id=$2
 
 echo "Generating chain spec for runtime: $rt_path and para_id: $para_id"
 
-binary="./target/release/rococo-parachain"
+binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
-$binary build-spec --chain coretime-rococo-dev > chain-spec-plain.json
+$binary build-spec --chain coretime-rococo-local > chain-spec-plain.json
 
 # convert runtime to hex
 cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
