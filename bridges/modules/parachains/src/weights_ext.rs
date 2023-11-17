@@ -31,7 +31,7 @@ use frame_support::weights::{RuntimeDbWeight, Weight};
 pub const DEFAULT_PARACHAIN_HEAD_SIZE: u32 = 384;
 
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
-/// the Rialto chain.
+/// some generic chain.
 pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
 
 /// Extended weight info.

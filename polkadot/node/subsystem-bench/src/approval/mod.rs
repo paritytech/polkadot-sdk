@@ -24,18 +24,19 @@ use futures::{select, FutureExt};
 use itertools::Itertools;
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
-	criteria::{compute_relay_vrf_modulo_assignments, Config},
+	criteria::{compute_relay_vrf_modulo_assignments_v1, Config},
 	ApprovalVotingSubsystem, Metrics,
 };
 use polkadot_node_primitives::approval::{
-	self, AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, IndirectSignedApprovalVote,
-	RelayVRFStory, RELAY_VRF_MODULO_CONTEXT,
+	self,
+	v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
+	v2::IndirectAssignmentCertV2,
 };
 
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v2 as protocol_v2, ObservedRole, Versioned, VersionedValidationProtocol, View,
+	vstaging as protocol_vstaging, ObservedRole, Versioned, VersionedValidationProtocol, View,
 };
 
 use polkadot_node_subsystem::{AllMessages, FromOrchestra, Subsystem};
@@ -266,8 +267,8 @@ impl ApprovalSubsystemInstance {
 							.send(FromOrchestra::Communication { msg })
 							.await;
 						},
-						AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(msg, _)) => {
-							println!("approval_distribution:  ======================    TX Bridge {:?}", msg);
+						AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(msg, value)) => {
+							println!("approval_distribution:  ======================    TX Bridge {:?} {:?}", msg, value);
 							self.count += 1;
 							if self.count >= 5800 {
 								let spent_from_sending = self.begin_of_sending.map(|instant| instant.elapsed().as_millis()).unwrap_or_default();
@@ -362,11 +363,14 @@ fn issue_approvals(
 		.map(|message| match message {
 			ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				_,
-				Versioned::V2(msg),
+				Versioned::VStaging(msg),
 			)) =>
-				if let protocol_v2::ApprovalDistributionMessage::Assignments(assignments) = msg {
+				if let protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments) =
+					msg
+				{
 					let assignment = assignments.first().unwrap();
-					let candidate = candidates.get(assignment.1 as usize).unwrap();
+					let candidate =
+						candidates.get(assignment.1.iter_ones().next().unwrap()).unwrap();
 					if let CandidateEvent::CandidateIncluded(candidate, _, _, _) = candidate {
 						let keyring =
 							keyrings.get(assignment.0.validator.0 as usize).unwrap().clone();
@@ -375,14 +379,15 @@ fn issue_approvals(
 						let signature = validator_key.sign(&payload[..]);
 						let indirect = IndirectSignedApprovalVote {
 							block_hash,
-							candidate_index: assignment.1,
+							candidate_index: assignment.1.iter_ones().next().unwrap() as u32,
 							validator: assignment.0.validator,
 							signature,
 						};
-						let msg =
-							protocol_v2::ApprovalDistributionMessage::Approvals(vec![indirect]);
+						let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![
+							indirect,
+						]);
 						ApprovalDistributionMessage::NetworkBridgeUpdate(
-							NetworkBridgeEvent::PeerMessage(keyring.1, Versioned::V2(msg)),
+							NetworkBridgeEvent::PeerMessage(keyring.1, Versioned::VStaging(msg)),
 						)
 					} else {
 						panic!("Should not happend");
@@ -403,23 +408,6 @@ fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
 	r
 }
 
-fn fake_assignment_cert(block_hash: Hash, validator: ValidatorIndex) -> IndirectAssignmentCert {
-	let ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
-	let msg = b"WhenParachains?";
-	let mut prng = rand_core::OsRng;
-	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
-	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
-
-	IndirectAssignmentCert {
-		block_hash,
-		validator,
-		cert: AssignmentCert {
-			kind: AssignmentCertKind::RelayVRFModulo { sample: 1 },
-			vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) },
-		},
-	}
-}
 fn make_candidates(block_hash: Hash) -> Vec<CandidateEvent> {
 	(0..NUM_CORES)
 		.map(|core| {
@@ -454,7 +442,7 @@ fn generate_many_assignments(
 		.collect_vec();
 	let mut indirect = Vec::new();
 
-	let unsafe_vrf = approval::babe_unsafe_vrf_info(&make_header(block_hash, current_slot, 1))
+	let unsafe_vrf = approval::v1::babe_unsafe_vrf_info(&make_header(block_hash, current_slot, 1))
 		.expect("Should be ok");
 	let babe_epoch = generate_babe_epoch(current_slot, keyrings.clone());
 	let relay_vrf_story = unsafe_vrf
@@ -467,7 +455,7 @@ fn generate_many_assignments(
 			.into_iter()
 			.filter(|(_, core_index)| core_index.0 != i)
 			.collect_vec();
-		compute_relay_vrf_modulo_assignments(
+		compute_relay_vrf_modulo_assignments_v1(
 			&keyrings[i as usize].0.clone().pair().into(),
 			ValidatorIndex(i),
 			&config,
@@ -485,12 +473,12 @@ fn generate_many_assignments(
 			);
 
 			indirect.push((
-				IndirectAssignmentCert {
+				IndirectAssignmentCertV2 {
 					block_hash: Hash::repeat_byte(1),
 					validator: ValidatorIndex(i),
 					cert: assignment.cert().clone(),
 				},
-				core_index.0,
+				core_index.0.into(),
 			));
 		}
 	}
@@ -499,10 +487,10 @@ fn generate_many_assignments(
 		.into_iter()
 		.map(|indirect| {
 			let validator_index = indirect.0.validator.0;
-			let msg = protocol_v2::ApprovalDistributionMessage::Assignments(vec![indirect]);
+			let msg = protocol_vstaging::ApprovalDistributionMessage::Assignments(vec![indirect]);
 			ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				keyrings[validator_index as usize].1,
-				Versioned::V2(msg),
+				Versioned::VStaging(msg),
 			))
 		})
 		.collect_vec()
