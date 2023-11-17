@@ -17,12 +17,3 @@ help: you must specify a concrete type for this numeric value, like `i32`
    |
 33 |         #[pallet::task_list(0_i32)]
    |                             ~~~~~
-
-error[E0559]: variant `pallet::Task<_>::Foo` has no field named `i`
-  --> tests/pallet_ui/task_invalid_list.rs:18:1
-   |
-18 | #[frame_support::pallet(dev_mode)]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `pallet::Task<_>::Foo` does not have this field
-   |
-   = note: all struct fields are already assigned
-   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)
