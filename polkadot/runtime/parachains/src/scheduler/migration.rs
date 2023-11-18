@@ -446,7 +446,7 @@ pub fn migrate_to_v2<T: crate::scheduler::Config>() -> Weight {
 	let old = v1::ClaimQueue::<T>::take();
 	let new = old
 		.into_iter()
-		.map(|(k, v)| (k, v.into_iter().filter_map(identity).collect::<VecDeque<_>>()))
+		.map(|(k, v)| (k, v.into_iter().flatten().collect::<VecDeque<_>>()))
 		.collect::<BTreeMap<CoreIndex, VecDeque<v2::ParasEntry<BlockNumberFor<T>>>>>();
 	v2::ClaimQueue::<T>::put(new);
 

@@ -489,10 +489,7 @@ pub mod mock_assigner {
 	// 5, if no explicit count was set.
 	impl<T: Config> FixedAssignmentProvider<BlockNumber> for Pallet<T> {
 		fn session_core_count() -> u32 {
-			match MockCoreCount::<T>::get() {
-				Some(count) => count,
-				None => 5,
-			}
+			MockCoreCount::<T>::get().unwrap_or(5)
 		}
 	}
 }
