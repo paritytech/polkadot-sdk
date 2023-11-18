@@ -2367,6 +2367,8 @@ mod remote_tests {
 
 mod clean_state_migration {
 	use super::Runtime;
+	#[cfg(feature = "try-runtime")]
+	use super::Vec;
 	use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 	use pallet_state_trie_migration::MigrationLimits;
 
