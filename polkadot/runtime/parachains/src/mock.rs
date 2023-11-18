@@ -17,15 +17,14 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner, assigner_bulk, assigner_on_demand, assigner_parachains, configuration, disputes, dmp,
-	hrmp,
+	assigner::v1 as assigner_v1,
+	assigner_bulk, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
 	scheduler::common::{
-		AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, FixedAssignmentProvider,
-		V0Assignment,
+		AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider, V0Assignment,
 	},
 	session_info, shared, ParaId,
 };
@@ -72,7 +71,7 @@ frame_support::construct_runtime!(
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
-		Assigner: assigner,
+		Assigner: assigner_v1,
 		ParachainsAssigner: assigner_parachains,
 		OnDemandAssigner: assigner_on_demand,
 		BulkAssigner: assigner_bulk,
@@ -356,7 +355,7 @@ parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 }
 
-impl assigner::Config for Test {}
+impl assigner_v1::Config for Test {}
 
 impl assigner_parachains::Config for Test {}
 
@@ -367,9 +366,7 @@ impl assigner_on_demand::Config for Test {
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
 }
 
-impl assigner_bulk::Config for Test {
-	type WeightInfo = crate::assigner_bulk::TestWeightInfo;
-}
+impl assigner_bulk::Config for Test {}
 
 impl crate::inclusion::Config for Test {
 	type WeightInfo = ();
@@ -453,17 +450,7 @@ pub mod mock_assigner {
 	}
 
 	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
-		// Simplest assignment used for testing
 		type AssignmentType = V0Assignment;
-		type OldAssignmentType = V0Assignment;
-		const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
-
-		fn migrate_old_to_current(
-			old: Self::OldAssignmentType,
-			_core: CoreIndex,
-		) -> Self::AssignmentType {
-			old
-		}
 
 		// With regards to popping_assignments, the scheduler just needs to be tested under
 		// the following two conditions:
