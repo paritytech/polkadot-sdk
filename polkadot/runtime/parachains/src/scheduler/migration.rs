@@ -118,7 +118,9 @@ pub mod assignment_version {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			// Did migration take place?
-			if state.decode()? == M::ON_CHAIN_STORAGE_VERSION {
+			if <AssignmentVersion as Decode>::decode(&mut &state[..]).unwrap() ==
+				M::ON_CHAIN_STORAGE_VERSION
+			{
 				ensure!(
 					AssignmentVersion::get::<Pallet<T>>() == M::STORAGE_VERSION,
 					"Assignment version should should match current version after the migration."
@@ -335,11 +337,11 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			let n: u32 = v1::ClaimQueue::<T>::get().len() as u32 +
-				v1::AvailabilityCores::<T>::get().iter().filter(|c| c.is_some()).count() as u32;
+			let n: u32 = v0::Scheduled::<T>::get().len() as u32 +
+				v0::AvailabilityCores::<T>::get().iter().filter(|c| c.is_some()).count() as u32;
 
 			log::info!(
-				target: scheduler::LOG_TARGET,
+				target: crate::scheduler::LOG_TARGET,
 				"Number of scheduled and waiting for availability before: {n}",
 			);
 
@@ -350,10 +352,15 @@ pub mod v1 {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			log::info!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
 
+			ensure!(
+				v0::Scheduled::<T>::get().is_empty(),
+				"Scheduled should be empty after the migration"
+			);
+
 			let expected_len = u32::decode(&mut &state[..]).unwrap();
-			let availability_cores_waiting = super::AvailabilityCores::<T>::get()
-				.iter()
-				.filter(|c| !matches!(c, CoreOccupied::Free))
+			let availability_cores_waiting = v1::AvailabilityCores::<T>::get()
+				.into_iter()
+				.filter(|c| !matches!(c, v1::CoreOccupied::Free))
 				.count();
 
 			ensure!(
