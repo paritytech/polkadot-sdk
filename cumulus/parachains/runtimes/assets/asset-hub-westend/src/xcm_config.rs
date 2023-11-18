@@ -514,12 +514,9 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 pub struct SystemParachains;
 impl Contains<Location> for SystemParachains {
 	fn contains(location: &Location) -> bool {
-		use system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID, BRIDGE_HUB_ID};
+		use system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID, COLLECTIVES_ID};
 
-		matches!(
-			location.unpack(),
-			(1, [Parachain(ASSET_HUB_ID | COLLECTIVES_ID | BRIDGE_HUB_ID)])
-		)
+		matches!(location.unpack(), (1, [Parachain(ASSET_HUB_ID | COLLECTIVES_ID | BRIDGE_HUB_ID)]))
 	}
 }
 
@@ -531,7 +528,6 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
 		ForeignAssetsInstance,
 	>;
-
 
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.

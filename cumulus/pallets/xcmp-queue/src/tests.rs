@@ -769,8 +769,8 @@ fn verify_fee_factor_increase_and_decrease() {
 		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
 
 		// Sending the message right now is cheap
-		let (_, delivery_fees) =
-			validate_send::<XcmpQueue>(destination.clone(), xcm.clone()).expect("message can be sent; qed");
+		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination.clone(), xcm.clone())
+			.expect("message can be sent; qed");
 		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else {
 			unreachable!("asset is fungible; qed");
 		};
@@ -790,8 +790,8 @@ fn verify_fee_factor_increase_and_decrease() {
 		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) > FixedU128::from_float(1.88));
 
 		// Sending the message right now is expensive
-		let (_, delivery_fees) =
-			validate_send::<XcmpQueue>(destination.clone(), xcm.clone()).expect("message can be sent; qed");
+		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination.clone(), xcm.clone())
+			.expect("message can be sent; qed");
 		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else {
 			unreachable!("asset is fungible; qed");
 		};

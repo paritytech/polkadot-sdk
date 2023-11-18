@@ -98,8 +98,8 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use xcm::latest::prelude::*;
 	use frame_support::traits::Contains;
+	use xcm::latest::prelude::*;
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;

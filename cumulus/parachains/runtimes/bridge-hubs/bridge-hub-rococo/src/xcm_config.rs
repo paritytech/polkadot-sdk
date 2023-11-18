@@ -370,11 +370,7 @@ impl<
 		BridgeLaneId,
 	>
 {
-	fn handle_fee(
-		fee: Assets,
-		maybe_context: Option<&XcmContext>,
-		reason: FeeReason,
-	) -> Assets {
+	fn handle_fee(fee: Assets, maybe_context: Option<&XcmContext>, reason: FeeReason) -> Assets {
 		if matches!(reason, FeeReason::Export { network: bridged_network, destination }
 				if bridged_network == DestNetwork::get() &&
 					destination == [Parachain(DestParaId::get().into())])

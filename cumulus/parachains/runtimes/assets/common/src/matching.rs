@@ -14,7 +14,10 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use frame_support::{pallet_prelude::Get, traits::{ContainsPair, Contains}};
+use frame_support::{
+	pallet_prelude::Get,
+	traits::{Contains, ContainsPair},
+};
 use xcm::prelude::*;
 
 pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
@@ -82,10 +85,8 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<Location, Location>
 pub struct IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>(
 	sp_std::marker::PhantomData<(UniversalLocation, Reserves)>,
 );
-impl<
-		UniversalLocation: Get<InteriorLocation>,
-		Reserves: ContainsPair<Asset, Location>,
-	> ContainsPair<Asset, Location>
+impl<UniversalLocation: Get<InteriorLocation>, Reserves: ContainsPair<Asset, Location>>
+	ContainsPair<Asset, Location>
 	for IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {

@@ -85,8 +85,8 @@ pub struct RelayOrOtherSystemParachains<
 > {
 	_runtime: PhantomData<(SystemParachainMatcher, Runtime)>,
 }
-impl<SystemParachainMatcher: Contains<Location>, Runtime: parachain_info::Config>
-	Contains<Location> for RelayOrOtherSystemParachains<SystemParachainMatcher, Runtime>
+impl<SystemParachainMatcher: Contains<Location>, Runtime: parachain_info::Config> Contains<Location>
+	for RelayOrOtherSystemParachains<SystemParachainMatcher, Runtime>
 {
 	fn contains(l: &Location) -> bool {
 		let self_para_id: u32 = parachain_info::Pallet::<Runtime>::get().into();
@@ -123,8 +123,8 @@ mod tests {
 	use frame_support::parameter_types;
 
 	use super::{
-		ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, Asset, Location,
-		PalletInstance, Parachain, Parent,
+		Asset, ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, Location, PalletInstance,
+		Parachain, Parent,
 	};
 
 	parameter_types! {

@@ -207,11 +207,7 @@ impl<
 		}
 	}
 
-	fn deposit_asset(
-		what: &Asset,
-		who: &Location,
-		context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
 			target: LOG_TARGET,
 			"deposit_asset what: {:?}, who: {:?}, context: {:?}",
@@ -311,11 +307,7 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(
-		what: &Asset,
-		who: &Location,
-		context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,

@@ -189,7 +189,10 @@ fn test_xcm_execute_reentrant_call() {
 
 		let mut data = &result.data[..];
 		let outcome = Outcome::decode(&mut data).expect("Failed to decode xcm_execute Outcome");
-		assert_matches!(outcome, Outcome::Incomplete { used: _, error: XcmError::ExpectationFalse });
+		assert_matches!(
+			outcome,
+			Outcome::Incomplete { used: _, error: XcmError::ExpectationFalse }
+		);
 
 		// Funds should not change hands as the XCM transact failed.
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);

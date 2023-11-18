@@ -149,8 +149,7 @@ impl crate::Config for Test {
 	type AccountIdConverter = AccountIdConverter;
 	type DeliveryHelper = ();
 	fn valid_destination() -> Result<Location, BenchmarkError> {
-		let valid_destination: Location =
-			[AccountId32 { network: None, id: [0u8; 32] }].into();
+		let valid_destination: Location = [AccountId32 { network: None, id: [0u8; 32] }].into();
 
 		Ok(valid_destination)
 	}

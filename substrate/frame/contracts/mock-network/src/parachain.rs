@@ -192,8 +192,7 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 	fn convert(value: &Location) -> Option<AssetIdForAssets> {
 		match value.unpack() {
 			(1, []) => Some(0 as AssetIdForAssets),
-			(1, [Parachain(para_id)]) =>
-				Some(*para_id as AssetIdForAssets),
+			(1, [Parachain(para_id)]) => Some(*para_id as AssetIdForAssets),
 			_ => None,
 		}
 	}
@@ -229,10 +228,7 @@ impl Contains<Location> for ParentRelay {
 pub struct ThisParachain;
 impl Contains<Location> for ThisParachain {
 	fn contains(location: &Location) -> bool {
-		matches!(
-			location.unpack(),
-			(0, [Junction::AccountId32 { .. }])
-		)
+		matches!(location.unpack(), (0, [Junction::AccountId32 { .. }]))
 	}
 }
 
@@ -295,9 +291,7 @@ impl mock_msg_queue::Config for Runtime {
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 pub struct TrustedLockerCase<T>(PhantomData<T>);
-impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset>
-	for TrustedLockerCase<T>
-{
+impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedLockerCase<T> {
 	fn contains(origin: &Location, asset: &Asset) -> bool {
 		let (o, a) = T::get();
 		a.matches(asset) && &o == origin

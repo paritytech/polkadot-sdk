@@ -45,7 +45,7 @@ use parachains_common::{
 	rococo::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_runtime::traits::MaybeEquivalence;
-use xcm::latest::prelude::{*, Assets as XcmAssets};
+use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_executor::traits::{Identity, JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
@@ -127,9 +127,7 @@ fn test_asset_xcm_trader() {
 			// Lets buy_weight and make sure buy_weight does not return an error
 			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
 			// Check whether a correct amount of unused assets is returned
-			assert_ok!(
-				unused_assets.ensure_contains(&(asset_location, asset_amount_extra).into())
-			);
+			assert_ok!(unused_assets.ensure_contains(&(asset_location, asset_amount_extra).into()));
 
 			// Drop trader
 			drop(trader);

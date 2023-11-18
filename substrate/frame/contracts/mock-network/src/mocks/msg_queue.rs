@@ -100,12 +100,19 @@ pub mod pallet {
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
 					let location = (Parent, Parachain(sender.into()));
-					match T::XcmExecutor::prepare_and_execute(location, xcm, &mut message_hash, max_weight, max_weight) {
+					match T::XcmExecutor::prepare_and_execute(
+						location,
+						xcm,
+						&mut message_hash,
+						max_weight,
+						max_weight,
+					) {
 						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } => (Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete { used, error } =>
+							(Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -155,7 +162,13 @@ pub mod pallet {
 					Ok(versioned) => match Xcm::try_from(versioned) {
 						Err(()) => Self::deposit_event(Event::UnsupportedVersion(id)),
 						Ok(x) => {
-							let outcome = T::XcmExecutor::prepare_and_execute(Parent, x.clone(), &mut id, limit, limit);
+							let outcome = T::XcmExecutor::prepare_and_execute(
+								Parent,
+								x.clone(),
+								&mut id,
+								limit,
+								limit,
+							);
 							<ReceivedDmp<T>>::append(x);
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));
 						},

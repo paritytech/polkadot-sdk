@@ -43,12 +43,8 @@ use parachains_common::{
 };
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
-use xcm::{
-	latest::prelude::{Assets as XcmAssets, *},
-};
-use xcm_executor::{
-	traits::{Identity, JustTry, WeightTrader},
-};
+use xcm::latest::prelude::{Assets as XcmAssets, *};
+use xcm_executor::traits::{Identity, JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -129,9 +125,7 @@ fn test_asset_xcm_trader() {
 			// Lets buy_weight and make sure buy_weight does not return an error
 			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
 			// Check whether a correct amount of unused assets is returned
-			assert_ok!(
-				unused_assets.ensure_contains(&(asset_location, asset_amount_extra).into())
-			);
+			assert_ok!(unused_assets.ensure_contains(&(asset_location, asset_amount_extra).into()));
 
 			// Drop trader
 			drop(trader);
@@ -424,10 +418,7 @@ fn test_assets_balances_api_works() {
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(
-					foreign_asset_id_location.clone(),
-					AccountId::from(ALICE)
-				),
+				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
@@ -484,10 +475,7 @@ fn test_assets_balances_api_works() {
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(
-					foreign_asset_id_location.clone(),
-					AccountId::from(ALICE)
-				),
+				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);

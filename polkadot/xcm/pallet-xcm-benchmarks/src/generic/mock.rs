@@ -27,8 +27,8 @@ use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput};
 use xcm_builder::{
 	test_utils::{
-		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
-		TestUniversalAliases,
+		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
+		TestSubscriptionService, TestUniversalAliases,
 	},
 	AliasForeignAccountId32, AllowUnpaidExecutionFrom,
 };
@@ -80,11 +80,7 @@ impl frame_system::Config for Test {
 /// The benchmarks in this pallet should never need an asset transactor to begin with.
 pub struct NoAssetTransactor;
 impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
-	fn deposit_asset(
-		_: &Asset,
-		_: &Location,
-		_: Option<&XcmContext>,
-	) -> Result<(), XcmError> {
+	fn deposit_asset(_: &Asset, _: &Location, _: Option<&XcmContext>) -> Result<(), XcmError> {
 		unreachable!();
 	}
 

@@ -482,7 +482,10 @@ impl TryFrom<NewMultiLocation> for Option<MultiLocation> {
 impl TryFrom<NewMultiLocation> for MultiLocation {
 	type Error = ();
 	fn try_from(new: NewMultiLocation) -> result::Result<Self, ()> {
-		Ok(MultiLocation { parents: new.parent_count(), interior: new.interior().clone().try_into()? })
+		Ok(MultiLocation {
+			parents: new.parent_count(),
+			interior: new.interior().clone().try_into()?,
+		})
 	}
 }
 

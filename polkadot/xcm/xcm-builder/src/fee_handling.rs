@@ -25,8 +25,7 @@ pub trait HandleFee {
 	/// fees.
 	///
 	/// Returns any part of the fee that wasn't consumed.
-	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason)
-		-> Assets;
+	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) -> Assets;
 }
 
 // Default `HandleFee` implementation that just burns the fee.
@@ -38,11 +37,7 @@ impl HandleFee for () {
 
 #[impl_trait_for_tuples::impl_for_tuples(1, 30)]
 impl HandleFee for Tuple {
-	fn handle_fee(
-		fee: Assets,
-		context: Option<&XcmContext>,
-		reason: FeeReason,
-	) -> Assets {
+	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) -> Assets {
 		let mut unconsumed_fee = fee;
 		for_tuples!( #(
 			unconsumed_fee = Tuple::handle_fee(unconsumed_fee, context, reason.clone());
@@ -109,11 +104,7 @@ impl<
 		ReceiverAccount: Get<AccountId>,
 	> HandleFee for XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>
 {
-	fn handle_fee(
-		fee: Assets,
-		context: Option<&XcmContext>,
-		_reason: FeeReason,
-	) -> Assets {
+	fn handle_fee(fee: Assets, context: Option<&XcmContext>, _reason: FeeReason) -> Assets {
 		deposit_or_burn_fee::<AssetTransactor, _>(fee, context, ReceiverAccount::get());
 
 		Assets::new()

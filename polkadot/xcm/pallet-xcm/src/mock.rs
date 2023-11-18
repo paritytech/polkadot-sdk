@@ -456,7 +456,10 @@ pub const XCM_FEES_NOT_WAIVED_USER_ACCOUNT: [u8; 32] = [37u8; 32];
 pub struct XcmFeesNotWaivedLocations;
 impl Contains<Location> for XcmFeesNotWaivedLocations {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (0, [Junction::AccountId32 { network: None, id: XCM_FEES_NOT_WAIVED_USER_ACCOUNT }]))
+		matches!(
+			location.unpack(),
+			(0, [Junction::AccountId32 { network: None, id: XCM_FEES_NOT_WAIVED_USER_ACCOUNT }])
+		)
 	}
 }
 

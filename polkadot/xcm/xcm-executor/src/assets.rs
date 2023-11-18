@@ -23,10 +23,9 @@ use sp_std::{
 use xcm::latest::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},
-	InteriorLocation, Location,
+	InteriorLocation, Location, Reanchorable,
 	WildAsset::{All, AllCounted, AllOf, AllOfCounted},
 	WildFungibility::{Fungible as WildFungible, NonFungible as WildNonFungible},
-	Reanchorable,
 };
 
 /// Map of non-wildcard fungible and non-fungible assets held in the holding register.

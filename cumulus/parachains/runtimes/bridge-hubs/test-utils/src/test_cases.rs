@@ -862,10 +862,7 @@ where
 			fun: Fungible(34333299),
 		}])),
 		BuyExecution {
-			fees: Asset {
-				id: Location::new(1, []).into(),
-				fun: Fungible(34333299),
-			},
+			fees: Asset { id: Location::new(1, []).into(), fun: Fungible(34333299) },
 			weight_limit: Unlimited,
 		},
 		ExportMessage {
@@ -886,14 +883,17 @@ where
 				},
 				DepositAsset {
 					assets: Wild(AllCounted(1)),
-					beneficiary: Location::new(0, [xcm::latest::prelude::AccountId32 {
-						network: None,
-						id: [
-							212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159,
-							214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165,
-							109, 162, 125,
-						],
-					}]),
+					beneficiary: Location::new(
+						0,
+						[xcm::latest::prelude::AccountId32 {
+							network: None,
+							id: [
+								212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159,
+								214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165,
+								109, 162, 125,
+							],
+						}],
+					),
 				},
 				SetTopic([
 					116, 82, 194, 132, 171, 114, 217, 165, 23, 37, 161, 177, 165, 179, 247, 114,
@@ -901,10 +901,7 @@ where
 				]),
 			]),
 		},
-		DepositAsset {
-			assets: Wild(All),
-			beneficiary: Location::new(1, [Parachain(1000)]),
-		},
+		DepositAsset { assets: Wild(All), beneficiary: Location::new(1, [Parachain(1000)]) },
 		SetTopic([
 			36, 224, 250, 165, 82, 195, 67, 110, 160, 170, 140, 87, 217, 62, 201, 164, 42, 98, 219,
 			157, 124, 105, 248, 25, 131, 218, 199, 36, 109, 173, 100, 122,

@@ -24,7 +24,7 @@ use super::{
 
 use frame_support::{
 	parameter_types,
-	traits::{Everything, Nothing, Contains},
+	traits::{Contains, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -135,7 +135,11 @@ impl Contains<Location> for OnlyParachains {
 pub struct CollectivesOrFellows;
 impl Contains<Location> for CollectivesOrFellows {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (0, [Parachain(COLLECTIVES_ID)]) | (0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]))
+		matches!(
+			location.unpack(),
+			(0, [Parachain(COLLECTIVES_ID)]) |
+				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		)
 	}
 }
 

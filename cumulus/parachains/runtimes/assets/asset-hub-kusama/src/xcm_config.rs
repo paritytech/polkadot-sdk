@@ -125,8 +125,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		// Ignore `TrustBackedAssets` explicitly
 		StartsWith<TrustBackedAssetsPalletLocation>,
 		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `Location::new(1, [Parachain(xyz),
-		//   ..])`
+		// - foreign assets from our consensus should be: `Location::new(1, [Parachain(xyz), ..])`
 		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't
 		//   be accepted here
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,

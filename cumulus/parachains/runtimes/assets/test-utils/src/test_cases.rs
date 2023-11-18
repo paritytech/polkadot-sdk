@@ -1100,8 +1100,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 	AssetIdConverter: MaybeEquivalence<Location, AssetId>,
 {
 	// foreign parachain with the same consenus currency as asset
-	let foreign_asset_id_location =
-		Location::new(1, [Parachain(2222), GeneralIndex(1234567)]);
+	let foreign_asset_id_location = Location::new(1, [Parachain(2222), GeneralIndex(1234567)]);
 	let asset_id = AssetIdConverter::convert(&foreign_asset_id_location).unwrap();
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
@@ -1498,10 +1497,8 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			);
 
 			// local native asset (pallet_balances)
-			let asset_to_transfer = Asset {
-				fun: Fungible(balance_to_transfer.into()),
-				id: AssetId(native_asset),
-			};
+			let asset_to_transfer =
+				Asset { fun: Fungible(balance_to_transfer.into()), id: AssetId(native_asset) };
 
 			// pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(

@@ -19,7 +19,7 @@ use super::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{Everything, Nothing, Contains},
+	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
 use xcm::latest::prelude::*;

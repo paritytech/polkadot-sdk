@@ -66,7 +66,11 @@ pub fn pay_over_xcm_delivery_fees<S: SendXcm>(
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		SetAppendix(Xcm(vec![
 			SetFeesMode { jit_withdraw: true },
-			ReportError(QueryResponseInfo { destination: destination.clone(), query_id: 0, max_weight: Weight::zero() }),
+			ReportError(QueryResponseInfo {
+				destination: destination.clone(),
+				query_id: 0,
+				max_weight: Weight::zero(),
+			}),
 		])),
 		TransferAsset { beneficiary, assets: vec![asset].into() },
 	]);

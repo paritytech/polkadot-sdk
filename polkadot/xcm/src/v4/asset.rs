@@ -370,7 +370,7 @@ impl AssetId {
 
 impl Reanchorable for AssetId {
 	type Error = ();
-	
+
 	/// Mutate the asset to represent the same value from the perspective of a new `target`
 	/// location. The local chain's location is provided in `context`.
 	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
@@ -378,11 +378,7 @@ impl Reanchorable for AssetId {
 		Ok(())
 	}
 
-	fn reanchored(
-		mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<Self, ()> {
+	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> Result<Self, ()> {
 		match self.reanchor(target, context) {
 			Ok(()) => Ok(self),
 			Err(()) => Err(()),
@@ -455,7 +451,7 @@ impl Asset {
 
 impl Reanchorable for Asset {
 	type Error = ();
-	
+
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
 	/// relative to a `target` context. The local context is provided as `context`.
 	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
@@ -676,11 +672,7 @@ impl Reanchorable for Assets {
 		Ok(())
 	}
 
-	fn reanchored(
-		mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<Self, ()> {
+	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> Result<Self, ()> {
 		match self.reanchor(target, context) {
 			Ok(()) => Ok(self),
 			Err(()) => Err(()),

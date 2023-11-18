@@ -321,8 +321,8 @@ pub mod pallet {
 			let dest = Location::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
 			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
 
-			let message_id =
-				Self::send_xcm(interior, dest.clone(), message.clone()).map_err(Error::<T>::from)?;
+			let message_id = Self::send_xcm(interior, dest.clone(), message.clone())
+				.map_err(Error::<T>::from)?;
 			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
 			Self::deposit_event(e);
 			Ok(message_id)
@@ -1355,8 +1355,12 @@ impl<T: Config> Pallet<T> {
 					Self::local_reserve_fees_instructions(dest.clone(), fees, weight_limit)?,
 				TransferType::DestinationReserve =>
 					Self::destination_reserve_fees_instructions(dest.clone(), fees, weight_limit)?,
-				TransferType::Teleport =>
-					Self::teleport_fees_instructions(origin_location.clone(), dest.clone(), fees, weight_limit)?,
+				TransferType::Teleport => Self::teleport_fees_instructions(
+					origin_location.clone(),
+					dest.clone(),
+					fees,
+					weight_limit,
+				)?,
 				TransferType::RemoteReserve(_) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 			});
@@ -1462,15 +1466,26 @@ impl<T: Config> Pallet<T> {
 				None,
 			),
 			TransferType::Teleport => (
-				Self::teleport_assets_program(dest.clone(), beneficiary, assets, fees, weight_limit)?,
+				Self::teleport_assets_program(
+					dest.clone(),
+					beneficiary,
+					assets,
+					fees,
+					weight_limit,
+				)?,
 				None,
 			),
 		};
 		let weight =
 			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
 		let mut hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
-		let outcome =
-			T::XcmExecutor::prepare_and_execute(origin.clone(), local_xcm, &mut hash, weight, weight);
+		let outcome = T::XcmExecutor::prepare_and_execute(
+			origin.clone(),
+			local_xcm,
+			&mut hash,
+			weight,
+			weight,
+		);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		if let Some(remote_xcm) = remote_xcm {
 			outcome.ensure_complete().map_err(|_| Error::<T>::LocalExecutionIncomplete)?;
@@ -1666,8 +1681,9 @@ impl<T: Config> Pallet<T> {
 			.reanchored(&reserve, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		// identifies fee item as seen by `dest` - to be used at destination chain
-		let dest_fees =
-			fees_half_2.reanchored(&dest, &context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let dest_fees = fees_half_2
+			.reanchored(&dest, &context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
 		// identifies `dest` as seen by `reserve`
 		let dest = dest.reanchored(&reserve, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 		// xcm to be executed at dest

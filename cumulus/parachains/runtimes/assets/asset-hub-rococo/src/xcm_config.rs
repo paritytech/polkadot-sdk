@@ -136,8 +136,8 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		// Ignore `TrustBackedAssets` explicitly
 		StartsWith<TrustBackedAssetsPalletLocation>,
 		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `Location {parents: 1,
-		//   X*(Parachain(xyz), ..)}`
+		// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
+		//   ..)}`
 		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't
 		//   be accepted here
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
@@ -520,7 +520,10 @@ pub struct SystemParachains;
 impl Contains<Location> for SystemParachains {
 	fn contains(location: &Location) -> bool {
 		use system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID, CONTRACTS_ID, ENCOINTER_ID};
-		matches!(location.unpack(), (1, [Parachain(ASSET_HUB_ID | BRIDGE_HUB_ID | CONTRACTS_ID | ENCOINTER_ID)]))
+		matches!(
+			location.unpack(),
+			(1, [Parachain(ASSET_HUB_ID | BRIDGE_HUB_ID | CONTRACTS_ID | ENCOINTER_ID)])
+		)
 	}
 }
 
@@ -690,18 +693,20 @@ pub struct BenchmarkLocationConverter<SelfParaId> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<SelfParaId>
-	pallet_asset_conversion::BenchmarkHelper<Location, sp_std::boxed::Box<Location>>
+impl<SelfParaId> pallet_asset_conversion::BenchmarkHelper<Location, sp_std::boxed::Box<Location>>
 	for BenchmarkLocationConverter<SelfParaId>
 where
 	SelfParaId: frame_support::traits::Get<ParaId>,
 {
 	fn asset_id(asset_id: u32) -> Location {
-		Location::new(1, [
-			Parachain(SelfParaId::get().into()),
-			PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
-			GeneralIndex(asset_id.into()),
-		])
+		Location::new(
+			1,
+			[
+				Parachain(SelfParaId::get().into()),
+				PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
+				GeneralIndex(asset_id.into()),
+			],
+		)
 	}
 	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<Location> {
 		sp_std::boxed::Box::new(Self::asset_id(asset_id))

@@ -98,8 +98,7 @@ impl From<AggregateMessageOrigin> for Location {
 		match origin {
 			AggregateMessageOrigin::Here => Location::here(),
 			AggregateMessageOrigin::Parent => Location::parent(),
-			AggregateMessageOrigin::Sibling(id) =>
-				Location::new(1, Junction::Parachain(id.into())),
+			AggregateMessageOrigin::Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
 		}
 	}
 }

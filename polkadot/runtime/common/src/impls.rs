@@ -107,15 +107,9 @@ pub fn era_payout(
 )]
 pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]
-	V3 {
-		location: xcm::v3::MultiLocation,
-		asset_id: xcm::v3::AssetId,
-	},
+	V3 { location: xcm::v3::MultiLocation, asset_id: xcm::v3::AssetId },
 	#[codec(index = 4)]
-	V4 {
-		location: xcm::v4::Location,
-		asset_id: xcm::v4::AssetId,
-	},
+	V4 { location: xcm::v4::Location, asset_id: xcm::v4::AssetId },
 }
 
 /// Converts the [`VersionedLocatableAsset`] to the [`xcm_builder::LocatableAssetId`].
@@ -127,17 +121,20 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 		asset: VersionedLocatableAsset,
 	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
 		match asset {
-			VersionedLocatableAsset::V3 { location, asset_id } => Ok(xcm_builder::LocatableAssetId { location: location.try_into().map_err(|_| asset.clone())?, asset_id: asset_id.try_into().map_err(|_| asset.clone())? }),
-			VersionedLocatableAsset::V4 { location, asset_id } => Ok(xcm_builder::LocatableAssetId { location, asset_id }),
+			VersionedLocatableAsset::V3 { location, asset_id } =>
+				Ok(xcm_builder::LocatableAssetId {
+					location: location.try_into().map_err(|_| asset.clone())?,
+					asset_id: asset_id.try_into().map_err(|_| asset.clone())?,
+				}),
+			VersionedLocatableAsset::V4 { location, asset_id } =>
+				Ok(xcm_builder::LocatableAssetId { location, asset_id }),
 		}
 	}
 }
 
 /// Converts the [`VersionedLocation`] to the [`xcm::latest::Location`].
 pub struct VersionedLocationConverter;
-impl TryConvert<&VersionedLocation, xcm::latest::Location>
-	for VersionedLocationConverter
-{
+impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocationConverter {
 	fn try_convert(
 		location: &VersionedLocation,
 	) -> Result<xcm::latest::Location, &VersionedLocation> {
@@ -169,7 +166,10 @@ pub mod benchmarks {
 				location: xcm::v4::Location::new(0, [xcm::v4::Junction::Parachain(seed)]),
 				asset_id: xcm::v4::Location::new(
 					0,
-					[xcm::v4::Junction::PalletInstance(seed.try_into().unwrap()), xcm::v4::Junction::GeneralIndex(seed.into())],
+					[
+						xcm::v4::Junction::PalletInstance(seed.try_into().unwrap()),
+						xcm::v4::Junction::GeneralIndex(seed.into()),
+					],
 				)
 				.into(),
 			}
@@ -180,9 +180,7 @@ pub mod benchmarks {
 	/// [`VersionedLocation`]. The location of the asset is determined as a Parachain with an
 	/// ID equal to the passed seed.
 	pub struct TreasuryArguments;
-	impl TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedLocation>
-		for TreasuryArguments
-	{
+	impl TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedLocation> for TreasuryArguments {
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
 			AssetRateArguments::create_asset_kind(seed)
 		}

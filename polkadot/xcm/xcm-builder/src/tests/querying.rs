@@ -112,11 +112,23 @@ fn prepaid_result_of_query_should_get_free_execution() {
 	let weight_limit = Weight::from_parts(10, 10);
 
 	// First time the response gets through since we're expecting it...
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message.clone(), &mut hash, weight_limit, Weight::zero());
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message.clone(),
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 	assert_eq!(response(query_id).unwrap(), the_response);
 
 	// Second time it doesn't, since we're not.
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message.clone(), &mut hash, weight_limit, Weight::zero());
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message.clone(),
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
 	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 }

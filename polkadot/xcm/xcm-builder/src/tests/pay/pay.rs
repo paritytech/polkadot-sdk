@@ -97,7 +97,13 @@ fn pay_over_xcm_works() {
 
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
-		XcmExecutor::<XcmConfig>::prepare_and_execute(origin, message, &mut hash, Weight::MAX, Weight::zero());
+		XcmExecutor::<XcmConfig>::prepare_and_execute(
+			origin,
+			message,
+			&mut hash,
+			Weight::MAX,
+			Weight::zero(),
+		);
 		assert_eq!(mock::Assets::balance(0, &recipient), amount);
 	});
 }
@@ -158,7 +164,13 @@ fn pay_over_xcm_governance_body() {
 
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
-		XcmExecutor::<XcmConfig>::prepare_and_execute(origin, message, &mut hash, Weight::MAX, Weight::zero());
+		XcmExecutor::<XcmConfig>::prepare_and_execute(
+			origin,
+			message,
+			&mut hash,
+			Weight::MAX,
+			Weight::zero(),
+		);
 		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient), amount);
 	});
 }

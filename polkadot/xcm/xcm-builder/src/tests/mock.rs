@@ -49,7 +49,7 @@ pub use xcm_executor::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
 		FeeReason, LockError, OnResponse, TransactAsset,
 	},
-	Config, AssetsInHolding,
+	AssetsInHolding, Config,
 };
 
 pub enum TestOrigin {

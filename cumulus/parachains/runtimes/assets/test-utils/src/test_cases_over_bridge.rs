@@ -162,16 +162,17 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				.unwrap_or(0.into());
 
 			// local native asset (pallet_balances)
-			let asset_to_transfer = Asset {
-				fun: Fungible(balance_to_transfer.into()),
-				id: native_asset.into(),
-			};
+			let asset_to_transfer =
+				Asset { fun: Fungible(balance_to_transfer.into()), id: native_asset.into() };
 
 			// destination is (some) account relative to the destination different consensus
-			let target_destination_account = Location::new(0, [AccountId32 {
-				network: Some(bridged_network),
-				id: sp_runtime::AccountId32::new([3; 32]).into(),
-			}]);
+			let target_destination_account = Location::new(
+				0,
+				[AccountId32 {
+					network: Some(bridged_network),
+					id: sp_runtime::AccountId32::new([3; 32]).into(),
+				}],
+			);
 
 			let assets_to_transfer = Assets::from(asset_to_transfer);
 			let mut expected_assets = assets_to_transfer.clone();
@@ -269,7 +270,10 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 					// Call `SendXcm::validate` to get delivery fees.
 					delivery_fees = get_fungible_delivery_fees::<
 						<XcmConfig as xcm_executor::Config>::XcmSender,
-					>(target_location_from_different_consensus.clone(), inner_xcm.clone());
+					>(
+						target_location_from_different_consensus.clone(),
+						inner_xcm.clone(),
+					);
 					assert_matches_reserve_asset_deposited_instructions(
 						inner_xcm,
 						&expected_assets,
@@ -439,7 +443,10 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				id: AssetId(foreign_asset_id_location.clone()),
 				fun: Fungible(transfered_foreign_asset_id_amount),
 			}]);
-			let expected_beneficiary = Location::new(0, [AccountId32 { network: None, id: target_account.clone().into() }]);
+			let expected_beneficiary = Location::new(
+				0,
+				[AccountId32 { network: None, id: target_account.clone().into() }],
+			);
 
 			// Call received XCM execution
 			let xcm = Xcm(vec![
@@ -455,7 +462,10 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					},
 					weight_limit: Unlimited,
 				},
-				DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary.clone() },
+				DepositAsset {
+					assets: Wild(AllCounted(1)),
+					beneficiary: expected_beneficiary.clone(),
+				},
 				SetTopic([
 					220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112, 140,
 					247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,

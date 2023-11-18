@@ -475,11 +475,7 @@ impl Reanchorable for Location {
 	/// of `target`. The context of `self` is provided as `context`.
 	///
 	/// Returns the original `self` in case of overflow.
-	fn reanchored(
-		mut self,
-		target: &Location,
-		context: &InteriorLocation,
-	) -> Result<Self, Self> {
+	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> Result<Self, Self> {
 		match self.reanchor(target, context) {
 			Ok(()) => Ok(self),
 			Err(()) => Err(self),

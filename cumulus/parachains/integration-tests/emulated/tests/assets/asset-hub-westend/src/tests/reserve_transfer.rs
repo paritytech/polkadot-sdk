@@ -220,7 +220,8 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let beneficiary_id = PenpalAReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
-	let assets = ([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send).into();
+	let assets =
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send).into();
 
 	let system_para_test_args = TestContext {
 		sender: AssetHubWestendSender::get(),

@@ -305,9 +305,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<Convert as MatchesFungibles<LocationForAssetId, u128>>::matches_fungibles(
-					&asset
-				),
+				<Convert as MatchesFungibles<LocationForAssetId, u128>>::matches_fungibles(&asset),
 				expected_result,
 				"asset: {:?}",
 				asset

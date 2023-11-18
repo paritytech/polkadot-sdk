@@ -164,7 +164,13 @@ fn salary_pay_over_xcm_works() {
 		assert_eq!(message, expected_message);
 
 		// Execute message as the asset hub
-		XcmExecutor::<XcmConfig>::prepare_and_execute((Parent, Parachain(42)), message, &mut hash, Weight::MAX, Weight::zero());
+		XcmExecutor::<XcmConfig>::prepare_and_execute(
+			(Parent, Parachain(42)),
+			message,
+			&mut hash,
+			Weight::MAX,
+			Weight::zero(),
+		);
 
 		// Recipient receives the payment
 		assert_eq!(

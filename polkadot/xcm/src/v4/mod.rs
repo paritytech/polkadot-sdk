@@ -47,8 +47,8 @@ pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::{Junctions, HERE};
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
-	SendResult, SendXcm, Weight, XcmHash, Reanchorable,
+	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
+	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
 pub use super::v3::{MaybeErrorCode, OriginKind, WeightLimit};
@@ -180,16 +180,15 @@ pub mod prelude {
 			InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			HERE,
 			Location, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
-			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult, SendXcm,
-			Weight,
+			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
+			SendXcm, Weight,
 			WeightLimit::{self, *},
 			WildAsset::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
-			XcmContext, XcmHash, XcmWeightInfo, VERSION as XCM_VERSION,
+			XcmContext, XcmHash, XcmWeightInfo, HERE, VERSION as XCM_VERSION,
 		};
 	}
 	pub use super::{Instruction, Xcm};
@@ -1288,24 +1287,56 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			UnsubscribeVersion => Self::UnsubscribeVersion,
 			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
 			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
-			ExpectOrigin(maybe_location) => Self::ExpectOrigin(maybe_location.map(|location| location.try_into()).transpose().map_err(|_| ())?),
-			ExpectError(maybe_error) => Self::ExpectError(maybe_error.map(|error| error.try_into()).transpose().map_err(|_| ())?),
+			ExpectOrigin(maybe_location) => Self::ExpectOrigin(
+				maybe_location.map(|location| location.try_into()).transpose().map_err(|_| ())?,
+			),
+			ExpectError(maybe_error) => Self::ExpectError(
+				maybe_error.map(|error| error.try_into()).transpose().map_err(|_| ())?,
+			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
-			QueryPallet { module_name, response_info } => Self::QueryPallet { module_name, response_info: response_info.try_into().map_err(|_| ())? },
-			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
-			ReportTransactStatus(response_info) => Self::ReportTransactStatus(response_info.try_into().map_err(|_| ())?),
+			QueryPallet { module_name, response_info } => Self::QueryPallet {
+				module_name,
+				response_info: response_info.try_into().map_err(|_| ())?,
+			},
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
+				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
+			ReportTransactStatus(response_info) =>
+				Self::ReportTransactStatus(response_info.try_into().map_err(|_| ())?),
 			ClearTransactStatus => Self::ClearTransactStatus,
-			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into().map_err(|_| ())?),
-			ExportMessage { network, destination, xcm } => Self::ExportMessage { network: network.into(), destination: destination.try_into().map_err(|_| ())?, xcm: xcm.try_into().map_err(|_| ())? },
-			LockAsset { asset, unlocker } => Self::LockAsset { asset: asset.try_into().map_err(|_| ())?, unlocker: unlocker.try_into().map_err(|_| ())? },
-			UnlockAsset { asset, target } => Self::UnlockAsset { asset: asset.try_into().map_err(|_| ())?, target: target.try_into().map_err(|_| ())? },
-			NoteUnlockable { asset, owner } => Self::NoteUnlockable { asset: asset.try_into().map_err(|_| ())?, owner: owner.try_into().map_err(|_| ())? },
-			RequestUnlock { asset, locker } => Self::RequestUnlock { asset: asset.try_into().map_err(|_| ())?, locker: locker.try_into().map_err(|_| ())? },
+			UniversalOrigin(junction) =>
+				Self::UniversalOrigin(junction.try_into().map_err(|_| ())?),
+			ExportMessage { network, destination, xcm } => Self::ExportMessage {
+				network: network.into(),
+				destination: destination.try_into().map_err(|_| ())?,
+				xcm: xcm.try_into().map_err(|_| ())?,
+			},
+			LockAsset { asset, unlocker } => Self::LockAsset {
+				asset: asset.try_into().map_err(|_| ())?,
+				unlocker: unlocker.try_into().map_err(|_| ())?,
+			},
+			UnlockAsset { asset, target } => Self::UnlockAsset {
+				asset: asset.try_into().map_err(|_| ())?,
+				target: target.try_into().map_err(|_| ())?,
+			},
+			NoteUnlockable { asset, owner } => Self::NoteUnlockable {
+				asset: asset.try_into().map_err(|_| ())?,
+				owner: owner.try_into().map_err(|_| ())?,
+			},
+			RequestUnlock { asset, locker } => Self::RequestUnlock {
+				asset: asset.try_into().map_err(|_| ())?,
+				locker: locker.try_into().map_err(|_| ())?,
+			},
 			SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
 			SetTopic(topic) => Self::SetTopic(topic),
 			ClearTopic => Self::ClearTopic,
 			AliasOrigin(location) => Self::AliasOrigin(location.try_into().map_err(|_| ())?),
-			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution { weight_limit, check_origin: check_origin.map(|location| location.try_into()).transpose().map_err(|_| ())? },
+			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
+				weight_limit,
+				check_origin: check_origin
+					.map(|location| location.try_into())
+					.transpose()
+					.map_err(|_| ())?,
+			},
 		})
 	}
 }

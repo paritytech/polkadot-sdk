@@ -116,11 +116,9 @@ where
 		);
 
 		// reanchor
-		let roc_reanchored: Assets = vec![Asset {
-			id: AssetId(Location::new(1, Here)),
-			fun: Fungible(total_to_send),
-		}]
-		.into();
+		let roc_reanchored: Assets =
+			vec![Asset { id: AssetId(Location::new(1, Here)), fun: Fungible(total_to_send) }]
+				.into();
 
 		let poke = PeopleRuntimePallets::<AccountId>::IdentityMigrator(PokeDeposit(who.clone()));
 		let remote_weight_limit = MigratorWeights::<Runtime>::poke_deposit().saturating_mul(2);
