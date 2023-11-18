@@ -61,7 +61,11 @@ impl Parse for RuntimeApiImpls {
 }
 
 /// Implement the `ApiExt` trait and the `Core` runtime api.
-fn implement_common_api_traits(match_arms: Vec<TokenStream>, self_ty: Type) -> Result<TokenStream> {
+fn implement_common_api_traits(
+	match_arms: Vec<TokenStream>,
+	api_ids: Vec<TokenStream>,
+	self_ty: Type,
+) -> Result<TokenStream> {
 	let crate_ = generate_crate_access();
 
 	Ok(quote!(
@@ -75,8 +79,9 @@ fn implement_common_api_traits(match_arms: Vec<TokenStream>, self_ty: Type) -> R
 				let function = params.function;
 				let arguments = params.arguments;
 
-				Ok(match function {
+				Ok(match dbg!(function) {
 					#( #match_arms )*
+					f => panic!("Unknown function: `{f}`"),
 				})
 			}
 
@@ -84,7 +89,10 @@ fn implement_common_api_traits(match_arms: Vec<TokenStream>, self_ty: Type) -> R
 				&self,
 				_: Block::Hash,
 			) -> std::result::Result<#crate_::RuntimeVersion, #crate_::ApiError> {
-				unimplemented!("`runtime_version_at` not implemented for mocks")
+				Ok(#crate_::RuntimeVersion {
+					apis: vec![ #( #api_ids, )* ].into(),
+					..Default::default()
+				})
 			}
 
 			fn state_at(
@@ -228,6 +236,7 @@ struct GeneratedRuntimeApiImpls {
 	match_arms: Vec<TokenStream>,
 	/// The type the traits are implemented for.
 	self_ty: Type,
+	api_ids: Vec<TokenStream>,
 }
 
 /// Generate the runtime api implementations from the given trait implementations.
@@ -236,7 +245,9 @@ struct GeneratedRuntimeApiImpls {
 /// extracts the error type, self type and the block type.
 fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiImpls> {
 	let mut match_arms = Vec::with_capacity(impls.len());
+	let mut api_ids = Vec::new();
 	let mut self_ty: Option<Box<Type>> = None;
+	let crate_ = generate_crate_access();
 
 	for impl_ in impls {
 		let impl_trait_path = extract_impl_trait(impl_, RequireQualifiedTraitPath::No)?;
@@ -263,6 +274,13 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 			None => Some(impl_.self_ty.clone()),
 		};
 
+		api_ids.push(quote! {
+			(
+				<dyn #impl_trait_path as #crate_::RuntimeApiInfo>::ID,
+				<dyn #impl_trait_path as #crate_::RuntimeApiInfo>::VERSION
+			)
+		});
+
 		FoldRuntimeApiImpl { match_arms: &mut match_arms, trait_: impl_trait_ident }
 			.process(impl_.clone());
 	}
@@ -270,6 +288,7 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 	Ok(GeneratedRuntimeApiImpls {
 		match_arms,
 		self_ty: *self_ty.expect("There is at least one runtime api; qed"),
+		api_ids,
 	})
 }
 
@@ -291,8 +310,9 @@ pub fn mock_impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro
 }
 
 fn mock_impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
-	let GeneratedRuntimeApiImpls { match_arms, self_ty } = generate_runtime_api_impls(api_impls)?;
-	let api_traits = implement_common_api_traits(match_arms, self_ty)?;
+	let GeneratedRuntimeApiImpls { match_arms, self_ty, api_ids } =
+		generate_runtime_api_impls(api_impls)?;
+	let api_traits = implement_common_api_traits(match_arms, api_ids, self_ty)?;
 
 	Ok(quote!(
 		#api_traits

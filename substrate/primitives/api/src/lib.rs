@@ -996,6 +996,11 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 		Ok(version.api_version(&Api::ID))
 	}
 
+	pub fn has_api<Api: ?Sized + RuntimeApiInfo>(&self) -> Result<bool, ApiError> {
+		let version = self.call_api_at.runtime_version_at(self.block)?;
+		Ok(version.has_api_with(&Api::ID, |_| true))
+	}
+
 	pub fn execute_in_transaction<R>(
 		&self,
 		inner: impl FnOnce(&Self) -> TransactionOutcome<R>,

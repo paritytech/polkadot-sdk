@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use sp_api::{
-	decl_runtime_apis, impl_runtime_apis, mock_impl_runtime_apis, ApiError, ApiExt, RuntimeApiInfo,
+	decl_runtime_apis, impl_runtime_apis, mock_impl_runtime_apis, RuntimeApiInfo, RuntimeInstance,
 };
 use sp_runtime::traits::Block as BlockT;
 
@@ -163,32 +163,15 @@ mock_impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		#[advanced]
-		fn same_name(_: <Block as BlockT>::Hash) -> Result<(), ApiError> {
-			Ok(().into())
-		}
+		fn same_name() {}
 
-		#[advanced]
-		fn wild_card(at: <Block as BlockT>::Hash, _: u32) -> Result<(), ApiError> {
-			if Hash::repeat_byte(0x0f) == at {
-				// yeah
-				Ok(().into())
-			} else {
-				Err((Box::from("Test error") as Box<dyn std::error::Error + Send + Sync>).into())
-			}
-		}
+		fn wild_card() {}
 	}
 
 	impl ApiWithCustomVersion for MockApi {
 		fn same_name() {}
 	}
 }
-
-type TestClient = substrate_test_runtime_client::client::Client<
-	substrate_test_runtime_client::Backend,
-	substrate_test_runtime_client::ExecutorDispatch,
-	Block,
->;
 
 #[test]
 fn check_runtime_api_info() {
@@ -246,9 +229,7 @@ fn check_runtime_api_versions() {
 		.any(|v| v == &(<dyn ApiWithMultipleVersions>::ID, 3)));
 
 	check_staging_runtime_api_versions::<dyn ApiWithStagingMethod>(99);
-	check_staging_multiver_runtime_api_versions::<dyn ApiWithStagingAndVersionedMethods>(
-		99, 2,
-	);
+	check_staging_multiver_runtime_api_versions::<dyn ApiWithStagingAndVersionedMethods>(99, 2);
 	check_staging_runtime_api_versions::<dyn ApiWithStagingAndChangedBase>(99);
 
 	check_runtime_api_versions_contains::<dyn sp_api::Core<Block>>();
@@ -256,29 +237,22 @@ fn check_runtime_api_versions() {
 
 #[test]
 fn mock_runtime_api_has_api() {
-	let mock = MockApi { block: None };
+	let runtime_api =
+		RuntimeInstance::<_, Block, _>::builder(MockApi { block: None }, Hash::default())
+			.off_chain_context()
+			.build();
 
-	assert!(mock.has_api::<dyn ApiWithCustomVersion>(Hash::default()).unwrap());
-	assert!(mock.has_api::<dyn Api<Block>>(Hash::default()).unwrap());
-}
-
-#[test]
-#[should_panic(expected = "Calling deprecated methods is not supported by mocked runtime api.")]
-fn mock_runtime_api_panics_on_calling_old_version() {
-	let mock = MockApi { block: None };
-
-	#[allow(deprecated)]
-	let _ = mock.same_name_before_version_2(Hash::default());
+	assert!(runtime_api.has_api::<dyn ApiWithCustomVersion>().unwrap());
+	assert!(runtime_api.has_api::<dyn Api<Block>>().unwrap());
 }
 
 #[test]
 fn mock_runtime_api_works_with_advanced() {
-	let mock = MockApi { block: None };
+	let runtime_api =
+		RuntimeInstance::<_, Block, _>::builder(MockApi { block: None }, Hash::default())
+			.off_chain_context()
+			.build();
 
-	Api::<Block>::same_name(&mock).unwrap();
-	Api::<Block>::wild_card(&mock, 1).unwrap();
-	assert_eq!(
-		"Test error".to_string(),
-		Api::<Block>::wild_card(&mock, 1).unwrap_err().to_string(),
-	);
+	Api::<Block>::same_name(&runtime_api).unwrap();
+	Api::<Block>::wild_card(&runtime_api, 1).unwrap();
 }
