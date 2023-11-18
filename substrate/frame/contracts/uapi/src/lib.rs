@@ -115,7 +115,7 @@ impl ReturnFlags {
 	}
 
 	/// Returns the underlying `u32` representation.
-	#[cfg(not(feature = "std"))]
+	#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 	pub(crate) fn into_u32(self) -> u32 {
 		self.value
 	}
@@ -154,6 +154,7 @@ impl ReturnCode {
 type Result = core::result::Result<(), Error>;
 
 #[inline(always)]
+#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 	debug_assert!(new_len <= output.len());
 	let tmp = core::mem::take(output);
