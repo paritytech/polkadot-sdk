@@ -297,7 +297,7 @@ pub mod primitives {
 /// This is already part of the [`prelude`].
 pub mod derive {
 	pub use frame_support::{
-		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
+		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, OrdNoBound, PartialOrdNoBound,
 		RuntimeDebugNoBound,
 	};
 	pub use parity_scale_codec::{Decode, Encode};
