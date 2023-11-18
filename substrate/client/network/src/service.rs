@@ -116,6 +116,8 @@ pub struct NetworkService<B: BlockT + 'static, H: ExHashT> {
 	local_identity: Keypair,
 	/// Bandwidth logging system. Can be queried to know the average bandwidth consumed.
 	bandwidth: Arc<transport::BandwidthSinks>,
+	/// Used to query and report reputation changes.
+	peer_store_handle: PeerStoreHandle,
 	/// Channel that sends messages to the actual worker.
 	to_worker: TracingUnboundedSender<ServiceToWorkerMsg>,
 	/// For each peer and protocol combination, an object that allows sending notifications to
@@ -527,6 +529,7 @@ where
 			sync_protocol_handle,
 			_marker: PhantomData,
 			_block: Default::default(),
+			peer_store_handle: params.peer_store.clone(),
 		});
 
 		Ok(NetworkWorker {
@@ -871,12 +874,18 @@ where
 			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id, addr));
 	}
 
-	fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange) {
-		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::ReportPeer(who, cost_benefit));
+	fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
+		self.peer_store_handle.clone().report_peer(peer_id, cost_benefit);
 	}
 
-	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName) {
-		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::DisconnectPeer(who, protocol));
+	fn peer_reputation(&self, peer_id: &PeerId) -> i32 {
+		self.peer_store_handle.peer_reputation(peer_id)
+	}
+
+	fn disconnect_peer(&self, peer_id: PeerId, protocol: ProtocolName) {
+		let _ = self
+			.to_worker
+			.unbounded_send(ServiceToWorkerMsg::DisconnectPeer(peer_id, protocol));
 	}
 
 	fn accept_unreserved_peers(&self) {
@@ -1193,7 +1202,6 @@ enum ServiceToWorkerMsg {
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec<u8>),
 	AddKnownAddress(PeerId, Multiaddr),
-	ReportPeer(PeerId, ReputationChange),
 	EventStream(out_events::Sender),
 	Request {
 		target: PeerId,
@@ -1324,8 +1332,6 @@ where
 				self.network_service.behaviour_mut().put_value(key, value),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
-			ServiceToWorkerMsg::ReportPeer(peer_id, reputation_change) =>
-				self.peer_store_handle.report_peer(peer_id, reputation_change),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),
 			ServiceToWorkerMsg::Request {
 				target,
