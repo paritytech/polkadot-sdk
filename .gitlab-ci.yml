@@ -127,6 +127,7 @@ default:
     - shopt -s expand_aliases    
     - export PATH=$PATH:$(pwd)
     - alias cargo="forklift cargo"
+    - forklift clean
     #
     - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
     - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"  
