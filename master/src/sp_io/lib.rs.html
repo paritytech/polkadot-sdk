@@ -3096,7 +3096,7 @@
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadV)<span class="question-mark">?</span>;
 		<span class="kw">let </span>sig = RecoverableSignature::from_compact(<span class="kw-2">&amp;</span>sig[..<span class="number">64</span>], rid)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadRS)<span class="question-mark">?</span>;
-		<span class="kw">let </span>msg = Message::from_slice(msg).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
+		<span class="kw">let </span>msg = Message::from_digest_slice(msg).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
 		<span class="kw">let </span>pubkey = SECP256K1
 			.recover_ecdsa(<span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>sig)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadSignature)<span class="question-mark">?</span>;
@@ -3142,7 +3142,7 @@
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadV)<span class="question-mark">?</span>;
 		<span class="kw">let </span>sig = RecoverableSignature::from_compact(<span class="kw-2">&amp;</span>sig[..<span class="number">64</span>], rid)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadRS)<span class="question-mark">?</span>;
-		<span class="kw">let </span>msg = Message::from_slice(msg).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
+		<span class="kw">let </span>msg = Message::from_digest_slice(msg).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
 		<span class="kw">let </span>pubkey = SECP256K1
 			.recover_ecdsa(<span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>sig)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadSignature)<span class="question-mark">?</span>;

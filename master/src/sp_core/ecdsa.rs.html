@@ -804,11 +804,6 @@
 <a href="#804" id="804">804</a>
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1147,7 +1142,7 @@
 	</span><span class="kw">pub fn </span>recover_prehashed(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
 		<span class="kw">let </span>rid = RecoveryId::from_i32(<span class="self">self</span>.<span class="number">0</span>[<span class="number">64</span>] <span class="kw">as </span>i32).ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>sig = RecoverableSignature::from_compact(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..<span class="number">64</span>], rid).ok()<span class="question-mark">?</span>;
-		<span class="kw">let </span>message = Message::from_slice(message).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
+		<span class="kw">let </span>message = Message::from_digest_slice(message).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 		</span><span class="kw">let </span>context = SECP256K1;
@@ -1269,7 +1264,7 @@
 
 	<span class="doccomment">/// Sign a pre-hashed message
 	</span><span class="kw">pub fn </span>sign_prehashed(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Signature {
-		<span class="kw">let </span>message = Message::from_slice(message).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
+		<span class="kw">let </span>message = Message::from_digest_slice(message).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 		</span><span class="kw">let </span>context = SECP256K1;
@@ -1319,12 +1314,7 @@
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">impl </span>Drop <span class="kw">for </span>Pair {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="kw">let </span>ptr = <span class="self">self</span>.secret.as_mut_ptr();
-		<span class="kw">for </span>off <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.secret.len() {
-			<span class="kw">unsafe </span>{
-				core::ptr::write_volatile(ptr.add(off), <span class="number">0</span>);
-			}
-		}
+		<span class="self">self</span>.secret.non_secure_erase()
 	}
 }
 
@@ -1571,7 +1561,7 @@
 		</span><span class="kw">let </span>msg = [<span class="number">0u8</span>; <span class="number">32</span>];
 		<span class="kw">let </span>sig1 = pair.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 		<span class="kw">let </span>sig2: Signature = {
-			<span class="kw">let </span>message = Message::from_slice(<span class="kw-2">&amp;</span>msg).unwrap();
+			<span class="kw">let </span>message = Message::from_digest_slice(<span class="kw-2">&amp;</span>msg).unwrap();
 			SECP256K1.sign_ecdsa_recoverable(<span class="kw-2">&amp;</span>message, <span class="kw-2">&amp;</span>pair.secret).into()
 		};
 		<span class="macro">assert_eq!</span>(sig1, sig2);
