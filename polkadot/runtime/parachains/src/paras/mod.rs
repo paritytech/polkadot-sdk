@@ -506,6 +506,22 @@ impl OnNewHead for Tuple {
 	}
 }
 
+pub trait OnCodeUpgrade {
+	/// A function to execute some custom logic once the pre-chekcing is successfully completed.
+	///
+	/// This is currently used by the registrar pallet to perform refunds upon validation code
+	/// size reduction.
+	fn on_code_upgrade(id: ParaId, prior_code_hash: ValidationCodeHash, new_code_hash: ValidationCodeHash) -> Weight;
+}
+
+/// An empty implementation of the trait where there is no logic executed upon a successful
+/// code upgrade.
+impl OnCodeUpgrade for () {
+	fn on_code_upgrade(_id: ParaId, _prior_code_hash: ValidationCodeHash, _new_code_hash: ValidationCodeHash) -> Weight {
+		Weight::zero()
+	}
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -602,6 +618,9 @@ pub mod pallet {
 
 		/// Runtime hook for when a parachain head is updated.
 		type OnNewHead: OnNewHead;
+
+		/// Type that executes some custom logic upon a successful code upgrade. 
+		type OnCodeUpgrade: OnCodeUpgrade;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -2034,7 +2053,10 @@ impl<T: Config> Pallet<T> {
 				let now = <frame_system::Pallet<T>>::block_number();
 
 				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
-					Self::note_past_code(id, expected_at, now, prior_code_hash)
+					let mut weight = Self::note_past_code(id, expected_at, now, prior_code_hash);
+					weight = weight.saturating_add(T::OnCodeUpgrade::on_code_upgrade(id, prior_code_hash, new_code_hash));
+
+					weight
 				} else {
 					log::error!(target: LOG_TARGET, "Missing prior code hash for para {:?}", &id);
 					Weight::zero()

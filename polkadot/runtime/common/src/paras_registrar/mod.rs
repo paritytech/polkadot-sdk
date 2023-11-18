@@ -26,10 +26,10 @@ use frame_support::{
 	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency, WithdrawReasons},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
+use primitives::{HeadData, Id as ParaId, ValidationCode, ValidationCodeHash, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs, SetGoAhead},
+	paras::{self, OnCodeUpgrade, ParaGenesisArgs, SetGoAhead},
 	Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
@@ -62,15 +62,6 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 	pub fn is_locked(&self) -> bool {
 		self.locked.unwrap_or(false)
 	}
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
-struct RefundInfo<Balance> {
-	/// Potential refund that is awaiting the code upgrade to successfully execute. 
-	pending: Balance,
-	/// Refund for reducing the validation code size. Refund becomes 'active' once the upgrade
-	/// executes successfully.
-	active: Balance,
 }
 
 type BalanceOf<T> =
@@ -225,12 +216,6 @@ pub mod pallet {
 	/// The next free `ParaId`.
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
-
-	/// All the pending and active refunds of a parachain.
-	///
-	/// A parachain is eligable for a refund whenever it reduces its associated validation code.
-	#[pallet::storage]
-	pub type Refunds<T: Config> = StorageMap<_, Twox64Concat, ParaId, RefundInfo<BalanceOf<T>>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -695,8 +680,8 @@ impl<T: Config> Pallet<T> {
 		new_code: ValidationCode,
 		fee_payer: Option<T::AccountId>,
 	) -> DispatchResult {
-		// Before doing anything we ensure that a code upgrade is allowed at the moment for the specific
-		// parachain.
+		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
+		// specific parachain.
 		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
 
 		if let Some(payer) = fee_payer {
@@ -713,28 +698,24 @@ impl<T: Config> Pallet<T> {
 				.expect("Para info must be stored if head data for this parachain exists; qed")
 				.deposit;
 
-			if current_deposit > new_deposit {
-				// In case the existing deposit exceeds the required amount due to validation code reduction,
-				// the excess deposit will be returned to the caller.
-
-				// The reason why the deposit is not instantly refunded is because schedule a code upgrade
-				// doesn't guarante the success of an upgrade.
-				//
-				// If we returned the depoist here a possible attack scenario would be to register the
-				//  validation code of a parachain and then schedule a code upgrade to set the code to
-				// an empty blob. In such case the pre-checking process would fail so the old code would
-				// remain on-chain even though there is no deposit to cover it.
-				let rebate = current_deposit.saturating_sub(new_deposit);
-				let mut refund = Refunds::<T>::get(para);
-				refund.pending = rebate.saturating_add(refund.pending);
-				Refunds::<T>::insert(para, refund);
-			} else if current_deposit < new_deposit {
+			if current_deposit < new_deposit {
 				// An additional deposit is required to cover for the new validation code which has
 				// a greater size compared to the old one.
 
 				let excess = new_deposit.saturating_sub(current_deposit);
 				<T as Config>::Currency::reserve(&payer, excess)?;
 			}
+
+			// In case the existing deposit exceeds the required amount due to validation code
+			// reduction, the excess deposit will be returned to the caller.
+
+			// The reason why the deposit is not instantly refunded is because schedule a code
+			// upgrade doesn't guarante the success of an upgrade.
+			//
+			// If we returned the depoist here a possible attack scenario would be to register
+			// the validation code of a parachain and then schedule a code upgrade to set the
+			// code to an empty blob. In such case the pre-checking process would fail so the
+			// old code would remain on-chain even though there is no deposit to cover it.
 
 			<T as Config>::Currency::withdraw(
 				&payer,
@@ -794,6 +775,47 @@ impl<T: Config> OnNewHead for Pallet<T> {
 			}
 		}
 		T::DbWeight::get().reads_writes(1, writes)
+	}
+}
+
+impl<T: Config> OnCodeUpgrade for Pallet<T> {
+	fn on_code_upgrade(
+		id: ParaId,
+		old_code_hash: ValidationCodeHash,
+		new_code_hash: ValidationCodeHash,
+	) -> Weight {
+		let maybe_old_code = paras::Pallet::<T>::code_by_hash(old_code_hash);
+		let maybe_new_code = paras::Pallet::<T>::code_by_hash(new_code_hash);
+
+		if maybe_old_code.is_none() || maybe_new_code.is_none() {
+			return T::DbWeight::get().reads(2)
+		}
+
+		let old_code = maybe_old_code.expect("Ensured above that the old code was found; qed");
+		let new_code = maybe_new_code.expect("Ensured above that the new code was found; qed");
+
+		let head = paras::Pallet::<T>::para_head(id).expect(
+			"Cannot have a code upgrade for a parachain that doesn't have its head registered; qed",
+		);
+
+		let per_byte_fee = T::DataDepositPerByte::get();
+		let new_deposit = T::ParaDeposit::get()
+			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
+			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
+
+		let current_deposit = Paras::<T>::get(id)
+			.expect("Para info must be stored if head data for this parachain exists; qed")
+			.deposit;
+
+		if current_deposit > new_deposit {
+			// Repay the para manager or the parachain itself.
+
+			let rebate = current_deposit.saturating_sub(new_deposit);
+			//<T as Config>::Currency::unreserve(&who, rebate);
+		}
+
+		// TODO: Correct weight
+		Weight::zero()
 	}
 }
 
@@ -918,6 +940,7 @@ mod tests {
 		type UnsignedPriority = ParasUnsignedPriority;
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
+		type OnCodeUpgrade = ();
 		type OnNewHead = ();
 	}
 
