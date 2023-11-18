@@ -612,7 +612,7 @@ async fn validate_candidate_exhaustive(
 
 	let result = match exec_kind {
 		PvfExecKind::Backing => {
-			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
+			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
 			let pvf = PvfPrepData::from_code(
 				raw_validation_code.to_vec(),

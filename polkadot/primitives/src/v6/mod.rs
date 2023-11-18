@@ -1781,7 +1781,7 @@ impl<T: Encode> WellKnownKey<T> {
 	}
 }
 
-/// Type discriminator for PVF preparation timeouts
+/// Type discriminator for PVF preparation.
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PvfPrepKind {
 	/// For prechecking requests, the time period after which the preparation worker is considered
@@ -1794,10 +1794,11 @@ pub enum PvfPrepKind {
 	Prepare,
 }
 
-/// Type discriminator for PVF execution timeouts and retries
+/// Type discriminator for PVF execution.
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PvfExecKind {
 	/// The amount of time to spend on execution during backing.
+	/// 
 	/// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and honest
 	/// backers getting slashed.
 	Backing,
