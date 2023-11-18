@@ -163,6 +163,7 @@ struct StructNoGenerics {
 	field2: u64,
 }
 
+#[allow(dead_code)]
 #[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 enum EnumNoGenerics {
 	#[default]
@@ -189,6 +190,7 @@ enum Enum<T: Config, U, V> {
 }
 
 // enum that will have a named default.
+#[allow(dead_code)]
 #[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 enum Enum2<T: Config> {
 	#[default]
@@ -202,6 +204,7 @@ enum Enum2<T: Config> {
 	VariantUnit2,
 }
 
+#[allow(dead_code)]
 // enum that will have a unit default.
 #[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 enum Enum3<T: Config> {

@@ -19,6 +19,7 @@
 //! A helper module for calling the GenesisBuilder API from arbitrary runtime wasm blobs.
 
 use codec::{Decode, Encode};
+pub use sc_executor::sp_wasm_interface::HostFunctions;
 use sc_executor::{error::Result, WasmExecutor};
 use serde_json::{from_slice, Value};
 use sp_core::{
@@ -30,19 +31,31 @@ use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
-pub struct GenesisConfigBuilderRuntimeCaller<'a> {
+///
+/// `EHF` type allows to specify the extended host function required for building runtime's genesis
+/// config. The type will be compbined with default `sp_io::SubstrateHostFunctions`.
+pub struct GenesisConfigBuilderRuntimeCaller<'a, EHF = ()>
+where
+	EHF: HostFunctions,
+{
 	code: Cow<'a, [u8]>,
 	code_hash: Vec<u8>,
-	executor: WasmExecutor<sp_io::SubstrateHostFunctions>,
+	executor: WasmExecutor<(sp_io::SubstrateHostFunctions, EHF)>,
 }
 
-impl<'a> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a> {
+impl<'a, EHF> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a, EHF>
+where
+	EHF: HostFunctions,
+{
 	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
 		Some(self.code.as_ref().into())
 	}
 }
 
-impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
+impl<'a, EHF> GenesisConfigBuilderRuntimeCaller<'a, EHF>
+where
+	EHF: HostFunctions,
+{
 	/// Creates new instance using the provided code blob.
 	///
 	/// This code is later referred to as `runtime`.
@@ -50,7 +63,7 @@ impl<'a> GenesisConfigBuilderRuntimeCaller<'a> {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_core::blake2_256(code).to_vec(),
-			executor: WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
+			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
 		}
@@ -134,7 +147,7 @@ mod tests {
 	#[test]
 	fn get_default_config_works() {
 		let config =
-			GenesisConfigBuilderRuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_default_config()
 				.unwrap();
 		let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
@@ -156,7 +169,7 @@ mod tests {
 		});
 
 		let storage =
-			GenesisConfigBuilderRuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_storage_for_patch(patch)
 				.unwrap();
 

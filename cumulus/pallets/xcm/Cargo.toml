@@ -4,6 +4,7 @@ edition.workspace = true
 name = "cumulus-pallet-xcm"
 version = "0.1.0"
 license = "Apache-2.0"
+description = "Pallet for stuff specific to parachains' usage of XCM"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
