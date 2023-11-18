@@ -17,18 +17,15 @@
 #![no_std]
 
 #[panic_handler]
+#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
-	cfg_if::cfg_if! {
-		if #[cfg(target_arch = "wasm32")] {
-			core::arch::wasm32::unreachable();
-		} else if #[cfg(target_arch = "riscv32")] {
-			// Safety: The unimp instruction is guaranteed to trap
-			unsafe {
-				core::arch::asm!("unimp");
-				core::hint::unreachable_unchecked();
-			}
-		} else {
-			core::compile_error!("only supports wasm32 and riscv32");
-		}
+	#[cfg(target_arch = "wasm32")]
+	core::arch::wasm32::unreachable();
+
+	#[cfg(target_arch = "riscv32")]
+	// Safety: The unimp instruction is guaranteed to trap
+	unsafe {
+		core::arch::asm!("unimp");
+		core::hint::unreachable_unchecked();
 	}
 }

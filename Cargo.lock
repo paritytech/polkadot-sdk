@@ -9814,9 +9814,6 @@ dependencies = [
 [[package]]
 name = "pallet-contracts-fixtures-common"
 version = "1.0.0"
-dependencies = [
- "cfg-if",
-]
 
 [[package]]
 name = "pallet-contracts-mock-network"
