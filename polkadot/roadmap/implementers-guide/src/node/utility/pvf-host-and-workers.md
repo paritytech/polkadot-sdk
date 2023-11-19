@@ -47,9 +47,8 @@ execution request:
    this case.
 3. **Artifact missing:** The prepared artifact might have been deleted due to
    operator error or some bug in the system.
-4. **Job errors:** For example, the worker thread panicked for some
-   indeterminate reason, which may or may not be independent of the candidate or
-   PVF.
+4. **Job errors:** For example, the job process panicked for some indeterminate
+   reason, which may or may not be independent of the candidate or PVF.
 5. **Internal errors:** See "Internal Errors" section. In this case, after the
    retry we abstain from voting.
 

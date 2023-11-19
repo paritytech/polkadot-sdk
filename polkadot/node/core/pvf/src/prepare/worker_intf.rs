@@ -160,7 +160,7 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_worker_result)) => {
+				Ok(Ok(prepare_worker_result)) =>
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
@@ -171,8 +171,7 @@ pub async fn start_work(
 						&cache_path,
 						preparation_timeout,
 					)
-					.await
-				},
+					.await,
 				Ok(Err(err)) => {
 					// Communication error within the time limit.
 					gum::warn!(
