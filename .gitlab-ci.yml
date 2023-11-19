@@ -127,8 +127,8 @@ default:
     - shopt -s expand_aliases    
     - export PATH=$PATH:$(pwd)
     - alias cargo="forklift cargo"
-    - ls -al .forklift.sock*
-    - rm -rf forklift.sock
+    - ls -al 
+    - rm -f forklift.sock 
     - forklift clean
     #
     - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
