@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Various things for testing other crates.
+//! Various utilities for testing.
 
 pub use crate::{
 	host::{EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME},
@@ -59,27 +59,33 @@ pub fn validate_candidate(
 ///
 /// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
 /// paths of the built workers.
-pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
+pub fn build_workers_and_get_paths(is_bench: bool) -> (PathBuf, PathBuf) {
 	// Only needs to be called once for the current process.
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
-	fn build_workers() {
-		let build_args = vec![
+	fn build_workers(is_bench: bool) {
+		let mut build_args = vec![
 			"build",
 			"--package=polkadot",
 			"--bin=polkadot-prepare-worker",
 			"--bin=polkadot-execute-worker",
 		];
-		let exit_status = std::process::Command::new("cargo")
+		if is_bench {
+			// Benches require --release. Regular tests are debug (no flag needed).
+			build_args.push("--release");
+		}
+		let mut cargo = std::process::Command::new("cargo");
+		let cmd = cargo
 			// wasm runtime not needed
 			.env("SKIP_WASM_BUILD", "1")
 			.args(build_args)
-			.stdout(std::process::Stdio::piped())
-			.status()
-			.expect("Failed to run the build program");
+			.stdout(std::process::Stdio::piped());
+
+		println!("INFO: calling `{cmd:?}`");
+		let exit_status = cmd.status().expect("Failed to run the build program");
 
 		if !exit_status.success() {
-			eprintln!("Failed to build workers: {}", exit_status.code().unwrap());
+			eprintln!("ERROR: Failed to build workers: {}", exit_status.code().unwrap());
 			std::process::exit(1);
 		}
 	}
@@ -95,23 +101,23 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 
 		// explain why a build happens
 		if !prepare_worker_path.is_executable() {
-			eprintln!("Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			println!("WARN: Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
 		}
 		if !execute_worker_path.is_executable() {
-			eprintln!("Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			println!("WARN: Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
 		}
 		if let Ok(ver) = get_worker_version(&prepare_worker_path) {
 			if ver != NODE_VERSION {
-				eprintln!("Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+				println!("WARN: Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
 			}
 		}
 		if let Ok(ver) = get_worker_version(&execute_worker_path) {
 			if ver != NODE_VERSION {
-				eprintln!("Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+				println!("WARN: Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
 			}
 		}
 
-		build_workers();
+		build_workers(is_bench);
 
 		Mutex::new((prepare_worker_path, execute_worker_path))
 	});
