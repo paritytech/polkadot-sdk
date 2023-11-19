@@ -126,7 +126,10 @@ default:
     - export FORKLIFT_PACKAGE_SUFFIX=${CI_JOB_NAME/ [0-9 \/]*}
     - shopt -s expand_aliases    
     - export PATH=$PATH:$(pwd)
-    - alias cargo="forklift cargo"
+    - if [ "$FORKLIFT_BYPASS" != "true" ]; then
+      echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"
+      alias cargo="forklift cargo"
+      fi
     - ls -al 
     - rm -f forklift.sock 
     - forklift clean
