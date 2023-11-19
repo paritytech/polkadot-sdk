@@ -1254,7 +1254,7 @@ impl paras_registrar::Config for Runtime {
 
 parameter_types! {
 	pub const LeasePeriod: BlockNumber = 28 * DAYS;
-	pub const MinLeasePeriodForEarlyRefund: BlockNumber = 2;
+	pub const MinLeasePeriodsForEarlyRefund: BlockNumber = 2;
 }
 
 impl slots::Config for Runtime {
@@ -1262,7 +1262,7 @@ impl slots::Config for Runtime {
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
-	type MinLeasePeriodForEarlyRefund = MinLeasePeriodForEarlyRefund;
+	type MinLeasePeriodsForEarlyRefund = MinLeasePeriodsForEarlyRefund;
 	type LeaseOffset = ();
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, LeaseAdmin>;
 	type WeightInfo = weights::runtime_common_slots::WeightInfo<Runtime>;

@@ -102,7 +102,7 @@ pub mod pallet {
 		///
 		/// Note: Setting it to zero would disable early refund.
 		#[pallet::constant]
-		type MinLeasePeriodForEarlyRefund: Get<BlockNumberFor<Self>>;
+		type MinLeasePeriodsForEarlyRefund: Get<BlockNumberFor<Self>>;
 
 		/// The number of blocks to offset each lease period by.
 		#[pallet::constant]
@@ -285,7 +285,7 @@ pub mod pallet {
 						.map_err(|_| Error::<T>::NoPermission.into())
 				})?;
 
-			let min_lease_period_required = T::MinLeasePeriodForEarlyRefund::get();
+			let min_lease_period_required = T::MinLeasePeriodsForEarlyRefund::get();
 			ensure!(
 				min_lease_period_required > 0u32.into(),
 				// if set to 0, we never allow early refund of slot deposit.
@@ -737,7 +737,7 @@ mod tests {
 
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 10;
-		pub const MinLeasePeriodForEarlyRefund: BlockNumber = 2;
+		pub const MinLeasePeriodsForEarlyRefund: BlockNumber = 2;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
 	}
@@ -747,7 +747,7 @@ mod tests {
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
-		type MinLeasePeriodForEarlyRefund = MinLeasePeriodForEarlyRefund;
+		type MinLeasePeriodsForEarlyRefund = MinLeasePeriodsForEarlyRefund;
 		type LeaseOffset = LeaseOffset;
 		type ForceOrigin = EnsureRoot<Self::AccountId>;
 		type WeightInfo = crate::slots::TestWeightInfo;
