@@ -335,10 +335,30 @@ fn rewards_should_work() {
 				individual: vec![(11, 100), (21, 50)].into_iter().collect(),
 			}
 		);
-		let part_for_11 = Perbill::from_rational::<u32>(1000, 1125);
-		let part_for_21 = Perbill::from_rational::<u32>(1000, 1375);
-		let part_for_101_from_11 = Perbill::from_rational::<u32>(125, 1125);
-		let part_for_101_from_21 = Perbill::from_rational::<u32>(375, 1375);
+
+		let exposure_11 = EraInfo::<Test>::get_full_exposure(active_era(), &11).total;
+		let exposure_21 = EraInfo::<Test>::get_full_exposure(active_era(), &21).total;
+
+		let exposure_101_to_11 = EraInfo::<Test>::get_full_exposure(active_era(), &11)
+			.others
+			.iter()
+			.find(|o| o.who == 101)
+			.unwrap()
+			.value;
+		let exposure_101_to_21 = EraInfo::<Test>::get_full_exposure(active_era(), &21)
+			.others
+			.iter()
+			.find(|o| o.who == 101)
+			.unwrap()
+			.value;
+
+		assert_eq!(exposure_101_to_11, 375);
+		assert_eq!(exposure_101_to_21, 125);
+
+		let part_for_11 = Perbill::from_rational(1000, exposure_11);
+		let part_for_21 = Perbill::from_rational(1000, exposure_21);
+		let part_for_101_from_11 = Perbill::from_rational::<u128>(exposure_101_to_11, exposure_11);
+		let part_for_101_from_21 = Perbill::from_rational::<u128>(exposure_101_to_21, exposure_21);
 
 		start_session(2);
 		start_session(3);
@@ -654,7 +674,7 @@ fn nominating_and_rewards_should_work() {
 
 			assert_eq!(ErasStakersPaged::<Test>::iter_prefix_values((active_era(),)).count(), 2);
 			assert_eq!(
-				Staking::eras_stakers(active_era(), &11),
+				Staking::eras_stakers(active_era(), &21),
 				Exposure {
 					total: 1000 + 800,
 					own: 1000,
@@ -665,7 +685,7 @@ fn nominating_and_rewards_should_work() {
 				},
 			);
 			assert_eq!(
-				Staking::eras_stakers(active_era(), &21),
+				Staking::eras_stakers(active_era(), &11),
 				Exposure {
 					total: 1000 + 1200,
 					own: 1000,
@@ -689,32 +709,32 @@ fn nominating_and_rewards_should_work() {
 			mock::make_all_reward_payment(1);
 			let payout_for_11 = total_payout_1 / 3;
 			let payout_for_21 = 2 * total_payout_1 / 3;
-			// Nominator 2: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
+			// Nominator 2: has [400/1800 ~ 2/9 from 21] + [600/2200 ~ 3/11 from 11]'s reward. ==>
 			// 2/9 + 3/11
 			assert_eq_error_rate!(
 				Balances::total_balance(&1),
-				initial_balance + (2 * payout_for_11 / 9 + 3 * payout_for_21 / 11),
+				initial_balance + (2 * payout_for_21 / 9 + 3 * payout_for_11 / 11),
 				2,
 			);
-			// Nominator 3: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
+			// Nominator 3: has [400/1800 ~ 2/9 from 21] + [600/2200 ~ 3/11 from 11]'s reward. ==>
 			// 2/9 + 3/11
 			assert_eq_error_rate!(
 				Balances::total_balance(&3),
-				initial_balance + (2 * payout_for_11 / 9 + 3 * payout_for_21 / 11),
+				initial_balance + (2 * payout_for_21 / 9 + 3 * payout_for_11 / 11),
 				2,
 			);
 
-			// Validator 11: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
-			assert_eq_error_rate!(
-				Balances::total_balance(&11),
-				initial_balance + 5 * payout_for_11 / 9,
-				2,
-			);
-			// Validator 21: got 1200 / 2200 external stake => 12/22 =? 6/11 => Validator's share =
-			// 5/11
+			// Validator 21: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
 			assert_eq_error_rate!(
 				Balances::total_balance(&21),
-				initial_balance_21 + 5 * payout_for_21 / 11,
+				initial_balance_21 + 5 * payout_for_21 / 9,
+				2,
+			);
+			// Validator 11: got 1200 / 2200 external stake => 12/22 =? 6/11 => Validator's share =
+			// 5/11
+			assert_eq_error_rate!(
+				Balances::total_balance(&11),
+				initial_balance + 5 * payout_for_11 / 11,
 				2,
 			);
 		});
@@ -2507,7 +2527,7 @@ fn subsequent_reports_in_same_span_pay_out_less() {
 	// amount, but less and less if they submit multiple reports in one span.
 	ExtBuilder::default().build_and_execute(|| {
 		// The reporters' reward is calculated from the total exposure.
-		let initial_balance = 1125;
+		let initial_balance = EraInfo::<Test>::get_full_exposure(active_era(), &11).total;
 
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, initial_balance);
 
@@ -2537,7 +2557,7 @@ fn subsequent_reports_in_same_span_pay_out_less() {
 		// F1 * (reward_proportion * slash - prior_payout)
 		// 50% * (10% * (initial_balance / 2) - prior_payout)
 		let reward = ((initial_balance / 20) - prior_payout) / 2;
-		assert_eq!(Balances::free_balance(1), 10 + prior_payout + reward);
+		assert_eq_error_rate!(Balances::free_balance(1), 10 + prior_payout + reward, 2);
 	});
 }
 
@@ -2737,7 +2757,6 @@ fn garbage_collection_on_window_pruning() {
 	})
 }
 
-// TODO(gpestana): double check
 #[test]
 fn slashing_nominators_by_span_max() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -2760,14 +2779,14 @@ fn slashing_nominators_by_span_max() {
 				offender: (11, Staking::eras_stakers(active_era(), &11)),
 				reporters: vec![],
 			}],
-			&[Perbill::from_percent(10)],
+			&[Perbill::from_percent(5)],
 			2,
 			DisableStrategy::WhenSlashed,
 		);
 
-		assert_eq!(Balances::free_balance(11), 900);
+		assert_eq!(Balances::free_balance(11), 950);
 
-		let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
+		let slash_1_amount = Perbill::from_percent(5) * nominated_value_11;
 		assert_eq!(Balances::free_balance(101), 2000 - slash_1_amount);
 
 		let expected_spans = vec![
@@ -2787,16 +2806,16 @@ fn slashing_nominators_by_span_max() {
 				offender: (21, Staking::eras_stakers(active_era(), &21)),
 				reporters: vec![],
 			}],
-			&[Perbill::from_percent(30)],
+			&[Perbill::from_percent(80)],
 			3,
 			DisableStrategy::WhenSlashed,
 		);
 
 		// 11 was not further slashed, but 21 and 101 were.
-		assert_eq!(Balances::free_balance(11), 900);
-		assert_eq!(Balances::free_balance(21), 1700);
+		assert_eq!(Balances::free_balance(11), 950);
+		assert_eq!(Balances::free_balance(21), 1200);
 
-		let slash_2_amount = Perbill::from_percent(30) * nominated_value_21;
+		let slash_2_amount = Perbill::from_percent(80) * nominated_value_21;
 		assert!(slash_2_amount > slash_1_amount);
 
 		// only the maximum slash in a single span is taken.
@@ -2816,7 +2835,7 @@ fn slashing_nominators_by_span_max() {
 
 		// 11 was further slashed, but 21 and 101 were not.
 		assert_eq!(Balances::free_balance(11), 800);
-		assert_eq!(Balances::free_balance(21), 1700);
+		assert_eq!(Balances::free_balance(21), 1200);
 
 		let slash_3_amount = Perbill::from_percent(20) * nominated_value_21;
 		assert!(slash_3_amount < slash_2_amount);
@@ -3256,13 +3275,18 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 		let exposure_11 = Staking::eras_stakers(active_era(), &11);
 		let exposure_21 = Staking::eras_stakers(active_era(), &21);
 
-		assert_eq!(exposure_21.total, 1000 + 125);
-		assert_eq!(exposure_11.total, 1000 + 375);
+		let exposure_101_for_11 = exposure_11.others.iter().find(|o| o.who == 101).unwrap().value;
+		let exposure_101_for_21 = exposure_21.others.iter().find(|o| o.who == 101).unwrap().value;
+
+		assert_eq!(exposure_11.total, 1000 + exposure_101_for_11);
+		assert_eq!(exposure_21.total, 1000 + exposure_101_for_21);
 
 		on_offence_now(
 			&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
 			&[Perbill::from_percent(10)],
 		);
+
+		let nominator_slash_amount_11 = exposure_101_for_11 / 10;
 
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -3277,12 +3301,11 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 					slash_era: 1
 				},
 				Event::Slashed { staker: 11, amount: 100 },
-				Event::Slashed { staker: 101, amount: 37 },
+				Event::Slashed { staker: 101, amount: nominator_slash_amount_11 },
 			]
 		);
 
 		// post-slash balance
-		let nominator_slash_amount_11 = 375 / 10;
 		assert_eq!(Balances::free_balance(11), 900);
 		assert_eq!(Balances::free_balance(101), 2000 - nominator_slash_amount_11);
 
@@ -3296,15 +3319,18 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 		let exposure_11 = Staking::eras_stakers(active_era(), &11);
 		let exposure_21 = Staking::eras_stakers(active_era(), &21);
 
-		// TODO(gpestana): re-do calculations
-		println!("{:?}", exposure_11);
-		println!("{:?}", exposure_21);
-		// 11's own expo is reduced. sum of support from 11 is less (448), which is 500
-		// 900 + 146
-		assert!(matches!(exposure_11, Exposure { own: 900, total: 1046, .. }));
-		// 1000 + 342
-		assert!(matches!(exposure_21, Exposure { own: 1000, total: 1342, .. }));
-		assert_eq!(500 - 146 - 342, nominator_slash_amount_11);
+		let exposure_101_for_11 = exposure_11.others.iter().find(|o| o.who == 101).unwrap().value;
+		let exposure_101_for_21 = exposure_21.others.iter().find(|o| o.who == 101).unwrap().value;
+
+		assert_eq!(exposure_101_for_11, 136);
+		assert_eq!(exposure_101_for_21, 327);
+
+		// 11's own expo is reduced. sum of support from 11 is less (136), thus total is
+		// 900 + 136
+		assert!(matches!(exposure_11, Exposure { own: 900, total: 1036, .. }));
+		// 1000 + 327
+		assert!(matches!(exposure_21, Exposure { own: 1000, total: 1327, .. }));
+		assert_eq!(500 - exposure_101_for_11 - exposure_101_for_21, nominator_slash_amount_11);
 	});
 }
 
@@ -3545,8 +3571,13 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		let init_balance_11 = Balances::total_balance(&11);
 		let init_balance_101 = Balances::total_balance(&101);
 
-		let part_for_11 = Perbill::from_rational::<u32>(1000, 1125);
-		let part_for_101 = Perbill::from_rational::<u32>(125, 1125);
+		let exposures = EraInfo::<Test>::get_full_exposure(active_era(), &11);
+		let exposure_11 = exposures.total;
+		let self_stake_11 = exposures.own;
+		let exposure_101_for_11 = exposures.others.iter().find(|o| o.who == 101).unwrap().value;
+
+		let part_for_11 = Perbill::from_rational::<u128>(self_stake_11, exposure_11);
+		let part_for_101 = Perbill::from_rational::<u128>(exposure_101_for_11, exposure_11);
 
 		// Check state
 		Payee::<Test>::insert(11, RewardDestination::Controller);
@@ -3606,13 +3637,15 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		// Era 0 can't be rewarded anymore and current era can't be rewarded yet
 		// only era 1 and 2 can be rewarded.
 
-		assert_eq!(
+		assert_eq_error_rate!(
 			Balances::total_balance(&11),
 			init_balance_11 + part_for_11 * (total_payout_1 + total_payout_2),
+			2,
 		);
-		assert_eq!(
+		assert_eq_error_rate!(
 			Balances::total_balance(&101),
 			init_balance_101 + part_for_101 * (total_payout_1 + total_payout_2),
+			2,
 		);
 	});
 }
