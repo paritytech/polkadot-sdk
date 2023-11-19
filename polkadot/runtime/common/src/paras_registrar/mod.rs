@@ -217,6 +217,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
+	/// Stores information about the `AccountId` that will receive a refund for reducing the
+	/// validation code size.
+	///
+	/// This will either be the parachain manager or the sovereign account of the parachain.
+	#[pallet::storage]
+	pub type Refunds<T: Config> = StorageMap<_, Twox64Concat, ParaId, T::AccountId>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
@@ -674,38 +681,51 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	/// In case the `fee_payer` is defined fees will be charged and extra deposit will be requried.
+	///  If `maybe_caller` isn't specified, the caller won't be charged any fees or have its deposit
+	/// reserved This is intended to be used when the caller is the root origin.
+	///
+	/// If the size of the validation is reduced and the upgrade is successful the caller will be
+	/// eligable for receiving back a portion of their deposit that is no longer required.
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		fee_payer: Option<T::AccountId>,
+		maybe_caller: Option<T::AccountId>,
 	) -> DispatchResult {
 		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
 		// specific parachain.
 		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
+		ensure!(paras::Pallet::<T>::para_head(para).is_some(), Error::<T>::NotRegistered);
 
-		if let Some(payer) = fee_payer {
-			ensure!(paras::Pallet::<T>::para_head(para).is_some(), Error::<T>::NotRegistered);
-			let head = paras::Pallet::<T>::para_head(para)
-				.expect("Ensured that the head is existant above; qed");
+		let head = paras::Pallet::<T>::para_head(para)
+			.expect("Ensured that the head is existant above; qed");
 
-			let per_byte_fee = T::DataDepositPerByte::get();
-			let new_deposit = T::ParaDeposit::get()
-				.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
-				.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
+		let per_byte_fee = T::DataDepositPerByte::get();
+		let new_deposit = T::ParaDeposit::get()
+			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
+			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
-			let current_deposit = Paras::<T>::get(para)
-				.expect("Para info must be stored if head data for this parachain exists; qed")
-				.deposit;
+		let current_deposit = Paras::<T>::get(para)
+			.expect("Para info must be stored if head data for this parachain exists; qed")
+			.deposit;
 
+		if let Some(caller) = maybe_caller.clone() {
 			if current_deposit < new_deposit {
 				// An additional deposit is required to cover for the new validation code which has
 				// a greater size compared to the old one.
 
 				let excess = new_deposit.saturating_sub(current_deposit);
-				<T as Config>::Currency::reserve(&payer, excess)?;
+				<T as Config>::Currency::reserve(&caller, excess)?;
 			}
 
+			<T as Config>::Currency::withdraw(
+				&caller,
+				T::UpgradeFee::get(),
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			)?;
+		}
+
+		if current_deposit > new_deposit {
 			// In case the existing deposit exceeds the required amount due to validation code
 			// reduction, the excess deposit will be returned to the caller.
 
@@ -717,12 +737,20 @@ impl<T: Config> Pallet<T> {
 			// code to an empty blob. In such case the pre-checking process would fail so the
 			// old code would remain on-chain even though there is no deposit to cover it.
 
-			<T as Config>::Currency::withdraw(
-				&payer,
-				T::UpgradeFee::get(),
-				WithdrawReasons::FEE,
-				ExistenceRequirement::KeepAlive,
-			)?;
+			// We store information regarding who is receiving the refund in case the upgrade
+			// is completed successfully(either the parachain sovereign account or the manager).
+			//
+			// If the caller is not specified the refund will be returned to the para manager.
+			let who = maybe_caller.unwrap_or(
+				// TODO: would be probably better to refund to the para instead.
+				Paras::<T>::get(para)
+					.ok_or(Error::<T>::NotRegistered)
+					.expect(
+						"Parachain which is is scheduling a code upgrade must be registered; qed",
+					)
+					.manager,
+			);
+			Refunds::<T>::insert(para, who);
 		}
 
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
@@ -779,19 +807,13 @@ impl<T: Config> OnNewHead for Pallet<T> {
 }
 
 impl<T: Config> OnCodeUpgrade for Pallet<T> {
-	fn on_code_upgrade(
-		id: ParaId,
-		old_code_hash: ValidationCodeHash,
-		new_code_hash: ValidationCodeHash,
-	) -> Weight {
-		let maybe_old_code = paras::Pallet::<T>::code_by_hash(old_code_hash);
+	fn on_code_upgrade(id: ParaId, new_code_hash: ValidationCodeHash) -> Weight {
 		let maybe_new_code = paras::Pallet::<T>::code_by_hash(new_code_hash);
 
-		if maybe_old_code.is_none() || maybe_new_code.is_none() {
-			return T::DbWeight::get().reads(2)
+		if maybe_new_code.is_none() {
+			return T::DbWeight::get().reads(1)
 		}
 
-		let old_code = maybe_old_code.expect("Ensured above that the old code was found; qed");
 		let new_code = maybe_new_code.expect("Ensured above that the new code was found; qed");
 
 		let head = paras::Pallet::<T>::para_head(id).expect(
@@ -809,13 +831,20 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 
 		if current_deposit > new_deposit {
 			// Repay the para manager or the parachain itself.
+			if let Some(who) = Refunds::<T>::get(id) {
+				let rebate = current_deposit.saturating_sub(new_deposit);
+				<T as Config>::Currency::unreserve(&who, rebate);
 
-			let rebate = current_deposit.saturating_sub(new_deposit);
-			//<T as Config>::Currency::unreserve(&who, rebate);
+				// TODO: Correct weight
+				return Weight::zero()
+			};
+
+			// TODO: Correct weight
+			Weight::zero()
+		} else {
+			// TODO: Correct weight
+			Weight::zero()
 		}
-
-		// TODO: Correct weight
-		Weight::zero()
 	}
 }
 
