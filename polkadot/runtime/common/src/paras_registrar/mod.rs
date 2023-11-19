@@ -685,7 +685,7 @@ impl<T: Config> Pallet<T> {
 	/// reserved This is intended to be used when the caller is the root origin.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
-	/// eligable for receiving back a portion of their deposit that is no longer required.
+	/// eligible for receiving back a portion of their deposit that is no longer required.
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
@@ -742,7 +742,6 @@ impl<T: Config> Pallet<T> {
 			//
 			// If the caller is not specified the refund will be returned to the para manager.
 			let who = maybe_caller.unwrap_or(
-				// TODO: would be probably better to refund to the para instead.
 				Paras::<T>::get(para)
 					.ok_or(Error::<T>::NotRegistered)
 					.expect(
@@ -835,9 +834,9 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 				let rebate = current_deposit.saturating_sub(new_deposit);
 				<T as Config>::Currency::unreserve(&who, rebate);
 
-				// TODO: Correct weight
-				return Weight::zero()
-			};
+				// TODO: Should probably benchmark instead of hardcoding the weight.
+				return T::DbWeight::get().reads_writes(3, 1)
+			}
 		}
 
 		T::DbWeight::get().reads(2)

@@ -1139,6 +1139,7 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type OnCodeUpgrade = Registrar;
 	type OnNewHead = ();
 }
 
@@ -1259,8 +1260,16 @@ impl parachains_slashing::Config for Runtime {
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<300>;
 }
 
+pub type LocationToAccountId<AccountId> = (
+	ChildParachainConvertsVia<ParaId, AccountId>,
+	AccountId32Aliases<RelayNetwork, AccountId>,
+	Account32Hash<(), AccountId>,
+);
+
+
 parameter_types! {
 	pub const ParaDeposit: Balance = 2000 * CENTS;
+	pub const UpgradeFee: Balance = 50 * CENTS;
 	pub const RegistrarDataDepositPerByte: Balance = deposit(0, 1);
 }
 
@@ -1271,6 +1280,8 @@ impl paras_registrar::Config for Runtime {
 	type OnSwap = (Crowdloan, Slots);
 	type ParaDeposit = ParaDeposit;
 	type DataDepositPerByte = RegistrarDataDepositPerByte;
+	type UpgradeFee = UpgradeFee;
+	type SovereignAccountOf = LocationToAccountId<Self::AccountId>;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
 
