@@ -99,7 +99,7 @@ use xcm::{
 	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
 	VersionedMultiLocation,
 };
-use xcm_builder::PayOverXcm;
+use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia, PayOverXcm};
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;

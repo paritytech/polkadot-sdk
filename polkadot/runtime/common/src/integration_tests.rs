@@ -608,8 +608,6 @@ fn para_upgrade_initiated_by_manager_works() {
 		);
 
 		// Schedule a para upgrade to set the validation code to a new one which is twice the size.
-		// The only reason why this is callable by the para manager is because the parachain isn't
-		// locked.
 		let validation_code = Registrar::worst_validation_code();
 		assert_ok!(Registrar::schedule_code_upgrade(
 			signed(1),

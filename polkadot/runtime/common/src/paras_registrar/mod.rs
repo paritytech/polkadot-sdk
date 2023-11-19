@@ -150,8 +150,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type UpgradeFee: Get<BalanceOf<Self>>;
 
-		/// Type used to get the sovereign account of a parachain.  ///
-		/// This is used to enable reserving a deposit from parachains.
+		/// Type used to get the sovereign account of a parachain.  
+		///
+		/// This is used to enable reserving or refunding deposit from parachains.
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
 		/// Weight Information for the Extrinsics in the Pallet
@@ -425,7 +426,10 @@ pub mod pallet {
 		/// unlocked.
 		///
 		/// In case the call is made by the parachain manager or the parachain itself the upgrade
-		/// fee and potential storage costs will be reserved.
+		/// fee will be charged.
+		///
+		/// The caller will receive a refund or be required to reserve an additional deposit,
+		/// depending on the size of the new validation code.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::schedule_code_upgrade(new_code.0.len() as u32))]
 		pub fn schedule_code_upgrade(
@@ -681,8 +685,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	///  If `maybe_caller` isn't specified, the caller won't be charged any fees or have its deposit
-	/// reserved This is intended to be used when the caller is the root origin.
+	/// If `maybe_caller` isn't specified, the caller won't be charged any fees or have its deposit
+	/// reserved.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
 	/// eligible for receiving back a portion of their deposit that is no longer required.
@@ -694,19 +698,17 @@ impl<T: Config> Pallet<T> {
 		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
 		// specific parachain.
 		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
-		ensure!(paras::Pallet::<T>::para_head(para).is_some(), Error::<T>::NotRegistered);
 
-		let head = paras::Pallet::<T>::para_head(para)
-			.expect("Ensured that the head is existant above; qed");
+		let head =
+			paras::Pallet::<T>::para_head(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let new_deposit = T::ParaDeposit::get()
 			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
-		let current_deposit = Paras::<T>::get(para)
-			.expect("Para info must be stored if head data for this parachain exists; qed")
-			.deposit;
+		let info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let current_deposit = info.deposit;
 
 		if let Some(caller) = maybe_caller.clone() {
 			if current_deposit < new_deposit {
@@ -741,14 +743,7 @@ impl<T: Config> Pallet<T> {
 			// is completed successfully(either the parachain sovereign account or the manager).
 			//
 			// If the caller is not specified the refund will be returned to the para manager.
-			let who = maybe_caller.unwrap_or(
-				Paras::<T>::get(para)
-					.ok_or(Error::<T>::NotRegistered)
-					.expect(
-						"Parachain which is is scheduling a code upgrade must be registered; qed",
-					)
-					.manager,
-			);
+			let who = maybe_caller.unwrap_or(info.manager);
 			Refunds::<T>::insert(para, who);
 		}
 
@@ -814,7 +809,6 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 		}
 
 		let new_code = maybe_new_code.expect("Ensured above that the new code was found; qed");
-
 		let head = paras::Pallet::<T>::para_head(id).expect(
 			"Cannot have a code upgrade for a parachain that doesn't have its head registered; qed",
 		);
@@ -834,7 +828,6 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 				let rebate = current_deposit.saturating_sub(new_deposit);
 				<T as Config>::Currency::unreserve(&who, rebate);
 
-				// TODO: Should probably benchmark instead of hardcoding the weight.
 				return T::DbWeight::get().reads_writes(3, 1)
 			}
 		}

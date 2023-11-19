@@ -619,7 +619,7 @@ pub mod pallet {
 		/// Runtime hook for when a parachain head is updated.
 		type OnNewHead: OnNewHead;
 
-		/// Type that executes some custom logic upon a successful code upgrade. 
+		/// Type that executes some custom logic upon a successful code upgrade.
 		type OnCodeUpgrade: OnCodeUpgrade;
 
 		/// Weight information for extrinsics in this pallet.
@@ -2054,7 +2054,8 @@ impl<T: Config> Pallet<T> {
 
 				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
 					let mut weight = Self::note_past_code(id, expected_at, now, prior_code_hash);
-					weight = weight.saturating_add(T::OnCodeUpgrade::on_code_upgrade(id, new_code_hash));
+					weight =
+						weight.saturating_add(T::OnCodeUpgrade::on_code_upgrade(id, new_code_hash));
 
 					weight
 				} else {
