@@ -842,6 +842,8 @@ pub mod pallet {
 		CommissionTooLow,
 		/// Some bound is not met.
 		BoundNotMet,
+		/// Used when attempting to use deprecated controller account logic.
+		ControllerDeprecated,
 	}
 
 	#[pallet::hooks]
@@ -1285,16 +1287,15 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller.clone()))?;
 
-			// Ensure that the `Controller` variant is not assigned.
-			#[allow(deprecated)]
-			let payee_final = if payee == RewardDestination::Controller {
-				RewardDestination::Account(controller)
-			} else {
-				payee
+			let controller_deprecated = || -> RewardDestination<T::AccountId> {
+				#[allow(deprecated)]
+				RewardDestination::Controller
 			};
 
+			ensure!(payee != controller_deprecated(), Error::<T>::ControllerDeprecated);
+
 			let _ = ledger
-				.set_payee(payee_final)
+				.set_payee(payee)
 				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
 			Ok(())

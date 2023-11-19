@@ -6836,6 +6836,19 @@ mod ledger {
 
 	#[test]
 	#[allow(deprecated)]
+	fn set_payee_errors_on_controller_destination() {
+		ExtBuilder::default().build_and_execute(|| {
+			Payee::<Test>::insert(11, RewardDestination::Staked);
+			assert_noop!(
+				Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Controller),
+				Error::<Test>::ControllerDeprecated
+			);
+			assert_eq!(Payee::<Test>::get(&11), RewardDestination::Staked);
+		})
+	}
+
+	#[test]
+	#[allow(deprecated)]
 	fn update_payee_migration_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// migrate a `Controller` variant to `Account` variant.
