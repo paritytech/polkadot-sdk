@@ -1834,8 +1834,8 @@ fn early_crowdloan_dissolve() {
 		);
 
 		let lease_end_block = 8 * LeasePeriod::get() + LeaseOffset::get();
+		// early refund can be applied from the 1st block in the last lease period.
 		let early_refund_start_block = lease_end_block - LeasePeriod::get() + 1;
-		// Go in future when lease is about to end
 		run_to_block(early_refund_start_block);
 
 		// try early refund
@@ -1859,20 +1859,54 @@ fn early_crowdloan_dissolve() {
 		// Crowdloan submission deposit is returned
 		assert_eq!(Balances::reserved_balance(&account_id(1)), expected_deposit_para_registration);
 
-		// run few blocks until lease is still active
+		// run few blocks until lease is still active. Still a parachain.
 		run_to_block(early_refund_start_block + 2);
 		assert_eq!(Paras::lifecycle(para_id), Some(ParaLifecycle::Parachain));
 
-		// lease gets over
+		// lets start a new auction from LP 8 and run it for 50 blocks so it ends before the start
+		// of new lease
+		assert_ok!(Auctions::new_auction(RuntimeOrigin::root(), 50, lease_period_index_start + 4));
+
+		// Para 1 opens a new crowdloan to renew their slot
+		assert_ok!(Crowdloan::create(
+			signed(1),
+			para_id,
+			1_000_000,                    // Cap
+			lease_period_index_start + 4, // First Slot
+			lease_period_index_start + 7, // Last Slot
+			lease_end_block,              // Block End
+			None,
+		));
+
+		// Make contribution to the crowdloan
+		assert_ok!(Crowdloan::contribute(signed(10), para_id, 10_000, None));
+		let crowdloan_account =
+			Crowdloan::fund_account_id(Crowdloan::funds(para_id).unwrap().fund_index);
+
+		// By now, para 1 would have won another slot
 		run_to_block(lease_end_block);
+		// still a parachain
+		assert_eq!(Paras::lifecycle(para_id), Some(ParaLifecycle::Parachain));
+		// new crowdloan amount is reserved
+		assert_eq!(Balances::reserved_balance(&crowdloan_account), 10_000);
+
+		// new lease end block
+		let lease_end_block = 12 * LeasePeriod::get() + LeaseOffset::get();
+		run_to_block(lease_end_block);
+
+		// no more leases left, chain is downgrading
 		assert_eq!(Paras::lifecycle(para_id), Some(ParaLifecycle::DowngradingParachain));
+		assert_eq!(Balances::reserved_balance(&crowdloan_account), 0);
 
 		// 2 more sessions later it is a parathread
 		run_to_block(lease_end_block + 2 * BLOCKS_PER_SESSION);
 		assert_eq!(Paras::lifecycle(para_id), Some(ParaLifecycle::Parathread));
 
-		// Deregister parachain
+		// Dissolve crowdloan and deregister parachain
+		assert_ok!(Crowdloan::withdraw(signed(10), account_id(10), para_id));
+		assert_ok!(Crowdloan::dissolve(signed(1), para_id));
 		assert_ok!(Registrar::deregister(para_origin(para_id.into()).into(), para_id));
+		// nothing is reserved for para manager
 		assert_eq!(Balances::reserved_balance(&account_id(1)), 0);
 	})
 }

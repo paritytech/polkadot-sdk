@@ -136,10 +136,10 @@ pub mod pallet {
 	pub type Leases<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<Option<(T::AccountId, BalanceOf<T>)>>, ValueQuery>;
 
-	/// Information about the current leased slot by the leaser.
+	/// Information about the currently leased slot of the leaser.
 	///
 	/// Keyed by para_id and leaser, value is a tuple of current_reserved_amount and
-	/// lease_period_count for the latest applied lease.
+	/// lease_period_count for the latest lease.
 	#[pallet::storage]
 	pub type LeaseInfo<T: Config> = StorageDoubleMap<
 		_,
@@ -260,20 +260,23 @@ pub mod pallet {
 
 		/// Try to refund the lease deposit before the actual end of the lease.
 		///
-		/// This is only allowed if para is in its last lease and the original count of lease
-		/// periods was at least [`Config::MinLeasePeriodsForEarlyRefund`]. This is useful for
-		/// parachains who want to get access to their funds they used in the last lease and rebid
-		/// using same for the next lease.
+		/// This is only allowed if parachain is in its last lease period and they started with more
+		/// than [`Config::MinLeasePeriodsForEarlyRefund`]. This is useful for parachains who want
+		/// to get access to their funds they used in the last lease and rebid using same for the
+		/// next lease.
 		///
-		/// Can only be called by the Lease Admin or Parachain manager.
+		/// Can only be called by the Lease Admin or the Parachain manager.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::early_lease_refund())]
-		pub fn early_lease_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+		pub fn early_lease_refund(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			// ensure caller is ForceOrigin or the manager of the parachain.
 			ensure_signed(origin.clone())
 				.map_err(|e| e.into())
 				.and_then(|who| -> DispatchResult {
-					ensure!(Some(who) == T::Registrar::manager_of(para), Error::<T>::NoPermission);
+					ensure!(
+						Some(who) == T::Registrar::manager_of(para_id),
+						Error::<T>::NoPermission
+					);
 					Ok(())
 				})
 				.or_else(|_| -> DispatchResult {
@@ -288,24 +291,20 @@ pub mod pallet {
 				// if set to 0, we never allow early refund of slot deposit.
 				Error::<T>::PreconditionNotMet
 			);
-
 			// allow this iff parachain has one lease period left.
-			let leases = Leases::<T>::get(para);
+			let leases = Leases::<T>::get(para_id);
 			ensure!(leases.len() == 1, Error::<T>::PreconditionNotMet);
 			if let Some((who, value)) = &leases[0] {
 				let (_, period_count) =
-					LeaseInfo::<T>::get(para, who).ok_or(Error::<T>::LeaseError)?;
-
+					LeaseInfo::<T>::get(para_id, who).ok_or(Error::<T>::LeaseError)?;
 				ensure!(period_count >= min_lease_period_required, Error::<T>::PreconditionNotMet);
-
 				// unreserve the deposit for the soon to be ending lease.
-				Self::unreserve(para, &who, *value);
+				Self::unreserve(para_id, &who, *value);
 			} else {
 				// This should never happen.
 				defensive!("lease period should never be empty");
 				return Err(Error::<T>::LeaseError.into());
 			}
-
 			Ok(())
 		}
 	}
@@ -1162,7 +1161,9 @@ mod tests {
 			));
 
 			// lease out two slots with interruption.
+			// lease from block 10-30
 			assert_ok!(Slots::lease_out(1.into(), &1, 3, 1, 2));
+			// lease from block 40-70
 			assert_ok!(Slots::lease_out(1.into(), &1, 2, 4, 3));
 
 			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
@@ -1183,6 +1184,11 @@ mod tests {
 				Error::<Test>::PreconditionNotMet
 			);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
+
+			run_to_block(30);
+			// for next set of lease, only deposit of 2 is required, 1 is released.
+			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
+			assert_eq!(Slots::required_deposit(1.into(), &1), 2);
 
 			// 1 block before new lease begins. Still not allowed.
 			run_to_block(49);
@@ -1414,14 +1420,18 @@ mod benchmarking {
 			// go to block where we can lease things
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 			T::Currency::make_free_balance_be(&leaser, BalanceOf::<T>::max_value());
-			// lease out a slot
+			// lease out a slot from block 10 to 30
 			Slots::<T>::force_lease(T::ForceOrigin::try_successful_origin().unwrap(), para, leaser.clone(), 10u32.into(), 1u32.into(), 2u32.into())?;
 			// verify deposit is reserved
 			assert_eq!(T::Currency::reserved_balance(&leaser), 10u32.into());
 			// setup lease for period 1
 			Slots::<T>::manage_lease_period_start(1u32.into());
-			// go to block near the end of slot where we can refund things
-			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + T::LeasePeriod::get() + 1);
+			T::Registrar::execute_pending_transitions();
+
+			// go to block in the last lease period where we can refund things
+			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + T::LeasePeriod::get() + One::one());
+			Slots::<T>::manage_lease_period_start(2u32.into());
+
 			let origin =
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		}: _<T::RuntimeOrigin>(origin, para)
