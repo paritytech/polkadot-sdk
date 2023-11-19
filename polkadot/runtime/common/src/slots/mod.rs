@@ -174,10 +174,9 @@ pub mod pallet {
 		ParaNotOnboarding,
 		/// There was an error with the lease.
 		LeaseError,
-		/// The signing account has no permission to do the operation.
+		/// The origin has no permission to do the operation.
 		NoPermission,
-		/// The signing account has privileges for this operation but the preconditions are not
-		/// met.
+		/// The origin has privileges for this operation but the preconditions are not met.
 		PreconditionNotMet,
 	}
 
@@ -1424,7 +1423,7 @@ mod benchmarking {
 			Slots::<T>::force_lease(T::ForceOrigin::try_successful_origin().unwrap(), para, leaser.clone(), 10u32.into(), 1u32.into(), 2u32.into())?;
 			// verify deposit is reserved
 			assert_eq!(T::Currency::reserved_balance(&leaser), 10u32.into());
-			// setup lease for period 1
+			// set up lease for period 1
 			Slots::<T>::manage_lease_period_start(1u32.into());
 			T::Registrar::execute_pending_transitions();
 
