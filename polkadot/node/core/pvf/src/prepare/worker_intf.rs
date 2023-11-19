@@ -17,6 +17,7 @@
 //! Host interface to the prepare worker.
 
 use crate::{
+	artifacts::ArtifactId,
 	metrics::Metrics,
 	security,
 	worker_intf::{
@@ -27,8 +28,8 @@ use crate::{
 };
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
-	prepare::PrepareStats,
+	error::{PrepareError, PrepareResult, PrepareWorkerResult},
+	prepare::{PrepareStats, PrepareSuccess, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker_dir, SecurityStatus,
 };
@@ -81,7 +82,7 @@ pub enum Outcome {
 	/// final destination location.
 	RenameTmpFile {
 		worker: IdleWorker,
-		result: PrepareResult,
+		result: PrepareWorkerResult,
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -115,7 +116,7 @@ pub async fn start_work(
 	metrics: &Metrics,
 	worker: IdleWorker,
 	pvf: PvfPrepData,
-	artifact_path: PathBuf,
+	cache_path: PathBuf,
 ) -> Outcome {
 	let IdleWorker { stream, pid, worker_dir } = worker;
 
@@ -123,8 +124,8 @@ pub async fn start_work(
 		target: LOG_TARGET,
 		worker_pid = %pid,
 		?worker_dir,
-		"starting prepare for {}",
-		artifact_path.display(),
+		"starting prepare for {:?}",
+		pvf,
 	);
 
 	with_worker_dir_setup(
@@ -135,7 +136,7 @@ pub async fn start_work(
 			let preparation_timeout = pvf.prep_timeout();
 			let audit_log_file = security::AuditLogFile::try_open_and_seek_to_end().await;
 
-			if let Err(err) = send_request(&mut stream, pvf.clone()).await {
+			if let Err(err) = send_request(&mut stream, &pvf).await {
 				gum::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
@@ -159,7 +160,7 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_result)) => {
+				Ok(Ok(prepare_worker_result)) => {
 					// Check if any syscall violations occurred during the job. For now this is only
 					// informative, as we are not enforcing the seccomp policy yet.
 					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
@@ -175,10 +176,11 @@ pub async fn start_work(
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
-						prepare_result,
+						prepare_worker_result,
 						pid,
 						tmp_artifact_file,
-						artifact_path,
+						&pvf,
+						&cache_path,
 						preparation_timeout,
 					)
 					.await
@@ -215,20 +217,22 @@ pub async fn start_work(
 async fn handle_response(
 	metrics: &Metrics,
 	worker: IdleWorker,
-	result: PrepareResult,
+	result: PrepareWorkerResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
-	artifact_path: PathBuf,
+	pvf: &PvfPrepData,
+	cache_path: &PathBuf,
 	preparation_timeout: Duration,
 ) -> Outcome {
-	let PrepareStats { cpu_time_elapsed, memory_stats } = match result.clone() {
-		Ok(result) => result,
-		// Timed out on the child. This should already be logged by the child.
-		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-		Err(PrepareError::JobDied(err)) => return Outcome::JobDied(err),
-		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
-		Err(_) => return Outcome::Concluded { worker, result },
-	};
+	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
+		match result.clone() {
+			Ok(result) => result,
+			// Timed out on the child. This should already be logged by the child.
+			Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+			Err(PrepareError::JobDied(err)) => return Outcome::JobDied(err),
+			Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
+			Err(err) => return Outcome::Concluded { worker, result: Err(err) },
+		};
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
@@ -243,6 +247,9 @@ async fn handle_response(
 		return Outcome::TimedOut
 	}
 
+	let artifact_id = ArtifactId::from_pvf_prep_data(pvf);
+	let artifact_path = artifact_id.path(cache_path, &checksum);
+
 	gum::debug!(
 		target: LOG_TARGET,
 		%worker_pid,
@@ -252,7 +259,13 @@ async fn handle_response(
 	);
 
 	let outcome = match tokio::fs::rename(&tmp_file, &artifact_path).await {
-		Ok(()) => Outcome::Concluded { worker, result },
+		Ok(()) => Outcome::Concluded {
+			worker,
+			result: Ok(PrepareSuccess {
+				path: artifact_path,
+				stats: PrepareStats { cpu_time_elapsed, memory_stats: memory_stats.clone() },
+			}),
+		},
 		Err(err) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -329,14 +342,14 @@ where
 	outcome
 }
 
-async fn send_request(stream: &mut UnixStream, pvf: PvfPrepData) -> io::Result<()> {
+async fn send_request(stream: &mut UnixStream, pvf: &PvfPrepData) -> io::Result<()> {
 	framed_send(stream, &pvf.encode()).await?;
 	Ok(())
 }
 
-async fn recv_response(stream: &mut UnixStream, pid: u32) -> io::Result<PrepareResult> {
+async fn recv_response(stream: &mut UnixStream, pid: u32) -> io::Result<PrepareWorkerResult> {
 	let result = framed_recv(stream).await?;
-	let result = PrepareResult::decode(&mut &result[..]).map_err(|e| {
+	let result = PrepareWorkerResult::decode(&mut &result[..]).map_err(|e| {
 		// We received invalid bytes from the worker.
 		let bound_bytes = &result[..result.len().min(4)];
 		gum::warn!(
