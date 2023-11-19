@@ -831,20 +831,16 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 
 		if current_deposit > new_deposit {
 			// Repay the para manager or the parachain itself.
-			if let Some(who) = Refunds::<T>::get(id) {
+			if let Some(who) = Refunds::<T>::take(id) {
 				let rebate = current_deposit.saturating_sub(new_deposit);
 				<T as Config>::Currency::unreserve(&who, rebate);
 
 				// TODO: Correct weight
 				return Weight::zero()
 			};
-
-			// TODO: Correct weight
-			Weight::zero()
-		} else {
-			// TODO: Correct weight
-			Weight::zero()
 		}
+
+		T::DbWeight::get().reads(2)
 	}
 }
 
