@@ -159,7 +159,7 @@ async fn check_can_unshare_user_namespace_and_change_root(
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
 			let cache_dir_tempdir =
-				crate::worker_intf::tmppath_in("check-can-unshare", cache_path)
+				crate::worker_interface::tmppath_in("check-can-unshare", cache_path)
 				.await
 				.map_err(
 					|err|
