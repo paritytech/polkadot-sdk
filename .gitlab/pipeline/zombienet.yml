@@ -1,7 +1,7 @@
 .zombienet-refs:
   extends: .build-refs
   variables:
-    ZOMBIENET_IMAGE: "docker.io/paritypr/zombienet:c052aaee"
+    ZOMBIENET_IMAGE: "docker.io/paritypr/zombienet:v1.3.82"
 
 include:
   # substrate tests
