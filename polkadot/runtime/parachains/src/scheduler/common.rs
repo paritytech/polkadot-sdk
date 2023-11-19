@@ -170,6 +170,13 @@ pub trait AssignmentProvider<BlockNumber> {
 
 	/// Returns a set of variables needed by the scheduler
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
+
+	/// Push some assignment for mocking/benchmarks purposes.
+	///
+	/// Useful for benchmarks and testing. The returned assignment is "valid" and can if need be
+	/// passed into `report_processed` for example.
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Self::AssignmentType;
 }
 
 /// An `AssignmentProvider` with a determined set of cores.

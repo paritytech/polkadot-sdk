@@ -483,6 +483,10 @@ pub mod mock_assigner {
 				},
 			}
 		}
+		#[cfg(any(feature = "runtime-benchmarks", test))]
+		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
+			V0Assignment { para_id }
+		}
 	}
 
 	// Provides a core count for scheduler tests defaulting to the most common number,

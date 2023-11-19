@@ -644,4 +644,23 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			ttl: config.on_demand_ttl,
 		}
 	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
+		Self::add_on_demand_order(EnqueuedOrder { para_id }, QueuePushDirection::Front).unwrap();
+		let assignment = Self::pop_assignment_for_core(core_idx).unwrap();
+		debug_assert_eq!(
+			assignment.para_id(),
+			para_id,
+			"Served para id does not match requested one in `get_mock_assignment`.
+			This can happen if on-demand assigner already served assignments, due to core affinity.
+			Possible fixes:
+			1. Don't use on-demand for your mocking/benchmarks.
+			2. Pick a different `ParaId`, one that you know has not been served already.
+			3. Pick the same core index you just got served an assignment for that `ParaId` for.
+			4. Implement this function differently ;-)
+			"
+		);
+		assignment
+	}
 }

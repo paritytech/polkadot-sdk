@@ -95,6 +95,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			ttl: 10u32.into(),
 		}
 	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
+		ParachainsAssignment { para_id }
+	}
 }
 
 impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {

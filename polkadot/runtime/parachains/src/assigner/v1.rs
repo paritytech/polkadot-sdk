@@ -151,6 +151,24 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			)
 		}
 	}
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
+		let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
+			BlockNumberFor<T>,
+		>>::session_core_count();
+
+		if core_idx.0 < legacy_cores {
+			UnifiedAssignment::LegacyAuction(<assigner_legacy::Pallet<T> as AssignmentProvider<
+				BlockNumberFor<T>,
+			>>::get_mock_assignment(core_idx, para_id))
+		} else {
+			let core_idx = CoreIndex(core_idx.0 - legacy_cores);
+
+			UnifiedAssignment::Bulk(<assigner_bulk::Pallet<T> as AssignmentProvider<
+				BlockNumberFor<T>,
+			>>::get_mock_assignment(core_idx, para_id))
+		}
+	}
 }
 
 impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {

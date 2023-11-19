@@ -15,14 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	configuration, inclusion, initializer,
-	mock::MockAssigner,
-	paras,
+	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
 	scheduler::{
 		self,
-		common::{AssignmentProvider, AssignmentProviderConfig, V0Assignment},
+		common::{AssignmentProvider, AssignmentProviderConfig},
 		CoreOccupied, ParasEntry,
 	},
 	session_info, shared,
@@ -666,7 +664,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		// We don't allow a core to have both disputes and be marked fully available at this block.
 		let max_cores = self.max_cores();
-		MockAssigner::set_core_count(max_cores);
 		let used_cores =
 			(self.dispute_sessions.len() + self.backed_and_concluding_cores.len()) as u32;
 		assert!(used_cores <= max_cores);
@@ -706,20 +703,14 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 				let AssignmentProviderConfig { ttl, .. } =
 					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
 				// Load an assignment into provider so that one is present to pop
-				MockAssigner::add_test_assignment(V0Assignment::new(i.into()));
-				let assignment =
-					T::AssignmentProvider::pop_assignment_for_core(CoreIndex(i)).unwrap();
+				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+					CoreIndex(i),
+					ParaId::from(i),
+				);
 				CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
 			})
 			.collect();
 		scheduler::AvailabilityCores::<T>::set(cores);
-
-		// Add assignments to the MockAssigner for each core. This facilitates legacy tests
-		// assuming the use of a lease holding parachain assigner.
-		for core_index in 0..max_cores {
-			// Core index == para_id in this case
-			MockAssigner::add_test_assignment(V0Assignment::new(core_index.into()));
-		}
 
 		Bench::<T> {
 			data: ParachainsInherentData {

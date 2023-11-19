@@ -339,6 +339,13 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			ttl: config.on_demand_ttl,
 		}
 	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
+		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
+		// return a bulk assignment.
+		return BulkAssignment::Bulk(para_id)
+	}
 }
 
 impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {

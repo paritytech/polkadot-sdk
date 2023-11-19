@@ -22,8 +22,6 @@ use frame_support::{
 	traits::OnRuntimeUpgrade, weights::Weight,
 };
 
-use sp_std::convert::identity;
-
 /// Migration for potential changes in `Assignment` representation.
 pub mod assignment_version {
 	use super::*;
