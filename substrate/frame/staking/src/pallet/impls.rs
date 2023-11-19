@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::get(account)
 	}
 
-	pub fn payee(account: StakingAccount<T::AccountId>) -> RewardDestination<T::AccountId> {
+	pub fn payee(account: StakingAccount<T::AccountId>) -> Option<RewardDestination<T::AccountId>> {
 		StakingLedger::<T>::reward_destination(account)
 	}
 
@@ -336,8 +336,14 @@ impl<T: Config> Pallet<T> {
 			return None
 		}
 
-		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
-		let maybe_imbalance = match dest {
+		let dest = match Self::payee(StakingAccount::Stash(stash.clone()))
+			.defensive_proof("payee must exist for a ledger requesting a payout")
+		{
+			Some(dest) => dest,
+			None => return None,
+		};
+
+		let maybe_imbalance = match dest.clone() {
 			RewardDestination::Controller => Self::bonded(stash)
 				.map(|controller| T::Currency::deposit_creating(&controller, amount)),
 			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
@@ -358,8 +364,7 @@ impl<T: Config> Pallet<T> {
 				Some(T::Currency::deposit_creating(&dest_account, amount)),
 			RewardDestination::None => None,
 		};
-		maybe_imbalance
-			.map(|imbalance| (imbalance, Self::payee(StakingAccount::Stash(stash.clone()))))
+		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
 	/// Plan a new session potentially trigger a new era.

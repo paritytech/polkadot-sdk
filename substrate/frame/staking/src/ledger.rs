@@ -126,7 +126,7 @@ impl<T: Config> StakingLedger<T> {
 	/// default reward destination.
 	pub(crate) fn reward_destination(
 		account: StakingAccount<T::AccountId>,
-	) -> RewardDestination<T::AccountId> {
+	) -> Option<RewardDestination<T::AccountId>> {
 		let stash = match account {
 			StakingAccount::Stash(stash) => Some(stash),
 			StakingAccount::Controller(controller) =>
@@ -137,7 +137,7 @@ impl<T: Config> StakingLedger<T> {
 			<Payee<T>>::get(stash)
 		} else {
 			defensive!("fetched reward destination from unbonded stash {}", stash);
-			RewardDestination::default()
+			None
 		}
 	}
 

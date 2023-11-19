@@ -774,7 +774,7 @@ fn double_staking_should_fail() {
 		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
 			0,
 			arbitrary_value,
-			RewardDestination::default(),
+			RewardDestination::Staked,
 			false,
 		)
 		.unwrap();
@@ -784,7 +784,7 @@ fn double_staking_should_fail() {
 			Staking::bond(
 				RuntimeOrigin::signed(stash),
 				arbitrary_value.into(),
-				RewardDestination::default()
+				RewardDestination::Staked,
 			),
 			Error::<Test>::AlreadyBonded,
 		);
@@ -808,7 +808,7 @@ fn double_controlling_attempt_should_fail() {
 		let (stash, _) = testing_utils::create_unique_stash_controller::<Test>(
 			0,
 			arbitrary_value,
-			RewardDestination::default(),
+			RewardDestination::Staked,
 			false,
 		)
 		.unwrap();
@@ -818,7 +818,7 @@ fn double_controlling_attempt_should_fail() {
 			Staking::bond(
 				RuntimeOrigin::signed(stash),
 				arbitrary_value.into(),
-				RewardDestination::default()
+				RewardDestination::Staked,
 			),
 			Error::<Test>::AlreadyBonded,
 		);
@@ -1066,8 +1066,8 @@ fn reward_destination_works() {
 		mock::start_active_era(1);
 		mock::make_all_reward_payment(0);
 
-		// Check that RewardDestination is Staked (default)
-		assert_eq!(Staking::payee(11.into()), RewardDestination::Staked);
+		// Check that RewardDestination is Staked
+		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Staked));
 		// Check that reward went to the stash account of validator
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0);
 		// Check that amount at stake increased accordingly
@@ -1096,7 +1096,7 @@ fn reward_destination_works() {
 		mock::make_all_reward_payment(1);
 
 		// Check that RewardDestination is Stash
-		assert_eq!(Staking::payee(11.into()), RewardDestination::Stash);
+		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Stash));
 		// Check that reward went to the stash account
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0 + total_payout_1);
 		// Record this value
@@ -1130,7 +1130,7 @@ fn reward_destination_works() {
 		mock::make_all_reward_payment(2);
 
 		// Check that RewardDestination is Controller
-		assert_eq!(Staking::payee(11.into()), RewardDestination::Controller);
+		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Controller));
 		// Check that reward went to the controller account
 		assert_eq!(Balances::free_balance(11), recorded_stash_balance + total_payout_2);
 		// Check that amount at stake is NOT increased
@@ -2204,7 +2204,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		let _ = Balances::make_free_balance_be(&2, stake);
 
 		// only slashes out of bonded stake are applied. without this line, it is 0.
-		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::default()).unwrap();
+		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
 		// Override exposure of 11
 		EraInfo::<Test>::set_exposure(
 			0,
@@ -5054,7 +5054,7 @@ mod election_data_provider {
 			assert_eq!(MinNominatorBond::<Test>::get(), 1);
 			assert_eq!(<Test as Config>::VoterList::count(), 4);
 
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, Default::default(),));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, RewardDestination::Staked,));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![1]));
 			assert_eq!(<Test as Config>::VoterList::count(), 5);
 
@@ -6868,7 +6868,7 @@ mod ledger {
 			assert_ok!(ledger.clone().bond(reward_dest));
 			assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
 			assert!(<Bonded<Test>>::get(&42).is_some());
-			assert_eq!(<Payee<Test>>::get(&42), reward_dest);
+			assert_eq!(<Payee<Test>>::get(&42), Some(reward_dest));
 
 			// cannot bond again.
 			assert!(ledger.clone().bond(reward_dest).is_err());

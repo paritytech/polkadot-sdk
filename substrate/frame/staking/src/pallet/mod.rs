@@ -336,7 +336,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Payee<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, OptionQuery>;
 
 	/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
