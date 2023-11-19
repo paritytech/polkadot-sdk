@@ -428,7 +428,7 @@ pub mod v2 {
 
 			let old_len = u32::from_be_bytes(state.try_into().unwrap());
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 == old_len,
+				v2::ClaimQueue::<T>::get().len() as u32 == old_len,
 				"Old ClaimQueue completely moved to new ClaimQueue after migration"
 			);
 
