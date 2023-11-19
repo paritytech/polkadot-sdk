@@ -141,6 +141,17 @@ fn kill_stash_works() {
 }
 
 #[test]
+#[should_panic]
+fn kill_ledger_preconditions_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Account 11 (also controller) is stashed and locked
+		assert_eq!(Staking::bonded(&11), Some(11));
+		// Trying to call `Ledger::kill` directly will fail.
+		assert!(StakingLedger::<Test>::kill(&11).is_err());
+	})
+}
+
+#[test]
 fn basic_setup_works() {
 	// Verifies initial conditions of mock
 	ExtBuilder::default().build_and_execute(|| {
