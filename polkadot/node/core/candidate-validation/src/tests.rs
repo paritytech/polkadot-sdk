@@ -377,7 +377,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		result
 	}
 
-	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<PrepareStats, PrepareError> {
+	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
 		unreachable!()
 	}
 }
@@ -695,11 +695,13 @@ fn candidate_validation_retry_panic_errors() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
-			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
+			// Throw an AJD error, we should still retry again.
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(
+				"baz".into(),
+			))),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
 		]),
 		validation_data,
 		validation_code,
@@ -1012,11 +1014,11 @@ fn pov_decompression_failure_is_invalid() {
 }
 
 struct MockPreCheckBackend {
-	result: Result<PrepareStats, PrepareError>,
+	result: Result<(), PrepareError>,
 }
 
 impl MockPreCheckBackend {
-	fn with_hardcoded_result(result: Result<PrepareStats, PrepareError>) -> Self {
+	fn with_hardcoded_result(result: Result<(), PrepareError>) -> Self {
 		Self { result }
 	}
 }
@@ -1032,7 +1034,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		unreachable!()
 	}
 
-	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<PrepareStats, PrepareError> {
+	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
 		self.result.clone()
 	}
 }
@@ -1049,7 +1051,7 @@ fn precheck_works() {
 
 	let (check_fut, check_result) = precheck_pvf(
 		ctx.sender(),
-		MockPreCheckBackend::with_hardcoded_result(Ok(PrepareStats::default())),
+		MockPreCheckBackend::with_hardcoded_result(Ok(())),
 		relay_parent,
 		validation_code_hash,
 	)
@@ -1111,7 +1113,7 @@ fn precheck_invalid_pvf_blob_compression() {
 
 	let (check_fut, check_result) = precheck_pvf(
 		ctx.sender(),
-		MockPreCheckBackend::with_hardcoded_result(Ok(PrepareStats::default())),
+		MockPreCheckBackend::with_hardcoded_result(Ok(())),
 		relay_parent,
 		validation_code_hash,
 	)
@@ -1216,7 +1218,7 @@ fn precheck_properly_classifies_outcomes() {
 
 	inner(Err(PrepareError::Prevalidation("foo".to_owned())), PreCheckOutcome::Invalid);
 	inner(Err(PrepareError::Preparation("bar".to_owned())), PreCheckOutcome::Invalid);
-	inner(Err(PrepareError::Panic("baz".to_owned())), PreCheckOutcome::Invalid);
+	inner(Err(PrepareError::JobError("baz".to_owned())), PreCheckOutcome::Invalid);
 
 	inner(Err(PrepareError::TimedOut), PreCheckOutcome::Failed);
 	inner(Err(PrepareError::IoErr("fizz".to_owned())), PreCheckOutcome::Failed);

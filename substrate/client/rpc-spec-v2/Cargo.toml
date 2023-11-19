@@ -21,6 +21,7 @@ sc-transaction-pool-api = { path = "../transaction-pool/api" }
 sp-core = { path = "../../primitives/core" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-api = { path = "../../primitives/api" }
+sp-rpc = { path = "../../primitives/rpc" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-version = { path = "../../primitives/version" }
 sc-client-api = { path = "../api" }
