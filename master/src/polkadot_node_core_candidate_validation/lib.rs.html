@@ -913,7 +913,7 @@
 
 </span><span class="kw">use </span>polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate <span class="kw">as </span>WasmInvalidCandidate, PrepareError,
-	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
+	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
 <span class="kw">use </span>polkadot_node_primitives::{
 	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
@@ -1682,7 +1682,7 @@
 		validation_result
 	}
 
-	<span class="kw">async fn </span>precheck_pvf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pvf: PvfPrepData) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareStats, PrepareError&gt;;
+	<span class="kw">async fn </span>precheck_pvf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pvf: PvfPrepData) -&gt; <span class="prelude-ty">Result</span>&lt;(), PrepareError&gt;;
 }
 
 <span class="attr">#[async_trait]
@@ -1712,7 +1712,7 @@
 		})<span class="question-mark">?
 	</span>}
 
-	<span class="kw">async fn </span>precheck_pvf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pvf: PvfPrepData) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareStats, PrepareError&gt; {
+	<span class="kw">async fn </span>precheck_pvf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pvf: PvfPrepData) -&gt; <span class="prelude-ty">Result</span>&lt;(), PrepareError&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.precheck_pvf(pvf, tx).<span class="kw">await </span>{
 			<span class="comment">// Return an IO error if there was an error communicating with the host.

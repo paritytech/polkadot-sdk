@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InternalValidationError","PrepareError"],"type":["PrepareResult"]};
+window.SIDEBAR_ITEMS = {"enum":["InternalValidationError","PrepareError"],"type":["PrecheckResult","PrepareResult","PrepareWorkerResult"]};

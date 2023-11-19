@@ -589,7 +589,7 @@
 	///
 	/// In either case, the worker is considered busy and no further `StartWork` messages should be
 	/// sent until either `Concluded` or `Rip` message is received.
-	</span>StartWork { worker: Worker, pvf: PvfPrepData, artifact_path: PathBuf },
+	</span>StartWork { worker: Worker, pvf: PvfPrepData, cache_path: PathBuf },
 }
 
 <span class="doccomment">/// A message sent from pool to its client.
@@ -753,7 +753,7 @@
 				.boxed(),
 			);
 		},
-		ToPool::StartWork { worker, pvf, artifact_path } =&gt; {
+		ToPool::StartWork { worker, pvf, cache_path } =&gt; {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(data) = spawned.get_mut(worker) {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(idle) = data.idle.take() {
 					<span class="kw">let </span>preparation_timer = metrics.time_preparation();
@@ -763,7 +763,7 @@
 							worker,
 							idle,
 							pvf,
-							artifact_path,
+							cache_path,
 							preparation_timer,
 						)
 						.boxed(),
@@ -824,10 +824,10 @@
 	worker: Worker,
 	idle: IdleWorker,
 	pvf: PvfPrepData,
-	artifact_path: PathBuf,
+	cache_path: PathBuf,
 	_preparation_timer: <span class="prelude-ty">Option</span>&lt;Timer&gt;,
 ) -&gt; PoolEvent {
-	<span class="kw">let </span>outcome = worker_intf::start_work(<span class="kw-2">&amp;</span>metrics, idle, pvf, artifact_path).<span class="kw">await</span>;
+	<span class="kw">let </span>outcome = worker_intf::start_work(<span class="kw-2">&amp;</span>metrics, idle, pvf, cache_path).<span class="kw">await</span>;
 	PoolEvent::StartWork(worker, outcome)
 }
 

@@ -670,6 +670,7 @@
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -712,10 +713,10 @@
 <span class="kw">use </span>os_pipe::{<span class="self">self</span>, PipeReader, PipeWriter};
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrepareError, PrepareWorkerResult},
 	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
-	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
+	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
 		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
@@ -778,7 +779,7 @@
 }
 
 <span class="doccomment">/// Send a worker response.
-</span><span class="kw">fn </span>send_response(stream: <span class="kw-2">&amp;mut </span>UnixStream, result: PrepareResult) -&gt; io::Result&lt;()&gt; {
+</span><span class="kw">fn </span>send_response(stream: <span class="kw-2">&amp;mut </span>UnixStream, result: PrepareWorkerResult) -&gt; io::Result&lt;()&gt; {
 	framed_send_blocking(stream, <span class="kw-2">&amp;</span>result.encode())
 }
 
@@ -858,8 +859,8 @@
 ///
 /// 7. If compilation succeeded, write the compiled artifact into a temporary file.
 ///
-/// 8. Send the result of preparation back to the host. If any error occurred in the above steps, we
-///    send that in the `PrepareResult`.
+/// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
+///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 </span><span class="kw">pub fn </span>worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
@@ -1111,11 +1112,11 @@
 				<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
 				<span class="prelude-val">Ok</span>(ok) =&gt; {
 					<span class="macro">cfg_if::cfg_if! </span>{
-					<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
-						<span class="kw">let </span>(artifact, max_rss) = ok;
-					} <span class="kw">else </span>{
-						<span class="kw">let </span>artifact = ok;
-					}
+						<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+							<span class="kw">let </span>(artifact, max_rss) = ok;
+						} <span class="kw">else </span>{
+							<span class="kw">let </span>artifact = ok;
+						}
 					}
 
 					<span class="comment">// Stop the memory stats worker and get its observed memory stats.
@@ -1183,7 +1184,7 @@
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
-) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareStats, PrepareError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareWorkerSuccess, PrepareError&gt; {
 	<span class="comment">// Read from the child. Don&#39;t decode unless the process exited normally, which we check later.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>received_data = Vec::new();
 	pipe_read
@@ -1226,7 +1227,7 @@
 
 			<span class="kw">match </span>result {
 				<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
-				<span class="prelude-val">Ok</span>(response) =&gt; {
+				<span class="prelude-val">Ok</span>(JobResponse { artifact, memory_stats }) =&gt; {
 					<span class="comment">// The exit status should have been zero if no error occurred.
 					</span><span class="kw">if </span>exit_status != <span class="number">0 </span>{
 						<span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::JobError(<span class="macro">format!</span>(
@@ -1249,13 +1250,14 @@
 						temp_artifact_dest.display(),
 					);
 					<span class="comment">// Write to the temp file created by the host.
-					</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = fs::write(<span class="kw-2">&amp;</span>temp_artifact_dest, <span class="kw-2">&amp;</span>response.artifact) {
+					</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = fs::write(<span class="kw-2">&amp;</span>temp_artifact_dest, <span class="kw-2">&amp;</span>artifact) {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::IoErr(err.to_string()))
 					};
 
-					<span class="prelude-val">Ok</span>(PrepareStats {
-						memory_stats: response.memory_stats,
-						cpu_time_elapsed: cpu_tv,
+					<span class="kw">let </span>checksum = blake3::hash(<span class="kw-2">&amp;</span>artifact.as_ref()).to_hex().to_string();
+					<span class="prelude-val">Ok</span>(PrepareWorkerSuccess {
+						checksum,
+						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
 					})
 				},
 			}
@@ -1329,13 +1331,13 @@
 
 <span class="kw">type </span>JobResult = <span class="prelude-ty">Result</span>&lt;JobResponse, PrepareError&gt;;
 
-<span class="doccomment">/// Pre-encoded length-prefixed `Result::Err(PrepareError::OutOfMemory)`
+<span class="doccomment">/// Pre-encoded length-prefixed `JobResult::Err(PrepareError::OutOfMemory)`
 </span><span class="kw">const </span>OOM_PAYLOAD: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08&quot;</span>;
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>pre_encoded_payloads() {
 	<span class="comment">// NOTE: This must match the type of `response` in `send_child_response`.
-	</span><span class="kw">let </span>oom_unencoded: JobResult = Result::Err(PrepareError::OutOfMemory);
+	</span><span class="kw">let </span>oom_unencoded: JobResult = JobResult::Err(PrepareError::OutOfMemory);
 	<span class="kw">let </span>oom_encoded = oom_unencoded.encode();
 	<span class="comment">// The payload is prefixed with	its length in `framed_send`.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>oom_payload = oom_encoded.len().to_le_bytes().to_vec();

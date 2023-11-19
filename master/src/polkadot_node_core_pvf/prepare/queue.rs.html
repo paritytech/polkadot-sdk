@@ -1064,12 +1064,12 @@
 }
 
 <span class="kw">async fn </span>handle_from_pool(queue: <span class="kw-2">&amp;mut </span>Queue, from_pool: pool::FromPool) -&gt; <span class="prelude-ty">Result</span>&lt;(), Fatal&gt; {
-	<span class="kw">use </span>pool::FromPool::<span class="kw-2">*</span>;
+	<span class="kw">use </span>pool::FromPool;
 	<span class="kw">match </span>from_pool {
-		Spawned(worker) =&gt; handle_worker_spawned(queue, worker).<span class="kw">await</span><span class="question-mark">?</span>,
-		Concluded { worker, rip, result } =&gt;
+		FromPool::Spawned(worker) =&gt; handle_worker_spawned(queue, worker).<span class="kw">await</span><span class="question-mark">?</span>,
+		FromPool::Concluded { worker, rip, result } =&gt;
 			handle_worker_concluded(queue, worker, rip, result).<span class="kw">await</span><span class="question-mark">?</span>,
-		Rip(worker) =&gt; handle_worker_rip(queue, worker).<span class="kw">await</span><span class="question-mark">?</span>,
+		FromPool::Rip(worker) =&gt; handle_worker_rip(queue, worker).<span class="kw">await</span><span class="question-mark">?</span>,
 	}
 	<span class="prelude-val">Ok</span>(())
 }
@@ -1220,17 +1220,17 @@
 <span class="doccomment">/// Attaches the work to the given worker telling the poll about the job.
 </span><span class="kw">async fn </span>assign(queue: <span class="kw-2">&amp;mut </span>Queue, worker: Worker, job: Job) -&gt; <span class="prelude-ty">Result</span>&lt;(), Fatal&gt; {
 	<span class="kw">let </span>job_data = <span class="kw-2">&amp;mut </span>queue.jobs[job];
-
-	<span class="kw">let </span>artifact_id = ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>job_data.pvf);
-	<span class="kw">let </span>artifact_path = artifact_id.path(<span class="kw-2">&amp;</span>queue.cache_path);
-
 	job_data.worker = <span class="prelude-val">Some</span>(worker);
 
 	queue.workers[worker].job = <span class="prelude-val">Some</span>(job);
 
 	send_pool(
 		<span class="kw-2">&amp;mut </span>queue.to_pool_tx,
-		pool::ToPool::StartWork { worker, pvf: job_data.pvf.clone(), artifact_path },
+		pool::ToPool::StartWork {
+			worker,
+			pvf: job_data.pvf.clone(),
+			cache_path: queue.cache_path.clone(),
+		},
 	)
 	.<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1287,7 +1287,7 @@
 	<span class="kw">use </span><span class="kw">crate</span>::host::tests::TEST_PREPARATION_TIMEOUT;
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::{future::BoxFuture, FutureExt};
-	<span class="kw">use </span>polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats};
+	<span class="kw">use </span>polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareSuccess};
 	<span class="kw">use </span>slotmap::SlotMap;
 	<span class="kw">use </span>std::task::Poll;
 
@@ -1408,7 +1408,7 @@
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w,
 			rip: <span class="bool-val">false</span>,
-			result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+			result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 		});
 
 		<span class="macro">assert_eq!</span>(
@@ -1447,7 +1447,7 @@
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: <span class="bool-val">false</span>,
-			result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+			result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 		});
 
 		<span class="macro">assert_matches!</span>(test.poll_and_recv_to_pool().<span class="kw">await</span>, pool::ToPool::StartWork { .. });
@@ -1493,7 +1493,7 @@
 		</span>test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: <span class="bool-val">false</span>,
-			result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+			result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 		});
 		<span class="macro">assert_eq!</span>(test.poll_and_recv_to_pool().<span class="kw">await</span>, pool::ToPool::Kill(w1));
 	}
@@ -1527,7 +1527,7 @@
 		</span>test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: <span class="bool-val">true</span>,
-			result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+			result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 		});
 
 		<span class="comment">// Since there is still work, the queue requested one extra worker to spawn to handle the

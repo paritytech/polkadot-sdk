@@ -57,6 +57,25 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -74,6 +93,25 @@
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">use </span>std::path::PathBuf;
+
+<span class="doccomment">/// Result from prepare worker if successful.
+</span><span class="attr">#[derive(Debug, Clone, Default, Encode, Decode)]
+</span><span class="kw">pub struct </span>PrepareWorkerSuccess {
+	<span class="doccomment">/// Checksum of the compiled PVF.
+	</span><span class="kw">pub </span>checksum: String,
+	<span class="doccomment">/// Stats of the current preparation run.
+	</span><span class="kw">pub </span>stats: PrepareStats,
+}
+
+<span class="doccomment">/// Result of PVF preparation if successful.
+</span><span class="attr">#[derive(Debug, Clone, Default)]
+</span><span class="kw">pub struct </span>PrepareSuccess {
+	<span class="doccomment">/// Canonical path to the compiled artifact.
+	</span><span class="kw">pub </span>path: PathBuf,
+	<span class="doccomment">/// Stats of the current preparation run.
+	</span><span class="kw">pub </span>stats: PrepareStats,
+}
 
 <span class="doccomment">/// Preparation statistics, including the CPU time and memory taken.
 </span><span class="attr">#[derive(Debug, Clone, Default, Encode, Decode)]

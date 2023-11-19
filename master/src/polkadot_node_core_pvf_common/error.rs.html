@@ -171,6 +171,14 @@
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -187,16 +195,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::prepare::PrepareStats;
+</span><span class="kw">use </span><span class="kw">crate</span>::prepare::{PrepareSuccess, PrepareWorkerSuccess};
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>std::fmt;
 
-<span class="doccomment">/// Result of PVF preparation performed by the validation host. Contains stats about the preparation
-/// if successful
-</span><span class="kw">pub type </span>PrepareResult = <span class="prelude-ty">Result</span>&lt;PrepareStats, PrepareError&gt;;
+<span class="doccomment">/// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the
+/// preparation if successful.
+</span><span class="kw">pub type </span>PrepareWorkerResult = <span class="prelude-ty">Result</span>&lt;PrepareWorkerSuccess, PrepareError&gt;;
+
+<span class="doccomment">/// Result of PVF preparation propagated all the way back to the host, with path to the concluded
+/// artifact and stats of the preparation if successful.
+</span><span class="kw">pub type </span>PrepareResult = <span class="prelude-ty">Result</span>&lt;PrepareSuccess, PrepareError&gt;;
+
+<span class="doccomment">/// Result of prechecking PVF performed by the validation host. Contains stats about the preparation
+/// if successful.
+</span><span class="kw">pub type </span>PrecheckResult = <span class="prelude-ty">Result</span>&lt;(), PrepareError&gt;;
 
 <span class="doccomment">/// An error that occurred during the prepare part of the PVF pipeline.
-</span><span class="comment">// Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD` below)
+</span><span class="comment">// Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD`)
 </span><span class="attr">#[derive(Debug, Clone, Encode, Decode)]
 </span><span class="kw">pub enum </span>PrepareError {
 	<span class="doccomment">/// During the prevalidation stage of preparation an issue was found with the PVF.

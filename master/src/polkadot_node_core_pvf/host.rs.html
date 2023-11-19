@@ -1710,9 +1710,6 @@
 <a href="#1710" id="1710">1710</a>
 <a href="#1711" id="1711">1711</a>
 <a href="#1712" id="1712">1712</a>
-<a href="#1713" id="1713">1713</a>
-<a href="#1714" id="1714">1714</a>
-<a href="#1715" id="1715">1715</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1747,14 +1744,15 @@
 	Future, FutureExt, SinkExt, StreamExt,
 };
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrecheckResult, PrepareError},
+	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
 <span class="kw">use </span>polkadot_node_subsystem::SubsystemResult;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
 <span class="kw">use </span>std::{
 	collections::HashMap,
-	path::{Path, PathBuf},
+	path::PathBuf,
 	time::{Duration, SystemTime},
 };
 
@@ -1778,7 +1776,7 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ResultSender = oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationError&gt;&gt;;
 
 <span class="doccomment">/// Transmission end used for sending the PVF preparation result.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PrepareResultSender = oneshot::Sender&lt;PrepareResult&gt;;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PrecheckResultSender = oneshot::Sender&lt;PrecheckResult&gt;;
 
 <span class="doccomment">/// A handle to the async process serving the validation host requests.
 </span><span class="attr">#[derive(Clone)]
@@ -1798,7 +1796,7 @@
 	</span><span class="kw">pub async fn </span>precheck_pvf(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		pvf: PvfPrepData,
-		result_tx: PrepareResultSender,
+		result_tx: PrecheckResultSender,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="self">self</span>.to_host_tx
 			.send(ToHost::PrecheckPvf { pvf, result_tx })
@@ -1848,7 +1846,7 @@
 }
 
 <span class="kw">enum </span>ToHost {
-	PrecheckPvf { pvf: PvfPrepData, result_tx: PrepareResultSender },
+	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
 	ExecutePvf(ExecutePvfInputs),
 	HeadsUp { active_pvfs: Vec&lt;PvfPrepData&gt; },
 }
@@ -1964,10 +1962,9 @@
 	<span class="kw">let </span>run_sweeper = sweeper_task(to_sweeper_rx);
 
 	<span class="kw">let </span>run_host = <span class="kw">async move </span>{
-		<span class="kw">let </span>artifacts = Artifacts::new(<span class="kw-2">&amp;</span>config.cache_path).<span class="kw">await</span>;
+		<span class="kw">let </span>artifacts = Artifacts::new_and_prune(<span class="kw-2">&amp;</span>config.cache_path).<span class="kw">await</span>;
 
 		run(Inner {
-			cache_path: config.cache_path,
 			cleanup_pulse_interval: Duration::from_secs(<span class="number">3600</span>),
 			artifact_ttl: Duration::from_secs(<span class="number">3600 </span>* <span class="number">24</span>),
 			artifacts,
@@ -2011,7 +2008,6 @@
 }
 
 <span class="kw">struct </span>Inner {
-	cache_path: PathBuf,
 	cleanup_pulse_interval: Duration,
 	artifact_ttl: Duration,
 	artifacts: Artifacts,
@@ -2032,7 +2028,6 @@
 
 <span class="kw">async fn </span>run(
 	Inner {
-		cache_path,
 		cleanup_pulse_interval,
 		artifact_ttl,
 		<span class="kw-2">mut </span>artifacts,
@@ -2076,7 +2071,6 @@
 				// will notice it.
 
 				</span><span class="macro">break_if_fatal!</span>(handle_cleanup_pulse(
-					<span class="kw-2">&amp;</span>cache_path,
 					<span class="kw-2">&amp;mut </span>to_sweeper_tx,
 					<span class="kw-2">&amp;mut </span>artifacts,
 					artifact_ttl,
@@ -2095,7 +2089,6 @@
 				<span class="comment">// If the artifact failed before, it could be re-scheduled for preparation here if
 				// the preparation failure cooldown has elapsed.
 				</span><span class="macro">break_if_fatal!</span>(handle_to_host(
-					<span class="kw-2">&amp;</span>cache_path,
 					<span class="kw-2">&amp;mut </span>artifacts,
 					<span class="kw-2">&amp;mut </span>to_prepare_queue_tx,
 					<span class="kw-2">&amp;mut </span>to_execute_queue_tx,
@@ -2117,7 +2110,6 @@
 				// We could be eager in terms of reporting and plumb the result from the preparation
 				// worker but we don&#39;t for the sake of simplicity.
 				</span><span class="macro">break_if_fatal!</span>(handle_prepare_done(
-					<span class="kw-2">&amp;</span>cache_path,
 					<span class="kw-2">&amp;mut </span>artifacts,
 					<span class="kw-2">&amp;mut </span>to_execute_queue_tx,
 					<span class="kw-2">&amp;mut </span>awaiting_prepare,
@@ -2129,7 +2121,6 @@
 }
 
 <span class="kw">async fn </span>handle_to_host(
-	cache_path: <span class="kw-2">&amp;</span>Path,
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
 	prepare_queue: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;prepare::ToQueue&gt;,
 	execute_queue: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;execute::ToQueue&gt;,
@@ -2141,15 +2132,8 @@
 			handle_precheck_pvf(artifacts, prepare_queue, pvf, result_tx).<span class="kw">await</span><span class="question-mark">?</span>;
 		},
 		ToHost::ExecutePvf(inputs) =&gt; {
-			handle_execute_pvf(
-				cache_path,
-				artifacts,
-				prepare_queue,
-				execute_queue,
-				awaiting_prepare,
-				inputs,
-			)
-			.<span class="kw">await</span><span class="question-mark">?</span>;
+			handle_execute_pvf(artifacts, prepare_queue, execute_queue, awaiting_prepare, inputs)
+				.<span class="kw">await</span><span class="question-mark">?</span>;
 		},
 		ToHost::HeadsUp { active_pvfs } =&gt;
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).<span class="kw">await</span><span class="question-mark">?</span>,
@@ -2169,21 +2153,21 @@
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
 	prepare_queue: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;prepare::ToQueue&gt;,
 	pvf: PvfPrepData,
-	result_sender: PrepareResultSender,
+	result_sender: PrecheckResultSender,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Fatal&gt; {
 	<span class="kw">let </span>artifact_id = ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>pvf);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = artifacts.artifact_state_mut(<span class="kw-2">&amp;</span>artifact_id) {
 		<span class="kw">match </span>state {
-			ArtifactState::Prepared { last_time_needed, prepare_stats } =&gt; {
+			ArtifactState::Prepared { last_time_needed, .. } =&gt; {
 				<span class="kw-2">*</span>last_time_needed = SystemTime::now();
-				<span class="kw">let _ </span>= result_sender.send(<span class="prelude-val">Ok</span>(prepare_stats.clone()));
+				<span class="kw">let _ </span>= result_sender.send(<span class="prelude-val">Ok</span>(()));
 			},
 			ArtifactState::Preparing { waiting_for_response, num_failures: <span class="kw">_ </span>} =&gt;
 				waiting_for_response.push(result_sender),
 			ArtifactState::FailedToProcess { error, .. } =&gt; {
 				<span class="comment">// Do not retry an artifact that previously failed preparation.
-				</span><span class="kw">let _ </span>= result_sender.send(PrepareResult::Err(error.clone()));
+				</span><span class="kw">let _ </span>= result_sender.send(PrecheckResult::Err(error.clone()));
 			},
 		}
 	} <span class="kw">else </span>{
@@ -2206,7 +2190,6 @@
 /// When preparing for execution, we use a more lenient timeout ([`LENIENT_PREPARATION_TIMEOUT`])
 /// than when prechecking.
 </span><span class="kw">async fn </span>handle_execute_pvf(
-	cache_path: <span class="kw-2">&amp;</span>Path,
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
 	prepare_queue: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;prepare::ToQueue&gt;,
 	execute_queue: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;execute::ToQueue&gt;,
@@ -2219,8 +2202,8 @@
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = artifacts.artifact_state_mut(<span class="kw-2">&amp;</span>artifact_id) {
 		<span class="kw">match </span>state {
-			ArtifactState::Prepared { last_time_needed, .. } =&gt; {
-				<span class="kw">let </span>file_metadata = std::fs::metadata(artifact_id.path(cache_path));
+			ArtifactState::Prepared { <span class="kw-2">ref </span>path, last_time_needed, .. } =&gt; {
+				<span class="kw">let </span>file_metadata = std::fs::metadata(path);
 
 				<span class="kw">if </span>file_metadata.is_ok() {
 					<span class="kw-2">*</span>last_time_needed = SystemTime::now();
@@ -2229,7 +2212,7 @@
 					</span>send_execute(
 						execute_queue,
 						execute::ToQueue::Enqueue {
-							artifact: ArtifactPathId::new(artifact_id, cache_path),
+							artifact: ArtifactPathId::new(artifact_id, path),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
 								params,
@@ -2392,7 +2375,6 @@
 }
 
 <span class="kw">async fn </span>handle_prepare_done(
-	cache_path: <span class="kw-2">&amp;</span>Path,
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
 	execute_queue: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;execute::ToQueue&gt;,
 	awaiting_prepare: <span class="kw-2">&amp;mut </span>AwaitingPrepare,
@@ -2433,7 +2415,8 @@
 		state
 	{
 		<span class="kw">for </span>result_sender <span class="kw">in </span>waiting_for_response.drain(..) {
-			<span class="kw">let _ </span>= result_sender.send(result.clone());
+			<span class="kw">let </span>result = result.clone().map(|<span class="kw">_</span>| ());
+			<span class="kw">let _ </span>= result_sender.send(result);
 		}
 		num_failures
 	} <span class="kw">else </span>{
@@ -2453,16 +2436,18 @@
 			</span><span class="kw">continue
 		</span>}
 
-		<span class="comment">// Don&#39;t send failed artifacts to the execution&#39;s queue.
-		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>error) = result {
-			<span class="kw">let _ </span>= result_tx.send(<span class="prelude-val">Err</span>(ValidationError::from(error.clone())));
-			<span class="kw">continue
-		</span>}
+		<span class="kw">let </span>path = <span class="kw">match </span><span class="kw-2">&amp;</span>result {
+			<span class="prelude-val">Ok</span>(success) =&gt; success.path.clone(),
+			<span class="prelude-val">Err</span>(error) =&gt; {
+				<span class="kw">let _ </span>= result_tx.send(<span class="prelude-val">Err</span>(ValidationError::from(error.clone())));
+				<span class="kw">continue
+			</span>},
+		};
 
 		send_execute(
 			execute_queue,
 			execute::ToQueue::Enqueue {
-				artifact: ArtifactPathId::new(artifact_id.clone(), cache_path),
+				artifact: ArtifactPathId::new(artifact_id.clone(), <span class="kw-2">&amp;</span>path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
 					params,
@@ -2475,8 +2460,8 @@
 	}
 
 	<span class="kw-2">*</span>state = <span class="kw">match </span>result {
-		<span class="prelude-val">Ok</span>(prepare_stats) =&gt;
-			ArtifactState::Prepared { last_time_needed: SystemTime::now(), prepare_stats },
+		<span class="prelude-val">Ok</span>(PrepareSuccess { path, stats: prepare_stats }) =&gt;
+			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), prepare_stats },
 		<span class="prelude-val">Err</span>(error) =&gt; {
 			<span class="kw">let </span>last_time_failed = SystemTime::now();
 			<span class="kw">let </span>num_failures = <span class="kw-2">*</span>num_failures + <span class="number">1</span>;
@@ -2529,7 +2514,6 @@
 }
 
 <span class="kw">async fn </span>handle_cleanup_pulse(
-	cache_path: <span class="kw-2">&amp;</span>Path,
 	sweeper_tx: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;PathBuf&gt;,
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
 	artifact_ttl: Duration,
@@ -2540,14 +2524,13 @@
 		<span class="string">&quot;PVF pruning: {} artifacts reached their end of life&quot;</span>,
 		to_remove.len(),
 	);
-	<span class="kw">for </span>artifact_id <span class="kw">in </span>to_remove {
+	<span class="kw">for </span>(artifact_id, path) <span class="kw">in </span>to_remove {
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			validation_code_hash = <span class="question-mark">?</span>artifact_id.code_hash,
 			<span class="string">&quot;pruning artifact&quot;</span>,
 		);
-		<span class="kw">let </span>artifact_path = artifact_id.path(cache_path);
-		sweeper_tx.send(artifact_path).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| Fatal)<span class="question-mark">?</span>;
+		sweeper_tx.send(path).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| Fatal)<span class="question-mark">?</span>;
 	}
 
 	<span class="prelude-val">Ok</span>(())
@@ -2605,7 +2588,11 @@
 	<span class="kw">use </span><span class="kw">crate</span>::InvalidCandidate;
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::future::BoxFuture;
-	<span class="kw">use </span>polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats};
+	<span class="kw">use </span>polkadot_node_core_pvf_common::{
+		error::PrepareError,
+		prepare::{PrepareStats, PrepareSuccess},
+	};
+	<span class="kw">use </span>sp_core::hexdisplay::AsBytesRef;
 
 	<span class="kw">const </span>TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(<span class="number">3</span>);
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(<span class="number">30</span>);
@@ -2625,12 +2612,16 @@
 	}
 
 	<span class="doccomment">/// Creates a new PVF which artifact id can be uniquely identified by the given number.
-	</span><span class="kw">fn </span>artifact_id(descriminator: u32) -&gt; ArtifactId {
-		ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>PvfPrepData::from_discriminator(descriminator))
+	</span><span class="kw">fn </span>artifact_id(discriminator: u32) -&gt; ArtifactId {
+		ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>PvfPrepData::from_discriminator(discriminator))
 	}
 
-	<span class="kw">fn </span>artifact_path(descriminator: u32) -&gt; PathBuf {
-		artifact_id(descriminator).path(<span class="kw-2">&amp;</span>PathBuf::from(std::env::temp_dir())).to_owned()
+	<span class="kw">fn </span>artifact_path(discriminator: u32) -&gt; PathBuf {
+		<span class="kw">let </span>pvf = PvfPrepData::from_discriminator(discriminator);
+		<span class="kw">let </span>checksum = blake3::hash(pvf.code().as_bytes_ref());
+		artifact_id(discriminator)
+			.path(<span class="kw-2">&amp;</span>PathBuf::from(std::env::temp_dir()), checksum.to_hex().as_str())
+			.to_owned()
 	}
 
 	<span class="kw">struct </span>Builder {
@@ -2668,8 +2659,6 @@
 
 	<span class="kw">impl </span>Test {
 		<span class="kw">fn </span>new(Builder { cleanup_pulse_interval, artifact_ttl, artifacts }: Builder) -&gt; <span class="self">Self </span>{
-			<span class="kw">let </span>cache_path = PathBuf::from(std::env::temp_dir());
-
 			<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(<span class="number">10</span>);
 			<span class="kw">let </span>(to_prepare_queue_tx, to_prepare_queue_rx) = mpsc::channel(<span class="number">10</span>);
 			<span class="kw">let </span>(from_prepare_queue_tx, from_prepare_queue_rx) = mpsc::unbounded();
@@ -2677,7 +2666,6 @@
 			<span class="kw">let </span>(to_sweeper_tx, to_sweeper_rx) = mpsc::channel(<span class="number">10</span>);
 
 			<span class="kw">let </span>run = run(Inner {
-				cache_path,
 				cleanup_pulse_interval,
 				artifact_ttl,
 				artifacts,
@@ -2826,12 +2814,18 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(<span class="number">100</span>);
 		builder.artifact_ttl = Duration::from_millis(<span class="number">500</span>);
-		builder
-			.artifacts
-			.insert_prepared(artifact_id(<span class="number">1</span>), mock_now, PrepareStats::default());
-		builder
-			.artifacts
-			.insert_prepared(artifact_id(<span class="number">2</span>), mock_now, PrepareStats::default());
+		builder.artifacts.insert_prepared(
+			artifact_id(<span class="number">1</span>),
+			artifact_path(<span class="number">1</span>),
+			mock_now,
+			PrepareStats::default(),
+		);
+		builder.artifacts.insert_prepared(
+			artifact_id(<span class="number">2</span>),
+			artifact_path(<span class="number">2</span>),
+			mock_now,
+			PrepareStats::default(),
+		);
 		<span class="kw">let </span><span class="kw-2">mut </span>test = builder.build();
 		<span class="kw">let </span><span class="kw-2">mut </span>host = test.host_handle();
 
@@ -2903,7 +2897,7 @@
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">1</span>),
-				result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+				result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 			})
 			.<span class="kw">await
 			</span>.unwrap();
@@ -2919,7 +2913,7 @@
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">2</span>),
-				result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+				result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 			})
 			.<span class="kw">await
 			</span>.unwrap();
@@ -2973,7 +2967,7 @@
 		</span>test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">1</span>),
-				result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+				result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 			})
 			.<span class="kw">await
 			</span>.unwrap();
@@ -3086,7 +3080,7 @@
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">2</span>),
-				result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+				result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 			})
 			.<span class="kw">await
 			</span>.unwrap();
@@ -3242,7 +3236,7 @@
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">1</span>),
-				result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+				result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 			})
 			.<span class="kw">await
 			</span>.unwrap();
@@ -3418,7 +3412,7 @@
 		test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">1</span>),
-				result: <span class="prelude-val">Ok</span>(PrepareStats::default()),
+				result: <span class="prelude-val">Ok</span>(PrepareSuccess::default()),
 			})
 			.<span class="kw">await
 			</span>.unwrap();
