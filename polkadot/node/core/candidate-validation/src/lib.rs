@@ -611,6 +611,8 @@ async fn validate_candidate_exhaustive(
 	};
 
 	let result = match exec_kind {
+		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
+		// honest backers getting slashed.
 		PvfExecKind::Backing => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
@@ -871,6 +873,15 @@ fn perform_basic_checks(
 	Ok(())
 }
 
+/// To determine the amount of timeout time for the pvf execution.
+///
+/// Precheck
+///	The time period after which the preparation worker is considered
+/// unresponsive and will be killed.
+///
+/// Prepare
+///The time period after which the preparation worker is considered
+/// unresponsive and will be killed.
 fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_prep_timeout(kind) {
 		return timeout
@@ -881,6 +892,16 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Dura
 	}
 }
 
+/// To determine the amount of timeout time for the pvf execution.
+///
+/// Backing subsystem
+/// The amount of time to spend on execution during backing.
+///
+/// Approval subsystem
+/// The amount of time to spend on execution during approval or disputes.
+/// This should be much longer than the backing execution timeout to ensure that in the
+/// absence of extremely large disparities between hardware, blocks that pass backing are
+/// considered executable by approval checkers or dispute participants.
 fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_exec_timeout(kind) {
 		return timeout
