@@ -1787,7 +1787,7 @@ pub enum PvfPrepKind {
 	/// For prechecking requests.
 	Precheck,
 
-	/// For execution and heads-up requestsd.
+	/// For execution and heads-up requests.
 	Prepare,
 }
 
