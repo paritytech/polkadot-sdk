@@ -1905,7 +1905,7 @@ pub mod pallet {
 
 			let _ = ledger
 				.set_payee(RewardDestination::Account(controller))
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+				.defensive_proof("ledger should have been previously retrieved from storage.")?;
 
 			Ok(Pays::No.into())
 		}
