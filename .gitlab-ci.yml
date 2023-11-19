@@ -198,9 +198,6 @@ default:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
 
-# .zombienet-refs:
-#   extends: .build-refs
-
 include:
   # check jobs
   - .gitlab/pipeline/check.yml
