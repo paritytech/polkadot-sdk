@@ -27,8 +27,8 @@ pub mod versioned {
 
 	/// Wrapper over `MigrateToV1` with convenience version checks.
 	///
-	/// This migration would add a new StorageDoubleMap `ReservedAmounts` and initialise it with
-	/// the current deposit of existing leases.
+	/// This migration would add a new StorageDoubleMap `LeaseInfo` and initialise it with
+	/// current reserved amount and a default value of 4 for lease count.
 	pub type ToV1<T> = frame_support::migrations::VersionedMigration<
 		0,
 		1,
@@ -84,21 +84,22 @@ mod v1 {
 				});
 			}
 
-			// for each pair assert ReservedAmount is what we expect
+			// for each pair assert reserved amount is what we expect
 			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
-				let lease_reserve_amount = ReservedAmounts::<T>::get(para, who)
-					.expect("Migration should have inserted this entry");
+				let lease_reserve_amount = LeaseInfo::<T>::get(para, who)
+					.expect("Migration should have inserted this entry")
+					.0;
 				let expected_deposit = Pallet::<T>::required_deposit(*para, who);
 				let reserved_balance = T::Currency::reserved_balance(who);
 
 				ensure!(
 					lease_reserve_amount == expected_deposit,
-					"ReservedAmount value not same as required deposit"
+					"reserved amount not same as required deposit"
 				);
 
 				ensure!(
 					reserved_balance >= lease_reserve_amount,
-					"ReservedAmount value should be at least the lease reserve amount"
+					"reserved amount value should be at least the lease reserve amount"
 				);
 
 				Ok(())
