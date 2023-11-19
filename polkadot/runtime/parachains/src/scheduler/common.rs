@@ -67,7 +67,7 @@ pub struct AssignmentVersion(u16);
 /// The storage key postfix that is used to store the [`AssignmentVersion`] per pallet.
 ///
 /// The full storage key is built by using:
-/// Twox128([`PalletInfo::name`]) ++ Twox128([`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`])
+/// Twox128(`PalletInfo::name`) ++ Twox128([`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`])
 pub const ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX: &[u8] = b":__ASSIGNMENT_VERSION__:";
 
 impl AssignmentVersion {
@@ -91,7 +91,7 @@ impl AssignmentVersion {
 	///
 	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
 	/// In a runtime that is put together using
-	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	/// `construct_runtime!` this should never happen.
 	///
 	/// It will also panic if this function isn't executed in an externalities
 	/// provided environment.
@@ -109,7 +109,7 @@ impl AssignmentVersion {
 	///
 	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
 	/// In a runtime that is put together using
-	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	/// `construct_runtime!` this should never happen.
 	///
 	/// It will also panic if this function isn't executed in an externalities
 	/// provided environment.
