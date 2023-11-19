@@ -311,7 +311,7 @@ pub(crate) fn update_nominations_of(who: AccountId, new_nominations: Nominations
 	let (current_stake, prev_nominations) = current_nom.get(&who).unwrap();
 
 	TestNominators::mutate(|n| {
-		n.insert(who, (current_stake.clone(), new_nominations));
+		n.insert(who, (*current_stake, new_nominations));
 	});
 
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(

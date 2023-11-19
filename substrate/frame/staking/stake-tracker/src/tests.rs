@@ -354,8 +354,8 @@ mod staking_integration {
 	#[test]
 	fn staking_interface_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			assert_eq!(TestNominators::get().iter().count(), 0);
-			assert_eq!(TestValidators::get().iter().count(), 0);
+			assert_eq!(TestNominators::get().len(), 0);
+			assert_eq!(TestValidators::get().len(), 0);
 
 			add_nominator(1, 100);
 			let n = TestNominators::get();
