@@ -17,15 +17,13 @@
 
 //! A set of well-known keys used for testing.
 
+use array_bytes::hex2array_unchecked as hex2arr;
 pub use sp_core::bandersnatch;
 use sp_core::{
 	bandersnatch::{Pair, Public, Signature},
 	crypto::UncheckedFrom,
 	ByteArray, Pair as PairT,
 };
-
-use lazy_static::lazy_static;
-use std::{collections::HashMap, ops::Deref, sync::Mutex};
 
 /// Set of test accounts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
@@ -129,20 +127,9 @@ impl std::str::FromStr for Keyring {
 	}
 }
 
-lazy_static! {
-	static ref PRIVATE_KEYS: Mutex<HashMap<Keyring, Pair>> =
-		Mutex::new(Keyring::iter().map(|who| (who, who.pair())).collect());
-	static ref PUBLIC_KEYS: HashMap<Keyring, Public> = PRIVATE_KEYS
-		.lock()
-		.unwrap()
-		.iter()
-		.map(|(&who, pair)| (who, pair.public()))
-		.collect();
-}
-
 impl From<Keyring> for Public {
 	fn from(k: Keyring) -> Self {
-		*(*PUBLIC_KEYS).get(&k).unwrap()
+		Public::unchecked_from(<[u8; PUBLIC_RAW_LEN]>::from(k))
 	}
 }
 
@@ -154,32 +141,24 @@ impl From<Keyring> for Pair {
 
 impl From<Keyring> for [u8; PUBLIC_RAW_LEN] {
 	fn from(k: Keyring) -> Self {
-		*(*PUBLIC_KEYS).get(&k).unwrap().as_ref()
-	}
-}
-
-impl From<Keyring> for &'static [u8; PUBLIC_RAW_LEN] {
-	fn from(k: Keyring) -> Self {
-		PUBLIC_KEYS.get(&k).unwrap().as_ref()
-	}
-}
-
-impl AsRef<[u8; PUBLIC_RAW_LEN]> for Keyring {
-	fn as_ref(&self) -> &[u8; PUBLIC_RAW_LEN] {
-		PUBLIC_KEYS.get(self).unwrap().as_ref()
-	}
-}
-
-impl AsRef<Public> for Keyring {
-	fn as_ref(&self) -> &Public {
-		PUBLIC_KEYS.get(self).unwrap()
-	}
-}
-
-impl Deref for Keyring {
-	type Target = [u8; PUBLIC_RAW_LEN];
-	fn deref(&self) -> &[u8; PUBLIC_RAW_LEN] {
-		PUBLIC_KEYS.get(self).unwrap().as_ref()
+		match k {
+			Keyring::Alice =>
+				hex2arr("9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180"),
+			Keyring::Bob =>
+				hex2arr("1abfbb76dc8374a1a6d93d59a5c81f07c18835f4681a6258aa0f514d363bff4780"),
+			Keyring::Charlie =>
+				hex2arr("0f4a9990aca3d39a7cd8bf187e2e81a9ea6f9cedb2db405f2fffff384c5dd02680"),
+			Keyring::Dave =>
+				hex2arr("bd7a87d4dfa89926a408b5acbed554ae3b053fa3532531053295cbabf07d337000"),
+			Keyring::Eve =>
+				hex2arr("f992d5b8eac8fc004d521bee6edc1174cfa7fae3a1baec8262511ee351f9f85e00"),
+			Keyring::Ferdie =>
+				hex2arr("1ce2613e89bc5c8e358aad884099cfb576a61176f2f9968cd0d486a04457245180"),
+			Keyring::One =>
+				hex2arr("a29e03ac273e521274d8e501a6242abd2ab393d7e197221a9113bdf8e2e5b34d00"),
+			Keyring::Two =>
+				hex2arr("f968d47e819ddb18a9d0f2ebd16501680b1a3f07ee375c6f81310e5f99a04f4d00"),
+		}
 	}
 }
 
@@ -205,5 +184,17 @@ mod tests {
 			b"I am Alice!",
 			&Keyring::Bob.public(),
 		));
+	}
+	#[test]
+	fn verify_static_public_keys() {
+		assert!(Keyring::iter()
+			.all(|k| { k.pair().public().as_ref() == <[u8; PUBLIC_RAW_LEN]>::from(k) }));
+		// little helper to print out public keys hex string
+		// use array_bytes::Hex;
+		// Keyring::iter().map(|i| (i, i.pair())).for_each(|(name, pair)| {
+		// 	let public = pair.public();
+		// 	let bytes: &[u8; PUBLIC_RAW_LEN] = public.as_ref();
+		// 	println!("Keyring::{} => hex2arr({:?}),", name, bytes.hex(""));
+		// });
 	}
 }
