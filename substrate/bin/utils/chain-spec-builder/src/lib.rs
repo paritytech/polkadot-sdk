@@ -182,7 +182,6 @@ pub struct EditCmd {
 }
 
 /// Verifies provided input chain spec.
-/// new runtime.
 #[derive(Parser, Debug, Clone)]
 pub struct VerifyCmd {
 	/// Chain spec to be edited.
