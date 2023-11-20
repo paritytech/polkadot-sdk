@@ -27,7 +27,10 @@ use polkadot_primitives::{
 	vstaging::NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
-use sp_api::{ApiError, RuntimeApiInfo};
+use sc_client_api::AuxStore;
+use sp_api::{ApiError, BlockT, HeaderT, NumberFor, RuntimeApiInfo};
+use sp_blockchain::{BlockStatus, HeaderBackend, Info};
+use std::future::Future;
 
 #[derive(Clone)]
 pub struct BlockChainRpcClient {
@@ -401,5 +404,91 @@ impl BlockChainRpcClient {
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = Header> + Send>>> {
 		Ok(self.rpc_client.get_finalized_heads_stream()?.boxed())
+	}
+}
+
+// Implementation required by Availability-Distribution subsystem
+// but never called in our case.
+impl AuxStore for BlockChainRpcClient {
+	fn insert_aux<
+		'a,
+		'b: 'a,
+		'c: 'a,
+		I: IntoIterator<Item = &'a (&'c [u8], &'c [u8])>,
+		D: IntoIterator<Item = &'a &'b [u8]>,
+	>(
+		&self,
+		_insert: I,
+		_delete: D,
+	) -> sp_blockchain::Result<()> {
+		unimplemented!("Not supported on the RPC collator")
+	}
+
+	fn get_aux(&self, _key: &[u8]) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		unimplemented!("Not supported on the RPC collator")
+	}
+}
+
+fn block_local<T>(fut: impl Future<Output = T>) -> T {
+	let tokio_handle = tokio::runtime::Handle::current();
+	tokio::task::block_in_place(|| tokio_handle.block_on(fut))
+}
+
+impl HeaderBackend<Block> for BlockChainRpcClient {
+	fn header(
+		&self,
+		hash: <Block as BlockT>::Hash,
+	) -> sp_blockchain::Result<Option<<Block as BlockT>::Header>> {
+		Ok(block_local(self.rpc_client.chain_get_header(Some(hash)))?)
+	}
+
+	fn info(&self) -> Info<Block> {
+		let best_header = block_local(self.rpc_client.chain_get_header(None))
+			.expect("Unable to get header from relay chain.")
+			.unwrap();
+		let genesis_hash = block_local(self.rpc_client.chain_get_head(Some(0)))
+			.expect("Unable to get header from relay chain.");
+		let finalized_head = block_local(self.rpc_client.chain_get_finalized_head())
+			.expect("Unable to get finalized head from relay chain.");
+		let finalized_header = block_local(self.rpc_client.chain_get_header(Some(finalized_head)))
+			.expect("Unable to get finalized header from relay chain.")
+			.unwrap();
+		Info {
+			best_hash: best_header.hash(),
+			best_number: best_header.number,
+			genesis_hash,
+			finalized_hash: finalized_head,
+			finalized_number: finalized_header.number,
+			finalized_state: None,
+			number_leaves: 1,
+			block_gap: None,
+		}
+	}
+
+	fn status(
+		&self,
+		hash: <Block as BlockT>::Hash,
+	) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
+		if self.header(hash)?.is_some() {
+			Ok(BlockStatus::InChain)
+		} else {
+			Ok(BlockStatus::Unknown)
+		}
+	}
+
+	fn number(
+		&self,
+		hash: <Block as BlockT>::Hash,
+	) -> sp_blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
+		let result = block_local(self.rpc_client.chain_get_header(Some(hash)))?
+			.map(|maybe_header| maybe_header.number);
+		Ok(result)
+	}
+
+	fn hash(
+		&self,
+		number: NumberFor<Block>,
+	) -> sp_blockchain::Result<Option<<Block as BlockT>::Hash>> {
+		Ok(block_local(self.rpc_client.chain_get_block_hash(number.into()))?)
 	}
 }
