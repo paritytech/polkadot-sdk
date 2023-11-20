@@ -67,7 +67,7 @@
 //! To also aid in debugging and mitigating the above issues, there is a
 //! [`Defensive`](frame::traits::Defensive) trait (and its companions,
 //! [`DefensiveOption`](frame::traits::DefensiveOption),
-//! [`DefensiveResult`](frame::traits::DefensiveResult))that can be used to defensively unwrap
+//! [`DefensiveResult`](frame::traits::DefensiveResult)) that can be used to defensively unwrap
 //! values.  This can be used in place of
 //! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
 //!
