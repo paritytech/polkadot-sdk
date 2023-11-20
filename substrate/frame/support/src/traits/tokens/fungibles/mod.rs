@@ -21,7 +21,7 @@ pub mod approvals;
 mod enumerable;
 pub mod freeze;
 pub mod hold;
-mod imbalance;
+pub(crate) mod imbalance;
 mod lifetime;
 pub mod metadata;
 mod regular;
