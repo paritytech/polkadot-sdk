@@ -19,7 +19,7 @@
 use crate::{
 	protocol::notifications::{
 		handler::{self, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
-		service::{metrics, NotificationCommand, ProtocolHandle, ProtocolHandlePair},
+		service::{metrics, NotificationCommand, ProtocolHandle},
 	},
 	protocol_controller::{self, IncomingIndex, Message, SetId},
 	service::traits::{Direction, ValidationResult},
@@ -347,6 +347,8 @@ pub enum NotificationsOut {
 		peer_id: PeerId,
 		/// Peerset set ID the substream is tied to.
 		set_id: SetId,
+		/// Direction of the stream.
+		direction: Direction,
 		/// If `Some`, a fallback protocol name has been used rather the main protocol name.
 		/// Always matches one of the fallback names passed at initialization.
 		negotiated_fallback: Option<ProtocolName>,
@@ -397,14 +399,20 @@ pub enum NotificationsOut {
 
 impl Notifications {
 	/// Creates a `CustomProtos`.
-	pub fn new(
+	pub(crate) fn new(
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<Message>,
 		registry: &Option<Registry>,
-		notif_protocols: impl Iterator<Item = (ProtocolConfig, ProtocolHandlePair)>,
+		notif_protocols: impl Iterator<
+			Item = (
+				ProtocolConfig,
+				ProtocolHandle,
+				Box<dyn Stream<Item = NotificationCommand> + Send + Unpin>,
+			),
+		>,
 	) -> Self {
-		let (notif_protocols, protocol_handle_pairs): (Vec<_>, Vec<_>) = notif_protocols
-			.map(|(cfg, protocol_handle_pair)| {
+		let (notif_protocols, protocol_handles): (Vec<_>, Vec<_>) = notif_protocols
+			.map(|(cfg, protocol_handle, command_stream)| {
 				(
 					handler::ProtocolConfig {
 						name: cfg.name,
@@ -412,18 +420,17 @@ impl Notifications {
 						handshake: Arc::new(RwLock::new(cfg.handshake)),
 						max_notification_size: cfg.max_notification_size,
 					},
-					protocol_handle_pair,
+					(protocol_handle, command_stream),
 				)
 			})
 			.unzip();
 		assert!(!notif_protocols.is_empty());
 
 		let metrics = registry.as_ref().and_then(|registry| metrics::register(&registry).ok());
-		let (protocol_handles, command_streams): (Vec<_>, Vec<_>) = protocol_handle_pairs
+		let (protocol_handles, command_streams): (Vec<_>, Vec<_>) = protocol_handles
 			.into_iter()
 			.enumerate()
-			.map(|(set_id, protocol_handle_pair)| {
-				let (mut protocol_handle, command_stream) = protocol_handle_pair.split();
+			.map(|(set_id, (mut protocol_handle, command_stream))| {
 				protocol_handle.set_metrics(metrics.clone());
 
 				(protocol_handle, (set_id, command_stream))
@@ -517,8 +524,8 @@ impl Notifications {
 					let event =
 						NotificationsOut::CustomProtocolClosed { peer_id: *peer_id, set_id };
 					self.events.push_back(ToSwarm::GenerateEvent(event));
-					let _ = self.protocol_handles[usize::from(set_id)]
-						.report_substream_closed(*peer_id);
+					// let _ = self.protocol_handles[usize::from(set_id)]
+					// 	.report_substream_closed(*peer_id);
 				}
 
 				for (connec_id, connec_state) in
@@ -820,8 +827,8 @@ impl Notifications {
 					let event =
 						NotificationsOut::CustomProtocolClosed { peer_id: entry.key().0, set_id };
 					self.events.push_back(ToSwarm::GenerateEvent(event));
-					let _ = self.protocol_handles[usize::from(set_id)]
-						.report_substream_closed(entry.key().0);
+					// let _ = self.protocol_handles[usize::from(set_id)]
+					// 	.report_substream_closed(entry.key().0);
 				}
 
 				for (connec_id, connec_state) in
@@ -1437,11 +1444,11 @@ impl NetworkBehaviour for Notifications {
 												notifications_sink: replacement_sink.clone(),
 											};
 											self.events.push_back(ToSwarm::GenerateEvent(event));
-											let _ = self.protocol_handles[usize::from(set_id)]
-												.report_notification_sink_replaced(
-													peer_id,
-													replacement_sink,
-												);
+											// let _ = self.protocol_handles[usize::from(set_id)]
+											// 	.report_notification_sink_replaced(
+											// 		peer_id,
+											// 		replacement_sink,
+											// 	);
 										}
 									} else {
 										trace!(
@@ -1453,8 +1460,8 @@ impl NetworkBehaviour for Notifications {
 											set_id,
 										};
 										self.events.push_back(ToSwarm::GenerateEvent(event));
-										let _ = self.protocol_handles[usize::from(set_id)]
-											.report_substream_closed(peer_id);
+										// let _ = self.protocol_handles[usize::from(set_id)]
+										// 	.report_substream_closed(peer_id);
 									}
 								}
 							} else {
@@ -1857,8 +1864,8 @@ impl NetworkBehaviour for Notifications {
 									notifications_sink: replacement_sink.clone(),
 								};
 								self.events.push_back(ToSwarm::GenerateEvent(event));
-								let _ = self.protocol_handles[usize::from(set_id)]
-									.report_notification_sink_replaced(peer_id, replacement_sink);
+								// let _ = self.protocol_handles[usize::from(set_id)]
+								// 	.report_notification_sink_replaced(peer_id, replacement_sink);
 							}
 
 							*entry.into_mut() = PeerState::Enabled { connections };
@@ -1880,8 +1887,8 @@ impl NetworkBehaviour for Notifications {
 							trace!(target: "sub-libp2p", "External API <= Closed({}, {:?})", peer_id, set_id);
 							let event = NotificationsOut::CustomProtocolClosed { peer_id, set_id };
 							self.events.push_back(ToSwarm::GenerateEvent(event));
-							let _ = self.protocol_handles[usize::from(set_id)]
-								.report_substream_closed(peer_id);
+							// let _ = self.protocol_handles[usize::from(set_id)]
+							// 	.report_substream_closed(peer_id);
 						}
 					},
 
@@ -1963,21 +1970,26 @@ impl NetworkBehaviour for Notifications {
 									peer_id,
 									set_id,
 									inbound,
+									direction: if inbound {
+										Direction::Inbound
+									} else {
+										Direction::Outbound
+									},
 									received_handshake: received_handshake.clone(),
 									negotiated_fallback: negotiated_fallback.clone(),
 									notifications_sink: notifications_sink.clone(),
 								};
 								self.events.push_back(ToSwarm::GenerateEvent(event));
-								let direction =
-									if inbound { Direction::Inbound } else { Direction::Outbound };
-								let _ = self.protocol_handles[protocol_index]
-									.report_substream_opened(
-										peer_id,
-										direction,
-										received_handshake,
-										negotiated_fallback,
-										notifications_sink.clone(),
-									);
+								// let direction =
+								// 	if inbound { Direction::Inbound } else { Direction::Outbound };
+								// let _ = self.protocol_handles[protocol_index]
+								// 	.report_substream_opened(
+								// 		peer_id,
+								// 		direction,
+								// 		received_handshake,
+								// 		negotiated_fallback,
+								// 		notifications_sink.clone(),
+								// 	);
 							}
 							*connec_state = ConnectionState::Open(notifications_sink);
 						} else if let Some((_, connec_state)) =
@@ -2128,8 +2140,8 @@ impl NetworkBehaviour for Notifications {
 						message: message.clone(),
 					};
 					self.events.push_back(ToSwarm::GenerateEvent(event));
-					let _ = self.protocol_handles[protocol_index]
-						.report_notification_received(peer_id, message.to_vec());
+				// let _ = self.protocol_handles[protocol_index]
+				// 	.report_notification_received(peer_id, message.to_vec());
 				} else {
 					trace!(
 						target: "sub-libp2p",
@@ -2357,6 +2369,7 @@ mod tests {
 			Box::new(MockPeerStore {}),
 		);
 
+		let (notif_handle, command_stream) = protocol_handle_pair.split();
 		(
 			Notifications::new(
 				vec![handle],
@@ -2369,7 +2382,8 @@ mod tests {
 						handshake: vec![1, 2, 3, 4],
 						max_notification_size: u64::MAX,
 					},
-					protocol_handle_pair,
+					notif_handle,
+					command_stream,
 				)),
 			),
 			controller,

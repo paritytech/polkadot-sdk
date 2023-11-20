@@ -25,6 +25,8 @@ pub use self::{
 	service::{notification_service, ProtocolHandlePair},
 };
 
+pub(crate) use self::service::ProtocolHandle;
+
 mod behaviour;
 mod handler;
 mod service;

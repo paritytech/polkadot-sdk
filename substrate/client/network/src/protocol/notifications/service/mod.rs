@@ -405,7 +405,7 @@ impl ProtocolHandlePair {
 
 /// Handle that is passed on to `Notifications` and allows it to directly communicate
 /// with the protocol.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ProtocolHandle {
 	/// Protocol name.
 	protocol: ProtocolName,

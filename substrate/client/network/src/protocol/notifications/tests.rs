@@ -94,6 +94,7 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			Box::new(peer_store.handle()),
 		);
 
+		let (notif_handle, command_stream) = protocol_handle_pair.split();
 		let behaviour = CustomProtoWithAddr {
 			inner: Notifications::new(
 				vec![controller_handle],
@@ -106,7 +107,9 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 						handshake: Vec::new(),
 						max_notification_size: 1024 * 1024,
 					},
-					protocol_handle_pair,
+					notif_handle,
+					command_stream,
+					// protocol_handle_pair,
 				)),
 			),
 			peer_store_future: peer_store.run().boxed(),

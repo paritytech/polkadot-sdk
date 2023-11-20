@@ -383,7 +383,7 @@ where
 		let num_connected = Arc::new(AtomicUsize::new(0));
 		let external_addresses = Arc::new(Mutex::new(HashSet::new()));
 
-		let protocol = Protocol::new(
+		let (protocol, notif_protocol_handles) = Protocol::new(
 			From::from(&params.role),
 			&params.metrics_registry,
 			notification_protocols,
@@ -546,6 +546,7 @@ where
 			reported_invalid_boot_nodes: Default::default(),
 			peers_notifications_sinks,
 			peer_store_handle: params.peer_store,
+			notif_protocol_handles,
 			_marker: Default::default(),
 			_block: Default::default(),
 		})
@@ -1259,6 +1260,8 @@ where
 	peers_notifications_sinks: Arc<Mutex<HashMap<(PeerId, ProtocolName), NotificationsSink>>>,
 	/// Peer reputation store handle.
 	peer_store_handle: PeerStoreHandle,
+	/// Notification protocol handles.
+	notif_protocol_handles: Vec<protocol::ProtocolHandle>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	_marker: PhantomData<H>,
@@ -1487,47 +1490,27 @@ where
 			},
 			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamOpened {
 				remote,
-				protocol,
+				set_id,
+				direction,
 				negotiated_fallback,
 				notifications_sink,
-				role,
 				received_handshake,
 			}) => {
-				if let Some(metrics) = self.metrics.as_ref() {
-					metrics
-						.notifications_streams_opened_total
-						.with_label_values(&[&protocol])
-						.inc();
-				}
-				{
-					let mut peers_notifications_sinks = self.peers_notifications_sinks.lock();
-					let _previous_value = peers_notifications_sinks
-						.insert((remote, protocol.clone()), notifications_sink);
-					debug_assert!(_previous_value.is_none());
-				}
-				self.event_streams.send(Event::NotificationStreamOpened {
+				let _ = self.notif_protocol_handles[usize::from(set_id)].report_substream_opened(
 					remote,
-					protocol,
-					negotiated_fallback,
-					role,
+					direction,
 					received_handshake,
-				});
+					negotiated_fallback,
+					notifications_sink,
+				);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamReplaced {
 				remote,
-				protocol,
+				set_id,
 				notifications_sink,
 			}) => {
-				let mut peers_notifications_sinks = self.peers_notifications_sinks.lock();
-				if let Some(s) = peers_notifications_sinks.get_mut(&(remote, protocol)) {
-					*s = notifications_sink;
-				} else {
-					error!(
-						target: "sub-libp2p",
-						"NotificationStreamReplaced for non-existing substream"
-					);
-					debug_assert!(false);
-				}
+				let _ = self.notif_protocol_handles[usize::from(set_id)]
+					.report_notification_sink_replaced(remote, notifications_sink);
 
 				// TODO: Notifications might have been lost as a result of the previous
 				// connection being dropped, and as a result it would be preferable to notify
@@ -1550,31 +1533,17 @@ where
 				// role,
 				// });
 			},
-			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamClosed { remote, protocol }) => {
-				if let Some(metrics) = self.metrics.as_ref() {
-					metrics
-						.notifications_streams_closed_total
-						.with_label_values(&[&protocol[..]])
-						.inc();
-				}
-				self.event_streams
-					.send(Event::NotificationStreamClosed { remote, protocol: protocol.clone() });
-				{
-					let mut peers_notifications_sinks = self.peers_notifications_sinks.lock();
-					let _previous_value = peers_notifications_sinks.remove(&(remote, protocol));
-					debug_assert!(_previous_value.is_some());
-				}
+			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamClosed { remote, set_id }) => {
+				let _ = self.notif_protocol_handles[usize::from(set_id)]
+					.report_substream_closed(remote);
 			},
-			SwarmEvent::Behaviour(BehaviourOut::NotificationsReceived { remote, messages }) => {
-				if let Some(metrics) = self.metrics.as_ref() {
-					for (protocol, message) in &messages {
-						metrics
-							.notifications_sizes
-							.with_label_values(&["in", protocol])
-							.observe(message.len() as f64);
-					}
-				}
-				self.event_streams.send(Event::NotificationsReceived { remote, messages });
+			SwarmEvent::Behaviour(BehaviourOut::NotificationsReceived {
+				remote,
+				set_id,
+				notification,
+			}) => {
+				let _ = self.notif_protocol_handles[usize::from(set_id)]
+					.report_notification_received(remote, notification);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Dht(event, duration)) => {
 				if let Some(metrics) = self.metrics.as_ref() {
