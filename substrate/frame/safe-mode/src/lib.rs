@@ -55,6 +55,15 @@
 //! }
 //! ```
 //!
+//! Entering safe mode with deposit:
+#![doc = docify::embed!("src/tests.rs", can_activate)]
+//!
+//! Entering safe mode with force:
+#![doc = docify::embed!("src/tests.rs", can_force_activate_with_config_origin)]
+//!
+//! Exiting safe mode with force:
+#![doc = docify::embed!("src/tests.rs", can_force_deactivate_with_config_origin)]
+//!
 //! ## Low Level / Implementation Details
 //!
 //! ### Use Cost
