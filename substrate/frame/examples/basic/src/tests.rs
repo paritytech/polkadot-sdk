@@ -19,8 +19,7 @@
 
 use crate::*;
 use frame_support::{
-	assert_ok,
-	derive_impl,
+	assert_ok, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{ConstU64, OnInitialize},
 };

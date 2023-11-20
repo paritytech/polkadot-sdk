@@ -750,8 +750,7 @@ mod tests {
 	};
 
 	use frame_support::{
-		assert_err, parameter_types,
-		derive_impl,
+		assert_err, derive_impl, parameter_types,
 		traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 		weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
 	};

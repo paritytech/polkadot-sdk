@@ -253,8 +253,7 @@ mod tests {
 	use crate as pallet_nicks;
 
 	use frame_support::{
-		assert_noop, assert_ok, ord_parameter_types,
-		derive_impl,
+		assert_noop, assert_ok, derive_impl, ord_parameter_types,
 		traits::{ConstU32, ConstU64},
 	};
 	use frame_system::EnsureSignedBy;

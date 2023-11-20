@@ -122,7 +122,7 @@ impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFr
 mod tests {
 	use super::*;
 	use frame_support::{
-		parameter_types, derive_impl,
+		derive_impl, parameter_types,
 		traits::{ConstU32, FindAuthor, ValidatorRegistration},
 		PalletId,
 	};

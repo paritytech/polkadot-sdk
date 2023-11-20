@@ -23,7 +23,7 @@ use super::*;
 use crate as pallet_bounties;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types, derive_impl,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, OnInitialize,

@@ -25,7 +25,7 @@ use crate::{
 };
 
 use frame_support::{
-	assert_ok, parameter_types, derive_impl,
+	assert_ok, derive_impl, parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},

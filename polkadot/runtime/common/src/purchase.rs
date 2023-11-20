@@ -484,7 +484,7 @@ mod tests {
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::purchase;
 	use frame_support::{
-		assert_noop, assert_ok, ord_parameter_types, parameter_types, derive_impl,
+		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 		traits::{Currency, WithdrawReasons},
 	};
 	use sp_runtime::{

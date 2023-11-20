@@ -20,8 +20,7 @@
 #![cfg(test)]
 
 use frame_support::{
-	derive_impl,
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::Weight,
 };

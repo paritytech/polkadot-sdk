@@ -25,7 +25,7 @@ use crate::{
 	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
 use frame_support::{
-	assert_noop, assert_ok, parameter_types, derive_impl,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, Currency, OnFinalize, OnInitialize},
 	weights::Weight,
 	PalletId,

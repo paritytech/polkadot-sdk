@@ -19,7 +19,7 @@
 
 use crate::{test_fungibles::TestFungibles, *};
 use frame_support::{
-	assert_ok, ensure, ord_parameter_types, parameter_types, derive_impl,
+	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,

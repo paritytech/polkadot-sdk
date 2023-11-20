@@ -18,7 +18,7 @@
 pub use crate as pallet_collective_content;
 use crate::WeightInfo;
 use frame_support::{
-	ord_parameter_types, parameter_types, derive_impl,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::Weight,
 };

@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::{
-	construct_runtime, parameter_types, derive_impl,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing},
 	weights::Weight,
 };

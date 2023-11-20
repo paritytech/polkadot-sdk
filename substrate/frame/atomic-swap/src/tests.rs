@@ -20,7 +20,10 @@
 use super::*;
 use crate as pallet_atomic_swap;
 
-use frame_support::{derive_impl, traits::{ConstU32, ConstU64}};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},

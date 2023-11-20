@@ -20,7 +20,7 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types, derive_impl,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
 use sp_core::H256;

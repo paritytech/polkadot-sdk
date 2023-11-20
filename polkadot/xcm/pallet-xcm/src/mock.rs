@@ -16,7 +16,7 @@
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, match_types, parameter_types, derive_impl,
+	construct_runtime, derive_impl, match_types, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
 		Nothing,

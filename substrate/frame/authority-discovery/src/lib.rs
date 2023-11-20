@@ -169,7 +169,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use frame_support::{
-		parameter_types, derive_impl,
+		derive_impl, parameter_types,
 		traits::{ConstU32, ConstU64},
 	};
 	use sp_application_crypto::Pair;

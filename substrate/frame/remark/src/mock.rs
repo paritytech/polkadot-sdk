@@ -18,7 +18,10 @@
 //! Test environment for remarks pallet.
 
 use crate as pallet_remark;
-use frame_support::{derive_impl, traits::{ConstU16, ConstU32, ConstU64}};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU16, ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},

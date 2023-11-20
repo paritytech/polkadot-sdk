@@ -17,7 +17,7 @@
 
 use crate::VoterBagsListInstance;
 use frame_election_provider_support::VoteWeight;
-use frame_support::{pallet_prelude::*, derive_impl, parameter_types, traits::ConstU64, PalletId};
+use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::ConstU64, PalletId};
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,

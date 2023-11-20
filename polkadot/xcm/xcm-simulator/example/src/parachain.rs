@@ -19,7 +19,7 @@
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
-	construct_runtime, parameter_types, derive_impl,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{ContainsPair, EnsureOrigin, EnsureOriginWithArg, Everything, EverythingBut, Nothing},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };

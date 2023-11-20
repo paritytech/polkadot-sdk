@@ -20,8 +20,7 @@
 use crate::{self as pallet_nis, Perquintill, WithMaximumOf};
 
 use frame_support::{
-	derive_impl,
-	ord_parameter_types, parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		fungible::Inspect, ConstU16, ConstU32, ConstU64, Everything, OnFinalize, OnInitialize,
 		StorageMapShim,

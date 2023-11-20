@@ -19,7 +19,7 @@ use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
-	parameter_types, derive_impl,
+	derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
 	BoundedSlice,
 };

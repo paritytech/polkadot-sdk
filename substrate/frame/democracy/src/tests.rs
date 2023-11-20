@@ -20,7 +20,7 @@
 use super::*;
 use crate as pallet_democracy;
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types, derive_impl,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, SortedMembers,
 		StorePreimage,

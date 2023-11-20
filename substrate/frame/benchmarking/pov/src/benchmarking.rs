@@ -339,8 +339,8 @@ frame_benchmarking::benchmarks! {
 
 #[cfg(test)]
 mod mock {
-	use sp_runtime::{testing::H256, BuildStorage};
 	use frame_support::derive_impl;
+	use sp_runtime::{testing::H256, BuildStorage};
 
 	type AccountId = u64;
 	type Nonce = u32;

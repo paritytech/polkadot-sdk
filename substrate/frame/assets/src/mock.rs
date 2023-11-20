@@ -22,7 +22,7 @@ use crate as pallet_assets;
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, parameter_types, derive_impl,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
 };
 use sp_core::H256;

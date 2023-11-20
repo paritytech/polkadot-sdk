@@ -19,8 +19,7 @@ use super::*;
 use crate as pallet_glutton;
 
 use frame_support::{
-	assert_ok,
-	derive_impl,
+	assert_ok, derive_impl,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::H256;

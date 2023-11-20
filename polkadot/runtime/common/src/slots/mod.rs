@@ -505,7 +505,7 @@ mod tests {
 
 	use crate::{mock::TestRegistrar, slots};
 	use ::test_helpers::{dummy_head_data, dummy_validation_code};
-	use frame_support::{assert_noop, assert_ok, parameter_types, derive_impl};
+	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
 	use primitives::BlockNumber;

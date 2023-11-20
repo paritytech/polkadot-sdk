@@ -19,7 +19,7 @@
 
 #![cfg(test)]
 
-use frame_support::{parameter_types, derive_impl, traits::ConstU32};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use sp_runtime::{
 	testing::H256,
 	traits::{BlakeTwo256, IdentityLookup},

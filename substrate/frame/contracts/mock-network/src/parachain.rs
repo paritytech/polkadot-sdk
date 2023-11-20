@@ -23,8 +23,7 @@ use crate::{
 };
 use core::marker::PhantomData;
 use frame_support::{
-	construct_runtime, parameter_types,
-	derive_impl,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, Contains, ContainsPair, Everything, EverythingBut, Nothing},
 	weights::{
 		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},

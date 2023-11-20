@@ -1051,8 +1051,7 @@ mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
 	use frame_support::{
-		derive_impl,
-		parameter_types,
+		derive_impl, parameter_types,
 		traits::{ConstU32, ConstU64, Hooks},
 		weights::Weight,
 	};

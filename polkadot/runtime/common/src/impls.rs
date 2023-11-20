@@ -192,7 +192,8 @@ pub mod benchmarks {
 mod tests {
 	use super::*;
 	use frame_support::{
-		dispatch::DispatchClass, derive_impl,
+		derive_impl,
+		dispatch::DispatchClass,
 		parameter_types,
 		traits::{
 			tokens::{PayFromAccount, UnityAssetBalanceConversion},

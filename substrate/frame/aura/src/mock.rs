@@ -21,7 +21,7 @@
 
 use crate as pallet_aura;
 use frame_support::{
-	parameter_types, derive_impl,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, DisabledValidators},
 };
 use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex};

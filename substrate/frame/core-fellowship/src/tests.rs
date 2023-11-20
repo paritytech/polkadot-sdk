@@ -20,7 +20,7 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, derive_impl,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{tokens::GetSalary, ConstU32, ConstU64, Everything, IsInVec, TryMapSuccess},

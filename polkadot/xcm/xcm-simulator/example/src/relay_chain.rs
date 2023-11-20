@@ -17,7 +17,7 @@
 //! Relay chain runtime mock.
 
 use frame_support::{
-	construct_runtime, parameter_types, derive_impl,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, Everything, Nothing, ProcessMessage, ProcessMessageError},
 	weights::{Weight, WeightMeter},
 };
