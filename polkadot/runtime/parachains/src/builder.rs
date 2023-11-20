@@ -643,7 +643,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					})
 					.collect();
 
-				DisputeStatementSet { candidate_hash: candidate_hash, session, statements }
+				DisputeStatementSet { candidate_hash, session, statements }
 			})
 			.collect()
 	}

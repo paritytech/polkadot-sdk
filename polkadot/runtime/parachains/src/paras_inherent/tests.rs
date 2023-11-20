@@ -25,7 +25,8 @@ mod enter {
 	use super::*;
 	use crate::{
 		builder::{Bench, BenchBuilder},
-		mock::{new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
+		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
+		scheduler::common::V0Assignment,
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
@@ -59,6 +60,15 @@ mod enter {
 			.set_dispute_statements(dispute_statements)
 			.set_backed_and_concluding_cores(backed_and_concluding)
 			.set_dispute_sessions(&dispute_sessions[..]);
+
+		// Setup some assignments as needed:
+		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
+		for core_index in 0..builder.max_cores() {
+			// Core index == para_id in this case
+			mock_assigner::Pallet::<Test>::add_test_assignment(V0Assignment::new(
+				core_index.into(),
+			));
+		}
 
 		if let Some(code_size) = code_upgrade {
 			builder.set_code_upgrade(code_size).build()
