@@ -420,7 +420,7 @@ impl<
 					"`total_fee.asset` must be equal to `credit_out.asset`",
 					(self.total_fee.asset(), credit_out.asset())
 				);
-				return Ok(payment)
+				return Err(XcmError::FeesNotMet)
 			},
 			_ => (),
 		};
