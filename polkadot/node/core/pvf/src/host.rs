@@ -1583,7 +1583,7 @@ pub(crate) mod tests {
 		let result = test.poll_and_recv_result(result_rx).await;
 		assert_matches!(
 			result,
-			Err(ValidationError::Invalid(InvalidCandidate::PrepareError(_)))
+			Err(ValidationError::Preparation(_))
 		);
 
 		// Submit another execute request.
@@ -1605,7 +1605,7 @@ pub(crate) mod tests {
 		let result = test.poll_and_recv_result(result_rx_2).await;
 		assert_matches!(
 			result,
-			Err(ValidationError::Invalid(InvalidCandidate::PrepareError(_)))
+			Err(ValidationError::Preparation(_))
 		);
 
 		// Pause for enough time to reset the cooldown for this failed prepare request.
@@ -1630,7 +1630,7 @@ pub(crate) mod tests {
 		let result = test.poll_and_recv_result(result_rx_3).await;
 		assert_matches!(
 			result,
-			Err(ValidationError::Invalid(InvalidCandidate::PrepareError(_)))
+			Err(ValidationError::Preparation(_))
 		);
 	}
 

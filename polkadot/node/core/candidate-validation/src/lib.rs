@@ -655,7 +655,7 @@ async fn validate_candidate_exhaustive(
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
 				"ambiguous job death: {err}"
 			)))),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::PrepareError(e))) => {
+		Err(ValidationError::Preparation(e)) => {
 			// In principle if preparation of the `WASM` fails, the current candidate can not be the
 			// reason for that. So we can't say whether it is invalid or not. In addition, with
 			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
@@ -667,7 +667,7 @@ async fn validate_candidate_exhaustive(
 				?e,
 				"Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)",
 			);
-			Err(ValidationFailed(e))
+			Err(ValidationFailed(e.to_string()))
 		},
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
