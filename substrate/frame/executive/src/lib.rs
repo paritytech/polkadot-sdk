@@ -611,13 +611,6 @@ impl<
 			let num_inherents = Self::initial_checks(&block) as usize;
 			let (header, extrinsics) = block.deconstruct();
 
-			// Check if there are any forbidden non-inherents in the block.
-			if mode == ExtrinsicInclusionMode::OnlyInherents && extrinsics.len() > num_inherents {
-				// Note: It would be possible to not explicitly panic here since the state-root
-				// check should already catch any mismatch, but this makes it easier to debug.
-				panic!("Only inherents are allowed in this block");
-			}
-
 			// Process inherents (if any).
 			Self::apply_extrinsics(extrinsics.iter(), mode);
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
@@ -765,6 +758,12 @@ impl<
 			<frame_system::Pallet<System>>::note_inherents_applied();
 		}
 
+		// Decode parameters and dispatch
+		if mode == ExtrinsicInclusionMode::OnlyInherents && !is_inherent {
+			// The block builder respects this by using the mode returned by `initialize_block`.
+			panic!("Only inherents are allowed in this block");
+		}
+
 		// We don't need to make sure to `note_extrinsic` only after we know it's going to be
 		// executed to prevent it from leaking in storage since at this point, it will either
 		// execute or panic (and revert storage changes).
@@ -772,11 +771,6 @@ impl<
 
 		// AUDIT: Under no circumstances may this function panic from here onwards.
 
-		// Decode parameters and dispatch
-		if mode == ExtrinsicInclusionMode::OnlyInherents && !is_inherent {
-			// The block builder respects this by using the mode returned by `initialize_block`.
-			panic!("Only Mandatory extrinsics are allowed during Multi-Block-Migrations");
-		}
 		// Check whether we need to error because extrinsics are paused.
 		let r = Applyable::apply::<UnsignedValidator>(xt, &dispatch_info, encoded_len)?;
 

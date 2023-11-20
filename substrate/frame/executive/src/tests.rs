@@ -393,6 +393,8 @@ impl PreInherents for MockedSystemCallbacks {
 	fn pre_inherents() {
 		assert_eq!(SystemCallbacksCalled::get(), 0);
 		SystemCallbacksCalled::set(1);
+		// Change the storage to modify the root hash:
+		frame_support::storage::unhashed::put(b":pre_inherent", b"0");
 	}
 }
 
@@ -400,6 +402,7 @@ impl PostInherents for MockedSystemCallbacks {
 	fn post_inherents() {
 		assert_eq!(SystemCallbacksCalled::get(), 1);
 		SystemCallbacksCalled::set(2);
+		frame_support::storage::unhashed::put(b":post_inherent", b"0");
 	}
 }
 
@@ -407,6 +410,7 @@ impl PostTransactions for MockedSystemCallbacks {
 	fn post_transactions() {
 		assert_eq!(SystemCallbacksCalled::get(), 2);
 		SystemCallbacksCalled::set(3);
+		frame_support::storage::unhashed::put(b":post_transaction", b"0");
 	}
 }
 
@@ -490,13 +494,13 @@ fn block_import_works() {
 	block_import_works_inner(
 		new_test_ext_v0(1),
 		array_bytes::hex_n_into_unchecked(
-			"65e953676859e7a33245908af7ad3637d6861eb90416d433d485e95e2dd174a1",
+			"4826d3bdf87dbbc883d2ab274cbe272f58ed94a904619b59953e48294d1142d2",
 		),
 	);
 	block_import_works_inner(
 		new_test_ext(1),
 		array_bytes::hex_n_into_unchecked(
-			"5a19b3d6fdb7241836349fdcbe2d9df4d4f945b949d979e31ad50bff1cbcd1c2",
+			"d6b465f5a50c9f8d5a6edc0f01d285a6b19030f097d3aaf1649b7be81649f118",
 		),
 	);
 }
@@ -1060,22 +1064,6 @@ fn transactions_in_only_inherents_block_errors() {
 	});
 }
 
-/// Still calls the correct callbacks during `OnlyInherents` mode.
-#[test]
-fn callbacks_in_only_inherents_block_works() {
-	MbmActive::set(true);
-
-	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new_from_number(1));
-
-		Executive::finalize_block()
-	});
-
-	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![]));
-	});
-}
-
 /// Same as above but no error.
 #[test]
 fn transactions_in_normal_block_works() {
@@ -1158,6 +1146,7 @@ fn try_execute_tx_forbidden_errors() {
 #[test]
 fn ensure_inherents_are_first_works() {
 	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let in2 = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
 
 	// Mocked empty header:
@@ -1173,7 +1162,7 @@ fn ensure_inherents_are_first_works() {
 			0
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()]),),
+			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()])),
 			1
 		);
 		assert_ok!(
@@ -1186,7 +1175,7 @@ fn ensure_inherents_are_first_works() {
 		assert_ok!(
 			Runtime::ensure_inherents_are_first(&Block::new(
 				header.clone(),
-				vec![in1.clone(), in1.clone(), xt2.clone()]
+				vec![in2.clone(), in1.clone(), xt2.clone()]
 			),),
 			2
 		);
@@ -1208,23 +1197,115 @@ fn ensure_inherents_are_first_works() {
 		assert_eq!(
 			Runtime::ensure_inherents_are_first(&Block::new(
 				header.clone(),
-				vec![xt2.clone(), xt2.clone(), xt2.clone(), in1.clone()]
+				vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
 			),),
 			Err(3)
 		);
 	});
 }
 
+/// Still calls the correct callbacks during `OnlyInherents` amd `AllExtrinsics` modes.
 #[test]
-fn new_system_callbacks_work() {
-	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new_from_number(1));
+fn callbacks_in_block_production_works() {
+	callbacks_in_block_production_works_inner(false);
+	callbacks_in_block_production_works_inner(true);
+}
 
-		Executive::finalize_block()
-	});
+fn callbacks_in_block_production_works_inner(mbms_active: bool) {
+	MbmActive::set(mbms_active);
 
-	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![]));
+	for (n_in, n_tx) in (0..10usize).zip(0..10usize) {
+		new_test_ext(10).execute_with(|| {
+			Executive::initialize_block(&Header::new_from_number(1));
+			assert_eq!(SystemCallbacksCalled::get(), 1);
+
+			for _ in 0..n_in {
+				let xt = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+			}
+
+			for t in 0..n_tx {
+				let xt = TestXt::new(call_transfer(33, 0), sign_extra(1, t as u64, 0));
+
+				// It should be impossibly to apply a transaction whe MBMs are active:
+				let header = std::panic::catch_unwind(|| {
+					Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+				});
+				match header {
+					Err(e) => {
+						let err = e.downcast::<&str>().unwrap();
+						assert_eq!(*err, "Only inherents are allowed in this block");
+						assert!(
+							MbmActive::get() && n_tx > 0,
+							"Transactions should be rejected when MBMs are active"
+						);
+						break;
+					},
+					Ok(_) => {
+						assert_eq!(SystemCallbacksCalled::get(), 2);
+						assert!(
+							!MbmActive::get() || n_tx == 0,
+							"MBMs should be deactivated after finalization"
+						);
+					},
+				}
+			}
+
+			Executive::finalize_block();
+			assert_eq!(SystemCallbacksCalled::get(), 3);
+		});
+	}
+}
+
+/// Check that block execution rejects transactions when MBMs are active and also that all the
+/// system callbacks are called correctly.
+#[test]
+fn callbacks_in_block_execution_works_inner() {
+	MbmActive::set(true);
+
+	// We start at `1` since otherwise it fails with a storage root mismatch because we use a mocked
+	// header to just test the execution phase.
+	for (n_in, n_tx) in (0..10usize).zip(1..10usize) {
+		let mut extrinsics = Vec::new();
+
+		for _ in 0..n_in {
+			extrinsics.push(TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None));
+		}
+		for t in 0..n_tx {
+			extrinsics.push(TestXt::new(call_transfer(33, 0), sign_extra(1, t as u64, 0)));
+		}
+
+		// Create an empty header:
+		let header = new_test_ext(10).execute_with(|| {
+			assert_eq!(SystemCallbacksCalled::get(), 0);
+			Executive::initialize_block(&Header::new_from_number(1));
+			Executive::finalize_block()
+		});
 		assert_eq!(SystemCallbacksCalled::get(), 3);
-	});
+
+		new_test_ext(1).execute_with(|| {
+			assert_eq!(SystemCallbacksCalled::get(), 0);
+			let header = std::panic::catch_unwind(|| {
+				Executive::execute_block(Block::new(header, extrinsics));
+			});
+
+			match header {
+				Err(e) => {
+					let err = e.downcast::<&str>().unwrap();
+					assert_eq!(*err, "Only inherents are allowed in this block");
+					assert!(
+						MbmActive::get() && n_tx > 0,
+						"Transactions should be rejected when MBMs are active"
+					);
+				},
+				Ok(_) => {
+					assert_eq!(SystemCallbacksCalled::get(), 3);
+					assert!(
+						!MbmActive::get() || n_tx == 0,
+						"MBMs should be deactivated after finalization"
+					);
+				},
+			}
+		});
+	}
 }
