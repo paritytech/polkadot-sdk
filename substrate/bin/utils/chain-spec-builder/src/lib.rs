@@ -32,7 +32,7 @@
 //!
 //!		Query the default genesis config from the provided `runtime.wasm` and use it in the chain
 //! spec. Tool can also store runtime's default genesis config in given file (`-d`):
-//!		```text
+//!	```text
 //! 	chain-spec-builder create -r runtime.wasm default -d /dev/stdout
 //! 	```
 //!
@@ -43,7 +43,7 @@
 //!
 //!		Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
-//!		```text
+//!	```text
 //! 	chain-spec-builder create -s -r runtime.wasm patch -p patch.json
 //! 	```
 //!
@@ -60,7 +60,7 @@
 //!
 //! - **Generate human readable chain spec using provided genesis config patch.**
 //!
-//!		```text
+//!	```text
 //! 	chain-spec-builder create -r runtime.wasm patch -p patch.json
 //! 	```
 //!
@@ -71,7 +71,6 @@
 //!   ```text
 //!   chain-spec-builder create -r runtime.wasm full -c full-genesis-config.json
 //!   ```
-//!   _Note_: No runtime API is called.
 //!
 //! The `chain-spec-builder` provides also some extra utilities:
 //! 	- `verify`: allows to verify if *human readable* chain spec is valid (precisely: all required
