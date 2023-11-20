@@ -2,11 +2,9 @@ use crate::*;
 use emulated_integration_tests_common::xcm_emulator::Get;
 use pallet_identity::{legacy::IdentityInfo, Data};
 use people_rococo_runtime::people::IdentityInfo as IdentityInfoParachain;
-use people_rococo_runtime::people::{BasicDeposit, ByteDeposit, SubAccountDeposit};
 use rococo_runtime::MaxAdditionalFields;
 use rococo_system_emulated_network::rococo_emulated_chain::RococoRelayPallet;
 use rococo_system_emulated_network::{RococoRelay, RococoRelaySender};
-use sp_runtime::BoundedVec;
 
 fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
@@ -131,7 +129,7 @@ fn reap_identity() {
 	PeopleRococo::execute_with(|| {
 		let bal_after =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
-		let deposit_amount = bal_after - bal_before;
-		assert_eq!(deposit_amount, 0);
+		let deposit_amount = bal_before - bal_after;
+		assert!(deposit_amount as u64 > 0);
 	});
 }
