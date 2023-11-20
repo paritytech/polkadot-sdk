@@ -886,6 +886,31 @@
 <a href="#886" id="886">886</a>
 <a href="#887" id="887">887</a>
 <a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -937,8 +962,8 @@
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
-	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
-	ValidationCode, ValidationCodeHash,
+	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepKind, ValidationCode,
+	ValidationCodeHash,
 };
 
 <span class="kw">use </span>parity_scale_codec::Encode;
@@ -961,12 +986,6 @@
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;parachain::candidate-validation&quot;</span>;
 
-<span class="doccomment">/// The amount of time to wait before retrying after a retry-able backing validation error. We use a
-/// lower value for the backing case, to fit within the lower backing timeout.
-</span><span class="attr">#[cfg(not(test))]
-</span><span class="kw">const </span>PVF_BACKING_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(<span class="number">500</span>);
-<span class="attr">#[cfg(test)]
-</span><span class="kw">const </span>PVF_BACKING_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(<span class="number">200</span>);
 <span class="doccomment">/// The amount of time to wait before retrying after a retry-able approval validation error. We use
 /// a higher value for the approval case since we have more time, and if we wait longer it is more
 /// likely that transient conditions will resolve.
@@ -1051,7 +1070,7 @@
 					candidate_receipt,
 					pov,
 					executor_params,
-					exec_timeout_kind,
+					exec_kind,
 					response_sender,
 					..
 				} =&gt; {
@@ -1068,7 +1087,7 @@
 								candidate_receipt,
 								pov,
 								executor_params,
-								exec_timeout_kind,
+								exec_kind,
 								<span class="kw-2">&amp;</span>metrics,
 							)
 							.<span class="kw">await</span>;
@@ -1086,7 +1105,7 @@
 					candidate_receipt,
 					pov,
 					executor_params,
-					exec_timeout_kind,
+					exec_kind,
 					response_sender,
 					..
 				} =&gt; {
@@ -1103,7 +1122,7 @@
 								candidate_receipt,
 								pov,
 								executor_params,
-								exec_timeout_kind,
+								exec_kind,
 								<span class="kw-2">&amp;</span>metrics,
 							)
 							.<span class="kw">await</span>;
@@ -1245,7 +1264,7 @@
 			<span class="kw">return </span>PreCheckOutcome::Invalid
 		};
 
-	<span class="kw">let </span>timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepTimeoutKind::Precheck);
+	<span class="kw">let </span>timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepKind::Precheck);
 
 	<span class="kw">let </span>pvf = <span class="kw">match </span>sp_maybe_compressed_blob::decompress(
 		<span class="kw-2">&amp;</span>validation_code.<span class="number">0</span>,
@@ -1389,7 +1408,7 @@
 	candidate_receipt: CandidateReceipt,
 	pov: Arc&lt;PoV&gt;,
 	executor_params: ExecutorParams,
-	exec_timeout_kind: PvfExecTimeoutKind,
+	exec_kind: PvfExecKind,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt;
 <span class="kw">where
@@ -1409,7 +1428,7 @@
 		candidate_receipt.clone(),
 		pov,
 		executor_params,
-		exec_timeout_kind,
+		exec_kind,
 		metrics,
 	)
 	.<span class="kw">await</span>;
@@ -1445,7 +1464,7 @@
 	candidate_receipt: CandidateReceipt,
 	pov: Arc&lt;PoV&gt;,
 	executor_params: ExecutorParams,
-	exec_timeout_kind: PvfExecTimeoutKind,
+	exec_kind: PvfExecKind,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt; {
 	<span class="kw">let </span>_timer = metrics.time_validate_candidate_exhaustive();
@@ -1504,15 +1523,32 @@
 		relay_parent_storage_root: persisted_validation_data.relay_parent_storage_root,
 	};
 
-	<span class="kw">let </span>result = validation_backend
-		.validate_candidate_with_retry(
-			raw_validation_code.to_vec(),
-			pvf_exec_timeout(<span class="kw-2">&amp;</span>executor_params, exec_timeout_kind),
-			exec_timeout_kind,
-			params,
-			executor_params,
-		)
-		.<span class="kw">await</span>;
+	<span class="kw">let </span>result = <span class="kw">match </span>exec_kind {
+		<span class="comment">// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
+		// honest backers getting slashed.
+		</span>PvfExecKind::Backing =&gt; {
+			<span class="kw">let </span>prep_timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepKind::Prepare);
+			<span class="kw">let </span>exec_timeout = pvf_exec_timeout(<span class="kw-2">&amp;</span>executor_params, exec_kind);
+			<span class="kw">let </span>pvf = PvfPrepData::from_code(
+				raw_validation_code.to_vec(),
+				executor_params,
+				prep_timeout,
+				PrepareJobKind::Compilation,
+			);
+
+			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).<span class="kw">await
+		</span>},
+		PvfExecKind::Approval =&gt;
+			validation_backend
+				.validate_candidate_with_retry(
+					raw_validation_code.to_vec(),
+					pvf_exec_timeout(<span class="kw-2">&amp;</span>executor_params, exec_kind),
+					params,
+					executor_params,
+					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
+				)
+				.<span class="kw">await</span>,
+	};
 
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>error) = result {
 		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, <span class="question-mark">?</span>error, <span class="string">&quot;Failed to validate candidate&quot;</span>);
@@ -1597,8 +1633,8 @@
 		encoded_params: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;WasmValidationResult, ValidationError&gt;;
 
-	<span class="doccomment">/// Tries executing a PVF. Will retry once if an error is encountered that may have been
-	/// transient.
+	<span class="doccomment">/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered
+	/// that may have been transient.
 	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
@@ -1606,11 +1642,11 @@
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		raw_validation_code: Vec&lt;u8&gt;,
 		exec_timeout: Duration,
-		exec_timeout_kind: PvfExecTimeoutKind,
 		params: ValidationParams,
 		executor_params: ExecutorParams,
+		retry_delay: Duration,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;WasmValidationResult, ValidationError&gt; {
-		<span class="kw">let </span>prep_timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepTimeoutKind::Lenient);
+		<span class="kw">let </span>prep_timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepKind::Prepare);
 		<span class="comment">// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		</span><span class="kw">let </span>pvf = PvfPrepData::from_code(
 			raw_validation_code,
@@ -1627,11 +1663,6 @@
 		<span class="kw">if </span>validation_result.is_ok() {
 			<span class="kw">return </span>validation_result
 		}
-
-		<span class="kw">let </span>retry_delay = <span class="kw">match </span>exec_timeout_kind {
-			PvfExecTimeoutKind::Backing =&gt; PVF_BACKING_EXECUTION_RETRY_DELAY,
-			PvfExecTimeoutKind::Approval =&gt; PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-		};
 
 		<span class="comment">// Allow limited retries for each kind of error.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>num_death_retries_left = <span class="number">1</span>;
@@ -1755,23 +1786,42 @@
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">fn </span>pvf_prep_timeout(executor_params: <span class="kw-2">&amp;</span>ExecutorParams, kind: PvfPrepTimeoutKind) -&gt; Duration {
+<span class="doccomment">/// To determine the amount of timeout time for the pvf execution.
+///
+/// Precheck
+///	The time period after which the preparation worker is considered
+/// unresponsive and will be killed.
+///
+/// Prepare
+///The time period after which the preparation worker is considered
+/// unresponsive and will be killed.
+</span><span class="kw">fn </span>pvf_prep_timeout(executor_params: <span class="kw-2">&amp;</span>ExecutorParams, kind: PvfPrepKind) -&gt; Duration {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = executor_params.pvf_prep_timeout(kind) {
 		<span class="kw">return </span>timeout
 	}
 	<span class="kw">match </span>kind {
-		PvfPrepTimeoutKind::Precheck =&gt; DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
-		PvfPrepTimeoutKind::Lenient =&gt; DEFAULT_LENIENT_PREPARATION_TIMEOUT,
+		PvfPrepKind::Precheck =&gt; DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
+		PvfPrepKind::Prepare =&gt; DEFAULT_LENIENT_PREPARATION_TIMEOUT,
 	}
 }
 
-<span class="kw">fn </span>pvf_exec_timeout(executor_params: <span class="kw-2">&amp;</span>ExecutorParams, kind: PvfExecTimeoutKind) -&gt; Duration {
+<span class="doccomment">/// To determine the amount of timeout time for the pvf execution.
+///
+/// Backing subsystem
+/// The amount of time to spend on execution during backing.
+///
+/// Approval subsystem
+/// The amount of time to spend on execution during approval or disputes.
+/// This should be much longer than the backing execution timeout to ensure that in the
+/// absence of extremely large disparities between hardware, blocks that pass backing are
+/// considered executable by approval checkers or dispute participants.
+</span><span class="kw">fn </span>pvf_exec_timeout(executor_params: <span class="kw-2">&amp;</span>ExecutorParams, kind: PvfExecKind) -&gt; Duration {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = executor_params.pvf_exec_timeout(kind) {
 		<span class="kw">return </span>timeout
 	}
 	<span class="kw">match </span>kind {
-		PvfExecTimeoutKind::Backing =&gt; DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		PvfExecTimeoutKind::Approval =&gt; DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
+		PvfExecKind::Backing =&gt; DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		PvfExecKind::Approval =&gt; DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
 	}
 }
 </code></pre></div></section></main></body></html>

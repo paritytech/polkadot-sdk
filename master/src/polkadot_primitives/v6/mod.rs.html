@@ -1878,14 +1878,6 @@
 <a href="#1878" id="1878">1878</a>
 <a href="#1879" id="1879">1879</a>
 <a href="#1880" id="1880">1880</a>
-<a href="#1881" id="1881">1881</a>
-<a href="#1882" id="1882">1882</a>
-<a href="#1883" id="1883">1883</a>
-<a href="#1884" id="1884">1884</a>
-<a href="#1885" id="1885">1885</a>
-<a href="#1886" id="1886">1886</a>
-<a href="#1887" id="1887">1887</a>
-<a href="#1888" id="1888">1888</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3669,30 +3661,22 @@
 	}
 }
 
-<span class="doccomment">/// Type discriminator for PVF preparation timeouts
+<span class="doccomment">/// Type discriminator for PVF preparation.
 </span><span class="attr">#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-</span><span class="kw">pub enum </span>PvfPrepTimeoutKind {
-	<span class="doccomment">/// For prechecking requests, the time period after which the preparation worker is considered
-	/// unresponsive and will be killed.
+</span><span class="kw">pub enum </span>PvfPrepKind {
+	<span class="doccomment">/// For prechecking requests.
 	</span>Precheck,
 
-	<span class="doccomment">/// For execution and heads-up requests, the time period after which the preparation worker is
-	/// considered unresponsive and will be killed. More lenient than the timeout for prechecking
-	/// to prevent honest validators from timing out on valid PVFs.
-	</span>Lenient,
+	<span class="doccomment">/// For execution and heads-up requests.
+	</span>Prepare,
 }
 
-<span class="doccomment">/// Type discriminator for PVF execution timeouts
+<span class="doccomment">/// Type discriminator for PVF execution.
 </span><span class="attr">#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-</span><span class="kw">pub enum </span>PvfExecTimeoutKind {
-	<span class="doccomment">/// The amount of time to spend on execution during backing.
+</span><span class="kw">pub enum </span>PvfExecKind {
+	<span class="doccomment">/// For backing requests.
 	</span>Backing,
-
-	<span class="doccomment">/// The amount of time to spend on execution during approval or disputes.
-	///
-	/// This should be much longer than the backing execution timeout to ensure that in the
-	/// absence of extremely large disparities between hardware, blocks that pass backing are
-	/// considered executable by approval checkers or dispute participants.
+	<span class="doccomment">/// For approval and dispute request.
 	</span>Approval,
 }
 

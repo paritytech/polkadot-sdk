@@ -170,6 +170,9 @@ a possibly transient error, to allow the conditions that led to the error to
 hopefully resolve. We use a more brief delay here (1 second as opposed to 15
 minutes for preparation (see above)), because a successful execution must happen
 in a short amount of time.</p>
+<p>If the execution fails during the backing phase, we won't retry to reduce the chance of
+supporting nondeterministic candidates. This reduces the chance of nondeterministic blocks
+getting backed and honest backers getting slashed.</p>
 <p>We currently know of the following specific cases that will lead to a retried
 execution request:</p>
 <ol>
@@ -286,7 +289,7 @@ data on the host machine.</p>
 attackers potentially sensitive data unnecessarily? And even if everything else
 is locked down, env vars can potentially provide a source of randomness (see
 point 1, &quot;Consensus faults&quot; above).</p>
-<footer id="last-change">Last change: 2023-11-14, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/54f84285bf">54f84285bf</a></footer>
+<footer id="last-change">Last change: 2023-11-20, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/ede4a36262">ede4a36262</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

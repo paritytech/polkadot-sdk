@@ -340,13 +340,6 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -370,7 +363,7 @@
 //! by the first element of the vector). Decoding to a usable semantics structure is
 //! done in `polkadot-node-core-pvf`.
 
-</span><span class="kw">use crate</span>::{BlakeTwo256, HashT <span class="kw">as _</span>, PvfExecTimeoutKind, PvfPrepTimeoutKind};
+</span><span class="kw">use crate</span>::{BlakeTwo256, HashT <span class="kw">as _</span>, PvfExecKind, PvfPrepKind};
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_core_primitives::Hash;
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -394,7 +387,7 @@
 </span><span class="kw">pub const </span>PRECHECK_MEM_MAX_HI: u64 = <span class="number">16 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
 <span class="comment">// Default PVF timeouts. Must never be changed! Use executor environment parameters to adjust them.
-// See also `PvfPrepTimeoutKind` and `PvfExecTimeoutKind` docs.
+// See also `PvfPrepKind` and `PvfExecKind` docs.
 
 </span><span class="doccomment">/// Default PVF preparation timeout for prechecking requests.
 </span><span class="kw">pub const </span>DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(<span class="number">60</span>);
@@ -448,12 +441,12 @@
 	/// Always ensure that `precheck_timeout` &lt; `lenient_timeout`.
 	/// When absent, the default values will be used.
 	</span><span class="attr">#[codec(index = <span class="number">5</span>)]
-	</span>PvfPrepTimeout(PvfPrepTimeoutKind, u64),
+	</span>PvfPrepTimeout(PvfPrepKind, u64),
 	<span class="doccomment">/// PVF execution timeouts, in millisecond.
 	/// Always ensure that `backing_timeout` &lt; `approval_timeout`.
 	/// When absent, the default values will be used.
 	</span><span class="attr">#[codec(index = <span class="number">6</span>)]
-	</span>PvfExecTimeout(PvfExecTimeoutKind, u64),
+	</span>PvfExecTimeout(PvfExecKind, u64),
 	<span class="doccomment">/// Enables WASM bulk memory proposal
 	</span><span class="attr">#[codec(index = <span class="number">7</span>)]
 	</span>WasmExtBulkMemory,
@@ -523,7 +516,7 @@
 	}
 
 	<span class="doccomment">/// Returns a PVF preparation timeout, if any
-	</span><span class="kw">pub fn </span>pvf_prep_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: PvfPrepTimeoutKind) -&gt; <span class="prelude-ty">Option</span>&lt;Duration&gt; {
+	</span><span class="kw">pub fn </span>pvf_prep_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: PvfPrepKind) -&gt; <span class="prelude-ty">Option</span>&lt;Duration&gt; {
 		<span class="kw">for </span>param <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			<span class="kw">if let </span>ExecutorParam::PvfPrepTimeout(k, timeout) = param {
 				<span class="kw">if </span>kind == <span class="kw-2">*</span>k {
@@ -535,7 +528,7 @@
 	</span>}
 
 	<span class="doccomment">/// Returns a PVF execution timeout, if any
-	</span><span class="kw">pub fn </span>pvf_exec_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: PvfExecTimeoutKind) -&gt; <span class="prelude-ty">Option</span>&lt;Duration&gt; {
+	</span><span class="kw">pub fn </span>pvf_exec_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: PvfExecKind) -&gt; <span class="prelude-ty">Option</span>&lt;Duration&gt; {
 		<span class="kw">for </span>param <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			<span class="kw">if let </span>ExecutorParam::PvfExecTimeout(k, timeout) = param {
 				<span class="kw">if </span>kind == <span class="kw-2">*</span>k {
@@ -591,12 +584,12 @@
 				StackNativeMax(<span class="kw">_</span>) =&gt; <span class="string">&quot;StackNativeMax&quot;</span>,
 				PrecheckingMaxMemory(<span class="kw">_</span>) =&gt; <span class="string">&quot;PrecheckingMaxMemory&quot;</span>,
 				PvfPrepTimeout(kind, <span class="kw">_</span>) =&gt; <span class="kw">match </span>kind {
-					PvfPrepTimeoutKind::Precheck =&gt; <span class="string">&quot;PvfPrepTimeoutKind::Precheck&quot;</span>,
-					PvfPrepTimeoutKind::Lenient =&gt; <span class="string">&quot;PvfPrepTimeoutKind::Lenient&quot;</span>,
+					PvfPrepKind::Precheck =&gt; <span class="string">&quot;PvfPrepKind::Precheck&quot;</span>,
+					PvfPrepKind::Prepare =&gt; <span class="string">&quot;PvfPrepKind::Prepare&quot;</span>,
 				},
 				PvfExecTimeout(kind, <span class="kw">_</span>) =&gt; <span class="kw">match </span>kind {
-					PvfExecTimeoutKind::Backing =&gt; <span class="string">&quot;PvfExecTimeoutKind::Backing&quot;</span>,
-					PvfExecTimeoutKind::Approval =&gt; <span class="string">&quot;PvfExecTimeoutKind::Approval&quot;</span>,
+					PvfExecKind::Backing =&gt; <span class="string">&quot;PvfExecKind::Backing&quot;</span>,
+					PvfExecKind::Approval =&gt; <span class="string">&quot;PvfExecKind::Approval&quot;</span>,
 				},
 				WasmExtBulkMemory =&gt; <span class="string">&quot;WasmExtBulkMemory&quot;</span>,
 			};
@@ -646,30 +639,23 @@
 		}
 
 		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(precheck), <span class="prelude-val">Some</span>(lenient)) = (
-			seen.get(<span class="string">&quot;PvfPrepTimeoutKind::Precheck&quot;</span>)
+			seen.get(<span class="string">&quot;PvfPrepKind::Precheck&quot;</span>)
 				.or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_PRECHECK_PREPARATION_TIMEOUT_MS)),
-			seen.get(<span class="string">&quot;PvfPrepTimeoutKind::Lenient&quot;</span>)
+			seen.get(<span class="string">&quot;PvfPrepKind::Prepare&quot;</span>)
 				.or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			<span class="kw">if </span><span class="kw-2">*</span>precheck &gt;= <span class="kw-2">*</span>lenient {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(
-					<span class="string">&quot;PvfPrepTimeoutKind::Precheck&quot;</span>,
-					<span class="string">&quot;PvfPrepTimeoutKind::Lenient&quot;</span>,
-				))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">&quot;PvfPrepKind::Precheck&quot;</span>, <span class="string">&quot;PvfPrepKind::Prepare&quot;</span>))
 			}
 		}
 
 		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(backing), <span class="prelude-val">Some</span>(approval)) = (
-			seen.get(<span class="string">&quot;PvfExecTimeoutKind::Backing&quot;</span>)
-				.or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
-			seen.get(<span class="string">&quot;PvfExecTimeoutKind::Approval&quot;</span>)
+			seen.get(<span class="string">&quot;PvfExecKind::Backing&quot;</span>).or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
+			seen.get(<span class="string">&quot;PvfExecKind::Approval&quot;</span>)
 				.or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
 		) {
 			<span class="kw">if </span><span class="kw-2">*</span>backing &gt;= <span class="kw-2">*</span>approval {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(
-					<span class="string">&quot;PvfExecTimeoutKind::Backing&quot;</span>,
-					<span class="string">&quot;PvfExecTimeoutKind::Approval&quot;</span>,
-				))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">&quot;PvfExecKind::Backing&quot;</span>, <span class="string">&quot;PvfExecKind::Approval&quot;</span>))
 			}
 		}
 

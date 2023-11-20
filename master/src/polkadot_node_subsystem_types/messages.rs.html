@@ -1210,7 +1210,7 @@
 	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
@@ -1313,8 +1313,8 @@
 		</span>pov: Arc&lt;PoV&gt;,
 		<span class="doccomment">/// Session&#39;s executor parameters
 		</span>executor_params: ExecutorParams,
-		<span class="doccomment">/// Execution timeout kind (backing/approvals)
-		</span>exec_timeout_kind: PvfExecTimeoutKind,
+		<span class="doccomment">/// Execution kind, used for timeouts and retries (backing/approvals)
+		</span>exec_kind: PvfExecKind,
 		<span class="doccomment">/// The sending side of the response channel
 		</span>response_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt;&gt;,
 	},
@@ -1338,8 +1338,8 @@
 		</span>pov: Arc&lt;PoV&gt;,
 		<span class="doccomment">/// Session&#39;s executor parameters
 		</span>executor_params: ExecutorParams,
-		<span class="doccomment">/// Execution timeout kind (backing/approvals)
-		</span>exec_timeout_kind: PvfExecTimeoutKind,
+		<span class="doccomment">/// Execution kind, used for timeouts and retries (backing/approvals)
+		</span>exec_kind: PvfExecKind,
 		<span class="doccomment">/// The sending side of the response channel
 		</span>response_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationFailed&gt;&gt;,
 	},

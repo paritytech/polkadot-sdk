@@ -533,7 +533,7 @@
 
 <span class="kw">use </span>polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,
-	PvfExecTimeoutKind,
+	PvfExecKind,
 };
 
 <span class="kw">use </span>futures::channel::oneshot;
@@ -593,10 +593,10 @@
 		}
 	}
 
-	<span class="kw">fn </span>should_misbehave(<span class="kw-2">&amp;</span><span class="self">self</span>, timeout: PvfExecTimeoutKind) -&gt; bool {
+	<span class="kw">fn </span>should_misbehave(<span class="kw-2">&amp;</span><span class="self">self</span>, timeout: PvfExecKind) -&gt; bool {
 		<span class="kw">match </span>timeout {
-			PvfExecTimeoutKind::Backing =&gt; <span class="self">self</span>.includes_backing(),
-			PvfExecTimeoutKind::Approval =&gt; <span class="self">self</span>.includes_approval(),
+			PvfExecKind::Backing =&gt; <span class="self">self</span>.includes_backing(),
+			PvfExecKind::Approval =&gt; <span class="self">self</span>.includes_approval(),
 		}
 	}
 }
@@ -782,13 +782,13 @@
 						candidate_receipt,
 						pov,
 						executor_params,
-						exec_timeout_kind,
+						exec_kind,
 						response_sender,
 						..
 					},
 			} =&gt; {
 				<span class="kw">match </span><span class="self">self</span>.fake_validation {
-					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(exec_kind) =&gt; {
 						<span class="comment">// Behave normally if the `PoV` is not known to be malicious.
 						</span><span class="kw">if </span>pov.block_data.<span class="number">0</span>.as_slice() != MALICIOUS_POV {
 							<span class="kw">return </span><span class="prelude-val">Some</span>(FromOrchestra::Communication {
@@ -798,7 +798,7 @@
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_timeout_kind,
+									exec_kind,
 									response_sender,
 								},
 							})
@@ -836,14 +836,14 @@
 										candidate_receipt,
 										pov,
 										executor_params,
-										exec_timeout_kind,
+										exec_kind,
 										response_sender,
 									},
 								})
 							},
 						}
 					},
-					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(exec_kind) =&gt; {
 						<span class="comment">// Set the validation result to invalid with probability `p` and trigger a
 						// dispute
 						</span><span class="kw">let </span>behave_maliciously = <span class="self">self</span>.distribution.sample(<span class="kw-2">&amp;mut </span>rand::thread_rng());
@@ -876,7 +876,7 @@
 										candidate_receipt,
 										pov,
 										executor_params,
-										exec_timeout_kind,
+										exec_kind,
 										response_sender,
 									},
 								})
@@ -891,7 +891,7 @@
 							candidate_receipt,
 							pov,
 							executor_params,
-							exec_timeout_kind,
+							exec_kind,
 							response_sender,
 						},
 					}),
@@ -904,13 +904,13 @@
 						candidate_receipt,
 						pov,
 						executor_params,
-						exec_timeout_kind,
+						exec_kind,
 						response_sender,
 						..
 					},
 			} =&gt; {
 				<span class="kw">match </span><span class="self">self</span>.fake_validation {
-					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_valid() &amp;&amp; x.should_misbehave(exec_kind) =&gt; {
 						<span class="comment">// Behave normally if the `PoV` is not known to be malicious.
 						</span><span class="kw">if </span>pov.block_data.<span class="number">0</span>.as_slice() != MALICIOUS_POV {
 							<span class="kw">return </span><span class="prelude-val">Some</span>(FromOrchestra::Communication {
@@ -918,7 +918,7 @@
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_timeout_kind,
+									exec_kind,
 									response_sender,
 								},
 							})
@@ -948,13 +948,13 @@
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_timeout_kind,
+									exec_kind,
 									response_sender,
 								},
 							}),
 						}
 					},
-					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(exec_timeout_kind) =&gt; {
+					x <span class="kw">if </span>x.misbehaves_invalid() &amp;&amp; x.should_misbehave(exec_kind) =&gt; {
 						<span class="comment">// Maliciously set the validation result to invalid for a valid candidate
 						// with probability `p`
 						</span><span class="kw">let </span>behave_maliciously = <span class="self">self</span>.distribution.sample(<span class="kw-2">&amp;mut </span>rand::thread_rng());
@@ -982,7 +982,7 @@
 										candidate_receipt,
 										pov,
 										executor_params,
-										exec_timeout_kind,
+										exec_kind,
 										response_sender,
 									},
 								})
@@ -994,7 +994,7 @@
 							candidate_receipt,
 							pov,
 							executor_params,
-							exec_timeout_kind,
+							exec_kind,
 							response_sender,
 						},
 					}),
