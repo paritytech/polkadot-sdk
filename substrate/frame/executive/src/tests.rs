@@ -393,7 +393,7 @@ impl PreInherents for MockedSystemCallbacks {
 	fn pre_inherents() {
 		assert_eq!(SystemCallbacksCalled::get(), 0);
 		SystemCallbacksCalled::set(1);
-	}	
+	}
 }
 
 impl PostInherents for MockedSystemCallbacks {
@@ -457,13 +457,7 @@ fn balance_transfer_dispatch_works() {
 		<Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(&weight);
 	let mut t = sp_io::TestExternalities::new(t);
 	t.execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 		let r = Executive::apply_extrinsic(xt);
 		assert!(r.is_ok());
 		assert_eq!(<pallet_balances::Pallet<Runtime>>::total_balance(&1), 142 - fee);
@@ -567,13 +561,7 @@ fn bad_extrinsic_not_inserted() {
 	// bad nonce check!
 	let xt = TestXt::new(call_transfer(33, 69), sign_extra(1, 30, 0));
 	t.execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 		assert_err!(
 			Executive::apply_extrinsic(xt),
 			TransactionValidityError::Invalid(InvalidTransaction::Future)
@@ -598,13 +586,7 @@ fn block_weight_limit_enforced() {
 	let limit = block_weights.get(DispatchClass::Normal).max_total.unwrap() - base_block_weight;
 	let num_to_exhaust_block = limit.ref_time() / (encoded_len + 5);
 	t.execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 		// Base block execution weight + `on_initialize` weight from the custom module.
 		assert_eq!(<frame_system::Pallet<Runtime>>::block_weight().total(), base_block_weight);
 
@@ -653,13 +635,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 		let base_block_weight = Weight::from_parts(175, 0) +
 			<Runtime as frame_system::Config>::BlockWeights::get().base_block;
 
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		assert_eq!(<frame_system::Pallet<Runtime>>::block_weight().total(), base_block_weight);
 		assert_eq!(<frame_system::Pallet<Runtime>>::all_extrinsics_len(), 0);
@@ -685,13 +661,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 
 		// Reset to a new block.
 		SystemCallbacksCalled::take();
-		Executive::initialize_block(&Header::new(
-			2,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(2));
 
 		// Block weight cleaned up on `System::initialize`
 		assert_eq!(<frame_system::Pallet<Runtime>>::block_weight().total(), base_block_weight);
@@ -721,7 +691,8 @@ fn validate_unsigned() {
 			),
 			Err(TransactionValidityError::Unknown(UnknownTransaction::NoUnsignedValidator)),
 		);
-		// Need to initialize the block before applying extrinsics for the `MockedSystemCallbacks` check.
+		// Need to initialize the block before applying extrinsics for the `MockedSystemCallbacks`
+		// check.
 		Executive::initialize_block(&Header::new_from_number(1));
 		assert_eq!(Executive::apply_extrinsic(valid), Ok(Err(DispatchError::BadOrigin)));
 		assert_eq!(
@@ -741,13 +712,7 @@ fn can_not_pay_for_tx_fee_on_full_lock() {
 			RuntimeCall::System(frame_system::Call::remark { remark: vec![1u8] }),
 			sign_extra(1, 0, 0),
 		);
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		assert_eq!(Executive::apply_extrinsic(xt), Err(InvalidTransaction::Payment.into()),);
 		assert_eq!(<pallet_balances::Pallet<Runtime>>::total_balance(&1), 111);
@@ -852,13 +817,7 @@ fn custom_runtime_upgrade_is_called_before_modules() {
 			*v = sp_version::RuntimeVersion { spec_version: 1, ..Default::default() }
 		});
 
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");
 		assert_eq!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).unwrap(), true.encode());
@@ -876,14 +835,7 @@ fn event_from_runtime_upgrade_is_included() {
 		// set block number to non zero so events are not excluded
 		System::set_block_number(1);
 
-		Executive::initialize_block(&Header::new(
-			2,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
-
+		Executive::initialize_block(&Header::new_from_number(2));
 		System::assert_last_event(frame_system::Event::<Runtime>::CodeUpdated.into());
 	});
 }
@@ -904,13 +856,7 @@ fn custom_runtime_upgrade_is_called_when_using_execute_block_trait() {
 		});
 
 		// Let's build some fake block.
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
 
@@ -945,13 +891,7 @@ fn all_weights_are_recorded_correctly() {
 
 		let block_number = 1;
 
-		Executive::initialize_block(&Header::new(
-			block_number,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(block_number));
 
 		// All weights that show up in the `initialize_block_impl`
 		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
@@ -996,13 +936,7 @@ fn calculating_storage_root_twice_works() {
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
 
@@ -1025,13 +959,7 @@ fn invalid_inherent_position_fail() {
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
 		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
@@ -1051,13 +979,7 @@ fn valid_inherents_position_works() {
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
 		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
@@ -1103,13 +1025,7 @@ fn inherents_ok_while_exts_forbidden_works() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 
 	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
 		// This is not applied:
@@ -1130,13 +1046,7 @@ fn transactions_in_only_inherents_block_errors() {
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
 		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
@@ -1156,13 +1066,7 @@ fn callbacks_in_only_inherents_block_works() {
 	MbmActive::set(true);
 
 	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::finalize_block()
 	});
@@ -1179,13 +1083,7 @@ fn transactions_in_normal_block_works() {
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
 		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
@@ -1207,13 +1105,7 @@ fn try_execute_block_works() {
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
 		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
@@ -1242,13 +1134,7 @@ fn try_execute_tx_forbidden_errors() {
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
 		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
@@ -1332,13 +1218,7 @@ fn ensure_inherents_are_first_works() {
 #[test]
 fn new_system_callbacks_work() {
 	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new(
-			1,
-			H256::default(),
-			H256::default(),
-			[69u8; 32].into(),
-			Digest::default(),
-		));
+		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::finalize_block()
 	});
