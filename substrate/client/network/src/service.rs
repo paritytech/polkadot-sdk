@@ -72,7 +72,7 @@ use libp2p::{
 	Multiaddr, PeerId,
 };
 use log::{debug, error, info, trace, warn};
-use metrics::{Histogram, HistogramVec, MetricSources, Metrics};
+use metrics::{Histogram, MetricSources, Metrics};
 use parking_lot::Mutex;
 
 use sc_network_common::{
@@ -122,12 +122,6 @@ pub struct NetworkService<B: BlockT + 'static, H: ExHashT> {
 	bandwidth: Arc<transport::BandwidthSinks>,
 	/// Channel that sends messages to the actual worker.
 	to_worker: TracingUnboundedSender<ServiceToWorkerMsg>,
-	/// For each peer and protocol combination, an object that allows sending notifications to
-	/// that peer. Updated by the [`NetworkWorker`].
-	peers_notifications_sinks: Arc<Mutex<HashMap<(PeerId, ProtocolName), NotificationsSink>>>,
-	/// Field extracted from the [`Metrics`] struct and necessary to report the
-	/// notifications-related metrics.
-	notifications_sizes_metric: Option<HistogramVec>,
 	/// Protocol name -> `SetId` mapping for notification protocols. The map never changes after
 	/// initialization.
 	notification_protocol_ids: HashMap<ProtocolName, SetId>,
@@ -512,7 +506,6 @@ where
 		}
 
 		let listen_addresses = Arc::new(Mutex::new(HashSet::new()));
-		let peers_notifications_sinks = Arc::new(Mutex::new(HashMap::new()));
 
 		let service = Arc::new(NetworkService {
 			bandwidth,
@@ -522,10 +515,6 @@ where
 			local_peer_id,
 			local_identity,
 			to_worker,
-			peers_notifications_sinks: peers_notifications_sinks.clone(),
-			notifications_sizes_metric: metrics
-				.as_ref()
-				.map(|metrics| metrics.notifications_sizes.clone()),
 			notification_protocol_ids,
 			protocol_handles,
 			sync_protocol_handle,
@@ -544,7 +533,6 @@ where
 			metrics,
 			boot_node_ids,
 			reported_invalid_boot_nodes: Default::default(),
-			peers_notifications_sinks,
 			peer_store_handle: params.peer_store,
 			notif_protocol_handles,
 			_marker: Default::default(),
@@ -1021,73 +1009,26 @@ where
 	}
 }
 
+// TODO(aaro): remove this trait
 impl<B, H> NetworkNotification for NetworkService<B, H>
 where
 	B: BlockT + 'static,
 	H: ExHashT,
 {
-	fn write_notification(&self, target: PeerId, protocol: ProtocolName, message: Vec<u8>) {
-		// We clone the `NotificationsSink` in order to be able to unlock the network-wide
-		// `peers_notifications_sinks` mutex as soon as possible.
-		let sink = {
-			let peers_notifications_sinks = self.peers_notifications_sinks.lock();
-			if let Some(sink) = peers_notifications_sinks.get(&(target, protocol.clone())) {
-				sink.clone()
-			} else {
-				// Notification silently discarded, as documented.
-				debug!(
-					target: "sub-libp2p",
-					"Attempted to send notification on missing or closed substream: {}, {:?}",
-					target, protocol,
-				);
-				return
-			}
-		};
-
-		if let Some(notifications_sizes_metric) = self.notifications_sizes_metric.as_ref() {
-			notifications_sizes_metric
-				.with_label_values(&["out", &protocol])
-				.observe(message.len() as f64);
-		}
-
-		// Sending is communicated to the `NotificationsSink`.
-		trace!(
-			target: "sub-libp2p",
-			"External API => Notification({:?}, {:?}, {} bytes)",
-			target, protocol, message.len()
-		);
-		trace!(target: "sub-libp2p", "Handler({:?}) <= Sync notification", target);
-		sink.send_sync_notification(message);
+	fn write_notification(&self, _target: PeerId, _protocol: ProtocolName, _message: Vec<u8>) {
+		unimplemented!();
 	}
 
 	fn notification_sender(
 		&self,
-		target: PeerId,
-		protocol: ProtocolName,
+		_target: PeerId,
+		_protocol: ProtocolName,
 	) -> Result<Box<dyn NotificationSenderT>, NotificationSenderError> {
-		// We clone the `NotificationsSink` in order to be able to unlock the network-wide
-		// `peers_notifications_sinks` mutex as soon as possible.
-		let sink = {
-			let peers_notifications_sinks = self.peers_notifications_sinks.lock();
-			if let Some(sink) = peers_notifications_sinks.get(&(target, protocol.clone())) {
-				sink.clone()
-			} else {
-				return Err(NotificationSenderError::Closed)
-			}
-		};
-
-		let notification_size_metric = self
-			.notifications_sizes_metric
-			.as_ref()
-			.map(|histogram| histogram.with_label_values(&["out", &protocol]));
-
-		Ok(Box::new(NotificationSender { sink, protocol_name: protocol, notification_size_metric }))
+		unimplemented!();
 	}
 
-	fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>) {
-		let _ = self
-			.to_worker
-			.unbounded_send(ServiceToWorkerMsg::SetNotificationHandshake(protocol, handshake));
+	fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
+		unimplemented!();
 	}
 }
 
@@ -1225,7 +1166,6 @@ enum ServiceToWorkerMsg {
 		pending_response: oneshot::Sender<Result<NetworkState, RequestFailure>>,
 	},
 	DisconnectPeer(PeerId, ProtocolName),
-	SetNotificationHandshake(ProtocolName, Vec<u8>),
 }
 
 /// Main network worker. Must be polled in order for the network to advance.
@@ -1255,9 +1195,6 @@ where
 	boot_node_ids: Arc<HashMap<PeerId, Vec<Multiaddr>>>,
 	/// Boot nodes that we already have reported as invalid.
 	reported_invalid_boot_nodes: HashSet<PeerId>,
-	/// For each peer and protocol combination, an object that allows sending notifications to
-	/// that peer. Shared with the [`NetworkService`].
-	peers_notifications_sinks: Arc<Mutex<HashMap<(PeerId, ProtocolName), NotificationsSink>>>,
 	/// Peer reputation store handle.
 	peer_store_handle: PeerStoreHandle,
 	/// Notification protocol handles.
@@ -1371,11 +1308,6 @@ where
 				.behaviour_mut()
 				.user_protocol_mut()
 				.disconnect_peer(&who, protocol_name),
-			ServiceToWorkerMsg::SetNotificationHandshake(protocol, handshake) => self
-				.network_service
-				.behaviour_mut()
-				.user_protocol_mut()
-				.set_notification_handshake(protocol, handshake),
 		}
 	}
 

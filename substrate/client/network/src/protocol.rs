@@ -34,20 +34,14 @@ use libp2p::{
 	},
 	Multiaddr, PeerId,
 };
-use log::{error, warn};
+use log::warn;
 
 use prometheus_endpoint::Registry;
 use sc_network_common::role::Roles;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
-use std::{
-	collections::{HashMap, HashSet},
-	future::Future,
-	iter,
-	pin::Pin,
-	task::Poll,
-};
+use std::{collections::HashMap, future::Future, iter, pin::Pin, task::Poll};
 
 use notifications::{Notifications, NotificationsOut};
 
@@ -176,19 +170,6 @@ impl<B: BlockT> Protocol<B> {
 	/// Returns the number of peers we're connected to on sync protocol.
 	pub fn num_connected_peers(&self) -> usize {
 		self.behaviour.num_connected_peers(HARDCODED_PEERSETS_SYNC)
-	}
-
-	/// Set handshake for the notification protocol.
-	pub fn set_notification_handshake(&mut self, protocol: ProtocolName, handshake: Vec<u8>) {
-		if let Some(index) = self.notification_protocols.iter().position(|p| *p == protocol) {
-			self.behaviour.set_notif_protocol_handshake(SetId::from(index), handshake);
-		} else {
-			error!(
-				target: "sub-libp2p",
-				"set_notification_handshake with unknown protocol: {}",
-				protocol
-			);
-		}
 	}
 }
 

@@ -36,7 +36,6 @@ use libp2p::{
 };
 
 use parking_lot::Mutex;
-use sc_network_common::role::{ObservedRole, Roles};
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
