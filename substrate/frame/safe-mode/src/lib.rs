@@ -19,6 +19,10 @@
 //!
 //! Trigger for stopping all extrinsics outside of a specific whitelist.
 //!
+//! ## WARNING
+//!
+//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
+//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -28,7 +32,7 @@
 //!
 //! Safe mode is entered via two paths (deposit or forced) until a set block number.
 //! The mode is exited when the block number is reached or a call to one of the exit extrinsics is
-//! made. A `WhitelistedCalls` configuration contains all calls that can be executed in while in
+//! made. A `WhitelistedCalls` configuration contains all calls that can be executed while in
 //! safe mode.
 //!
 //! ### Primary Features
@@ -54,8 +58,10 @@
 //! ## Low Level / Implementation Details
 //!
 //! ### Use Cost
+//!
 //! A storage value (`EnteredUntil`) is used to store the block safe mode will be exited on.
-//! Using the call filter will require a db read of that storage on each extrinsic.
+//! Using the call filter will require a db read of that storage on the first extrinsic.
+//! The storage will be added to the overlay and incur low cost for all additional calls.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
