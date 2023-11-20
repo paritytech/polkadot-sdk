@@ -971,7 +971,7 @@ impl<
 
 	fn deposit_required(asset: AssetKind) -> Self::Balance {
 		match Criterion::convert(asset) {
-			Left(()) => <Left as fungible::Inspect<AccountId>>::minimum_balance(),
+			Left(()) => <Left as AccountTouch<(), AccountId>>::deposit_required(()),
 			Right(a) => <Right as AccountTouch<Right::AssetId, AccountId>>::deposit_required(a),
 		}
 	}
