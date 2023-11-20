@@ -251,7 +251,10 @@ where
 		Ok(match self.preamble {
 			Preamble::Signed(signed, _, extra) => {
 				let signed = lookup.lookup(signed)?;
-				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, extra), function }
+				CheckedExtrinsic {
+					format: ExtrinsicFormat::Signed(signed, extra),
+					function: self.function,
+				}
 			},
 			Preamble::General(extra) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(extra),
