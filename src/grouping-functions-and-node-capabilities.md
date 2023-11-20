@@ -10,7 +10,7 @@ This JSON-RPC interface is intended to be implemented on various types of nodes:
 
 - Full nodes, which hold in their database all block headers and bodies, plus the storage of recent blocks.
 - Light clients, which only know the headers of recent blocks.
-- Archive nodes, which hold.
+- Archive nodes, which hold in their database all block headers, bodies, and storage of every past block.
 - Plain databases that aren't actually connected to the peer-to-peer network of the blockchain.
 
 These various node implementations have different capabilities, and it is normal for some implementations to only support some functions and not others. It doesn't make sense for example for a light client to support a function that rotates keys.
