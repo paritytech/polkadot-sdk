@@ -41,15 +41,13 @@ decl_test_parachains! {
 		},
 		pallets = {
 			PolkadotXcm: people_rococo_runtime::PolkadotXcm,
-			Assets: people_rococo_runtime::Assets,
-			ForeignAssets: people_rococo_runtime::ForeignAssets,
-			PoolAssets: people_rococo_runtime::PoolAssets,
-			AssetConversion: people_rococo_runtime::AssetConversion,
 			Balances: people_rococo_runtime::Balances,
+			Identity: people_rococo_runtime::Identity,
+			IdentityMigrator: people_rococo_runtime::IdentityMigrator,
 		}
 	},
 }
 
 // PeopleRococo implementation
-impl_accounts_helpers_for_parachain!(AssetHubRococo);
-impl_assert_events_helpers_for_parachain!(AssetHubRococo, false);
+impl_accounts_helpers_for_parachain!(PeopleRococo);
+impl_assert_events_helpers_for_parachain!(PeopleRococo, false);
