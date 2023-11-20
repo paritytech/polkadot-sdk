@@ -498,7 +498,7 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
-		CoretimeProvider: pallet_coretime_mock = 51,
+		CoretimeProvider: pallet_coretime_mock = 51, //for mock testing
 	}
 );
 

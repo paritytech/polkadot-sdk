@@ -198,7 +198,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	limited_teleport_native_assets_from_relay_to_system_para_works();
 
 	// Init values for Relay Chain
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
+	let amount_to_send: Balance = CORETIME_ROCOCO_ID * 1000;
 	let destination = CoretimeRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let assets = (Parent, amount_to_send).into();
@@ -239,7 +239,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 #[test]
 fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	// Init values for Relay Chain
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
+	let amount_to_send: Balance = CORETIME_ROCOCO_ID * 1000;
 	let destination = CoretimeRococo::parent_location().into();
 	let beneficiary_id = RococoReceiver::get().into();
 	let assets = (Parent, amount_to_send).into();
@@ -279,7 +279,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 #[test]
 fn teleport_native_assets_from_relay_to_system_para_works() {
 	// Init values for Relay Chain
-	let amount_to_send: Balance = ROCOCO_ED * 1000;
+	let amount_to_send: Balance = CORETIME_ROCOCO_ID * 1000;
 	let dest = Rococo::child_location_of(CoretimeRococo::para_id());
 	let beneficiary_id = CoretimeRococoReceiver::get();
 	let test_args = TestContext {
@@ -321,7 +321,7 @@ fn teleport_native_assets_back_from_system_para_to_relay_works() {
 	teleport_native_assets_from_relay_to_system_para_works();
 
 	// Init values for Relay Chain
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
+	let amount_to_send: Balance = CORETIME_ROCOCO_ID * 1000;
 	let destination = CoretimeRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let assets = (Parent, amount_to_send).into();
@@ -362,7 +362,7 @@ fn teleport_native_assets_back_from_system_para_to_relay_works() {
 #[test]
 fn teleport_native_assets_from_system_para_to_relay_fails() {
 	// Init values for Relay Chain
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
+	let amount_to_send: Balance = CORETIME_ROCOCO_ID * 1000;
 	let destination = CoretimeRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let assets = (Parent, amount_to_send).into();
@@ -400,7 +400,7 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 
 #[test]
 fn teleport_to_other_system_parachains_works() {
-	let amount = ASSET_HUB_ROCOCO_ED * 100;
+	let amount = CORETIME_ROCOCO_ID * 100;
 	let native_asset: MultiAssets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(

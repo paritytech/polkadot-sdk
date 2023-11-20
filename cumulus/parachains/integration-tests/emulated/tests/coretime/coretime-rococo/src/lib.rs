@@ -46,7 +46,7 @@ pub use emulated_integration_tests_common::{
 pub use parachains_common::{AccountId, Balance};
 pub use rococo_system_emulated_network::{
 	coretime_rococo_emulated_chain::{
-		genesis::ED as ASSET_HUB_ROCOCO_ED, CoretimeRococoParaPallet as CoretimeRococoPallet,
+		genesis::ED as CORETIME_ROCOCO_ID, CoretimeRococoParaPallet as CoretimeRococoPallet,
 	},
 	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 	CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
