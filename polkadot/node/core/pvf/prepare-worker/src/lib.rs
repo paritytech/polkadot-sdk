@@ -40,10 +40,10 @@ use nix::{
 use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
+	error::{PrepareError, PrepareWorkerResult},
 	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
-	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
+	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
 		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
@@ -106,7 +106,7 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 }
 
 /// Send a worker response.
-fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
+fn send_response(stream: &mut UnixStream, result: PrepareWorkerResult) -> io::Result<()> {
 	framed_send_blocking(stream, &result.encode())
 }
 
@@ -186,8 +186,8 @@ fn end_memory_tracking() -> isize {
 ///
 /// 7. If compilation succeeded, write the compiled artifact into a temporary file.
 ///
-/// 8. Send the result of preparation back to the host. If any error occurred in the above steps, we
-///    send that in the `PrepareResult`.
+/// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
+///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
@@ -439,11 +439,11 @@ fn handle_child_process(
 				Err(err) => Err(err),
 				Ok(ok) => {
 					cfg_if::cfg_if! {
-					if #[cfg(target_os = "linux")] {
-						let (artifact, max_rss) = ok;
-					} else {
-						let artifact = ok;
-					}
+						if #[cfg(target_os = "linux")] {
+							let (artifact, max_rss) = ok;
+						} else {
+							let artifact = ok;
+						}
 					}
 
 					// Stop the memory stats worker and get its observed memory stats.
@@ -511,7 +511,7 @@ fn handle_parent_process(
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
-) -> Result<PrepareStats, PrepareError> {
+) -> Result<PrepareWorkerSuccess, PrepareError> {
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
 	pipe_read
@@ -554,7 +554,7 @@ fn handle_parent_process(
 
 			match result {
 				Err(err) => Err(err),
-				Ok(response) => {
+				Ok(JobResponse { artifact, memory_stats }) => {
 					// The exit status should have been zero if no error occurred.
 					if exit_status != 0 {
 						return Err(PrepareError::JobError(format!(
@@ -577,13 +577,14 @@ fn handle_parent_process(
 						temp_artifact_dest.display(),
 					);
 					// Write to the temp file created by the host.
-					if let Err(err) = fs::write(&temp_artifact_dest, &response.artifact) {
+					if let Err(err) = fs::write(&temp_artifact_dest, &artifact) {
 						return Err(PrepareError::IoErr(err.to_string()))
 					};
 
-					Ok(PrepareStats {
-						memory_stats: response.memory_stats,
-						cpu_time_elapsed: cpu_tv,
+					let checksum = blake3::hash(&artifact.as_ref()).to_hex().to_string();
+					Ok(PrepareWorkerSuccess {
+						checksum,
+						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
 					})
 				},
 			}
@@ -657,13 +658,13 @@ fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
 
 type JobResult = Result<JobResponse, PrepareError>;
 
-/// Pre-encoded length-prefixed `Result::Err(PrepareError::OutOfMemory)`
+/// Pre-encoded length-prefixed `JobResult::Err(PrepareError::OutOfMemory)`
 const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 #[test]
 fn pre_encoded_payloads() {
 	// NOTE: This must match the type of `response` in `send_child_response`.
-	let oom_unencoded: JobResult = Result::Err(PrepareError::OutOfMemory);
+	let oom_unencoded: JobResult = JobResult::Err(PrepareError::OutOfMemory);
 	let oom_encoded = oom_unencoded.encode();
 	// The payload is prefixed with	its length in `framed_send`.
 	let mut oom_payload = oom_encoded.len().to_le_bytes().to_vec();
