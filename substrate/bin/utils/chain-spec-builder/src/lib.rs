@@ -28,60 +28,58 @@
 //! See [`ChainSpecBuilderCmd`] for a list of available commands.
 //!
 //! ## Typical use-cases.
-//! - **Get default config from runtime.**
+//! #### Get default config from runtime.
 //!
-//!		Query the default genesis config from the provided `runtime.wasm` and use it in the chain
+//!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
 //! spec. Tool can also store runtime's default genesis config in given file (`-d`):
 //!	```text
-//! 	chain-spec-builder create -r runtime.wasm default -d /dev/stdout
-//! 	```
+//! chain-spec-builder create -r runtime.wasm default /dev/stdout
+//! ```
 //!
-//! 	_Note:_ `GenesisBuilder::create_default_config` runtime function is called.
+//! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is called.
 //!
 //!
-//! - **Generate raw storage chain spec using genesis config patch.**
+//! #### Generate raw storage chain spec using genesis config patch.
 //!
-//!		Patch the runtime's default genesis config with provided `patch.json` and generate raw
+//! Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
-//!	```text
-//! 	chain-spec-builder create -s -r runtime.wasm patch -p patch.json
-//! 	```
+//! ```text
+//! chain-spec-builder create -s -r runtime.wasm patch patch.json
+//! ```
 //!
-//! 	_Note:_ `GenesisBuilder::build_config` runtime function is called.
+//! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
-//! - **Generate raw storage chain spec using full genesis config.**
+//! #### Generate raw storage chain spec using full genesis config.
 //!
-//!		Build the chain spec using provided full genesis config json file. No defaults will be used:
-//! 	```text
-//! 	chain-spec-builder create -s -r runtime.wasm full -c full-genesis-config.json
-//! 	```
+//! Build the chain spec using provided full genesis config json file. No defaults will be used:
+//! ```text
+//! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
+//! ```
 //!
-//! 	_Note_: `GenesisBuilder::build_config` runtime function is called.
+//! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
-//! - **Generate human readable chain spec using provided genesis config patch.**
+//! #### Generate human readable chain spec using provided genesis config patch.
+//! ```text
+//! chain-spec-builder create -r runtime.wasm patch patch.json
+//! ```
 //!
-//!	```text
-//! 	chain-spec-builder create -r runtime.wasm patch -p patch.json
-//! 	```
+//! #### Generate human readable chain spec using provided full genesis config.
+//! ```text
+//! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
+//! ```
 //!
-//!		_Note_: No runtime API is called.
-//!
-//! - **Generate human readable chain spec using provided full genesis config.**
-//!
-//!   ```text
-//!   chain-spec-builder create -r runtime.wasm full -c full-genesis-config.json
-//!   ```
-//!
-//! The `chain-spec-builder` provides also some extra utilities:
-//! 	- `verify`: allows to verify if *human readable* chain spec is valid (precisely: all required
+//! #### The `chain-spec-builder` provides also some extra utilities:
+//! - `verify`: allows to verify if *human readable* chain spec is valid (precisely: all required
 //!    fields in genesis config are initialized),
-//! 	- `edit`, allows to:
-//! 	  - update the code in the given chain spec,
-//! 	  - convert given chain spec to the raw chain spec,
+//! - `edit`, allows to:
+//!		- update the code in the given chain spec,
+//!		- convert given chain spec to the raw chain spec,
 //!
 //! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`node-cli`]: ../node_cli/index.html
 //! [`sp-genesis-builder`]: ../sp_genesis_builder/index.html
+//! [sp-genesis-builder-create]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.create_default_config
+//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_config
 
 use std::{fs, path::PathBuf};
 
@@ -142,7 +140,6 @@ enum GenesisBuildAction {
 #[derive(Parser, Debug, Clone)]
 struct PatchCmd {
 	/// The path to the runtime genesis config patch.
-	#[arg(long, short)]
 	patch_path: PathBuf,
 }
 
@@ -150,7 +147,6 @@ struct PatchCmd {
 #[derive(Parser, Debug, Clone)]
 struct FullCmd {
 	/// The path to the full runtime genesis config json file.
-	#[arg(long, short)]
 	config_path: PathBuf,
 }
 
@@ -161,7 +157,6 @@ struct FullCmd {
 struct DefaultCmd {
 	/// If provided stores the default genesis config json file at given path (in addition to
 	/// chain-spec).
-	#[arg(long, short)]
 	default_config_path: Option<PathBuf>,
 }
 
@@ -183,8 +178,7 @@ pub struct EditCmd {
 /// Verifies provided input chain spec.
 #[derive(Parser, Debug, Clone)]
 pub struct VerifyCmd {
-	/// Chain spec to be edited.
-	#[arg(long, short)]
+	/// Chain spec to be verified.
 	pub input_chain_spec: PathBuf,
 }
 
