@@ -982,7 +982,7 @@ pub async fn start_rococo_parachain_node(
 				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
 				code_hash_provider: move |block_hash| {
-					client.code_at(block_hash).ok().map(ValidationCode).map(|c| c.hash())
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				sync_oracle,
 				keystore,
@@ -1621,7 +1621,7 @@ where
 				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
 				code_hash_provider: move |block_hash| {
-					client.code_at(block_hash).ok().map(ValidationCode).map(|c| c.hash())
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				sync_oracle,
 				keystore,
