@@ -1,6 +1,6 @@
 [package]
 name = "staging-node-executor"
-version = "3.0.0-dev"
+version = "0.1.0"
 authors.workspace = true
 description = "Substrate node implementation in Rust."
 edition.workspace = true
@@ -15,16 +15,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 scale-info = { version = "2.10.0", features = ["derive", "serde"] }
-frame-benchmarking = { path = "../../../frame/benchmarking" }
-node-primitives = { path = "../primitives" }
-kitchensink-runtime = { path = "../runtime" }
-sc-executor = { path = "../../../client/executor" }
-sp-core = { path = "../../../primitives/core", features=["serde"] }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-state-machine = { path = "../../../primitives/state-machine" }
-sp-tracing = { path = "../../../primitives/tracing" }
-sp-trie = { path = "../../../primitives/trie" }
-sp-statement-store = { path = "../../../primitives/statement-store", features=["serde"] }
+frame-benchmarking = { version = "26.0.0", path = "../../../frame/benchmarking" }
+node-primitives = { version = "0.1.0", path = "../primitives" }
+kitchensink-runtime = { version = "0.1.0", path = "../runtime" }
+sc-executor = { version = "0.30.0", path = "../../../client/executor" }
+sp-core = { path = "../../../primitives/core", features = ["serde"], version = "26.0.0" }
+sp-keystore = { version = "0.32.0", path = "../../../primitives/keystore" }
+sp-state-machine = { version = "0.33.0", path = "../../../primitives/state-machine" }
+sp-tracing = { version = "14.0.0", path = "../../../primitives/tracing" }
+sp-trie = { version = "27.0.0", path = "../../../primitives/trie" }
+sp-statement-store = { path = "../../../primitives/statement-store", features = ["serde"], version = "8.0.0" }
 
 [dev-dependencies]
 criterion = "0.4.0"

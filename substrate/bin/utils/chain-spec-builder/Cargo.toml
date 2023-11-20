@@ -1,6 +1,6 @@
 [package]
 name = "staging-chain-spec-builder"
-version = "2.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -8,6 +8,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
+description = "staging-chain-spec-builder"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -23,12 +24,12 @@ crate-type = ["rlib"]
 ansi_term = "0.12.1"
 clap = { version = "4.4.6", features = ["derive"] }
 rand = "0.8"
-kitchensink-runtime = { version = "3.0.0-dev", path = "../../node/runtime" }
+kitchensink-runtime = { version = "0.1.0", path = "../../node/runtime" }
 log = "0.4.17"
-node-cli = { package = "staging-node-cli", path = "../../node/cli" }
-sc-chain-spec = { path = "../../../client/chain-spec" }
-sc-keystore = { path = "../../../client/keystore" }
+node-cli = { package = "staging-node-cli", path = "../../node/cli", version = "0.1.0" }
+sc-chain-spec = { version = "25.0.0", path = "../../../client/chain-spec" }
+sc-keystore = { version = "23.0.0", path = "../../../client/keystore" }
 serde_json = "1.0.108"
-sp-core = { path = "../../../primitives/core" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-tracing = { version = "10.0.0", path = "../../../primitives/tracing" }
+sp-core = { version = "26.0.0", path = "../../../primitives/core" }
+sp-keystore = { version = "0.32.0", path = "../../../primitives/keystore" }
+sp-tracing = { version = "14.0.0", path = "../../../primitives/tracing" }
