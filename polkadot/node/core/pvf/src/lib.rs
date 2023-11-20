@@ -84,7 +84,7 @@
 //! A pruning task will run at a fixed interval of time. This task will remove all artifacts that
 //! weren't used or received a heads up signal for a while.
 //!
-//!	## Execution
+//! ## Execution
 //!
 //! The execute workers will be fed by the requests from the execution queue, which is basically a
 //! combination of a path to the compiled artifact and the
@@ -97,6 +97,7 @@ mod host;
 mod metrics;
 mod prepare;
 mod priority;
+mod security;
 mod worker_intf;
 
 #[cfg(feature = "test-utils")]

@@ -114,10 +114,10 @@
 //! separated from the stable primitives.
 
 use crate::{
-	async_backing, slashing, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	async_backing, slashing, vstaging, AsyncBackingParams, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
 use parity_scale_codec::{Decode, Encode};
@@ -264,5 +264,12 @@ sp_api::decl_runtime_apis! {
 		/// Returns a list of all disabled validators at the given block.
 		#[api_version(8)]
 		fn disabled_validators() -> Vec<ValidatorIndex>;
+
+		/***** Added in v9 *****/
+
+		/// Get node features.
+		/// This is a staging method! Do not use on production runtimes!
+		#[api_version(9)]
+		fn node_features() -> vstaging::NodeFeatures;
 	}
 }

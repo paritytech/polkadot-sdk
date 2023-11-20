@@ -22,7 +22,7 @@ sc-client-api = { path = "../../../client/api" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 serde = "1.0.188"
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
 kvdb = "0.13.0"
 kvdb-rocksdb = "0.19.0"
