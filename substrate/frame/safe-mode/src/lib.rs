@@ -22,21 +22,22 @@
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
-//! including its configuration trait, dispatchables, storage items, events and errors.
+//! including its configuration trait, dispatchables, storage items, events, and errors.
 //!
 //! ## Overview
 //!
-//! The safe-mode pallet provides a big STOP button to to put the chain in safe mode and thereby
-//! only permitting a certain subset of operations.
-//! The pallet provides a `WhitelistedCalls` which contains all calls that can be executed in
-//! while in safe mode.
+//! Safe mode is entered via two paths (deposit or forced) until a set block number.
+//! The mode is exited when the block number is reached or a call to one of the exit extrinsics is
+//! made. A `WhitelistedCalls` configuration contains all calls that can be executed in while in
+//! safe mode.
 //!
-//! ### Primary Features:
+//! ### Primary Features
+//!
 //! - Entering safe mode can be permissionless with deposit, origin based, or some combination of
-//!   those
-//! - Separate origin configuration for entering and exiting safe mode
-//! - Safe mode must always be configured to exit at a specific block number
-//! - Safe mode exit block number may be extended by additional calls
+//!   those.
+//! - Separate origin configuration for entering and exiting safe mode.
+//! - Safe mode must always be configured to exit at a specific block number.
+//! - Safe mode exit block number may be extended by additional calls.
 //!
 //! ### Example
 //!
@@ -44,9 +45,9 @@
 //!
 //! ```ignore
 //! impl frame_system::Config for Runtime {
-//!   …
+//!   // …
 //!   type BaseCallFilter = InsideBoth<DefaultFilter, SafeMode>;
-//!   …
+//!   // …
 //! }
 //! ```
 //!

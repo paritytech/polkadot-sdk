@@ -17,7 +17,7 @@
 
 //! # Transaction Pause
 //!
-//! Allows dynamic chain state based pausing and unpausing of specific extrinsics via call filters.
+//! Allows dynamic, chain-state-based pausing and unpausing of specific extrinsics via call filters.
 //!
 //! ## Pallet API
 //!
@@ -26,16 +26,17 @@
 //!
 //! ## Overview
 //!
-//! Think of it as a dynamic call filter that can be controlled with extrinsics.
+//! A dynamic call filter that can be controlled with extrinsics.
 //!
-//! Pausing an extrinsic means that the extrinsic CANNOT be called again until it is are unpaused.
+//! Pausing an extrinsic means that the extrinsic CANNOT be called again until it is unpaused.
 //! The exception is calls that use `dispatch_bypass_filter`, typically only with the root origin.
 //!
-//! ### Primary Features:
+//! ### Primary Features
+//!
 //! - Calls that should never be paused can be added to a whitelist.
-//! - Separate origin configuration for pausing and pausing
-//! - Pausing is triggered using the string representation of the call
-//! - Pauses can target a single extrinsic or an entire pallet
+//! - Separate origin configuration for pausing and pausing.
+//! - Pausing is triggered using the string representation of the call.
+//! - Pauses can target a single extrinsic or an entire pallet.
 //!
 //! ### Example
 //!
@@ -43,15 +44,16 @@
 //!
 //! ```ignore
 //! impl frame_system::Config for Runtime {
-//!   …
+//!   // …
 //!   type BaseCallFilter = InsideBoth<DefaultFilter, TxPause>;
-//!   …
+//!   // …
 //! }
 //! ```
 //!
 //! ## Low Level / Implementation Details
 //!
 //! ### Use Cost
+//!
 //! A storage map (`PausedCalls`) is used to store currently paused calls.
 //! Using the call filter will require a db read of that storage on each extrinsic.
 
