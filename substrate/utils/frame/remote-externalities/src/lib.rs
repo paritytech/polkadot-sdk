@@ -1606,6 +1606,10 @@ mod remote_tests {
 
 		// scrape all
 		let prefix = StorageKey(vec![]);
+		// original
+		let start = Instant::now();
+		builder.rpc_get_keys_paged(prefix.clone(), at).await.unwrap();
+		log::error!("rpc_get_keys_paged: {:?}", start.elapsed());
 		// 16*32 chunks
 		let start = Instant::now();
 		let p4c8 = builder.rpc_get_keys_parallel(prefix.clone(), at, 4, 8).await.unwrap();
