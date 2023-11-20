@@ -246,7 +246,7 @@ rusty_fork_test! {
 			// Note that we get a more specific error if the job died than if the whole worker died.
 			assert_matches!(
 				result,
-				Err(PrepareError::JobDied(err)) if err == "received signal: SIGKILL"
+				Err(PrepareError::JobDied{ err, job_pid: _ }) if err == "received signal: SIGKILL"
 			);
 		})
 	}

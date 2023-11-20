@@ -345,25 +345,25 @@ impl AuditLogFile {
 	}
 }
 
-/// Check if a seccomp violation occurred for the given worker. As the syslog may be in a different
-/// location, or seccomp auditing may be disabled, this function provides a best-effort attempt
-/// only.
+/// Check if a seccomp violation occurred for the given job process. As the syslog may be in a
+/// different location, or seccomp auditing may be disabled, this function provides a best-effort
+/// attempt only.
 ///
 /// The `audit_log_file` must have been obtained before the job started. It only allows reading
 /// entries that were written since it was obtained, so that we do not consider events from previous
 /// processes with the same pid. This can still be racy, but it's unlikely and fine for a
 /// best-effort attempt.
-pub async fn check_seccomp_violations_for_worker(
+pub async fn check_seccomp_violations_for_job(
 	audit_log_file: Option<AuditLogFile>,
-	worker_pid: u32,
+	job_pid: i32,
 ) -> Vec<u32> {
-	let audit_event_pid_field = format!("pid={worker_pid}");
+	let audit_event_pid_field = format!("pid={job_pid}");
 
 	let audit_log_file = match audit_log_file {
 		Some(file) => {
 			gum::trace!(
 				target: LOG_TARGET,
-				%worker_pid,
+				%job_pid,
 				audit_log_path = ?file.path,
 				"checking audit log for seccomp violations",
 			);
@@ -372,7 +372,7 @@ pub async fn check_seccomp_violations_for_worker(
 		None => {
 			gum::warn!(
 				target: LOG_TARGET,
-				%worker_pid,
+				%job_pid,
 				"could not open either {AUDIT_LOG_PATH} or {SYSLOG_PATH} for reading audit logs"
 			);
 			return vec![]

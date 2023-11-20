@@ -201,7 +201,7 @@ pub async fn start_work(
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
 			WorkerResponse::JobTimedOut => Outcome::HardTimeout,
-			WorkerResponse::JobDied(err) => Outcome::JobDied { err },
+			WorkerResponse::JobDied { err, job_pid: _ } => Outcome::JobDied { err },
 			WorkerResponse::JobError(err) => Outcome::JobError { err },
 
 			WorkerResponse::InternalError(err) => Outcome::InternalError { err },
@@ -238,18 +238,17 @@ async fn handle_response(
 		}
 	}
 
-	if let WorkerResponse::JobDied(_) = response {
+	if let WorkerResponse::JobDied { err: _, job_pid } = response {
 		// The job died. Check if it was due to a seccomp violation.
 		//
 		// NOTE: Log, but don't change the outcome. Not all validators may have
 		// auditing enabled, so we don't want attackers to abuse a non-deterministic
 		// outcome.
-		for syscall in
-			security::check_seccomp_violations_for_worker(audit_log_file, worker_pid).await
-		{
+		for syscall in security::check_seccomp_violations_for_job(audit_log_file, job_pid).await {
 			gum::error!(
 				target: LOG_TARGET,
-				worker_pid,
+				%worker_pid,
+				%job_pid,
 				%syscall,
 				?validation_code_hash,
 				?artifact_path,
