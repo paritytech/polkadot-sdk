@@ -15,7 +15,7 @@
 //!
 //! ## Introduction
 //!
-//! As described in [`crate::reference_docs::wasm_meta_protocol`], at a high-level substrate-based
+//! As described in [`crate::reference_docs::wasm_meta_protocol`], at a high-level Substrate-based
 //! blockchains are composed of two parts:
 //!
 //! 1. A *runtime* which represents the state transition function (i.e. "Business Logic") of a
