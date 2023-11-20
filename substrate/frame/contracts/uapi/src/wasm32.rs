@@ -410,6 +410,23 @@ macro_rules! impl_wrapper_for {
         )*
     }
 }
+
+macro_rules! impl_hash_fn {
+	( $name:ident, $bytes_result:literal ) => {
+		paste::item! {
+			pub fn [<hash_ $name>](input: &[u8], output: &mut [u8; $bytes_result]) {
+				unsafe {
+					sys::[<hash_ $name>](
+						input.as_ptr(),
+						input.len() as u32,
+						output.as_mut_ptr(),
+					)
+				}
+			}
+		}
+	};
+}
+
 impl_wrapper_for! {
 	caller,
 	block_number,
