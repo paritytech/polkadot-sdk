@@ -200,7 +200,7 @@
 )]
 //!
 //!
-//! ### Saturated Operations
+//! ### Saturating Operations
 //!
 //! Saturating a number limits it to the type's upper or lower bound, no matter the integer would
 //! overflow in runtime. For example, adding to `u32::MAX` would simply limit itself to `u32::MAX`:
