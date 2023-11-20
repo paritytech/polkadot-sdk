@@ -35,7 +35,7 @@
 //!	```text
 //! chain-spec-builder create -r runtime.wasm default /dev/stdout
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is called.
 //!
 //!
@@ -46,7 +46,7 @@
 //! ```text
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
 //! #### Generate raw storage chain spec using full genesis config.
@@ -55,25 +55,25 @@
 //! ```text
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
 //! #### Generate human readable chain spec using provided genesis config patch.
 //! ```text
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! #### Generate human readable chain spec using provided full genesis config.
 //! ```text
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! #### The `chain-spec-builder` provides also some extra utilities:
 //! - `verify`: allows to verify if *human readable* chain spec is valid (precisely: all required
 //!    fields in genesis config are initialized),
 //! - `edit`, allows to:
-//!		- update the code in the given chain spec,
-//!		- convert given chain spec to the raw chain spec,
+//! 		- update the code in the given chain spec,
+//! 		- convert given chain spec to the raw chain spec,
 //!
 //! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`node-cli`]: ../node_cli/index.html
