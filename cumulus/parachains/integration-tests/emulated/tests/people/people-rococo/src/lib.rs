@@ -45,7 +45,7 @@ pub use emulated_integration_tests_common::{
 pub use parachains_common::{AccountId, Balance};
 pub use rococo_system_emulated_network::{
 	people_rococo_emulated_chain::{
-		genesis::ED as ASSET_HUB_ROCOCO_ED, PeopleRococoParaPallet as AssetHubRococoPallet,
+		genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
 	},
 	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 	PenpalAPara as PenpalA, PeopleRococoPara as PeopleRococo,
