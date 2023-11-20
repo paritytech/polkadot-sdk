@@ -794,7 +794,7 @@ impl<T: Config> Pallet<T> {
 		stash: T::AccountId,
 		exposure: Exposure<T::AccountId, BalanceOf<T>>,
 	) {
-		<ErasStakers<T>>::insert(&current_era, &stash, &exposure);
+		EraInfo::<T>::set_exposure(current_era, &stash, exposure);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1745,8 +1745,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
+		// look in the non paged exposures
+		// FIXME: Can be cleaned up once non paged exposures are cleared (https://github.com/paritytech/polkadot-sdk/issues/433)
 		ErasStakers::<T>::iter_prefix(era).any(|(validator, exposures)| {
 			validator == *who || exposures.others.iter().any(|i| i.who == *who)
+		})
+			||
+		// look in the paged exposures
+		ErasStakersPaged::<T>::iter_prefix((era,)).any(|((validator, _), exposure_page)| {
+			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
 		})
 	}
 	fn status(
@@ -1812,6 +1819,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::check_nominators()?;
 		Self::check_exposures()?;
+		Self::check_paged_exposures()?;
 		Self::check_ledgers()?;
 		Self::check_count()
 	}
@@ -1855,6 +1863,70 @@ impl<T: Config> Pallet<T> {
 								.fold(Zero::zero(), |acc, x| acc + x),
 					"wrong total exposure.",
 				);
+				Ok(())
+			})
+			.collect::<Result<(), TryRuntimeError>>()
+	}
+
+	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
+		use sp_staking::PagedExposureMetadata;
+		use sp_std::collections::btree_map::BTreeMap;
+
+		// Sanity check for the paged exposure of the active era.
+		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
+			BTreeMap::new();
+		let era = Self::active_era().unwrap().index;
+		let accumulator_default = PagedExposureMetadata {
+			total: Zero::zero(),
+			own: Zero::zero(),
+			nominator_count: 0,
+			page_count: 0,
+		};
+
+		ErasStakersPaged::<T>::iter_prefix((era,))
+			.map(|((validator, _page), expo)| {
+				ensure!(
+					expo.page_total ==
+						expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
+					"wrong total exposure for the page.",
+				);
+
+				let metadata = exposures.get(&validator).unwrap_or(&accumulator_default);
+				exposures.insert(
+					validator,
+					PagedExposureMetadata {
+						total: metadata.total + expo.page_total,
+						own: metadata.own,
+						nominator_count: metadata.nominator_count + expo.others.len() as u32,
+						page_count: metadata.page_count + 1,
+					},
+				);
+
+				Ok(())
+			})
+			.collect::<Result<(), TryRuntimeError>>()?;
+
+		exposures
+			.iter()
+			.map(|(validator, metadata)| {
+				let actual_overview = ErasStakersOverview::<T>::get(era, validator);
+
+				ensure!(actual_overview.is_some(), "No overview found for a paged exposure");
+				let actual_overview = actual_overview.unwrap();
+
+				ensure!(
+					actual_overview.total == metadata.total + actual_overview.own,
+					"Exposure metadata does not have correct total exposed stake."
+				);
+				ensure!(
+					actual_overview.nominator_count == metadata.nominator_count,
+					"Exposure metadata does not have correct count of nominators."
+				);
+				ensure!(
+					actual_overview.page_count == metadata.page_count,
+					"Exposure metadata does not have correct count of pages."
+				);
+
 				Ok(())
 			})
 			.collect::<Result<(), TryRuntimeError>>()
