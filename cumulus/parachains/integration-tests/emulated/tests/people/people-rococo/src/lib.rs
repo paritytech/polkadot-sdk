@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod tests;
-
 pub use codec::Encode;
 
 // Substrate
@@ -59,3 +57,6 @@ pub type RelayToParaTest = Test<Rococo, PenpalA>;
 pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
 pub type SystemParaToParaTest = Test<PeopleRococo, PenpalA>;
 pub type ParaToSystemParaTest = Test<PenpalA, PeopleRococo>;
+
+#[cfg(test)]
+mod tests;
