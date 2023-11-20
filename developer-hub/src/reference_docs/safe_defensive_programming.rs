@@ -226,7 +226,7 @@
 //! As a recap, we covered the following concepts:
 //!
 //! 1. **Checked** operations - using [`Option`] or [`Result`],
-//! 2. **Saturated** operations - limited to the lower and upper bounds of a number type,
+//! 2. **Saturating** operations - limited to the lower and upper bounds of a number type,
 //! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type,
 //!
 //!
