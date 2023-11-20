@@ -24,7 +24,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-	derive_impl,
 	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
@@ -532,7 +531,7 @@ mod tests {
 	};
 
 	use frame_support::{
-		assert_noop, assert_ok, ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 		traits::{ConstU32, ConstU64, StorageVersion},
 	};
 	use frame_system::EnsureSignedBy;
