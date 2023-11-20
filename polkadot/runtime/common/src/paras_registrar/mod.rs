@@ -50,7 +50,7 @@ use xcm_executor::traits::ConvertLocation;
 pub struct ParaInfo<Account, Balance> {
 	/// The account that has placed a deposit for registering this para.
 	pub(crate) manager: Account,
-	/// The amount reserved by the `manager` account for the registration.
+	/// The total amount reserved for this para.
 	deposit: Balance,
 	/// Whether the para registration should be locked from being controlled by the manager.
 	/// None means the lock had not been explicitly set, and should be treated as false.
@@ -218,12 +218,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
-	/// Stores information about the `AccountId` that will receive a refund for reducing the
-	/// validation code size.
+	/// Stores information about the `AccountId` that made a deposit for the purpose of registering a
+	/// parachain.
 	///
 	/// This will either be the parachain manager or the sovereign account of the parachain.
 	#[pallet::storage]
-	pub type Refunds<T: Config> = StorageMap<_, Twox64Concat, ParaId, T::AccountId>;
+	pub type Depositor<T: Config> = StorageMap<_, Twox64Concat, ParaId, T::AccountId>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -657,6 +657,7 @@ impl<T: Config> Pallet<T> {
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
 		Paras::<T>::insert(id, info);
+		Depositor::<T>::insert(id, who.clone());
 		// We check above that para has no lifecycle, so this should not fail.
 		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
@@ -707,16 +708,34 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
-		let info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let current_depositor = Depositor::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 		let current_deposit = info.deposit;
 
 		if let Some(caller) = maybe_caller.clone() {
-			if current_deposit < new_deposit {
+			let same_depositor = caller == current_depositor;
+			let deposit_increased = current_deposit < new_deposit;
+
+			if same_depositor && deposit_increased {
 				// An additional deposit is required to cover for the new validation code which has
 				// a greater size compared to the old one.
 
 				let excess = new_deposit.saturating_sub(current_deposit);
 				<T as Config>::Currency::reserve(&caller, excess)?;
+			}else if !same_depositor {
+				// If the caller is not the one that had their funds reserved for this parachain we 
+				// will unreserve all the funds from the original depositor and reserve the required
+				// amount from the new depositor.
+				//
+				// The primary reason for this is to more easily track the account that has its deposit
+				// reserved for this parachain. Reserving the deposit across both the para manager and
+				// the parachain itself could unnecessarily complicate refunds.
+
+				<T as Config>::Currency::reserve(&caller, new_deposit)?;
+
+				// TODO: don't do instant refunds for the same reason as described bellow.
+				<T as Config>::Currency::unreserve(&current_depositor, current_deposit);
+				Depositor::<T>::insert(para, caller.clone());
 			}
 
 			<T as Config>::Currency::withdraw(
@@ -727,26 +746,20 @@ impl<T: Config> Pallet<T> {
 			)?;
 		}
 
-		if current_deposit > new_deposit {
-			// In case the existing deposit exceeds the required amount due to validation code
-			// reduction, the excess deposit will be returned to the caller.
+		// In case the existing deposit exceeds the required amount due to validation code
+		// reduction, the excess deposit will be returned to the caller.
+		//
+		// The reason why the deposit is not instantly refunded is that scheduling a code
+		// upgrade doesn't guarantee the success of an upgrade.
+		//
+		// If we returned the deposit here, a possible attack scenario would be to register
+		// the validation code of a parachain and then schedule a code upgrade to set the
+		// code to an empty blob. In such a case, the pre-checking process would fail, so the
+		// old code would remain on-chain even though there is no deposit to cover it.
 
-			// The reason why the deposit is not instantly refunded is that scheduling a code
-			// upgrade doesn't guarantee the success of an upgrade.
-			//
-			// If we returned the deposit here, a possible attack scenario would be to register
-			// the validation code of a parachain and then schedule a code upgrade to set the
-			// code to an empty blob. In such a case, the pre-checking process would fail, so the
-			// old code would remain on-chain even though there is no deposit to cover it.
-
-			// We store information about the recipient of the refund in the event that the upgrade
-			// is successfully completed, which could be either the parachain sovereign account or
-			// the manager.
-			//
-			// If the caller is not specified the refund will be returned to the para manager.
-			let who = maybe_caller.unwrap_or(info.manager);
-			Refunds::<T>::insert(para, who);
-		}
+		// Update the deposit to the new appropriate amount.
+		info.deposit = new_deposit;
+		Paras::<T>::insert(para, info);
 
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
 	}
@@ -824,13 +837,11 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 			.deposit;
 
 		if current_deposit > new_deposit {
-			// Repay the para manager or the parachain itself.
-			if let Some(who) = Refunds::<T>::take(id) {
-				let rebate = current_deposit.saturating_sub(new_deposit);
-				<T as Config>::Currency::unreserve(&who, rebate);
+			let rebate = current_deposit.saturating_sub(new_deposit);
+			let depositor = Depositor::<T>::get(id).expect("The depositor must be known for each parachain; qed"); 
+			<T as Config>::Currency::unreserve(&depositor, rebate);
 
-				return T::DbWeight::get().reads_writes(3, 1)
-			}
+			return T::DbWeight::get().reads_writes(3, 1)
 		}
 
 		T::DbWeight::get().reads(2)

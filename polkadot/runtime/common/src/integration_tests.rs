@@ -609,7 +609,8 @@ fn para_upgrade_initiated_by_manager_works() {
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// CASE 1: Schedule a para upgrade to set the validation code to a new one which is twice the size.
+		// CASE 1: Schedule a para upgrade to set the validation code to a new one which is twice
+		// the size.
 		code_size *= 2;
 		let code_1 = validation_code(code_size);
 		assert_ok!(Registrar::schedule_code_upgrade(
@@ -634,10 +635,10 @@ fn para_upgrade_initiated_by_manager_works() {
 		// An additional upgrade fee should also be deducted from the caller's balance.
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - UpgradeFee::get());
 
-		// CASE 2: After successfully upgrading the validation code to twice the size of the previous
-		// one, we will now proceed to upgrade the validation code to a smaller size. It is expected 
-		// that the parachain manager will receive a refund upon the successful completion of the
-		// upgrade.
+		// CASE 2: After successfully upgrading the validation code to twice the size of the
+		// previous one, we will now proceed to upgrade the validation code to a smaller size. It is
+		// expected that the parachain manager will receive a refund upon the successful completion
+		// of the upgrade.
 
 		code_size /= 2;
 		let code_2 = validation_code(code_size);
@@ -646,9 +647,6 @@ fn para_upgrade_initiated_by_manager_works() {
 			ParaId::from(para_id),
 			code_2.clone(),
 		));
-		// Since the para manager iniciated the upgrade he should be the one that will receive the
-		// refund in case the upgrade is successful.
-		assert_eq!(crate::paras_registrar::Refunds::<Test>::get(para_id), Some(account_id(1)));
 		conclude_pvf_checking::<Test>(&code_2, VALIDATORS, START_SESSION_INDEX + 4, true);
 
 		// After two more sessions the parachain can be upgraded.
@@ -665,8 +663,6 @@ fn para_upgrade_initiated_by_manager_works() {
 		);
 		// An additional upgrade fee should also be deducted from the caller's balance.
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (2 * UpgradeFee::get()));
-		// The para manager shouldn't be marked as a 'refund receiver' anymore.
-		assert!(crate::paras_registrar::Refunds::<Test>::get(para_id).is_none());
 
 		// CASE 3: Para manager won't get refunded if the code upgrade fails
 		let code_3 = validation_code(42);
@@ -675,7 +671,6 @@ fn para_upgrade_initiated_by_manager_works() {
 			ParaId::from(para_id),
 			code_3.clone(),
 		));
-		assert_eq!(crate::paras_registrar::Refunds::<Test>::get(para_id), Some(account_id(1)));
 		// Reject the new validation code.
 		conclude_pvf_checking::<Test>(&code_3, VALIDATORS, START_SESSION_INDEX + 6, false);
 
