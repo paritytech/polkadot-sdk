@@ -911,6 +911,7 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 			call_context: self.call_context,
 			overlayed_changes: Default::default(),
 			extensions: self.extensions,
+			transaction_depth: 0.into(),
 		}
 	}
 }
@@ -950,6 +951,7 @@ pub struct RuntimeInstance<C, Block: BlockT, ProofRecorder> {
 	overlayed_changes: RefCell<OverlayedChanges<HashingFor<Block>>>,
 	recorder: ProofRecorder,
 	extensions: RefCell<Extensions>,
+	transaction_depth: std::cell::RefCell<u16>,
 }
 
 #[cfg(feature = "std")]
@@ -968,7 +970,11 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 		params: Vec<u8>,
 		fn_name: &dyn Fn(RuntimeVersion) -> &'static str,
 	) -> Result<Vec<u8>, ApiError> {
-		// TODO: Enable storage transaction if required.
+		let transaction_depth = *std::cell::RefCell::borrow(&self.transaction_depth);
+
+		if transaction_depth == 0 {
+			self.start_transaction();
+		}
 
 		let res = (|| {
 			let version = self.call_api_at.runtime_version_at(self.block)?;
@@ -986,7 +992,9 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 			self.call_api_at.call_api_at(params)
 		})();
 
-		// self.commit_or_rollback(std::result::Result::is_ok(&res));
+		if transaction_depth == 0 {
+			self.commit_or_rollback_transaction(res.is_ok());
+		}
 
 		res
 	}
@@ -1005,7 +1013,17 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 		&self,
 		inner: impl FnOnce(&Self) -> TransactionOutcome<R>,
 	) -> R {
-		(inner)(self).into_inner()
+		self.start_transaction();
+
+		*std::cell::RefCell::borrow_mut(&self.transaction_depth) += 1;
+		let res = (inner)(self);
+		std::cell::RefCell::borrow_mut(&self.transaction_depth)
+			.checked_sub(1)
+			.expect("Transactions are opened and closed together; qed");
+
+		self.commit_or_rollback_transaction(std::matches!(res, TransactionOutcome::Commit(_)));
+
+		res.into_inner()
 	}
 
 	pub fn extract_proof(&self) -> Option<StorageProof> {
@@ -1022,6 +1040,49 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 				state_version.state_version(),
 			)
 			.map_err(|e| ApiError::Application(Box::from(e)))
+	}
+
+	fn commit_or_rollback_transaction(&self, commit: bool) {
+		let proof = "\
+					We only close a transaction when we opened one ourself.
+					Other parts of the runtime that make use of transactions (state-machine)
+					also balance their transactions. The runtime cannot close client initiated
+					transactions; qed";
+
+		let res = if commit {
+			let res = if let Some(recorder) = self.recorder.get() {
+				recorder.commit_transaction()
+			} else {
+				Ok(())
+			};
+
+			let res2 = self.overlayed_changes.borrow_mut().commit_transaction();
+
+			// Will panic on an `Err` below, however we should call commit
+			// on the recorder and the changes together.
+			res.and(res2.map_err(drop))
+		} else {
+			let res = if let Some(recorder) = &self.recorder.get() {
+				recorder.rollback_transaction()
+			} else {
+				Ok(())
+			};
+
+			let res2 = self.overlayed_changes.borrow_mut().rollback_transaction();
+
+			// Will panic on an `Err` below, however we should call commit
+			// on the recorder and the changes together.
+			res.and(res2.map_err(drop))
+		};
+
+		std::result::Result::expect(res, proof);
+	}
+
+	fn start_transaction(&self) {
+		self.overlayed_changes.borrow_mut().start_transaction();
+		if let Some(recorder) = self.recorder.get() {
+			recorder.start_transaction();
+		}
 	}
 }
 

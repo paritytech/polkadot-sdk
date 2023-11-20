@@ -29,7 +29,7 @@ use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
 };
 use sc_service::client::{new_in_mem, Client, LocalCallExecutor};
-use sp_api::ProvideRuntimeApi;
+use sp_api::RuntimeInstance;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_core::{testing::TaskExecutor, traits::CallContext, H256};
 use sp_runtime::{
@@ -47,7 +47,7 @@ use substrate_test_runtime_client::{
 	runtime::{
 		currency::DOLLARS,
 		genesismap::{insert_genesis_block, GenesisStorageBuilder},
-		Block, BlockNumber, Digest, Hash, Header, RuntimeApi, Transfer,
+		Block, BlockNumber, Digest, Hash, Header, Transfer,
 	},
 	AccountKeyring, BlockBuilderExt, ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt,
 	Sr25519Keyring, TestClientBuilder, TestClientBuilderExt,
@@ -220,21 +220,11 @@ fn construct_genesis_should_work_with_wasm() {
 #[test]
 fn client_initializes_from_genesis_ok() {
 	let client = substrate_test_runtime_client::new();
-
-	assert_eq!(
-		client
-			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
-			.unwrap(),
-		1000 * DOLLARS
-	);
-	assert_eq!(
-		client
-			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Ferdie.into())
-			.unwrap(),
-		0 * DOLLARS
-	);
+	let runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
+		.off_chain_context()
+		.build();
+	assert_eq!(runtime_api.balance_of(AccountKeyring::Alice.into()).unwrap(), 1000 * DOLLARS);
+	assert_eq!(runtime_api.balance_of(AccountKeyring::Ferdie.into()).unwrap(), 0 * DOLLARS);
 }
 
 #[test]
@@ -299,20 +289,12 @@ fn block_builder_works_with_transactions() {
 			.unwrap()
 			.collect::<Vec<_>>()
 	);
-	assert_eq!(
-		client
-			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
-			.unwrap(),
-		958 * DOLLARS
-	);
-	assert_eq!(
-		client
-			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Ferdie.into())
-			.unwrap(),
-		42 * DOLLARS
-	);
+
+	let runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
+		.off_chain_context()
+		.build();
+	assert_eq!(runtime_api.balance_of(AccountKeyring::Alice.into()).unwrap(), 958 * DOLLARS);
+	assert_eq!(runtime_api.balance_of(AccountKeyring::Ferdie.into()).unwrap(), 42 * DOLLARS);
 }
 
 #[test]
@@ -355,6 +337,7 @@ fn block_builder_does_not_include_invalid() {
 		.expect("block 1 was just imported. qed");
 
 	assert_eq!(client.chain_info().best_number, 1);
+
 	assert_ne!(
 		client
 			.state_at(hashof1)
@@ -1410,10 +1393,11 @@ fn state_reverted_on_reorg() {
 	let mut client = substrate_test_runtime_client::new();
 
 	let current_balance = |client: &substrate_test_runtime_client::TestClient| {
-		client
-			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
-			.unwrap()
+		let runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
+			.off_chain_context()
+			.build();
+
+		runtime_api.balance_of(AccountKeyring::Alice.into()).unwrap()
 	};
 
 	// G -> A1 -> A2
@@ -2086,7 +2070,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 	// NOTE: we need to build the client here instead of using the client
 	// provided by test_runtime_client otherwise we can't access the private
 	// `import_notification_sinks` and `finality_notification_sinks` fields.
-	let mut client = new_in_mem::<_, Block, _, RuntimeApi>(
+	let mut client = new_in_mem::<_, Block, _>(
 		backend,
 		executor,
 		genesis_block_builder,
@@ -2105,7 +2089,6 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 			sc_executor::NativeElseWasmExecutor<LocalExecutorDispatch>,
 		>,
 		Block,
-		RuntimeApi,
 	>;
 
 	let import_notif1 = client.import_notification_stream();
@@ -2252,14 +2235,13 @@ fn use_dalek_ext_works() {
 	block_on(client.import(BlockOrigin::NetworkInitialSync, a1.clone())).unwrap();
 
 	// On block zero it will use dalek and then on block 1 it will use zebra
-	assert!(!client
-		.runtime_api()
-		.verify_ed25519(client.chain_info().genesis_hash, zero_ed_sig(), zero_ed_pub(), vec![])
-		.unwrap());
-	assert!(client
-		.runtime_api()
-		.verify_ed25519(a1.hash(), zero_ed_sig(), zero_ed_pub(), vec![])
-		.unwrap());
+	let runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
+		.off_chain_context()
+		.build();
+	assert!(!runtime_api.verify_ed25519(zero_ed_sig(), zero_ed_pub(), vec![]).unwrap());
+
+	let runtime_api = RuntimeInstance::builder(&client, a1.hash()).off_chain_context().build();
+	assert!(runtime_api.verify_ed25519(zero_ed_sig(), zero_ed_pub(), vec![]).unwrap());
 }
 
 #[test]

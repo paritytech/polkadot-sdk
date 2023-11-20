@@ -45,7 +45,10 @@ use sc_consensus::{
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
-use sp_api::{ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi};
+use sp_api::{
+	ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi,
+	RuntimeInstance,
+};
 use sp_blockchain::{
 	self as blockchain, Backend as ChainBackend, CachedHeaderMetadata, Error,
 	HeaderBackend as ChainHeaderBackend, HeaderMetadata, Info as BlockchainInfo,
@@ -808,7 +811,10 @@ where
 	fn prepare_block_storage_changes(
 		&self,
 		import_block: &mut BlockImportParams<Block>,
-	) -> sp_blockchain::Result<PrepareStorageChangesResult<Block>> {
+	) -> sp_blockchain::Result<PrepareStorageChangesResult<Block>>
+	where
+		E: Send + Sync,
+	{
 		let parent_hash = import_block.header.parent_hash();
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
@@ -837,26 +843,21 @@ where
 			// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			(true, None, Some(ref body)) => {
-				/*
-				let mut runtime_api = self.runtime_api();
+				let runtime_api =
+					RuntimeInstance::builder(self, *parent_hash).on_chain_context().build();
 
-				runtime_api.set_call_context(CallContext::Onchain);
+				CoreApi::<Block>::execute_block(
+					&runtime_api,
+					Block::new(import_block.header.clone(), body.clone()),
+				)?;
 
-				runtime_api.execute_block(Block::new(import_block.header.clone(), body.clone()))?;
-
-				let state = self.backend.state_at(*parent_hash)?;
-				let gen_storage_changes = runtime_api
-					.into_storage_changes(&state, *parent_hash)
-					.map_err(sp_blockchain::Error::Storage)?;
+				let gen_storage_changes = runtime_api.into_storage_changes()?;
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
 				{
 					return Err(Error::InvalidStateRoot)
 				}
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))
-				*/
-
-				todo!()
 			},
 			// No block body, no storage changes
 			(true, None, None) => None,
@@ -1635,7 +1636,7 @@ where
 impl<B, E, Block> CallApiAt<Block> for Client<B, E, Block>
 where
 	B: backend::Backend<Block>,
-	E: CallExecutor<Block, Backend = B> + Send + Sync,
+	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 {
 	type StateBackend = B::State;
