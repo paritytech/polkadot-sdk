@@ -345,7 +345,7 @@ fn handle_job_finish(
 			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedInvalid(err))),
 			None,
 		),
-		Outcome::InternalError { err } => (None, Err(ValidationError::InternalError(err)), None),
+		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Outcome::HardTimeout =>

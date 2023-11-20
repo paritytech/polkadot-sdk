@@ -1337,7 +1337,7 @@ pub(crate) mod tests {
 		assert_matches!(result_rx.now_or_never().unwrap().unwrap(), Err(PrepareError::TimedOut));
 		assert_matches!(
 			result_rx_execute.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InternalError(_))
+			Err(ValidationError::Internal(_))
 		);
 
 		// Reversed case: first send multiple precheck requests, then ask for an execution.
@@ -1479,7 +1479,7 @@ pub(crate) mod tests {
 
 		// The result should contain the error.
 		let result = test.poll_and_recv_result(result_rx).await;
-		assert_matches!(result, Err(ValidationError::InternalError(_)));
+		assert_matches!(result, Err(ValidationError::Internal(_)));
 
 		// Submit another execute request. We shouldn't try to prepare again, yet.
 		let (result_tx_2, result_rx_2) = oneshot::channel();
@@ -1498,7 +1498,7 @@ pub(crate) mod tests {
 
 		// The result should contain the original error.
 		let result = test.poll_and_recv_result(result_rx_2).await;
-		assert_matches!(result, Err(ValidationError::InternalError(_)));
+		assert_matches!(result, Err(ValidationError::Internal(_)));
 
 		// Pause for enough time to reset the cooldown for this failed prepare request.
 		futures_timer::Delay::new(PREPARE_FAILURE_COOLDOWN).await;
