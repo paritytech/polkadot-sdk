@@ -1069,7 +1069,7 @@ fn footprint_num_pages_works() {
 		// Mark the messages as overweight.
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
 		assert_eq!(System::events().len(), 2);
-		// Overweight does not change the footprint.
+		// `ready_pages` decreases but `page` count does not.
 		assert_eq!(MessageQueue::footprint(Here), fp(0, 2, 2, 16));
 
 		// Now execute the second message.
@@ -1086,6 +1086,11 @@ fn footprint_num_pages_works() {
 			2.into_weight()
 		);
 		assert_eq!(MessageQueue::footprint(Here), Default::default());
+		assert_eq!(MessageQueue::footprint(Here), fp(0, 0, 0, 0));
+
+		// `ready_pages` and normal `pages` increases again:
+		MessageQueue::enqueue_message(msg("weight=3"), Here);
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 1, 8));
 	})
 }
 
