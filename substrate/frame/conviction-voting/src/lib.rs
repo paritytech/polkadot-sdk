@@ -31,7 +31,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{Inspect, InspectHold, MutateHold},
+		fungible::{Inspect, InspectFreeze, MutateFreeze},
 		Get, PollStatus, Polling,
 	},
 };
@@ -105,8 +105,8 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Currency type with which voting happens.
-		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ InspectFreeze<Self::AccountId>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
@@ -135,7 +135,7 @@ pub mod pallet {
 		type VoteHoldingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// The overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
+		type RuntimeFreezeReason: From<FreezeReason>;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -203,8 +203,9 @@ pub mod pallet {
 
 	/// The reasons for the pallet placing holds on funds.
 	#[pallet::composite_enum]
-	pub enum HoldReason {
+	pub enum FreezeReason {
 		/// The Pallet holds funds for voting reasons.
+		#[codec(index = 0)]
 		ConvictionVoting,
 	}
 
@@ -433,7 +434,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				// Extend the hold to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_hold(who, &class, vote.balance())?;
+				Self::extend_freeze(who, &class, vote.balance())?;
 				Ok(())
 			})
 		})
@@ -590,7 +591,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
 				// Extend the hold to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_hold(&who, &class, balance)?;
+				Self::extend_freeze(&who, &class, balance)?;
 				Ok(votes)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
@@ -636,7 +637,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes)
 	}
 
-	fn extend_hold(
+	fn extend_freeze(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: BalanceOf<T, I>,
@@ -655,9 +656,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			}
 		});
-		if amount > T::Currency::balance_on_hold(&HoldReason::ConvictionVoting.into(), who) {
-			T::Currency::set_on_hold(&HoldReason::ConvictionVoting.into(), who, amount)?;
-		}
+		T::Currency::extend_freeze(&FreezeReason::ConvictionVoting.into(), who, amount)?;
 		Ok(())
 	}
 
@@ -682,13 +681,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			holds.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
 		});
 		if hold_needed.is_zero() {
-			T::Currency::release_all(
-				&HoldReason::ConvictionVoting.into(),
-				who,
-				frame_support::traits::tokens::Precision::BestEffort,
-			)?;
+			T::Currency::thaw(&FreezeReason::ConvictionVoting.into(), who)?;
 		} else {
-			T::Currency::set_on_hold(&HoldReason::ConvictionVoting.into(), who, hold_needed)?;
+			T::Currency::extend_freeze(&FreezeReason::ConvictionVoting.into(), who, hold_needed)?;
 		}
 		Ok(())
 	}
