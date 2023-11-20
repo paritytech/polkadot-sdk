@@ -27,8 +27,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
-	derive_impl,
+	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	pallet_prelude::Pays,
 	parameter_types,
 	traits::{

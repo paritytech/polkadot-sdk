@@ -27,8 +27,7 @@ use sp_runtime::{
 use sp_storage::Storage;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
-	derive_impl,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	storage::StoragePrefixedMap,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},

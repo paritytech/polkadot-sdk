@@ -22,8 +22,7 @@
 use crate as pallet_whitelist;
 
 use frame_support::{
-	construct_runtime,
-	derive_impl,
+	construct_runtime, derive_impl,
 	traits::{ConstU32, ConstU64, Nothing},
 };
 use frame_system::EnsureRoot;

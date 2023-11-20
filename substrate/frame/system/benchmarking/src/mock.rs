@@ -20,8 +20,8 @@
 #![cfg(test)]
 
 use codec::Encode;
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
 use frame_support::derive_impl;
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type AccountId = u64;
 type Nonce = u32;

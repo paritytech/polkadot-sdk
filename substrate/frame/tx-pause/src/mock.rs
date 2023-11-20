@@ -23,8 +23,7 @@ use super::*;
 use crate as pallet_tx_pause;
 
 use frame_support::{
-	derive_impl,
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
 };
 use frame_system::EnsureSignedBy;

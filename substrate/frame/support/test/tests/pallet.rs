@@ -16,8 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
-	assert_ok,
-	derive_impl,
+	assert_ok, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},

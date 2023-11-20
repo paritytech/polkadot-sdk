@@ -21,8 +21,7 @@ use super::*;
 use crate as pallet_uniques;
 
 use frame_support::{
-	construct_runtime,
-	derive_impl,
+	construct_runtime, derive_impl,
 	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
 };
 use sp_core::H256;

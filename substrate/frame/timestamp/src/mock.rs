@@ -21,8 +21,7 @@ use super::*;
 use crate as pallet_timestamp;
 
 use frame_support::{
-	derive_impl,
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::H256;

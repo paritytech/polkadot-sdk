@@ -16,8 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
-	derive_impl,
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, WithdrawReasons},
 };
 use sp_core::H256;
