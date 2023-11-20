@@ -166,11 +166,6 @@ impl<B: BlockT> Protocol<B> {
 			warn!(target: "sub-libp2p", "disconnect_peer() with invalid protocol name")
 		}
 	}
-
-	/// Returns the number of peers we're connected to on sync protocol.
-	pub fn num_connected_peers(&self) -> usize {
-		self.behaviour.num_connected_peers(HARDCODED_PEERSETS_SYNC)
-	}
 }
 
 /// Outcome of an incoming custom message.
