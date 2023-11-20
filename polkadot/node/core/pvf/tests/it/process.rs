@@ -19,7 +19,9 @@
 
 use super::TestHost;
 use assert_matches::assert_matches;
-use polkadot_node_core_pvf::{InvalidCandidate, PrepareError, ValidationError};
+use polkadot_node_core_pvf::{
+	InvalidCandidate, PossiblyInvalidError, PrepareError, ValidationError,
+};
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams};
 use procfs::process;
 use rusty_fork::rusty_fork_test;

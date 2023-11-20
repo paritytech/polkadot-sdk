@@ -362,7 +362,7 @@ fn handle_job_finish(
 			None,
 		),
 		Outcome::JobError { err } =>
-			(None, Err(ValidationError::Invalid(InvalidCandidate::JobError(err))), None),
+			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), None),
 	};
 
 	queue.metrics.execute_finished();

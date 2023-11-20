@@ -648,7 +648,7 @@ async fn validate_candidate_exhaustive(
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
 			))),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::JobError(err))) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
@@ -656,11 +656,6 @@ async fn validate_candidate_exhaustive(
 				"ambiguous job death: {err}"
 			)))),
 		Err(ValidationError::Preparation(e)) => {
-			// In principle if preparation of the `WASM` fails, the current candidate can not be the
-			// reason for that. So we can't say whether it is invalid or not. In addition, with
-			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
-			// reasonably sure that this is some local problem on the current node. However, as this
-			// particular error *seems* to indicate a deterministic error, we raise a warning.
 			gum::warn!(
 				target: LOG_TARGET,
 				?para_id,
@@ -760,7 +755,7 @@ trait ValidationBackend {
 					PossiblyInvalidError::AmbiguousWorkerDeath |
 					PossiblyInvalidError::AmbiguousJobDeath(_),
 				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
-				Err(ValidationError::Invalid(WasmInvalidCandidate::JobError(_)))
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_)))
 					if num_job_error_retries_left > 0 =>
 					num_job_error_retries_left -= 1,
 				Err(ValidationError::Internal(_)) if num_internal_retries_left > 0 =>

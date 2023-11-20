@@ -695,13 +695,13 @@ fn candidate_validation_retry_panic_errors() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::Invalid(WasmInvalidCandidate::JobError("foo".into()))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AJD error, we should still retry again.
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(
 				"baz".into(),
 			))),
 			// Throw another panic error.
-			Err(ValidationError::Invalid(WasmInvalidCandidate::JobError("bar".into()))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("bar".into()))),
 		]),
 		validation_data,
 		validation_code,
