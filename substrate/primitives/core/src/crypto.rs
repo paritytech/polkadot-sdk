@@ -39,10 +39,7 @@ pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58Addres
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
 
-#[cfg(feature = "std")]
-pub use crate::address_uri::AddressUri;
-#[cfg(any(feature = "std", feature = "full_crypto"))]
-pub use crate::address_uri::Error as AddressUriError;
+pub use crate::address_uri::{AddressUri, Error as AddressUriError};
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str =
@@ -101,7 +98,6 @@ pub enum SecretStringError {
 	InvalidPath,
 }
 
-#[cfg(any(feature = "std", feature = "full_crypto"))]
 impl From<AddressUriError> for SecretStringError {
 	fn from(e: AddressUriError) -> Self {
 		Self::InvalidFormat(e)

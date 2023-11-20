@@ -54,7 +54,6 @@ pub mod crypto;
 pub mod hexdisplay;
 pub use paste;
 
-#[cfg(any(feature = "full_crypto", feature = "std"))]
 mod address_uri;
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
