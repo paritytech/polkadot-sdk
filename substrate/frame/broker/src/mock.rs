@@ -19,7 +19,7 @@
 
 use crate::{test_fungibles::TestFungibles, *};
 use frame_support::{
-	assert_ok, ensure, ord_parameter_types, parameter_types,
+	assert_ok, ensure, ord_parameter_types, parameter_types, derive_impl,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
@@ -47,6 +47,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

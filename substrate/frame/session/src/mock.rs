@@ -36,6 +36,7 @@ use sp_state_machine::BasicExternalities;
 
 use frame_support::{
 	parameter_types,
+	derive_impl,
 	traits::{ConstU32, ConstU64},
 };
 
@@ -232,6 +233,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(t)
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

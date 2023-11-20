@@ -192,7 +192,7 @@ pub mod benchmarks {
 mod tests {
 	use super::*;
 	use frame_support::{
-		dispatch::DispatchClass,
+		dispatch::DispatchClass, derive_impl,
 		parameter_types,
 		traits::{
 			tokens::{PayFromAccount, UnityAssetBalanceConversion},
@@ -237,6 +237,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;

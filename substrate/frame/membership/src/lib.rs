@@ -24,6 +24,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
+	derive_impl,
 	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
@@ -551,6 +552,7 @@ mod tests {
 		pub static Prime: Option<u64> = None;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

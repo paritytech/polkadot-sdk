@@ -22,6 +22,7 @@ use crate as pallet_society;
 
 use frame_support::{
 	assert_noop, assert_ok, ord_parameter_types, parameter_types,
+	derive_impl,
 	traits::{ConstU32, ConstU64},
 };
 use frame_support_test::TestRandomness;
@@ -58,6 +59,7 @@ ord_parameter_types! {
 	pub const MaxBids: u32 = 10;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

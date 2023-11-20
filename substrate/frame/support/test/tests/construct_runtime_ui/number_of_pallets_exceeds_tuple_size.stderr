@@ -24,7 +24,8 @@ error[E0412]: cannot find type `Runtime` in this scope
 error[E0412]: cannot find type `Runtime` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:39:31
    |
-39 | impl frame_system::Config for Runtime {
+39 | #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+impl frame_system::Config for Runtime {
    |                               ^^^^^^^ not found in this scope
 
 error[E0412]: cannot find type `RuntimeOrigin` in this scope

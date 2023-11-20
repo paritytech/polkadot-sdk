@@ -21,6 +21,7 @@ use super::*;
 use crate as pallet_node_authorization;
 
 use frame_support::{
+	derive_impl,
 	ord_parameter_types,
 	traits::{ConstU32, ConstU64},
 };
@@ -43,6 +44,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type DbWeight = ();

@@ -23,6 +23,7 @@ use super::*;
 use crate as pallet_tx_pause;
 
 use frame_support::{
+	derive_impl,
 	parameter_types,
 	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
 };
@@ -36,6 +37,7 @@ use sp_runtime::{
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, TxPause>;
 	type BlockWeights = ();

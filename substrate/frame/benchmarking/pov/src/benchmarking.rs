@@ -340,6 +340,7 @@ frame_benchmarking::benchmarks! {
 #[cfg(test)]
 mod mock {
 	use sp_runtime::{testing::H256, BuildStorage};
+	use frame_support::derive_impl;
 
 	type AccountId = u64;
 	type Nonce = u32;
@@ -354,6 +355,7 @@ mod mock {
 		}
 	);
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

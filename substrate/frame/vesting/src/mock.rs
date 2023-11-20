@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
+	derive_impl,
 	parameter_types,
 	traits::{ConstU32, ConstU64, WithdrawReasons},
 };
@@ -39,6 +40,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 	type AccountId = u64;

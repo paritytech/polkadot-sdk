@@ -22,6 +22,7 @@ use crate as pallet_nft_fractionalization;
 
 use frame_support::{
 	construct_runtime, parameter_types,
+	derive_impl,
 	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
 	BoundedVec, PalletId,
 };
@@ -49,6 +50,8 @@ construct_runtime!(
 		Nfts: pallet_nfts,
 	}
 );
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

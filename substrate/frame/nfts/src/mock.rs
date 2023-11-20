@@ -22,6 +22,7 @@ use crate as pallet_nfts;
 
 use frame_support::{
 	construct_runtime, parameter_types,
+	derive_impl,
 	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
 };
 use sp_core::H256;
@@ -46,6 +47,7 @@ pub type Signature = MultiSignature;
 pub type AccountPublic = <Signature as Verify>::Signer;
 pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
