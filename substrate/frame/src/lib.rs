@@ -262,7 +262,7 @@ pub mod runtime {
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
 		pub type SystemTransactionExtensionsOf<T> = AsTransactionExtension<
-			SystemSignedExtensionsOf<T> as SignedExtension
+			SystemSignedExtensionsOf<T>/*  as SignedExtension*/
 		>;
 	}
 

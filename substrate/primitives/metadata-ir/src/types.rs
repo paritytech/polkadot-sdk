@@ -166,9 +166,10 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	pub call_ty: T::Type,
 	/// The type of the extrinsic's signature.
 	pub signature_ty: T::Type,
-	/// The type of the outermost Extra enum.
+	/// The type of the outermost Extra/Extensions enum.
+	// TODO: metadata-v16: rename this to `extension_ty`.
 	pub extra_ty: T::Type,
-	/// The signed extensions in the order they appear in the extrinsic.
+	/// The transaction extensions in the order they appear in the extrinsic.
 	pub extensions: Vec<TransactionExtensionMetadataIR<T>>,
 }
 
@@ -195,7 +196,7 @@ pub struct TransactionExtensionMetadataIR<T: Form = MetaForm> {
 	pub identifier: T::String,
 	/// The type of the signed extension, with the data to be included in the extrinsic.
 	pub ty: T::Type,
-	/// The type of the additional signed data, with the data to be included in the signed payload
+	/// The type of the additional signed data, with the data to be included in the signed payload.
 	pub additional_signed: T::Type,
 }
 

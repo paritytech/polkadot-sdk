@@ -1226,7 +1226,7 @@ pub trait Header:
 // that is then used to define `UncheckedExtrinsic`.
 // ```ignore
 // pub type UncheckedExtrinsic =
-// 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+// 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 // ```
 // This `UncheckedExtrinsic` is supplied to the `Block`.
 // ```ignore
@@ -1354,7 +1354,8 @@ pub trait ExtrinsicMetadata {
 	const VERSION: u8;
 
 	/// Signed extensions attached to this `Extrinsic`.
-	type Extensions: TransactionExtension;
+	// TODO: metadata-v16: rename to `Extension`.
+	type Extra: TransactionExtension;
 }
 
 /// Extract the hashing type for a block.

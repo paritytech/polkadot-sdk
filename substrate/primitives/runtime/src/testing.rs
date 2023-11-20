@@ -295,29 +295,42 @@ impl<Extra: TypeInfo> SignaturePayload for TxSignaturePayload<Extra> {
 }
 
 // TODO: Remove this completely - just use the regular tx types.
+// TODO: Meantime, if removal is too much work, rename `fn new` into `fn new_inherent` and
+//   `fn new_signed_transaction`.
 
 /// Test transaction, tuple of (sender, call, signed_extra)
 /// with index only used if sender is some.
 ///
 /// If sender is some then the transaction is signed otherwise it is unsigned.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
-pub struct TestXt<Call, Extra> {
+pub struct TestXt<Call, Extension> {
 	/// Signature of the extrinsic.
-	pub signature: Option<TxSignaturePayload<Extra>>,
+	pub signature: Option<TxSignaturePayload<Extension>>,
 	/// Call of the extrinsic.
 	pub call: Call,
 }
 
-impl<Call, Extra> TestXt<Call, Extra> {
+impl<Call, Extension> TestXt<Call, Extension> {
 	/// Create a new `TextXt`.
-	pub fn new(call: Call, signature: Option<(u64, Extra)>) -> Self {
+	#[deprecated = "Use `new_inherent` or `new_signed` instead"]
+	pub fn new(call: Call, signature: Option<(u64, Extension)>) -> Self {
 		Self { call, signature }
+	}
+
+	/// Create a new inherent `TextXt`.
+	pub fn new_inherent(call: Call) -> Self {
+		Self { call, signature: None }
+	}
+
+	/// Create a new signed transaction `TextXt`.
+	pub fn new_signed(call: Call, who: u64, ext: Extension) -> Self {
+		Self { call, signature: Some((who, ext)) }
 	}
 }
 
-impl<Call, Extra> Serialize for TestXt<Call, Extra>
+impl<Call, Extension> Serialize for TestXt<Call, Extension>
 where
-	TestXt<Call, Extra>: Encode,
+	TestXt<Call, Extension>: Encode,
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
 	where
@@ -327,13 +340,13 @@ where
 	}
 }
 
-impl<Call, Extra> Debug for TestXt<Call, Extra> {
+impl<Call, Extension> Debug for TestXt<Call, Extension> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "TestXt({:?}, ...)", self.signature.as_ref().map(|x| &x.0))
 	}
 }
 
-impl<Call: Codec + Sync + Send, Context, Extra> Checkable<Context> for TestXt<Call, Extra> {
+impl<Call: Codec + Sync + Send, Context, Extension> Checkable<Context> for TestXt<Call, Extension> {
 	type Checked = Self;
 	fn check(self, _: &Context) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(self)
@@ -349,11 +362,11 @@ impl<Call: Codec + Sync + Send, Context, Extra> Checkable<Context> for TestXt<Ca
 }
 
 // TODO: Remove
-impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
-	for TestXt<Call, Extra>
+impl<Call: Codec + Sync + Send + TypeInfo, Extension: TypeInfo> traits::Extrinsic
+	for TestXt<Call, Extension>
 {
 	type Call = Call;
-	type SignaturePayload = TxSignaturePayload<Extra>;
+	type SignaturePayload = TxSignaturePayload<Extension>;
 
 	fn is_bare(&self) -> bool {
 		!self.signature.is_some()
@@ -364,17 +377,18 @@ impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
 	}
 }
 
-impl<Call, Extra> traits::ExtrinsicMetadata for TestXt<Call, Extra>
+impl<Call, Extension> traits::ExtrinsicMetadata for TestXt<Call, Extension>
 where
 	Call: Codec + Sync + Send,
-	Extra: TransactionExtension<Call = Call>,
+	Extension: TransactionExtension<Call = Call>,
 {
-	type Extensions = Extra;
+	// TODO: metadata-v16: Rename to `Extension`
+	type Extra = Extension;
 	const VERSION: u8 = 0u8;
 }
 
 // TODO: remove this in favour of real transactions.
-impl<Origin, Call, Extra> Applyable for TestXt<Call, Extra>
+impl<Origin, Call, Extension> Applyable for TestXt<Call, Extension>
 where
 	Call: 'static
 		+ Sized
@@ -385,7 +399,7 @@ where
 		+ Codec
 		+ Debug
 		+ Dispatchable<RuntimeOrigin = Origin>,
-	Extra: TransactionExtension<Call = Call>,
+	Extension: TransactionExtension<Call = Call>,
 	Origin: From<Option<u64>>,
 {
 	type Call = Call;
@@ -401,7 +415,7 @@ where
 			extra.validate(Some(id.clone()).into(), &self.call, info, len).map(|x| x.0)
 		} else {
 			#[allow(deprecated)]
-			let valid = Extra::validate_no_self_compat(&self.call, info, len)?;
+			let valid = Extension::validate_no_self_compat(&self.call, info, len)?;
 			let unsigned_validation = U::validate_unsigned(source, &self.call)?;
 			Ok(valid.combine_with(unsigned_validation))
 		}
@@ -418,7 +432,7 @@ where
 			extra.dispatch_transaction(Some(who).into(), self.call, info, len)
 		} else {
 			#[allow(deprecated)]
-			Extra::pre_dispatch_no_self_compat(&self.call, info, len)?;
+			Extension::pre_dispatch_no_self_compat(&self.call, info, len)?;
 			U::pre_dispatch(&self.call)?;
 			Ok(self.call.dispatch(None.into()))
 		}

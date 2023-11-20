@@ -29,7 +29,7 @@ use frame::{
 			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult, OpaqueMetadata,
 		},
 		prelude::*,
-	},
+	}, traits::AsTransactionExtension,
 };
 use frame_support::genesis_builder_helper::{build_config, create_default_config};
 
@@ -51,7 +51,7 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-type SignedExtra = (
+type TxExtension = AsTransactionExtension<(
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -60,7 +60,7 @@ type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-);
+)>;
 
 construct_runtime!(
 	pub struct Runtime {
@@ -103,7 +103,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
 
-type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
 type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =

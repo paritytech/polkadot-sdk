@@ -51,7 +51,7 @@ use sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, Pair, Public};
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
-	OpaqueExtrinsic,
+	OpaqueExtrinsic, generic::{Preamble, ExtrinsicFormat},
 };
 
 /// Keyring full of accounts for benching.
@@ -294,10 +294,10 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 
 		let signed = self.keyring.sign(
 			CheckedExtrinsic {
-				signed: Some((
+				format: ExtrinsicFormat::Signed(
 					sender,
-					signed_extra(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
-				)),
+					tx_ext(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
+				),
 				function: match self.content.block_type {
 					BlockType::RandomTransfersKeepAlive =>
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -563,11 +563,11 @@ impl BenchKeyring {
 		tx_version: u32,
 		genesis_hash: [u8; 32],
 	) -> UncheckedExtrinsic {
-		match xt.signed {
-			Some((signed, extra)) => {
+		match xt.format {
+			ExtrinsicFormat::Signed(signed, tx_ext) => {
 				let payload = (
 					xt.function,
-					extra.clone(),
+					tx_ext.clone(),
 					spec_version,
 					tx_version,
 					genesis_hash,
@@ -582,11 +582,15 @@ impl BenchKeyring {
 					}
 				});
 				UncheckedExtrinsic {
-					signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
+					preamble: Preamble::Signed(sp_runtime::MultiAddress::Id(signed), signature, tx_ext),
 					function: payload.0,
 				}
 			},
-			None => UncheckedExtrinsic { signature: None, function: xt.function },
+			ExtrinsicFormat::Bare => UncheckedExtrinsic { preamble: Preamble::Bare, function: xt.function },
+			ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
+				preamble: sp_runtime::generic::Preamble::General(tx_ext),
+				function: xt.function
+			},
 		}
 	}
 

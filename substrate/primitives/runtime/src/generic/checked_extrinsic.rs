@@ -26,12 +26,13 @@ use crate::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 
+/// The kind of extrinsic this is, including any fields required of that kind. This is basically
+/// the full extrinsic except the `Call`.
 #[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
 pub enum ExtrinsicFormat<AccountId, Extension> {
-	/// Extrinsic must pass `ValidateInherent` checks as well as `TransactionExtension`'s static
-	/// compatibility checks. The latter is scheduled for removal after the deprecation period.
-	/// Does not include any extension data.
-	Inherent,
+	/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
+	/// `ValidateUnsigned`, both deprecated, or alternatively a `ProvideInherent`.
+	Bare,
 	/// Extrinsic has a default `Origin` of `Signed(AccountId)` and must pass all
 	/// `TransactionExtension`s regular checks and includes all extension data.
 	Signed(AccountId, Extension),
@@ -81,7 +82,7 @@ where
 	) -> TransactionValidity {
 
 		match self.format {
-			ExtrinsicFormat::Inherent => {
+			ExtrinsicFormat::Bare => {
 				let inherent_validation = I::validate_unsigned(source, &self.function)?;
 				#[allow(deprecated)]
 				let legacy_validation = Extension::validate_no_self_compat(&self.function, info, len)?;
@@ -102,7 +103,7 @@ where
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Self::Call>> {
 		match self.format {
-			ExtrinsicFormat::Inherent => {
+			ExtrinsicFormat::Bare => {
 				I::pre_dispatch(&self.function)?;
 				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
 				//   or `LegacyExtension` is removed.

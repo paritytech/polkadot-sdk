@@ -30,7 +30,7 @@ use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
-use sp_runtime::{DispatchError, ModuleError};
+use sp_runtime::{DispatchError, ModuleError, traits::TransactionExtensionMetadata};
 use sp_std::any::TypeId;
 
 #[frame_support::pallet(dev_mode)]
@@ -937,7 +937,7 @@ fn metadata() {
 	let extrinsic = ExtrinsicMetadata {
 		ty: scale_info::meta_type::<UncheckedExtrinsic>(),
 		version: 4,
-		extensions: vec![TransactionExtensionMetadata {
+		signed_extensions: vec![SignedExtensionMetadata {
 			identifier: "UnitTransactionExtension",
 			ty: scale_info::meta_type::<()>(),
 			additional_signed: scale_info::meta_type::<()>(),

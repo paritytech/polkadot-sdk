@@ -159,7 +159,7 @@ pub fn expand_outer_inherent(
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
 							let found = block.extrinsics().iter().any(|xt| {
-								let is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare;
+								let is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare(xt);
 
 								if is_bare {
 									let call = <

@@ -742,7 +742,7 @@ mod tests {
 	use sp_runtime::{
 		generic::{DigestItem, Era},
 		testing::{Block, Digest, Header},
-		traits::{BlakeTwo256, Block as BlockT, Header as HeaderT, IdentityLookup},
+		traits::{BlakeTwo256, Block as BlockT, Header as HeaderT, IdentityLookup, AsTransactionExtension},
 		transaction_validity::{
 			InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 		},
@@ -975,13 +975,13 @@ mod tests {
 			Default::default();
 	}
 
-	type SignedExtra = (
+	type TxExtension = AsTransactionExtension<(
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	);
-	type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
+	)>;
+	type TestXt = sp_runtime::testing::TestXt<RuntimeCall, TxExtension>;
 	type TestBlock = Block<TestXt>;
 
 	// Will contain `true` when the custom runtime logic was called.
@@ -1009,17 +1009,13 @@ mod tests {
 		CustomOnRuntimeUpgrade,
 	>;
 
-	fn extra(nonce: u64, fee: Balance) -> SignedExtra {
+	fn tx_ext(nonce: u64, fee: Balance) -> TxExtension {
 		(
 			frame_system::CheckEra::from(Era::Immortal),
 			frame_system::CheckNonce::from(nonce),
 			frame_system::CheckWeight::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::from(fee),
-		)
-	}
-
-	fn sign_extra(who: u64, nonce: u64, fee: Balance) -> Option<(u64, SignedExtra)> {
-		Some((who, extra(nonce, fee)))
+		).into()
 	}
 
 	fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
@@ -1032,7 +1028,7 @@ mod tests {
 		pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 211)] }
 			.assimilate_storage(&mut t)
 			.unwrap();
-		let xt = TestXt::new(call_transfer(2, 69), sign_extra(1, 0, 0));
+		let xt = TestXt::new_signed(call_transfer(2, 69), 1, tx_ext(0, 0));
 		let weight = xt.get_dispatch_info().weight +
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
@@ -1145,7 +1141,7 @@ mod tests {
 	fn bad_extrinsic_not_inserted() {
 		let mut t = new_test_ext(1);
 		// bad nonce check!
-		let xt = TestXt::new(call_transfer(33, 69), sign_extra(1, 30, 0));
+		let xt = TestXt::new(call_transfer(33, 69), Some((1, tx_ext(30, 0))));
 		t.execute_with(|| {
 			Executive::initialize_block(&Header::new(
 				1,
@@ -1168,7 +1164,7 @@ mod tests {
 		// given: TestXt uses the encoded len as fixed Len:
 		let xt = TestXt::new(
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-			sign_extra(1, 0, 0),
+			Some((1, tx_ext(0, 0))),
 		);
 		let encoded = xt.encode();
 		let encoded_len = encoded.len() as u64;
@@ -1194,7 +1190,7 @@ mod tests {
 						dest: 33,
 						value: 0,
 					}),
-					sign_extra(1, nonce.into(), 0),
+					Some((1, tx_ext(nonce.into(), 0))),
 				);
 				let res = Executive::apply_extrinsic(xt);
 				if nonce != num_to_exhaust_block {
@@ -1219,15 +1215,15 @@ mod tests {
 	fn block_weight_and_size_is_stored_per_tx() {
 		let xt = TestXt::new(
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-			sign_extra(1, 0, 0),
+			Some((1, tx_ext(0, 0))),
 		);
 		let x1 = TestXt::new(
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-			sign_extra(1, 1, 0),
+			Some((1, tx_ext(1, 0))),
 		);
 		let x2 = TestXt::new(
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-			sign_extra(1, 2, 0),
+			Some((1, tx_ext(2, 0))),
 		);
 		let len = xt.clone().encode().len() as u32;
 		let mut t = new_test_ext(1);
@@ -1323,7 +1319,7 @@ mod tests {
 			.unwrap();
 			let xt = TestXt::new(
 				RuntimeCall::System(frame_system::Call::remark { remark: vec![1u8] }),
-				sign_extra(1, 0, 0),
+				Some((1, tx_ext(0, 0))),
 			);
 			Executive::initialize_block(&Header::new(
 				1,
@@ -1469,7 +1465,7 @@ mod tests {
 	fn custom_runtime_upgrade_is_called_when_using_execute_block_trait() {
 		let xt = TestXt::new(
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-			sign_extra(1, 0, 0),
+			Some((1, tx_ext(0, 0))),
 		);
 
 		let header = new_test_ext(1).execute_with(|| {
@@ -1575,7 +1571,7 @@ mod tests {
 	#[test]
 	fn calculating_storage_root_twice_works() {
 		let call = RuntimeCall::Custom(custom::Call::calculate_storage_root {});
-		let xt = TestXt::new(call, sign_extra(1, 0, 0));
+		let xt = TestXt::new(call, Some((1, tx_ext(0, 0))));
 
 		let header = new_test_ext(1).execute_with(|| {
 			// Let's build some fake block.
@@ -1602,7 +1598,7 @@ mod tests {
 	fn invalid_inherent_position_fail() {
 		let xt1 = TestXt::new(
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-			sign_extra(1, 0, 0),
+			Some((1, tx_ext(0, 0))),
 		);
 		let xt2 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), None);
 
@@ -1630,7 +1626,7 @@ mod tests {
 	#[test]
 	fn valid_inherents_position_works() {
 		let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), None);
-		let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+		let xt2 = TestXt::new(call_transfer(33, 0), Some((1, tx_ext(0, 0))));
 
 		let header = new_test_ext(1).execute_with(|| {
 			// Let's build some fake block.
@@ -1657,7 +1653,7 @@ mod tests {
 	#[should_panic(expected = "A call was labelled as mandatory, but resulted in an Error.")]
 	fn invalid_inherents_fail_block_execution() {
 		let xt1 =
-			TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), sign_extra(1, 0, 0));
+			TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), Some((1, tx_ext(0, 0))));
 
 		new_test_ext(1).execute_with(|| {
 			Executive::execute_block(Block::new(

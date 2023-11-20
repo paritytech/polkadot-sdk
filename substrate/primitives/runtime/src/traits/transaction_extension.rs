@@ -27,7 +27,7 @@ pub trait AdditionalSigned {
 
 	/// Construct any additional data that should be in the signed payload of the transaction. Can
 	/// also perform any pre-signature-verification checks and return an error if needed.
-	fn data(&self) -> Result<Self::Data, TransactionValidityError>;
+	fn additional_signed(&self) -> Result<Self::Data, TransactionValidityError>;
 }
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
@@ -296,8 +296,8 @@ impl<Call: Dispatchable> TransactionExtension for Tuple {
 #[impl_for_tuples(1, 12)]
 impl AdditionalSigned for Tuple {
 	for_tuples!( type Data = ( #( Tuple::Data ),* ); );
-	fn data(&self) -> Result<Self::Data, TransactionValidityError> {
-		Ok(for_tuples!( ( #( Tuple.data()? ),* ) ))
+	fn additional_signed(&self) -> Result<Self::Data, TransactionValidityError> {
+		Ok(for_tuples!( ( #( Tuple.additional_signed()? ),* ) ))
 	}
 }
 
@@ -327,7 +327,7 @@ impl TransactionExtension for () {
 
 impl AdditionalSigned for () {
 	type Data = ();
-	fn data(&self) -> Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> Result<(), TransactionValidityError> {
 		Ok(())
 	}
 }
@@ -337,6 +337,12 @@ impl AdditionalSigned for () {
 //#[deprecated = "Convert your SignedExtension to a TransactionExtension."]
 pub struct AsTransactionExtension<SE: SignedExtension>(pub SE);
 
+impl <SE: SignedExtension + Default> Default for AsTransactionExtension<SE> {
+	fn default() -> Self {
+		Self(SE::default())
+	}
+}
+
 impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 	fn from(value: SE) -> Self {
 		Self(value)
@@ -345,7 +351,7 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 
 impl<SE: SignedExtension> AdditionalSigned for AsTransactionExtension<SE> {
 	type Data = SE::AdditionalSigned;
-	fn data(&self) -> Result<Self::Data, TransactionValidityError> {
+	fn additional_signed(&self) -> Result<Self::Data, TransactionValidityError> {
 		self.0.additional_signed()
 	}
 }

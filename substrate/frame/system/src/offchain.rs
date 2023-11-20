@@ -476,7 +476,7 @@ pub trait SendTransactionTypes<LocalCall> {
 ///
 /// This trait is meant to be implemented by the runtime and is responsible for constructing
 /// a payload to be signed and contained within the extrinsic.
-/// This will most likely include creation of `SignedExtra` (a set of `TransactionExtension`).
+/// This will most likely include creation of `TxExtension` (a tuple of `TransactionExtension`s).
 /// Note that the result can be altered by inspecting the `Call` (for instance adjusting
 /// fees, or mortality depending on the `pallet` being called).
 pub trait CreateSignedTransaction<LocalCall>:

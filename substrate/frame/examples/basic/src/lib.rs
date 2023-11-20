@@ -473,7 +473,7 @@ impl<T: Config> Pallet<T> {
 //
 // The signed extensions are aggregated in the runtime file of a substrate chain. All extensions
 // should be aggregated in a tuple and passed to the `CheckedExtrinsic` and `UncheckedExtrinsic`
-// types defined in the runtime. Lookup `pub type SignedExtra = (...)` in `node/runtime` and
+// types defined in the runtime. Lookup `pub type TxExtension = (...)` in `node/runtime` and
 // `node-template` for an example of this.
 
 /// A simple signed extension that checks for the `set_dummy` call. In that case, it increases the
