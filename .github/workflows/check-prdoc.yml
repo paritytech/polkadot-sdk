@@ -3,6 +3,7 @@ name: Check PRdoc
 on:
   pull_request:
     types: [labeled, opened, synchronize, unlabeled]
+  merge_group:
 
 env:
   IMAGE: docker.io/paritytech/prdoc:v0.0.7
@@ -19,6 +20,9 @@ jobs:
     steps:
       # we cannot show the version in this step (ie before checking out the repo)
       # due to https://github.com/paritytech/prdoc/issues/15
+      - name: Skip merge queue
+        if: ${{ contains(github.ref, 'gh-readonly-queue') }}
+        run: exit 0
       - name: Pull image
         run: |
           echo "Pulling $IMAGE"
