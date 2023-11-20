@@ -402,6 +402,7 @@ impl PostInherents for MockedSystemCallbacks {
 	fn post_inherents() {
 		assert_eq!(SystemCallbacksCalled::get(), 1);
 		SystemCallbacksCalled::set(2);
+		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":post_inherent", b"0");
 	}
 }
@@ -410,6 +411,7 @@ impl PostTransactions for MockedSystemCallbacks {
 	fn post_transactions() {
 		assert_eq!(SystemCallbacksCalled::get(), 2);
 		SystemCallbacksCalled::set(3);
+		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":post_transaction", b"0");
 	}
 }
