@@ -1292,7 +1292,13 @@ pub mod pallet {
 				RewardDestination::Controller
 			};
 
-			ensure!(payee != controller_deprecated(), Error::<T>::ControllerDeprecated);
+			ensure!(
+				(payee != {
+					#[allow(deprecated)]
+					RewardDestination::Controller
+				}),
+				Error::<T>::ControllerDeprecated
+			);
 
 			let _ = ledger
 				.set_payee(payee)
