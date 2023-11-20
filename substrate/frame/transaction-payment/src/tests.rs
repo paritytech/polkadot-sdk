@@ -25,7 +25,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_ok,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	traits::Currency,
 	weights::Weight,
@@ -141,8 +141,8 @@ fn signed_extension_transaction_payment_work() {
 				.unwrap();
 			assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
-			assert_ok!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&info_from_weight(Weight::from_parts(5, 0)),
 				&default_post_info(),
 				len,
@@ -159,8 +159,8 @@ fn signed_extension_transaction_payment_work() {
 				.unwrap();
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
-			assert_ok!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&info_from_weight(Weight::from_parts(100, 0)),
 				&post_info_from_weight(Weight::from_parts(50, 0)),
 				len,
@@ -188,8 +188,8 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
 			// 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 150 - 5);
 
-			assert_ok!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&info_from_weight(Weight::from_parts(100, 0)),
 				&post_info_from_weight(Weight::from_parts(50, 0)),
 				len,
@@ -203,9 +203,17 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
 #[test]
 fn signed_extension_transaction_payment_is_bounded() {
 	ExtBuilder::default().balance_factor(1000).byte_fee(0).build().execute_with(|| {
+		let val = TransactionExtension::validate(
+			&ChargeTransactionPayment::<Runtime>::from(0),
+			Some(1).into(),
+			CALL,
+			&info_from_weight(Weight::MAX),
+			10
+		).unwrap().1;
 		// maximum weight possible
-		assert_ok!(ChargeTransactionPayment::<Runtime>::from(0).pre_dispatch(
-			&1,
+		assert_ok!(ChargeTransactionPayment::<Runtime>::from(0).prepare(
+			val,
+			&Some(1).into(),
 			CALL,
 			&info_from_weight(Weight::MAX),
 			10
@@ -237,8 +245,9 @@ fn signed_extension_allows_free_transactions() {
 				class: DispatchClass::Operational,
 				pays_fee: Pays::No,
 			};
-			assert_ok!(ChargeTransactionPayment::<Runtime>::from(0).validate(
-				&1,
+			assert_ok!(TransactionExtension::validate(
+				&ChargeTransactionPayment::<Runtime>::from(0),
+				Some(1).into(),
 				CALL,
 				&operational_transaction,
 				len
@@ -250,13 +259,14 @@ fn signed_extension_allows_free_transactions() {
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};
-			assert_noop!(
-				ChargeTransactionPayment::<Runtime>::from(0).validate(
-					&1,
+			assert_eq!(
+				TransactionExtension::validate(
+					&ChargeTransactionPayment::<Runtime>::from(0),
+					Some(1).into(),
 					CALL,
 					&free_transaction,
 					len
-				),
+				).unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment),
 			);
 		});
@@ -291,12 +301,12 @@ fn query_info_and_fee_details_works() {
 	let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 2, value: 69 });
 	let origin = 111111;
 	let extra = ();
-	let xt = TestXt::new(call.clone(), Some((origin, extra)));
+	let xt = TestXt::new_signed(call.clone(), origin, extra);
 	let info = xt.get_dispatch_info();
 	let ext = xt.encode();
 	let len = ext.len() as u32;
 
-	let unsigned_xt = TestXt::<_, ()>::new(call, None);
+	let unsigned_xt = TestXt::<_, ()>::new_inherent(call);
 	let unsigned_xt_info = unsigned_xt.get_dispatch_info();
 
 	ExtBuilder::default()
@@ -540,8 +550,8 @@ fn refund_does_not_recreate_account() {
 			));
 			assert_eq!(Balances::free_balance(2), 0);
 
-			assert_ok!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&info_from_weight(Weight::from_parts(100, 0)),
 				&post_info_from_weight(Weight::from_parts(50, 0)),
 				len,
@@ -574,8 +584,8 @@ fn actual_weight_higher_than_max_refunds_nothing() {
 				.unwrap();
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
-			assert_ok!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&info_from_weight(Weight::from_parts(100, 0)),
 				&post_info_from_weight(Weight::from_parts(101, 0)),
 				len,
@@ -605,8 +615,8 @@ fn zero_transfer_on_free_transaction() {
 				.pre_dispatch(&user, CALL, &dispatch_info, len)
 				.unwrap();
 			assert_eq!(Balances::total_balance(&user), 0);
-			assert_ok!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&dispatch_info,
 				&default_post_info(),
 				len,
@@ -643,8 +653,8 @@ fn refund_consistent_with_actual_weight() {
 				.pre_dispatch(&2, CALL, &info, len)
 				.unwrap();
 
-			ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&info,
 				&post_info,
 				len,
@@ -673,17 +683,19 @@ fn should_alter_operational_priority() {
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes,
 		};
-		let priority = ChargeTransactionPayment::<Runtime>(tip)
-			.validate(&2, CALL, &normal, len)
+		let priority = TransactionExtension::validate(
+				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &normal, len
+			)
 			.unwrap()
-			.priority;
+			.0.priority;
 
 		assert_eq!(priority, 60);
 
-		let priority = ChargeTransactionPayment::<Runtime>(2 * tip)
-			.validate(&2, CALL, &normal, len)
+		let priority = TransactionExtension::validate(
+				&ChargeTransactionPayment::<Runtime>(2 * tip), Some(2).into(), CALL, &normal, len
+			)
 			.unwrap()
-			.priority;
+			.0.priority;
 
 		assert_eq!(priority, 110);
 	});
@@ -694,16 +706,18 @@ fn should_alter_operational_priority() {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let priority = ChargeTransactionPayment::<Runtime>(tip)
-			.validate(&2, CALL, &op, len)
+		let priority = TransactionExtension::validate(
+				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &op, len
+			)
 			.unwrap()
-			.priority;
+			.0.priority;
 		assert_eq!(priority, 5810);
 
-		let priority = ChargeTransactionPayment::<Runtime>(2 * tip)
-			.validate(&2, CALL, &op, len)
+		let priority = TransactionExtension::validate(
+				&ChargeTransactionPayment::<Runtime>(2 * tip), Some(2).into(), CALL, &op, len
+			)
 			.unwrap()
-			.priority;
+			.0.priority;
 		assert_eq!(priority, 6110);
 	});
 }
@@ -719,10 +733,11 @@ fn no_tip_has_some_priority() {
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes,
 		};
-		let priority = ChargeTransactionPayment::<Runtime>(tip)
-			.validate(&2, CALL, &normal, len)
+		let priority = TransactionExtension::validate(
+				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &normal, len
+			)
 			.unwrap()
-			.priority;
+			.0.priority;
 
 		assert_eq!(priority, 10);
 	});
@@ -733,10 +748,11 @@ fn no_tip_has_some_priority() {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let priority = ChargeTransactionPayment::<Runtime>(tip)
-			.validate(&2, CALL, &op, len)
+		let priority = TransactionExtension::validate(
+				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &op, len
+			)
 			.unwrap()
-			.priority;
+			.0.priority;
 		assert_eq!(priority, 5510);
 	});
 }
@@ -753,10 +769,11 @@ fn higher_tip_have_higher_priority() {
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};
-			priority1 = ChargeTransactionPayment::<Runtime>(tip)
-				.validate(&2, CALL, &normal, len)
+			priority1 = TransactionExtension::validate(
+					&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &normal, len
+				)
 				.unwrap()
-				.priority;
+				.0.priority;
 		});
 
 		ExtBuilder::default().balance_factor(100).build().execute_with(|| {
@@ -765,10 +782,11 @@ fn higher_tip_have_higher_priority() {
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
-			priority2 = ChargeTransactionPayment::<Runtime>(tip)
-				.validate(&2, CALL, &op, len)
+			priority2 = TransactionExtension::validate(
+					&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &op, len
+				)
 				.unwrap()
-				.priority;
+				.0.priority;
 		});
 
 		(priority1, priority2)
@@ -803,8 +821,8 @@ fn post_info_can_change_pays_fee() {
 				.pre_dispatch(&2, CALL, &info, len)
 				.unwrap();
 
-			ChargeTransactionPayment::<Runtime>::post_dispatch(
-				Some(pre),
+			<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
+				pre,
 				&info,
 				&post_info,
 				len,

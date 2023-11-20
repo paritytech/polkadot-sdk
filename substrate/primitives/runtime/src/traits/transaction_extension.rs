@@ -58,7 +58,7 @@ pub trait TransactionExtension:
 	/// incorrect.
 	fn validate(
 		&self,
-		who: <Self::Call as Dispatchable>::RuntimeOrigin,
+		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
@@ -127,9 +127,11 @@ pub trait TransactionExtension:
 		}]
 	}
 
-	/// TODO: docs
+	/// Compatibility function for supporting the `SignedExtension::validate_unsigned` function.
+	///
+	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
 	#[deprecated = "Only for compatibility. DO NOT USE."]
-	fn validate_no_self_compat(
+	fn validate_bare_compat(
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
@@ -137,9 +139,11 @@ pub trait TransactionExtension:
 		Ok(ValidTransaction::default())
 	}
 
-	/// TODO: docs
+	/// Compatibility function for supporting the `SignedExtension::pre_dispatch_unsigned` function.
+	///
+	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
 	#[deprecated = "Only for compatibility. DO NOT USE."]
-	fn pre_dispatch_no_self_compat(
+	fn pre_dispatch_bare_compat(
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
@@ -147,9 +151,12 @@ pub trait TransactionExtension:
 		Ok(())
 	}
 
-	/// TODO: docs
+	/// Compatibility function for supporting the `SignedExtension::post_dispatch` function where
+	/// `pre` is `None`.
+	///
+	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
 	#[deprecated = "Only for compatibility. DO NOT USE."]
-	fn post_dispatch_no_self_compat(
+	fn post_dispatch_bare_compat(
 		_info: &DispatchInfoOf<Self::Call>,
 		_post_info: &PostDispatchInfoOf<Self::Call>,
 		_len: usize,
@@ -394,7 +401,7 @@ impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> wh
 		SE::post_dispatch(Some(pre), info, post_info, len, result)
 	}
 
-	fn validate_no_self_compat(
+	fn validate_bare_compat(
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
@@ -403,7 +410,7 @@ impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> wh
 		SE::validate_unsigned(call, info, len)
 	}
 
-	fn pre_dispatch_no_self_compat(
+	fn pre_dispatch_bare_compat(
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
@@ -412,7 +419,7 @@ impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> wh
 		SE::pre_dispatch_unsigned(call, info, len)
 	}
 
-	fn post_dispatch_no_self_compat(
+	fn post_dispatch_bare_compat(
 		info: &DispatchInfoOf<Self::Call>,
 		post_info: &PostDispatchInfoOf<Self::Call>,
 		len: usize,

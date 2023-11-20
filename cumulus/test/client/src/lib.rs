@@ -124,7 +124,7 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 
 /// Create an unsigned extrinsic from a runtime call.
 pub fn generate_unsigned(function: impl Into<RuntimeCall>) -> UncheckedExtrinsic {
-	UncheckedExtrinsic::new_unsigned(function.into())
+	UncheckedExtrinsic::new_bare(function.into())
 }
 
 /// Create a signed extrinsic from a runtime call and sign

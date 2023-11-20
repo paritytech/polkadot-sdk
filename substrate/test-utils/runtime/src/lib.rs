@@ -59,8 +59,8 @@ pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify, AsTransactionExtension},
-	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify, AsTransactionExtension, Dispatchable},
+	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction},
 	ApplyExtrinsicResult, Perbill,
 };
 #[cfg(any(feature = "std", test))]
@@ -144,11 +144,10 @@ pub type Pair = sp_core::sr25519::Pair;
 
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
-pub type TxExtension = AsTransactionExtension<(
-	CheckNonce<Runtime>,
-	CheckWeight<Runtime>,
+pub type TxExtension = (
+	AsTransactionExtension<(CheckNonce<Runtime>, CheckWeight<Runtime>)>,
 	CheckSubstrateCall,
-)>;
+);
 /// The payload being signed in transactions.
 pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
@@ -297,6 +296,52 @@ impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		self.validate(who, call, info, len).map(drop)
+	}
+}
+
+impl sp_runtime::traits::AdditionalSigned for CheckSubstrateCall {
+	type Data = ();
+	fn additional_signed(
+		&self,
+	) -> sp_std::result::Result<Self::Data, TransactionValidityError> {
+		Ok(())
+	}
+}
+
+impl sp_runtime::traits::TransactionExtension for CheckSubstrateCall {
+	type Call = RuntimeCall;
+	type Pre = ();
+	type Val = ();
+	const IDENTIFIER: &'static str = "CheckSubstrateCall";
+
+	fn validate(
+		&self,
+		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<
+		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError
+	> {
+		log::trace!(target: LOG_TARGET, "validate");
+		let v = match call {
+			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
+			_ => Default::default(),
+		};
+		Ok((v, (), origin))
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		_origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(())
 	}
 }
 
@@ -1030,7 +1075,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
-		traits::{Hash as _, SignedExtension},
+		traits::{Hash as _, TransactionExtension},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
@@ -1179,32 +1224,32 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x = sp_keyring::AccountKeyring::Alice.into();
+			let x: AccountId = sp_keyring::AccountKeyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
 				CheckSubstrateCall {}
 					.validate(
-						&x,
+						Some(x.clone()).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
 						len
 					)
 					.unwrap()
-					.priority,
+					.0.priority,
 				16
 			);
 
 			assert_eq!(
 				CheckSubstrateCall {}
 					.validate(
-						&x,
+						Some(x.clone()).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
 						len
 					)
 					.unwrap()
-					.propagate,
+					.0.propagate,
 				false
 			);
 		})

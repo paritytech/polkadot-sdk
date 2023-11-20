@@ -1572,7 +1572,6 @@ pub trait SignedExtension:
 	/// to obtain transaction validity against current state.
 	/// It should perform all checks that determine a valid unsigned transaction,
 	/// and quickly eliminate ones that are stale or incorrect.
-	#[deprecated = "Use `ValidateInherent` for inherents or `TransactionExtension` for transactions."]
 	fn validate_unsigned(
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
@@ -1589,7 +1588,6 @@ pub trait SignedExtension:
 	///
 	/// If you ever override this function, you need not perform the same validation as in
 	/// `validate_unsigned`.
-	#[deprecated = "Use `ValidateInherent` for inherents or `TransactionExtension` for transactions."]
 	fn pre_dispatch_unsigned(
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,

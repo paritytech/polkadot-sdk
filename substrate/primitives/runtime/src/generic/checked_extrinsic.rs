@@ -85,7 +85,7 @@ where
 			ExtrinsicFormat::Bare => {
 				let inherent_validation = I::validate_unsigned(source, &self.function)?;
 				#[allow(deprecated)]
-				let legacy_validation = Extension::validate_no_self_compat(&self.function, info, len)?;
+				let legacy_validation = Extension::validate_bare_compat(&self.function, info, len)?;
 				Ok(legacy_validation.combine_with(inherent_validation))
 			}
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
@@ -108,9 +108,9 @@ where
 				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
 				//   or `LegacyExtension` is removed.
 				#[allow(deprecated)]
-				Extension::validate_no_self_compat(&self.function, info, len)?;
+				Extension::validate_bare_compat(&self.function, info, len)?;
 				#[allow(deprecated)]
-				Extension::pre_dispatch_no_self_compat(&self.function, info, len)?;
+				Extension::pre_dispatch_bare_compat(&self.function, info, len)?;
 				let res = self.function.dispatch(None.into());
 				let post_info = match res {
 					Ok(info) => info,
@@ -120,7 +120,7 @@ where
 				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
 				//   or `LegacyExtension` is removed.
 				#[allow(deprecated)]
-				Extension::post_dispatch_no_self_compat(info, &post_info, len, &pd_res)?;
+				Extension::post_dispatch_bare_compat(info, &post_info, len, &pd_res)?;
 				Ok(res)
 			}
 			ExtrinsicFormat::Signed(signer, extension) =>

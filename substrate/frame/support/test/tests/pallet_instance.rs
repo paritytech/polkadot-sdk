@@ -30,7 +30,7 @@ use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
-use sp_runtime::{DispatchError, ModuleError, traits::TransactionExtensionMetadata};
+use sp_runtime::{DispatchError, ModuleError};
 use sp_std::any::TypeId;
 
 #[frame_support::pallet(dev_mode)]

@@ -685,6 +685,7 @@ fn post_dispatch_fee_is_zero_if_unsigned_pre_dispatch_fee_is_zero() {
 
 			let weight = 1;
 			let len = 1;
+			#[allow(deprecated)]
 			ChargeAssetTxPayment::<Runtime>::pre_dispatch_unsigned(
 				CALL,
 				&info_from_weight(Weight::from_parts(weight, 0)),

@@ -415,7 +415,7 @@ where
 			extra.validate(Some(id.clone()).into(), &self.call, info, len).map(|x| x.0)
 		} else {
 			#[allow(deprecated)]
-			let valid = Extension::validate_no_self_compat(&self.call, info, len)?;
+			let valid = Extension::validate_bare_compat(&self.call, info, len)?;
 			let unsigned_validation = U::validate_unsigned(source, &self.call)?;
 			Ok(valid.combine_with(unsigned_validation))
 		}
@@ -432,7 +432,7 @@ where
 			extra.dispatch_transaction(Some(who).into(), self.call, info, len)
 		} else {
 			#[allow(deprecated)]
-			Extension::pre_dispatch_no_self_compat(&self.call, info, len)?;
+			Extension::pre_dispatch_bare_compat(&self.call, info, len)?;
 			U::pre_dispatch(&self.call)?;
 			Ok(self.call.dispatch(None.into()))
 		}

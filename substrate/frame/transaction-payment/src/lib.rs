@@ -62,10 +62,10 @@ pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, SignedExtension, Zero,
+		Saturating, SignedExtension, Zero, AdditionalSigned, TransactionExtension,
 	},
 	transaction_validity::{
-		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
+		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction, InvalidTransaction,
 	},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
@@ -878,6 +878,81 @@ where
 			)?;
 			Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
 		}
+		Ok(())
+	}
+}
+
+impl<T: Config> AdditionalSigned for ChargeTransactionPayment<T>
+where
+	BalanceOf<T>: Send + Sync + From<u64>,
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+	type Data = ();
+	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+		Ok(())
+	}
+}
+
+impl<T: Config> TransactionExtension for ChargeTransactionPayment<T>
+where
+	BalanceOf<T>: Send + Sync + From<u64>,
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+	type Call = T::RuntimeCall;
+	type Val = (
+		// tip
+		BalanceOf<T>,
+		// who paid the fee - this is an option to allow for a Default impl.
+		T::AccountId,
+		// imbalance resulting from withdrawing the fee
+		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+	);
+	type Pre = Self::Val;
+
+	fn validate(
+		&self,
+		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<
+		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError
+	> {
+		let who = frame_system::ensure_signed(origin.clone())
+			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let (final_fee, imbalance) = self.withdraw_fee(&who, call, info, len)?;
+		let tip = self.0;
+		Ok((ValidTransaction {
+			priority: Self::get_priority(info, len, tip, final_fee),
+			..Default::default()
+		}, (self.0, who.clone(), imbalance), origin))
+	}
+
+	fn prepare(
+		self,
+		val: Self::Val,
+		_origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(val)
+	}
+
+	fn post_dispatch(
+		(tip, who, imbalance): Self::Pre,
+		info: &DispatchInfoOf<Self::Call>,
+		post_info: &PostDispatchInfoOf<Self::Call>,
+		len: usize,
+		_result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
+		T::OnChargeTransaction::correct_and_deposit_fee(
+			&who, info, post_info, actual_fee, tip, imbalance,
+		)?;
+		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
 		Ok(())
 	}
 }

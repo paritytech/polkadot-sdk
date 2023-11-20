@@ -66,7 +66,7 @@ impl TryFrom<&Extrinsic> for TransferData {
 		match uxt {
 			Extrinsic {
 				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
-				preamble: Preamble::Signed(from, _, AsTransactionExtension((CheckNonce(nonce), ..))),
+				preamble: Preamble::Signed(from, _, (AsTransactionExtension((CheckNonce(nonce), ..)), ..)),
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
 			Extrinsic {
 				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),
@@ -190,16 +190,18 @@ impl ExtrinsicBuilder {
 	/// Build `Extrinsic` using embedded parameters
 	pub fn build(self) -> Extrinsic {
 		if let Some(signer) = self.signer {
-			let extra = AsTransactionExtension::from((
-				CheckNonce::from(self.nonce.unwrap_or(0)),
-				CheckWeight::new(),
+			let tx_ext = (
+				AsTransactionExtension::from((
+					CheckNonce::from(self.nonce.unwrap_or(0)),
+					CheckWeight::new()),
+				),
 				CheckSubstrateCall {},
-			));
+			);
 			let raw_payload =
-				SignedPayload::from_raw(self.function.clone(), extra.clone(), ((), (), ()));
+				SignedPayload::from_raw(self.function.clone(), tx_ext.clone(), (((), ()), ()));
 			let signature = raw_payload.using_encoded(|e| signer.sign(e));
 
-			Extrinsic::new_signed(self.function, signer.public(), signature, extra)
+			Extrinsic::new_signed(self.function, signer.public(), signature, tx_ext)
 		} else {
 			Extrinsic::new_bare(self.function)
 		}

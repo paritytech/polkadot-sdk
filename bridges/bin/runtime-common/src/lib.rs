@@ -143,6 +143,53 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				self.validate(who, call, info, len).map(drop)
 			}
 		}
+		impl sp_runtime::traits::AdditionalSigned for BridgeRejectObsoleteHeadersAndMessages {
+			type Data = ();
+			fn additional_signed(&self) -> sp_std::result::Result<
+				(),
+				sp_runtime::transaction_validity::TransactionValidityError,
+			> {
+				Ok(())
+			}
+		}
+		impl sp_runtime::traits::TransactionExtension for BridgeRejectObsoleteHeadersAndMessages {
+			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
+			type Call = $call;
+			type Pre = ();
+			type Val = ();
+
+			fn validate(
+				&self,
+				origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				call: &Self::Call,
+				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				_len: usize,
+			) -> Result<
+				(
+					sp_runtime::transaction_validity::ValidTransaction,
+					Self::Val,
+					<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				), sp_runtime::transaction_validity::TransactionValidityError
+			> {
+				let valid = sp_runtime::transaction_validity::ValidTransaction::default();
+				$(
+					let v = <$filter_call as $crate::BridgeRuntimeFilterCall<$call>>::validate(call)?;
+					let valid = valid.combine_with(v);
+				)*
+				Ok((valid, (), origin))
+			}
+
+			fn prepare(
+				self,
+				_val: Self::Val,
+				_origin: &<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				_call: &Self::Call,
+				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				_len: usize,
+			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+				Ok(())
+			}
+		}
 	};
 }
 
