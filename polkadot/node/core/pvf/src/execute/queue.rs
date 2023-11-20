@@ -342,20 +342,27 @@ fn handle_job_finish(
 		},
 		Outcome::InvalidCandidate { err, idle_worker } => (
 			Some(idle_worker),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedError(err))),
+			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedInvalid(err))),
 			None,
 		),
 		Outcome::InternalError { err } => (None, Err(ValidationError::InternalError(err)), None),
+		// Either the worker or the job timed out. Kill the worker in either case. Treated as
+		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Outcome::HardTimeout =>
 			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
-		Outcome::IoErr => (
+		Outcome::WorkerIntfErr => (
 			None,
 			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)),
 			None,
 		),
-		Outcome::Panic { err } =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::Panic(err))), None),
+		Outcome::JobDied { err } => (
+			None,
+			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err))),
+			None,
+		),
+		Outcome::JobError { err } =>
+			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::JobError(err))), None),
 	};
 
 	queue.metrics.execute_finished();

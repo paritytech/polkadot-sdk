@@ -3,6 +3,7 @@ name: Check PRdoc
 on:
   pull_request:
     types: [labeled, opened, synchronize, unlabeled]
+  merge_group:
 
 env:
   IMAGE: paritytech/prdoc:v0.0.5
@@ -17,6 +18,9 @@ jobs:
   check-prdoc:
     runs-on: ubuntu-latest
     steps:
+      - name: Skip merge queue
+        if: ${{ contains(github.ref, 'gh-readonly-queue') }}
+        run: exit 0
       - name: Pull image
         run: |
           echo "Pulling $IMAGE"

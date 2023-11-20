@@ -214,7 +214,8 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 			)?)
 		},
 		GenesisBuildAction::Default(DefaultCmd { ref default_config_path }) => {
-			let caller = GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+			let caller: GenesisConfigBuilderRuntimeCaller =
+				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
 			let default_config = caller
 				.get_default_config()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
