@@ -24,8 +24,8 @@
 #![warn(missing_docs)]
 
 use polkadot_node_core_pvf::{
-	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PrepareError,
-	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
+	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
+	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
 use polkadot_node_primitives::{
 	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
@@ -644,14 +644,14 @@ async fn validate_candidate_exhaustive(
 			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
 		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
 			))),
 		Err(ValidationError::Invalid(WasmInvalidCandidate::JobError(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
-		Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousJobDeath(err))) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
 				"ambiguous job death: {err}"
 			)))),
@@ -756,9 +756,9 @@ trait ValidationBackend {
 			}
 
 			match validation_result {
-				Err(ValidationError::Invalid(
-					WasmInvalidCandidate::AmbiguousWorkerDeath |
-					WasmInvalidCandidate::AmbiguousJobDeath(_),
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::AmbiguousWorkerDeath |
+					PossiblyInvalidError::AmbiguousJobDeath(_),
 				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
 				Err(ValidationError::Invalid(WasmInvalidCandidate::JobError(_)))
 					if num_job_error_retries_left > 0 =>

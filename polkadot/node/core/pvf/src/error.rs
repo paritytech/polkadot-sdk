@@ -23,6 +23,9 @@ pub enum ValidationError {
 	Preparation(PrepareError),
 	/// The error was raised because the candidate is invalid. Should vote against.
 	Invalid(InvalidCandidate),
+	/// Possibly transient issue that may resolve after retries. Should vote against when retries
+	/// fail.
+	PossiblyInvalid(PossiblyInvalidError),
 	/// Preparation or execution issue caused by an internal condition. Should not vote against.
 	Internal(InternalValidationError),
 }
@@ -34,14 +37,26 @@ pub enum InvalidCandidate {
 	/// The candidate is reported to be invalid by the execution worker. The string contains the
 	/// error message.
 	WorkerReportedInvalid(String),
+	/// PVF execution (compilation is not included) took more time than was allotted.
+	HardTimeout,
+	/// An unexpected error occurred in the job process and we can't be sure whether the candidate
+	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
+	/// treat an error as internal as we would abstain from voting. This is bad because if the
+	/// issue was due to the candidate, then all validators would abstain, stalling finality on the
+	/// chain. So we will first retry the candidate, and if the issue persists we are forced to
+	/// vote invalid.
+	JobError(String),
+}
+
+/// Possibly transient issue that may resolve after retries.
+#[derive(Debug, Clone)]
+pub enum PossiblyInvalidError {
 	/// The worker process (not the job) has died during validation of a candidate.
 	///
 	/// It's unlikely that this is caused by malicious code since workers spawn separate job
 	/// processes, and those job processes are sandboxed. But, it is possible. We retry in this
 	/// case, and if the error persists, we assume it's caused by the candidate and vote against.
 	AmbiguousWorkerDeath,
-	/// PVF execution (compilation is not included) took more time than was allotted.
-	HardTimeout,
 	/// The job process (not the worker) has died for one of the following reasons:
 	///
 	/// (a) A seccomp violation occurred, most likely due to an attempt by malicious code to
@@ -55,13 +70,6 @@ pub enum InvalidCandidate {
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
 	AmbiguousJobDeath(String),
-	/// An unexpected error occurred in the job process and we can't be sure whether the candidate
-	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
-	/// treat an error as internal as we would abstain from voting. This is bad because if the
-	/// issue was due to the candidate, then all validators would abstain, stalling finality on the
-	/// chain. So we will first retry the candidate, and if the issue persists we are forced to
-	/// vote invalid.
-	JobError(String),
 }
 
 impl From<InternalValidationError> for ValidationError {

@@ -22,7 +22,7 @@ use crate::{
 	host::ResultSender,
 	metrics::Metrics,
 	worker_intf::{IdleWorker, WorkerHandle},
-	InvalidCandidate, ValidationError, LOG_TARGET,
+	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
 	channel::mpsc,
@@ -353,12 +353,12 @@ fn handle_job_finish(
 		// "Maybe invalid" errors (will retry).
 		Outcome::WorkerIntfErr => (
 			None,
-			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			None,
 		),
 		Outcome::JobDied { err } => (
 			None,
-			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousJobDeath(err))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			None,
 		),
 		Outcome::JobError { err } =>
