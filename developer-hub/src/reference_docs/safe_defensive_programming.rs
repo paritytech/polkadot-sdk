@@ -148,7 +148,7 @@
 //! The following methods represent different ways one can handle numbers safely natively in Rust,
 //! without fear of panic or unexpected behavior from wrapping.
 //!
-//! ### Checked Operations
+//! ### Checked Arithmetic
 //!
 //! **Checked operations** utilize a `Option<T>` as a return type. This allows for simple pattern
 //! matching to catch any unexpected behavior in the event of an overflow.
