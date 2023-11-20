@@ -227,9 +227,4 @@ std = [
 	"xcm/std",
 ]
 
-experimental = [
-	"frame-support/experimental",
-	"frame-system/experimental",
-	"pallet-aura/experimental",
-	"pallet-collator-selection/experimental",
-]
+experimental = [ "pallet-aura/experimental" ]

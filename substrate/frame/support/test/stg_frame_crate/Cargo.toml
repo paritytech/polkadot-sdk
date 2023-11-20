@@ -19,4 +19,3 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 [features]
 default = [ "std" ]
 std = [ "codec/std", "frame/std", "scale-info/std" ]
-experimental = []

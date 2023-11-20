@@ -160,4 +160,3 @@ try-runtime = [
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = []

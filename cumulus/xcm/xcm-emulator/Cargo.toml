@@ -39,6 +39,3 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm
 polkadot-primitives = { path = "../../../polkadot/primitives" }
 polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains" }
-
-[features]
-experimental = []

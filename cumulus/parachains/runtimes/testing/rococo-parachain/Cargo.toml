@@ -131,8 +131,4 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 ]
 
-experimental = [
-	"frame-support/experimental",
-	"frame-system/experimental",
-	"pallet-aura/experimental",
-]
+experimental = [ "pallet-aura/experimental" ]

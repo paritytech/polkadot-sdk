@@ -51,7 +51,6 @@ serde_json = "1.0.108"
 
 [features]
 stress-test = []
-experimental = []
 
 [[bench]]
 name = "bench"

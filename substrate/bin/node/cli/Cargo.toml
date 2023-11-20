@@ -191,7 +191,6 @@ try-runtime = [
 	"substrate-cli-test-utils/try-runtime",
 	"try-runtime-cli/try-runtime",
 ]
-experimental = []
 
 [[bench]]
 name = "transaction_pool"

@@ -66,4 +66,3 @@ try-runtime = [
 	"pallet-utility?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = []

@@ -68,4 +68,3 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
-experimental = []

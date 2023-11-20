@@ -43,6 +43,3 @@ asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
 bp-messages = { path = "../../../../../bridges/primitives/messages" }
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
-
-[features]
-experimental = []

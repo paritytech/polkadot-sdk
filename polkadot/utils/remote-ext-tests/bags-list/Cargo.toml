@@ -18,6 +18,3 @@ sp-core = { path = "../../../../substrate/primitives/core" }
 clap = { version = "4.4.6", features = ["derive"] }
 log = "0.4.17"
 tokio = { version = "1.24.2", features = ["macros"] }
-
-[features]
-experimental = []

@@ -45,4 +45,3 @@ std = [
 	"sp-genesis-builder/std",
 	"substrate-wasm-builder",
 ]
-experimental = []

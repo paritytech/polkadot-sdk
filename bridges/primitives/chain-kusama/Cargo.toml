@@ -30,4 +30,3 @@ std = [
 	"sp-api/std",
 	"sp-std/std",
 ]
-experimental = []

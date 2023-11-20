@@ -64,4 +64,3 @@ try-runtime = [
 	"pallet-nfts/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = []

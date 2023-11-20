@@ -22,4 +22,3 @@ frame = { path = "../..", default-features = false, features = ["runtime", "expe
 [features]
 default = [ "std" ]
 std = [ "codec/std", "frame/std", "scale-info/std" ]
-experimental = []

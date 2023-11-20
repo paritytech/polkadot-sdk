@@ -97,4 +97,3 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 bridging = [ "bp-xcm-bridge-hub-router" ]
-experimental = []

@@ -65,4 +65,3 @@ try-runtime = [
 	"pallet-bridge-grandpa/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = []

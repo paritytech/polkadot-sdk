@@ -49,4 +49,3 @@ std = [
 	"sp-trie/std",
 	"trie-db/std",
 ]
-experimental = []

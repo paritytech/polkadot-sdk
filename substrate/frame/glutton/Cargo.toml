@@ -58,4 +58,3 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-experimental = []

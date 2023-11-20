@@ -35,6 +35,3 @@ pallet-nomination-pools = { path = ".." }
 
 sp-tracing = { path = "../../../primitives/tracing" }
 log = { version = "0.4.0" }
-
-[features]
-experimental = []

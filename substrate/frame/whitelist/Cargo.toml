@@ -59,4 +59,3 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = []

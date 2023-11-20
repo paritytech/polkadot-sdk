@@ -72,4 +72,3 @@ std = [
 	"substrate-wasm-builder",
 ]
 increment-spec-version = []
-experimental = []

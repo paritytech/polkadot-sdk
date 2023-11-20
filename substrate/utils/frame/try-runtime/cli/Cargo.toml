@@ -58,4 +58,3 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-experimental = []

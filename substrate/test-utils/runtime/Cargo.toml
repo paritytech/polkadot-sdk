@@ -109,4 +109,3 @@ std = [
 ]
 # Special feature to disable logging
 disable-logging = [ "sp-api/disable-logging" ]
-experimental = []

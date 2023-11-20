@@ -36,6 +36,3 @@ pallet-bags-list = { path = "../../bags-list" }
 pallet-balances = { path = "../../balances" }
 pallet-timestamp = { path = "../../timestamp" }
 pallet-session = { path = "../../session" }
-
-[features]
-experimental = []

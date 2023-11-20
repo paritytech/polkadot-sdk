@@ -33,6 +33,3 @@ cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", defau
 bridge-hub-rococo-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
-
-[features]
-experimental = []

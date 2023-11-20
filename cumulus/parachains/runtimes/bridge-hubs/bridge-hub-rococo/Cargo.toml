@@ -239,12 +239,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental = [
-	"frame-support/experimental",
-	"frame-system/experimental",
-	"pallet-aura/experimental",
-	"pallet-collator-selection/experimental",
-]
+experimental = [ "pallet-aura/experimental" ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm

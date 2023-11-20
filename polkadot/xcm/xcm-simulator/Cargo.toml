@@ -20,6 +20,3 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 polkadot-core-primitives = { path = "../../core-primitives" }
 polkadot-parachain-primitives = { path = "../../parachain" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
-
-[features]
-experimental = []

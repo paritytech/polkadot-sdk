@@ -38,4 +38,3 @@ std = [
 	"sp-core/std",
 	"sp-std/std",
 ]
-experimental = []

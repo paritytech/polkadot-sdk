@@ -32,6 +32,3 @@ remote-externalities = { package = "frame-remote-externalities" , path = "../../
 
 # others
 log = "0.4.17"
-
-[features]
-experimental = []

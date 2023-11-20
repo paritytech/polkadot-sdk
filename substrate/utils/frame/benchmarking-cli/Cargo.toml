@@ -66,4 +66,3 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = [ "sc-cli/rocksdb", "sc-client-db/rocksdb" ]
-experimental = []

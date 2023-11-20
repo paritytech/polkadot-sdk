@@ -74,4 +74,3 @@ serde = [
 	"sp-core/serde",
 	"sp-weights/serde",
 ]
-experimental = []
