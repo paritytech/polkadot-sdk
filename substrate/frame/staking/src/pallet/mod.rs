@@ -1287,11 +1287,6 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller.clone()))?;
 
-			let controller_deprecated = || -> RewardDestination<T::AccountId> {
-				#[allow(deprecated)]
-				RewardDestination::Controller
-			};
-
 			ensure!(
 				(payee != {
 					#[allow(deprecated)]
