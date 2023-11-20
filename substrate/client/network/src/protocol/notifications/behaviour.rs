@@ -468,11 +468,6 @@ impl Notifications {
 		}
 	}
 
-	/// Get the number of connected peers for a given set.
-	pub fn num_connected_peers(&self, set_id: SetId) -> usize {
-		self.protocol_handles[usize::from(set_id)].num_peers()
-	}
-
 	/// Returns the list of all the peers we have an open channel to.
 	pub fn open_peers(&self) -> impl Iterator<Item = &PeerId> {
 		self.peers.iter().filter(|(_, state)| state.is_open()).map(|((id, _), _)| id)
