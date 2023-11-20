@@ -263,8 +263,8 @@ pub trait RuntimeApiSubsystemClient {
 
 	// === v9 ===
 
-	/// Get the client features.
-	async fn client_features(&self, at: Hash) -> Result<vstaging::ClientFeatures, ApiError>;
+	/// Get the node features.
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -514,8 +514,8 @@ where
 		self.client.runtime_api().async_backing_params(at)
 	}
 
-	async fn client_features(&self, at: Hash) -> Result<vstaging::ClientFeatures, ApiError> {
-		self.client.runtime_api().client_features(at)
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError> {
+		self.client.runtime_api().node_features(at)
 	}
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {

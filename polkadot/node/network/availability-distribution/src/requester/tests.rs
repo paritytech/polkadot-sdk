@@ -14,21 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
-
-use std::future::Future;
-
 use futures::FutureExt;
+use std::{collections::HashMap, future::Future};
 
 use polkadot_node_network_protocol::jaeger;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
-use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	vstaging::ClientFeatures, BlockNumber, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash,
-	Id as ParaId, ScheduledCore, SessionIndex, SessionInfo,
+	BlockNumber, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	ScheduledCore, SessionIndex, SessionInfo,
 };
-use sp_core::traits::SpawnNamed;
+use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 
 use polkadot_node_subsystem::{
 	messages::{
@@ -38,13 +34,15 @@ use polkadot_node_subsystem::{
 	ActiveLeavesUpdate, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::make_ferdie_keystore, TestSubsystemContext,
-	TestSubsystemContextHandle,
+	make_subsystem_context,
+	mock::{make_ferdie_keystore, new_leaf},
+	TestSubsystemContext, TestSubsystemContextHandle,
 };
 
-use sp_core::testing::TaskExecutor;
-
-use crate::tests::mock::{get_valid_chunk_data, make_session_info, OccupiedCoreBuilder};
+use crate::tests::{
+	mock::{get_valid_chunk_data, make_session_info, OccupiedCoreBuilder},
+	node_features_with_shuffling,
+};
 
 use super::Requester;
 
@@ -125,8 +123,8 @@ fn spawn_virtual_overseer(
 								tx.send(Ok(Some(ExecutorParams::default())))
 									.expect("Receiver should be alive.");
 							},
-							RuntimeApiRequest::ClientFeatures(tx) => {
-								tx.send(Ok(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING))
+							RuntimeApiRequest::NodeFeatures(_, tx) => {
+								tx.send(Ok(node_features_with_shuffling()))
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::AvailabilityCores(tx) => {

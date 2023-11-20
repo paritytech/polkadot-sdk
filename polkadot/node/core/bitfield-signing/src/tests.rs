@@ -19,7 +19,7 @@ use futures::{executor::block_on, pin_mut, StreamExt};
 use polkadot_node_subsystem::messages::{
 	AllMessages, ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
-use polkadot_primitives::{vstaging::ClientFeatures, CandidateHash, OccupiedCore};
+use polkadot_primitives::{vstaging::NodeFeatures, CandidateHash, OccupiedCore};
 use test_helpers::dummy_candidate_descriptor;
 
 fn occupied_core(para_id: u32, candidate_hash: CandidateHash) -> CoreState {
@@ -65,9 +65,14 @@ fn construct_availability_bitfield_works() {
 						tx.send(Ok(vec![CoreState::Free, occupied_core(1, hash_a), occupied_core(2, hash_b)])).unwrap();
 					}
 					AllMessages::RuntimeApi(
-						RuntimeApiMessage::Request(_, RuntimeApiRequest::ClientFeatures(tx)),
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx)),
 					) => {
-						tx.send(Ok(ClientFeatures::empty())).unwrap();
+						tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+					}
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx)),
+					) => {
+						tx.send(Ok(1)).unwrap();
 					}
 					AllMessages::AvailabilityStore(
 						AvailabilityStoreMessage::QueryChunkAvailability(c_hash, cidx, tx),

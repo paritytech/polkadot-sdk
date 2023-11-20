@@ -42,8 +42,8 @@ pub enum Error {
 	#[error("`SessionInfo` is `None` at {0}")]
 	SessionInfoUnavailable(Hash),
 
-	#[error("failed to query client features from runtime")]
-	RequestClientFeatures(#[source] polkadot_node_subsystem_util::runtime::Error),
+	#[error("failed to query node features from runtime")]
+	RequestNodeFeatures(#[source] polkadot_node_subsystem_util::runtime::Error),
 
 	#[error("failed to send response")]
 	CanceledResponseSender,

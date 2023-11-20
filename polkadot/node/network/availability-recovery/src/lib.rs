@@ -61,7 +61,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::ChunkIndexCacheRegistry, get_block_number, request_session_info,
-	runtime::request_client_features,
+	runtime::request_node_features,
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, SessionIndex,
@@ -423,13 +423,16 @@ async fn handle_recover<Context>(
 			{
 				chunk_indices
 			} else {
-				let maybe_client_features =
-					request_client_features(receipt.descriptor.relay_parent, ctx.sender())
-						.await
-						.map_err(Error::RequestClientFeatures)?;
+				let maybe_node_features = request_node_features(
+					receipt.descriptor.relay_parent,
+					session_index,
+					ctx.sender(),
+				)
+				.await
+				.map_err(Error::RequestNodeFeatures)?;
 
 				state.chunk_indices.populate_for_para(
-					maybe_client_features,
+					maybe_node_features,
 					session_info.random_seed,
 					session_info.validators.len(),
 					block_number,

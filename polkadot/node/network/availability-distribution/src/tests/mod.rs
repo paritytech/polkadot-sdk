@@ -20,7 +20,10 @@ use futures::{executor, future, Future};
 use rstest::rstest;
 
 use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
-use polkadot_primitives::{vstaging::ClientFeatures, CoreState, Hash};
+use polkadot_primitives::{
+	vstaging::{node_features, NodeFeatures},
+	CoreState, Hash,
+};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_subsystem_test_helpers as test_helpers;
@@ -63,23 +66,30 @@ fn test_harness<T: Future<Output = ()>>(
 	executor::block_on(future::join(test_fut, subsystem)).1.unwrap();
 }
 
+pub fn node_features_with_shuffling() -> NodeFeatures {
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::AVAILABILITY_CHUNK_SHUFFLING as usize + 1, false);
+	node_features.set(node_features::AVAILABILITY_CHUNK_SHUFFLING.into(), true);
+	node_features
+}
+
 /// Simple basic check, whether the subsystem works as expected.
 ///
 /// Exceptional cases are tested as unit tests in `fetch_task`.
 #[rstest]
-#[case(ClientFeatures::empty())]
-#[case(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING)]
-fn check_basic(#[case] client_features: ClientFeatures) {
-	let state = TestState::new(client_features);
+#[case(NodeFeatures::EMPTY)]
+#[case(node_features_with_shuffling())]
+fn check_basic(#[case] node_features: NodeFeatures) {
+	let state = TestState::new(node_features);
 	test_harness(state.keystore.clone(), move |harness| state.run(harness));
 }
 
 /// Check whether requester tries all validators in group.
 #[rstest]
-#[case(ClientFeatures::empty())]
-#[case(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING)]
-fn check_fetch_tries_all(#[case] client_features: ClientFeatures) {
-	let mut state = TestState::new(client_features);
+#[case(NodeFeatures::EMPTY)]
+#[case(node_features_with_shuffling())]
+fn check_fetch_tries_all(#[case] node_features: NodeFeatures) {
+	let mut state = TestState::new(node_features);
 	for (_, v) in state.chunks.iter_mut() {
 		// 4 validators in group, so this should still succeed:
 		v.push(None);
@@ -94,10 +104,10 @@ fn check_fetch_tries_all(#[case] client_features: ClientFeatures) {
 /// Check that requester will retry the fetch on error on the next block still pending
 /// availability.
 #[rstest]
-#[case(ClientFeatures::empty())]
-#[case(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING)]
-fn check_fetch_retry(#[case] client_features: ClientFeatures) {
-	let mut state = TestState::new(client_features);
+#[case(NodeFeatures::EMPTY)]
+#[case(node_features_with_shuffling())]
+fn check_fetch_retry(#[case] node_features: NodeFeatures) {
+	let mut state = TestState::new(node_features);
 	state
 		.cores
 		.insert(state.relay_chain[2], state.cores.get(&state.relay_chain[1]).unwrap().clone());

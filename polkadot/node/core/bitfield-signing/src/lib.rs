@@ -33,18 +33,18 @@ use polkadot_node_subsystem::{
 	SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	self as util, availability_chunks::availability_chunk_index, get_block_number,
-	request_validators, runtime::request_client_features, Validator,
+	self as util,
+	availability_chunks::availability_chunk_index,
+	get_block_number, request_availability_cores, request_session_index_for_child,
+	request_session_info, request_validators,
+	runtime::{recv_runtime, request_node_features},
+	Validator,
 };
 use polkadot_primitives::{
-	vstaging::ClientFeatures, AvailabilityBitfield, CoreState, Hash, ValidatorIndex,
+	vstaging::node_features, AvailabilityBitfield, CoreState, Hash, ValidatorIndex,
 };
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, iter::FromIterator, time::Duration};
-use util::{
-	request_availability_cores, request_session_index_for_child, request_session_info,
-	runtime::recv_runtime,
-};
 use wasm_timer::{Delay, Instant};
 
 mod metrics;
@@ -129,22 +129,25 @@ async fn get_core_availability(
 			},
 		};
 
-		let maybe_client_features = request_client_features(relay_parent, *sender.lock().await)
-			.await
-			.map_err(Error::from)?;
+		let session_index =
+			recv_runtime(request_session_index_for_child(relay_parent, *sender.lock().await).await)
+				.await?;
+
+		let maybe_node_features =
+			request_node_features(relay_parent, session_index, *sender.lock().await)
+				.await
+				.map_err(Error::from)?;
 
 		// Init this to all zeros. It won't be used unless
-		// `ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING` is enabled. We do this to avoid querying
+		// `AVAILABILITY_CHUNK_SHUFFLING` is enabled. We do this to avoid querying
 		// the runtime API for session index and session info unless the feature is enabled.
 		let mut babe_randomness = [0; 32];
 
-		if let Some(client_features) = maybe_client_features {
-			if client_features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
-				let session_index = recv_runtime(
-					request_session_index_for_child(relay_parent, *sender.lock().await).await,
-				)
-				.await?;
-
+		if let Some(ref node_features) = maybe_node_features {
+			if let Some(&true) = node_features
+				.get(usize::from(node_features::AVAILABILITY_CHUNK_SHUFFLING))
+				.as_deref()
+			{
 				let Some(session_info) = recv_runtime(
 					request_session_info(relay_parent, session_index, *sender.lock().await).await,
 				)
@@ -167,7 +170,7 @@ async fn get_core_availability(
 		}
 
 		let chunk_index = availability_chunk_index(
-			maybe_client_features.as_ref(),
+			maybe_node_features.as_ref(),
 			babe_randomness,
 			n_validators,
 			block_number,

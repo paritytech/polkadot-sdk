@@ -37,7 +37,7 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = testing::get_and_check_worker_paths();
+		let (prepare_worker_path, execute_worker_path) = testing::build_workers_and_get_paths(true);
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
@@ -56,7 +56,7 @@ impl TestHost {
 		&self,
 		code: &[u8],
 		executor_params: ExecutorParams,
-	) -> Result<PrepareStats, PrepareError> {
+	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
 		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)

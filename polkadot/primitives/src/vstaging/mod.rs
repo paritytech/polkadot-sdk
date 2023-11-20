@@ -18,15 +18,14 @@
 
 // Put any primitives used by staging APIs functions here
 
-use parity_scale_codec::{Decode, Encode};
-use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use bitvec::vec::BitVec;
 
-bitflags::bitflags! {
-	#[derive(Default, TypeInfo, Encode, Decode, Serialize, Deserialize)]
-	/// Bit indices in the `HostCoonfiguration.client_features` that correspond to different client features.
-	pub struct ClientFeatures: u64 {
-		/// Is availability chunk shuffling enabled.
-		const AVAILABILITY_CHUNK_SHUFFLING = 0b1;
-	}
+/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+/// The maximum bit that can be currently set/unset via the `set_node_feature` extrinsic is 255.
+pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
+
+/// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
+pub mod node_features {
+	/// Index of the availability chunk shuffling feature bit.
+	pub const AVAILABILITY_CHUNK_SHUFFLING: u8 = 0;
 }

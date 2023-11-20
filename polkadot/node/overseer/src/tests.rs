@@ -30,7 +30,7 @@ use polkadot_node_subsystem_types::messages::{
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PvfExecTimeoutKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 
 use crate::{
@@ -106,7 +106,7 @@ where
 							candidate_receipt,
 							pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 							executor_params: Default::default(),
-							exec_timeout_kind: PvfExecTimeoutKind::Backing,
+							exec_kind: PvfExecKind::Backing,
 							response_sender: tx,
 						})
 						.await;
@@ -804,7 +804,7 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 		candidate_receipt,
 		pov,
 		executor_params: Default::default(),
-		exec_timeout_kind: PvfExecTimeoutKind::Backing,
+		exec_kind: PvfExecKind::Backing,
 		response_sender,
 	}
 }

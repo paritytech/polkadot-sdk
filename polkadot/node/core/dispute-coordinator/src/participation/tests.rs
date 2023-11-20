@@ -115,8 +115,8 @@ pub async fn participation_full_happy_path(
 	assert_matches!(
 	ctx_handle.recv().await,
 	AllMessages::CandidateValidation(
-		CandidateValidationMessage::ValidateFromExhaustive { candidate_receipt, exec_timeout_kind, response_sender, .. }
-		) if exec_timeout_kind == PvfExecTimeoutKind::Approval => {
+		CandidateValidationMessage::ValidateFromExhaustive { candidate_receipt, exec_kind, response_sender, .. }
+		) if exec_kind == PvfExecKind::Approval => {
 			if expected_commitments_hash != candidate_receipt.commitments_hash {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			} else {
@@ -450,8 +450,8 @@ fn cast_invalid_vote_if_validation_fails_or_is_invalid() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive { exec_timeout_kind, response_sender, .. }
-			) if exec_timeout_kind == PvfExecTimeoutKind::Approval => {
+				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
+			) if exec_kind == PvfExecKind::Approval => {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
@@ -487,8 +487,8 @@ fn cast_invalid_vote_if_commitments_dont_match() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive { exec_timeout_kind, response_sender, .. }
-			) if exec_timeout_kind == PvfExecTimeoutKind::Approval => {
+				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
+			) if exec_kind == PvfExecKind::Approval => {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
@@ -524,8 +524,8 @@ fn cast_valid_vote_if_validation_passes() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive { exec_timeout_kind, response_sender, .. }
-			) if exec_timeout_kind == PvfExecTimeoutKind::Approval => {
+				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
+			) if exec_kind == PvfExecKind::Approval => {
 				response_sender.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
 			},
 			"overseer did not receive candidate validation message",

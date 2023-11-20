@@ -32,7 +32,7 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
 		slashing,
-		vstaging::ClientFeatures,
+		vstaging::NodeFeatures,
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -599,11 +599,11 @@ impl RelayChainRpcClient {
 			.await
 	}
 
-	pub async fn parachain_host_client_features(
+	pub async fn parachain_host_node_features(
 		&self,
 		at: RelayHash,
-	) -> Result<ClientFeatures, RelayChainError> {
-		self.call_remote_runtime_function("ParachainHost_client_features", at, None::<()>)
+	) -> Result<NodeFeatures, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_node_features", at, None::<()>)
 			.await
 	}
 

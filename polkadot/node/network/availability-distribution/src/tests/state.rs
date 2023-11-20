@@ -46,8 +46,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	vstaging::ClientFeatures, CandidateHash, ChunkIndex, CoreState, ExecutorParams, GroupIndex,
-	Hash, Id as ParaId, ScheduledCore, SessionInfo, ValidatorIndex,
+	vstaging::NodeFeatures, CandidateHash, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash,
+	Id as ParaId, ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
@@ -82,12 +82,12 @@ pub struct TestState {
 	/// Cores per relay chain block.
 	pub cores: HashMap<Hash, Vec<CoreState>>,
 	pub keystore: KeystorePtr,
-	pub client_features: ClientFeatures,
+	pub node_features: NodeFeatures,
 }
 
 impl TestState {
 	/// Initialize a default test state.
-	pub fn new(client_features: ClientFeatures) -> Self {
+	pub fn new(node_features: NodeFeatures) -> Self {
 		let relay_chain: Vec<_> = (1u8..10).map(Hash::repeat_byte).collect();
 		let chain_a = ParaId::from(1);
 		let chain_b = ParaId::from(2);
@@ -117,7 +117,7 @@ impl TestState {
 			};
 			for (block_number, (relay_parent, relay_child)) in heads.enumerate() {
 				let our_chunk_index = availability_chunk_index(
-					Some(&client_features),
+					Some(&node_features),
 					session_info.random_seed,
 					session_info.validators.len(),
 					block_number as u32,
@@ -158,7 +158,7 @@ impl TestState {
 			session_info,
 			cores,
 			keystore,
-			client_features,
+			node_features,
 		}
 	}
 
@@ -282,8 +282,9 @@ impl TestState {
 							tx.send(Ok(self.cores[&hash].clone()))
 								.expect("Receiver should still be alive");
 						},
-						RuntimeApiRequest::ClientFeatures(tx) => {
-							tx.send(Ok(self.client_features))
+						RuntimeApiRequest::NodeFeatures(session_index, tx) => {
+							assert_eq!(session_index, 1);
+							tx.send(Ok(self.node_features.clone()))
 								.expect("Receiver should still be alive");
 						},
 						_ => {

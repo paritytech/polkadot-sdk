@@ -1627,7 +1627,6 @@ async fn follow_with_multiple_unpin_hashes() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),

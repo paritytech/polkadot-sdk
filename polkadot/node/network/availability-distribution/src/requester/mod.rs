@@ -37,7 +37,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	availability_chunks::ChunkIndexCacheRegistry,
 	get_block_number,
-	runtime::{get_occupied_cores, request_client_features, RuntimeInfo},
+	runtime::{get_occupied_cores, request_node_features, RuntimeInfo},
 };
 use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
 
@@ -274,14 +274,15 @@ impl Requester {
 						) {
 						chunk_index
 					} else {
-						let maybe_client_features = request_client_features(
+						let maybe_node_features = request_node_features(
 							core.candidate_descriptor.relay_parent,
+							session_info.session_index,
 							context.sender(),
 						)
 						.await?;
 
 						self.chunk_indices.populate_for_validator(
-							maybe_client_features,
+							maybe_node_features,
 							session_info.random_seed,
 							n_validators,
 							block_number,

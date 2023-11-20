@@ -30,11 +30,10 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	slashing, vstaging::ClientFeatures, AsyncBackingParams, CandidateEvent, CandidateHash,
-	CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec,
-	OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	LEGACY_MIN_BACKING_VOTES,
+	slashing, vstaging::NodeFeatures, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState,
+	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
@@ -509,14 +508,19 @@ pub async fn request_min_backing_votes(
 	}
 }
 
-/// Request the availability chunk shuffling params.
+/// Request the node features enabled in the runtime.
+/// Pass in the session index for caching purposes, as it should only change on session boundaries.
 /// Prior to runtime API version 9, just return `None`.
-pub async fn request_client_features(
+pub async fn request_node_features(
 	parent: Hash,
+	session_index: SessionIndex,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<Option<ClientFeatures>> {
+) -> Result<Option<NodeFeatures>> {
 	let res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| RuntimeApiRequest::ClientFeatures(tx)).await,
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::NodeFeatures(session_index, tx)
+		})
+		.await,
 	)
 	.await;
 
@@ -524,7 +528,7 @@ pub async fn request_client_features(
 		gum::trace!(
 			target: LOG_TARGET,
 			?parent,
-			"Querying the client features from the runtime is not supported by the current Runtime API",
+			"Querying the node features from the runtime is not supported by the current Runtime API",
 		);
 
 		Ok(None)

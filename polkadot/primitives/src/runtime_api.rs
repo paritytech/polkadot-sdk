@@ -267,9 +267,9 @@ sp_api::decl_runtime_apis! {
 
 		/***** Added in v9 *****/
 
-		/// Get the availability-chunk shuffling params.
+		/// Get node features.
 		/// This is a staging method! Do not use on production runtimes!
 		#[api_version(9)]
-		fn client_features() -> vstaging::ClientFeatures;
+		fn node_features() -> vstaging::NodeFeatures;
 	}
 }

@@ -19,14 +19,15 @@
 use crate::configuration::{self, Config, Pallet};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, StorageVersion},
+	traits::{Defensive, OnRuntimeUpgrade},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::ClientFeatures, SessionIndex};
+use primitives::{vstaging::NodeFeatures, SessionIndex};
 use sp_std::vec::Vec;
 
-use frame_support::traits::OnRuntimeUpgrade;
+#[cfg(feature = "try-runtime")]
+use frame_support::traits::StorageVersion;
 
 use super::v9::V9HostConfiguration;
 
@@ -62,8 +63,8 @@ mod v10 {
 	>;
 }
 
-pub struct MigrateToV10<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
+pub struct VersionUncheckedMigrateToV10<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV10<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV10");
@@ -71,18 +72,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 started");
-		if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(9) {
-			let weight_consumed = migrate_to_v10::<T>();
-
-			log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 executed successfully");
-			Pallet::<T>::current_storage_version().put::<Pallet<T>>();
-
-			weight_consumed
-		} else {
-			log::warn!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 should be removed.");
-			T::DbWeight::get().reads(1)
-		}
+		migrate_to_v10::<T>()
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -96,6 +86,14 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
 		Ok(())
 	}
 }
+
+pub type MigrateToV10<T> = frame_support::migrations::VersionedMigration<
+	9,
+	10,
+	VersionUncheckedMigrateToV10<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 // Unusual formatting is justified:
 // - make it easier to verify that fields assign what they supposed to assign.
@@ -147,7 +145,7 @@ fn translate<T: Config>(pre: V9HostConfiguration<BlockNumberFor<T>>) -> V10HostC
 		on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
 		on_demand_ttl                            : pre.on_demand_ttl,
 		minimum_backing_votes                    : pre.minimum_backing_votes,
-		client_features                          : ClientFeatures::empty()
+		node_features                            : NodeFeatures::EMPTY
 	}
 }
 
@@ -201,7 +199,7 @@ mod tests {
 		// doesn't need to be read and also leaving it as one line allows to easily copy it.
 		let raw_config =
 	hex_literal::hex!["
-	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000140000000400000001000000010100000000060000006400000002000000190000000000000002000000020000000200000005000000020000000100000000000000"
+	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c90180969800000000000000000000000000050000001400000004000000010000000101000000000600000064000000020000001900000000000000020000000200000002000000050000000200000000"
 	];
 
 		let v10 =
@@ -219,7 +217,7 @@ mod tests {
 		assert_eq!(v10.on_demand_cores, 0);
 		assert_eq!(v10.on_demand_base_fee, 10_000_000);
 		assert_eq!(v10.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
-		assert_eq!(v10.client_features, ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING);
+		assert_eq!(v10.node_features, NodeFeatures::EMPTY);
 	}
 
 	// Test that `migrate_to_v10`` correctly applies the `translate` function to current and pending
@@ -260,7 +258,7 @@ mod tests {
 
 			for (_, config) in configs_to_check {
 				assert_eq!(config, v10);
-				assert_eq!(config.client_features, ClientFeatures::empty());
+				assert_eq!(config.node_features, NodeFeatures::EMPTY);
 			}
 		});
 	}

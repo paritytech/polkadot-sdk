@@ -39,8 +39,8 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	vstaging::ClientFeatures, AuthorityDiscoveryId, Hash, HeadData, IndexedVec,
-	PersistedValidationData, ValidatorId,
+	vstaging::{node_features, NodeFeatures},
+	AuthorityDiscoveryId, Hash, HeadData, IndexedVec, PersistedValidationData, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
@@ -213,33 +213,39 @@ impl TestState {
 		);
 	}
 
-	async fn test_runtime_api_client_features(&self, virtual_overseer: &mut VirtualOverseer) {
+	async fn test_runtime_api_node_features(&self, virtual_overseer: &mut VirtualOverseer) {
+		let mut node_features = NodeFeatures::new();
+		node_features.resize(node_features::AVAILABILITY_CHUNK_SHUFFLING as usize + 1, false);
+		node_features.set(node_features::AVAILABILITY_CHUNK_SHUFFLING.into(), true);
+
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_relay_parent,
-				RuntimeApiRequest::ClientFeatures(
+				RuntimeApiRequest::NodeFeatures(
+					_,
 					tx,
 				)
 			)) => {
 				tx.send(Ok(
-					ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING
+					node_features
 				)).unwrap();
 			}
 		);
 	}
 
-	async fn test_runtime_api_empty_client_features(&self, virtual_overseer: &mut VirtualOverseer) {
+	async fn test_runtime_api_empty_node_features(&self, virtual_overseer: &mut VirtualOverseer) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_relay_parent,
-				RuntimeApiRequest::ClientFeatures(
+				RuntimeApiRequest::NodeFeatures(
+					_,
 					tx,
 				)
 			)) => {
 				tx.send(Ok(
-					ClientFeatures::empty()
+					NodeFeatures::EMPTY
 				)).unwrap();
 			}
 		);
@@ -602,7 +608,7 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -728,7 +734,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -858,7 +864,7 @@ fn bad_merkle_path_leads_to_recovery_error(#[case] systematic_recovery: bool) {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -942,7 +948,7 @@ fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) 
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1048,7 +1054,7 @@ fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bo
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
@@ -1108,7 +1114,7 @@ fn invalid_pov_hash_leads_to_invalid_error() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		test_state
 			.test_chunk_requests(
@@ -1161,7 +1167,7 @@ fn fast_path_backing_group_recovers(#[case] relay_parent_block_number: Option<Bl
 		if relay_parent_block_number.is_none() {
 			test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
 		}
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1246,7 +1252,7 @@ fn recovers_from_only_chunks_if_pov_large(
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1407,7 +1413,7 @@ fn fast_path_backing_group_recovers_if_pov_small(
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1485,7 +1491,7 @@ fn no_answers_in_fast_path_causes_chunk_requests(#[case] systematic_recovery: bo
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1562,7 +1568,7 @@ fn task_canceled_when_receivers_dropped(#[case] systematic_recovery: bool) {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		for _ in 0..test_state.validators.len() {
 			match virtual_overseer.recv().timeout(TIMEOUT).await {
@@ -1617,7 +1623,7 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1700,7 +1706,7 @@ fn network_bridge_not_returning_responses_wont_stall_retrieval() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1791,7 +1797,7 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1897,7 +1903,7 @@ fn returns_early_if_we_have_the_data(#[case] systematic_recovery: bool) {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, true).await;
 
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
@@ -1937,7 +1943,7 @@ fn returns_early_if_present_in_the_subsystem_cache() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -2023,7 +2029,7 @@ fn does_not_query_local_validator(#[case] systematic_recovery: bool) {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |i| i == 0).await;
 
@@ -2087,7 +2093,7 @@ fn invalid_local_chunk(#[case] systematic_recovery: bool) {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state
 			.respond_to_query_all_request_invalid(&mut virtual_overseer, |i| i == 0)
@@ -2155,7 +2161,7 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 
 			test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 			test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-			test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+			test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
@@ -2240,9 +2246,9 @@ fn chunk_indices_are_shuffled(#[case] systematic_recovery: bool, #[case] shuffli
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
 
 		if shuffling_enabled {
-			test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+			test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 		} else {
-			test_state.test_runtime_api_empty_client_features(&mut virtual_overseer).await;
+			test_state.test_runtime_api_empty_node_features(&mut virtual_overseer).await;
 		}
 
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
@@ -2364,7 +2370,7 @@ fn number_of_request_retries_is_bounded(
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
@@ -2464,7 +2470,7 @@ fn block_number_not_requested_if_provided(#[case] systematic_recovery: bool) {
 		.await;
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
@@ -2519,7 +2525,7 @@ fn systematic_recovery_retries_from_backers() {
 
 		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
 		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
-		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 

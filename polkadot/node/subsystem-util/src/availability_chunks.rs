@@ -16,7 +16,8 @@
 
 use polkadot_node_primitives::BabeRandomness;
 use polkadot_primitives::{
-	vstaging::ClientFeatures, BlockNumber, ChunkIndex, Id as ParaId, SessionIndex, ValidatorIndex,
+	vstaging::{node_features, NodeFeatures},
+	BlockNumber, ChunkIndex, Id as ParaId, SessionIndex, ValidatorIndex,
 };
 use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -25,7 +26,7 @@ use schnellru::{ByLength, LruMap};
 
 /// Object used for holding and computing assigned chunk indices for validators.
 pub struct ChunkIndexCacheRegistry(
-	LruMap<(BlockNumber, SessionIndex), (Vec<ChunkIndex>, Option<ClientFeatures>)>,
+	LruMap<(BlockNumber, SessionIndex), (Vec<ChunkIndex>, Option<NodeFeatures>)>,
 );
 
 impl ChunkIndexCacheRegistry {
@@ -42,9 +43,9 @@ impl ChunkIndexCacheRegistry {
 		para_id: ParaId,
 		validator_index: ValidatorIndex,
 	) -> Option<ChunkIndex> {
-		if let Some((shuffle, maybe_client_features)) = self.0.get(&(block_number, session_index)) {
+		if let Some((shuffle, maybe_node_features)) = self.0.get(&(block_number, session_index)) {
 			Some(Self::chunk_index_for_validator(
-				maybe_client_features.as_ref(),
+				maybe_node_features.as_ref(),
 				shuffle,
 				para_id,
 				validator_index,
@@ -61,9 +62,9 @@ impl ChunkIndexCacheRegistry {
 		session_index: SessionIndex,
 		para_id: ParaId,
 	) -> Option<Vec<ChunkIndex>> {
-		if let Some((shuffle, maybe_client_features)) = self.0.get(&(block_number, session_index)) {
+		if let Some((shuffle, maybe_node_features)) = self.0.get(&(block_number, session_index)) {
 			let core_start_index =
-				Self::para_start_index(maybe_client_features.as_ref(), shuffle.len(), para_id);
+				Self::para_start_index(maybe_node_features.as_ref(), shuffle.len(), para_id);
 
 			let chunk_indices = shuffle
 				.clone()
@@ -83,7 +84,7 @@ impl ChunkIndexCacheRegistry {
 	/// Should only be called if `query_cache_for_validator` returns `None`.
 	pub fn populate_for_validator(
 		&mut self,
-		maybe_client_features: Option<ClientFeatures>,
+		maybe_node_features: Option<NodeFeatures>,
 		babe_randomness: BabeRandomness,
 		n_validators: usize,
 		block_number: BlockNumber,
@@ -92,12 +93,12 @@ impl ChunkIndexCacheRegistry {
 		validator_index: ValidatorIndex,
 	) -> ChunkIndex {
 		let shuffle = Self::get_shuffle(
-			maybe_client_features.as_ref(),
+			maybe_node_features.as_ref(),
 			block_number,
 			babe_randomness,
 			n_validators,
 		);
-		self.0.insert((block_number, session_index), (shuffle, maybe_client_features));
+		self.0.insert((block_number, session_index), (shuffle, maybe_node_features));
 
 		self.query_cache_for_validator(block_number, session_index, para_id, validator_index)
 			.expect("We just inserted the entry.")
@@ -107,7 +108,7 @@ impl ChunkIndexCacheRegistry {
 	/// Should only be called if `query_cache_for_para` returns `None`.
 	pub fn populate_for_para(
 		&mut self,
-		maybe_client_features: Option<ClientFeatures>,
+		maybe_node_features: Option<NodeFeatures>,
 		babe_randomness: BabeRandomness,
 		n_validators: usize,
 		block_number: BlockNumber,
@@ -115,19 +116,19 @@ impl ChunkIndexCacheRegistry {
 		para_id: ParaId,
 	) -> Vec<ChunkIndex> {
 		let shuffle = Self::get_shuffle(
-			maybe_client_features.as_ref(),
+			maybe_node_features.as_ref(),
 			block_number,
 			babe_randomness,
 			n_validators,
 		);
-		self.0.insert((block_number, session_index), (shuffle, maybe_client_features));
+		self.0.insert((block_number, session_index), (shuffle, maybe_node_features));
 
 		self.query_cache_for_para(block_number, session_index, para_id)
 			.expect("We just inserted the entry.")
 	}
 
 	fn get_shuffle(
-		maybe_client_features: Option<&ClientFeatures>,
+		maybe_node_features: Option<&NodeFeatures>,
 		block_number: BlockNumber,
 		mut babe_randomness: BabeRandomness,
 		n_validators: usize,
@@ -136,8 +137,11 @@ impl ChunkIndexCacheRegistry {
 			.map(|i| ChunkIndex(u32::try_from(i).expect("validator count should not exceed u32")))
 			.collect();
 
-		if let Some(features) = maybe_client_features {
-			if features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
+		if let Some(features) = maybe_node_features {
+			if let Some(&true) = features
+				.get(usize::from(node_features::AVAILABILITY_CHUNK_SHUFFLING))
+				.as_deref()
+			{
 				let block_number_bytes = block_number.to_be_bytes();
 				for i in 0..32 {
 					babe_randomness[i] ^= block_number_bytes[i % block_number_bytes.len()];
@@ -154,12 +158,15 @@ impl ChunkIndexCacheRegistry {
 
 	/// Return the availability chunk start index for this para.
 	fn para_start_index(
-		maybe_client_features: Option<&ClientFeatures>,
+		maybe_node_features: Option<&NodeFeatures>,
 		n_validators: usize,
 		para_id: ParaId,
 	) -> usize {
-		if let Some(features) = maybe_client_features {
-			if features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
+		if let Some(features) = maybe_node_features {
+			if let Some(&true) = features
+				.get(usize::from(node_features::AVAILABILITY_CHUNK_SHUFFLING))
+				.as_deref()
+			{
 				let mut rng: ChaCha8Rng =
 					SeedableRng::from_seed(
 						u32::from(para_id).to_be_bytes().repeat(8).try_into().expect(
@@ -174,13 +181,12 @@ impl ChunkIndexCacheRegistry {
 	}
 
 	fn chunk_index_for_validator(
-		maybe_client_features: Option<&ClientFeatures>,
+		maybe_node_features: Option<&NodeFeatures>,
 		shuffle: &Vec<ChunkIndex>,
 		para_id: ParaId,
 		validator_index: ValidatorIndex,
 	) -> ChunkIndex {
-		let core_start_index =
-			Self::para_start_index(maybe_client_features, shuffle.len(), para_id);
+		let core_start_index = Self::para_start_index(maybe_node_features, shuffle.len(), para_id);
 
 		let chunk_index = shuffle[(core_start_index +
 			usize::try_from(validator_index.0)
@@ -193,7 +199,7 @@ impl ChunkIndexCacheRegistry {
 /// Compute the per-validator availability chunk index.
 /// It's preferred to use the `ChunkIndexCacheRegistry` if you also need a cache.
 pub fn availability_chunk_index(
-	maybe_client_features: Option<&ClientFeatures>,
+	maybe_node_features: Option<&NodeFeatures>,
 	babe_randomness: BabeRandomness,
 	n_validators: usize,
 	block_number: BlockNumber,
@@ -201,14 +207,14 @@ pub fn availability_chunk_index(
 	validator_index: ValidatorIndex,
 ) -> ChunkIndex {
 	let shuffle = ChunkIndexCacheRegistry::get_shuffle(
-		maybe_client_features,
+		maybe_node_features,
 		block_number,
 		babe_randomness,
 		n_validators,
 	);
 
 	ChunkIndexCacheRegistry::chunk_index_for_validator(
-		maybe_client_features,
+		maybe_node_features,
 		&shuffle,
 		para_id,
 		validator_index,
@@ -217,9 +223,15 @@ pub fn availability_chunk_index(
 
 #[cfg(test)]
 mod tests {
+	use super::*;
 	use std::collections::HashSet;
 
-	use super::*;
+	pub fn node_features_with_shuffling() -> NodeFeatures {
+		let mut node_features = NodeFeatures::new();
+		node_features.resize(node_features::AVAILABILITY_CHUNK_SHUFFLING.into() + 1, false);
+		node_features.set(node_features::AVAILABILITY_CHUNK_SHUFFLING.into(), true);
+		node_features
+	}
 
 	#[test]
 	fn test_availability_chunk_indices() {
@@ -246,7 +258,7 @@ mod tests {
 			}
 
 			for validator in 0..n_validators {
-				// Check that if the client feature is not set, we'll always return the validator
+				// Check that if the node feature is not set, we'll always return the validator
 				// index.
 				let chunk_index = index_registry.populate_for_validator(
 					None,
@@ -281,9 +293,9 @@ mod tests {
 					)
 				);
 
-				// Check for when the client feature is set.
+				// Check for when the node feature is set.
 				let chunk_index = index_registry.populate_for_validator(
-					Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+					Some(node_features_with_shuffling()),
 					babe_randomness,
 					n_validators as usize,
 					block_number,
@@ -306,7 +318,7 @@ mod tests {
 				assert_eq!(
 					chunk_index,
 					availability_chunk_index(
-						Some(&ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+						Some(&node_features_with_shuffling()),
 						babe_randomness,
 						n_validators as usize,
 						block_number,
@@ -328,7 +340,7 @@ mod tests {
 			}
 
 			for para in 0..n_paras {
-				// Check that if the client feature is not set, we'll always return the identity
+				// Check that if the node feature is not set, we'll always return the identity
 				// vector.
 				let chunk_indices = index_registry.populate_for_para(
 					None,
@@ -363,9 +375,9 @@ mod tests {
 					);
 				}
 
-				// Check for when the client feature is set.
+				// Check for when the node feature is set.
 				let chunk_indices = index_registry.populate_for_para(
-					Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+					Some(node_features_with_shuffling()),
 					babe_randomness,
 					n_validators as usize,
 					block_number,
@@ -391,7 +403,7 @@ mod tests {
 				for validator in 0..n_validators {
 					assert_eq!(
 						availability_chunk_index(
-							Some(&ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+							Some(&node_features_with_shuffling()),
 							babe_randomness,
 							n_validators as usize,
 							block_number,
