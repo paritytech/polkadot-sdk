@@ -23,7 +23,6 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use libp2p::PeerId;
 
-use crate::warp::WarpSyncProgress;
 use sc_network_common::sync::message::BlockRequest;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -93,8 +92,6 @@ pub struct SyncStatus<Block: BlockT> {
 	pub queued_blocks: u32,
 	/// State sync status in progress, if any.
 	pub state_sync: Option<StateDownloadProgress>,
-	/// Warp sync in progress, if any.
-	pub warp_sync: Option<WarpSyncProgress<Block>>,
 }
 
 /// A peer did not behave as expected and should be reported.

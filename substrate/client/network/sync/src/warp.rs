@@ -29,7 +29,7 @@ use crate::{
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
@@ -278,6 +278,21 @@ where
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
 	pub fn new(client: Arc<Client>, warp_sync_config: WarpSyncConfig<B>) -> Self {
+		if client.info().finalized_state.is_some() {
+			warn!(
+				target: LOG_TARGET,
+				"Can't use warp sync mode with a partially synced database. Reverting to full sync mode."
+			);
+			return Self {
+				client,
+				phase: Phase::Complete,
+				total_proof_bytes: 0,
+				total_state_bytes: 0,
+				peers: HashMap::new(),
+				actions: vec![WarpSyncAction::Finished],
+			}
+		}
+
 		let phase = match warp_sync_config {
 			WarpSyncConfig::WithProvider(warp_sync_provider) =>
 				Phase::WaitingForPeers { warp_sync_provider },
