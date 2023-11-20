@@ -571,6 +571,7 @@ mod tests {
 		type MinVestedTransfer = MinVestedTransfer;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+		type BLockNumberProvider = System;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
 	}
 
