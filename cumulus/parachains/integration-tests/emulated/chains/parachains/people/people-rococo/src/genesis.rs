@@ -22,7 +22,7 @@ use emulated_integration_tests_common::{
 };
 use parachains_common::Balance;
 
-pub const PARA_ID: u32 = 1000;
+pub const PARA_ID: u32 = 1004;
 pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 pub fn genesis() -> Storage {
