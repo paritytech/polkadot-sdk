@@ -151,7 +151,7 @@ rusty_fork_test! {
 
 			assert_matches!(
 				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout))
+				Err(ValidationError::Invalid(InvalidCandidate::HardTimeout))
 			);
 		})
 	}
@@ -217,7 +217,7 @@ rusty_fork_test! {
 
 			assert_matches!(
 				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+				Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
 			);
 		})
 	}
@@ -288,7 +288,7 @@ rusty_fork_test! {
 			// Note that we get a more specific error if the job died than if the whole worker died.
 			assert_matches!(
 				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err)))
+				Err(ValidationError::Invalid(InvalidCandidate::AmbiguousJobDeath(err)))
 					if err == "received signal: SIGKILL"
 			);
 		})

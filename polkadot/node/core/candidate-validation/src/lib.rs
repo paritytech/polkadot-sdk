@@ -640,22 +640,22 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout)) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
 			))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(err))) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::JobError(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(err))) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousJobDeath(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
 				"ambiguous job death: {err}"
 			)))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) => {
+		Err(ValidationError::Invalid(WasmInvalidCandidate::PrepareError(e))) => {
 			// In principle if preparation of the `WASM` fails, the current candidate can not be the
 			// reason for that. So we can't say whether it is invalid or not. In addition, with
 			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
@@ -756,11 +756,11 @@ trait ValidationBackend {
 			}
 
 			match validation_result {
-				Err(ValidationError::InvalidCandidate(
+				Err(ValidationError::Invalid(
 					WasmInvalidCandidate::AmbiguousWorkerDeath |
 					WasmInvalidCandidate::AmbiguousJobDeath(_),
 				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
-				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(_)))
+				Err(ValidationError::Invalid(WasmInvalidCandidate::JobError(_)))
 					if num_job_error_retries_left > 0 =>
 					num_job_error_retries_left -= 1,
 				Err(ValidationError::Internal(_)) if num_internal_retries_left > 0 =>

@@ -481,7 +481,7 @@ fn candidate_validation_bad_return_is_invalid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
+			ValidationError::Invalid(WasmInvalidCandidate::HardTimeout),
 		)),
 		validation_data,
 		validation_code,
@@ -546,7 +546,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			Ok(validation_result),
 		]),
 		validation_data.clone(),
@@ -599,8 +599,8 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 		]),
 		validation_data,
 		validation_code,
@@ -648,7 +648,7 @@ fn candidate_validation_retry_internal_errors() {
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
 		]),
@@ -695,13 +695,13 @@ fn candidate_validation_retry_panic_errors() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::JobError("foo".into()))),
 			// Throw an AJD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousJobDeath(
 				"baz".into(),
 			))),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::JobError("bar".into()))),
 		]),
 		validation_data,
 		validation_code,
@@ -745,7 +745,7 @@ fn candidate_validation_timeout_is_internal_error() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
+			ValidationError::Invalid(WasmInvalidCandidate::HardTimeout),
 		)),
 		validation_data,
 		validation_code,
@@ -839,7 +839,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
+			ValidationError::Invalid(WasmInvalidCandidate::HardTimeout),
 		)),
 		validation_data,
 		validation_code,
