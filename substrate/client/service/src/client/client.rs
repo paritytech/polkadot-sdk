@@ -843,11 +843,11 @@ where
 			// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			(true, None, Some(ref body)) => {
-				let runtime_api =
+				let mut runtime_api =
 					RuntimeInstance::builder(self, *parent_hash).on_chain_context().build();
 
 				CoreApi::<Block>::execute_block(
-					&runtime_api,
+					&mut runtime_api,
 					Block::new(import_block.header.clone(), body.clone()),
 				)?;
 

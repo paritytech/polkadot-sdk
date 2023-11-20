@@ -220,7 +220,7 @@ fn construct_genesis_should_work_with_wasm() {
 #[test]
 fn client_initializes_from_genesis_ok() {
 	let client = substrate_test_runtime_client::new();
-	let runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
+	let mut runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
 		.off_chain_context()
 		.build();
 	assert_eq!(runtime_api.balance_of(AccountKeyring::Alice.into()).unwrap(), 1000 * DOLLARS);
@@ -290,7 +290,7 @@ fn block_builder_works_with_transactions() {
 			.collect::<Vec<_>>()
 	);
 
-	let runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
+	let mut runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
 		.off_chain_context()
 		.build();
 	assert_eq!(runtime_api.balance_of(AccountKeyring::Alice.into()).unwrap(), 958 * DOLLARS);
@@ -1393,7 +1393,7 @@ fn state_reverted_on_reorg() {
 	let mut client = substrate_test_runtime_client::new();
 
 	let current_balance = |client: &substrate_test_runtime_client::TestClient| {
-		let runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
+		let mut runtime_api = RuntimeInstance::builder(&client, client.chain_info().best_hash)
 			.off_chain_context()
 			.build();
 
@@ -2235,12 +2235,12 @@ fn use_dalek_ext_works() {
 	block_on(client.import(BlockOrigin::NetworkInitialSync, a1.clone())).unwrap();
 
 	// On block zero it will use dalek and then on block 1 it will use zebra
-	let runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
+	let mut runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
 		.off_chain_context()
 		.build();
 	assert!(!runtime_api.verify_ed25519(zero_ed_sig(), zero_ed_pub(), vec![]).unwrap());
 
-	let runtime_api = RuntimeInstance::builder(&client, a1.hash()).off_chain_context().build();
+	let mut runtime_api = RuntimeInstance::builder(&client, a1.hash()).off_chain_context().build();
 	assert!(runtime_api.verify_ed25519(zero_ed_sig(), zero_ed_pub(), vec![]).unwrap());
 }
 

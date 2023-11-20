@@ -212,7 +212,7 @@ where
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
 	fn new(
-		runtime_instance: RuntimeInstance<C, Block, ProofRecorder>,
+		mut runtime_instance: RuntimeInstance<C, Block, ProofRecorder>,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
 		inherent_digests: Digest,
@@ -227,7 +227,7 @@ where
 
 		let estimated_header_size = header.encoded_size();
 
-		Core::<Block>::initialize_block(&runtime_instance, &header)?;
+		Core::<Block>::initialize_block(&mut runtime_instance, &header)?;
 
 		let version = runtime_instance
 			.api_version::<dyn BlockBuilderApi<Block>>()?
@@ -284,9 +284,9 @@ where
 	/// Returns the build `Block`, the changes to the storage and an optional `StorageProof`
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
-	pub fn build(self) -> Result<BuiltBlock<Block>, Error> {
+	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
 		let header: Block::Header =
-			BlockBuilderApi::<Block>::finalize_block(&self.runtime_instance)?;
+			BlockBuilderApi::<Block>::finalize_block(&mut self.runtime_instance)?;
 
 		debug_assert_eq!(
 			header.extrinsics_root().clone(),
@@ -318,9 +318,10 @@ where
 			.execute_in_transaction(move |api| {
 				// `create_inherents` should not change any state, to ensure this we always rollback
 				// the transaction.
-				TransactionOutcome::Rollback(
-					BlockBuilderApi::<Block>::inherent_extrinsics(api, inherent_data),
-				)
+				TransactionOutcome::Rollback(BlockBuilderApi::<Block>::inherent_extrinsics(
+					api,
+					inherent_data,
+				))
 			})
 			.map_err(Into::into)
 	}

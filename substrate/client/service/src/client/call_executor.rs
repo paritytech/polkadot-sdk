@@ -199,14 +199,12 @@ where
 		at_hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
-		changes: &RefCell<OverlayedChanges<HashingFor<Block>>>,
+		changes: &mut OverlayedChanges<HashingFor<Block>>,
 		recorder: Option<&ProofRecorder<Block>>,
 		call_context: CallContext,
-		extensions: &RefCell<Extensions>,
+		extensions: &mut Extensions,
 	) -> Result<Vec<u8>, sp_blockchain::Error> {
 		let state = self.backend.state_at(at_hash)?;
-
-		let changes = &mut *changes.borrow_mut();
 
 		// It is important to extract the runtime code here before we create the proof
 		// recorder to not record it. We also need to fetch the runtime code from `state` to
@@ -216,7 +214,6 @@ where
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 		let runtime_code = self.check_override(runtime_code, &state, at_hash)?.0;
-		let mut extensions = extensions.borrow_mut();
 
 		match recorder {
 			Some(recorder) => {
@@ -232,7 +229,7 @@ where
 					&self.executor,
 					method,
 					call_data,
-					&mut extensions,
+					extensions,
 					&runtime_code,
 					call_context,
 				)
@@ -246,7 +243,7 @@ where
 					&self.executor,
 					method,
 					call_data,
-					&mut extensions,
+					extensions,
 					&runtime_code,
 					call_context,
 				)

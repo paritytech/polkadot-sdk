@@ -634,13 +634,13 @@ pub struct CallApiAtParams<'a, Block: BlockT> {
 	/// The encoded arguments of the function.
 	pub arguments: Vec<u8>,
 	/// The overlayed changes that are on top of the state.
-	pub overlayed_changes: &'a RefCell<OverlayedChanges<HashingFor<Block>>>,
+	pub overlayed_changes: &'a mut OverlayedChanges<HashingFor<Block>>,
 	/// The call context of this call.
 	pub call_context: CallContext,
 	/// The optional proof recorder for recording storage accesses.
 	pub recorder: Option<&'a ProofRecorder<Block>>,
 	/// The extensions that should be used for this call.
-	pub extensions: &'a RefCell<Extensions>,
+	pub extensions: &'a mut Extensions,
 }
 
 /// Something that can call into the an api at a given block.
@@ -880,7 +880,7 @@ pub struct RuntimeInstanceBuilderStage2<C, B: BlockT, ProofRecorder> {
 	block: B::Hash,
 	call_context: CallContext,
 	with_recorder: ProofRecorder,
-	extensions: RefCell<Extensions>,
+	extensions: Extensions,
 }
 
 #[cfg(feature = "std")]
@@ -895,8 +895,8 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 		}
 	}
 
-	pub fn register_extension(self, ext: impl Extension) -> Self {
-		self.extensions.borrow_mut().register(ext);
+	pub fn register_extension(mut self, ext: impl Extension) -> Self {
+		self.extensions.register(ext);
 		self
 	}
 
@@ -911,7 +911,7 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 			call_context: self.call_context,
 			overlayed_changes: Default::default(),
 			extensions: self.extensions,
-			transaction_depth: 0.into(),
+			transaction_depth: 0,
 		}
 	}
 }
@@ -948,10 +948,10 @@ pub struct RuntimeInstance<C, Block: BlockT, ProofRecorder> {
 	call_api_at: C,
 	block: Block::Hash,
 	call_context: CallContext,
-	overlayed_changes: RefCell<OverlayedChanges<HashingFor<Block>>>,
+	overlayed_changes: OverlayedChanges<HashingFor<Block>>,
 	recorder: ProofRecorder,
-	extensions: RefCell<Extensions>,
-	transaction_depth: std::cell::RefCell<u16>,
+	extensions: Extensions,
+	transaction_depth: u16,
 }
 
 #[cfg(feature = "std")]
@@ -966,11 +966,11 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 	RuntimeInstance<C, B, ProofRecorder>
 {
 	pub fn __runtime_api_internal_call_api_at(
-		&self,
+		&mut self,
 		params: Vec<u8>,
 		fn_name: &dyn Fn(RuntimeVersion) -> &'static str,
 	) -> Result<Vec<u8>, ApiError> {
-		let transaction_depth = *std::cell::RefCell::borrow(&self.transaction_depth);
+		let transaction_depth = self.transaction_depth;
 
 		if transaction_depth == 0 {
 			self.start_transaction();
@@ -983,10 +983,10 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 				at: self.block,
 				function: (*fn_name)(version),
 				arguments: params,
-				overlayed_changes: &self.overlayed_changes,
+				overlayed_changes: &mut self.overlayed_changes,
 				call_context: self.call_context,
 				recorder: self.recorder.get(),
-				extensions: &self.extensions,
+				extensions: &mut self.extensions,
 			};
 
 			self.call_api_at.call_api_at(params)
@@ -1010,18 +1010,18 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 	}
 
 	pub fn execute_in_transaction<R>(
-		&self,
-		inner: impl FnOnce(&Self) -> TransactionOutcome<R>,
+		&mut self,
+		inner: impl FnOnce(&mut Self) -> TransactionOutcome<R>,
 	) -> R {
 		self.start_transaction();
 
-		*std::cell::RefCell::borrow_mut(&self.transaction_depth) += 1;
+		self.transaction_depth += 1;
 		let res = (inner)(self);
-		std::cell::RefCell::borrow_mut(&self.transaction_depth)
+		self.transaction_depth
 			.checked_sub(1)
 			.expect("Transactions are opened and closed together; qed");
 
-		self.commit_or_rollback_transaction(std::matches!(res, TransactionOutcome::Commit(_)));
+		self.commit_or_rollback_transaction(matches!(res, TransactionOutcome::Commit(_)));
 
 		res.into_inner()
 	}
@@ -1030,11 +1030,10 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 		self.recorder.get().map(|r| r.to_storage_proof())
 	}
 
-	pub fn into_storage_changes(self) -> Result<StorageChanges<B>, ApiError> {
+	pub fn into_storage_changes(mut self) -> Result<StorageChanges<B>, ApiError> {
 		let state_version = self.call_api_at.runtime_version_at(self.block)?;
 
 		self.overlayed_changes
-			.borrow_mut()
 			.drain_storage_changes(
 				&self.call_api_at.state_at(self.block)?,
 				state_version.state_version(),
@@ -1042,7 +1041,7 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 			.map_err(|e| ApiError::Application(Box::from(e)))
 	}
 
-	fn commit_or_rollback_transaction(&self, commit: bool) {
+	fn commit_or_rollback_transaction(&mut self, commit: bool) {
 		let proof = "\
 					We only close a transaction when we opened one ourself.
 					Other parts of the runtime that make use of transactions (state-machine)
@@ -1056,7 +1055,7 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 				Ok(())
 			};
 
-			let res2 = self.overlayed_changes.borrow_mut().commit_transaction();
+			let res2 = self.overlayed_changes.commit_transaction();
 
 			// Will panic on an `Err` below, however we should call commit
 			// on the recorder and the changes together.
@@ -1068,18 +1067,18 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 				Ok(())
 			};
 
-			let res2 = self.overlayed_changes.borrow_mut().rollback_transaction();
+			let res2 = self.overlayed_changes.rollback_transaction();
 
 			// Will panic on an `Err` below, however we should call commit
 			// on the recorder and the changes together.
 			res.and(res2.map_err(drop))
 		};
 
-		std::result::Result::expect(res, proof);
+		res.expect(proof)
 	}
 
-	fn start_transaction(&self) {
-		self.overlayed_changes.borrow_mut().start_transaction();
+	fn start_transaction(&mut self) {
+		self.overlayed_changes.start_transaction();
 		if let Some(recorder) = self.recorder.get() {
 			recorder.start_transaction();
 		}

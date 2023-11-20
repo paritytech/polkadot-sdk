@@ -150,7 +150,7 @@ fn into_core_mixnode(mixnode: RuntimeMixnode) -> CoreMixnode<Vec<Multiaddr>> {
 fn maybe_set_mixnodes(
 	mixnet: &mut Mixnet<Vec<Multiaddr>>,
 	rel_session_index: RelSessionIndex,
-	mixnodes: &dyn Fn() -> Result<Result<Vec<RuntimeMixnode>, RuntimeMixnodesErr>, ApiError>,
+	mut mixnodes: impl FnMut() -> Result<Result<Vec<RuntimeMixnode>, RuntimeMixnodesErr>, ApiError>,
 ) {
 	let current_session_index = mixnet.session_status().current_index;
 	mixnet.maybe_set_mixnodes(rel_session_index, &mut || {
@@ -174,7 +174,7 @@ fn maybe_set_mixnodes(
 	});
 }
 
-pub fn sync_with_runtime(mixnet: &mut Mixnet<Vec<Multiaddr>>, api: &dyn MixnetApi) {
+pub fn sync_with_runtime(mixnet: &mut Mixnet<Vec<Multiaddr>>, api: &mut dyn MixnetApi) {
 	let session_status = match api.session_status() {
 		Ok(session_status) => session_status,
 		Err(err) => {
@@ -184,8 +184,8 @@ pub fn sync_with_runtime(mixnet: &mut Mixnet<Vec<Multiaddr>>, api: &dyn MixnetAp
 	};
 	mixnet.set_session_status(to_core_session_status(session_status));
 
-	maybe_set_mixnodes(mixnet, RelSessionIndex::Prev, &|| api.prev_mixnodes());
-	maybe_set_mixnodes(mixnet, RelSessionIndex::Current, &|| api.current_mixnodes());
+	maybe_set_mixnodes(mixnet, RelSessionIndex::Prev, || api.prev_mixnodes());
+	maybe_set_mixnodes(mixnet, RelSessionIndex::Current, || api.current_mixnodes());
 }
 
 #[cfg(test)]

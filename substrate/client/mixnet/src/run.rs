@@ -49,7 +49,7 @@ use sc_network::{
 use sc_transaction_pool_api::{
 	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
 };
-use sp_api::{RuntimeInstanceBuilder, CallApiAt};
+use sp_api::{CallApiAt, RuntimeInstanceBuilder};
 use sp_consensus::SyncOracle;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_mixnet::{runtime_api::MixnetApi, types::Mixnode};
@@ -216,8 +216,8 @@ pub async fn run<B, C, S, N, P>(
 				// To avoid trying to connect to old mixnodes, ignore finality notifications while
 				// offline or major syncing. This is a bit racy but should be good enough.
 				if !sync.is_offline() && !sync.is_major_syncing() {
-					let api = RuntimeInstanceBuilder::create(client.clone(), notification.hash).off_chain_context().build();
-					sync_with_runtime(&mut mixnet, &api);
+					let mut api = RuntimeInstanceBuilder::create(client.clone(), notification.hash).off_chain_context().build();
+					sync_with_runtime(&mut mixnet, &mut api);
 					request_manager.update_session_status(
 						&mut mixnet, &packet_dispatcher, &config.substrate);
 				}
@@ -225,7 +225,7 @@ pub async fn run<B, C, S, N, P>(
 
 			notification = next_import_notification => {
 				if notification.is_new_best && (*notification.header.number() >= min_register_block) {
-					let api = RuntimeInstanceBuilder::create(client.clone(), notification.hash).off_chain_context()
+					let mut api = RuntimeInstanceBuilder::create(client.clone(), notification.hash).off_chain_context()
 					.register_extension(KeystoreExt(keystore.clone().expect(
 						"Import notification stream only setup if we have a keystore")))
 					.register_extension(offchain_transaction_pool_factory

@@ -83,7 +83,7 @@ pub fn fold_fn_decl_for_client_side(
 	replace_wild_card_parameter_names(input);
 
 	// Add `&self, at:& Block::Hash` as parameters to each function at the beginning.
-	input.inputs.insert(0, parse_quote!(&self));
+	input.inputs.insert(0, parse_quote!(&mut self));
 
 	// Wrap the output in a `Result`
 	input.output = {

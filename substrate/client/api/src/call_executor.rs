@@ -72,10 +72,10 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 		at_hash: B::Hash,
 		method: &str,
 		call_data: &[u8],
-		changes: &RefCell<OverlayedChanges<HashingFor<B>>>,
+		changes: &mut OverlayedChanges<HashingFor<B>>,
 		proof_recorder: Option<&ProofRecorder<B>>,
 		call_context: CallContext,
-		extensions: &RefCell<Extensions>,
+		extensions: &mut Extensions,
 	) -> sp_blockchain::Result<Vec<u8>>;
 
 	/// Extract RuntimeVersion of given block
