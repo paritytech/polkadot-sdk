@@ -1112,7 +1112,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			// It is now a parathread (on-demand parachain).
@@ -1156,7 +1156,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
@@ -1266,7 +1266,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
@@ -1294,7 +1294,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
@@ -1335,7 +1335,7 @@ mod tests {
 				test_genesis_head(max_head_size() as usize),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 
@@ -1400,7 +1400,7 @@ mod tests {
 				test_genesis_head(max_head_size() as usize),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX + 6);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX + 6, true);
 
 			run_to_session(START_SESSION_INDEX + 8);
 
@@ -1508,7 +1508,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			// Cannot swap
 			assert_ok!(Registrar::swap(RuntimeOrigin::root(), para_1, para_2));

@@ -247,12 +247,13 @@ pub fn conclude_pvf_checking<T: paras::Config>(
 	validation_code: &ValidationCode,
 	validators: &[Sr25519Keyring],
 	session_index: SessionIndex,
+	accept: bool,
 ) {
 	let num_required = primitives::supermajority_threshold(validators.len());
 	validators.iter().enumerate().take(num_required).for_each(|(idx, key)| {
 		let validator_index = idx as u32;
 		let statement = PvfCheckStatement {
-			accept: true,
+			accept,
 			subject: validation_code.hash(),
 			session_index,
 			validator_index: validator_index.into(),

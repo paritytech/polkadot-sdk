@@ -410,7 +410,7 @@ fn basic_end_to_end_works() {
 				genesis_head.clone(),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 			assert_ok!(Registrar::reserve(signed(2)));
 			assert_ok!(Registrar::register(
 				signed(2),
@@ -580,22 +580,22 @@ fn para_upgrade_initiated_by_manager_works() {
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
 
-		// User 1 will own parachains
+		// User 1 will own a parachain
 		let free_balance = 1_000_000_000;
 		Balances::make_free_balance_be(&account_id(1), 1_000_000_000);
 		// Register an on demand parachain
 		let mut code_size = 1024 * 1024;
 		let genesis_head = Registrar::worst_head_data();
-		let code_1 = validation_code(code_size);
+		let code_0 = validation_code(code_size);
 
 		assert_ok!(Registrar::reserve(signed(1)));
 		assert_ok!(Registrar::register(
 			signed(1),
 			ParaId::from(para_id),
 			genesis_head.clone(),
-			code_1.clone(),
+			code_0.clone(),
 		));
-		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
 
 		// The para should be onboarding.
 		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
@@ -609,21 +609,21 @@ fn para_upgrade_initiated_by_manager_works() {
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// Schedule a para upgrade to set the validation code to a new one which is twice the size.
+		// CASE 1: Schedule a para upgrade to set the validation code to a new one which is twice the size.
 		code_size *= 2;
-		let code_2 = validation_code(code_size);
+		let code_1 = validation_code(code_size);
 		assert_ok!(Registrar::schedule_code_upgrade(
 			signed(1),
 			ParaId::from(para_id),
-			code_2.clone(),
+			code_1.clone(),
 		));
-		conclude_pvf_checking::<Test>(&code_2, VALIDATORS, START_SESSION_INDEX + 2);
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
 
 		// After two more sessions the parachain can be upgraded.
 		run_to_session(START_SESSION_INDEX + 4);
 		// Force a new head to enact the code upgrade.
 		assert_ok!(Paras::force_note_new_head(RuntimeOrigin::root(), para_id, Default::default()));
-		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
 
 		// The reserved deposit should cover for the size difference of the new validation code.
 		let total_bytes_stored = code_size as u32 + genesis_head.0.len() as u32;
@@ -634,28 +634,28 @@ fn para_upgrade_initiated_by_manager_works() {
 		// An additional upgrade fee should also be deducted from the caller's balance.
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - UpgradeFee::get());
 
-		// After successfully upgrading the validation code to twice the size of the previous one,
-		// we will now proceed to upgrade the validation code to a smaller size. It is expected that
-		// the parachain manager will receive a refund upon the successful completion of the
+		// CASE 2: After successfully upgrading the validation code to twice the size of the previous
+		// one, we will now proceed to upgrade the validation code to a smaller size. It is expected 
+		// that the parachain manager will receive a refund upon the successful completion of the
 		// upgrade.
 
 		code_size /= 2;
-		let code_3 = validation_code(code_size);
+		let code_2 = validation_code(code_size);
 		assert_ok!(Registrar::schedule_code_upgrade(
 			signed(1),
 			ParaId::from(para_id),
-			code_3.clone(),
+			code_2.clone(),
 		));
 		// Since the para manager iniciated the upgrade he should be the one that will receive the
 		// refund in case the upgrade is successful.
 		assert_eq!(crate::paras_registrar::Refunds::<Test>::get(para_id), Some(account_id(1)));
-		conclude_pvf_checking::<Test>(&code_3, VALIDATORS, START_SESSION_INDEX + 4);
+		conclude_pvf_checking::<Test>(&code_2, VALIDATORS, START_SESSION_INDEX + 4, true);
 
 		// After two more sessions the parachain can be upgraded.
 		run_to_session(START_SESSION_INDEX + 6);
 		// Force a new head to enact the code upgrade.
 		assert_ok!(Paras::force_note_new_head(RuntimeOrigin::root(), para_id, Default::default()));
-		assert_eq!(Paras::current_code(&para_id), Some(code_3.clone()));
+		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
 
 		// The reserved deposit should cover only the size of the new validation code.
 		let total_bytes_stored = code_size as u32 + genesis_head.0.len() as u32;
@@ -667,6 +667,30 @@ fn para_upgrade_initiated_by_manager_works() {
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (2 * UpgradeFee::get()));
 		// The para manager shouldn't be marked as a 'refund receiver' anymore.
 		assert!(crate::paras_registrar::Refunds::<Test>::get(para_id).is_none());
+
+		// CASE 3: Para manager won't get refunded if the code upgrade fails
+		let code_3 = validation_code(42);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_3.clone(),
+		));
+		assert_eq!(crate::paras_registrar::Refunds::<Test>::get(para_id), Some(account_id(1)));
+		// Reject the new validation code.
+		conclude_pvf_checking::<Test>(&code_3, VALIDATORS, START_SESSION_INDEX + 6, false);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 8);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(RuntimeOrigin::root(), para_id, Default::default()));
+		// The upgrade failed and the para manager shouldn't get a refund.
+		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		// Even though the upgrade failed the upgrade fee is deducted from the caller's balance.
+		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (3 * UpgradeFee::get()));
 	});
 }
 
@@ -745,7 +769,7 @@ fn competing_slots() {
 			));
 		}
 		// The code undergoing the prechecking is the same for all paras.
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Start a new auction in the future
 		let duration = 149u32;
@@ -847,7 +871,7 @@ fn competing_bids() {
 			));
 		}
 		// The code undergoing the prechecking is the same for all paras.
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Finish registration of paras.
 		run_to_session(START_SESSION_INDEX + 2);
@@ -954,7 +978,7 @@ fn basic_swap_works() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		let validation_code = test_validation_code(20);
 		assert_ok!(Registrar::reserve(signed(2)));
@@ -964,7 +988,7 @@ fn basic_swap_works() {
 			test_genesis_head(20),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Paras should be onboarding
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Onboarding));
@@ -1116,7 +1140,7 @@ fn parachain_swap_works() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		let validation_code = test_validation_code(20);
 		assert_ok!(Registrar::reserve(signed(2)));
@@ -1126,7 +1150,7 @@ fn parachain_swap_works() {
 			test_genesis_head(20),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Paras should be onboarding
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Onboarding));
@@ -1294,7 +1318,7 @@ fn crowdloan_ending_period_bid() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		let validation_code = test_validation_code(20);
 		assert_ok!(Registrar::reserve(signed(2)));
@@ -1304,7 +1328,7 @@ fn crowdloan_ending_period_bid() {
 			test_genesis_head(20),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Paras should be onboarding
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Onboarding));
@@ -1426,7 +1450,7 @@ fn auction_bid_requires_registered_para() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Still can't bid until it is fully onboarded
 		assert_noop!(
@@ -1492,7 +1516,7 @@ fn gap_bids_work() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Onboarded on Session 2
 		run_to_session(START_SESSION_INDEX + 2);
@@ -1662,7 +1686,7 @@ fn cant_bid_on_existing_lease_periods() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Start a new auction in the future
 		let starting_block = System::block_number();
