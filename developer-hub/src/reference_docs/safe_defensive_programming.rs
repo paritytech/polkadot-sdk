@@ -81,7 +81,7 @@
 //! production/release, they will merely log an error via the logging instance the runtime is using
 //! (i.e., `log::error`).
 //!
-//! This is useful for testing, but also allows for a more failsafe way to mitigate panics.
+//! This is useful for catching issues in the development environment, without risking panicing in production.
 //!
 //! ## Integer Overflow
 //!
