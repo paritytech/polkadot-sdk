@@ -264,7 +264,7 @@ pub mod pallet {
 		/// to get access to their funds they used in the last lease and rebid using same for the
 		/// next lease.
 		///
-		/// Can only be called by the Lease Admin or the Parachain manager.
+		/// Can only be called by [`Config::ForceOrigin`] or the Parachain manager.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::early_lease_refund())]
 		pub fn early_lease_refund(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
