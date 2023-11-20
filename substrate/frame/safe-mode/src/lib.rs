@@ -15,6 +15,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Safe Mode
+//!
+//! Trigger for stopping all extrinsics outside of a specific whitelist.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
+//!
+//! ## Overview
+//!
+//! The safe-mode pallet provides a big STOP button to to put the chain in safe mode and thereby
+//! only permitting a certain subset of operations.
+//! The pallet provides a `WhitelistedCalls` which contains all calls that can be executed in
+//! while in safe mode.
+//!
+//! ### Primary Features:
+//! - Entering safe mode can be permissionless with deposit, origin based, or some combination of
+//!   those
+//! - Separate origin configuration for entering and exiting safe mode
+//! - Safe mode must always be configured to exit at a specific block number
+//! - Safe mode exit block number may be extended by additional calls
+//!
+//! ### Example
+//!
+//! Configuration of call filters:
+//!
+//! ```ignore
+//! impl frame_system::Config for Runtime {
+//!   …
+//!   type BaseCallFilter = InsideBoth<DefaultFilter, SafeMode>;
+//!   …
+//! }
+//! ```
+//!
+//! ## Low Level / Implementation Details
+//!
+//! ### Use Cost
+//! A storage value (`EnteredUntil`) is used to store the block safe mode will be exited on.
+//! Using the call filter will require a db read of that storage on each extrinsic.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
