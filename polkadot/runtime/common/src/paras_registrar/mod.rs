@@ -731,16 +731,17 @@ impl<T: Config> Pallet<T> {
 			// In case the existing deposit exceeds the required amount due to validation code
 			// reduction, the excess deposit will be returned to the caller.
 
-			// The reason why the deposit is not instantly refunded is because schedule a code
-			// upgrade doesn't guarante the success of an upgrade.
+			// The reason why the deposit is not instantly refunded is that scheduling a code
+			// upgrade doesn't guarantee the success of an upgrade.
 			//
-			// If we returned the depoist here a possible attack scenario would be to register
+			// If we returned the deposit here, a possible attack scenario would be to register
 			// the validation code of a parachain and then schedule a code upgrade to set the
-			// code to an empty blob. In such case the pre-checking process would fail so the
+			// code to an empty blob. In such a case, the pre-checking process would fail, so the
 			// old code would remain on-chain even though there is no deposit to cover it.
 
-			// We store information regarding who is receiving the refund in case the upgrade
-			// is completed successfully(either the parachain sovereign account or the manager).
+			// We store information about the recipient of the refund in the event that the upgrade
+			// is successfully completed, which could be either the parachain sovereign account or
+			// the manager.
 			//
 			// If the caller is not specified the refund will be returned to the para manager.
 			let who = maybe_caller.unwrap_or(info.manager);
