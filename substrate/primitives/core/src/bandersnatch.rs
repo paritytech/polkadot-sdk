@@ -40,7 +40,6 @@ use sp_std::{boxed::Box, vec::Vec};
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
 
 /// Context used to produce a plain signature without any VRF input/output.
-#[cfg(feature = "full_crypto")]
 pub const SIGNING_CTX: &[u8] = b"BandersnatchSigningContext";
 
 // Max ring domain size.
@@ -278,7 +277,6 @@ impl TraitPair for Pair {
 		self.vrf_sign(&data).signature
 	}
 
-	#[cfg(feature = "full_crypto")]
 	fn verify<M: AsRef<[u8]>>(signature: &Signature, data: M, public: &Public) -> bool {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data.as_ref()], None);
 		let signature =

@@ -24,11 +24,9 @@ use crate::crypto::Ss58Codec;
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
-#[cfg(any(feature = "serde", feature = "full_crypto"))]
-use schnorrkel::PublicKey;
 use schnorrkel::{
 	derive::{ChainCode, Derivation, CHAIN_CODE_LENGTH},
-	ExpansionMode, Keypair, MiniSecretKey, SecretKey,
+	ExpansionMode, Keypair, MiniSecretKey, PublicKey, SecretKey,
 };
 use sp_std::vec::Vec;
 
@@ -51,7 +49,6 @@ use sp_runtime_interface::pass_by::PassByInner;
 use sp_std::alloc::{format, string::String};
 
 // signing context
-#[cfg(feature = "full_crypto")]
 const SIGNING_CTX: &[u8] = b"substrate";
 
 /// An identifier used to match public keys against sr25519 keys
@@ -494,7 +491,6 @@ impl TraitPair for Pair {
 		self.0.sign(context.bytes(message)).into()
 	}
 
-	#[cfg(feature = "full_crypto")]
 	fn verify<M: AsRef<[u8]>>(sig: &Signature, message: M, pubkey: &Public) -> bool {
 		let Ok(signature) = schnorrkel::Signature::from_bytes(sig.as_ref()) else { return false };
 		let Ok(public) = PublicKey::from_bytes(pubkey.as_ref()) else { return false };

@@ -23,21 +23,21 @@ use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, SecretStringError, UncheckedFrom,
+use crate::{
+	crypto::{
+		ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
+		Pair as TraitPair, Public as TraitPublic, SecretStringError, UncheckedFrom,
+	},
+	hashing::blake2_256,
 };
-#[cfg(feature = "full_crypto")]
-use crate::hashing::blake2_256;
-#[cfg(feature = "full_crypto")]
-use secp256k1::ecdsa::{RecoverableSignature, RecoveryId};
-#[cfg(feature = "full_crypto")]
-use secp256k1::Message;
 #[cfg(not(feature = "std"))]
 use secp256k1::Secp256k1;
 #[cfg(feature = "std")]
 use secp256k1::SECP256K1;
-use secp256k1::{PublicKey, SecretKey};
+use secp256k1::{
+	ecdsa::{RecoverableSignature, RecoveryId},
+	Message, PublicKey, SecretKey,
+};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
@@ -322,13 +322,11 @@ impl Signature {
 	}
 
 	/// Recover the public key from this signature and a message.
-	#[cfg(feature = "full_crypto")]
 	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
 		self.recover_prehashed(&blake2_256(message.as_ref()))
 	}
 
 	/// Recover the public key from this signature and a pre-hashed message.
-	#[cfg(feature = "full_crypto")]
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 		let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
@@ -421,7 +419,6 @@ impl TraitPair for Pair {
 	}
 
 	/// Verify a signature on a message. Returns true if the signature is good.
-	#[cfg(feature = "full_crypto")]
 	fn verify<M: AsRef<[u8]>>(sig: &Signature, message: M, public: &Public) -> bool {
 		sig.recover(message).map(|actual| actual == *public).unwrap_or_default()
 	}

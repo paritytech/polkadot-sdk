@@ -414,7 +414,6 @@ impl TraitPair for Pair {
 	/// Verify a signature on a message.
 	///
 	/// Returns true if the signature is good.
-	#[cfg(feature = "full_crypto")]
 	fn verify<M: AsRef<[u8]>>(sig: &Signature, message: M, public: &Public) -> bool {
 		let Ok(public) = VerificationKey::try_from(public.as_slice()) else { return false };
 		let Ok(signature) = ed25519_zebra::Signature::try_from(sig.as_ref()) else { return false };
