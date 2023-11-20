@@ -1010,6 +1010,10 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
+			outcome.clone().ensure_complete().map_err(|error| {
+				log::error!(target: "runtime::xcm", "XCM execution failed with error {:?}", error);
+				Error::<T>::LocalExecutionIncomplete
+			})?;
 			Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into())
 		}
 
@@ -1495,13 +1499,19 @@ impl<T: Config> Pallet<T> {
 		let outcome =
 			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
-		if let Some(remote_xcm) = remote_xcm {
-			outcome.ensure_complete().map_err(|_| Error::<T>::LocalExecutionIncomplete)?;
+		outcome.ensure_complete().map_err(|error| {
+			log::error!(target: "runtime::xcm", "XCM execution failed with error {:?}", error);
+			Error::<T>::LocalExecutionIncomplete
+		})?;
 
+		if let Some(remote_xcm) = remote_xcm {
 			let (ticket, price) = validate_send::<T::XcmRouter>(dest, remote_xcm.clone())
 				.map_err(Error::<T>::from)?;
 			if origin != Here.into_location() {
-				Self::charge_fees(origin, price).map_err(|_| Error::<T>::FeesNotMet)?;
+				Self::charge_fees(origin, price).map_err(|error| {
+					log::error!(target: "runtime::xcm", "Unable to charge fee with error {:?}", error);
+					Error::<T>::FeesNotMet
+				})?;
 			}
 			let message_id = T::XcmRouter::deliver(ticket).map_err(Error::<T>::from)?;
 

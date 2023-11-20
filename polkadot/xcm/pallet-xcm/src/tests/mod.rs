@@ -445,7 +445,7 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
 		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(<XcmPallet as xcm_builder::ExecuteController<_, _>>::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
