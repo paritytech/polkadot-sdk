@@ -46,7 +46,9 @@ use sp_std::prelude::*;
 
 pub use pallet::*;
 
-pub trait WeightInfo {}
+pub trait WeightInfo {
+	fn assign_core() -> Weight;
+}
 
 /// A weight info that is only suitable for testing.
 pub struct TestWeightInfo;
@@ -54,7 +56,11 @@ pub struct TestWeightInfo;
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 pub type PartsOf57600 = u16;
 
-impl WeightInfo for TestWeightInfo {}
+impl WeightInfo for TestWeightInfo {
+	fn assign_core() -> Weight {
+		Weight::MAX
+	}
+}
 
 /// AssignmentSets as they are scheduled by block number
 ///
@@ -239,8 +245,7 @@ pub mod pallet {
 		///    the end of already existing ones.
 		/// - `DuplicateInsert`
 		#[pallet::call_index(0)]
-		//#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 5))]
+		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
 		pub fn assign_core(
 			origin: OriginFor<T>,
 			core_idx: CoreIndex,
