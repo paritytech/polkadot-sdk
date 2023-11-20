@@ -651,6 +651,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
+	/// Whether all inherents have been applied.
+	#[pallet::storage]
+	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// The current weight for the block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
@@ -1133,6 +1137,14 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::CodeUpdated);
 	}
 
+	pub fn inherents_applied() -> bool {
+		InherentsApplied::<T>::get()
+	}
+
+	pub fn note_inherents_applied() {
+		InherentsApplied::<T>::put(true);
+	}
+
 	/// Increment the reference counter on an account.
 	#[deprecated = "Use `inc_consumers` instead"]
 	pub fn inc_ref(who: &T::AccountId) {
@@ -1451,6 +1463,7 @@ impl<T: Config> Pallet<T> {
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
+		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
@@ -1497,6 +1510,7 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::kill();
 		AllExtrinsicsLen::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
+		InherentsApplied::<T>::kill();
 
 		// The following fields
 		//

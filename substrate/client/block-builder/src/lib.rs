@@ -262,15 +262,6 @@ where
 		})
 	}
 
-	/// Called after inherents but before transactions have been applied.
-	pub fn last_inherent(&self) -> Result<(), Error> {
-		if self.version >= 7 {
-			self.api.last_inherent(self.parent_hash).map_err(Into::into)
-		} else {
-			Ok(())
-		}
-	}
-
 	/// The extrinsic inclusion mode of the runtime for this block.
 	pub fn extrinsic_inclusion_mode(&self) -> ExtrinsicInclusionMode {
 		self.extrinsic_inclusion_mode

@@ -121,6 +121,7 @@ mod tests;
 
 use codec::{Codec, Encode};
 use frame_support::{
+	defensive_assert,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
@@ -328,22 +329,8 @@ impl<
 			Ok(r.map(|_| ()).map_err(|e| e.error))
 		};
 
-		// Apply inherents:
-		for e in extrinsics.iter().take(num_inherents) {
-			if let Err(err) = try_apply_extrinsic(e.clone()) {
-				log::error!(
-					target: LOG_TARGET, "inherent {:?} failed due to {:?}. Aborting the rest of the block execution.",
-					e,
-					err,
-				);
-				break
-			}
-		}
-
-		Self::last_inherent();
-
-		// Apply transactions:
-		for e in extrinsics.iter().skip(num_inherents) {
+		// Apply extrinsics:
+		for e in extrinsics.iter() {
 			if let Err(err) = try_apply_extrinsic(e.clone()) {
 				log::error!(
 					target: LOG_TARGET, "transaction {:?} failed due to {:?}. Aborting the rest of the block execution.",
@@ -575,6 +562,7 @@ impl<
 			DispatchClass::Mandatory,
 		);
 
+		<System as frame_system::Config>::PreInherents::pre_inherents();
 		frame_system::Pallet::<System>::note_finished_initialize();
 	}
 
@@ -620,7 +608,6 @@ impl<
 			sp_tracing::info_span!("execute_block", ?block);
 			// Execute `on_runtime_upgrade` and `on_initialize`.
 			let mode = Self::initialize_block(block.header());
-			<System as frame_system::Config>::PreInherents::pre_inherents();
 			let num_inherents = Self::initial_checks(&block) as usize;
 			let (header, extrinsics) = block.deconstruct();
 
@@ -632,15 +619,19 @@ impl<
 			}
 
 			// Process inherents (if any).
-			Self::apply_extrinsics(extrinsics.iter().take(num_inherents), mode);
-			Self::last_inherent();
-			// Process transactions (if any).
-			Self::apply_extrinsics(extrinsics.iter().skip(num_inherents), mode);
-
+			Self::apply_extrinsics(extrinsics.iter(), mode);
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
 
-			Self::on_idle_hook(*header.number());
+			// In this case there were no transactions to trigger this state transition:
+			if !<frame_system::Pallet<System>>::inherents_applied() {
+				defensive_assert!(num_inherents == extrinsics.len());
+				Self::post_inherent_hook();
+				<frame_system::Pallet<System>>::note_inherents_applied();
+			}
+
 			<System as frame_system::Config>::PostTransactions::post_transactions();
+
+			Self::on_idle_hook(*header.number());
 			Self::on_finalize_hook(*header.number());
 			Self::final_checks(&header);
 		}
@@ -648,7 +639,7 @@ impl<
 
 	/// Progress ongoing MBM migrations.
 	// Used by the block builder and Executive.
-	pub fn last_inherent() {
+	pub fn post_inherent_hook() {
 		if MultiStepMigrator::ongoing() {
 			let used_weight = MultiStepMigrator::step();
 			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
@@ -682,9 +673,16 @@ impl<
 	pub fn finalize_block() -> frame_system::pallet_prelude::HeaderFor<System> {
 		sp_io::init_tracing();
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "finalize_block");
-		<frame_system::Pallet<System>>::note_finished_extrinsics();
-		let block_number = <frame_system::Pallet<System>>::block_number();
 
+		<frame_system::Pallet<System>>::note_finished_extrinsics();
+		// In this case there were no transactions to trigger this state transition:
+		if !<frame_system::Pallet<System>>::inherents_applied() {
+			Self::post_inherent_hook();
+			<frame_system::Pallet<System>>::note_inherents_applied();
+		}
+
+		<System as frame_system::Config>::PostTransactions::post_transactions();
+		let block_number = <frame_system::Pallet<System>>::block_number();
 		Self::on_idle_hook(block_number);
 		Self::on_finalize_hook(block_number);
 		<frame_system::Pallet<System>>::finalize()
@@ -759,6 +757,13 @@ impl<
 				ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
 		// Verify that the signature is good.
 		let xt = uxt.check(&Default::default())?;
+		let dispatch_info = xt.get_dispatch_info();
+		let is_inherent = dispatch_info.class == DispatchClass::Mandatory;
+
+		if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
+			Self::post_inherent_hook();
+			<frame_system::Pallet<System>>::note_inherents_applied();
+		}
 
 		// We don't need to make sure to `note_extrinsic` only after we know it's going to be
 		// executed to prevent it from leaking in storage since at this point, it will either
@@ -768,11 +773,8 @@ impl<
 		// AUDIT: Under no circumstances may this function panic from here onwards.
 
 		// Decode parameters and dispatch
-		let dispatch_info = xt.get_dispatch_info();
-		if dispatch_info.class != DispatchClass::Mandatory &&
-			mode == ExtrinsicInclusionMode::OnlyInherents
-		{
-			// The block builder respects this by using the mode returned by `last_inherent`.
+		if mode == ExtrinsicInclusionMode::OnlyInherents && !is_inherent {
+			// The block builder respects this by using the mode returned by `initialize_block`.
 			panic!("Only Mandatory extrinsics are allowed during Multi-Block-Migrations");
 		}
 		// Check whether we need to error because extrinsics are paused.

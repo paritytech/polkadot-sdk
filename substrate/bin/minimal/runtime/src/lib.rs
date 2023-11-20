@@ -159,10 +159,6 @@ impl_runtime_apis! {
 		) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
-
-		fn last_inherent() {
-			RuntimeExecutive::last_inherent()
-		}
 	}
 
 	impl apis::TaggedTransactionQueue<Block> for Runtime {

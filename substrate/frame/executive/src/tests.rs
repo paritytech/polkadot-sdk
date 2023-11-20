@@ -312,6 +312,9 @@ impl frame_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Version = RuntimeVersion;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type PreInherents = MockedSystemCallbacks;
+	type PostInherents = MockedSystemCallbacks;
+	type PostTransactions = MockedSystemCallbacks;
 }
 
 type Balance = u64;
@@ -382,6 +385,32 @@ type Executive = super::Executive<
 >;
 
 parameter_types! {
+	pub static SystemCallbacksCalled: u32 = 0;
+}
+
+pub struct MockedSystemCallbacks;
+impl PreInherents for MockedSystemCallbacks {
+	fn pre_inherents() {
+		assert_eq!(SystemCallbacksCalled::get(), 0);
+		SystemCallbacksCalled::set(1);
+	}	
+}
+
+impl PostInherents for MockedSystemCallbacks {
+	fn post_inherents() {
+		assert_eq!(SystemCallbacksCalled::get(), 1);
+		SystemCallbacksCalled::set(2);
+	}
+}
+
+impl PostTransactions for MockedSystemCallbacks {
+	fn post_transactions() {
+		assert_eq!(SystemCallbacksCalled::get(), 2);
+		SystemCallbacksCalled::set(3);
+	}
+}
+
+parameter_types! {
 	pub static MbmActive: bool = false;
 }
 
@@ -447,7 +476,11 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	ext.execute_with(|| {
+		SystemCallbacksCalled::set(0);
+	});
+	ext
 }
 
 fn new_test_ext_v0(balance_factor: Balance) -> sp_io::TestExternalities {
@@ -650,7 +683,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 		// All extrinsics length cleaned on `System::finalize`
 		assert_eq!(<frame_system::Pallet<Runtime>>::all_extrinsics_len(), 0);
 
-		// New Block
+		// Reset to a new block.
+		SystemCallbacksCalled::take();
 		Executive::initialize_block(&Header::new(
 			2,
 			H256::default(),
@@ -687,6 +721,8 @@ fn validate_unsigned() {
 			),
 			Err(TransactionValidityError::Unknown(UnknownTransaction::NoUnsignedValidator)),
 		);
+		// Need to initialize the block before applying extrinsics for the `MockedSystemCallbacks` check.
+		Executive::initialize_block(&Header::new_from_number(1));
 		assert_eq!(Executive::apply_extrinsic(valid), Ok(Err(DispatchError::BadOrigin)));
 		assert_eq!(
 			Executive::apply_extrinsic(invalid),
@@ -1061,7 +1097,7 @@ fn inherents_fail_validate_block() {
 	})
 }
 
-/// Inherents still work while `after_initialize` forbids extrinsics.
+/// Inherents still work while `initialize_block` forbids transactions.
 #[test]
 fn inherents_ok_while_exts_forbidden_works() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
@@ -1111,6 +1147,28 @@ fn transactions_in_only_inherents_block_errors() {
 	new_test_ext(1).execute_with(|| {
 		MbmActive::set(true);
 		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
+	});
+}
+
+/// Still calls the correct callbacks during `OnlyInherents` mode.
+#[test]
+fn callbacks_in_only_inherents_block_works() {
+	MbmActive::set(true);
+
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new(
+			1,
+			H256::default(),
+			H256::default(),
+			[69u8; 32].into(),
+			Digest::default(),
+		));
+
+		Executive::finalize_block()
+	});
+
+	new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header, vec![]));
 	});
 }
 
@@ -1217,7 +1275,10 @@ fn ensure_inherents_are_first_works() {
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
 
 	// Mocked empty header:
-	let header = new_test_ext(1).execute_with(|| Executive::finalize_block());
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+		Executive::finalize_block()
+	});
 
 	new_test_ext(1).execute_with(|| {
 		assert_ok!(Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![]),), 0);
@@ -1265,5 +1326,25 @@ fn ensure_inherents_are_first_works() {
 			),),
 			Err(3)
 		);
+	});
+}
+
+#[test]
+fn new_system_callbacks_work() {
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new(
+			1,
+			H256::default(),
+			H256::default(),
+			[69u8; 32].into(),
+			Digest::default(),
+		));
+
+		Executive::finalize_block()
+	});
+
+	new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header, vec![]));
+		assert_eq!(SystemCallbacksCalled::get(), 3);
 	});
 }

@@ -319,8 +319,6 @@ where
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
-		block_builder.last_inherent()?;
-
 		let mode = block_builder.extrinsic_inclusion_mode();
 		let end_reason = match mode {
 			ExtrinsicInclusionMode::AllExtrinsics =>
