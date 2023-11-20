@@ -39,11 +39,14 @@ use polkadot_node_network_protocol::{
 	vstaging as protocol_vstaging, ObservedRole, Versioned, VersionedValidationProtocol, View,
 };
 
-use polkadot_node_subsystem::{AllMessages, FromOrchestra, Subsystem};
+use polkadot_node_subsystem::{FromOrchestra, SpawnGlue, Subsystem};
 use polkadot_node_subsystem_test_helpers::{
-	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContext,
-	TestSubsystemContextHandle,
+	make_buffered_subsystem_context,
+	mock::new_leaf,
+	mock_orchestra::{AllMessages, MockOverseerTest},
+	TestSubsystemContext, TestSubsystemContextHandle,
 };
+
 use polkadot_node_subsystem_types::{
 	messages::{
 		network_bridge_event::NewGossipTopology, ApprovalDistributionMessage,
@@ -127,6 +130,25 @@ impl ApprovalSubsystemInstance {
 			Box::new(TestSyncOracle {}),
 			Metrics::default(),
 		);
+
+		let db = kvdb_memorydb::create(test_constants::NUM_COLUMNS);
+		let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<
+			kvdb_memorydb::InMemory,
+		> = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
+		let keystore = LocalKeystore::in_memory();
+		let approval_voting2 = ApprovalVotingSubsystem::with_config(
+			test_constants::TEST_CONFIG,
+			Arc::new(db),
+			Arc::new(keystore),
+			Box::new(TestSyncOracle {}),
+			Metrics::default(),
+		);
+
+		let spawner_glue = SpawnGlue(spawn_task_handle.clone());
+
+		// let mock_overseer = MockOverseerTest::builder()
+		// 	.approval_voting(approval_voting2)
+		// 	.spawner(spawner_glue);
 
 		let approval_voting = approval_voting.start(approval_voting_context);
 
@@ -246,11 +268,11 @@ impl ApprovalSubsystemInstance {
 							println!("approval_voting:  ======================    Sending assignments ================== {:}", self.distribution_messages.len());
 							if !self.distribution_messages.is_empty() {
 								self.begin_of_sending = Some(Instant::now());
+								self.finish_of_sending = Some(Instant::now());
 							}
 							for msg in self.distribution_messages.drain(..) {
 								self.approval_distribution_overseer.send(FromOrchestra::Communication { msg  }).await;
 							}
-							self.finish_of_sending = Some(Instant::now());
 
 							println!("approval_voting:  ======================    Sent approvals===================");
 

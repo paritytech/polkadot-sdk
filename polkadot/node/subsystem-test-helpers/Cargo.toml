@@ -21,3 +21,8 @@ sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
+orchestra = { version = "0.3.3", default-features = false, features=["futures_channel"] }
+polkadot-node-subsystem-types = { path = "../subsystem-types" }
+
+[features]
+subsystem-benchmarks = []

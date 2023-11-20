@@ -25,6 +25,12 @@ use std::{
 	pin::Pin,
 };
 
+#[cfg(feature = "subsystem-benchmarks")]
+use polkadot_node_subsystem_test_helpers::mock_orchestra as overseer;
+
+#[cfg(not(feature = "subsystem-benchmarks"))]
+use polkadot_node_subsystem::overseer;
+
 use futures::{
 	channel::oneshot,
 	future::{Future, FutureExt, RemoteHandle},
@@ -52,8 +58,8 @@ use polkadot_node_subsystem::{
 	errors::RecoveryError,
 	jaeger,
 	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
-	SubsystemContext, SubsystemError, SubsystemResult,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemContext,
+	SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::request_session_info;
 use polkadot_primitives::{

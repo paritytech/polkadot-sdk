@@ -18,9 +18,15 @@
 
 #![warn(missing_docs)]
 
+#[cfg(feature = "subsystem-benchmarks")]
+use crate::mock_orchestra::AllMessages;
+
+#[cfg(not(feature = "subsystem-benchmarks"))]
+use polkadot_node_subsystem::messages::AllMessages;
+
 use polkadot_node_subsystem::{
-	messages::AllMessages, overseer, FromOrchestra, OverseerSignal, SpawnGlue, SpawnedSubsystem,
-	SubsystemError, SubsystemResult, TrySendError,
+	overseer, FromOrchestra, OverseerSignal, SpawnGlue, SpawnedSubsystem, SubsystemError,
+	SubsystemResult, TrySendError,
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 
@@ -39,7 +45,7 @@ use std::{
 
 /// Generally useful mock data providers for unit tests.
 pub mod mock;
-
+pub mod mock_orchestra;
 enum SinkState<T> {
 	Empty { read_waker: Option<Waker> },
 	Item { item: T, ready_waker: Option<Waker>, flush_waker: Option<Waker> },

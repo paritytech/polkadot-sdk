@@ -18,6 +18,12 @@
 
 #![warn(missing_docs)]
 
+#[cfg(feature = "subsystem-benchmarks")]
+use polkadot_node_subsystem_test_helpers::mock_orchestra as overseer;
+
+#[cfg(not(feature = "subsystem-benchmarks"))]
+use polkadot_node_subsystem::overseer;
+
 use crate::{
 	futures_undead::FuturesUndead, is_chunk_valid, is_unavailable, metrics::Metrics, ErasureTask,
 	PostRecoveryCheck, LOG_TARGET,
@@ -32,7 +38,7 @@ use polkadot_node_network_protocol::request_response::{
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeTxMessage},
-	overseer, RecoveryError,
+	RecoveryError,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, ValidatorIndex};
 use rand::seq::SliceRandom;

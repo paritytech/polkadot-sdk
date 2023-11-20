@@ -33,6 +33,13 @@ use polkadot_node_primitives::{
 	},
 	ValidationResult, DISPUTE_WINDOW,
 };
+
+#[cfg(feature = "subsystem-benchmarks")]
+use polkadot_node_subsystem_test_helpers::mock_orchestra as overseer;
+
+#[cfg(not(feature = "subsystem-benchmarks"))]
+use polkadot_node_subsystem::overseer;
+
 use polkadot_node_subsystem::{
 	errors::RecoveryError,
 	messages::{
@@ -42,7 +49,7 @@ use polkadot_node_subsystem::{
 		ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
 		RuntimeApiMessage, RuntimeApiRequest,
 	},
-	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
+	FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{

@@ -12835,8 +12835,10 @@ version = "1.0.0"
 dependencies = [
  "async-trait",
  "futures",
+ "orchestra",
  "parking_lot 0.12.1",
  "polkadot-node-subsystem",
+ "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "sc-client-api",
@@ -13423,6 +13425,7 @@ dependencies = [
  "itertools 0.11.0",
  "kvdb-memorydb",
  "log",
+ "orchestra",
  "parity-scale-codec",
  "polkadot-approval-distribution",
  "polkadot-availability-recovery",
