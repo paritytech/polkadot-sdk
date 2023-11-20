@@ -224,7 +224,7 @@ pub mod pallet {
 	///
 	/// The key is a tuple composed by:
 	/// - `u8` equal to epoch's index modulo 2;
-	/// - `u32` equal to the ticket's index in a lexicographically sorted list of epoch's tickets.
+	/// - `u32` equal to the ticket's index in a sorted list of epoch's tickets.
 	///
 	/// Epoch X first N-th ticket has key (X mod 2, N)
 	///
@@ -863,7 +863,7 @@ impl<T: Config> Pallet<T> {
 		candidates[max_tickets - 1]
 	}
 
-	/// Lexicographically sort the tickets which belong to the epoch with the specified `epoch_tag`.
+	/// Sort the tickets which belong to the epoch with the specified `epoch_tag`.
 	///
 	/// At most `max_segments` are taken from the `UnsortedSegments` structure.
 	///
