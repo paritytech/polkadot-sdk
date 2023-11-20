@@ -170,6 +170,7 @@ pub async fn start_work(
 						&pvf,
 						&cache_path,
 						preparation_timeout,
+						audit_log_file,
 					)
 					.await,
 				Ok(Err(err)) => {
@@ -180,20 +181,6 @@ pub async fn start_work(
 						"failed to recv a prepare response: {:?}",
 						err,
 					);
-					// The worker died. Check if it was due to a seccomp violation.
-					//
-					// NOTE: Log, but don't change the outcome. Not all validators may have
-					// auditing enabled, so we don't want attackers to abuse a non-deterministic
-					// outcome.
-					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-						gum::error!(
-							target: LOG_TARGET,
-							worker_pid = %pid,
-							%syscall,
-							?pvf,
-							"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-						);
-					}
 					Outcome::IoErr(err.to_string())
 				},
 				Err(_) => {
@@ -222,15 +209,35 @@ async fn handle_response(
 	worker_pid: u32,
 	tmp_file: PathBuf,
 	pvf: &PvfPrepData,
-	cache_path: &PathBuf,
+	cache_path: &Path,
 	preparation_timeout: Duration,
+	audit_log_file: Option<security::AuditLogFile>,
 ) -> Outcome {
 	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
 		match result.clone() {
 			Ok(result) => result,
 			// Timed out on the child. This should already be logged by the child.
 			Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-			Err(PrepareError::JobDied(err)) => return Outcome::JobDied(err),
+			Err(PrepareError::JobDied(err)) => {
+				// The job died. Check if it was due to a seccomp violation.
+				//
+				// NOTE: Log, but don't change the outcome. Not all validators may have
+				// auditing enabled, so we don't want attackers to abuse a non-deterministic
+				// outcome.
+				for syscall in
+					security::check_seccomp_violations_for_worker(audit_log_file, worker_pid).await
+				{
+					gum::error!(
+						target: LOG_TARGET,
+						%worker_pid,
+						%syscall,
+						?pvf,
+						"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
+					);
+				}
+
+				return Outcome::JobDied(err)
+			},
 			Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 			Err(err) => return Outcome::Concluded { worker, result: Err(err) },
 		};
