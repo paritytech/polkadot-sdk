@@ -178,9 +178,15 @@ async fn check_can_unshare_user_namespace_and_change_root(
 					let stderr = std::str::from_utf8(&output.stderr)
 						.expect("child process writes a UTF-8 string to stderr; qed")
 						.trim();
-					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						format!("not available: {}", stderr)
-					))
+					if stderr.is_empty() {
+						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+							"not available".into()
+						))
+					} else {
+						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+							format!("not available: {}", stderr)
+						))
+					}
 				},
 				Err(err) =>
 					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
@@ -208,16 +214,25 @@ async fn check_landlock(
 		if #[cfg(target_os = "linux")] {
 			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-enable-landlock")
-				.status()
+				.output()
 				.await
 			{
-				Ok(status) if status.success() => Ok(()),
-				Ok(_status) => {
+				Ok(output) if output.status.success() => Ok(()),
+				Ok(output) => {
 					let abi =
 						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-					Err(SecureModeError::CannotEnableLandlock(
-						format!("landlock ABI {} not available", abi)
-					))
+					let stderr = std::str::from_utf8(&output.stderr)
+						.expect("child process writes a UTF-8 string to stderr; qed")
+						.trim();
+					if stderr.is_empty() {
+						Err(SecureModeError::CannotEnableLandlock(
+							format!("landlock ABI {} not available", abi)
+						))
+					} else {
+						Err(SecureModeError::CannotEnableLandlock(
+							format!("not available: {}", stderr)
+						))
+					}
 				},
 				Err(err) =>
 					Err(SecureModeError::CannotEnableLandlock(
@@ -238,7 +253,7 @@ async fn check_landlock(
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
 async fn check_seccomp(
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+	#[cfg_attr(not(all(target_os = "linux", target_arch = "x86_64")), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
@@ -247,14 +262,24 @@ async fn check_seccomp(
 				if #[cfg(target_arch = "x86_64")] {
 					match tokio::process::Command::new(prepare_worker_program_path)
 						.arg("--check-can-enable-seccomp")
-						.status()
+						.output()
 						.await
 					{
-						Ok(status) if status.success() => Ok(()),
-						Ok(_status) =>
-							Err(SecureModeError::CannotEnableSeccomp(
-								"not available".into()
-							)),
+						Ok(output) if output.status.success() => Ok(()),
+						Ok(output) => {
+							let stderr = std::str::from_utf8(&output.stderr)
+								.expect("child process writes a UTF-8 string to stderr; qed")
+								.trim();
+							if stderr.is_empty() {
+								Err(SecureModeError::CannotEnableSeccomp(
+									"not available".into()
+								))
+							} else {
+								Err(SecureModeError::CannotEnableSeccomp(
+									format!("not available: {}", stderr)
+								))
+							}
+						},
 						Err(err) =>
 							Err(SecureModeError::CannotEnableSeccomp(
 								format!("could not start child process: {}", err)
