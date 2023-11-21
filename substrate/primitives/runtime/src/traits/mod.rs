@@ -1355,7 +1355,7 @@ pub trait ExtrinsicMetadata {
 
 	/// Signed extensions attached to this `Extrinsic`.
 	// TODO: metadata-v16: rename to `Extension`.
-	type Extra: TransactionExtension;
+	type Extra;
 }
 
 /// Extract the hashing type for a block.

@@ -69,7 +69,7 @@ impl<AccountId, Call, Extension, RuntimeOrigin> traits::Applyable
 where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin>,
-	Extension: TransactionExtension<Call = Call>,
+	Extension: TransactionExtension<Call>,
 	RuntimeOrigin: From<Option<AccountId>>,
 {
 	type Call = Call;

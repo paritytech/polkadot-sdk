@@ -377,11 +377,7 @@ impl<Call: Codec + Sync + Send + TypeInfo, Extension: TypeInfo> traits::Extrinsi
 	}
 }
 
-impl<Call, Extension> traits::ExtrinsicMetadata for TestXt<Call, Extension>
-where
-	Call: Codec + Sync + Send,
-	Extension: TransactionExtension<Call = Call>,
-{
+impl<Call, Extension> traits::ExtrinsicMetadata for TestXt<Call, Extension> {
 	// TODO: metadata-v16: Rename to `Extension`
 	type Extra = Extension;
 	const VERSION: u8 = 0u8;
@@ -399,7 +395,7 @@ where
 		+ Codec
 		+ Debug
 		+ Dispatchable<RuntimeOrigin = Origin>,
-	Extension: TransactionExtension<Call = Call>,
+	Extension: TransactionExtension<Call>,
 	Origin: From<Option<u64>>,
 {
 	type Call = Call;

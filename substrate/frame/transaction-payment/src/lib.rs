@@ -882,13 +882,12 @@ where
 	}
 }
 
-impl<T: Config> TransactionExtension for ChargeTransactionPayment<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-	type Call = T::RuntimeCall;
 	type Val = (
 		// tip
 		BalanceOf<T>,
@@ -905,13 +904,13 @@ where
 
 	fn validate(
 		&self,
-		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_implicit: &[u8],
 	) -> Result<
-		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError
 	> {
 		let who = frame_system::ensure_signed(origin.clone())
@@ -927,9 +926,9 @@ where
 	fn prepare(
 		self,
 		val: Self::Val,
-		_origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(val)
@@ -937,8 +936,8 @@ where
 
 	fn post_dispatch(
 		(tip, who, imbalance): Self::Pre,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {

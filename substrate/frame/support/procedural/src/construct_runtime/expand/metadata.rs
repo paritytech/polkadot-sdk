@@ -122,7 +122,7 @@ pub fn expand_runtime_metadata(
 						extensions: <
 								<
 									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::Extra as #scrate::sp_runtime::traits::TransactionExtension
+								>::Extra as #scrate::sp_runtime::traits::TransactionExtension<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::Call>
 							>::metadata()
 								.into_iter()
 								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {

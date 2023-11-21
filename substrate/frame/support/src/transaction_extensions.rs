@@ -28,24 +28,20 @@ use crate::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 #[scale_info(skip_type_params(Call))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
-pub struct VerifyMultiSignature<V, Call> where
+pub struct VerifyMultiSignature<V> where
 	V: Verify + StaticTypeInfo + Codec + Clone + Eq + PartialEq + Debug,
 	<V::Signer as IdentifyAccount>::AccountId: StaticTypeInfo + Codec + Clone + Eq + PartialEq + Debug,
 {
 	signature: V,
 	account: <V::Signer as IdentifyAccount>::AccountId,
-	#[codec(skip)]
-	phantom: sp_std::marker::PhantomData<Call>,
 }
 
-impl<V, Call> TransactionExtension for VerifyMultiSignature<V, Call> where
+impl<V, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiSignature<V> where
 	V: Send + Sync + Verify + TypeInfo + Codec + Clone + Eq + PartialEq + StaticTypeInfo + Debug,
-	Call: Send + Sync + Encode + Dispatchable + 'static,
 	<V::Signer as IdentifyAccount>::AccountId: Send + Sync + Clone + TypeInfo + Codec + Clone + Eq + PartialEq + StaticTypeInfo + Debug,
 	<Call as Dispatchable>::RuntimeOrigin: From<Option<<V::Signer as IdentifyAccount>::AccountId>>,
 {
 	const IDENTIFIER: &'static str = "VerifyMultiSignature";
-	type Call = Call;
 	type Val = ();
 	type Pre = ();
 	type Implicit = ();
@@ -55,13 +51,13 @@ impl<V, Call> TransactionExtension for VerifyMultiSignature<V, Call> where
 
 	fn validate(
 		&self,
-		_origin: <Self::Call as Dispatchable>::RuntimeOrigin,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		_origin: <Call as Dispatchable>::RuntimeOrigin,
+		call: &Call,
+		_info: &DispatchInfoOf<Call>,
 		_len: usize,
 		target: &[u8],
 	) -> Result<
-		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
+		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError
 	> {
 		let mut msg = call.encode();
@@ -77,9 +73,9 @@ impl<V, Call> TransactionExtension for VerifyMultiSignature<V, Call> where
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		_origin: &<Call as Dispatchable>::RuntimeOrigin,
+		_call: &Call,
+		_info: &DispatchInfoOf<Call>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(())
@@ -87,8 +83,8 @@ impl<V, Call> TransactionExtension for VerifyMultiSignature<V, Call> where
 
 	fn post_dispatch(
 		_pre: Self::Pre,
-		_info: &DispatchInfoOf<Self::Call>,
-		_post_info: &PostDispatchInfoOf<Self::Call>,
+		_info: &DispatchInfoOf<Call>,
+		_post_info: &PostDispatchInfoOf<Call>,
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {

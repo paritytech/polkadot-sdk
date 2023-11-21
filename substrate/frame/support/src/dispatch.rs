@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::TransactionExtension,
+	traits::{TransactionExtension, Dispatchable},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::fmt;
@@ -370,8 +370,8 @@ where
 impl<Address, Call, Signature, Extra> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
-	Call: GetDispatchInfo,
-	Extra: TransactionExtension,
+	Call: GetDispatchInfo + Dispatchable,
+	Extra: TransactionExtension<Call>,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
