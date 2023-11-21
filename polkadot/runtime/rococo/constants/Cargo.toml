@@ -28,8 +28,8 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-weights/std",
+	"xcm-builder/std",
 	"xcm/std",
-	"xcm-builder/std"
 ]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.

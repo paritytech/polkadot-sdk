@@ -28,6 +28,6 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-weights/std",
+	"xcm-builder/std",
 	"xcm/std",
-	"xcm-builder/std"
 ]
