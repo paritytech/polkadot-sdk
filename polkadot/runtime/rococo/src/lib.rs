@@ -96,7 +96,7 @@ use sp_staking::SessionIndex;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
-	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
+	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance, NetworkId},
 	VersionedMultiLocation,
 };
 use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia, PayOverXcm};
@@ -1011,16 +1011,17 @@ impl parachains_slashing::Config for Runtime {
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<200>;
 }
 
+parameter_types! {
+	pub const ParaDeposit: Balance = 40 * UNITS;
+	pub const UpgradeFee: Balance = 2 * UNITS;
+	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
+}
+
 pub type LocationToAccountId<AccountId> = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	Account32Hash<(), AccountId>,
 );
-
-parameter_types! {
-	pub const ParaDeposit: Balance = 40 * UNITS;
-	pub const UpgradeFee: Balance = 2 * UNITS;
-}
 
 impl paras_registrar::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;

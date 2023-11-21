@@ -96,7 +96,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
-	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
+	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance, NetworkId},
 	VersionedMultiLocation,
 };
 use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia, PayOverXcm};
@@ -1260,17 +1260,18 @@ impl parachains_slashing::Config for Runtime {
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<300>;
 }
 
+parameter_types! {
+	pub const ParaDeposit: Balance = 2000 * CENTS;
+	pub const UpgradeFee: Balance = 50 * CENTS;
+	pub const RegistrarDataDepositPerByte: Balance = deposit(0, 1);
+	pub const RelayNetwork: NetworkId = NetworkId::Westend;
+}
+
 pub type LocationToAccountId<AccountId> = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	Account32Hash<(), AccountId>,
 );
-
-parameter_types! {
-	pub const ParaDeposit: Balance = 2000 * CENTS;
-	pub const UpgradeFee: Balance = 50 * CENTS;
-	pub const RegistrarDataDepositPerByte: Balance = deposit(0, 1);
-}
 
 impl paras_registrar::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
