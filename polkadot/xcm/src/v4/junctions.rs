@@ -25,11 +25,6 @@ use scale_info::TypeInfo;
 /// Maximum number of `Junction`s that a `Junctions` can contain.
 pub(crate) const MAX_JUNCTIONS: usize = 8;
 
-/// A lack of junctions means we are here.
-/// This is used when unpacking a location, since junctions are turned
-/// into a slice, and the [`Junctions::Here`] variant turns into the empty slice.
-pub const HERE: &'static [Junction] = &[];
-
 /// Non-parent junctions that can be constructed, up to the length of 8. This specific `Junctions`
 /// implementation uses a Rust `enum` in order to make pattern matching easier.
 ///

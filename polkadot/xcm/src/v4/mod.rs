@@ -44,7 +44,7 @@ pub use asset::{
 	MAX_ITEMS_IN_ASSETS,
 };
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
-pub use junctions::{Junctions, HERE};
+pub use junctions::Junctions;
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
@@ -188,7 +188,7 @@ pub mod prelude {
 			WeightLimit::{self, *},
 			WildAsset::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
-			XcmContext, XcmHash, XcmWeightInfo, HERE, VERSION as XCM_VERSION,
+			XcmContext, XcmHash, XcmWeightInfo, VERSION as XCM_VERSION,
 		};
 	}
 	pub use super::{Instruction, Xcm};
