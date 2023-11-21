@@ -34,8 +34,9 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
+use runtime_parachains::{ensure_parachain, Origin as ParaOrigin};
 use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use sp_std::{collections::btree_map::BTreeMap, prelude::*, result};
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -84,6 +85,13 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// The aggregated origin type must support the `parachains` origin. We require that we can
+		/// infallibly convert between this origin and the system origin, but in reality, they're
+		/// the same type, we just can't express that to the Rust type system without writing a
+		/// `where` clause everywhere.
+		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+			+ Into<result::Result<ParaOrigin, <Self as Config>::RuntimeOrigin>>;
 
 		/// The currency type used for bidding.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -266,25 +274,11 @@ pub mod pallet {
 		/// to get access to their funds they used in the last lease and rebid using same for the
 		/// next lease.
 		///
-		/// Can only be called by [`Config::ForceOrigin`] or the Parachain manager.
+		/// Can only be called by [`Config::ForceOrigin`], para or para manager.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::early_lease_refund())]
 		pub fn early_lease_refund(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
-			// ensure caller is ForceOrigin or the manager of the parachain.
-			ensure_signed(origin.clone())
-				.map_err(|e| e.into())
-				.and_then(|who| -> DispatchResult {
-					ensure!(
-						Some(who) == T::Registrar::manager_of(para_id),
-						Error::<T>::NoPermission
-					);
-					Ok(())
-				})
-				.or_else(|_| -> DispatchResult {
-					T::ForceOrigin::ensure_origin(origin)
-						.map(|_| ())
-						.map_err(|_| Error::<T>::NoPermission.into())
-				})?;
+			Self::ensure_para_or_force(origin, para_id)?;
 
 			let min_lease_period_required = T::MinLeasePeriodsForEarlyRefund::get();
 			ensure!(
@@ -480,6 +474,26 @@ impl<T: Config> Pallet<T> {
 		// Since we don't expect too many child keys here, should be fine to do this.
 		let result = LeaseInfo::<T>::clear_prefix(para, u32::MAX, None);
 		defensive_assert!(result.maybe_cursor.is_none());
+	}
+
+	/// ensures caller is para, para manager, or force origin.
+	fn ensure_para_or_force(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+		if T::ForceOrigin::ensure_origin(origin.clone()).is_ok() {
+			return Ok(())
+		}
+
+		if let Ok(caller) = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone())) {
+			// Check if matching para id...
+			ensure!(caller == para, Error::<T>::NoPermission);
+		}
+
+		let who = ensure_signed(origin.clone())?;
+
+		if Some(who) == T::Registrar::manager_of(para) {
+			return Ok(())
+		}
+
+		Err(Error::<T>::NoPermission.into())
 	}
 }
 
@@ -677,12 +691,15 @@ mod tests {
 
 	type Block = frame_system::mocking::MockBlockU32<Test>;
 
+	impl runtime_parachains::origin::Config for Test {}
+
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
 			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 			Slots: slots::{Pallet, Call, Storage, Event<T>},
+			ParachainsOrigin: runtime_parachains::origin::{Pallet, Origin},
 		}
 	);
 
@@ -745,6 +762,7 @@ mod tests {
 
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeOrigin = RuntimeOrigin;
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
@@ -1271,7 +1289,6 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 		});
 	}
-
 }
 
 #[cfg(feature = "runtime-benchmarks")]

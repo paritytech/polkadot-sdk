@@ -1259,6 +1259,7 @@ parameter_types! {
 
 impl slots::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
