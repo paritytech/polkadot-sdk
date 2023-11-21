@@ -4,6 +4,7 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Collator-side subsystem that handles incoming candidate submissions from the parachain."
 
 [dependencies]
 futures = "0.3.21"

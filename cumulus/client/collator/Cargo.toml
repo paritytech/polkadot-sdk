@@ -3,6 +3,7 @@ name = "cumulus-client-collator"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+description = "Common node-side functionality and glue code to collate parachain blocks."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]

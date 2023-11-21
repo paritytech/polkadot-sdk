@@ -1,0 +1,5 @@
+error: Invalid pallet::call, feeless_if closure must have same number of arguments as the dispatchable function
+  --> tests/pallet_ui/call_feeless_invalid_closure_arg1.rs:31:24
+   |
+31 |         #[pallet::feeless_if(|| -> bool { true })]
+   |                              ^
