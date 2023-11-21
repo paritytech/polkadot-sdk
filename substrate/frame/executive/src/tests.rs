@@ -38,7 +38,7 @@ use frame_support::{
 	traits::{fungible, ConstU8, Currency},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
-use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgradeInfo};
+use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::CurrencyAdapter;
 
@@ -370,6 +370,9 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 		sp_io::storage::set(TEST_KEY, "custom_upgrade".as_bytes());
 		sp_io::storage::set(CUSTOM_ON_RUNTIME_KEY, &true.encode());
 		System::deposit_event(frame_system::Event::CodeUpdated);
+
+		assert_eq!(0, System::last_runtime_upgrade_spec_version());
+
 		Weight::from_parts(100, 0)
 	}
 }
@@ -745,17 +748,13 @@ fn runtime_upgraded_should_work() {
 	new_test_ext(1).execute_with(|| {
 		RuntimeVersionTestValues::mutate(|v| *v = Default::default());
 		// It should be added at genesis
-		assert!(frame_system::LastRuntimeUpgrade::<Runtime>::exists());
+		assert!(LastRuntimeUpgrade::<Runtime>::exists());
 		assert!(!Executive::runtime_upgraded());
 
 		RuntimeVersionTestValues::mutate(|v| {
 			*v = sp_version::RuntimeVersion { spec_version: 1, ..Default::default() }
 		});
 		assert!(Executive::runtime_upgraded());
-		assert_eq!(
-			Some(LastRuntimeUpgradeInfo { spec_version: 1.into(), spec_name: "".into() }),
-			frame_system::LastRuntimeUpgrade::<Runtime>::get(),
-		);
 
 		RuntimeVersionTestValues::mutate(|v| {
 			*v = sp_version::RuntimeVersion {
@@ -765,27 +764,18 @@ fn runtime_upgraded_should_work() {
 			}
 		});
 		assert!(Executive::runtime_upgraded());
-		assert_eq!(
-			Some(LastRuntimeUpgradeInfo { spec_version: 1.into(), spec_name: "test".into() }),
-			frame_system::LastRuntimeUpgrade::<Runtime>::get(),
-		);
 
 		RuntimeVersionTestValues::mutate(|v| {
 			*v = sp_version::RuntimeVersion {
-				spec_version: 1,
-				spec_name: "test".into(),
+				spec_version: 0,
 				impl_version: 2,
 				..Default::default()
 			}
 		});
 		assert!(!Executive::runtime_upgraded());
 
-		frame_system::LastRuntimeUpgrade::<Runtime>::take();
+		LastRuntimeUpgrade::<Runtime>::take();
 		assert!(Executive::runtime_upgraded());
-		assert_eq!(
-			Some(LastRuntimeUpgradeInfo { spec_version: 1.into(), spec_name: "test".into() }),
-			frame_system::LastRuntimeUpgrade::<Runtime>::get(),
-		);
 	})
 }
 
@@ -827,6 +817,10 @@ fn custom_runtime_upgrade_is_called_before_modules() {
 
 		assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");
 		assert_eq!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).unwrap(), true.encode());
+		assert_eq!(
+			Some(RuntimeVersionTestValues::get().into()),
+			LastRuntimeUpgrade::<Runtime>::get(),
+		)
 	});
 }
 
@@ -889,6 +883,9 @@ fn custom_runtime_upgrade_is_called_when_using_execute_block_trait() {
 
 #[test]
 fn all_weights_are_recorded_correctly() {
+	// Reset to get the correct new genesis below.
+	RuntimeVersionTestValues::take();
+
 	new_test_ext(1).execute_with(|| {
 		// Make sure `on_runtime_upgrade` is called for maximum complexity
 		RuntimeVersionTestValues::mutate(|v| {
@@ -898,6 +895,10 @@ fn all_weights_are_recorded_correctly() {
 		let block_number = 1;
 
 		Executive::initialize_block(&Header::new_from_number(block_number));
+
+		// Reset the last runtime upgrade info, to make the second call to `on_runtime_upgrade`
+		// succeed.
+		LastRuntimeUpgrade::<Runtime>::take();
 
 		// All weights that show up in the `initialize_block_impl`
 		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
