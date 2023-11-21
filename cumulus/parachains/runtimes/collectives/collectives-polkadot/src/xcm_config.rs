@@ -132,7 +132,7 @@ match_types! {
 	};
 	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
+		MultiLocation { parents: 1, interior: X1(Parachain(_)) }
 	};
 }
 
