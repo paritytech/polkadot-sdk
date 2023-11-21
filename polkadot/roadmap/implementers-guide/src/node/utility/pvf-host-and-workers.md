@@ -31,6 +31,10 @@ hopefully resolve. We use a more brief delay here (1 second as opposed to 15
 minutes for preparation (see above)), because a successful execution must happen
 in a short amount of time.
 
+If the execution fails during the backing phase, we won't retry to reduce the chance of
+supporting nondeterministic candidates. This reduces the chance of nondeterministic blocks
+getting backed and honest backers getting slashed.
+
 We currently know of the following specific cases that will lead to a retried
 execution request:
 

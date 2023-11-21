@@ -198,7 +198,7 @@ pub async fn tmppath_in(prefix: &str, dir: &Path) -> io::Result<PathBuf> {
 
 /// The same as [`tmppath_in`], but uses [`std::env::temp_dir`] as the directory.
 pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
-	let temp_dir = PathBuf::from(std::env::temp_dir());
+	let temp_dir = std::env::temp_dir();
 	tmppath_in(prefix, &temp_dir).await
 }
 
@@ -453,7 +453,7 @@ impl Drop for WorkerDir {
 /// artifacts from previous jobs.
 pub fn clear_worker_dir_path(worker_dir_path: &Path) -> io::Result<()> {
 	fn remove_dir_contents(path: &Path) -> io::Result<()> {
-		for entry in std::fs::read_dir(&path)? {
+		for entry in std::fs::read_dir(path)? {
 			let entry = entry?;
 			let path = entry.path();
 
