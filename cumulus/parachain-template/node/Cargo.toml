@@ -17,6 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.188", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.28"
+serde_json = "1.0.108"
 
 # Local
 parachain-template-runtime = { path = "../runtime" }
@@ -76,6 +77,7 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 [features]
 default = []
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"parachain-template-runtime/runtime-benchmarks",

@@ -163,7 +163,7 @@ pub trait SetCode<T: Config> {
 
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
-		<Pallet<T>>::update_code_in_storage(&code)?;
+		<Pallet<T>>::update_code_in_storage(&code);
 		Ok(())
 	}
 }
@@ -724,8 +724,6 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		#[serde(with = "sp_core::bytes")]
-		pub code: Vec<u8>,
 		#[serde(skip)]
 		pub _config: sp_std::marker::PhantomData<T>,
 	}
@@ -739,7 +737,6 @@ pub mod pallet {
 			<UpgradedToU32RefCount<T>>::put(true);
 			<UpgradedToTripleRefCount<T>>::put(true);
 
-			sp_io::storage::set(well_known_keys::CODE, &self.code);
 			sp_io::storage::set(well_known_keys::EXTRINSIC_INDEX, &0u32.encode());
 		}
 	}
@@ -1097,6 +1094,25 @@ pub enum DecRefStatus {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Returns the `spec_version` of the last runtime upgrade.
+	///
+	/// This function is useful for writing guarded runtime migrations in the runtime. A runtime
+	/// migration can use the `spec_version` to ensure that it isn't applied twice. This works
+	/// similar as the storage version for pallets.
+	///
+	/// This functions returns the `spec_version` of the last runtime upgrade while executing the
+	/// runtime migrations
+	/// [`on_runtime_upgrade`](frame_support::traits::OnRuntimeUpgrade::on_runtime_upgrade)
+	/// function. After all migrations are executed, this will return the `spec_version` of the
+	/// current runtime until there is another runtime upgrade.
+	///
+	/// Example:
+	#[doc = docify::embed!("src/tests.rs", last_runtime_upgrade_spec_version_usage)]
+	pub fn last_runtime_upgrade_spec_version() -> u32 {
+		LastRuntimeUpgrade::<T>::get().map_or(0, |l| l.spec_version.0)
+	}
+
+	/// Returns true if the given account exists.
 	pub fn account_exists(who: &T::AccountId) -> bool {
 		Account::<T>::contains_key(who)
 	}
@@ -1106,11 +1122,10 @@ impl<T: Config> Pallet<T> {
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
-	pub fn update_code_in_storage(code: &[u8]) -> DispatchResult {
+	pub fn update_code_in_storage(code: &[u8]) {
 		storage::unhashed::put_raw(well_known_keys::CODE, code);
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
-		Ok(())
 	}
 
 	/// Increment the reference counter on an account.
