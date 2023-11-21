@@ -680,7 +680,7 @@ impl<
 		<frame_system::Pallet<System>>::finalize()
 	}
 
-	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining.
+	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining and there are no ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if MultiStepMigrator::ongoing() {
 			return
