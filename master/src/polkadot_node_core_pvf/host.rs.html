@@ -1701,15 +1701,6 @@
 <a href="#1701" id="1701">1701</a>
 <a href="#1702" id="1702">1702</a>
 <a href="#1703" id="1703">1703</a>
-<a href="#1704" id="1704">1704</a>
-<a href="#1705" id="1705">1705</a>
-<a href="#1706" id="1706">1706</a>
-<a href="#1707" id="1707">1707</a>
-<a href="#1708" id="1708">1708</a>
-<a href="#1709" id="1709">1709</a>
-<a href="#1710" id="1710">1710</a>
-<a href="#1711" id="1711">1711</a>
-<a href="#1712" id="1712">1712</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2585,7 +2576,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::InvalidCandidate;
+	<span class="kw">use </span><span class="kw">crate</span>::PossiblyInvalidError;
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::future::BoxFuture;
 	<span class="kw">use </span>polkadot_node_core_pvf_common::{
@@ -2923,27 +2914,27 @@
 		);
 
 		result_tx_pvf_1_1
-			.send(<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		<span class="macro">assert_matches!</span>(
 			result_rx_pvf_1_1.now_or_never().unwrap().unwrap(),
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_1_2
-			.send(<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		<span class="macro">assert_matches!</span>(
 			result_rx_pvf_1_2.now_or_never().unwrap().unwrap(),
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_2
-			.send(<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		<span class="macro">assert_matches!</span>(
 			result_rx_pvf_2.now_or_never().unwrap().unwrap(),
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 	}
 
@@ -3049,7 +3040,7 @@
 		<span class="macro">assert_matches!</span>(result_rx.now_or_never().unwrap().unwrap(), <span class="prelude-val">Err</span>(PrepareError::TimedOut));
 		<span class="macro">assert_matches!</span>(
 			result_rx_execute.now_or_never().unwrap().unwrap(),
-			<span class="prelude-val">Err</span>(ValidationError::InternalError(<span class="kw">_</span>))
+			<span class="prelude-val">Err</span>(ValidationError::Internal(<span class="kw">_</span>))
 		);
 
 		<span class="comment">// Reversed case: first send multiple precheck requests, then ask for an execution.
@@ -3191,7 +3182,7 @@
 
 		<span class="comment">// The result should contain the error.
 		</span><span class="kw">let </span>result = test.poll_and_recv_result(result_rx).<span class="kw">await</span>;
-		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::InternalError(<span class="kw">_</span>)));
+		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::Internal(<span class="kw">_</span>)));
 
 		<span class="comment">// Submit another execute request. We shouldn&#39;t try to prepare again, yet.
 		</span><span class="kw">let </span>(result_tx_2, result_rx_2) = oneshot::channel();
@@ -3210,7 +3201,7 @@
 
 		<span class="comment">// The result should contain the original error.
 		</span><span class="kw">let </span>result = test.poll_and_recv_result(result_rx_2).<span class="kw">await</span>;
-		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::InternalError(<span class="kw">_</span>)));
+		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::Internal(<span class="kw">_</span>)));
 
 		<span class="comment">// Pause for enough time to reset the cooldown for this failed prepare request.
 		</span>futures_timer::Delay::new(PREPARE_FAILURE_COOLDOWN).<span class="kw">await</span>;
@@ -3250,11 +3241,11 @@
 		<span class="comment">// Send an error for the execution here, just so we can check the result receiver is still
 		// alive.
 		</span>result_tx_3
-			.send(<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		<span class="macro">assert_matches!</span>(
 			result_rx_3.now_or_never().unwrap().unwrap(),
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 	}
 
@@ -3293,10 +3284,7 @@
 
 		<span class="comment">// The result should contain the error.
 		</span><span class="kw">let </span>result = test.poll_and_recv_result(result_rx).<span class="kw">await</span>;
-		<span class="macro">assert_matches!</span>(
-			result,
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(<span class="kw">_</span>)))
-		);
+		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::Preparation(<span class="kw">_</span>)));
 
 		<span class="comment">// Submit another execute request.
 		</span><span class="kw">let </span>(result_tx_2, result_rx_2) = oneshot::channel();
@@ -3315,10 +3303,7 @@
 
 		<span class="comment">// The result should contain the original error.
 		</span><span class="kw">let </span>result = test.poll_and_recv_result(result_rx_2).<span class="kw">await</span>;
-		<span class="macro">assert_matches!</span>(
-			result,
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(<span class="kw">_</span>)))
-		);
+		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::Preparation(<span class="kw">_</span>)));
 
 		<span class="comment">// Pause for enough time to reset the cooldown for this failed prepare request.
 		</span>futures_timer::Delay::new(PREPARE_FAILURE_COOLDOWN).<span class="kw">await</span>;
@@ -3340,10 +3325,7 @@
 
 		<span class="comment">// The result should still contain the original error.
 		</span><span class="kw">let </span>result = test.poll_and_recv_result(result_rx_3).<span class="kw">await</span>;
-		<span class="macro">assert_matches!</span>(
-			result,
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(<span class="kw">_</span>)))
-		);
+		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::Preparation(<span class="kw">_</span>)));
 	}
 
 	<span class="comment">// Test that multiple heads-up requests trigger preparation retries if the first one failed.

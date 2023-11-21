@@ -378,9 +378,6 @@
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -523,8 +520,7 @@
 	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;WasmtimeRuntime, WasmError&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>config = DEFAULT_CONFIG.clone();
-	config.semantics =
-		params_to_wasmtime_semantics(executor_params).map_err(|err| WasmError::Other(err))<span class="question-mark">?</span>;
+	config.semantics = params_to_wasmtime_semantics(executor_params);
 
 	sc_executor_wasmtime::create_runtime_from_artifact_bytes::&lt;HostFunctions&gt;(
 		compiled_artifact_blob,
@@ -532,13 +528,12 @@
 	)
 }
 
-<span class="kw">pub fn </span>params_to_wasmtime_semantics(par: <span class="kw-2">&amp;</span>ExecutorParams) -&gt; <span class="prelude-ty">Result</span>&lt;Semantics, String&gt; {
+<span class="kw">pub fn </span>params_to_wasmtime_semantics(par: <span class="kw-2">&amp;</span>ExecutorParams) -&gt; Semantics {
 	<span class="kw">let </span><span class="kw-2">mut </span>sem = DEFAULT_CONFIG.semantics.clone();
-	<span class="kw">let </span><span class="kw-2">mut </span>stack_limit = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_limit) = sem.deterministic_stack_limit.clone() {
-		stack_limit
-	} <span class="kw">else </span>{
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;No default stack limit set&quot;</span>.to_owned())
-	};
+	<span class="kw">let </span><span class="kw-2">mut </span>stack_limit = sem
+		.deterministic_stack_limit
+		.expect(<span class="string">&quot;There is a comment to not change the default stack limit; it should always be available; qed&quot;</span>)
+		.clone();
 
 	<span class="kw">for </span>p <span class="kw">in </span>par.iter() {
 		<span class="kw">match </span>p {
@@ -555,7 +550,7 @@
 		</span>}
 	}
 	sem.deterministic_stack_limit = <span class="prelude-val">Some</span>(stack_limit);
-	<span class="prelude-val">Ok</span>(sem)
+	sem
 }
 
 <span class="doccomment">/// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
@@ -574,8 +569,7 @@
 	blob: RuntimeBlob,
 	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sc_executor_common::error::WasmError&gt; {
-	<span class="kw">let </span>semantics = params_to_wasmtime_semantics(executor_params)
-		.map_err(|e| sc_executor_common::error::WasmError::Other(e))<span class="question-mark">?</span>;
+	<span class="kw">let </span>semantics = params_to_wasmtime_semantics(executor_params);
 	sc_executor_wasmtime::prepare_runtime_artifact(blob, <span class="kw-2">&amp;</span>semantics)
 }
 

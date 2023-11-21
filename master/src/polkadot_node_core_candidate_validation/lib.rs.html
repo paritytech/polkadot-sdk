@@ -911,6 +911,16 @@
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -937,8 +947,8 @@
 #![warn(missing_docs)]
 
 </span><span class="kw">use </span>polkadot_node_core_pvf::{
-	InternalValidationError, InvalidCandidate <span class="kw">as </span>WasmInvalidCandidate, PrepareError,
-	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
+	InternalValidationError, InvalidCandidate <span class="kw">as </span>WasmInvalidCandidate, PossiblyInvalidError,
+	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
 <span class="kw">use </span>polkadot_node_primitives::{
 	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
@@ -1555,7 +1565,7 @@
 	}
 
 	<span class="kw">match </span>result {
-		<span class="prelude-val">Err</span>(ValidationError::InternalError(e)) =&gt; {
+		<span class="prelude-val">Err</span>(ValidationError::Internal(e)) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>para_id,
@@ -1564,34 +1574,29 @@
 			);
 			<span class="prelude-val">Err</span>(ValidationFailed(e.to_string()))
 		},
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout)) =&gt;
+		<span class="prelude-val">Err</span>(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedInvalid(e))) =&gt;
+		<span class="prelude-val">Err</span>(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)) =&gt;
+		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				<span class="string">&quot;ambiguous worker death&quot;</span>.to_string(),
 			))),
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(err))) =&gt;
+		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(err))) =&gt;
+		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(<span class="macro">format!</span>(
 				<span class="string">&quot;ambiguous job death: {err}&quot;
 			</span>)))),
-		<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) =&gt; {
-			<span class="comment">// In principle if preparation of the `WASM` fails, the current candidate can not be the
-			// reason for that. So we can&#39;t say whether it is invalid or not. In addition, with
-			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
-			// reasonably sure that this is some local problem on the current node. However, as this
-			// particular error *seems* to indicate a deterministic error, we raise a warning.
-			</span><span class="macro">gum::warn!</span>(
+		<span class="prelude-val">Err</span>(ValidationError::Preparation(e)) =&gt; {
+			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>para_id,
 				<span class="question-mark">?</span>e,
 				<span class="string">&quot;Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)&quot;</span>,
 			);
-			<span class="prelude-val">Err</span>(ValidationFailed(e))
+			<span class="prelude-val">Err</span>(ValidationFailed(e.to_string()))
 		},
 		<span class="prelude-val">Ok</span>(res) =&gt;
 			<span class="kw">if </span>res.head_data.hash() != candidate_receipt.descriptor.para_head {
@@ -1675,16 +1680,31 @@
 			</span>}
 
 			<span class="kw">match </span>validation_result {
-				<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(
-					WasmInvalidCandidate::AmbiguousWorkerDeath |
-					WasmInvalidCandidate::AmbiguousJobDeath(<span class="kw">_</span>),
-				)) <span class="kw">if </span>num_death_retries_left &gt; <span class="number">0 </span>=&gt; num_death_retries_left -= <span class="number">1</span>,
-				<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(<span class="kw">_</span>)))
-					<span class="kw">if </span>num_job_error_retries_left &gt; <span class="number">0 </span>=&gt;
-					num_job_error_retries_left -= <span class="number">1</span>,
-				<span class="prelude-val">Err</span>(ValidationError::InternalError(<span class="kw">_</span>)) <span class="kw">if </span>num_internal_retries_left &gt; <span class="number">0 </span>=&gt;
-					num_internal_retries_left -= <span class="number">1</span>,
-				<span class="kw">_ </span>=&gt; <span class="kw">break</span>,
+				<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::AmbiguousWorkerDeath |
+					PossiblyInvalidError::AmbiguousJobDeath(<span class="kw">_</span>),
+				)) =&gt;
+					<span class="kw">if </span>num_death_retries_left &gt; <span class="number">0 </span>{
+						num_death_retries_left -= <span class="number">1</span>;
+					} <span class="kw">else </span>{
+						<span class="kw">break</span>;
+					},
+
+				<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(<span class="kw">_</span>))) =&gt;
+					<span class="kw">if </span>num_job_error_retries_left &gt; <span class="number">0 </span>{
+						num_job_error_retries_left -= <span class="number">1</span>;
+					} <span class="kw">else </span>{
+						<span class="kw">break</span>;
+					},
+
+				<span class="prelude-val">Err</span>(ValidationError::Internal(<span class="kw">_</span>)) =&gt;
+					<span class="kw">if </span>num_internal_retries_left &gt; <span class="number">0 </span>{
+						num_internal_retries_left -= <span class="number">1</span>;
+					} <span class="kw">else </span>{
+						<span class="kw">break</span>;
+					},
+
+				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) | <span class="prelude-val">Err</span>(ValidationError::Invalid(<span class="kw">_</span>) | ValidationError::Preparation(<span class="kw">_</span>)) =&gt; <span class="kw">break</span>,
 			}
 
 			<span class="comment">// If we got a possibly transient error, retry once after a brief delay, on the

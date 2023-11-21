@@ -560,7 +560,7 @@
 	host::ResultSender,
 	metrics::Metrics,
 	worker_intf::{IdleWorker, WorkerHandle},
-	InvalidCandidate, ValidationError, LOG_TARGET,
+	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 <span class="kw">use </span>futures::{
 	channel::mpsc,
@@ -880,27 +880,27 @@
 		},
 		Outcome::InvalidCandidate { err, idle_worker } =&gt; (
 			<span class="prelude-val">Some</span>(idle_worker),
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedInvalid(err))),
+			<span class="prelude-val">Err</span>(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			<span class="prelude-val">None</span>,
 		),
-		Outcome::InternalError { err } =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::InternalError(err)), <span class="prelude-val">None</span>),
+		Outcome::InternalError { err } =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Internal(err)), <span class="prelude-val">None</span>),
 		<span class="comment">// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there&#39;s no time left for a retry.
 		</span>Outcome::HardTimeout =&gt;
-			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), <span class="prelude-val">None</span>),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Invalid(InvalidCandidate::HardTimeout)), <span class="prelude-val">None</span>),
 		<span class="comment">// &quot;Maybe invalid&quot; errors (will retry).
 		</span>Outcome::WorkerIntfErr =&gt; (
 			<span class="prelude-val">None</span>,
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)),
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			<span class="prelude-val">None</span>,
 		),
 		Outcome::JobDied { err } =&gt; (
 			<span class="prelude-val">None</span>,
-			<span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err))),
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			<span class="prelude-val">None</span>,
 		),
 		Outcome::JobError { err } =&gt;
-			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::InvalidCandidate(InvalidCandidate::JobError(err))), <span class="prelude-val">None</span>),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), <span class="prelude-val">None</span>),
 	};
 
 	queue.metrics.execute_finished();
