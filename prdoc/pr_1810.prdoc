@@ -1,0 +1,19 @@
+# Schema: Parity PR Documentation Schema (prdoc)
+# See doc at https://github.com/paritytech/prdoc
+
+title: Pallet Lottery migrate to Fungibles traits
+
+doc:
+  - audience: Core Dev
+    description: |
+      Part of <https://github.com/paritytech/polkadot-sdk/issues/226>.
+      
+      This pallet used `type Currency: ReservableCurrency<Self::AccountId>;` but in the logic, no reservation/hold logic existed, or exists in now. Thus we now only use a simple `type Currency: fungible::Balanced<Self::AccountId> + fungible::Mutate<Self::AccountId>;` to manage the lottery's pot.
+      
+      We know of no downstream runtimes that are somehow able to place reservations/holds/locks/... on the `T::PalletId::get().into_account_truncating()` account for the pot, so no migrations are needed at all in this PR. There are no braking changes whatsoever here.
+
+migrations:
+  db: []
+  runtime: []
+crates: []
+host_functions: []
