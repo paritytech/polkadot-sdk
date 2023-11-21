@@ -82,8 +82,6 @@ pub enum InvalidTransaction {
 	MandatoryValidation,
 	/// The sending address is disabled or known to be invalid.
 	BadSigner,
-	/// Only inherents are allowed in this block but a non-inherent was present.
-	NotInherent,
 }
 
 impl InvalidTransaction {

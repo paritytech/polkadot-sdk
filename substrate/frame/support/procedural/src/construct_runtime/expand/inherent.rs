@@ -213,7 +213,7 @@ pub fn expand_outer_inherent(
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 				use #scrate::sp_runtime::traits::Block as _;
 
-				let mut num_inherents = 0usize;
+				let mut num_inherents = 0u32;
 
 				for (i, xt) in block.extrinsics().iter().enumerate() {
 					let is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
@@ -240,14 +240,14 @@ pub fn expand_outer_inherent(
 
 					if is_inherent {
 						if num_inherents != i {
-							return Err(i as u32);
+							return Err(i);
 						}
 
 						num_inherents += 1; // Safe since we are in an `enumerate` loop.
 					}
 				}
 
-				Ok(num_inherents as u32)
+				Ok(num_inherents)
 			}
 		}
 	}

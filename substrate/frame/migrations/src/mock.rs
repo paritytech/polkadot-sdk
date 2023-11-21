@@ -62,7 +62,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 }
 
-// Build genesis storage according to the mock runtime.
+/// Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(Default::default())
 }

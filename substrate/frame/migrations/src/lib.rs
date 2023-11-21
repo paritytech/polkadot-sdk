@@ -173,7 +173,7 @@ pub enum MigrationCursor<Cursor, BlockNumber> {
 }
 
 impl<Cursor, BlockNumber> MigrationCursor<Cursor, BlockNumber> {
-	/// Try to return self as an `ActiveCursor`.
+	/// Try to return self as an [`ActiveCursor`].
 	pub fn as_active(&self) -> Option<&ActiveCursor<Cursor, BlockNumber>> {
 		match self {
 			MigrationCursor::Active(active) => Some(active),
@@ -580,7 +580,7 @@ impl<T: Config> Pallet<T> {
 				return meter.consumed()
 			},
 		};
-		debug_assert!(<Self as MultiStepMigrator>::ongoing());
+		debug_assert!(Self::ongoing());
 
 		// The limit here is a defensive measure to prevent an infinite loop. It expresses that we
 		// allow no more than 8 MBMs to finish in a single block. This should be harmless, since we

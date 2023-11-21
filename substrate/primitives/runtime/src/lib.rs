@@ -999,18 +999,13 @@ impl<R> TransactionOutcome<R> {
 }
 
 /// Confines the kind of extrinsics that can be included in a block.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo)]
 pub enum ExtrinsicInclusionMode {
 	/// All extrinsics are allowed to be included in this block.
+	#[default]
 	AllExtrinsics,
 	/// Inherents are allowed to be included.
 	OnlyInherents,
-}
-
-impl Default for ExtrinsicInclusionMode {
-	fn default() -> Self {
-		Self::AllExtrinsics
-	}
 }
 
 #[cfg(test)]
