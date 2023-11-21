@@ -19,7 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension},
+	traits::{DispatchInfoOf, SignedExtension, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -70,6 +70,38 @@ impl<T: Config + Send + Sync> SignedExtension for CheckSpecVersion<T> {
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		<Self as SignedExtension>::validate(&self, who, call, info, len).map(|_| ())
+	}
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
+	for CheckSpecVersion<T>
+{
+	const IDENTIFIER: &'static str = "CheckSpecVersion";
+	type Val = ();
+	type Pre = ();
+	type Implicit = u32;
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		Ok(<Pallet<T>>::runtime_version().spec_version)
+	}
+	fn validate(
+		&self,
+		origin: sp_runtime::traits::OriginOf<<T as Config>::RuntimeCall>,
+		_call: &<T as Config>::RuntimeCall,
+		_info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
+		_len: usize,
+		_target: &[u8],
+	) -> sp_runtime::traits::ValidateResult<Self, <T as Config>::RuntimeCall> {
+		Ok((Default::default(), (), origin))
+	}
+	fn prepare(
+		self,
+		_val: Self::Val,
+		_origin: &sp_runtime::traits::OriginOf<<T as Config>::RuntimeCall>,
+		_call: &<T as Config>::RuntimeCall,
+		_info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(())
 	}
 }

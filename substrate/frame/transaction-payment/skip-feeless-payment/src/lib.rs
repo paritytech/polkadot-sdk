@@ -31,7 +31,8 @@
 //!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
 //! in your `construct_runtime` macro and include this pallet's
-//! [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
+//! [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an
+//! argument.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -42,7 +43,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf, TransactionExtension, OriginOf, ValidateResult},
+	traits::{DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -77,9 +78,14 @@ pub mod pallet {
 /// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct SkipCheckIfFeeless<T: Config, S: TransactionExtension<T::RuntimeCall>>(pub S, sp_std::marker::PhantomData<T>);
+pub struct SkipCheckIfFeeless<T: Config, S: TransactionExtension<T::RuntimeCall>>(
+	pub S,
+	sp_std::marker::PhantomData<T>,
+);
 
-impl<T: Config, S: TransactionExtension<T::RuntimeCall>> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
+impl<T: Config, S: TransactionExtension<T::RuntimeCall>> sp_std::fmt::Debug
+	for SkipCheckIfFeeless<T, S>
+{
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		write!(f, "SkipCheckIfFeeless<{:?}>", self.0.encode())
@@ -105,8 +111,8 @@ pub enum Intermediate<T, O> {
 }
 use Intermediate::*;
 
-impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>> TransactionExtension<T::RuntimeCall>
-	for SkipCheckIfFeeless<T, S>
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
+	TransactionExtension<T::RuntimeCall> for SkipCheckIfFeeless<T, S>
 where
 	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
 {
@@ -161,7 +167,7 @@ where
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
 				Ok(())
-			}
+			},
 		}
 	}
 }
