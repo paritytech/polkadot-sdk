@@ -229,7 +229,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
-	/// "Stores all the necessary information about the account currently holding the deposit for
+	/// Stores all the necessary information about the account currently holding the deposit for
 	/// the parachain, as well as whether the current or prior depositor has any pending refunds.
 	#[pallet::storage]
 	pub type Deposits<T: Config> =
@@ -783,7 +783,7 @@ impl<T: Config> Pallet<T> {
 			Paras::<T>::insert(para, info);
 		} else if current_deposit > new_deposit {
 			// The depositor should receive a refund if the current deposit exceeds the new required
-			// deposit, even if they did not initiate the upgrade
+			// deposit, even if they did not initiate the upgrade.
 			let deposit_info = DepositInfo {
 				depositor: current_depositor.clone(),
 				pending_refund: Some((
@@ -857,7 +857,7 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 			deposit_info.pending_refund = None;
 			Deposits::<T>::insert(id, deposit_info);
 
-			return T::DbWeight::get().reads_writes(2, 1)
+			return T::DbWeight::get().reads_writes(2, 2)
 		}
 
 		T::DbWeight::get().reads(1)

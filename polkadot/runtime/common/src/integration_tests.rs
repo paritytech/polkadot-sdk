@@ -786,7 +786,6 @@ fn root_upgrading_parachain_works() {
 		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
 
-		// The reserved deposit should remain the same since the upgrade was performed by root.
 		let total_bytes_stored = (code_size / 2) as u32 + head_size as u32;
 		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
@@ -838,13 +837,13 @@ fn para_upgrading_itself_works() {
 		// multiple accounts to reserve deposits for a single parachain. This means the parachain
 		// must reserve the entire deposit, not just the difference.
 		//
-		// However, upon successful upgrading, the parachain manager should receive a full refund.
+		// However, upon successfully upgrading, the parachain manager should receive a full refund.
 
 		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
 		let sovereign_account =
 			<Test as paras_registrar::Config>::SovereignAccountOf::convert_location(&location)
 				.unwrap();
-		let para_origin: runtime_parachains::Origin = 2000u32.into();
+		let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
 
 		Balances::make_free_balance_be(&sovereign_account, free_balance);
 
@@ -867,7 +866,7 @@ fn para_upgrading_itself_works() {
 		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
 
-		// The parachain should have reserved deposit that covers the new code.
+		// The parachain should have a deposit reserved that covers the new code.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
 			Balances::reserved_balance(&sovereign_account),

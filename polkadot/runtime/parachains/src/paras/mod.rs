@@ -1240,14 +1240,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Called by the initializer to initialize the paras pallet.
-	// TODO: don't affect visibility
 	pub fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
 		let weight = Self::prune_old_code(now);
 		weight + Self::process_scheduled_upgrade_changes(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
-	// TODO: don't affect visibility
 	pub fn initializer_finalize(now: BlockNumberFor<T>) {
 		Self::process_scheduled_upgrade_cooldowns(now);
 	}
@@ -1264,7 +1262,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// The validation code of live para.
-	// TODO: don't affect visibility
 	pub fn current_code(para_id: &ParaId) -> Option<ValidationCode> {
 		Self::current_code_hash(para_id).and_then(|code_hash| {
 			let code = CodeByHash::<T>::get(&code_hash);
