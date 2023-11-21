@@ -1993,6 +1993,18 @@
 <a href="#1993" id="1993">1993</a>
 <a href="#1994" id="1994">1994</a>
 <a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2585,6 +2597,7 @@
 		CollatorPair,
 		OverseerHandle,
 		Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
+		Arc&lt;ParachainBackend&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt;,
 {
 	<span class="kw">let </span>parachain_config = prepare_node_config(parachain_config);
@@ -2718,6 +2731,7 @@
 			collator_key.expect(<span class="string">&quot;Command line arguments do not allow this. qed&quot;</span>),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)<span class="question-mark">?</span>;
 	}
 
@@ -2978,7 +2992,8 @@
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 backend| {
 			<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -2997,11 +3012,15 @@
 				client.clone(),
 			);
 
-			<span class="kw">let </span>params = BasicAuraParams {
+			<span class="kw">let </span>params = AuraParams {
 				create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
 				block_import,
-				para_client: client,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
+				code_hash_provider: <span class="kw">move </span>|block_hash| {
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
 				sync_oracle,
 				keystore,
 				collator_key,
@@ -3011,14 +3030,14 @@
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
-				<span class="comment">// Very limited proposal time.
-				</span>authoring_duration: Duration::from_millis(<span class="number">500</span>),
-				collation_request_receiver: <span class="prelude-val">None</span>,
+				authoring_duration: Duration::from_millis(<span class="number">1500</span>),
 			};
 
-			<span class="kw">let </span>fut = basic_aura::run::&lt;
+			<span class="kw">let </span>fut = aura::run::&lt;
 				Block,
 				sp_consensus_aura::sr25519::AuthorityPair,
+				<span class="kw">_</span>,
+				<span class="kw">_</span>,
 				<span class="kw">_</span>,
 				<span class="kw">_</span>,
 				<span class="kw">_</span>,
@@ -3371,7 +3390,8 @@
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -3466,7 +3486,8 @@
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			<span class="kw">let </span>relay_chain_interface2 = relay_chain_interface.clone();
 
 			<span class="kw">let </span>collator_service = CollatorService::new(
@@ -3637,7 +3658,7 @@
 				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
 				code_hash_provider: <span class="kw">move </span>|block_hash| {
-					client.code_at(block_hash).ok().map(ValidationCode).map(|c| c.hash())
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				sync_oracle,
 				keystore,
@@ -3708,6 +3729,7 @@
 		CollatorPair,
 		OverseerHandle,
 		Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
+		Arc&lt;ParachainBackend&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt;,
 {
 	<span class="kw">let </span>parachain_config = prepare_node_config(parachain_config);
@@ -3840,6 +3862,7 @@
 			collator_key.expect(<span class="string">&quot;Command line arguments do not allow this. qed&quot;</span>),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)<span class="question-mark">?</span>;
 	}
 
@@ -3918,7 +3941,8 @@
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
