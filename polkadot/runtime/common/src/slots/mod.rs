@@ -178,6 +178,8 @@ pub mod pallet {
 		NoPermission,
 		/// The origin has privileges for this operation but the preconditions are not met.
 		PreconditionNotMet,
+		/// The ability to early refund slot deposit is disabled.
+		EarlyRefundDisabled,
 	}
 
 	#[pallet::hooks]
@@ -288,7 +290,7 @@ pub mod pallet {
 			ensure!(
 				min_lease_period_required > 0u32.into(),
 				// if set to 0, we never allow early refund of slot deposit.
-				Error::<T>::PreconditionNotMet
+				Error::<T>::EarlyRefundDisabled
 			);
 			// allow this iff parachain has one lease period left.
 			let leases = Leases::<T>::get(para_id);
@@ -362,7 +364,7 @@ impl<T: Config> Pallet<T> {
 
 					// Note: we check reserved balance from state instead of upcoming leases since
 					// we might have unreserved early. Since reserves are not named, we can't check
-					// if this reserve was made by slots pallet or not. An account can probably
+					// if this reserve was made by slots pallet or not. An account could probably
 					// cheat by reserving amount for something else so better to track reserved
 					// amount at all times.
 					if let Some(rebate) = current_hold.checked_sub(&required_hold) {
@@ -736,7 +738,7 @@ mod tests {
 
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 10;
-		pub const MinLeasePeriodsForEarlyRefund: BlockNumber = 2;
+		pub static MinLeasePeriodsForEarlyRefund: BlockNumber = 2;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
 	}
@@ -1235,6 +1237,41 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn early_lease_refund_disabling_works() {
+		new_test_ext().execute_with(|| {
+			run_to_block(1);
+
+			MinLeasePeriodsForEarlyRefund::set(0);
+
+			assert_ok!(TestRegistrar::<Test>::register(
+				1,
+				ParaId::from(1_u32),
+				dummy_head_data(),
+				dummy_validation_code()
+			));
+
+			// lease from block 10-30
+			assert_ok!(Slots::lease_out(1.into(), &1, 3, 1, 2));
+
+			// We are in last LP of the lease and early refund should be possible but is disabled.
+			run_to_block(25);
+			// for next set of lease, only deposit of 2 is required, 1 is released.
+			assert_noop!(
+				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
+				Error::<Test>::EarlyRefundDisabled
+			);
+			// still holding deposit
+			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
+
+			MinLeasePeriodsForEarlyRefund::set(2);
+			assert_ok!(Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)));
+			// deposit is released
+			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
+		});
+	}
+
 }
 
 #[cfg(feature = "runtime-benchmarks")]
