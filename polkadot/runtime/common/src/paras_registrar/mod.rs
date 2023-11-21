@@ -727,8 +727,8 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(caller) = maybe_caller.clone() {
 			if caller != current_depositor {
-				// If the caller is not the one that had their funds reserved for this parachain we
-				// will unreserve all the funds from the original depositor and reserve the required
+				// If the caller is not the one who had their funds reserved for this parachain, we
+				// will unreserve all funds from the original depositor and reserve the required
 				// amount from the new depositor.
 				//
 				// The primary reason for this is to more easily track the account that has its
@@ -736,17 +736,22 @@ impl<T: Config> Pallet<T> {
 				// manager and the parachain itself could unnecessarily complicate refunds.
 
 				<T as Config>::Currency::reserve(&caller, new_deposit)?;
-			}
+				<T as Config>::Currency::unreserve(&current_depositor, current_deposit);
 
-			if current_deposit < new_deposit {
-				// An additional deposit is required to cover for the new validation code which has
-				// a greater size compared to the old one.
+				// Update the depositor to the caller.
+				let deposit_info = DepositInfo { depositor: caller.clone(), pending_refund: None };
+				Deposits::<T>::insert(para, deposit_info);
+			} else if current_deposit < new_deposit {
+				// The caller is the current depositor and an additional deposit is required to
+				// cover for the new validation code which has a greater size compared to the old
+				// one.
 
 				let excess = new_deposit.saturating_sub(current_deposit);
 				<T as Config>::Currency::reserve(&caller, excess)?;
 			} else if current_deposit > new_deposit {
-				// In case the existing deposit exceeds the required amount due to validation code
-				// reduction, the excess deposit will be returned to the caller.
+				// The caller is the current depositor and in the that case the existing deposit
+				// exceeds the required amount due to validation code reduction, the excess deposit
+				// will be returned to  the caller.
 				//
 				// The reason why the deposit is not instantly refunded is that scheduling a code
 				// upgrade doesn't guarantee the success of an upgrade.
