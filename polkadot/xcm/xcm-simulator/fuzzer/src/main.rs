@@ -160,9 +160,8 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		}
 		fn matches_recursive(message: &mut Instruction<()>) -> Vec<Instruction<()>> {
 			match message {
-				SetErrorHandler(sub_m) => {
-					Vec::from(sub_m.inner()).iter_mut().map(matches_recursive).flatten().collect()
-				},
+				SetErrorHandler(sub_m) =>
+					Vec::from(sub_m.inner()).iter_mut().map(matches_recursive).flatten().collect(),
 				_ => vec![message.clone()],
 			}
 		}
