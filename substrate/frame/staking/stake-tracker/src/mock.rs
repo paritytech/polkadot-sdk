@@ -415,7 +415,7 @@ impl ExtBuilder {
 			if self.populate_lists {
 				populate_lists();
 			}
-			// move pass genesis to register events.
+			// move past genesis to register events.
 			System::set_block_number(1);
 
 			test()
