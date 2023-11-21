@@ -102,6 +102,7 @@ pub mod pallet {
 	use crate::*;
 	use frame_election_provider_support::{ExtendedBalance, VoteWeight};
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::BlockNumberFor;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -129,6 +130,14 @@ pub mod pallet {
 			Self::AccountId,
 			Score = <Self::Staking as StakingInterface>::Balance,
 		>;
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -205,6 +214,86 @@ pub mod pallet {
 					}
 				},
 			}
+		}
+
+		#[cfg(any(test, feature = "try-runtime"))]
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			// Invariants 1:
+			// * All stakers in the target list are of type validator.
+			for target in T::TargetList::iter() {
+				if <T::Staking as StakingInterface>::status(&target).unwrap_or(StakerStatus::Idle) !=
+					StakerStatus::Validator
+				{
+					return Err("staker in target list is not a validator")?
+				}
+			}
+
+			// Invariant 2:
+			// * The target score in the target list is the sum of self-stake and all stake from
+			//   nominations.
+			// * All valid validators are part of the target list.
+			let mut map: BTreeMap<AccountIdOf<T>, ExtendedBalance> = BTreeMap::new();
+
+			for nominator in T::VoterList::iter() {
+				if let Some(nominations) = <T::Staking as StakingInterface>::nominations(&nominator)
+				{
+					let score =
+						<T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&nominator)
+							.map_err(|_| "nominator score must exist in voter bags list")?;
+
+					for nomination in nominations {
+						if let Some(stake) = map.get_mut(&nomination) {
+							*stake += score as ExtendedBalance;
+						} else {
+							map.insert(nomination, score.into());
+						}
+					}
+				}
+			}
+			for target in T::TargetList::iter() {
+				let score =
+					<T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&target)
+						.map_err(|_| "target score must exist in voter bags list")?;
+
+				if let Some(stake) = map.get_mut(&target) {
+					*stake += score as ExtendedBalance;
+				} else {
+					map.insert(target, score.into());
+				}
+			}
+
+			// compare final result with target list.
+			let mut valid_validators_count = 0;
+			for (target, stake) in map.into_iter() {
+				if let Ok(stake_in_list) = T::TargetList::get_score(&target) {
+					let stake_in_list = Self::to_vote_extended(stake_in_list);
+
+					if stake != stake_in_list {
+						log!(
+							error,
+							"try-runtime: score of {:?} in list: {:?}, sum of all stake: {:?}",
+							target,
+							stake_in_list,
+							stake,
+						);
+						return Err(
+							"target score in the target list is different than the expected".into()
+						)
+					}
+
+					valid_validators_count += 1;
+				} else {
+					// moot target nomination, do nothing.
+				}
+			}
+
+			let count = T::TargetList::count() as usize;
+			ensure!(
+				valid_validators_count == count,
+				"target list count is different from total of targets.",
+			);
+
+			Ok(())
 		}
 	}
 }
@@ -409,7 +498,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	// noop: the updates to target and voter lists when applying a slash are performed
 	// through [`Self::on_nominator_remove`] and [`Self::on_validator_remove`] when the stakers are
 	// chilled. When the slash is applied, the ledger is updated of the affected stashes is, thus
-	// the stake is propagated through the `[Self::update::<T::EventListener>]`.
+	// the stake is propagated through the [`Self::update::<T::EventListener>`].
 	fn on_slash(
 		_stash: &T::AccountId,
 		_slashed_active: BalanceOf<T>,

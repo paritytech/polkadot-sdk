@@ -278,11 +278,6 @@ pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
 	StakingMock::stake(&who).ok()
 }
 
-#[allow(dead_code)]
-pub(crate) fn score_of_voter(who: AccountId) -> VoteWeight {
-	<StakingMock as ScoreProvider<AccountId>>::score(&who)
-}
-
 pub(crate) fn score_of_target(who: AccountId) -> Balance {
 	<pallet_bags_list::Pallet<Test, TargetBagsListInstance> as ScoreProvider<AccountId>>::score(
 		&who,
@@ -389,6 +384,10 @@ pub(crate) fn voter_bags_events() -> Vec<pallet_bags_list::Event<Test, VoterBags
 		.collect::<Vec<_>>()
 }
 
+parameter_types! {
+	pub static DisableTryRuntimeChecks: bool = false;
+}
+
 #[derive(Default, Copy, Clone)]
 pub struct ExtBuilder {
 	populate_lists: bool,
@@ -420,5 +419,13 @@ impl ExtBuilder {
 
 			test()
 		});
+
+		if !DisableTryRuntimeChecks::get() {
+			ext.execute_with(|| {
+				StakeTracker::do_try_state()
+					.map_err(|err| println!(" 🕵️‍♂️  try_state failure: {:?}", err))
+					.unwrap();
+			});
+		}
 	}
 }

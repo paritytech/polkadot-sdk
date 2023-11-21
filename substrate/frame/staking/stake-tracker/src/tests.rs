@@ -66,6 +66,10 @@ fn update_score_works() {
 		);
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::get_score(&1), Ok(0));
+
+		// disables the try runtime checks since the score of 10 was updated manually, so the target
+		// list was not updated accordingly.
+		DisableTryRuntimeChecks::set(true);
 	})
 }
 
@@ -156,6 +160,7 @@ fn on_stake_update_sorting_works() {
 		let initial_sort = TargetBagsList::iter().collect::<Vec<_>>();
 
 		// 10 starts with more score than 11.
+		assert_eq!(score_of_target(10), 300);
 		assert_eq!(score_of_target(11), 200);
 		assert!(score_of_target(10) > score_of_target(11));
 		assert_eq!(initial_sort, [10, 11]);
@@ -164,13 +169,15 @@ fn on_stake_update_sorting_works() {
 		add_nominator_with_nominations(5, 200, vec![11]);
 		assert_eq!(score_of_target(11), 400);
 		assert!(score_of_target(10) < score_of_target(11));
+		// sorting is now reverted as expected.
 		assert_eq!(
 			TargetBagsList::iter().collect::<Vec<_>>(),
 			initial_sort.iter().rev().cloned().collect::<Vec<_>>()
 		);
 
-		// now we remove the stake 5 to get back to the initial state.
+		// now we remove the staker 5 to get back to the initial state.
 		remove_staker(5);
+		assert_eq!(score_of_target(10), 300);
 		assert_eq!(score_of_target(11), 200);
 		assert!(score_of_target(10) > score_of_target(11));
 		assert_eq!(TargetBagsList::iter().collect::<Vec<_>>(), initial_sort);
@@ -192,17 +199,19 @@ fn on_stake_update_sorting_works() {
 		let voter_scores_before = get_scores::<VoterBagsList>();
 		assert_eq!(voter_scores_before, [(10, 100), (11, 100), (1, 100), (2, 100)]);
 
-		// nothing changes.
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, stake_of(11));
+		// noop, nothing changes.
+		let initial_stake = stake_of(11);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake);
 		assert_eq!(voter_scores_before, get_scores::<VoterBagsList>());
 
+		// now let's change the self-vote of 11 and call `on_stake_update` again.
 		let nominations = <StakingMock as StakingInterface>::nominations(&11).unwrap();
 		let new_stake = Stake { total: 1, active: 1 };
 		TestNominators::mutate(|n| {
 			n.insert(11, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, stake_of(11));
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake);
 
 		// although the voter score of 11 is 1, the voter list sorting has not been updated
 		// automatically.

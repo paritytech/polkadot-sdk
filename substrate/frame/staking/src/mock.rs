@@ -876,6 +876,8 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
+/// Similar to the try-state checks of the stake-tracker pallet, but works without `try-runtime`
+/// feature enabled.
 pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
 	use sp_staking::StakingInterface;
 
