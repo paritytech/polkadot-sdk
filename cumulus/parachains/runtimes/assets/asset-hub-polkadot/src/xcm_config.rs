@@ -44,6 +44,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use parachains_common::xcm_config::ParentOrSiblings;
 
 parameter_types! {
 	pub const DotLocation: MultiLocation = MultiLocation::parent();
@@ -177,10 +178,6 @@ match_types! {
 	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Parachain(_)) }
 	};
 	pub type FellowsPlurality: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), Plurality { id: BodyId::Technical, ..}) }

@@ -46,6 +46,7 @@ use xcm_builder::{
 	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use parachains_common::xcm_config::ParentOrSiblings;
 
 parameter_types! {
 	pub const WestendLocation: MultiLocation = MultiLocation::parent();
@@ -113,10 +114,6 @@ match_types! {
 	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Parachain(_)) }
 	};
 }
 

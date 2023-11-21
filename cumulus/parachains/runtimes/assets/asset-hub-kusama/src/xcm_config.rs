@@ -48,6 +48,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use parachains_common::xcm_config::ParentOrSiblings;
 
 #[cfg(feature = "runtime-benchmarks")]
 use {cumulus_primitives_core::ParaId, sp_core::Get};
@@ -227,10 +228,6 @@ match_types! {
 	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Parachain(_)) }
 	};
 }
 

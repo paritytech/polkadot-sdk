@@ -120,6 +120,17 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 	}
 }
 
+pub struct ParentOrSiblings;
+impl Contains<MultiLocation> for ParentOrSiblings {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(
+			location,
+			MultiLocation { parents: 1, interior: Here } |
+			MultiLocation { parents: 1, interior: X1(Parachain(_)) }
+		)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use frame_support::parameter_types;
