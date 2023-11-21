@@ -140,18 +140,12 @@ impl ControllerRunner {
 
 		// It's time to consume all pending events. Drive `ProtocolController` until
 		// it timeouts due to no pending events.
-		loop {
-			match tokio::time::timeout(
-				Duration::from_millis(250),
-				self.protocol_controller.next_action(),
-			)
-			.await
-			{
-				Ok(cont) =>
-					if !cont {
-						panic!("`ProtocolController` has terminated.");
-					},
-				Err(_) => break,
+		while let Ok(cont) =
+			tokio::time::timeout(Duration::from_millis(250), self.protocol_controller.next_action())
+				.await
+		{
+			if !cont {
+				panic!("`ProtocolController` has terminated.");
 			}
 		}
 
