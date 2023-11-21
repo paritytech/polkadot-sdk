@@ -52,7 +52,7 @@
 //! ### Design Goals
 //!
 //! 1. Must automatically execute migrations over multiple blocks.
-//! 2. Must prevent other (non-mandatory) transactions from executing in the meantime.
+//! 2. Must expose information about whether migrations are ongoing.
 //! 3. Must respect pessimistic weight bounds of migrations.
 //! 4. Must execute migrations in order. Skipping is not allowed; migrations are run on a
 //! all-or-nothing basis.
@@ -74,9 +74,8 @@
 //! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
 //! it is fixed through manual governance intervention.  
-//! As soon as the cursor of the pallet becomes `Some(_)`; chain transaction processing is paused
-//! by [`MultiStepMigrator::ongoing`] returning `true`. This ensures that no other
-//! transactions are processed until all migrations are complete (Goal 2).  
+//! As soon as the cursor of the pallet becomes `Some(_)`; [`MultiStepMigrator::ongoing`] returns
+//! `true` (Goal 2). This can be used by upstream code to possibly pause transactions.
 //! In `on_initialize` the pallet will load the current migration and check whether it was already
 //! executed in the past by checking for membership of its ID in the [`Historic`] set. Historic
 //! migrations are skipped without causing an error. Each successfully executed migration is added
