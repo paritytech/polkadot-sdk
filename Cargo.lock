@@ -14685,6 +14685,7 @@ dependencies = [
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
+ "staging-xcm-builder",
 ]
 
 [[package]]
@@ -21100,6 +21101,7 @@ dependencies = [
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
+ "staging-xcm-builder",
 ]
 
 [[package]]
