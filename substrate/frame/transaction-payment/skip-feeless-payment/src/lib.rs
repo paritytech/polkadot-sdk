@@ -21,7 +21,7 @@
 //!
 //! ## Overview
 //!
-//! It does this by wrapping an existing [`SignedExtension`] implementation (e.g.
+//! It does this by wrapping an existing [`TransactionExtension`] implementation (e.g.
 //! [`pallet-transaction-payment`]) and checking if the dispatchable is feeless before applying the
 //! wrapped extension. If the dispatchable is indeed feeless, the extension is skipped and a custom
 //! event is emitted instead. Otherwise, the extension is applied as usual.
@@ -31,7 +31,7 @@
 //!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
 //! in your `construct_runtime` macro and include this pallet's
-//! [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
+//! [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -42,7 +42,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
+	traits::{DispatchInfoOf, PostDispatchInfoOf, TransactionExtension, OriginOf, ValidateResult},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -70,16 +70,16 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A transaction fee was skipped.
-		FeeSkipped { who: T::AccountId },
+		FeeSkipped { origin: <T::RuntimeOrigin as OriginTrait>::PalletsOrigin },
 	}
 }
 
-/// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
+/// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct SkipCheckIfFeeless<T: Config, S: SignedExtension>(pub S, sp_std::marker::PhantomData<T>);
+pub struct SkipCheckIfFeeless<T: Config, S: TransactionExtension<T::RuntimeCall>>(pub S, sp_std::marker::PhantomData<T>);
 
-impl<T: Config, S: SignedExtension> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
+impl<T: Config, S: TransactionExtension<T::RuntimeCall>> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		write!(f, "SkipCheckIfFeeless<{:?}>", self.0.encode())
@@ -90,56 +90,78 @@ impl<T: Config, S: SignedExtension> sp_std::fmt::Debug for SkipCheckIfFeeless<T,
 	}
 }
 
-impl<T: Config + Send + Sync, S: SignedExtension> SkipCheckIfFeeless<T, S> {
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>> SkipCheckIfFeeless<T, S> {
 	/// utility constructor. Used only in client/factory code.
 	pub fn from(s: S) -> Self {
 		Self(s, sp_std::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync, S: SignedExtension<AccountId = T::AccountId>> SignedExtension
+pub enum Intermediate<T, O> {
+	/// The wrapped extension should be applied.
+	Apply(T),
+	/// The wrapped extension should be skipped.
+	Skip(O),
+}
+use Intermediate::*;
+
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>> TransactionExtension<T::RuntimeCall>
 	for SkipCheckIfFeeless<T, S>
 where
-	S::Call: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
+	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
 {
-	type AccountId = T::AccountId;
-	type Call = S::Call;
-	type AdditionalSigned = S::AdditionalSigned;
-	type Pre = (Self::AccountId, Option<<S as SignedExtension>::Pre>);
 	const IDENTIFIER: &'static str = "SkipCheckIfFeeless";
+	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Implicit = S::Implicit;
 
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		self.0.additional_signed()
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		self.0.implicit()
 	}
 
-	fn pre_dispatch(
+	fn validate(
+		&self,
+		origin: OriginOf<T::RuntimeCall>,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		target: &[u8],
+	) -> ValidateResult<Self, T::RuntimeCall> {
+		if call.is_feeless(&origin) {
+			Ok((Default::default(), Skip(origin.caller().clone()), origin))
+		} else {
+			let (x, y, z) = self.0.validate(origin, call, info, len, target)?;
+			Ok((x, Apply(y), z))
+		}
+	}
+
+	fn prepare(
 		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		val: Self::Val,
+		origin: &OriginOf<T::RuntimeCall>,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		if call.is_feeless(&<T as frame_system::Config>::RuntimeOrigin::signed(who.clone())) {
-			Ok((who.clone(), None))
-		} else {
-			Ok((who.clone(), Some(self.0.pre_dispatch(who, call, info, len)?)))
+		match val {
+			Apply(val) => self.0.prepare(val, origin, call, info, len).map(Apply),
+			Skip(origin) => Ok(Skip(origin)),
 		}
 	}
 
 	fn post_dispatch(
-		pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		if let Some(pre) = pre {
-			if let Some(pre) = pre.1 {
-				S::post_dispatch(Some(pre), info, post_info, len, result)?;
-			} else {
-				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { who: pre.0 });
+		match pre {
+			Apply(pre) => S::post_dispatch(pre, info, post_info, len, result),
+			Skip(origin) => {
+				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
+				Ok(())
 			}
 		}
-		Ok(())
 	}
 }
