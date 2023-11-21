@@ -53,7 +53,7 @@ pub struct SecurityStatus {
 	pub can_enable_landlock: bool,
 	/// Whether the seccomp features we use are fully available on this system.
 	pub can_enable_seccomp: bool,
-	// Whether we are able to unshare the user namespace and change the filesystem root.
+	/// Whether we are able to unshare the user namespace and change the filesystem root.
 	pub can_unshare_user_namespace_and_change_root: bool,
 }
 
