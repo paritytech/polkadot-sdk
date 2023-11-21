@@ -29,6 +29,7 @@ wasm-api = []
 std = [
 	"bounded-collections/std",
 	"environmental/std",
+	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"serde/std",

@@ -31,6 +31,7 @@ sp-core = { path = "../../primitives/core" }
 default = [ "std" ]
 std = [
 	"codec/std",
+	"enumflags2/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
