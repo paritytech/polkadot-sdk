@@ -909,7 +909,7 @@ where
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
-		_implicit: &impl Encode,
+		_implicit: &[u8],
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError

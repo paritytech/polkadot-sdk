@@ -20,6 +20,7 @@ use super::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, CloneSystemOriginS
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
+// TODO: Make `Call` a type param, not an associated type.
 pub trait TransactionExtension:
 	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
@@ -58,7 +59,7 @@ pub trait TransactionExtension:
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
-		implicit: &impl Encode,
+		target: &[u8],
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError
@@ -171,18 +172,34 @@ pub trait DispatchTransaction {
 	/// The origin type of the transaction.
 	type Origin;
 	/// The function (underlying `Dispatchable` impl) type of the transaction.
-	type Function;
+	type Call;
 	/// The info type.
 	type Info;
 	/// The resultant type.
 	type Result;
+	/// The `Val` of the extension.
+	type Val;
 	/// The `Pre` of the extension.
 	type Pre;
+	/// Just validate a transaction.
+	///
+	/// The is basically the same as `validate`, except that there is no need to supply the
+	/// bond data.
+	fn validate_only(
+		&self,
+		origin: Self::Origin,
+		call: &Self::Call,
+		info: &Self::Info,
+		len: usize,
+	) -> Result<
+		(ValidTransaction, Self::Val, Self::Origin),
+		TransactionValidityError
+	>;
 	/// Prepare and validate a transaction, ready for dispatch.
 	fn validate_and_prepare(
 		self,
 		origin: Self::Origin,
-		function: &Self::Function,
+		function: &Self::Call,
 		info: &Self::Info,
 		len: usize,
 	) -> Result<(Self::Pre, Self::Origin), TransactionValidityError>;
@@ -190,7 +207,7 @@ pub trait DispatchTransaction {
 	fn dispatch_transaction(
 		self,
 		origin: Self::Origin,
-		function: Self::Function,
+		function: Self::Call,
 		info: &Self::Info,
 		len: usize,
 	) -> Self::Result;
@@ -198,19 +215,45 @@ pub trait DispatchTransaction {
 
 impl<T: TransactionExtension> DispatchTransaction for T {
 	type Origin = <T::Call as Dispatchable>::RuntimeOrigin;
-	type Function = T::Call;
+	type Call = T::Call;
 	type Info = DispatchInfoOf<T::Call>;
 	type Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<T::Call>>;
+	type Val = T::Val;
 	type Pre = T::Pre;
+
+	fn validate_only(
+		&self,
+		origin: Self::Origin,
+		call: &T::Call,
+		info: &DispatchInfoOf<T::Call>,
+		len: usize,
+	) -> Result<
+		(ValidTransaction, T::Val, Self::Origin),
+		TransactionValidityError
+	> {
+		let target = (self, self.implicit()?).encode();
+		self.validate(origin, call, info, len, &target[..])
+	}
+	fn validate_and_prepare(
+		self,
+		origin: Self::Origin,
+		call: &T::Call,
+		info: &DispatchInfoOf<T::Call>,
+		len: usize,
+	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
+		let (_, val, origin) = self.validate_only(origin, call, info, len)?;
+		let pre = self.prepare(val, &origin, &call, info, len)?;
+		Ok((pre, origin))
+	}
 	fn dispatch_transaction(
 		self,
 		origin: <T::Call as Dispatchable>::RuntimeOrigin,
-		function: T::Call,
+		call: T::Call,
 		info: &DispatchInfoOf<T::Call>,
 		len: usize,
 	) -> Self::Result {
-		let (pre, origin) = self.validate_and_prepare(origin, &function, info, len)?;
-		let res = function.dispatch(origin);
+		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
+		let res = call.dispatch(origin);
 		let post_info = match res {
 			Ok(info) => info,
 			Err(err) => err.post_info,
@@ -218,18 +261,6 @@ impl<T: TransactionExtension> DispatchTransaction for T {
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		T::post_dispatch(pre, info, &post_info, len, &pd_res)?;
 		Ok(res)
-	}
-	fn validate_and_prepare(
-		self,
-		origin: Self::Origin,
-		function: &Self::Function,
-		info: &Self::Info,
-		len: usize,
-	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
-		let implicit = self.implicit()?;
-		let (_, val, origin) = self.validate(origin, &function, info, len, &implicit)?;
-		let pre = self.prepare(val, &origin, &function, info, len)?;
-		Ok((pre, origin))
 	}
 }
 
@@ -262,7 +293,7 @@ impl<Call: Dispatchable> TransactionExtension for Tuple {
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
-		implicit: &impl Encode,
+		implicit: &[u8],
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError
@@ -324,7 +355,7 @@ impl TransactionExtension for () {
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-		_implicit: &impl Encode,
+		_implicit: &[u8],
 	) -> Result<(ValidTransaction, (), <Self::Call as Dispatchable>::RuntimeOrigin), TransactionValidityError> {
 		Ok((ValidTransaction::default(), (), origin))
 	}
@@ -372,7 +403,7 @@ impl<SE: SignedExtension> TransactionExtension for AsTransactionExtension<SE> wh
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
-		_implicit: &impl Encode,
+		_implicit: &[u8],
 	) -> Result<(ValidTransaction, (), <Self::Call as Dispatchable>::RuntimeOrigin), TransactionValidityError> {
 		let who = origin.clone_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		Ok((self.0.validate(&who, call, info, len)?, (), origin))

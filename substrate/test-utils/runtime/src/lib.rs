@@ -315,7 +315,7 @@ impl sp_runtime::traits::TransactionExtension for CheckSubstrateCall {
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-		_implicit: &impl Encode,
+		_implicit: &[u8],
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError
@@ -1071,7 +1071,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
-		traits::{Hash as _, TransactionExtension},
+		traits::{Hash as _, TransactionExtension, DispatchTransaction},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
@@ -1225,12 +1225,11 @@ mod tests {
 			let len = 0_usize;
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
+					.validate_only(
 						Some(x.clone()).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
 						len,
-						&CheckSubstrateCall {}.implicit(),
 					)
 					.unwrap()
 					.0.priority,
@@ -1239,12 +1238,11 @@ mod tests {
 
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
+					.validate_only(
 						Some(x.clone()).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
 						len,
-						&CheckSubstrateCall {}.implicit(),
 					)
 					.unwrap()
 					.0.propagate,

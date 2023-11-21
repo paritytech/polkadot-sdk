@@ -474,7 +474,7 @@ mod tests {
 			_call: &Self::Call,
 			_info: &DispatchInfoOf<Self::Call>,
 			_len: usize,
-			_implicit: &impl Encode,
+			_implicit: &[u8],
 		) -> Result<
 			(crate::transaction_validity::ValidTransaction, Self::Val, <Self::Call as traits::Dispatchable>::RuntimeOrigin),
 			TransactionValidityError

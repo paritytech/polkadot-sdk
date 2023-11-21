@@ -90,7 +90,6 @@ mod runtime_string;
 #[cfg(feature = "std")]
 pub mod testing;
 pub mod traits;
-//pub mod transaction_extensions;
 pub mod transaction_validity;
 
 pub use crate::runtime_string::*;

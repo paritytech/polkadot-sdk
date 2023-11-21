@@ -412,7 +412,7 @@ where
 		len: usize,
 	) -> TransactionValidity {
 		if let Some((ref id, ref ext)) = self.signature {
-			ext.validate(Some(id.clone()).into(), &self.call, info, len, &ext.implicit()).map(|x| x.0)
+			ext.validate_only(Some(id.clone()).into(), &self.call, info, len).map(|x| x.0)
 		} else {
 			#[allow(deprecated)]
 			let valid = Extension::validate_bare_compat(&self.call, info, len)?;

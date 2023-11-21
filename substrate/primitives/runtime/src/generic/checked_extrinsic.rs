@@ -88,10 +88,11 @@ where
 				Ok(legacy_validation.combine_with(inherent_validation))
 			}
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
-				extension.validate(Some(signer.clone()).into(), &self.function, info, len, &extension.implicit()?).map(|x| x.0)
+				let origin = Some(signer.clone()).into();
+				extension.validate_only(origin, &self.function, info, len).map(|x| x.0)
 			}
 			ExtrinsicFormat::General(ref extension) => {
-				extension.validate(None.into(), &self.function, info, len, &extension.implicit()?).map(|x| x.0)
+				extension.validate_only(None.into(), &self.function, info, len).map(|x| x.0)
 			}
 		}
 	}
