@@ -2160,6 +2160,23 @@ impl NetworkBehaviour for Notifications {
 			return Poll::Ready(event)
 		}
 
+		while let Poll::Ready(Some((result, index))) =
+			self.pending_inbound_validations.poll_next_unpin(cx)
+		{
+			match result {
+				Ok(ValidationResult::Accept) => {
+					self.protocol_report_accept(index);
+				},
+				Ok(ValidationResult::Reject) => {
+					self.protocol_report_reject(index);
+				},
+				Err(_) => {
+					error!(target: LOG_TARGET, "Protocol has shut down");
+					break
+				},
+			}
+		}
+
 		// Poll for instructions from the protocol controllers.
 		loop {
 			match futures::Stream::poll_next(Pin::new(&mut self.from_protocol_controllers), cx) {
@@ -2203,23 +2220,6 @@ impl NetworkBehaviour for Notifications {
 					break
 				},
 				Poll::Pending => break,
-			}
-		}
-
-		while let Poll::Ready(Some((result, index))) =
-			self.pending_inbound_validations.poll_next_unpin(cx)
-		{
-			match result {
-				Ok(ValidationResult::Accept) => {
-					self.protocol_report_accept(index);
-				},
-				Ok(ValidationResult::Reject) => {
-					self.protocol_report_reject(index);
-				},
-				Err(_) => {
-					error!(target: LOG_TARGET, "Protocol has shut down");
-					break
-				},
 			}
 		}
 
