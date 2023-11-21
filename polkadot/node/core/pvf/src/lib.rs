@@ -84,7 +84,7 @@
 //! A pruning task will run at a fixed interval of time. This task will remove all artifacts that
 //! weren't used or received a heads up signal for a while.
 //!
-//!	## Execution
+//! ## Execution
 //!
 //! The execute workers will be fed by the requests from the execution queue, which is basically a
 //! combination of a path to the compiled artifact and the
@@ -97,12 +97,13 @@ mod host;
 mod metrics;
 mod prepare;
 mod priority;
+mod security;
 mod worker_intf;
 
 #[cfg(feature = "test-utils")]
 pub mod testing;
 
-pub use error::{InvalidCandidate, ValidationError};
+pub use error::{InvalidCandidate, PossiblyInvalidError, ValidationError};
 pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
 pub use metrics::Metrics;
 pub use priority::Priority;
@@ -116,5 +117,18 @@ pub use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 
+use std::{path::Path, process::Command};
+
 /// The log target for this crate.
 pub const LOG_TARGET: &str = "parachain::pvf";
+
+/// Utility to get the version of a worker, used for version checks.
+///
+/// The worker's existence at the given path must be checked separately.
+pub fn get_worker_version(worker_path: &Path) -> std::io::Result<String> {
+	let worker_version = Command::new(worker_path).args(["--version"]).output()?.stdout;
+	Ok(std::str::from_utf8(&worker_version)
+		.expect("version is printed as a string; qed")
+		.trim()
+		.to_string())
+}

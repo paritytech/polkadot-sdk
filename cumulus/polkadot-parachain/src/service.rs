@@ -156,6 +156,21 @@ impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor
 	}
 }
 
+/// Native Westend Collectives executor instance.
+pub struct CollectivesWestendRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for CollectivesWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		collectives_westend_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		collectives_westend_runtime::native_version()
+	}
+}
+
 /// Native BridgeHubPolkadot executor instance.
 pub struct BridgeHubPolkadotRuntimeExecutor;
 
@@ -213,6 +228,21 @@ impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		contracts_rococo_runtime::native_version()
+	}
+}
+
+/// Native Westend Glutton executor instance.
+pub struct GluttonWestendRuntimeExecutor;
+
+impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		glutton_westend_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		glutton_westend_runtime::native_version()
 	}
 }
 
@@ -560,6 +590,7 @@ where
 		CollatorPair,
 		OverseerHandle,
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+		Arc<ParachainBackend>,
 	) -> Result<(), sc_service::Error>,
 {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -693,6 +724,7 @@ where
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)?;
 	}
 
@@ -953,7 +985,8 @@ pub async fn start_rococo_parachain_node(
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -972,11 +1005,15 @@ pub async fn start_rococo_parachain_node(
 				client.clone(),
 			);
 
-			let params = BasicAuraParams {
+			let params = AuraParams {
 				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 				block_import,
-				para_client: client,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
 				sync_oracle,
 				keystore,
 				collator_key,
@@ -986,13 +1023,14 @@ pub async fn start_rococo_parachain_node(
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
-				// Very limited proposal time.
-				authoring_duration: Duration::from_millis(500),
+				authoring_duration: Duration::from_millis(1500),
 			};
 
-			let fut = basic_aura::run::<
+			let fut = aura::run::<
 				Block,
 				sp_consensus_aura::sr25519::AuthorityPair,
+				_,
+				_,
 				_,
 				_,
 				_,
@@ -1345,7 +1383,8 @@ where
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -1380,6 +1419,7 @@ where
 				collator_service,
 				// Very limited proposal time.
 				authoring_duration: Duration::from_millis(500),
+				collation_request_receiver: None,
 			};
 
 			let fut =
@@ -1439,7 +1479,8 @@ where
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let relay_chain_interface2 = relay_chain_interface.clone();
 
 			let collator_service = CollatorService::new(
@@ -1520,6 +1561,7 @@ where
 					collator_service,
 					// Very limited proposal time.
 					authoring_duration: Duration::from_millis(500),
+					collation_request_receiver: Some(request_stream),
 				};
 
 				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params)
@@ -1609,7 +1651,7 @@ where
 				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
 				code_hash_provider: move |block_hash| {
-					client.code_at(block_hash).ok().map(ValidationCode).map(|c| c.hash())
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				sync_oracle,
 				keystore,
@@ -1680,6 +1722,7 @@ where
 		CollatorPair,
 		OverseerHandle,
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+		Arc<ParachainBackend>,
 	) -> Result<(), sc_service::Error>,
 {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -1812,6 +1855,7 @@ where
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)?;
 	}
 
@@ -1890,7 +1934,8 @@ pub async fn start_contracts_rococo_node(
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -1925,6 +1970,7 @@ pub async fn start_contracts_rococo_node(
 				collator_service,
 				// Very limited proposal time.
 				authoring_duration: Duration::from_millis(500),
+				collation_request_receiver: None,
 			};
 
 			let fut = basic_aura::run::<
@@ -1951,10 +1997,11 @@ pub async fn start_contracts_rococo_node(
 fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	// Polkadot para-chains should generally use these requirements to ensure that the relay-chain
 	// will not take longer than expected to import its blocks.
-	if !frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
+	if let Err(err) = frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
 		log::warn!(
-			"⚠️  The hardware does not meet the minimal requirements for role 'Authority' find out more at:\n\
-			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"
+			"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+			err
 		);
 	}
 }
