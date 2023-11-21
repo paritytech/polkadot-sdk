@@ -161,9 +161,9 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		fn matches_recursive(message: &mut Instruction<()>) -> Vec<Instruction<()>> {
 			match message {
 				SetErrorHandler(sub_m) =>
-					Vec::from(sub_m.inner()).iter_mut().map(matches_recursive).flatten().collect(),
+					Vec::from(sub_m.inner()).iter_mut().flat_map(matches_recursive).collect(),
 				DepositReserveAsset { xcm, .. } =>
-					Vec::from(xcm.inner()).iter_mut().map(matches_recursive).flatten().collect(),
+					Vec::from(xcm.inner()).iter_mut().flat_map(matches_recursive).collect(),
 				_ => vec![message.clone()],
 			}
 		}
@@ -172,8 +172,7 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 			.message
 			.clone()
 			.iter_mut()
-			.map(matches_recursive)
-			.flatten()
+			.flat_map(matches_recursive)
 			.any(|m| matches_blocklisted_messages(m))
 		{
 			println!("  skipping message\n");
