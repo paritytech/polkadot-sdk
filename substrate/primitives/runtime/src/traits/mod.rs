@@ -55,6 +55,7 @@ use std::str::FromStr;
 pub mod transaction_extension;
 pub use transaction_extension::{
 	AsTransactionExtension, DispatchTransaction, TransactionExtension, TransactionExtensionMetadata,
+	ValidateResult,
 };
 
 /// A lazy value.
@@ -1444,6 +1445,8 @@ pub trait Dispatchable {
 		-> crate::DispatchResultWithInfo<Self::PostInfo>;
 }
 
+/// Shortcut to reference the `Origin` type of a `Dispatchable`.
+pub type OriginOf<T> = <T as Dispatchable>::RuntimeOrigin;
 /// Shortcut to reference the `Info` type of a `Dispatchable`.
 pub type DispatchInfoOf<T> = <T as Dispatchable>::Info;
 /// Shortcut to reference the `PostInfo` type of a `Dispatchable`.

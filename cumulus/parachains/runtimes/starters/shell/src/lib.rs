@@ -310,6 +310,41 @@ impl sp_runtime::traits::SignedExtension for DisallowSigned {
 	}
 }
 
+
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for DisallowSigned {
+	const IDENTIFIER: &'static str = "DisallowSigned";
+	type Val = ();
+	type Pre = ();
+	type Implicit = ();
+	fn implicit(
+		&self,
+	) -> sp_std::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
+		Ok(())
+	}
+	fn validate(
+		&self,
+		_origin: sp_runtime::traits::OriginOf<RuntimeCall>,
+		_call: &RuntimeCall,
+		_info: &sp_runtime::traits::DispatchInfoOf<RuntimeCall>,
+		_len: usize,
+		_target: &[u8],
+	) -> sp_runtime::traits::ValidateResult<Self, RuntimeCall> {
+		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
+	}
+	fn prepare(
+		self,
+		_val: Self::Val,
+		_origin: &sp_runtime::traits::OriginOf<RuntimeCall>,
+		_call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
+	}
+}
+
+#[test] fn builds() {}
+
 /// Index of a transaction in the chain.
 pub type Nonce = u32;
 /// A hash of some data used by the chain.

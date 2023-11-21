@@ -15,7 +15,13 @@ use sp_core::{self, RuntimeDebug};
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 
-use super::{CloneSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf};
+use super::{CloneSystemOriginSigner, DispatchInfoOf, OriginOf, Dispatchable, PostDispatchInfoOf};
+
+/// Shortcut for the result value of the `validate` function.
+pub type ValidateResult<TE, Call> = Result<
+	(ValidTransaction, <TE as TransactionExtension<Call>>::Val, OriginOf<Call>),
+	TransactionValidityError,
+>;
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
@@ -54,15 +60,12 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	/// incorrect.
 	fn validate(
 		&self,
-		origin: <Call as Dispatchable>::RuntimeOrigin,
+		origin: OriginOf<Call>,
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 		target: &[u8],
-	) -> Result<
-		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError,
-	>;
+	) -> ValidateResult<Self, Call>;
 
 	/// Do any pre-flight stuff for a transaction after validation.
 	///
@@ -77,7 +80,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &<Call as Dispatchable>::RuntimeOrigin,
+		origin: &OriginOf<Call>,
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
