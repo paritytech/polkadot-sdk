@@ -34,10 +34,6 @@ use polkadot_node_primitives::{
 	ValidationResult, DISPUTE_WINDOW,
 };
 
-#[cfg(feature = "subsystem-benchmarks")]
-use polkadot_node_subsystem_test_helpers::mock_orchestra as overseer;
-
-#[cfg(not(feature = "subsystem-benchmarks"))]
 use polkadot_node_subsystem::overseer;
 
 use polkadot_node_subsystem::{
@@ -830,6 +826,7 @@ where
 
 	loop {
 		let mut overlayed_db = OverlayedBackend::new(&backend);
+
 		let actions = futures::select! {
 			(_tick, woken_block, woken_candidate) = wakeups.next(&*state.clock).fuse() => {
 				subsystem.metrics.on_wakeup();
@@ -843,7 +840,9 @@ where
 					&subsystem.metrics,
 				).await?
 			}
+
 			next_msg = ctx.recv().fuse() => {
+
 				let mut actions = handle_from_overseer(
 					&mut ctx,
 					&mut state,
@@ -1594,13 +1593,16 @@ async fn handle_approved_ancestor<Context>(
 		let (tx, rx) = oneshot::channel();
 
 		ctx.send_message(ChainApiMessage::BlockNumber(target, tx)).await;
-
-		match rx.await {
+		let result = rx.await;
+		gum::info!(target: LOG_TARGET, ?result, ?lower_bound, "Block number");
+		match result {
 			Ok(Ok(Some(n))) => n,
 			Ok(Ok(None)) => return Ok(None),
 			Ok(Err(_)) | Err(_) => return Ok(None),
 		}
 	};
+
+	gum::info!(target: LOG_TARGET, ?target_number, ?lower_bound, "TARGET NUMBER");
 
 	span.add_uint_tag("leaf-number", target_number as u64);
 	span.add_uint_tag("lower-bound", lower_bound as u64);
@@ -1629,6 +1631,7 @@ async fn handle_approved_ancestor<Context>(
 		Vec::new()
 	};
 	let ancestry_len = ancestry.len();
+	gum::info!(target: LOG_TARGET, ?target_number, ?lower_bound, len = ?ancestry.len(), ?ancestry, "Ancestry");
 
 	let mut block_descriptions = Vec::new();
 
@@ -1657,6 +1660,19 @@ async fn handle_approved_ancestor<Context>(
 			},
 			Some(b) => b,
 		};
+		let mut count_unapproved = 0;
+		for candidate in entry.unapproved_candidates() {
+			count_unapproved = count_unapproved + 1;
+		}
+
+		gum::info!(
+			target: LOG_TARGET, 
+			?target_number, 
+			?lower_bound, 
+			?block_hash, 
+			?count_unapproved,
+			entry_approved = ?entry.is_fully_approved(), 
+			 "Block hash");
 
 		// even if traversing millions of blocks this is fairly cheap and always dwarfed by the
 		// disk lookups.

@@ -42,7 +42,7 @@ rand = "0.8.5"
 parity-scale-codec = { version = "3.6.1", features = ["std", "derive"] }
 tokio = "1.24.2"
 clap-num = "1.0.2"
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers", features=["subsystem-benchmarks"] }
+polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers"}
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
 sc-network = { path = "../../../substrate/client/network" }
@@ -55,7 +55,7 @@ prometheus = { version = "0.13.0", default-features = false }
 serde = "1.0.192"
 serde_yaml = "0.9"
 
-polkadot-node-core-approval-voting = { path = "../core/approval-voting", features=["subsystem-benchmarks"]}
+polkadot-node-core-approval-voting = { path = "../core/approval-voting"}
 polkadot-approval-distribution = {path = "../network/approval-distribution"}
 kvdb-memorydb = "0.13.0"
 sp-consensus = { path = "../../../substrate/primitives/consensus/common", default-features = false }
@@ -66,6 +66,8 @@ orchestra = { version = "0.3.3", default-features = false, features=["futures_ch
 
 schnorrkel = { version = "0.9.1", default-features = false }
 rand_core = "0.5.1" # should match schnorrkel
+rand_chacha = { version = "0.3.1" }
+
 
 [features]
 default = []

@@ -36,10 +36,7 @@ use polkadot_node_primitives::{
 	},
 	MAX_FINALITY_LAG,
 };
-#[cfg(feature = "subsystem-benchmarks")]
-use polkadot_node_subsystem_test_helpers::mock_orchestra as overseer;
 
-#[cfg(not(feature = "subsystem-benchmarks"))]
 use polkadot_node_subsystem::overseer;
 
 use polkadot_node_subsystem::{

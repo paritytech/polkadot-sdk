@@ -26,62 +26,62 @@ use sc_service::TaskManager;
 use std::{path::Path, time::Duration};
 
 pub(crate) mod approval;
-// // pub(crate) mod availability;
-// pub(crate) mod cli;
-// pub(crate) mod core;
+pub(crate) mod availability;
+pub(crate) mod cli;
+pub(crate) mod core;
 
-// use availability::{
-// 	AvailabilityRecoveryConfiguration, DataAvailabilityReadOptions, NetworkEmulation,
-// 	TestEnvironment, TestState,
-// };
-// use cli::TestObjective;
+use availability::{
+	AvailabilityRecoveryConfiguration, DataAvailabilityReadOptions, NetworkEmulation,
+	TestEnvironment, TestState,
+};
+use cli::TestObjective;
 
-// use core::configuration::{PeerLatency, TestConfiguration, TestSequence};
+use core::configuration::{PeerLatency, TestConfiguration, TestSequence};
 
-// use clap_num::number_range;
-// const LOG_TARGET: &str = "subsystem-bench";
+use clap_num::number_range;
+const LOG_TARGET: &str = "subsystem-bench";
 
-// fn le_100(s: &str) -> Result<usize, String> {
-// 	number_range(s, 0, 100)
-// }
+fn le_100(s: &str) -> Result<usize, String> {
+	number_range(s, 0, 100)
+}
 
-// fn le_5000(s: &str) -> Result<usize, String> {
-// 	number_range(s, 0, 5000)
-// }
+fn le_5000(s: &str) -> Result<usize, String> {
+	number_range(s, 0, 5000)
+}
 
-// #[derive(Debug, Parser)]
-// #[allow(missing_docs)]
-// struct BenchCli {
-// 	#[arg(long, value_enum, ignore_case = true, default_value_t = NetworkEmulation::Ideal)]
-// 	/// The type of network to be emulated
-// 	pub network: NetworkEmulation,
+#[derive(Debug, Parser)]
+#[allow(missing_docs)]
+struct BenchCli {
+	#[arg(long, value_enum, ignore_case = true, default_value_t = NetworkEmulation::Ideal)]
+	/// The type of network to be emulated
+	pub network: NetworkEmulation,
 
-// 	#[clap(flatten)]
-// 	pub standard_configuration: cli::StandardTestOptions,
+	#[clap(flatten)]
+	pub standard_configuration: cli::StandardTestOptions,
 
-// 	#[clap(short, long)]
-// 	/// The bandwidth of simulated remote peers in KiB
-// 	pub peer_bandwidth: Option<usize>,
+	#[clap(short, long)]
+	/// The bandwidth of simulated remote peers in KiB
+	pub peer_bandwidth: Option<usize>,
 
-// 	#[clap(short, long)]
-// 	/// The bandwidth of our simulated node in KiB
-// 	pub bandwidth: Option<usize>,
+	#[clap(short, long)]
+	/// The bandwidth of our simulated node in KiB
+	pub bandwidth: Option<usize>,
 
-// 	#[clap(long, value_parser=le_100)]
-// 	/// Simulated connection error rate [0-100].
-// 	pub peer_error: Option<usize>,
+	#[clap(long, value_parser=le_100)]
+	/// Simulated connection error rate [0-100].
+	pub peer_error: Option<usize>,
 
-// 	#[clap(long, value_parser=le_5000)]
-// 	/// Minimum remote peer latency in milliseconds [0-5000].
-// 	pub peer_min_latency: Option<u64>,
+	#[clap(long, value_parser=le_5000)]
+	/// Minimum remote peer latency in milliseconds [0-5000].
+	pub peer_min_latency: Option<u64>,
 
-// 	#[clap(long, value_parser=le_5000)]
-// 	/// Maximum remote peer latency in milliseconds [0-5000].
-// 	pub peer_max_latency: Option<u64>,
+	#[clap(long, value_parser=le_5000)]
+	/// Maximum remote peer latency in milliseconds [0-5000].
+	pub peer_max_latency: Option<u64>,
 
-// 	#[command(subcommand)]
-// 	pub objective: cli::TestObjective,
-// }
+	#[command(subcommand)]
+	pub objective: cli::TestObjective,
+}
 
 pub fn new_runtime() -> tokio::runtime::Runtime {
 	tokio::runtime::Builder::new_multi_thread()
@@ -92,114 +92,114 @@ pub fn new_runtime() -> tokio::runtime::Runtime {
 		.unwrap()
 }
 
-// impl BenchCli {
-// 	fn launch(self) -> eyre::Result<()> {
-// 		use prometheus::Registry;
+impl BenchCli {
+	fn launch(self) -> eyre::Result<()> {
+		use prometheus::Registry;
 
-// 		let runtime = new_runtime();
+		let runtime = new_runtime();
 
-// 		let configuration = self.standard_configuration;
-// 		let mut test_config = match self.objective {
-// 			TestObjective::TestSequence(options) => {
-// 				let test_sequence =
-// 					core::configuration::TestSequence::new_from_file(Path::new(&options.path))
-// 						.expect("File exists")
-// 						.to_vec();
-// 				let num_steps = test_sequence.len();
-// 				gum::info!(
-// 					"{}",
-// 					format!("Sequence contains {} step(s)", num_steps).bright_purple()
-// 				);
-// 				for (index, test_config) in test_sequence.into_iter().enumerate() {
-// 					gum::info!(
-// 						"{}, {}, {}, {}, {}, {}",
-// 						format!("Step {}/{}", index + 1, num_steps).bright_purple(),
-// 						format!("n_validators = {}", test_config.n_validators).blue(),
-// 						format!("n_cores = {}", test_config.n_cores).blue(),
-// 						format!(
-// 							"pov_size = {} - {}",
-// 							test_config.min_pov_size, test_config.max_pov_size
-// 						)
-// 						.bright_black(),
-// 						format!("error = {}", test_config.error).bright_black(),
-// 						format!("latency = {:?}", test_config.latency).bright_black(),
-// 					);
+		let configuration = self.standard_configuration;
+		let mut test_config = match self.objective {
+			TestObjective::TestSequence(options) => {
+				let test_sequence =
+					core::configuration::TestSequence::new_from_file(Path::new(&options.path))
+						.expect("File exists")
+						.to_vec();
+				let num_steps = test_sequence.len();
+				gum::info!(
+					"{}",
+					format!("Sequence contains {} step(s)", num_steps).bright_purple()
+				);
+				for (index, test_config) in test_sequence.into_iter().enumerate() {
+					gum::info!(
+						"{}, {}, {}, {}, {}, {}",
+						format!("Step {}/{}", index + 1, num_steps).bright_purple(),
+						format!("n_validators = {}", test_config.n_validators).blue(),
+						format!("n_cores = {}", test_config.n_cores).blue(),
+						format!(
+							"pov_size = {} - {}",
+							test_config.min_pov_size, test_config.max_pov_size
+						)
+						.bright_black(),
+						format!("error = {}", test_config.error).bright_black(),
+						format!("latency = {:?}", test_config.latency).bright_black(),
+					);
 
-// 					let candidate_count = test_config.n_cores * test_config.num_blocks;
+					let candidate_count = test_config.n_cores * test_config.num_blocks;
 
-// 					let mut state = TestState::new(test_config);
-// 					state.generate_candidates(candidate_count);
-// 					let mut env =
-// 						TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
+					let mut state = TestState::new(test_config);
+					state.generate_candidates(candidate_count);
+					let mut env =
+						TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
 
-// 					runtime.block_on(availability::bench_chunk_recovery(&mut env));
-// 				}
-// 				return Ok(())
-// 			},
-// 			TestObjective::DataAvailabilityRead(ref options) => match self.network {
-// 				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
-// 					self.objective,
-// 					configuration.num_blocks,
-// 					configuration.n_validators,
-// 					configuration.n_cores,
-// 					configuration.min_pov_size,
-// 					configuration.max_pov_size,
-// 				),
-// 				NetworkEmulation::Degraded => TestConfiguration::degraded_network(
-// 					self.objective,
-// 					configuration.num_blocks,
-// 					configuration.n_validators,
-// 					configuration.n_cores,
-// 					configuration.min_pov_size,
-// 					configuration.max_pov_size,
-// 				),
-// 				NetworkEmulation::Ideal => TestConfiguration::ideal_network(
-// 					self.objective,
-// 					configuration.num_blocks,
-// 					configuration.n_validators,
-// 					configuration.n_cores,
-// 					configuration.min_pov_size,
-// 					configuration.max_pov_size,
-// 				),
-// 			},
-// 		};
+					runtime.block_on(availability::bench_chunk_recovery(&mut env));
+				}
+				return Ok(())
+			},
+			TestObjective::DataAvailabilityRead(ref options) => match self.network {
+				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
+					self.objective,
+					configuration.num_blocks,
+					configuration.n_validators,
+					configuration.n_cores,
+					configuration.min_pov_size,
+					configuration.max_pov_size,
+				),
+				NetworkEmulation::Degraded => TestConfiguration::degraded_network(
+					self.objective,
+					configuration.num_blocks,
+					configuration.n_validators,
+					configuration.n_cores,
+					configuration.min_pov_size,
+					configuration.max_pov_size,
+				),
+				NetworkEmulation::Ideal => TestConfiguration::ideal_network(
+					self.objective,
+					configuration.num_blocks,
+					configuration.n_validators,
+					configuration.n_cores,
+					configuration.min_pov_size,
+					configuration.max_pov_size,
+				),
+			},
+		};
 
-// 		let mut latency_config = test_config.latency.clone().unwrap_or_default();
+		let mut latency_config = test_config.latency.clone().unwrap_or_default();
 
-// 		if let Some(latency) = self.peer_min_latency {
-// 			latency_config.min_latency = Duration::from_millis(latency);
-// 		}
+		if let Some(latency) = self.peer_min_latency {
+			latency_config.min_latency = Duration::from_millis(latency);
+		}
 
-// 		if let Some(latency) = self.peer_max_latency {
-// 			latency_config.max_latency = Duration::from_millis(latency);
-// 		}
+		if let Some(latency) = self.peer_max_latency {
+			latency_config.max_latency = Duration::from_millis(latency);
+		}
 
-// 		if let Some(error) = self.peer_error {
-// 			test_config.error = error;
-// 		}
+		if let Some(error) = self.peer_error {
+			test_config.error = error;
+		}
 
-// 		if let Some(bandwidth) = self.peer_bandwidth {
-// 			// CLI expects bw in KiB
-// 			test_config.peer_bandwidth = bandwidth * 1024;
-// 		}
+		if let Some(bandwidth) = self.peer_bandwidth {
+			// CLI expects bw in KiB
+			test_config.peer_bandwidth = bandwidth * 1024;
+		}
 
-// 		if let Some(bandwidth) = self.bandwidth {
-// 			// CLI expects bw in KiB
-// 			test_config.bandwidth = bandwidth * 1024;
-// 		}
+		if let Some(bandwidth) = self.bandwidth {
+			// CLI expects bw in KiB
+			test_config.bandwidth = bandwidth * 1024;
+		}
 
-// 		let candidate_count = test_config.n_cores * test_config.num_blocks;
-// 		test_config.write_to_disk();
+		let candidate_count = test_config.n_cores * test_config.num_blocks;
+		test_config.write_to_disk();
 
-// 		let mut state = TestState::new(test_config);
-// 		state.generate_candidates(candidate_count);
-// 		let mut env = TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
+		let mut state = TestState::new(test_config);
+		state.generate_candidates(candidate_count);
+		let mut env = TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
 
-// 		runtime.block_on(availability::bench_chunk_recovery(&mut env));
+		runtime.block_on(availability::bench_chunk_recovery(&mut env));
 
-// 		Ok(())
-// 	}
-// }
+		Ok(())
+	}
+}
 
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
@@ -221,7 +221,7 @@ fn main() -> eyre::Result<()> {
 
 	println!("RUNTIME ====");
 	runtime.block_on(async {
-		approval_subsystem.run_approval_voting().await;
+		approval_subsystem.run_benchmark().await;
 	});
 
 	Ok(())

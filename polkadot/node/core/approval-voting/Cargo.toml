@@ -53,5 +53,3 @@ test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../
 log = "0.4.17"
 env_logger = "0.9.0"
 
-[features]
-subsystem-benchmarks = []
