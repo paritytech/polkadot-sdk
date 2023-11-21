@@ -420,8 +420,9 @@ where
 
 		// once the ancestry proof is verified, calculate the prev_root to compare it
 		// with the commitment's prev_root
-		let ancestry_prev_root =
-			mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(ancestry_proof.prev_peaks.clone());
+		let ancestry_prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<NodeHash, Hasher>(
+			ancestry_proof.prev_peaks.clone(),
+		);
 		// if the commitment payload does not commit to an MMR root, then this
 		// commitment may have another purpose and should not be slashed
 		let commitment_prev_root =

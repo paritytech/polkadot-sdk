@@ -52,7 +52,7 @@ where
 	H: Clone + Debug + PartialEq + Encode,
 	M: mmr_lib::Merge<Item = H>,
 {
-	let p: mmr_lib::MerkleProof<H, _> = mmr_lib::MerkleProof::<H, M>::new(
+	let p: mmr_lib::NodeMerkleProof<H, _> = mmr_lib::NodeMerkleProof::<H, M>::new(
 		mmr_size,
 		ancestry_proof
 			.proof
@@ -68,8 +68,9 @@ where
 		proof: p,
 	};
 
-	let prev_root = mmr_lib::bagging_peaks_hashes::<H, M>(ancestry_proof.prev_peaks.clone())
-		.map_err(|e| Error::Verify.log_debug(e))?;
+	let prev_root =
+		mmr_lib::ancestry_proof::bagging_peaks_hashes::<H, M>(ancestry_proof.prev_peaks.clone())
+			.map_err(|e| Error::Verify.log_debug(e))?;
 	ancestry_proof
 		.verify_ancestor(root, prev_root)
 		.map_err(|e| Error::Verify.log_debug(e))

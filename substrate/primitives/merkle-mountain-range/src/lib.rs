@@ -359,6 +359,17 @@ pub struct Proof<Hash> {
 	pub items: Vec<Hash>,
 }
 
+/// An MMR proof data for a group of leaves.
+#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+pub struct NodeProof<Hash> {
+	/// The indices of the leaves the proof is for.
+	pub leaf_indices: Vec<LeafIndex>,
+	/// Number of leaves in MMR, when the proof was generated.
+	pub leaf_count: NodeIndex,
+	/// Proof elements (hashes of siblings of inner nodes on the path to the leaf).
+	pub items: Vec<(u64, Hash)>,
+}
+
 /// An MMR ancestry proof for a prior mmr root.
 #[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct AncestryProof<Hash> {
@@ -367,7 +378,7 @@ pub struct AncestryProof<Hash> {
 	/// Size of the ancestor's mmr
 	pub prev_size: u64,
 	/// Proof of the ancestry
-	pub proof: Proof<Hash>,
+	pub proof: NodeProof<Hash>,
 }
 
 /// Merkle Mountain Range operation error.

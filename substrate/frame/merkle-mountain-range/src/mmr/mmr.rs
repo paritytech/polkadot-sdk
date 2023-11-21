@@ -123,7 +123,7 @@ where
 		&self,
 		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
 	) -> Result<bool, Error> {
-		let p = mmr_lib::MerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
+		let p = mmr_lib::NodeMerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
 			self.mmr.mmr_size(),
 			ancestry_proof
 				.proof
@@ -143,11 +143,11 @@ where
 			proof: p,
 		};
 
-		let prev_root =
-			mmr_lib::bagging_peaks_hashes::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>(
-				ancestry_proof.prev_peaks.clone(),
-			)
-			.map_err(|e| Error::Verify.log_debug(e))?;
+		let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<
+			NodeOf<T, I, L>,
+			Hasher<HashingOf<T, I>, L>,
+		>(ancestry_proof.prev_peaks.clone())
+		.map_err(|e| Error::Verify.log_debug(e))?;
 		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
 		ancestry_proof
 			.verify_ancestor(root, prev_root)
@@ -236,10 +236,10 @@ where
 		let leaf_count = self.leaves;
 		let prev_mmr_size = NodesUtils::new(prev_leaf_count).size();
 		self.mmr
-			.gen_prefix_proof(prev_mmr_size)
+			.gen_ancestry_proof(prev_mmr_size)
 			.map_err(|e| Error::GenerateProof.log_error(e))
 			.map(|p| {
-				let proof = primitives::Proof {
+				let proof = primitives::NodeProof {
 					leaf_indices: (p.prev_size..leaf_count).collect(),
 					leaf_count,
 					items: p
