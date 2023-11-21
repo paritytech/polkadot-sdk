@@ -586,6 +586,7 @@ fn para_upgrade_initiated_by_manager_works() {
 		// Register an on demand parachain
 		let mut code_size = 1024 * 1024;
 		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
 		let code_0 = validation_code(code_size);
 
 		assert_ok!(Registrar::reserve(signed(1)));
@@ -603,7 +604,7 @@ fn para_upgrade_initiated_by_manager_works() {
 		run_to_session(START_SESSION_INDEX + 2);
 		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Parathread));
 		// The deposit should be appropriately taken.
-		let total_bytes_stored = code_size as u32 + genesis_head.0.len() as u32;
+		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
@@ -623,11 +624,15 @@ fn para_upgrade_initiated_by_manager_works() {
 		// After two more sessions the parachain can be upgraded.
 		run_to_session(START_SESSION_INDEX + 4);
 		// Force a new head to enact the code upgrade.
-		assert_ok!(Paras::force_note_new_head(RuntimeOrigin::root(), para_id, Default::default()));
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
 
 		// The reserved deposit should cover for the size difference of the new validation code.
-		let total_bytes_stored = code_size as u32 + genesis_head.0.len() as u32;
+		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
@@ -652,11 +657,15 @@ fn para_upgrade_initiated_by_manager_works() {
 		// After two more sessions the parachain can be upgraded.
 		run_to_session(START_SESSION_INDEX + 6);
 		// Force a new head to enact the code upgrade.
-		assert_ok!(Paras::force_note_new_head(RuntimeOrigin::root(), para_id, Default::default()));
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
 
 		// The reserved deposit should cover only the size of the new validation code.
-		let total_bytes_stored = code_size as u32 + genesis_head.0.len() as u32;
+		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())

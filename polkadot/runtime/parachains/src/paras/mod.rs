@@ -511,13 +511,13 @@ pub trait OnCodeUpgrade {
 	///
 	/// This is currently used by the registrar pallet to perform refunds upon validation code
 	/// size reduction.
-	fn on_code_upgrade(id: ParaId, new_code_hash: ValidationCodeHash) -> Weight;
+	fn on_code_upgrade(id: ParaId) -> Weight;
 }
 
 /// An empty implementation of the trait where there is no logic executed upon a successful
 /// code upgrade.
 impl OnCodeUpgrade for () {
-	fn on_code_upgrade(_id: ParaId, _new_code_hash: ValidationCodeHash) -> Weight {
+	fn on_code_upgrade(_id: ParaId) -> Weight {
 		Weight::zero()
 	}
 }
@@ -2057,8 +2057,7 @@ impl<T: Config> Pallet<T> {
 
 				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
 					let mut weight = Self::note_past_code(id, expected_at, now, prior_code_hash);
-					weight =
-						weight.saturating_add(T::OnCodeUpgrade::on_code_upgrade(id, new_code_hash));
+					weight = weight.saturating_add(T::OnCodeUpgrade::on_code_upgrade(id));
 
 					weight
 				} else {
