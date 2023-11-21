@@ -23,7 +23,7 @@ use crate::{
 	primitives::{self, Error, LeafIndex, NodeIndex},
 	Config, HashOf, HashingOf,
 };
-use sp_mmr_primitives::{mmr_lib, utils::NodesUtils};
+use sp_mmr_primitives::{mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils};
 use sp_std::prelude::*;
 
 /// Stateless verification of the proof for a batch of leaves.
@@ -69,7 +69,8 @@ where
 	T: Config<I>,
 	I: 'static,
 	L: primitives::FullLeaf,
-	Storage<StorageType, T, I, L>: mmr_lib::MMRStore<NodeOf<T, I, L>>,
+	Storage<StorageType, T, I, L>:
+		mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> + mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>>,
 {
 	mmr: mmr_lib::MMR<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>, Storage<StorageType, T, I, L>>,
 	leaves: NodeIndex,
@@ -80,7 +81,8 @@ where
 	T: Config<I>,
 	I: 'static,
 	L: primitives::FullLeaf,
-	Storage<StorageType, T, I, L>: mmr_lib::MMRStore<NodeOf<T, I, L>>,
+	Storage<StorageType, T, I, L>:
+		mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> + mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>>,
 {
 	/// Create a pointer to an existing MMR with given number of leaves.
 	pub fn new(leaves: NodeIndex) -> Self {
@@ -180,7 +182,7 @@ where
 
 	/// Commit the changes to underlying storage, return current number of leaves and
 	/// calculate the new MMR's root hash.
-	pub fn finalize(self) -> Result<(NodeIndex, HashOf<T, I>), Error> {
+	pub fn finalize(&mut self) -> Result<(NodeIndex, HashOf<T, I>), Error> {
 		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
 		self.mmr.commit().map_err(|e| Error::Commit.log_error(e))?;
 		Ok((self.leaves, root.hash()))
@@ -209,7 +211,7 @@ where
 		let store = <Storage<OffchainStorage, T, I, L>>::default();
 		let leaves = positions
 			.iter()
-			.map(|pos| match mmr_lib::MMRStore::get_elem(&store, *pos) {
+			.map(|pos| match store.get_elem(*pos) {
 				Ok(Some(Node::Data(leaf))) => Ok(leaf),
 				e => Err(Error::LeafNotFound.log_debug(e)),
 			})
