@@ -6860,7 +6860,10 @@ mod ledger {
 			// Do not migrate a variant if not `Controller`.
 			Payee::<Test>::insert(21, RewardDestination::Stash);
 			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
-			assert_ok!(Staking::update_payee(RuntimeOrigin::signed(11), 21));
+			assert_noop!(
+				Staking::update_payee(RuntimeOrigin::signed(11), 21),
+				Error::<Test>::NotController
+			);
 			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
 		})
 	}

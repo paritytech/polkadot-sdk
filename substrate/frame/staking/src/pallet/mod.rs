@@ -1899,10 +1899,13 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			#[allow(deprecated)]
-			if Payee::<T>::get(&ledger.stash) != RewardDestination::Controller {
-				return Ok(Pays::Yes.into())
-			}
+			ensure!(
+				(Payee::<T>::get(&ledger.stash) == {
+					#[allow(deprecated)]
+					RewardDestination::Controller
+				}),
+				Error::<T>::NotController
+			);
 
 			let _ = ledger
 				.set_payee(RewardDestination::Account(controller))
