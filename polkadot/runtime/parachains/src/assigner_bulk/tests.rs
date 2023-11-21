@@ -93,7 +93,7 @@ fn assign_core_works_with_no_prior_schedule() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign_core
 		assert_ok!(BulkAssigner::do_assign_core(
@@ -130,7 +130,7 @@ fn assign_core_works_with_prior_schedule() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 		let default_with_next_schedule =
 			Schedule { next_schedule: Some(15u32), ..default_test_schedule() };
 
@@ -182,12 +182,12 @@ fn assign_core_enforces_higher_block_number() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign core twice to establish some schedules
 		assert_ok!(BulkAssigner::do_assign_core(
 			core_idx,
-			BlockNumberFor::<Test>::from(11u32),
+			BlockNumberFor::<Test>::from(12u32),
 			default_test_assignments(),
 			None,
 		));
@@ -203,7 +203,7 @@ fn assign_core_enforces_higher_block_number() {
 		assert_noop!(
 			BulkAssigner::do_assign_core(
 				core_idx,
-				BlockNumberFor::<Test>::from(10u32),
+				BlockNumberFor::<Test>::from(11u32),
 				default_test_assignments(),
 				None,
 			),
@@ -230,20 +230,32 @@ fn assign_core_enforces_well_formed_schedule() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
-		let bad_assignment_count: Vec<(CoreAssignment, PartsOf57600)> = vec![];
-		let bad_parts_sum = vec![
-			(CoreAssignment::Task(para_id.into()), PartsOf57600::from(57600u16)),
+		let empty_assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![];
+		let too_many_assignments = vec![(CoreAssignment::Pool, PartsOf57600::from(288u16)); 200];
+		let overscheduled = vec![
 			(CoreAssignment::Pool, PartsOf57600::from(57600u16)),
+			(CoreAssignment::Task(para_id.into()), PartsOf57600::from(57600u16)),
+		];
+		let underscheduled = vec![(CoreAssignment::Pool, PartsOf57600::from(30000u16))];
+		let not_unique = vec![
+			(CoreAssignment::Pool, PartsOf57600::from(57600u16 / 2)),
+			(CoreAssignment::Pool, PartsOf57600::from(57600u16 / 2)),
+		];
+		let not_sorted = vec![
+			(CoreAssignment::Task(para_id.into()), PartsOf57600::from(19200u16)),
+			(CoreAssignment::Pool, PartsOf57600::from(19200u16)),
+			(CoreAssignment::Idle, PartsOf57600::from(19200u16)),
 		];
 
-		// Attempting to assign_core with bad assignments
+		// Attempting assign_core with malformed assignments such that all error cases
+		// are tested
 		assert_noop!(
 			BulkAssigner::do_assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
-				bad_assignment_count,
+				empty_assignments,
 				None,
 			),
 			Error::<Test>::AssignmentsEmpty
@@ -252,10 +264,46 @@ fn assign_core_enforces_well_formed_schedule() {
 			BulkAssigner::do_assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
-				bad_parts_sum,
+				too_many_assignments,
+				None,
+			),
+			Error::<Test>::TooManyAssignments
+		);
+		assert_noop!(
+			BulkAssigner::assign_core(
+				core_idx,
+				BlockNumberFor::<Test>::from(11u32),
+				overscheduled,
 				None,
 			),
 			Error::<Test>::OverScheduled
+		);
+		assert_noop!(
+			BulkAssigner::assign_core(
+				core_idx,
+				BlockNumberFor::<Test>::from(11u32),
+				underscheduled,
+				None,
+			),
+			Error::<Test>::UnderScheduled
+		);
+		assert_noop!(
+			BulkAssigner::assign_core(
+				core_idx,
+				BlockNumberFor::<Test>::from(11u32),
+				not_unique,
+				None,
+			),
+			Error::<Test>::AssignmentsNotUnique
+		);
+		assert_noop!(
+			BulkAssigner::assign_core(
+				core_idx,
+				BlockNumberFor::<Test>::from(11u32),
+				not_sorted,
+				None,
+			),
+			Error::<Test>::AssignmentsNotSorted
 		);
 	});
 }
@@ -265,12 +313,12 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-		let start_1 = 10u32;
-		let start_2 = 15u32;
-		let start_3 = 20u32;
-		let start_4 = 25u32;
-		let start_5 = 30u32;
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
+		let start_1 = 15u32;
+		let start_2 = 20u32;
+		let start_3 = 25u32;
+		let start_4 = 30u32;
+		let start_5 = 35u32;
 
 		let expected_schedule_3 =
 			Schedule { next_schedule: Some(start_4), ..default_test_schedule() };
@@ -315,8 +363,9 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 		));
 
 		// Rotate through the first two schedules
+		run_to_block(start_1, |n| if n == start_1 { Some(Default::default()) } else { None });
 		BulkAssigner::pop_assignment_for_core(core_idx);
-		run_to_block(15, |n| if n == 15 { Some(Default::default()) } else { None });
+		run_to_block(start_2, |n| if n == start_2 { Some(Default::default()) } else { None });
 		BulkAssigner::pop_assignment_for_core(core_idx);
 
 		// Use saved starting block numbers to check that schedules chain
@@ -379,7 +428,7 @@ fn ensure_workload_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let mut core_descriptor: CoreDescriptor<BlockNumberFor<Test>> =
 			CoreDescriptor { queue: None, current_work: None };
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Case 1: No new schedule in CoreSchedules for core
 		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
@@ -431,7 +480,7 @@ fn pop_assignment_for_core_works() {
 		// on demand order to later pop with our bulk assigner.
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		Balances::make_free_balance_be(&alice, amt);
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 		assert_ok!(OnDemandAssigner::place_order_allow_death(
 			RuntimeOrigin::signed(alice),
 			amt,
@@ -441,22 +490,24 @@ fn pop_assignment_for_core_works() {
 		// Case 1: Assignment idle
 		assert_ok!(BulkAssigner::do_assign_core(
 			core_idx,
-			BlockNumberFor::<Test>::from(10u32),
+			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(), // Default is Idle
 			None,
 		));
+
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		assert_eq!(BulkAssigner::pop_assignment_for_core(core_idx), None);
 
 		// Case 2: Assignment pool
 		assert_ok!(BulkAssigner::do_assign_core(
 			core_idx,
-			BlockNumberFor::<Test>::from(11u32),
+			BlockNumberFor::<Test>::from(21u32),
 			assignments_pool,
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		run_to_block(21, |n| if n == 21 { Some(Default::default()) } else { None });
 
 		assert_eq!(
 			BulkAssigner::pop_assignment_for_core(core_idx),
@@ -466,12 +517,12 @@ fn pop_assignment_for_core_works() {
 		// Case 3: Assignment task
 		assert_ok!(BulkAssigner::do_assign_core(
 			core_idx,
-			BlockNumberFor::<Test>::from(12u32),
+			BlockNumberFor::<Test>::from(31u32),
 			assignments_task,
 			None,
 		));
 
-		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
+		run_to_block(31, |n| if n == 31 { Some(Default::default()) } else { None });
 
 		assert_eq!(
 			BulkAssigner::pop_assignment_for_core(core_idx),
@@ -487,7 +538,7 @@ fn assignment_proportions_in_core_state_work() {
 	let task_2 = TaskId::from(2u32);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Task 1 gets 2/3 core usage, while task 2 gets 1/3
 		let test_assignments = vec![
@@ -497,10 +548,12 @@ fn assignment_proportions_in_core_state_work() {
 
 		assert_ok!(BulkAssigner::do_assign_core(
 			core_idx,
-			BlockNumberFor::<Test>::from(10u32),
+			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
 			None,
 		));
+
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Case 1: Current assignment remaining >= step after pop
 		{
@@ -566,7 +619,7 @@ fn equal_assignments_served_equally() {
 	let task_2 = TaskId::from(2u32);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Tasks 1 and 2 get equal work parts
 		let test_assignments = vec![
@@ -576,10 +629,12 @@ fn equal_assignments_served_equally() {
 
 		assert_ok!(BulkAssigner::do_assign_core(
 			core_idx,
-			BlockNumberFor::<Test>::from(10u32),
+			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
 			None,
 		));
+
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Test that popped assignments alternate between tasks 1 and 2
 		assert_eq!(
@@ -625,7 +680,7 @@ fn assignment_proportions_indivisible_by_step_work() {
 	let task_2 = TaskId::from(2u32);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Task 1 gets 3/5 core usage, while task 2 gets 2/5. That way
 		// step is set to 2/5 and task 1 is indivisible by step.
@@ -634,10 +689,12 @@ fn assignment_proportions_indivisible_by_step_work() {
 
 		assert_ok!(BulkAssigner::do_assign_core(
 			core_idx,
-			BlockNumberFor::<Test>::from(10u32),
+			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
 			None,
 		));
+
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Pop 5 assignments. Should Result in the the following work ordering:
 		// 1, 2, 1, 1, 2. The remaining parts for each assignment should be same

@@ -67,7 +67,7 @@ pub struct AssignmentVersion(u16);
 /// The storage key postfix that is used to store the [`AssignmentVersion`] per pallet.
 ///
 /// The full storage key is built by using:
-/// Twox128([`PalletInfo::name`]) ++ Twox128([`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`])
+/// Twox128(`PalletInfo::name`) ++ Twox128([`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`])
 pub const ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX: &[u8] = b":__ASSIGNMENT_VERSION__:";
 
 impl AssignmentVersion {
@@ -91,7 +91,7 @@ impl AssignmentVersion {
 	///
 	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
 	/// In a runtime that is put together using
-	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	/// `construct_runtime!` this should never happen.
 	///
 	/// It will also panic if this function isn't executed in an externalities
 	/// provided environment.
@@ -109,7 +109,7 @@ impl AssignmentVersion {
 	///
 	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
 	/// In a runtime that is put together using
-	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	/// `construct_runtime!` this should never happen.
 	///
 	/// It will also panic if this function isn't executed in an externalities
 	/// provided environment.
@@ -144,30 +144,8 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// functions.
 	///
 	/// As the lifetime of an assignment might outlive the current process (and need persistence),
-	/// we provide this type in a versioned fashion. This is where `OldAssignmentType` below and
-	/// `ASSIGNMENT_STORAGE_VERSION` come into play.
+	/// make sure to migrate using code if you change the `AssignmentProvider` implementation.
 	type AssignmentType: Assignment + Encode + Decode + TypeInfo + Debug;
-
-	/// Previous version of assignments.
-	///
-	/// Useful for migrating persisted assignments to the new version.
-	type OldAssignmentType: Assignment + Encode + Decode + TypeInfo + Debug;
-
-	/// What version the binary format of the `AssignmentType` has.
-	///
-	/// Will be bumped whenver the storage format of `AssignmentType` changes. If this version
-	/// differs from the version persisted you need to decode `OldAssignmentType` and migrate to the
-	/// new one via `migrate_old_to_current`.
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion;
-
-	/// Migrate an old Assignment to the current format.
-	///
-	/// In addition to the old assignment the core this assignment has been scheduled to, needs to
-	/// be provided.
-	fn migrate_old_to_current(
-		old: Self::OldAssignmentType,
-		core: CoreIndex,
-	) -> Self::AssignmentType;
 
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
@@ -192,6 +170,13 @@ pub trait AssignmentProvider<BlockNumber> {
 
 	/// Returns a set of variables needed by the scheduler
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
+
+	/// Push some assignment for mocking/benchmarks purposes.
+	///
+	/// Useful for benchmarks and testing. The returned assignment is "valid" and can if need be
+	/// passed into `report_processed` for example.
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Self::AssignmentType;
 }
 
 /// An `AssignmentProvider` with a determined set of cores.

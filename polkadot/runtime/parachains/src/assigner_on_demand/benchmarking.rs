@@ -73,8 +73,7 @@ mod benchmarks {
 		let order = EnqueuedOrder::new(para_id);
 
 		for _ in 0..s {
-			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back)
-				.unwrap();
+			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back).unwrap();
 		}
 
 		#[extrinsic_call]
@@ -91,8 +90,7 @@ mod benchmarks {
 		let order = EnqueuedOrder::new(para_id);
 
 		for _ in 0..s {
-			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back)
-				.unwrap();
+			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back).unwrap();
 		}
 
 		#[extrinsic_call]

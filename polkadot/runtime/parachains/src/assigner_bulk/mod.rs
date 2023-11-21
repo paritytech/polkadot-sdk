@@ -32,8 +32,8 @@ mod tests;
 use crate::{
 	assigner_on_demand, configuration, paras,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
-		FixedAssignmentProvider,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
+		V0Assignment,
 	},
 };
 
@@ -185,8 +185,6 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config
 	{
-		/// Something that provides the weight of this pallet.
-		type WeightInfo: WeightInfo;
 	}
 
 	/// Scheduled assignment sets.
@@ -217,12 +215,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			//TODO: Implement
-			T::DbWeight::get().reads_writes(0, 0)
-		}
-	}
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -262,13 +255,20 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		AssignmentsEmpty,
+		TooManyAssignments,
 		/// Assignments together exceeded 57600.
 		OverScheduled,
+		/// Assignments together less than 57600
+		UnderScheduled,
 		/// assign_core is only allowed to append new assignments at the end of already existing
 		/// ones.
 		DisallowedInsert,
 		/// Tried to insert a schedule for the same core and block number as an existing schedule
 		DuplicateInsert,
+		/// Tried to add an unsorted set of assignments
+		AssignmentsNotSorted,
+		/// Two or more of the same assignment contained in assignment set
+		AssignmentsNotUnique,
 	}
 }
 
@@ -295,24 +295,17 @@ impl<OnDemand: Assignment> Assignment for BulkAssignment<OnDemand> {
 	}
 }
 
-impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	type AssignmentType = BulkAssignmentType<T>;
-
-	type OldAssignmentType =
-		<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::OldAssignmentType;
-
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0)
-		.saturating_add(<assigner_on_demand::Pallet<T>>::ASSIGNMENT_STORAGE_VERSION);
-
-	fn migrate_old_to_current(
-		old: Self::OldAssignmentType,
-		core: CoreIndex,
-	) -> Self::AssignmentType {
-		// Previous version all assignments had been on-demand (bulk was not a thing):
-		BulkAssignment::Instantaneous(<assigner_on_demand::Pallet<T>>::migrate_old_to_current(
-			old, core,
+impl BulkAssignment<assigner_on_demand::OnDemandAssignment> {
+	pub(crate) fn from_v0_assignment(v0: V0Assignment, core_index: CoreIndex) -> Self {
+		// There have been no bulk cores previously:
+		BulkAssignment::Instantaneous(assigner_on_demand::OnDemandAssignment::from_v0_assignment(
+			v0, core_index,
 		))
 	}
+}
+
+impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	type AssignmentType = BulkAssignmentType<T>;
 
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		let now = <frame_system::Pallet<T>>::block_number();
@@ -388,6 +381,13 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			ttl: config.on_demand_ttl,
 		}
 	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
+		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
+		// return a bulk assignment.
+		return BulkAssignment::Bulk(para_id)
+	}
 }
 
 impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
@@ -456,19 +456,33 @@ impl<T: Config> Pallet<T> {
 		begin: BlockNumberFor<T>,
 		assignments: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<BlockNumberFor<T>>,
-	) -> DispatchResult {
-		// There should be at least one assignment
-		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
+	) -> Result<(), DispatchError> {
+		// TODO: Add this assert once the calls `request_core_count` and `notify_core_count`
+		// have been established. assert!(core < core_count);
 
-		// Check that the total parts between all assignments do not exceed 57600
-		ensure!(
-			assignments
-				.iter()
-				.map(|assignment| assignment.1)
-				.fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts)) <=
-				PartsOf57600::from(57600u16),
-			Error::<T>::OverScheduled
-		);
+		// There should be at least one assignment and at most 100
+		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
+		ensure!(assignments.len() <= 100usize, Error::<T>::TooManyAssignments);
+
+		// Checking for sort and unique manually, since we don't have access to iterator tools.
+		// This way of checking uniqueness only works since we also check sortedness.
+		let assignment_targets = assignments.iter().map(|x| &x.0);
+		let mut maybe_prior = None;
+		for target in assignment_targets {
+			if let Some(prior) = maybe_prior {
+				ensure!(target != prior, Error::<T>::AssignmentsNotUnique);
+				ensure!(target > prior, Error::<T>::AssignmentsNotSorted);
+			}
+			maybe_prior = Some(target);
+		}
+
+		// Check that the total parts between all assignments are equal to 57600
+		let parts_sum = assignments
+			.iter()
+			.map(|assignment| assignment.1)
+			.fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts));
+		ensure!(parts_sum <= PartsOf57600::from(57600u16), Error::<T>::OverScheduled);
+		ensure!(parts_sum >= PartsOf57600::from(57600u16), Error::<T>::UnderScheduled);
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_descriptor| {
 			let new_queue = match core_descriptor.queue {

@@ -22,39 +22,83 @@ use frame_support::{
 	traits::OnRuntimeUpgrade, weights::Weight,
 };
 
-use sp_std::convert::identity;
-
 /// Migration for potential changes in `Assignment` representation.
 pub mod assignment_version {
 	use super::*;
 	use crate::scheduler::{self, common::AssignmentVersion};
 
-	pub struct MigrateAssignment<T>(sp_std::marker::PhantomData<T>);
+	pub trait AssignmentMigration {
+		const ON_CHAIN_STORAGE_VERSION: AssignmentVersion;
+		const STORAGE_VERSION: AssignmentVersion;
 
-	/// Previously used `ParasEntryType`.
-	pub type OldParasEntryType<T> = ParasEntry<BlockNumberFor<T>, OldAssignmentType<T>>;
+		type OldType: Encode + Decode + TypeInfo + 'static;
+		type NewType: Encode + Decode + TypeInfo + 'static;
 
-	/// Previously used assignment type:
-	pub(crate) type OldAssignmentType<T> = <<T as Config>::AssignmentProvider as AssignmentProvider<
-		BlockNumberFor<T>,
-	>>::OldAssignmentType;
+		fn migrate(core_idx: CoreIndex, old: Self::OldType) -> Self::NewType;
+	}
 
-	/// ClaimQueue using old assignments.
-	#[storage_alias]
-	pub(crate) type ClaimQueue<T: Config> =
-		StorageValue<Pallet<T>, BTreeMap<CoreIndex, VecDeque<OldParasEntryType<T>>>, ValueQuery>;
+	mod old {
+		use super::*;
+		/// Previously used `ParasEntryType`.
+		pub type ParasEntryType<T, M> = ParasEntry<BlockNumberFor<T>, AssignmentType<M>>;
 
-	impl<T: Config> OnRuntimeUpgrade for MigrateAssignment<T> {
+		/// Previously used assignment type:
+		pub(crate) type AssignmentType<M> = <M as AssignmentMigration>::OldType;
+
+		/// ClaimQueue using old assignments.
+		#[storage_alias]
+		pub(crate) type ClaimQueue<T: Config, M: AssignmentMigration> = StorageValue<
+			Pallet<T>,
+			BTreeMap<CoreIndex, VecDeque<ParasEntryType<T, M>>>,
+			ValueQuery,
+		>;
+
+		#[storage_alias]
+		pub(crate) type AvailabilityCores<T: Config, M: AssignmentMigration> =
+			StorageValue<Pallet<T>, Vec<CoreOccupiedType<T, M>>, ValueQuery>;
+
+		/// Conveninece type alias for `CoreOccupied`.
+		pub type CoreOccupiedType<T, M> = CoreOccupied<BlockNumberFor<T>, AssignmentType<M>>;
+	}
+
+	mod new {
+		use super::*;
+		/// Now used `ParasEntryType`.
+		pub type ParasEntryType<T, M> = ParasEntry<BlockNumberFor<T>, AssignmentType<M>>;
+
+		/// Now used assignment type:
+		pub(crate) type AssignmentType<M> = <M as AssignmentMigration>::NewType;
+
+		/// ClaimQueue using new assignments.
+		#[storage_alias]
+		pub(crate) type ClaimQueue<T: Config, M: AssignmentMigration> = StorageValue<
+			Pallet<T>,
+			BTreeMap<CoreIndex, VecDeque<ParasEntryType<T, M>>>,
+			ValueQuery,
+		>;
+
+		/// Avaialbility cores using new assignments.
+		#[storage_alias]
+		pub(crate) type AvailabilityCores<T: Config, M: AssignmentMigration> =
+			StorageValue<Pallet<T>, Vec<CoreOccupiedType<T, M>>, ValueQuery>;
+
+		/// Conveninece type alias for `CoreOccupied`.
+		pub type CoreOccupiedType<T, M> = CoreOccupied<BlockNumberFor<T>, AssignmentType<M>>;
+	}
+
+	pub struct MigrateAssignment<T, M>(
+		sp_std::marker::PhantomData<T>,
+		sp_std::marker::PhantomData<M>,
+	);
+
+	impl<T: Config, M: AssignmentMigration> OnRuntimeUpgrade for MigrateAssignment<T, M> {
 		fn on_runtime_upgrade() -> Weight {
-			let assignment_version = <T::AssignmentProvider as AssignmentProvider<
-				BlockNumberFor<T>,
-			>>::ASSIGNMENT_STORAGE_VERSION;
 			// Is a migration necessary?
-			if AssignmentVersion::get::<Pallet<T>>() < assignment_version {
-				let mut weight = migrate_assignments::<T>();
+			if AssignmentVersion::get::<Pallet<T>>() == M::ON_CHAIN_STORAGE_VERSION {
+				let mut weight = migrate_assignments::<T, M>();
 
-				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler assginments to {:?}", assignment_version);
-				assignment_version.put::<Pallet<T>>();
+				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler assginments to {:?}", M::STORAGE_VERSION);
+				M::STORAGE_VERSION.put::<Pallet<T>>();
 
 				weight += T::DbWeight::get().reads_writes(1, 1);
 				weight
@@ -66,36 +110,72 @@ pub mod assignment_version {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			log::trace!(
-				target: crate::scheduler::LOG_TARGET,
-				"ClaimQueue before migration: {}",
-				ClaimQueue::<T>::get().len()
-			);
-
-			let bytes = u32::to_be_bytes(v1::ClaimQueue::<T>::get().len() as u32);
-
-			Ok(bytes.to_vec())
+			Ok(AssignmentVersion::get::<Pallet<T>>().encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			let assignment_version = <T::AssignmentProvider as AssignmentProvider<
-				BlockNumberFor<T>,
-			>>::ASSIGNMENT_STORAGE_VERSION;
-			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
-			ensure!(
-				AssignmentVersion::get::<Pallet<T>>() == assignment_version,
-				"Assignment version should should match current version after the migration"
-			);
-
-			let old_len = u32::from_be_bytes(state.try_into().unwrap());
-			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 == old_len,
-				"Old ClaimQueue completely moved to new ClaimQueue after migration"
-			);
-
+			// Did migration take place?
+			if <AssignmentVersion as Decode>::decode(&mut &state[..]).unwrap() ==
+				M::ON_CHAIN_STORAGE_VERSION
+			{
+				ensure!(
+					AssignmentVersion::get::<Pallet<T>>() == M::STORAGE_VERSION,
+					"Assignment version should should match current version after the migration."
+				);
+			}
 			Ok(())
 		}
+	}
+
+	pub fn migrate_assignments<T: scheduler::Config, M: AssignmentMigration>() -> Weight {
+		let mut weight: Weight = Weight::zero();
+
+		// Claimqueue migration:
+		let old = old::ClaimQueue::<T, M>::take();
+
+		let new = old
+			.into_iter()
+			.map(|(core, v)| {
+				(
+					core,
+					v.into_iter()
+						.map(|old| migrate_assignment_paras_entry::<T, M>(core, old))
+						.collect::<VecDeque<_>>(),
+				)
+			})
+			.collect::<BTreeMap<CoreIndex, VecDeque<new::ParasEntryType<T, M>>>>();
+		new::ClaimQueue::<T, M>::put(new);
+
+		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+
+		// Availability cores migration:
+		let old = old::AvailabilityCores::<T, M>::take();
+
+		let new = old
+			.into_iter()
+			.enumerate()
+			.map(|(i, o)| match o {
+				CoreOccupied::Free => CoreOccupied::Free,
+				CoreOccupied::Paras(entry) => CoreOccupied::Paras(
+					migrate_assignment_paras_entry::<T, M>(CoreIndex(i as _), entry),
+				),
+			})
+			.collect::<Vec<new::CoreOccupiedType<T, M>>>();
+		new::AvailabilityCores::<T, M>::put(new);
+
+		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+
+		weight
+	}
+
+	fn migrate_assignment_paras_entry<T: scheduler::Config, M: AssignmentMigration>(
+		core: CoreIndex,
+		old: old::ParasEntryType<T, M>,
+	) -> new::ParasEntryType<T, M> {
+		let super::ParasEntry { assignment, availability_timeouts, ttl } = old;
+
+		super::ParasEntry { assignment: M::migrate(core, assignment), availability_timeouts, ttl }
 	}
 }
 
@@ -259,7 +339,7 @@ pub mod v1 {
 				v0::AvailabilityCores::<T>::get().iter().filter(|c| c.is_some()).count() as u32;
 
 			log::info!(
-				target: scheduler::LOG_TARGET,
+				target: crate::scheduler::LOG_TARGET,
 				"Number of scheduled and waiting for availability before: {n}",
 			);
 
@@ -276,9 +356,9 @@ pub mod v1 {
 			);
 
 			let expected_len = u32::decode(&mut &state[..]).unwrap();
-			let availability_cores_waiting = super::AvailabilityCores::<T>::get()
-				.iter()
-				.filter(|c| !matches!(c, CoreOccupied::Free))
+			let availability_cores_waiting = v1::AvailabilityCores::<T>::get()
+				.into_iter()
+				.filter(|c| !matches!(c, v1::CoreOccupied::Free))
 				.count();
 
 			ensure!(
@@ -295,7 +375,9 @@ pub mod v1 {
 pub mod v2 {
 	use super::*;
 	use crate::scheduler;
-	use frame_support::traits::StorageVersion;
+
+	// ParasEntry unchanged:
+	pub type ParasEntry<N> = super::v1::ParasEntry<N>;
 
 	// V2 (no Option wrapper), but still old Assignment format.
 	//
@@ -303,26 +385,28 @@ pub mod v2 {
 	#[storage_alias]
 	pub(crate) type ClaimQueue<T: Config> = StorageValue<
 		Pallet<T>,
-		BTreeMap<CoreIndex, VecDeque<super::v1::ParasEntry<BlockNumberFor<T>>>>,
+		BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumberFor<T>>>>,
 		ValueQuery,
 	>;
 
-	pub struct MigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	#[allow(deprecated)]
+	pub type MigrateToV2<T> = VersionedMigration<
+		1,
+		2,
+		UncheckedMigrateToV2<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
+	pub struct UncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
-			if StorageVersion::get::<Pallet<T>>() == 1 {
-				let mut weight_consumed = migrate_to_v2::<T>();
+			let weight_consumed = migrate_to_v2::<T>();
 
-				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v2");
-				StorageVersion::new(2).put::<Pallet<T>>();
+			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v2");
 
-				weight_consumed += T::DbWeight::get().reads_writes(1, 1);
-				weight_consumed
-			} else {
-				log::warn!(target: scheduler::LOG_TARGET, "Para scheduler v2 migration should be removed.");
-				T::DbWeight::get().reads(1)
-			}
+			weight_consumed
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -341,14 +425,10 @@ pub mod v2 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
-			ensure!(
-				StorageVersion::get::<Pallet<T>>() >= 2,
-				"Storage version should be at least `2` after the migration"
-			);
 
 			let old_len = u32::from_be_bytes(state.try_into().unwrap());
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 == old_len,
+				v2::ClaimQueue::<T>::get().len() as u32 == old_len,
 				"Old ClaimQueue completely moved to new ClaimQueue after migration"
 			);
 
@@ -357,45 +437,18 @@ pub mod v2 {
 	}
 }
 
-pub fn migrate_assignments<T: crate::scheduler::Config>() -> Weight {
-	use assignment_version::ClaimQueue as OldClaimQueue;
-
-	let mut weight: Weight = Weight::zero();
-
-	let old = OldClaimQueue::<T>::take();
-	let old_len = old.len() as u64;
-
-	let new = old
-		.into_iter()
-		.map(|(core, v)| {
-			(
-				core,
-				v.into_iter()
-					.map(|old| migrate_assignment_paras_entry::<T>(core, old))
-					.collect::<VecDeque<_>>(),
-			)
-		})
-		.collect::<BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>>();
-	ClaimQueue::<T>::put(new);
-
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(2 * old_len, 2 * old_len));
-
-	weight
-}
-
-// Migrate to v2 (remove wrapping `Option`), but still with old assignment format.
+// Migrate to v2 (remove wrapping `Option`).
 pub fn migrate_to_v2<T: crate::scheduler::Config>() -> Weight {
 	let mut weight: Weight = Weight::zero();
 
 	let old = v1::ClaimQueue::<T>::take();
-	let old_len = old.len() as u64;
 	let new = old
 		.into_iter()
-		.map(|(k, v)| (k, v.into_iter().filter_map(identity).collect::<VecDeque<_>>()))
-		.collect::<BTreeMap<CoreIndex, VecDeque<v1::ParasEntry<BlockNumberFor<T>>>>>();
+		.map(|(k, v)| (k, v.into_iter().flatten().collect::<VecDeque<_>>()))
+		.collect::<BTreeMap<CoreIndex, VecDeque<v2::ParasEntry<BlockNumberFor<T>>>>>();
 	v2::ClaimQueue::<T>::put(new);
 
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(2 * old_len, 2 * old_len));
+	weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
 	weight
 }
@@ -448,22 +501,6 @@ pub fn migrate_to_v1<T: crate::scheduler::Config>() -> Weight {
 	weight = weight.saturating_add(T::DbWeight::get().writes(2));
 
 	weight
-}
-
-fn migrate_assignment_paras_entry<T: crate::scheduler::Config>(
-	core: CoreIndex,
-	old: assignment_version::OldParasEntryType<T>,
-) -> ParasEntryType<T> {
-	let ParasEntry { assignment, availability_timeouts, ttl } = old;
-
-	ParasEntry {
-		assignment:
-			<T::AssignmentProvider as AssignmentProvider<BlockNumberFor<T>>>::migrate_old_to_current(
-				assignment, core,
-			),
-		availability_timeouts,
-		ttl,
-	}
 }
 
 // TODO: Tests!
