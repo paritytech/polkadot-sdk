@@ -28,6 +28,7 @@ mod futures_stream;
 mod pending_responses;
 mod request_metrics;
 mod schema;
+mod strategy;
 mod types;
 
 pub mod block_relay_protocol;

@@ -244,7 +244,7 @@ struct Peer<B: BlockT> {
 	state: PeerState,
 }
 
-enum WarpSyncAction<B: BlockT> {
+pub enum WarpSyncAction<B: BlockT> {
 	/// Send warp proof request to peer.
 	SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest<B> },
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
@@ -482,7 +482,7 @@ where
 		Ok(())
 	}
 
-	// Process state response.
+	/// Process state response.
 	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
 		if let Err(bad_peer) = self.on_state_response_inner(peer_id, response) {
 			self.actions.push(WarpSyncAction::DropPeer(bad_peer));

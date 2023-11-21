@@ -452,13 +452,8 @@ where
 		);
 		let block_announce_protocol_name = block_announce_config.notifications_protocol.clone();
 
-		let chain_sync = ChainSync::new(
-			mode,
-			client.clone(),
-			max_parallel_downloads,
-			max_blocks_per_request,
-			warp_sync_config,
-		)?;
+		let chain_sync =
+			ChainSync::new(mode, client.clone(), max_parallel_downloads, max_blocks_per_request)?;
 
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
