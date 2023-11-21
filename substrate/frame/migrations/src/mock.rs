@@ -48,7 +48,7 @@ impl frame_system::Config for Test {
 }
 
 frame_support::parameter_types! {
-	pub const ServiceWeight: Weight = Weight::MAX.div(10);
+	pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
 }
 
 impl crate::Config for Test {
@@ -58,7 +58,7 @@ impl crate::Config for Test {
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = MockedMigrationStatusHandler;
 	type FailedMigrationHandler = MockedFailedMigrationHandler;
-	type ServiceWeight = ServiceWeight;
+	type MaxServiceWeight = MaxServiceWeight;
 	type WeightInfo = ();
 }
 
@@ -75,16 +75,15 @@ pub fn test_closure<R>(f: impl FnOnce() -> R) -> R {
 
 pub fn run_to_block(n: u32) {
 	while System::block_number() < n as u64 {
-		if System::block_number() > 1 {
-			Migrations::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-		}
 		log::debug!("Block {}", System::block_number());
 		System::set_block_number(System::block_number() + 1);
 		System::on_initialize(System::block_number());
 		Migrations::on_initialize(System::block_number());
 		// Executive calls this:
 		<Migrations as MultiStepMigrator>::step();
+
+		Migrations::on_finalize(System::block_number());
+		System::on_finalize(System::block_number());
 	}
 }
 

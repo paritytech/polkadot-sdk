@@ -409,7 +409,7 @@ pub mod pallet {
 			// The per-block service weight is sane.
 			#[cfg(not(test))]
 			{
-				let want = T::ServiceWeight::get();
+				let want = T::MaxServiceWeight::get();
 				let max = <T as frame_system::Config>::BlockWeights::get().max_block;
 
 				assert!(want.all_lte(max), "Service weight is larger than a block: {want} > {max}",);
@@ -563,7 +563,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Tries to make progress on the Multi-Block-Migrations process.
 	fn progress_mbms(n: BlockNumberFor<T>) -> Weight {
-		let mut meter = WeightMeter::with_limit(T::ServiceWeight::get());
+		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		meter.consume(T::WeightInfo::on_init_base());
 
 		let mut cursor = match Cursor::<T>::get() {

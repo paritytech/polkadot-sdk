@@ -236,8 +236,8 @@ pub fn expand_outer_inherent(
 					};
 
 					if is_inherent {
-						if num_inherents != i {
-							return Err(i);
+						if num_inherents != i as u32 {
+							return Err(i as u32);
 						}
 
 						num_inherents += 1; // Safe since we are in an `enumerate` loop.
