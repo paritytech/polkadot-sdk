@@ -128,6 +128,15 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -148,6 +157,7 @@
 
 </span><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>sc_cli::SubstrateCli;
+<span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Sub-commands supported by the collator.
 </span><span class="attr">#[derive(Debug, Parser)]
@@ -164,6 +174,10 @@
 <span class="doccomment">/// Command for exporting the genesis state of the parachain
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>ExportGenesisStateCommand {
+	<span class="doccomment">/// Output file name or stdout if unspecified.
+	</span><span class="attr">#[arg()]
+	</span><span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+
 	<span class="doccomment">/// Id of the parachain this collator collates for.
 	</span><span class="attr">#[arg(long, default_value_t = <span class="number">100</span>)]
 	</span><span class="kw">pub </span>parachain_id: u32,
@@ -180,7 +194,11 @@
 
 <span class="doccomment">/// Command for exporting the genesis wasm file.
 </span><span class="attr">#[derive(Debug, Parser)]
-</span><span class="kw">pub struct </span>ExportGenesisWasmCommand {}
+</span><span class="kw">pub struct </span>ExportGenesisWasmCommand {
+	<span class="doccomment">/// Output file name or stdout if unspecified.
+	</span><span class="attr">#[arg()]
+	</span><span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+}
 
 <span class="attr">#[allow(missing_docs)]
 #[derive(Debug, Parser)]
