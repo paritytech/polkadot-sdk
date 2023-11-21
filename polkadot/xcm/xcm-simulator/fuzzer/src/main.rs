@@ -98,7 +98,7 @@ impl<'a> Arbitrary<'a> for XcmMessage {
 		if let Ok(message) =
 			DecodeLimit::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
 		{
-			return Ok(XcmMessage { source, destination, message })
+			return Ok(XcmMessage { source, destination, message });
 		}
 		Err(Error::IncorrectFormat)
 	}
@@ -155,6 +155,30 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 	println!();
 
 	for xcm_message in xcm_messages {
+		fn matches_blocklisted_messages(message: Instruction<()>) -> bool {
+			matches!(message, Transact { .. }) || matches!(message, SetAppendix { .. })
+		}
+		fn matches_recursive(message: &mut Instruction<()>) -> Vec<Instruction<()>> {
+			match message {
+				SetErrorHandler(sub_m) => {
+					Vec::from(sub_m.inner()).iter_mut().map(matches_recursive).flatten().collect()
+				},
+				_ => vec![message.clone()],
+			}
+		}
+
+		if xcm_message
+			.message
+			.clone()
+			.iter_mut()
+			.map(matches_recursive)
+			.flatten()
+			.any(|m| matches_blocklisted_messages(m))
+		{
+			println!("  skipping message\n");
+			continue;
+		}
+
 		if xcm_message.source % 4 == 0 {
 			// We get the destination for the message
 			let parachain_id = (xcm_message.destination % 3) + 1;
@@ -202,36 +226,7 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 }
 
 fn main() {
-	#[cfg(fuzzing)]
-	{
-		loop {
-			honggfuzz::fuzz!(|xcm_messages: [XcmMessage; 5]| {
-				run_input(xcm_messages);
-			})
-		}
-	}
-	#[cfg(not(fuzzing))]
-	{
-		use std::{env, fs, fs::File, io::Read};
-		let args: Vec<_> = env::args().collect();
-		let md = fs::metadata(&args[1]).unwrap();
-		let all_files = match md.is_dir() {
-			true => fs::read_dir(&args[1])
-				.unwrap()
-				.map(|x| x.unwrap().path().to_str().unwrap().to_string())
-				.collect::<Vec<String>>(),
-			false => (args[1..]).to_vec(),
-		};
-		println!("All_files {:?}", all_files);
-		for argument in all_files {
-			println!("Now doing file {:?}", argument);
-			let mut buffer: Vec<u8> = Vec::new();
-			let mut f = File::open(argument).unwrap();
-			f.read_to_end(&mut buffer).unwrap();
-			let mut unstructured = Unstructured::new(&buffer);
-			if let Ok(xcm_messages) = unstructured.arbitrary() {
-				run_input(xcm_messages);
-			}
-		}
-	}
+	ziggy::fuzz!(|xcm_messages: [XcmMessage; 5]| {
+		run_input(xcm_messages);
+	});
 }

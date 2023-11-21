@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-honggfuzz = "0.5.55"
+ziggy = { version = "0.8", default-features = false }
 arbitrary = "1.2.0"
 scale-info = { version = "2.10.0", features = ["derive"] }
 

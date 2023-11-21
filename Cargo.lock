@@ -1494,8 +1494,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.7.3",
- "rand_core 0.5.1",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -20009,7 +20009,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -21574,7 +21574,6 @@ dependencies = [
  "arbitrary",
  "frame-support",
  "frame-system",
- "honggfuzz",
  "pallet-balances",
  "pallet-message-queue",
  "pallet-xcm",
@@ -21591,6 +21590,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "xcm-simulator",
+ "ziggy",
 ]
 
 [[package]]
@@ -21641,6 +21641,12 @@ dependencies = [
  "quote",
  "syn 2.0.38",
 ]
+
+[[package]]
+name = "ziggy"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0909a9cc2142b0b3417083b821fc570ae3c3f3c309fca92339f5a57b7c03a41b"
 
 [[package]]
 name = "zombienet-backchannel"
