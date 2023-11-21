@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Config;
+use crate::{Config, RawOrigin};
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchInfo, DefaultNoBound};
+use frame_support::{dispatch::DispatchInfo, traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension},
+	impl_tx_ext_default,
+	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -72,7 +73,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		<Self as SignedExtension>::validate(&self, who, call, info, len).map(|_| ())
 	}
 
 	fn validate(
@@ -87,6 +88,29 @@ where
 		}
 		Ok(ValidTransaction::default())
 	}
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
+	const IDENTIFIER: &'static str = "CheckNonZeroSender";
+	type Val = ();
+	type Pre = ();
+	type Implicit = ();
+	fn validate(
+		&self,
+		origin: T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_target: &[u8],
+	) -> sp_runtime::traits::ValidateResult<Self, T::RuntimeCall> {
+		if let Some(RawOrigin::Signed(ref who)) = origin.as_system_ref() {
+			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
+				return Err(InvalidTransaction::BadSigner.into())
+			}
+		}
+		Ok((Default::default(), (), origin))
+	}
+	impl_tx_ext_default!(T::RuntimeCall; implicit prepare);
 }
 
 #[cfg(test)]

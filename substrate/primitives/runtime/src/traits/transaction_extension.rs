@@ -177,6 +177,12 @@ pub trait TransactionExtension<Call: Dispatchable>:
 /// Implict
 #[macro_export]
 macro_rules! impl_tx_ext_default {
+	($call:ty ; implicit $( $rest:tt )*) => {
+		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+			Ok(Default::default())
+		}
+		impl_tx_ext_default!{$call ; $( $rest )*}
+	};
 	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
 			&self,
