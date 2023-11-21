@@ -429,6 +429,25 @@
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -542,12 +561,15 @@
 
 <span class="doccomment">/// Parachain specific block import.
 ///
-/// This is used to set `block_import_params.fork_choice` to `false` as long as the block origin is
-/// not `NetworkInitialSync`. The best block for parachains is determined by the relay chain.
-/// Meaning we will update the best block, as it is included by the relay-chain.
+/// Specialized block import for parachains. It supports to delay setting the best block until the
+/// relay chain has included a candidate in its best block. By default the delayed best block
+/// setting is disabled. The block import also monitors the imported blocks and prunes by default if
+/// there are too many blocks at the same height. Too many blocks at the same height can for example
+/// happen if the relay chain is rejecting the parachain blocks in the validation.
 </span><span class="kw">pub struct </span>ParachainBlockImport&lt;Block: BlockT, BI, BE&gt; {
 	inner: BI,
 	monitor: <span class="prelude-ty">Option</span>&lt;SharedData&lt;LevelMonitor&lt;Block, BE&gt;&gt;&gt;,
+	delayed_best_block: bool,
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT, BI, BE: Backend&lt;Block&gt;&gt; ParachainBlockImport&lt;Block, BI, BE&gt; {
@@ -572,13 +594,27 @@
 		<span class="kw">let </span>monitor =
 			level_limit.map(|level_limit| SharedData::new(LevelMonitor::new(level_limit, backend)));
 
-		<span class="self">Self </span>{ inner, monitor }
+		<span class="self">Self </span>{ inner, monitor, delayed_best_block: <span class="bool-val">false </span>}
+	}
+
+	<span class="doccomment">/// Create a new instance which delays setting the best block.
+	///
+	/// The number of leaves per level limit is set to `LevelLimit::Default`.
+	</span><span class="kw">pub fn </span>new_with_delayed_best_block(inner: BI, backend: Arc&lt;BE&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			delayed_best_block: <span class="bool-val">true</span>,
+			..<span class="self">Self</span>::new_with_limit(inner, backend, LevelLimit::Default)
+		}
 	}
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT, I: Clone, BE&gt; Clone <span class="kw">for </span>ParachainBlockImport&lt;Block, I, BE&gt; {
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		ParachainBlockImport { inner: <span class="self">self</span>.inner.clone(), monitor: <span class="self">self</span>.monitor.clone() }
+		ParachainBlockImport {
+			inner: <span class="self">self</span>.inner.clone(),
+			monitor: <span class="self">self</span>.monitor.clone(),
+			delayed_best_block: <span class="self">self</span>.delayed_best_block,
+		}
 	}
 }
 
@@ -613,11 +649,13 @@
 			</span>params.finalized = <span class="bool-val">true</span>;
 		}
 
-		<span class="comment">// Best block is determined by the relay chain, or if we are doing the initial sync
-		// we import all blocks as new best.
-		</span>params.fork_choice = <span class="prelude-val">Some</span>(sc_consensus::ForkChoiceStrategy::Custom(
-			params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
-		));
+		<span class="kw">if </span><span class="self">self</span>.delayed_best_block {
+			<span class="comment">// Best block is determined by the relay chain, or if we are doing the initial sync
+			// we import all blocks as new best.
+			</span>params.fork_choice = <span class="prelude-val">Some</span>(sc_consensus::ForkChoiceStrategy::Custom(
+				params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
+			));
+		}
 
 		<span class="kw">let </span>maybe_lock = <span class="self">self</span>.monitor.as_ref().map(|monitor_lock| {
 			<span class="kw">let </span><span class="kw-2">mut </span>monitor = monitor_lock.shared_data_locked();
