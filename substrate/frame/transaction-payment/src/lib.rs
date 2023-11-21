@@ -62,7 +62,7 @@ pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, SignedExtension, Zero, AdditionalSigned, TransactionExtension,
+		Saturating, Zero, TransactionExtension,
 	},
 	transaction_validity::{
 		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction, InvalidTransaction,
@@ -817,7 +817,7 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
+impl<T: Config> sp_runtime::traits::SignedExtension for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -882,17 +882,6 @@ where
 	}
 }
 
-impl<T: Config> AdditionalSigned for ChargeTransactionPayment<T>
-where
-	BalanceOf<T>: Send + Sync + From<u64>,
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-{
-	type Data = ();
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-}
-
 impl<T: Config> TransactionExtension for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
@@ -909,6 +898,10 @@ where
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	);
 	type Pre = Self::Val;
+	type Implicit = ();
+	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
+		Ok(())
+	}
 
 	fn validate(
 		&self,
@@ -916,6 +909,7 @@ where
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
+		_implicit: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError

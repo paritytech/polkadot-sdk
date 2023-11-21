@@ -143,20 +143,18 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				self.validate(who, call, info, len).map(drop)
 			}
 		}
-		impl sp_runtime::traits::AdditionalSigned for BridgeRejectObsoleteHeadersAndMessages {
-			type Data = ();
-			fn additional_signed(&self) -> sp_std::result::Result<
-				(),
-				sp_runtime::transaction_validity::TransactionValidityError,
-			> {
-				Ok(())
-			}
-		}
 		impl sp_runtime::traits::TransactionExtension for BridgeRejectObsoleteHeadersAndMessages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
 			type Call = $call;
 			type Pre = ();
 			type Val = ();
+			type Implicit = ();
+			fn implicit(&self) -> sp_std::result::Result<
+				(),
+				sp_runtime::transaction_validity::TransactionValidityError,
+			> {
+				Ok(())
+			}
 
 			fn validate(
 				&self,
@@ -164,6 +162,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				call: &Self::Call,
 				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 				_len: usize,
+				_implicit: &impl codec::Encode,
 			) -> Result<
 				(
 					sp_runtime::transaction_validity::ValidTransaction,

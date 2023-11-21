@@ -1092,7 +1092,7 @@ mod tests {
 	use codec::Encode;
 	use sp_runtime::{
 		generic::Era,
-		traits::{SignedExtension, Zero, AdditionalSigned},
+		traits::{TransactionExtension, SignedExtension, Zero},
 	};
 
 	#[test]
@@ -1128,7 +1128,7 @@ mod tests {
 				);
 				assert_eq!(payload.encode(), bh_indirect_payload.encode());
 				assert_eq!(
-					payload.additional_signed().unwrap().encode(),
+					payload.implicit().unwrap().encode(),
 					bh_indirect_payload.additional_signed().unwrap().encode()
 				)
 			}

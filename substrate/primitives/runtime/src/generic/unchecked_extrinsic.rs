@@ -21,7 +21,7 @@ use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		self, Checkable, Extrinsic, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member,
-		SignaturePayload, TransactionExtension, AdditionalSigned,
+		SignaturePayload, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -215,7 +215,7 @@ where
 	Call: Encode + Member,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
-	Extensions: TransactionExtension + AdditionalSigned,
+	Extensions: TransactionExtension,
 	AccountId: Member + MaybeDisplay,
 	Lookup: traits::Lookup<Source = LookupSource, Target = AccountId>,
 {
@@ -371,29 +371,29 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extensions: Transacti
 /// Note that the payload that we sign to produce unchecked extrinsic signature
 /// is going to be different than the `SignaturePayload` - so the thing the extrinsic
 /// actually contains.
-pub struct SignedPayload<Call, Extensions: TransactionExtension + AdditionalSigned>((Call, Extensions, <Extensions as AdditionalSigned>::Data));
+pub struct SignedPayload<Call, Extensions: TransactionExtension>((Call, Extensions, Extensions::Implicit));
 
 impl<Call, Extensions> SignedPayload<Call, Extensions>
 where
 	Call: Encode,
-	Extensions: TransactionExtension + AdditionalSigned,
+	Extensions: TransactionExtension,
 {
 	/// Create new `SignedPayload`.
 	///
-	/// This function may fail if `additional_signed` of `Extensions` is not available.
-	pub fn new(call: Call, extra: Extensions) -> Result<Self, TransactionValidityError> {
-		let additional_signed = <Extensions as AdditionalSigned>::additional_signed(&extra)?;
-		let raw_payload = (call, extra, additional_signed);
+	/// This function may fail if `implicit` of `Extensions` is not available.
+	pub fn new(call: Call, tx_ext: Extensions) -> Result<Self, TransactionValidityError> {
+		let implicit = Extensions::implicit(&tx_ext)?;
+		let raw_payload = (call, tx_ext, implicit);
 		Ok(Self(raw_payload))
 	}
 
 	/// Create new `SignedPayload` from raw components.
-	pub fn from_raw(call: Call, extra: Extensions, additional_signed: <Extensions as AdditionalSigned>::Data) -> Self {
-		Self((call, extra, additional_signed))
+	pub fn from_raw(call: Call, tx_ext: Extensions, implicit: Extensions::Implicit) -> Self {
+		Self((call, tx_ext, implicit))
 	}
 
 	/// Deconstruct the payload into it's components.
-	pub fn deconstruct(self) -> (Call, Extensions, <Extensions as AdditionalSigned>::Data) {
+	pub fn deconstruct(self) -> (Call, Extensions, Extensions::Implicit) {
 		self.0
 	}
 }
@@ -401,7 +401,7 @@ where
 impl<Call, Extensions> Encode for SignedPayload<Call, Extensions>
 where
 	Call: Encode,
-	Extensions: TransactionExtension + AdditionalSigned,
+	Extensions: TransactionExtension,
 {
 	/// Get an encoded version of this payload.
 	///
@@ -420,7 +420,7 @@ where
 impl<Call, Extensions> EncodeLike for SignedPayload<Call, Extensions>
 where
 	Call: Encode,
-	Extensions: TransactionExtension + AdditionalSigned,
+	Extensions: TransactionExtension,
 {
 }
 
@@ -459,24 +459,22 @@ mod tests {
 	// NOTE: this is demonstration. One can simply use `()` for testing.
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
 	struct DummyExtension;
-	impl AdditionalSigned for DummyExtension {
-		type Data = ();
-		fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-			Ok(())
-		}
-	}
 	impl TransactionExtension for DummyExtension {
 		const IDENTIFIER: &'static str = "DummyExtension";
 		type Call = ();
 		type Val = ();
 		type Pre = ();
-
+		type Implicit = ();
+		fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
+			Ok(())
+		}
 		fn validate(
 			&self,
 			who: <Self::Call as traits::Dispatchable>::RuntimeOrigin,
 			_call: &Self::Call,
 			_info: &DispatchInfoOf<Self::Call>,
 			_len: usize,
+			_implicit: &impl Encode,
 		) -> Result<
 			(crate::transaction_validity::ValidTransaction, Self::Val, <Self::Call as traits::Dispatchable>::RuntimeOrigin),
 			TransactionValidityError

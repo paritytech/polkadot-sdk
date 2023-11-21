@@ -299,20 +299,15 @@ impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::AdditionalSigned for CheckSubstrateCall {
-	type Data = ();
-	fn additional_signed(
-		&self,
-	) -> sp_std::result::Result<Self::Data, TransactionValidityError> {
-		Ok(())
-	}
-}
-
 impl sp_runtime::traits::TransactionExtension for CheckSubstrateCall {
+	const IDENTIFIER: &'static str = "CheckSubstrateCall";
 	type Call = RuntimeCall;
 	type Pre = ();
 	type Val = ();
-	const IDENTIFIER: &'static str = "CheckSubstrateCall";
+	type Implicit = ();
+	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
+		Ok(())
+	}
 
 	fn validate(
 		&self,
@@ -320,6 +315,7 @@ impl sp_runtime::traits::TransactionExtension for CheckSubstrateCall {
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+		_implicit: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError
@@ -1233,7 +1229,8 @@ mod tests {
 						Some(x.clone()).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
-						len
+						len,
+						&CheckSubstrateCall {}.implicit(),
 					)
 					.unwrap()
 					.0.priority,
@@ -1246,7 +1243,8 @@ mod tests {
 						Some(x.clone()).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
-						len
+						len,
+						&CheckSubstrateCall {}.implicit(),
 					)
 					.unwrap()
 					.0.propagate,

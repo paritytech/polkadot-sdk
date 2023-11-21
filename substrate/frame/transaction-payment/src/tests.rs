@@ -21,7 +21,7 @@ use crate as pallet_transaction_payment;
 use codec::Encode;
 
 use sp_runtime::{
-	testing::TestXt, traits::One, transaction_validity::InvalidTransaction, BuildStorage,
+	testing::TestXt, traits::{One, DispatchTransaction}, transaction_validity::InvalidTransaction, BuildStorage,
 };
 
 use frame_support::{
@@ -128,6 +128,8 @@ fn default_post_info() -> PostDispatchInfo {
 	PostDispatchInfo { actual_weight: None, pays_fee: Default::default() }
 }
 
+type Ext = ChargeTransactionPayment::<Runtime>;
+
 #[test]
 fn signed_extension_transaction_payment_work() {
 	ExtBuilder::default()
@@ -135,37 +137,29 @@ fn signed_extension_transaction_payment_work() {
 		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
+			let ext = Ext::from(0);
 			let len = 10;
-			let pre = ChargeTransactionPayment::<Runtime>::from(0)
-				.pre_dispatch(&1, CALL, &info_from_weight(Weight::from_parts(5, 0)), len)
-				.unwrap();
+			let origin = Some(1).into();
+			let info = info_from_weight(Weight::from_parts(5, 0));
+			let pre = ext.validate_and_prepare(origin, CALL, &info, len).unwrap().0;
 			assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
-			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&info_from_weight(Weight::from_parts(5, 0)),
-				&default_post_info(),
-				len,
-				&Ok(())
-			));
+			assert_ok!(Ext::post_dispatch(pre, &info, &default_post_info(), len, &Ok(())));
 			assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 			assert_eq!(FeeUnbalancedAmount::get(), 5 + 5 + 10);
 			assert_eq!(TipUnbalancedAmount::get(), 0);
 
 			FeeUnbalancedAmount::mutate(|a| *a = 0);
 
-			let pre = ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
-				.pre_dispatch(&2, CALL, &info_from_weight(Weight::from_parts(100, 0)), len)
-				.unwrap();
+			let ext = Ext::from(5 /* tipped */);
+			let len = 10;
+			let origin = Some(2).into();
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let pre = ext.validate_and_prepare(origin, CALL, &info, len).unwrap().0;
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
-			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&info_from_weight(Weight::from_parts(100, 0)),
-				&post_info_from_weight(Weight::from_parts(50, 0)),
-				len,
-				&Ok(())
-			));
+			let post = post_info_from_weight(Weight::from_parts(50, 0));
+			assert_ok!(Ext::post_dispatch(pre, &info, &post, len, &Ok(())));
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 50 - 5);
 			assert_eq!(FeeUnbalancedAmount::get(), 5 + 10 + 50);
 			assert_eq!(TipUnbalancedAmount::get(), 5);
@@ -179,22 +173,18 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
 		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
-			let len = 10;
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
 
-			let pre = ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
-				.pre_dispatch(&2, CALL, &info_from_weight(Weight::from_parts(100, 0)), len)
-				.unwrap();
+			let ext = Ext::from(5 /* tipped */);
+			let len = 10;
+			let origin = Some(2).into();
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let pre = ext.validate_and_prepare(origin, CALL, &info, len).unwrap().0;
 			// 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 150 - 5);
 
-			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&info_from_weight(Weight::from_parts(100, 0)),
-				&post_info_from_weight(Weight::from_parts(50, 0)),
-				len,
-				&Ok(())
-			));
+			let post = post_info_from_weight(Weight::from_parts(50, 0));
+			assert_ok!(Ext::post_dispatch(pre, &info, &post, len, &Ok(())));
 			// 75 (3/2 of the returned 50 units of weight) is refunded
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 75 - 5);
 		});
@@ -203,21 +193,9 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
 #[test]
 fn signed_extension_transaction_payment_is_bounded() {
 	ExtBuilder::default().balance_factor(1000).byte_fee(0).build().execute_with(|| {
-		let val = TransactionExtension::validate(
-			&ChargeTransactionPayment::<Runtime>::from(0),
-			Some(1).into(),
-			CALL,
-			&info_from_weight(Weight::MAX),
-			10
-		).unwrap().1;
 		// maximum weight possible
-		assert_ok!(ChargeTransactionPayment::<Runtime>::from(0).prepare(
-			val,
-			&Some(1).into(),
-			CALL,
-			&info_from_weight(Weight::MAX),
-			10
-		));
+		let info = info_from_weight(Weight::MAX);
+		assert_ok!(Ext::from(0).validate_and_prepare(Some(1).into(), CALL, &info, 10));
 		// fee will be proportional to what is the actual maximum weight in the runtime.
 		assert_eq!(
 			Balances::free_balance(&1),
@@ -240,33 +218,23 @@ fn signed_extension_allows_free_transactions() {
 			let len = 100;
 
 			// This is a completely free (and thus wholly insecure/DoS-ridden) transaction.
-			let operational_transaction = DispatchInfo {
+			let op_tx = DispatchInfo {
 				weight: Weight::from_parts(0, 0),
 				class: DispatchClass::Operational,
 				pays_fee: Pays::No,
 			};
-			assert_ok!(TransactionExtension::validate(
-				&ChargeTransactionPayment::<Runtime>::from(0),
-				Some(1).into(),
-				CALL,
-				&operational_transaction,
-				len
-			));
+			let ext = Ext::from(0);
+			let implicit = ext.implicit();
+			assert_ok!(ext.validate(Some(1).into(), CALL, &op_tx, len, &implicit));
 
 			// like a InsecureFreeNormal
-			let free_transaction = DispatchInfo {
+			let free_tx = DispatchInfo {
 				weight: Weight::from_parts(0, 0),
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};
 			assert_eq!(
-				TransactionExtension::validate(
-					&ChargeTransactionPayment::<Runtime>::from(0),
-					Some(1).into(),
-					CALL,
-					&free_transaction,
-					len
-				).unwrap_err(),
+				ext.validate(Some(1).into(), CALL, &free_tx, len, &implicit).unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment),
 			);
 		});
@@ -282,16 +250,15 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
 			// all fees should be x1.5
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
 			let len = 10;
-
-			assert_ok!(ChargeTransactionPayment::<Runtime>::from(10) // tipped
-				.pre_dispatch(&1, CALL, &info_from_weight(Weight::from_parts(3, 0)), len));
+			let info = &info_from_weight(Weight::from_parts(3, 0));
+			assert_ok!(Ext::from(10).validate_and_prepare(Some(1).into(), CALL, info, len));
 			assert_eq!(
 				Balances::free_balance(1),
 				100 // original
-            - 10 // tip
-            - 5 // base
-            - 10 // len
-            - (3 * 3 / 2) // adjusted weight
+			- 10 // tip
+			- 5 // base
+			- 10 // len
+			- (3 * 3 / 2) // adjusted weight
 			);
 		})
 }
@@ -310,53 +277,53 @@ fn query_info_and_fee_details_works() {
 	let unsigned_xt_info = unsigned_xt.get_dispatch_info();
 
 	ExtBuilder::default()
-        .base_weight(Weight::from_parts(5, 0))
-        .weight_fee(2)
-        .build()
-        .execute_with(|| {
-            // all fees should be x1.5
-            <NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
+		.base_weight(Weight::from_parts(5, 0))
+		.weight_fee(2)
+		.build()
+		.execute_with(|| {
+			// all fees should be x1.5
+			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
 
-            assert_eq!(
-                TransactionPayment::query_info(xt.clone(), len),
-                RuntimeDispatchInfo {
-                    weight: info.weight,
-                    class: info.class,
-                    partial_fee: 5 * 2 /* base * weight_fee */
-                    + len as u64  /* len * 1 */
-                    + info.weight.min(BlockWeights::get().max_block).ref_time() as u64 * 2 * 3 / 2 /* weight */
-                },
-            );
+			assert_eq!(
+				TransactionPayment::query_info(xt.clone(), len),
+				RuntimeDispatchInfo {
+					weight: info.weight,
+					class: info.class,
+					partial_fee: 5 * 2 /* base * weight_fee */
+					+ len as u64  /* len * 1 */
+					+ info.weight.min(BlockWeights::get().max_block).ref_time() as u64 * 2 * 3 / 2 /* weight */
+				},
+			);
 
-            assert_eq!(
-                TransactionPayment::query_info(unsigned_xt.clone(), len),
-                RuntimeDispatchInfo {
-                    weight: unsigned_xt_info.weight,
-                    class: unsigned_xt_info.class,
-                    partial_fee: 0,
-                },
-            );
+			assert_eq!(
+				TransactionPayment::query_info(unsigned_xt.clone(), len),
+				RuntimeDispatchInfo {
+					weight: unsigned_xt_info.weight,
+					class: unsigned_xt_info.class,
+					partial_fee: 0,
+				},
+			);
 
-            assert_eq!(
-                TransactionPayment::query_fee_details(xt, len),
-                FeeDetails {
-                    inclusion_fee: Some(InclusionFee {
-                        base_fee: 5 * 2,
-                        len_fee: len as u64,
-                        adjusted_weight_fee: info
-                            .weight
-                            .min(BlockWeights::get().max_block)
-                            .ref_time() as u64 * 2 * 3 / 2
-                    }),
-                    tip: 0,
-                },
-            );
+			assert_eq!(
+				TransactionPayment::query_fee_details(xt, len),
+				FeeDetails {
+					inclusion_fee: Some(InclusionFee {
+						base_fee: 5 * 2,
+						len_fee: len as u64,
+						adjusted_weight_fee: info
+							.weight
+							.min(BlockWeights::get().max_block)
+							.ref_time() as u64 * 2 * 3 / 2
+					}),
+					tip: 0,
+				},
+			);
 
-            assert_eq!(
-                TransactionPayment::query_fee_details(unsigned_xt, len),
-                FeeDetails { inclusion_fee: None, tip: 0 },
-            );
-        });
+			assert_eq!(
+				TransactionPayment::query_fee_details(unsigned_xt, len),
+				FeeDetails { inclusion_fee: None, tip: 0 },
+			);
+		});
 }
 
 #[test]
@@ -367,39 +334,39 @@ fn query_call_info_and_fee_details_works() {
 	let len = encoded_call.len() as u32;
 
 	ExtBuilder::default()
-        .base_weight(Weight::from_parts(5, 0))
-        .weight_fee(2)
-        .build()
-        .execute_with(|| {
-            // all fees should be x1.5
-            <NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
+		.base_weight(Weight::from_parts(5, 0))
+		.weight_fee(2)
+		.build()
+		.execute_with(|| {
+			// all fees should be x1.5
+			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
 
-            assert_eq!(
-                TransactionPayment::query_call_info(call.clone(), len),
-                RuntimeDispatchInfo {
-                    weight: info.weight,
-                    class: info.class,
-                    partial_fee: 5 * 2 /* base * weight_fee */
-                    + len as u64  /* len * 1 */
-                    + info.weight.min(BlockWeights::get().max_block).ref_time() as u64 * 2 * 3 / 2 /* weight */
-                },
-            );
+			assert_eq!(
+				TransactionPayment::query_call_info(call.clone(), len),
+				RuntimeDispatchInfo {
+					weight: info.weight,
+					class: info.class,
+					partial_fee: 5 * 2 /* base * weight_fee */
+					+ len as u64  /* len * 1 */
+					+ info.weight.min(BlockWeights::get().max_block).ref_time() as u64 * 2 * 3 / 2 /* weight */
+				},
+			);
 
-            assert_eq!(
-                TransactionPayment::query_call_fee_details(call, len),
-                FeeDetails {
-                    inclusion_fee: Some(InclusionFee {
-                        base_fee: 5 * 2,     /* base * weight_fee */
-                        len_fee: len as u64, /* len * 1 */
-                        adjusted_weight_fee: info
-                            .weight
-                            .min(BlockWeights::get().max_block)
-                            .ref_time() as u64 * 2 * 3 / 2  /* weight * weight_fee * multipler */
-                    }),
-                    tip: 0,
-                },
-            );
-        });
+			assert_eq!(
+				TransactionPayment::query_call_fee_details(call, len),
+				FeeDetails {
+					inclusion_fee: Some(InclusionFee {
+						base_fee: 5 * 2,     /* base * weight_fee */
+						len_fee: len as u64, /* len * 1 */
+						adjusted_weight_fee: info
+							.weight
+							.min(BlockWeights::get().max_block)
+							.ref_time() as u64 * 2 * 3 / 2  /* weight * weight_fee * multipler */
+					}),
+					tip: 0,
+				},
+			);
+		});
 }
 
 #[test]
@@ -537,26 +504,18 @@ fn refund_does_not_recreate_account() {
 			// So events are emitted
 			System::set_block_number(10);
 			let len = 10;
-			let pre = ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
-				.pre_dispatch(&2, CALL, &info_from_weight(Weight::from_parts(100, 0)), len)
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let (pre, origin) = Ext::from(5 /* tipped */)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len)
 				.unwrap();
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
 			// kill the account between pre and post dispatch
-			assert_ok!(Balances::transfer_allow_death(
-				Some(2).into(),
-				3,
-				Balances::free_balance(2)
-			));
+			assert_ok!(Balances::transfer_allow_death(origin, 3, Balances::free_balance(2)));
 			assert_eq!(Balances::free_balance(2), 0);
 
-			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&info_from_weight(Weight::from_parts(100, 0)),
-				&post_info_from_weight(Weight::from_parts(50, 0)),
-				len,
-				&Ok(())
-			));
+			let post_info = post_info_from_weight(Weight::from_parts(50, 0));
+			assert_ok!(Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())));
 			assert_eq!(Balances::free_balance(2), 0);
 			// Transfer Event
 			System::assert_has_event(RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -579,18 +538,14 @@ fn actual_weight_higher_than_max_refunds_nothing() {
 		.build()
 		.execute_with(|| {
 			let len = 10;
-			let pre = ChargeTransactionPayment::<Runtime>::from(5 /* tipped */)
-				.pre_dispatch(&2, CALL, &info_from_weight(Weight::from_parts(100, 0)), len)
-				.unwrap();
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let pre = Ext::from(5 /* tipped */)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len)
+				.unwrap().0;
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
-			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&info_from_weight(Weight::from_parts(100, 0)),
-				&post_info_from_weight(Weight::from_parts(101, 0)),
-				len,
-				&Ok(())
-			));
+			let post_info = post_info_from_weight(Weight::from_parts(101, 0));
+			assert_ok!(Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())));
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 		});
 }
@@ -605,23 +560,17 @@ fn zero_transfer_on_free_transaction() {
 			// So events are emitted
 			System::set_block_number(10);
 			let len = 10;
-			let dispatch_info = DispatchInfo {
+			let info = DispatchInfo {
 				weight: Weight::from_parts(100, 0),
 				pays_fee: Pays::No,
 				class: DispatchClass::Normal,
 			};
 			let user = 69;
-			let pre = ChargeTransactionPayment::<Runtime>::from(0)
-				.pre_dispatch(&user, CALL, &dispatch_info, len)
-				.unwrap();
+			let pre = Ext::from(0)
+				.validate_and_prepare(Some(user).into(), CALL, &info, len)
+				.unwrap().0;
 			assert_eq!(Balances::total_balance(&user), 0);
-			assert_ok!(<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&dispatch_info,
-				&default_post_info(),
-				len,
-				&Ok(())
-			));
+			assert_ok!(Ext::post_dispatch(pre, &info, &default_post_info(), len, &Ok(())));
 			assert_eq!(Balances::total_balance(&user), 0);
 			// TransactionFeePaid Event
 			System::assert_has_event(RuntimeEvent::TransactionPayment(
@@ -649,18 +598,10 @@ fn refund_consistent_with_actual_weight() {
 
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
 
-			let pre = ChargeTransactionPayment::<Runtime>::from(tip)
-				.pre_dispatch(&2, CALL, &info, len)
-				.unwrap();
-
-			<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&info,
-				&post_info,
-				len,
-				&Ok(()),
-			)
-			.unwrap();
+			let pre = Ext::from(tip)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len)
+				.unwrap().0;
+			Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);
 			let actual_fee =
@@ -683,20 +624,17 @@ fn should_alter_operational_priority() {
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes,
 		};
-		let priority = TransactionExtension::validate(
-				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &normal, len
-			)
-			.unwrap()
-			.0.priority;
 
+		let ext = Ext::from(tip);
+		let origin = Some(2).into();
+		let implicit = ext.implicit();
+		let priority = ext.validate(origin, CALL, &normal, len, &implicit).unwrap().0.priority;
 		assert_eq!(priority, 60);
 
-		let priority = TransactionExtension::validate(
-				&ChargeTransactionPayment::<Runtime>(2 * tip), Some(2).into(), CALL, &normal, len
-			)
-			.unwrap()
-			.0.priority;
-
+		let ext = Ext::from(2 * tip);
+		let origin = Some(2).into();
+		let implicit = ext.implicit();
+		let priority = ext.validate(origin, CALL, &normal, len, &implicit).unwrap().0.priority;
 		assert_eq!(priority, 110);
 	});
 
@@ -706,18 +644,15 @@ fn should_alter_operational_priority() {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let priority = TransactionExtension::validate(
-				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &op, len
-			)
-			.unwrap()
-			.0.priority;
+
+		let ext = Ext::from(tip);
+		let origin = Some(2).into();
+		let priority = ext.validate(origin, CALL, &op, len, &ext.implicit()).unwrap().0.priority;
 		assert_eq!(priority, 5810);
 
-		let priority = TransactionExtension::validate(
-				&ChargeTransactionPayment::<Runtime>(2 * tip), Some(2).into(), CALL, &op, len
-			)
-			.unwrap()
-			.0.priority;
+		let ext = Ext::from(2 * tip);
+		let origin = Some(2).into();
+		let priority = ext.validate(origin, CALL, &op, len, &ext.implicit()).unwrap().0.priority;
 		assert_eq!(priority, 6110);
 	});
 }
@@ -733,12 +668,9 @@ fn no_tip_has_some_priority() {
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes,
 		};
-		let priority = TransactionExtension::validate(
-				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &normal, len
-			)
-			.unwrap()
-			.0.priority;
-
+		let ext = Ext::from(tip);
+		let origin = Some(2).into();
+		let priority = ext.validate(origin, CALL, &normal, len, &ext.implicit()).unwrap().0.priority;
 		assert_eq!(priority, 10);
 	});
 
@@ -748,11 +680,9 @@ fn no_tip_has_some_priority() {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let priority = TransactionExtension::validate(
-				&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &op, len
-			)
-			.unwrap()
-			.0.priority;
+		let ext = Ext::from(tip);
+		let origin = Some(2).into();
+		let priority = ext.validate(origin, CALL, &op, len, &ext.implicit()).unwrap().0.priority;
 		assert_eq!(priority, 5510);
 	});
 }
@@ -760,8 +690,8 @@ fn no_tip_has_some_priority() {
 #[test]
 fn higher_tip_have_higher_priority() {
 	let get_priorities = |tip: u64| {
-		let mut priority1 = 0;
-		let mut priority2 = 0;
+		let mut pri1 = 0;
+		let mut pri2 = 0;
 		let len = 10;
 		ExtBuilder::default().balance_factor(100).build().execute_with(|| {
 			let normal = DispatchInfo {
@@ -769,11 +699,9 @@ fn higher_tip_have_higher_priority() {
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};
-			priority1 = TransactionExtension::validate(
-					&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &normal, len
-				)
-				.unwrap()
-				.0.priority;
+			let ext = Ext::from(tip);
+			let origin = Some(2).into();
+			pri1 = ext.validate(origin, CALL, &normal, len, &ext.implicit()).unwrap().0.priority;
 		});
 
 		ExtBuilder::default().balance_factor(100).build().execute_with(|| {
@@ -782,14 +710,12 @@ fn higher_tip_have_higher_priority() {
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
-			priority2 = TransactionExtension::validate(
-					&ChargeTransactionPayment::<Runtime>(tip), Some(2).into(), CALL, &op, len
-				)
-				.unwrap()
-				.0.priority;
+			let ext = Ext::from(tip);
+			let origin = Some(2).into();
+			pri2 = ext.validate(origin, CALL, &op, len, &ext.implicit()).unwrap().0.priority;
 		});
 
-		(priority1, priority2)
+		(pri1, pri2)
 	};
 
 	let mut prev_priorities = get_priorities(0);
@@ -818,17 +744,9 @@ fn post_info_can_change_pays_fee() {
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
 
 			let pre = ChargeTransactionPayment::<Runtime>::from(tip)
-				.pre_dispatch(&2, CALL, &info, len)
-				.unwrap();
-
-			<ChargeTransactionPayment::<Runtime> as TransactionExtension>::post_dispatch(
-				pre,
-				&info,
-				&post_info,
-				len,
-				&Ok(()),
-			)
-			.unwrap();
+				.validate_and_prepare(Some(2).into(), CALL, &info, len)
+				.unwrap().0;
+			Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);
 			let actual_fee =
