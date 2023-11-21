@@ -909,6 +909,7 @@
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1122,7 +1123,8 @@
 		sc_service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(config, <span class="prelude-val">None</span>, executor)<span class="question-mark">?</span>;
 	<span class="kw">let </span>client = Arc::new(client);
 
-	<span class="kw">let </span>block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	<span class="kw">let </span>block_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	<span class="kw">let </span>registry = config.prometheus_registry();
 
