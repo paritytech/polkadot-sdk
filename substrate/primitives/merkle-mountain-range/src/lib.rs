@@ -350,7 +350,7 @@ impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3, E:4);
 
 /// An MMR proof data for a group of leaves.
 #[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
-pub struct Proof<Hash> {
+pub struct LeafProof<Hash> {
 	/// The indices of the leaves the proof is for.
 	pub leaf_indices: Vec<LeafIndex>,
 	/// Number of leaves in MMR, when the proof was generated.
@@ -457,14 +457,14 @@ sp_api::decl_runtime_apis! {
 		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>
-		) -> Result<(Vec<EncodableOpaqueLeaf>, Proof<Hash>), Error>;
+		) -> Result<(Vec<EncodableOpaqueLeaf>, LeafProof<Hash>), Error>;
 
 		/// Verify MMR proof against on-chain MMR for a batch of leaves.
 		///
 		/// Note this function will use on-chain MMR root hash and check if the proof matches the hash.
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>) -> Result<(), Error>;
+		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: LeafProof<Hash>) -> Result<(), Error>;
 
 		/// Verify MMR proof against given root hash for a batch of leaves.
 		///
@@ -473,7 +473,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>)
+		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: LeafProof<Hash>)
 			-> Result<(), Error>;
 
 		/// Generate MMR ancestry proof for prior mmr size
@@ -501,12 +501,12 @@ mod tests {
 
 	type Test = DataOrHash<Keccak256, String>;
 	type TestCompact = Compact<Keccak256, (Test, Test)>;
-	type TestProof = Proof<<Keccak256 as traits::Hash>::Output>;
+	type TestProof = LeafProof<<Keccak256 as traits::Hash>::Output>;
 
 	#[test]
 	fn should_encode_decode_proof() {
 		// given
-		let proof: TestProof = Proof {
+		let proof: TestProof = LeafProof {
 			leaf_indices: vec![5],
 			leaf_count: 10,
 			items: vec![

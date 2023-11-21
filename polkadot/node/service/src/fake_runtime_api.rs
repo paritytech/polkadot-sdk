@@ -278,11 +278,11 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			_: Vec<BlockNumber>,
 			_: Option<BlockNumber>,
-		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::Proof<Hash>), sp_mmr_primitives::Error> {
+		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::LeafProof<Hash>), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
 
-		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::Proof<Hash>)
+		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::LeafProof<Hash>)
 			-> Result<(), sp_mmr_primitives::Error>
 		{
 			unimplemented!()
@@ -291,7 +291,7 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_: Hash,
 			_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>,
-			_: sp_mmr_primitives::Proof<Hash>
+			_: sp_mmr_primitives::LeafProof<Hash>
 		) -> Result<(), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
