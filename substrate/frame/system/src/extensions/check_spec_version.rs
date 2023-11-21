@@ -19,6 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
+	impl_tx_ext_default,
 	traits::{DispatchInfoOf, SignedExtension, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 };
@@ -84,24 +85,5 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().spec_version)
 	}
-	fn validate(
-		&self,
-		origin: sp_runtime::traits::OriginOf<<T as Config>::RuntimeCall>,
-		_call: &<T as Config>::RuntimeCall,
-		_info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
-		_len: usize,
-		_target: &[u8],
-	) -> sp_runtime::traits::ValidateResult<Self, <T as Config>::RuntimeCall> {
-		Ok((Default::default(), (), origin))
-	}
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &sp_runtime::traits::OriginOf<<T as Config>::RuntimeCall>,
-		_call: &<T as Config>::RuntimeCall,
-		_info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
-		_len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(())
-	}
+	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }
