@@ -649,6 +649,8 @@ pub mod pallet {
 		NonZeroRefCount,
 		/// The origin filter prevent the call to be dispatched.
 		CallFiltered,
+		/// A multi-block migration is ongoing and prevents the current code from being replaced.
+		MultiBlockMigrationsOngoing, // FAIL-CI test
 	}
 
 	/// Exposed trait-generic origin type.
@@ -1782,10 +1784,14 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantianting
+	/// Checks the given code if it is a valid runtime wasm blob by instantiating
 	/// it and extracting the runtime version of it. It checks that the runtime version
 	/// of the old and new runtime has the same spec name and that the spec version is increasing.
 	pub fn can_set_code(code: &[u8]) -> Result<(), sp_runtime::DispatchError> {
+		if T::MultiBlockMigrator::ongoing() {
+			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+		}
+
 		let current_version = T::Version::get();
 		let new_version = sp_io::misc::runtime_version(code)
 			.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())

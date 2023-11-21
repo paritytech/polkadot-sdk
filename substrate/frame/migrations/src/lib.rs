@@ -306,6 +306,10 @@ pub mod pallet {
 
 		/// Weight information for the calls and functions of this pallet.
 		type WeightInfo: WeightInfo;
+
+		// Helper config for setting up benchmarking.
+		//#[cfg(feature = "runtime-benchmarks")]
+		//type BenchmarkSetup: BenchmarkSetup;
 	}
 
 	/// The currently active migration to run and its cursor.
@@ -563,7 +567,7 @@ impl<T: Config> Pallet<T> {
 	/// Tries to make progress on the Multi-Block-Migrations process.
 	fn progress_mbms(n: BlockNumberFor<T>) -> Weight {
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
-		meter.consume(T::WeightInfo::on_init_base());
+		meter.consume(T::WeightInfo::progress_mbms_base());
 
 		let mut cursor = match Cursor::<T>::get() {
 			None => {
@@ -615,6 +619,11 @@ impl<T: Config> Pallet<T> {
 		is_first: bool,
 		meter: &mut WeightMeter,
 	) -> Option<ControlFlow<ActiveCursorOf<T>, ActiveCursorOf<T>>> {
+		if meter.try_consume(T::WeightInfo::exec_migration_worst_case()).is_err() {
+			defensive_assert!(!is_first, "There should be enough weight to do this at least once");
+			return Some(ControlFlow::Continue(cursor))
+		}
+
 		let Some(id) = T::Migrations::nth_id(cursor.index) else {
 			// No more migration in the tuple - we are done.
 			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsitent MBMs tuple");

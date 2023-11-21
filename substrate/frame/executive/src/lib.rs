@@ -155,6 +155,7 @@ use codec::{Codec, Encode};
 use frame_support::{
 	defensive_assert,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
+	migrations::MultiStepMigrator,
 	pallet_prelude::InvalidTransaction,
 	traits::{
 		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
@@ -211,7 +212,6 @@ pub struct Executive<
 	UnsignedValidator,
 	AllPalletsWithSystem,
 	OnRuntimeUpgrade = (),
-	MultiStepMigrator = (),
 >(
 	PhantomData<(
 		System,
@@ -220,7 +220,6 @@ pub struct Executive<
 		UnsignedValidator,
 		AllPalletsWithSystem,
 		OnRuntimeUpgrade,
-		MultiStepMigrator,
 	)>,
 );
 
@@ -240,17 +239,9 @@ impl<
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-		MultiStepMigrator: frame_support::migrations::MultiStepMigrator,
 	> ExecuteBlock<Block>
-	for Executive<
-		System,
-		Block,
-		Context,
-		UnsignedValidator,
-		AllPalletsWithSystem,
-		COnRuntimeUpgrade,
-		MultiStepMigrator,
-	> where
+	for Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
+where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
@@ -266,7 +257,6 @@ impl<
 			UnsignedValidator,
 			AllPalletsWithSystem,
 			COnRuntimeUpgrade,
-			MultiStepMigrator,
 		>::execute_block(block);
 	}
 }
@@ -290,17 +280,8 @@ impl<
 			+ TryState<BlockNumberFor<System>>
 			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-		MultiStepMigrator: frame_support::migrations::MultiStepMigrator,
-	>
-	Executive<
-		System,
-		Block,
-		Context,
-		UnsignedValidator,
-		AllPalletsWithSystem,
-		COnRuntimeUpgrade,
-		MultiStepMigrator,
-	> where
+	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
+where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
@@ -337,7 +318,7 @@ impl<
 
 		// Check if there are any forbidden non-inherents in the block.
 		if mode == ExtrinsicInclusionMode::OnlyInherents && extrinsics.len() > num_inherents {
-			return Err("Non-inherent extrinsic was supplied in a block that only allows inherent extrinsics".into())
+			return Err("Only inherents allowed".into())
 		}
 
 		let try_apply_extrinsic = |uxt: Block::Extrinsic| -> ApplyExtrinsicResult {
@@ -506,17 +487,8 @@ impl<
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-		MultiStepMigrator: frame_support::migrations::MultiStepMigrator,
-	>
-	Executive<
-		System,
-		Block,
-		Context,
-		UnsignedValidator,
-		AllPalletsWithSystem,
-		COnRuntimeUpgrade,
-		MultiStepMigrator,
-	> where
+	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
+where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
@@ -551,7 +523,7 @@ impl<
 	}
 
 	fn extrinsic_mode() -> ExtrinsicInclusionMode {
-		if MultiStepMigrator::ongoing() {
+		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
 			ExtrinsicInclusionMode::OnlyInherents
 		} else {
 			ExtrinsicInclusionMode::AllExtrinsics
@@ -672,8 +644,8 @@ impl<
 		<frame_system::Pallet<System>>::note_inherents_applied();
 		<System as frame_system::Config>::PostInherents::post_inherents();
 
-		if MultiStepMigrator::ongoing() {
-			let used_weight = MultiStepMigrator::step();
+		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
+			let used_weight = <System as frame_system::Config>::MultiBlockMigrator::step();
 			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
 				used_weight,
 				DispatchClass::Mandatory,
@@ -717,7 +689,7 @@ impl<
 	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining and there are no
 	/// ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
-		if MultiStepMigrator::ongoing() {
+		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
 			return
 		}
 
@@ -739,7 +711,7 @@ impl<
 
 	fn on_poll_hook(block_number: NumberFor<Block>) {
 		defensive_assert!(
-			!MultiStepMigrator::ongoing(),
+			!<System as frame_system::Config>::MultiBlockMigrator::ongoing(),
 			"on_poll should not be called during migrations"
 		);
 

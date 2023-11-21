@@ -18,10 +18,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use crate::mock_helpers::{mocked_id, MigrationsStorage, MockedMigrationKind::SucceedAfter};
 
-use frame_benchmarking::v2::*;
+use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
 use sp_std::vec;
+
+pub trait BenchmarkSetup {}
 
 #[benchmarks]
 mod benches {
@@ -39,25 +42,36 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn on_init_fast_path() {
-		Cursor::<T>::set(Some(cursor::<T>()));
+	fn progress_mbms_base() {
+		Cursor::<T>::set(None);
 		System::<T>::set_block_number(1u32.into());
 
 		#[block]
 		{
-			Pallet::<T>::on_initialize(1u32.into());
+			Pallet::<T>::progress_mbms(1u32.into());
 		}
 	}
 
 	#[benchmark]
-	fn on_init_base() {
-		Cursor::<T>::set(Some(cursor::<T>()));
+	fn exec_migration_worst_case() -> Result<(), BenchmarkError> {
+		MigrationsStorage::set(vec![(SucceedAfter, 2)]);
+		if T::Migrations::len() == 0 {
+			// No weight if there are no migrations to run.
+			return Err(BenchmarkError::Weightless);
+		}
+
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
 		#[block]
 		{
-			Pallet::<T>::on_initialize(1u32.into());
+			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
+
+		//assert!(Historic::<T>::get(mocked_id(SucceedAfter, 0).try_into().expect("Identifier min
+		// length is too short for the benchmarks")).is_some());
+		Ok(())
 	}
 
 	#[benchmark]

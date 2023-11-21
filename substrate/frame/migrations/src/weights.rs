@@ -57,11 +57,19 @@ pub trait WeightInfo {
 	fn force_set_active_cursor() -> Weight;
 	fn force_onboard_mbms() -> Weight;
 	fn clear_historic(n: u32, ) -> Weight;
+	fn exec_migration_worst_case() -> Weight;
+	fn progress_mbms_base() -> Weight;
 }
 
 /// Weights for `pallet_migrations` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn exec_migration_worst_case() -> Weight {
+		Weight::zero() // FAIL-CI
+	}
+	fn progress_mbms_base() -> Weight {
+		Weight::zero() // FAIL-CI
+	}
 	/// Storage: `MultiBlockMigrations::Cursor` (r:1 w:0)
 	/// Proof: `MultiBlockMigrations::Cursor` (`max_values`: Some(1), `max_size`: Some(65550), added: 66045, mode: `MaxEncodedLen`)
 	fn onboard_new_mbms() -> Weight {
@@ -219,5 +227,13 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2740).saturating_mul(n.into()))
+	}
+
+	fn progress_mbms_base() -> Weight {
+		Weight::zero() // FAIL-CI
+	}
+
+	fn exec_migration_worst_case() -> Weight {
+		Weight::zero() // FAIL-CI
 	}
 }

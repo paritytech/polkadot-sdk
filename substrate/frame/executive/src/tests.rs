@@ -315,6 +315,7 @@ impl frame_system::Config for Runtime {
 	type PreInherents = MockedSystemCallbacks;
 	type PostInherents = MockedSystemCallbacks;
 	type PostTransactions = MockedSystemCallbacks;
+	type MultiBlockMigrator = MockedModeGetter;
 }
 
 type Balance = u64;
@@ -384,7 +385,6 @@ type Executive = super::Executive<
 	Runtime,
 	AllPalletsWithSystem,
 	CustomOnRuntimeUpgrade,
-	MockedModeGetter,
 >;
 
 parameter_types! {
@@ -423,7 +423,7 @@ parameter_types! {
 	pub static MbmActive: bool = false;
 }
 
-struct MockedModeGetter;
+pub struct MockedModeGetter;
 impl MultiStepMigrator for MockedModeGetter {
 	fn ongoing() -> bool {
 		MbmActive::get()
@@ -1246,7 +1246,6 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 		new_test_ext(10).execute_with(|| {
 			assert_eq!(SystemCallbacksCalled::get(), 0);
 			let header = std::panic::catch_unwind(|| {
-				dbg!(n_in, n_tx);
 				Executive::execute_block(Block::new(header, extrinsics));
 			});
 
