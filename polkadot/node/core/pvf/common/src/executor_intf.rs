@@ -150,11 +150,9 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 
 pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
 	let mut sem = DEFAULT_CONFIG.semantics.clone();
-	let mut stack_limit = if let Some(stack_limit) = sem.deterministic_stack_limit.clone() {
-		stack_limit
-	} else {
-		panic!("No default stack limit set");
-	};
+	let mut stack_limit = sem.deterministic_stack_limit
+		.expect("Default stack limit should always be available")
+		.clone();
 
 	for p in par.iter() {
 		match p {

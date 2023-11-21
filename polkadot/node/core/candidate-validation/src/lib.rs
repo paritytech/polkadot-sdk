@@ -760,13 +760,19 @@ trait ValidationBackend {
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::AmbiguousWorkerDeath |
 					PossiblyInvalidError::AmbiguousJobDeath(_),
-				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
-				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_)))
-					if num_job_error_retries_left > 0 =>
-					num_job_error_retries_left -= 1,
-				Err(ValidationError::Internal(_)) if num_internal_retries_left > 0 =>
-					num_internal_retries_left -= 1,
-				_ => break,
+				)) =>
+					if num_death_retries_left > 0 {
+						num_death_retries_left -= 1;
+					},
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
+					if num_job_error_retries_left > 0 {
+						num_job_error_retries_left -= 1;
+					},
+				Err(ValidationError::Internal(_)) =>
+					if num_internal_retries_left > 0 {
+						num_internal_retries_left -= 1;
+					},
+				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
 			}
 
 			// If we got a possibly transient error, retry once after a brief delay, on the
