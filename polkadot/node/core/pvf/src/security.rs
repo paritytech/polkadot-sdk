@@ -28,7 +28,7 @@ const SECURE_MODE_ANNOUNCEMENT: &'static str =
 
 /// Run checks for supported security features.
 ///
-/// # Return
+/// # Returns
 ///
 /// Returns the set of security features that we were able to enable. If an error occurs while
 /// enabling a security feature we set the corresponding status to `false`.

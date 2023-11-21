@@ -402,3 +402,20 @@ async fn prepare_can_run_serially() {
 	// Prepare a different wasm blob to prevent skipping work.
 	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
 }
+
+// CI machines should be able to enable all the security features.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+fn all_security_features_work() {
+	use polkadot_node_core_pvf::SecurityStatus;
+
+	let host = TestHost::new().await;
+	assert_eq!(
+		host.security_status,
+		SecurityStatus {
+			can_enable_landlock: true,
+			can_enable_seccomp: true,
+			can_unshare_user_namespace_and_change_root: true,
+		}
+	);
+}

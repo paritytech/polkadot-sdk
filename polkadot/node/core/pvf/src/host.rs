@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, ValidationError, LOG_TARGET,
+	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -70,6 +70,8 @@ pub(crate) type PrecheckResultSender = oneshot::Sender<PrecheckResult>;
 #[derive(Clone)]
 pub struct ValidationHost {
 	to_host_tx: mpsc::Sender<ToHost>,
+	/// Available security features, detected by the host during startup.
+	pub security_status: SecurityStatus,
 }
 
 impl ValidationHost {
@@ -216,7 +218,7 @@ pub async fn start(
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
 
-	let validation_host = ValidationHost { to_host_tx };
+	let validation_host = ValidationHost { to_host_tx, security_status: security_status.clone() };
 
 	let (to_prepare_pool, from_prepare_pool, run_prepare_pool) = prepare::start_pool(
 		metrics.clone(),
@@ -978,7 +980,8 @@ pub(crate) mod tests {
 
 		fn host_handle(&mut self) -> ValidationHost {
 			let to_host_tx = self.to_host_tx.take().unwrap();
-			ValidationHost { to_host_tx }
+			let security_status = Default::default();
+			ValidationHost { to_host_tx, security_status }
 		}
 
 		async fn poll_and_recv_result<T>(&mut self, result_rx: oneshot::Receiver<T>) -> T
