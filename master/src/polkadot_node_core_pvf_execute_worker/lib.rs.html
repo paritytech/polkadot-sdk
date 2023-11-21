@@ -734,12 +734,6 @@
 					</span>},
 				};
 
-				<span class="macro">gum::trace!</span>(
-					target: LOG_TARGET,
-					%worker_pid,
-					<span class="string">&quot;worker: sending response to host: {:?}&quot;</span>,
-					response
-				);
 				send_response(<span class="kw-2">&amp;mut </span>stream, response)<span class="question-mark">?</span>;
 			}
 		},
@@ -872,7 +866,7 @@
 /// - The response, either `Ok` or some error state.
 </span><span class="kw">fn </span>handle_parent_process(
 	<span class="kw-2">mut </span>pipe_read: PipeReader,
-	child: Pid,
+	job_pid: Pid,
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
@@ -885,10 +879,11 @@
 		// Should retry at any rate.
 		</span>.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>status = nix::sys::wait::waitpid(child, <span class="prelude-val">None</span>);
+	<span class="kw">let </span>status = nix::sys::wait::waitpid(job_pid, <span class="prelude-val">None</span>);
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		%worker_pid,
+		%job_pid,
 		<span class="string">&quot;execute worker received wait status from job: {:?}&quot;</span>,
 		status,
 	);
@@ -908,6 +903,7 @@
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
 			%worker_pid,
+			%job_pid,
 			<span class="string">&quot;execute job took {}ms cpu time, exceeded execute timeout {}ms&quot;</span>,
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
@@ -940,6 +936,7 @@
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						%worker_pid,
+						%job_pid,
 						<span class="string">&quot;execute job error: {}&quot;</span>,
 						job_error,
 					);
@@ -955,15 +952,18 @@
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt;
-			<span class="prelude-val">Ok</span>(WorkerResponse::JobDied(<span class="macro">format!</span>(<span class="string">&quot;received signal: {signal:?}&quot;</span>))),
+		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::JobDied {
+			err: <span class="macro">format!</span>(<span class="string">&quot;received signal: {signal:?}&quot;</span>),
+			job_pid: job_pid.as_raw(),
+		}),
 		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">&quot;waitpid&quot;</span>, errno)),
 
 		<span class="comment">// It is within an attacker&#39;s power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
-		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::JobDied(<span class="macro">format!</span>(
-			<span class="string">&quot;unexpected status from wait: {unexpected_wait_status:?}&quot;
-		</span>))),
+		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::JobDied {
+			err: <span class="macro">format!</span>(<span class="string">&quot;unexpected status from wait: {unexpected_wait_status:?}&quot;</span>),
+			job_pid: job_pid.as_raw(),
+		}),
 	}
 }
 

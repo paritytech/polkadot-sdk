@@ -324,6 +324,19 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -359,7 +372,7 @@
 	execute::{Handshake, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
-<span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
+<span class="kw">use </span>polkadot_parachain_primitives::primitives::{ValidationCodeHash, ValidationResult};
 <span class="kw">use </span>polkadot_primitives::ExecutorParams;
 <span class="kw">use </span>std::{path::Path, time::Duration};
 <span class="kw">use </span>tokio::{io, net::UnixStream};
@@ -482,6 +495,16 @@
 		<span class="kw">let </span>response = <span class="macro">futures::select! </span>{
 			response = recv_response(<span class="kw-2">&amp;mut </span>stream).fuse() =&gt; {
 				<span class="kw">match </span>response {
+					<span class="prelude-val">Ok</span>(response) =&gt;
+						handle_response(
+							response,
+							pid,
+							<span class="kw-2">&amp;</span>artifact.id.code_hash,
+							<span class="kw-2">&amp;</span>artifact_path,
+							execution_timeout,
+							audit_log_file
+						)
+							.<span class="kw">await</span>,
 					<span class="prelude-val">Err</span>(error) =&gt; {
 						<span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
@@ -490,55 +513,8 @@
 							<span class="question-mark">?</span>error,
 							<span class="string">&quot;failed to recv an execute response&quot;</span>,
 						);
-						<span class="comment">// The worker died. Check if it was due to a seccomp violation.
-						//
-						// NOTE: Log, but don&#39;t change the outcome. Not all validators may have
-						// auditing enabled, so we don&#39;t want attackers to abuse a non-deterministic
-						// outcome.
-						</span><span class="kw">for </span>syscall <span class="kw">in </span>security::check_seccomp_violations_for_worker(audit_log_file, pid).<span class="kw">await </span>{
-							<span class="macro">gum::error!</span>(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								%syscall,
-								validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
-								<span class="question-mark">?</span>artifact_path,
-								<span class="string">&quot;A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!&quot;
-							</span>);
-						}
 
 						<span class="kw">return </span>Outcome::WorkerIntfErr
-					},
-					<span class="prelude-val">Ok</span>(response) =&gt; {
-						<span class="comment">// Check if any syscall violations occurred during the job. For now this is
-						// only informative, as we are not enforcing the seccomp policy yet.
-						</span><span class="kw">for </span>syscall <span class="kw">in </span>security::check_seccomp_violations_for_worker(audit_log_file, pid).<span class="kw">await </span>{
-							<span class="macro">gum::error!</span>(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								%syscall,
-								validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
-								<span class="question-mark">?</span>artifact_path,
-								<span class="string">&quot;A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!&quot;
-							</span>);
-						}
-
-						<span class="kw">if let </span>WorkerResponse::Ok{duration, ..} = response {
-							<span class="kw">if </span>duration &gt; execution_timeout {
-								<span class="comment">// The job didn&#39;t complete within the timeout.
-								</span><span class="macro">gum::warn!</span>(
-									target: LOG_TARGET,
-									worker_pid = %pid,
-									<span class="string">&quot;execute job took {}ms cpu time, exceeded execution timeout {}ms.&quot;</span>,
-									duration.as_millis(),
-									execution_timeout.as_millis(),
-								);
-
-								<span class="comment">// Return a timeout error.
-								</span><span class="kw">return </span>Outcome::HardTimeout
-							}
-						}
-
-						response
 					},
 				}
 			},
@@ -564,7 +540,7 @@
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
 			WorkerResponse::JobTimedOut =&gt; Outcome::HardTimeout,
-			WorkerResponse::JobDied(err) =&gt; Outcome::JobDied { err },
+			WorkerResponse::JobDied { err, job_pid: <span class="kw">_ </span>} =&gt; Outcome::JobDied { err },
 			WorkerResponse::JobError(err) =&gt; Outcome::JobError { err },
 
 			WorkerResponse::InternalError(err) =&gt; Outcome::InternalError { err },
@@ -572,6 +548,56 @@
 	})
 	.<span class="kw">await
 </span>}
+
+<span class="doccomment">/// Handles the case where we successfully received response bytes on the host from the child.
+///
+/// Here we know the artifact exists, but is still located in a temporary file which will be cleared
+/// by [`with_worker_dir_setup`].
+</span><span class="kw">async fn </span>handle_response(
+	response: WorkerResponse,
+	worker_pid: u32,
+	validation_code_hash: <span class="kw-2">&amp;</span>ValidationCodeHash,
+	artifact_path: <span class="kw-2">&amp;</span>Path,
+	execution_timeout: Duration,
+	audit_log_file: <span class="prelude-ty">Option</span>&lt;security::AuditLogFile&gt;,
+) -&gt; WorkerResponse {
+	<span class="kw">if let </span>WorkerResponse::Ok { duration, .. } = response {
+		<span class="kw">if </span>duration &gt; execution_timeout {
+			<span class="comment">// The job didn&#39;t complete within the timeout.
+			</span><span class="macro">gum::warn!</span>(
+				target: LOG_TARGET,
+				worker_pid,
+				<span class="string">&quot;execute job took {}ms cpu time, exceeded execution timeout {}ms.&quot;</span>,
+				duration.as_millis(),
+				execution_timeout.as_millis(),
+			);
+
+			<span class="comment">// Return a timeout error.
+			</span><span class="kw">return </span>WorkerResponse::JobTimedOut
+		}
+	}
+
+	<span class="kw">if let </span>WorkerResponse::JobDied { err: <span class="kw">_</span>, job_pid } = response {
+		<span class="comment">// The job died. Check if it was due to a seccomp violation.
+		//
+		// NOTE: Log, but don&#39;t change the outcome. Not all validators may have
+		// auditing enabled, so we don&#39;t want attackers to abuse a non-deterministic
+		// outcome.
+		</span><span class="kw">for </span>syscall <span class="kw">in </span>security::check_seccomp_violations_for_job(audit_log_file, job_pid).<span class="kw">await </span>{
+			<span class="macro">gum::error!</span>(
+				target: LOG_TARGET,
+				%worker_pid,
+				%job_pid,
+				%syscall,
+				<span class="question-mark">?</span>validation_code_hash,
+				<span class="question-mark">?</span>artifact_path,
+				<span class="string">&quot;A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!&quot;
+			</span>);
+		}
+	}
+
+	response
+}
 
 <span class="doccomment">/// Create a temporary file for an artifact in the worker cache, execute the given future/closure
 /// passing the file path in, and clean up the worker cache.

@@ -425,6 +425,31 @@
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -605,9 +630,15 @@
 					<span class="kw">let </span>stderr = std::str::from_utf8(<span class="kw-2">&amp;</span>output.stderr)
 						.expect(<span class="string">&quot;child process writes a UTF-8 string to stderr; qed&quot;</span>)
 						.trim();
-					<span class="prelude-val">Err</span>(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						<span class="macro">format!</span>(<span class="string">&quot;not available: {}&quot;</span>, stderr)
-					))
+					<span class="kw">if </span>stderr.is_empty() {
+						<span class="prelude-val">Err</span>(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+							<span class="string">&quot;not available&quot;</span>.into()
+						))
+					} <span class="kw">else </span>{
+						<span class="prelude-val">Err</span>(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+							<span class="macro">format!</span>(<span class="string">&quot;not available: {}&quot;</span>, stderr)
+						))
+					}
 				},
 				<span class="prelude-val">Err</span>(err) =&gt;
 					<span class="prelude-val">Err</span>(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
@@ -635,16 +666,25 @@
 		<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
 			<span class="kw">match </span>tokio::process::Command::new(prepare_worker_program_path)
 				.arg(<span class="string">&quot;--check-can-enable-landlock&quot;</span>)
-				.status()
+				.output()
 				.<span class="kw">await
 			</span>{
-				<span class="prelude-val">Ok</span>(status) <span class="kw">if </span>status.success() =&gt; <span class="prelude-val">Ok</span>(()),
-				<span class="prelude-val">Ok</span>(_status) =&gt; {
+				<span class="prelude-val">Ok</span>(output) <span class="kw">if </span>output.status.success() =&gt; <span class="prelude-val">Ok</span>(()),
+				<span class="prelude-val">Ok</span>(output) =&gt; {
 					<span class="kw">let </span>abi =
 						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI <span class="kw">as </span>u8;
-					<span class="prelude-val">Err</span>(SecureModeError::CannotEnableLandlock(
-						<span class="macro">format!</span>(<span class="string">&quot;landlock ABI {} not available&quot;</span>, abi)
-					))
+					<span class="kw">let </span>stderr = std::str::from_utf8(<span class="kw-2">&amp;</span>output.stderr)
+						.expect(<span class="string">&quot;child process writes a UTF-8 string to stderr; qed&quot;</span>)
+						.trim();
+					<span class="kw">if </span>stderr.is_empty() {
+						<span class="prelude-val">Err</span>(SecureModeError::CannotEnableLandlock(
+							<span class="macro">format!</span>(<span class="string">&quot;landlock ABI {} not available&quot;</span>, abi)
+						))
+					} <span class="kw">else </span>{
+						<span class="prelude-val">Err</span>(SecureModeError::CannotEnableLandlock(
+							<span class="macro">format!</span>(<span class="string">&quot;not available: {}&quot;</span>, stderr)
+						))
+					}
 				},
 				<span class="prelude-val">Err</span>(err) =&gt;
 					<span class="prelude-val">Err</span>(SecureModeError::CannotEnableLandlock(
@@ -665,7 +705,7 @@
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
 </span><span class="kw">async fn </span>check_seccomp(
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))]
+	<span class="attr">#[cfg_attr(not(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)), allow(unused_variables))]
 	</span>prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
 ) -&gt; SecureModeResult {
 	<span class="macro">cfg_if::cfg_if! </span>{
@@ -674,14 +714,24 @@
 				<span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)] </span>{
 					<span class="kw">match </span>tokio::process::Command::new(prepare_worker_program_path)
 						.arg(<span class="string">&quot;--check-can-enable-seccomp&quot;</span>)
-						.status()
+						.output()
 						.<span class="kw">await
 					</span>{
-						<span class="prelude-val">Ok</span>(status) <span class="kw">if </span>status.success() =&gt; <span class="prelude-val">Ok</span>(()),
-						<span class="prelude-val">Ok</span>(_status) =&gt;
-							<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
-								<span class="string">&quot;not available&quot;</span>.into()
-							)),
+						<span class="prelude-val">Ok</span>(output) <span class="kw">if </span>output.status.success() =&gt; <span class="prelude-val">Ok</span>(()),
+						<span class="prelude-val">Ok</span>(output) =&gt; {
+							<span class="kw">let </span>stderr = std::str::from_utf8(<span class="kw-2">&amp;</span>output.stderr)
+								.expect(<span class="string">&quot;child process writes a UTF-8 string to stderr; qed&quot;</span>)
+								.trim();
+							<span class="kw">if </span>stderr.is_empty() {
+								<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
+									<span class="string">&quot;not available&quot;</span>.into()
+								))
+							} <span class="kw">else </span>{
+								<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
+									<span class="macro">format!</span>(<span class="string">&quot;not available: {}&quot;</span>, stderr)
+								))
+							}
+						},
 						<span class="prelude-val">Err</span>(err) =&gt;
 							<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
 								<span class="macro">format!</span>(<span class="string">&quot;could not start child process: {}&quot;</span>, err)
@@ -747,25 +797,25 @@
 	}
 }
 
-<span class="doccomment">/// Check if a seccomp violation occurred for the given worker. As the syslog may be in a different
-/// location, or seccomp auditing may be disabled, this function provides a best-effort attempt
-/// only.
+<span class="doccomment">/// Check if a seccomp violation occurred for the given job process. As the syslog may be in a
+/// different location, or seccomp auditing may be disabled, this function provides a best-effort
+/// attempt only.
 ///
 /// The `audit_log_file` must have been obtained before the job started. It only allows reading
 /// entries that were written since it was obtained, so that we do not consider events from previous
 /// processes with the same pid. This can still be racy, but it&#39;s unlikely and fine for a
 /// best-effort attempt.
-</span><span class="kw">pub async fn </span>check_seccomp_violations_for_worker(
+</span><span class="kw">pub async fn </span>check_seccomp_violations_for_job(
 	audit_log_file: <span class="prelude-ty">Option</span>&lt;AuditLogFile&gt;,
-	worker_pid: u32,
+	job_pid: i32,
 ) -&gt; Vec&lt;u32&gt; {
-	<span class="kw">let </span>audit_event_pid_field = <span class="macro">format!</span>(<span class="string">&quot;pid={worker_pid}&quot;</span>);
+	<span class="kw">let </span>audit_event_pid_field = <span class="macro">format!</span>(<span class="string">&quot;pid={job_pid}&quot;</span>);
 
 	<span class="kw">let </span>audit_log_file = <span class="kw">match </span>audit_log_file {
 		<span class="prelude-val">Some</span>(file) =&gt; {
-			<span class="macro">gum::debug!</span>(
+			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
-				%worker_pid,
+				%job_pid,
 				audit_log_path = <span class="question-mark">?</span>file.path,
 				<span class="string">&quot;checking audit log for seccomp violations&quot;</span>,
 			);
@@ -774,7 +824,7 @@
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				%worker_pid,
+				%job_pid,
 				<span class="string">&quot;could not open either {AUDIT_LOG_PATH} or {SYSLOG_PATH} for reading audit logs&quot;
 			</span>);
 			<span class="kw">return </span><span class="macro">vec!</span>[]

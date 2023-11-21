@@ -197,8 +197,6 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -268,11 +266,9 @@
 //!
 //! # Action on syscall violations
 //!
-//! On syscall violations we currently only log, to make sure this works correctly before enforcing.
-//!
-//! In the future, when a forbidden syscall is attempted we immediately kill the process in order to
-//! prevent the attacker from doing anything else. In execution, this will result in voting against
-//! the candidate.
+//! When a forbidden syscall is attempted we immediately kill the process in order to prevent the
+//! attacker from doing anything else. In execution, this will result in voting against the
+//! candidate.
 
 </span><span class="kw">use crate</span>::{
 	worker::{stringify_panic_payload, WorkerKind},
@@ -283,7 +279,7 @@
 
 <span class="doccomment">/// The action to take on caught syscalls.
 </span><span class="attr">#[cfg(not(test))]
-</span><span class="kw">const </span>CAUGHT_ACTION: SeccompAction = SeccompAction::Log;
+</span><span class="kw">const </span>CAUGHT_ACTION: SeccompAction = SeccompAction::KillProcess;
 <span class="doccomment">/// Don&#39;t kill the process when testing.
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">const </span>CAUGHT_ACTION: SeccompAction = SeccompAction::Errno(libc::EACCES <span class="kw">as </span>u32);

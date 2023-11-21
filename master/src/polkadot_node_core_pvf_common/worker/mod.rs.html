@@ -891,7 +891,7 @@
 	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_mut))] </span><span class="kw-2">mut </span>worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))] </span>security_status: <span class="kw-2">&amp;</span>SecurityStatus,
+	security_status: <span class="kw-2">&amp;</span>SecurityStatus,
 	<span class="kw-2">mut </span>event_loop: F,
 ) <span class="kw">where
 	</span>F: FnMut(UnixStream, PathBuf) -&gt; io::Result&lt;Never&gt;,

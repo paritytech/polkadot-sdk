@@ -179,6 +179,7 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -258,7 +259,7 @@
 	</span><span class="attr">#[codec(index = <span class="number">9</span>)]
 	</span>ClearWorkerDir(String),
 	<span class="doccomment">/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
-	</span>JobDied(String),
+	</span>JobDied { err: String, job_pid: i32 },
 	<span class="attr">#[codec(index = <span class="number">10</span>)]
 	</span><span class="doccomment">/// Some error occurred when interfacing with the kernel.
 	</span><span class="attr">#[codec(index = <span class="number">11</span>)]
@@ -277,7 +278,7 @@
 		<span class="kw">match </span><span class="self">self </span>{
 			Prevalidation(<span class="kw">_</span>) | Preparation(<span class="kw">_</span>) | JobError(<span class="kw">_</span>) | OutOfMemory =&gt; <span class="bool-val">true</span>,
 			IoErr(<span class="kw">_</span>) |
-			JobDied(<span class="kw">_</span>) |
+			JobDied { .. } |
 			CreateTmpFile(<span class="kw">_</span>) |
 			RenameTmpFile { .. } |
 			ClearWorkerDir(<span class="kw">_</span>) |
@@ -300,7 +301,8 @@
 			JobError(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;panic: {}&quot;</span>, err),
 			TimedOut =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: timeout&quot;</span>),
 			IoErr(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: io error while receiving response: {}&quot;</span>, err),
-			JobDied(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: prepare job died: {}&quot;</span>, err),
+			JobDied { err, job_pid } =&gt;
+				<span class="macro">write!</span>(f, <span class="string">&quot;prepare: prepare job with pid {job_pid} died: {err}&quot;</span>),
 			CreateTmpFile(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare: error creating tmp file: {}&quot;</span>, err),
 			RenameTmpFile { err, src, dest } =&gt;
 				<span class="macro">write!</span>(f, <span class="string">&quot;prepare: error renaming tmp file ({:?} -&gt; {:?}): {}&quot;</span>, src, dest, err),

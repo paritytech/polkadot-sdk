@@ -909,14 +909,14 @@
 					<span class="prelude-val">Ok</span>(())
 				},
 				<span class="comment">// The worker might still be usable, but we kill it just in case.
-				</span>Outcome::JobDied(err) =&gt; {
+				</span>Outcome::JobDied { err, job_pid } =&gt; {
 					<span class="kw">if </span>attempt_retire(metrics, spawned, worker) {
 						reply(
 							from_pool,
 							FromPool::Concluded {
 								worker,
 								rip: <span class="bool-val">true</span>,
-								result: <span class="prelude-val">Err</span>(PrepareError::JobDied(err)),
+								result: <span class="prelude-val">Err</span>(PrepareError::JobDied { err, job_pid }),
 							},
 						)<span class="question-mark">?</span>;
 					}

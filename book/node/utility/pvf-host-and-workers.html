@@ -176,15 +176,21 @@ getting backed and honest backers getting slashed.</p>
 <p>We currently know of the following specific cases that will lead to a retried
 execution request:</p>
 <ol>
-<li><strong>OOM:</strong> The host might have been temporarily low on memory due to other
-processes running on the same machine. <strong>NOTE:</strong> This case will lead to
-voting against the candidate (and possibly a dispute) if the retry is still
-not successful.</li>
+<li><strong>OOM:</strong> We have memory limits to try to prevent attackers from exhausting
+host memory. If the memory limit is hit, we kill the job process and retry
+the job. Alternatively, the host might have been temporarily low on memory
+due to other processes running on the same machine. <strong>NOTE:</strong> This case will
+lead to voting against the candidate (and possibly a dispute) if the retry is
+still not successful.</li>
+<li><strong>Syscall violations:</strong> If the job attempts a system call that is blocked by
+the sandbox's security policy, the job process is immediately killed and we
+retry. <strong>NOTE:</strong> In the future, if we have a proper way to detect that the
+job died due to a security violation, it might make sense not to retry in
+this case.</li>
 <li><strong>Artifact missing:</strong> The prepared artifact might have been deleted due to
 operator error or some bug in the system.</li>
-<li><strong>Job errors:</strong> For example, the worker thread panicked for some
-indeterminate reason, which may or may not be independent of the candidate or
-PVF.</li>
+<li><strong>Job errors:</strong> For example, the job process panicked for some indeterminate
+reason, which may or may not be independent of the candidate or PVF.</li>
 <li><strong>Internal errors:</strong> See &quot;Internal Errors&quot; section. In this case, after the
 retry we abstain from voting.</li>
 </ol>
@@ -277,19 +283,18 @@ with untrusted code does not have unnecessary access to the file-system. This
 provides some protection against attackers accessing sensitive data or modifying
 data on the host machine.</p>
 <p><em>Currently this is only supported on Linux.</em></p>
-<!-- TODO: Uncomment when this has been enabled. -->
-<!-- ### Restricting networking -->
-<!-- We also disable networking on PVF threads by disabling certain syscalls, such as -->
-<!-- the creation of sockets. This prevents attackers from either downloading -->
-<!-- payloads or communicating sensitive data from the validator's machine to the -->
-<!-- outside world. -->
-<!-- *Currently this is only supported on Linux.* -->
+<h3 id="restricting-networking"><a class="header" href="#restricting-networking">Restricting networking</a></h3>
+<p>We also disable networking on PVF threads by disabling certain syscalls, such as
+the creation of sockets. This prevents attackers from either downloading
+payloads or communicating sensitive data from the validator's machine to the
+outside world.</p>
+<p><em>Currently this is only supported on Linux.</em></p>
 <h3 id="clearing-env-vars"><a class="header" href="#clearing-env-vars">Clearing env vars</a></h3>
 <p>We clear environment variables before handling untrusted code, because why give
 attackers potentially sensitive data unnecessarily? And even if everything else
 is locked down, env vars can potentially provide a source of randomness (see
 point 1, &quot;Consensus faults&quot; above).</p>
-<footer id="last-change">Last change: 2023-11-20, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/ede4a36262">ede4a36262</a></footer>
+<footer id="last-change">Last change: 2023-11-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/552be4800d">552be4800d</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

@@ -365,6 +365,15 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -471,7 +480,7 @@
 	<span class="doccomment">/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
 	///
 	/// The worker might still be usable, but we kill it just in case.
-	</span>JobDied(String),
+	</span>JobDied { err: String, job_pid: i32 },
 }
 
 <span class="doccomment">/// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -527,19 +536,7 @@
 
 			<span class="kw">match </span>result {
 				<span class="comment">// Received bytes from worker within the time limit.
-				</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(prepare_worker_result)) =&gt; {
-					<span class="comment">// Check if any syscall violations occurred during the job. For now this is only
-					// informative, as we are not enforcing the seccomp policy yet.
-					</span><span class="kw">for </span>syscall <span class="kw">in </span>security::check_seccomp_violations_for_worker(audit_log_file, pid).<span class="kw">await </span>{
-						<span class="macro">gum::error!</span>(
-							target: LOG_TARGET,
-							worker_pid = %pid,
-							%syscall,
-							<span class="question-mark">?</span>pvf,
-							<span class="string">&quot;A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!&quot;
-						</span>);
-					}
-
+				</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(prepare_worker_result)) =&gt;
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
@@ -549,9 +546,9 @@
 						<span class="kw-2">&amp;</span>pvf,
 						<span class="kw-2">&amp;</span>cache_path,
 						preparation_timeout,
+						audit_log_file,
 					)
-					.<span class="kw">await
-				</span>},
+					.<span class="kw">await</span>,
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
 					<span class="comment">// Communication error within the time limit.
 					</span><span class="macro">gum::warn!</span>(
@@ -588,15 +585,36 @@
 	worker_pid: u32,
 	tmp_file: PathBuf,
 	pvf: <span class="kw-2">&amp;</span>PvfPrepData,
-	cache_path: <span class="kw-2">&amp;</span>PathBuf,
+	cache_path: <span class="kw-2">&amp;</span>Path,
 	preparation_timeout: Duration,
+	audit_log_file: <span class="prelude-ty">Option</span>&lt;security::AuditLogFile&gt;,
 ) -&gt; Outcome {
 	<span class="kw">let </span>PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
 		<span class="kw">match </span>result.clone() {
 			<span class="prelude-val">Ok</span>(result) =&gt; result,
 			<span class="comment">// Timed out on the child. This should already be logged by the child.
 			</span><span class="prelude-val">Err</span>(PrepareError::TimedOut) =&gt; <span class="kw">return </span>Outcome::TimedOut,
-			<span class="prelude-val">Err</span>(PrepareError::JobDied(err)) =&gt; <span class="kw">return </span>Outcome::JobDied(err),
+			<span class="prelude-val">Err</span>(PrepareError::JobDied { err, job_pid }) =&gt; {
+				<span class="comment">// The job died. Check if it was due to a seccomp violation.
+				//
+				// NOTE: Log, but don&#39;t change the outcome. Not all validators may have
+				// auditing enabled, so we don&#39;t want attackers to abuse a non-deterministic
+				// outcome.
+				</span><span class="kw">for </span>syscall <span class="kw">in
+					</span>security::check_seccomp_violations_for_job(audit_log_file, job_pid).<span class="kw">await
+				</span>{
+					<span class="macro">gum::error!</span>(
+						target: LOG_TARGET,
+						%worker_pid,
+						%job_pid,
+						%syscall,
+						<span class="question-mark">?</span>pvf,
+						<span class="string">&quot;A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!&quot;
+					</span>);
+				}
+
+				<span class="kw">return </span>Outcome::JobDied { err, job_pid }
+			},
 			<span class="prelude-val">Err</span>(PrepareError::OutOfMemory) =&gt; <span class="kw">return </span>Outcome::OutOfMemory,
 			<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>Outcome::Concluded { worker, result: <span class="prelude-val">Err</span>(err) },
 		};

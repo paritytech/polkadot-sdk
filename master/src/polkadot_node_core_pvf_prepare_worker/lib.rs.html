@@ -671,6 +671,12 @@
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -930,9 +936,9 @@
 
 						handle_parent_process(
 							pipe_reader,
+							worker_pid,
 							child,
 							temp_artifact_dest.clone(),
-							worker_pid,
 							usage_before,
 							preparation_timeout,
 						)
@@ -1179,9 +1185,9 @@
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 </span><span class="kw">fn </span>handle_parent_process(
 	<span class="kw-2">mut </span>pipe_read: PipeReader,
-	child: Pid,
-	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
+	job_pid: Pid,
+	temp_artifact_dest: PathBuf,
 	usage_before: Usage,
 	timeout: Duration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareWorkerSuccess, PrepareError&gt; {
@@ -1191,10 +1197,11 @@
 		.read_to_end(<span class="kw-2">&amp;mut </span>received_data)
 		.map_err(|err| PrepareError::IoErr(err.to_string()))<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>status = nix::sys::wait::waitpid(child, <span class="prelude-val">None</span>);
+	<span class="kw">let </span>status = nix::sys::wait::waitpid(job_pid, <span class="prelude-val">None</span>);
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		%worker_pid,
+		%job_pid,
 		<span class="string">&quot;prepare worker received wait status from job: {:?}&quot;</span>,
 		status,
 	);
@@ -1212,6 +1219,7 @@
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
 			%worker_pid,
+			%job_pid,
 			<span class="string">&quot;prepare job took {}ms cpu time, exceeded prepare timeout {}ms&quot;</span>,
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
@@ -1246,6 +1254,7 @@
 					</span><span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						%worker_pid,
+						%job_pid,
 						<span class="string">&quot;worker: writing artifact to {}&quot;</span>,
 						temp_artifact_dest.display(),
 					);
@@ -1266,15 +1275,18 @@
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt;
-			<span class="prelude-val">Err</span>(PrepareError::JobDied(<span class="macro">format!</span>(<span class="string">&quot;received signal: {signal:?}&quot;</span>))),
+		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt; <span class="prelude-val">Err</span>(PrepareError::JobDied {
+			err: <span class="macro">format!</span>(<span class="string">&quot;received signal: {signal:?}&quot;</span>),
+			job_pid: job_pid.as_raw(),
+		}),
 		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;waitpid&quot;</span>, errno)),
 
 		<span class="comment">// An attacker can make the child process return any exit status it wants. So we can treat
 		// all unexpected cases the same way.
-		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Err</span>(PrepareError::JobDied(<span class="macro">format!</span>(
-			<span class="string">&quot;unexpected status from wait: {unexpected_wait_status:?}&quot;
-		</span>))),
+		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Err</span>(PrepareError::JobDied {
+			err: <span class="macro">format!</span>(<span class="string">&quot;unexpected status from wait: {unexpected_wait_status:?}&quot;</span>),
+			job_pid: job_pid.as_raw(),
+		}),
 	}
 }
 
