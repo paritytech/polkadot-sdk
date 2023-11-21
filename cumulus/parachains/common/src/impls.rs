@@ -19,9 +19,11 @@
 use frame_support::traits::{
 	fungible::{self, Balanced as FungibleBalanced},
 	fungibles::{self, Balanced as FungiblesBalanced},
+	tokens::imbalance::ResolveTo,
 	Contains, ContainsPair, Currency, Defensive, Get, Imbalance, OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
+use pallet_collator_selection::StakingPotAccountId;
 use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
@@ -35,7 +37,11 @@ pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
 pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 
 /// Implementation of `OnUnbalanced` that deposits the fees into a staking pot for later payout.
+#[deprecated(
+	note = "ToStakingPot is deprecated and will be removed after March 2024. Please use frame_support::traits::tokens::imbalance::ResolveTo instead."
+)]
 pub struct ToStakingPot<R>(PhantomData<R>);
+#[allow(deprecated)]
 impl<R> OnUnbalanced<fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToStakingPot<R>
 where
 	R: pallet_balances::Config + pallet_collator_selection::Config,
@@ -67,7 +73,7 @@ where
 			if let Some(tips) = fees_then_tips.next() {
 				tips.merge_into(&mut fees);
 			}
-			<ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
+			ResolveTo::<StakingPotAccountId<R>, pallet_balances::Pallet<R>>::on_unbalanced(fees)
 		}
 	}
 }
@@ -257,8 +263,14 @@ mod tests {
 	#[test]
 	fn test_fees_and_tip_split() {
 		new_test_ext().execute_with(|| {
-			let fee = Balances::issue(10);
-			let tip = Balances::issue(20);
+			let fee =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(10);
+			let tip =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(20);
 
 			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
 
