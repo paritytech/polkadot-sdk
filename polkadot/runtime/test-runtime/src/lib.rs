@@ -1019,6 +1019,19 @@ sp_api::impl_runtime_apis! {
 		) -> Result<(), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
+
+		fn generate_ancestry_proof(
+			_prev_best_block: BlockNumber,
+			_best_known_block_number: Option<BlockNumber>
+		) -> Result<mmr::AncestryProof<Hash>, mmr::Error> {
+			Err(mmr::Error::PalletNotIncluded)
+		}
+
+		fn verify_ancestry_proof(
+			_ancestry_proof: mmr::AncestryProof<Hash>,
+		) -> Result<(), mmr::Error> {
+			Err(mmr::Error::PalletNotIncluded)
+		}
 	}
 
 	impl fg_primitives::GrandpaApi<Block> for Runtime {
