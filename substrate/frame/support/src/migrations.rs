@@ -374,7 +374,7 @@ pub trait SteppedMigration {
 	/// Try to migrate as much as possible with the given weight.
 	///
 	/// **ANY STORAGE CHANGES MUST BE ROLLED-BACK BY THE CALLER UPON ERROR.** This is necessary
-	/// since the caller cannot return a cursor in the error case. `Self::transactional_step` is
+	/// since the caller cannot return a cursor in the error case. [`Self::transactional_step`] is
 	/// provided as convenience for a caller. A cursor of `None` implies that the migration is at
 	/// its end.
 	// TODO: Think about iterator `fuse` requirement.
