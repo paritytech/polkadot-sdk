@@ -15,7 +15,7 @@ use sp_core::{self, RuntimeDebug};
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 
-use super::{CloneSystemOriginSigner, DispatchInfoOf, OriginOf, Dispatchable, PostDispatchInfoOf};
+use super::{CloneSystemOriginSigner, DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<TE, Call> = Result<

@@ -310,7 +310,6 @@ impl sp_runtime::traits::SignedExtension for DisallowSigned {
 	}
 }
 
-
 impl sp_runtime::traits::TransactionExtension<RuntimeCall> for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
 	type Val = ();
@@ -342,8 +341,6 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for DisallowSigned {
 		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
 	}
 }
-
-#[test] fn builds() {}
 
 /// Index of a transaction in the chain.
 pub type Nonce = u32;

@@ -54,8 +54,8 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	AsTransactionExtension, DispatchTransaction, TransactionExtension, TransactionExtensionMetadata,
-	ValidateResult,
+	AsTransactionExtension, DispatchTransaction, TransactionExtension,
+	TransactionExtensionMetadata, ValidateResult,
 };
 
 /// A lazy value.
