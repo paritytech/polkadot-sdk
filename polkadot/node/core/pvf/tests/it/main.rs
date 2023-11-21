@@ -18,6 +18,8 @@
 
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
 	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
 	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
@@ -121,6 +123,11 @@ impl TestHost {
 			.await
 			.unwrap();
 		result_rx.await.unwrap()
+	}
+
+	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+	async fn security_status(&self) -> SecurityStatus {
+		self.host.lock().await.security_status.clone()
 	}
 }
 
@@ -406,12 +413,10 @@ async fn prepare_can_run_serially() {
 // CI machines should be able to enable all the security features.
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 #[tokio::test]
-fn all_security_features_work() {
-	use polkadot_node_core_pvf::SecurityStatus;
-
+async fn all_security_features_work() {
 	let host = TestHost::new().await;
 	assert_eq!(
-		host.security_status,
+		host.security_status().await,
 		SecurityStatus {
 			can_enable_landlock: true,
 			can_enable_seccomp: true,
