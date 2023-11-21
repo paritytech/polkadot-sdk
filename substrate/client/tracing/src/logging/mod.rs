@@ -96,6 +96,7 @@ fn prepare_subscriber<N, E, F, W>(
 	profiling_targets: Option<&str>,
 	force_colors: Option<bool>,
 	detailed_output: bool,
+	post_mortem_logs_config: Option<&PostMortemLogsConfig>,
 	builder_hook: impl Fn(
 		SubscriberBuilder<format::DefaultFields, EventFormat, EnvFilter, DefaultLogger>,
 	) -> SubscriberBuilder<N, E, F, W>,
@@ -191,9 +192,29 @@ where
 
 	let builder = builder_hook(builder);
 
-	let subscriber = builder.finish().with(PrefixLayer);
+	let file_logger = if let Some(config) = post_mortem_logs_config {
+		let file_appender = tracing_appender::rolling::minutely(&config.dir, &config.prefix);
+		let (file, file_guard) = tracing_appender::non_blocking(file_appender);
+		let file_logger = tracing_subscriber::fmt::layer().with_writer(file);
+		let _ = Box::leak(Box::new(file_guard));
+
+		Some(file_logger)
+	} else {
+		None
+	};
+
+	let subscriber = builder.finish().with(PrefixLayer).with(file_logger);
 
 	Ok(subscriber)
+}
+
+/// Configuration of the post-mortem logs.
+#[derive(Debug, Clone)]
+pub struct PostMortemLogsConfig {
+	/// A directory to save logs
+	pub dir: String,
+	/// A prefix fot log files
+	pub prefix: String,
 }
 
 /// A builder that is used to initialize the global logger.
@@ -204,6 +225,7 @@ pub struct LoggerBuilder {
 	log_reloading: bool,
 	force_colors: Option<bool>,
 	detailed_output: bool,
+	post_mortem_logs_config: Option<PostMortemLogsConfig>,
 }
 
 impl LoggerBuilder {
@@ -216,6 +238,9 @@ impl LoggerBuilder {
 			log_reloading: false,
 			force_colors: None,
 			detailed_output: false,
+			post_mortem_logs_config: Some(
+				PostMortemLogsConfig { dir: "./".to_string(), prefix: "logs".to_string() }
+			),
 		}
 	}
 
@@ -272,6 +297,7 @@ impl LoggerBuilder {
 					Some(&profiling_targets),
 					self.force_colors,
 					self.detailed_output,
+					self.post_mortem_logs_config.as_ref(),
 					|builder| enable_log_reloading!(builder),
 				)?;
 				let mut profiling =
@@ -290,6 +316,7 @@ impl LoggerBuilder {
 					Some(&profiling_targets),
 					self.force_colors,
 					self.detailed_output,
+					self.post_mortem_logs_config.as_ref(),
 					|builder| builder,
 				)?;
 				let mut profiling =
@@ -309,6 +336,7 @@ impl LoggerBuilder {
 				None,
 				self.force_colors,
 				self.detailed_output,
+				self.post_mortem_logs_config.as_ref(),
 				|builder| enable_log_reloading!(builder),
 			)?;
 
@@ -321,6 +349,7 @@ impl LoggerBuilder {
 				None,
 				self.force_colors,
 				self.detailed_output,
+				self.post_mortem_logs_config.as_ref(),
 				|builder| builder,
 			)?;
 
