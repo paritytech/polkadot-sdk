@@ -104,7 +104,7 @@ pub enum Outcome {
 	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
 	///
 	/// The worker might still be usable, but we kill it just in case.
-	JobDied(String),
+	JobDied { err: String, job_pid: i32 },
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -160,19 +160,7 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_worker_result)) => {
-					// Check if any syscall violations occurred during the job. For now this is only
-					// informative, as we are not enforcing the seccomp policy yet.
-					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-						gum::error!(
-							target: LOG_TARGET,
-							worker_pid = %pid,
-							%syscall,
-							?pvf,
-							"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-						);
-					}
-
+				Ok(Ok(prepare_worker_result)) =>
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
@@ -182,9 +170,9 @@ pub async fn start_work(
 						&pvf,
 						&cache_path,
 						preparation_timeout,
+						audit_log_file,
 					)
-					.await
-				},
+					.await,
 				Ok(Err(err)) => {
 					// Communication error within the time limit.
 					gum::warn!(
@@ -221,15 +209,36 @@ async fn handle_response(
 	worker_pid: u32,
 	tmp_file: PathBuf,
 	pvf: &PvfPrepData,
-	cache_path: &PathBuf,
+	cache_path: &Path,
 	preparation_timeout: Duration,
+	audit_log_file: Option<security::AuditLogFile>,
 ) -> Outcome {
 	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
 		match result.clone() {
 			Ok(result) => result,
 			// Timed out on the child. This should already be logged by the child.
 			Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-			Err(PrepareError::JobDied(err)) => return Outcome::JobDied(err),
+			Err(PrepareError::JobDied { err, job_pid }) => {
+				// The job died. Check if it was due to a seccomp violation.
+				//
+				// NOTE: Log, but don't change the outcome. Not all validators may have
+				// auditing enabled, so we don't want attackers to abuse a non-deterministic
+				// outcome.
+				for syscall in
+					security::check_seccomp_violations_for_job(audit_log_file, job_pid).await
+				{
+					gum::error!(
+						target: LOG_TARGET,
+						%worker_pid,
+						%job_pid,
+						%syscall,
+						?pvf,
+						"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
+					);
+				}
+
+				return Outcome::JobDied { err, job_pid }
+			},
 			Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 			Err(err) => return Outcome::Concluded { worker, result: Err(err) },
 		};
