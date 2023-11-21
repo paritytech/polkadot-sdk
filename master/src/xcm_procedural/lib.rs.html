@@ -60,6 +60,10 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -79,6 +83,7 @@
 </span><span class="doccomment">//! Procedural macros used in XCM.
 
 </span><span class="kw">use </span>proc_macro::TokenStream;
+<span class="kw">use </span>syn::{parse_macro_input, DeriveInput};
 
 <span class="kw">mod </span>builder_pattern;
 <span class="kw">mod </span>v2;
@@ -118,8 +123,11 @@
 /// 	.buy_execution(fees, weight_limit)
 /// 	.deposit_asset(assets, beneficiary)
 /// 	.build();
-</span><span class="attr">#[proc_macro_derive(Builder)]
+</span><span class="attr">#[proc_macro_derive(Builder, attributes(builder))]
 </span><span class="kw">pub fn </span>derive_builder(input: TokenStream) -&gt; TokenStream {
+	<span class="kw">let </span>input = <span class="macro">parse_macro_input!</span>(input <span class="kw">as </span>DeriveInput);
 	builder_pattern::derive(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
 }
 </code></pre></div></section></main></body></html>

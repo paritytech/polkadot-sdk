@@ -1499,6 +1499,10 @@
 <a href="#1499" id="1499">1499</a>
 <a href="#1500" id="1500">1500</a>
 <a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1927,6 +1931,7 @@
 	/// Kind: *Command*.
 	///
 	/// Errors:
+	</span><span class="attr">#[builder(loads_holding)]
 	</span>WithdrawAsset(MultiAssets),
 
 	<span class="doccomment">/// Asset(s) (`assets`) have been received into the ownership of this system on the `origin`
@@ -1940,6 +1945,7 @@
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	</span><span class="attr">#[builder(loads_holding)]
 	</span>ReserveAssetDeposited(MultiAssets),
 
 	<span class="doccomment">/// Asset(s) (`assets`) have been destroyed on the `origin` system and equivalent assets should
@@ -1953,6 +1959,7 @@
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	</span><span class="attr">#[builder(loads_holding)]
 	</span>ReceiveTeleportedAsset(MultiAssets),
 
 	<span class="doccomment">/// Respond with information that the local system is expecting.
@@ -2277,6 +2284,7 @@
 	/// Kind: *Command*
 	///
 	/// Errors:
+	</span><span class="attr">#[builder(loads_holding)]
 	</span>ClaimAsset { assets: MultiAssets, ticket: MultiLocation },
 
 	<span class="doccomment">/// Always throws an error of type `Trap`.
