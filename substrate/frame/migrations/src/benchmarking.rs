@@ -18,7 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::mock_helpers::{mocked_id, MigrationsStorage, MockedMigrationKind::SucceedAfter};
+use crate::mock_helpers::{MigrationsStorage, MockedMigrationKind::SucceedAfter};
 
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
@@ -69,8 +69,6 @@ mod benches {
 			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
 
-		//assert!(Historic::<T>::get(mocked_id(SucceedAfter, 0).try_into().expect("Identifier min
-		// length is too short for the benchmarks")).is_some());
 		Ok(())
 	}
 
