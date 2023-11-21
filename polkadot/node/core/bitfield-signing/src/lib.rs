@@ -32,8 +32,8 @@ use polkadot_node_subsystem::{
 	messages::{
 		AvailabilityStoreMessage, BitfieldDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	overseer, ActivatedLeaf, FromOrchestra, LeafStatus, OverseerSignal, PerLeafSpan,
-	SpawnedSubsystem, SubsystemError, SubsystemResult, SubsystemSender,
+	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, PerLeafSpan, SpawnedSubsystem,
+	SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{self as util, Validator};
 use polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
@@ -257,16 +257,6 @@ async fn handle_active_leaves_update<Sender>(
 where
 	Sender: overseer::BitfieldSigningSenderTrait,
 {
-	if let LeafStatus::Stale = leaf.status {
-		gum::debug!(
-			target: LOG_TARGET,
-			relay_parent = ?leaf.hash,
-			block_number =  ?leaf.number,
-			"Skip bitfield signing for stale leaf"
-		);
-		return Ok(())
-	}
-
 	let span = PerLeafSpan::new(leaf.span, "bitfield-signing");
 	let span_delay = span.child("delay");
 	let wait_until = Instant::now() + SPAWNED_TASK_DELAY;
