@@ -40,7 +40,6 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
