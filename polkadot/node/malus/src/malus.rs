@@ -213,7 +213,7 @@ mod tests {
 	}
 
 	#[test]
-	fn dispute_finalized_offset_works() {
+	fn dispute_finalized_offset_value_works() {
 		let cli = MalusCli::try_parse_from(IntoIterator::into_iter([
 			"malus",
 			"dispute-finalized-candidates",
@@ -223,10 +223,11 @@ mod tests {
 		]))
 		.unwrap();
 		assert_matches::assert_matches!(cli, MalusCli {
-			variant: NemesisVariant::DisputeFinalizedCandidates(run),
+			variant: NemesisVariant::DisputeFinalizedCandidates(opts),
 			..
 		} => {
-			assert!(run.cli.run.base.bob);
+			assert_eq!(opts.dispute_offset, 13); // This line checks that dispute_offset is correctly set to 13
+			assert!(opts.cli.run.base.bob);
 		});
 	}
 }
