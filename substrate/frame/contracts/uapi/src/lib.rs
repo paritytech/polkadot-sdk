@@ -18,13 +18,16 @@
 
 #![no_std]
 
+mod api;
+pub use api::Api;
+
 cfg_if::cfg_if! {
 	if #[cfg(target_arch = "wasm32")] {
 		mod wasm32;
-		pub use wasm32::*;
+		pub use wasm32::ApiImpl;
 	} else if #[cfg(target_arch = "riscv32")] {
 		mod riscv32;
-		pub use riscv32::*;
+		pub use riscv32::ApiImpl;
 	}
 }
 
@@ -90,6 +93,12 @@ define_error_codes! {
 	CallRuntimeFailed = 10,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 	EcdsaRecoveryFailed = 11,
+	/// sr25519 signature verification failed.
+	Sr25519VerifyFailed = 12,
+	/// The `xcm_execute` call failed.
+	XcmExecutionFailed = 13,
+	/// The `xcm_send` call failed.
+	XcmSendFailed = 14,
 }
 
 /// The flags to indicate further information about the end of a contract execution.

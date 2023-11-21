@@ -20,6 +20,8 @@
 #![no_main]
 
 extern crate common;
+extern crate uapi;
+use uapi::{Api, ApiImpl as api};
 
 #[no_mangle]
 pub fn deploy() {}
@@ -30,10 +32,10 @@ pub fn call() {
 	let mut out = [0u8; 0]; // No output data.
 
 	// Read the input data.
-    uapi::input(&mut &mut buffer[..]);
+    api::input(&mut &mut buffer[..]);
 
-	/// Call the callee.
-    uapi::call(
+	// Call the callee.
+    api::call(
         0u32,              // No flags.
         &buffer[4..36],    // callee address.
         0u64,              // How much gas to devote for the execution. 0 = all.

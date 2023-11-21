@@ -207,214 +207,29 @@ mod sys {
 	}
 }
 
-#[inline(always)]
-pub fn instantiate(
-	code_hash: &[u8],
-	gas_limit: u64,
-	endowment: &[u8],
-	input: &[u8],
-	out_address: &mut &mut [u8],
-	out_return_value: &mut &mut [u8],
-	salt: &[u8],
-) -> Result {
-	let mut address_len = out_address.len() as u32;
-	let mut return_value_len = out_return_value.len() as u32;
-	let ret_code = {
-		unsafe {
-			sys::instantiate(
-				code_hash.as_ptr(),
-				gas_limit,
-				endowment.as_ptr(),
-				input.as_ptr(),
-				input.len() as u32,
-				out_address.as_mut_ptr(),
-				&mut address_len,
-				out_return_value.as_mut_ptr(),
-				&mut return_value_len,
-				salt.as_ptr(),
-				salt.len() as u32,
-			)
-		}
-	};
-	extract_from_slice(out_address, address_len as usize);
-	extract_from_slice(out_return_value, return_value_len as usize);
-	ret_code.into()
-}
-
-#[inline(always)]
-pub fn call(
-	flags: u32,
-	callee: &[u8],
-	gas_limit: u64,
-	value: &[u8],
-	input: &[u8],
-	output: &mut &mut [u8],
-) -> Result {
-	let mut output_len = output.len() as u32;
-	let ret_code = {
-		unsafe {
-			sys::call(
-				flags,
-				callee.as_ptr(),
-				gas_limit,
-				value.as_ptr(),
-				input.as_ptr(),
-				input.len() as u32,
-				output.as_mut_ptr(),
-				&mut output_len,
-			)
-		}
-	};
-	extract_from_slice(output, output_len as usize);
-	ret_code.into()
-}
-
-#[inline(always)]
-pub fn delegate_call(flags: u32, code_hash: &[u8], input: &[u8], output: &mut &mut [u8]) -> Result {
-	let mut output_len = output.len() as u32;
-	let ret_code = {
-		unsafe {
-			sys::delegate_call(
-				flags,
-				code_hash.as_ptr(),
-				input.as_ptr(),
-				input.len() as u32,
-				output.as_mut_ptr(),
-				&mut output_len,
-			)
-		}
-	};
-	extract_from_slice(output, output_len as usize);
-	ret_code.into()
-}
-
-pub fn transfer(account_id: &[u8], value: &[u8]) -> Result {
-	let ret_code = unsafe {
-		sys::transfer(
-			account_id.as_ptr(),
-			account_id.len() as u32,
-			value.as_ptr(),
-			value.len() as u32,
-		)
-	};
-	ret_code.into()
-}
-
-pub fn deposit_event(topics: &[u8], data: &[u8]) {
-	unsafe {
-		sys::deposit_event(topics.as_ptr(), topics.len() as u32, data.as_ptr(), data.len() as u32)
-	}
-}
-
-pub fn set_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
-	let ret_code = unsafe {
-		sys::set_storage(
-			key.as_ptr(),
-			key.len() as u32,
-			encoded_value.as_ptr(),
-			encoded_value.len() as u32,
-		)
-	};
-	ret_code.into()
-}
-
-pub fn clear_storage(key: &[u8]) -> Option<u32> {
-	let ret_code = unsafe { sys::clear_storage(key.as_ptr(), key.len() as u32) };
-	ret_code.into()
-}
-
-#[inline(always)]
-pub fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
-	let mut output_len = output.len() as u32;
-	let ret_code = {
-		unsafe {
-			sys::get_storage(key.as_ptr(), key.len() as u32, output.as_mut_ptr(), &mut output_len)
-		}
-	};
-	extract_from_slice(output, output_len as usize);
-	ret_code.into()
-}
-
-#[inline(always)]
-pub fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
-	let mut output_len = output.len() as u32;
-	let ret_code = {
-		unsafe {
-			sys::take_storage(key.as_ptr(), key.len() as u32, output.as_mut_ptr(), &mut output_len)
-		}
-	};
-	extract_from_slice(output, output_len as usize);
-	ret_code.into()
-}
-
-pub fn storage_contains(key: &[u8]) -> Option<u32> {
-	let ret_code = unsafe { sys::contains_storage(key.as_ptr(), key.len() as u32) };
-	ret_code.into()
-}
-
-pub fn terminate(beneficiary: &[u8]) -> ! {
-	unsafe { sys::terminate(beneficiary.as_ptr()) }
-}
-
-#[inline(always)]
-pub fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32 {
-	let mut output_len = output.len() as u32;
-	let ret_code = {
-		unsafe {
-			sys::call_chain_extension(
-				func_id,
-				input.as_ptr(),
-				input.len() as u32,
-				output.as_mut_ptr(),
-				&mut output_len,
-			)
-		}
-	};
-	extract_from_slice(output, output_len as usize);
-	ret_code.into_u32()
-}
-
-#[inline(always)]
-pub fn input(output: &mut &mut [u8]) {
-	let mut output_len = output.len() as u32;
-	{
-		unsafe { sys::input(output.as_mut_ptr(), &mut output_len) };
-	}
-	extract_from_slice(output, output_len as usize);
-}
-
-pub fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
-	unsafe { sys::seal_return(flags.into_u32(), return_value.as_ptr(), return_value.len() as u32) }
-}
-
-pub fn call_runtime(call: &[u8]) -> Result {
-	let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
-	ret_code.into()
-}
-
 macro_rules! impl_wrapper_for {
-    ( $( $name:ident, )* ) => {
-        $(
-            #[inline(always)]
-            pub fn $name(output: &mut &mut [u8]) {
-                let mut output_len = output.len() as u32;
-                {
-                    unsafe {
-                        sys::$name(
-                            output.as_mut_ptr(),
-                            &mut output_len,
-                        )
-                    };
-                }
-            }
-        )*
-    }
+	( $( $name:ident, )* ) => {
+		$(
+			#[inline(always)]
+			fn $name(output: &mut &mut [u8]) {
+				let mut output_len = output.len() as u32;
+				{
+					unsafe {
+						sys::$name(
+							output.as_mut_ptr(),
+							&mut output_len,
+						)
+					};
+				}
+			}
+		)*
+	}
 }
 
 macro_rules! impl_hash_fn {
 	( $name:ident, $bytes_result:literal ) => {
 		paste::item! {
-			pub fn [<hash_ $name>](input: &[u8], output: &mut [u8; $bytes_result]) {
+			fn [<hash_ $name>](input: &[u8], output: &mut [u8; $bytes_result]) {
 				unsafe {
 					sys::[<hash_ $name>](
 						input.as_ptr(),
@@ -427,82 +242,288 @@ macro_rules! impl_hash_fn {
 	};
 }
 
-impl_wrapper_for! {
-	caller,
-	block_number,
-	address,
-	balance,
-	gas_left,
-	value_transferred,
-	now,
-	minimum_balance,
-}
+pub enum ApiImpl {}
 
-#[inline(always)]
-pub fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
-	let mut output_len = output.len() as u32;
-	{
-		unsafe { sys::weight_to_fee(gas, output.as_mut_ptr(), &mut output_len) };
+impl super::Api for ApiImpl {
+	#[inline(always)]
+	fn instantiate(
+		code_hash: &[u8],
+		gas_limit: u64,
+		endowment: &[u8],
+		input: &[u8],
+		out_address: &mut &mut [u8],
+		out_return_value: &mut &mut [u8],
+		salt: &[u8],
+	) -> Result {
+		let mut address_len = out_address.len() as u32;
+		let mut return_value_len = out_return_value.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::instantiate(
+					code_hash.as_ptr(),
+					gas_limit,
+					endowment.as_ptr(),
+					input.as_ptr(),
+					input.len() as u32,
+					out_address.as_mut_ptr(),
+					&mut address_len,
+					out_return_value.as_mut_ptr(),
+					&mut return_value_len,
+					salt.as_ptr(),
+					salt.len() as u32,
+				)
+			}
+		};
+		extract_from_slice(out_address, address_len as usize);
+		extract_from_slice(out_return_value, return_value_len as usize);
+		ret_code.into()
 	}
-	extract_from_slice(output, output_len as usize);
-}
 
-impl_hash_fn!(sha2_256, 32);
-impl_hash_fn!(keccak_256, 32);
-impl_hash_fn!(blake2_256, 32);
-impl_hash_fn!(blake2_128, 16);
+	#[inline(always)]
+	fn call(
+		flags: u32,
+		callee: &[u8],
+		gas_limit: u64,
+		value: &[u8],
+		input: &[u8],
+		output: &mut &mut [u8],
+	) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::call(
+					flags,
+					callee.as_ptr(),
+					gas_limit,
+					value.as_ptr(),
+					input.as_ptr(),
+					input.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
 
-pub fn ecdsa_recover(
-	signature: &[u8; 65],
-	message_hash: &[u8; 32],
-	output: &mut [u8; 33],
-) -> Result {
-	let ret_code = unsafe {
-		sys::ecdsa_recover(signature.as_ptr(), message_hash.as_ptr(), output.as_mut_ptr())
-	};
-	ret_code.into()
-}
+	#[inline(always)]
+	fn delegate_call(flags: u32, code_hash: &[u8], input: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::delegate_call(
+					flags,
+					code_hash.as_ptr(),
+					input.as_ptr(),
+					input.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
 
-pub fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
-	let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
-	ret_code.into()
-}
+	fn transfer(account_id: &[u8], value: &[u8]) -> Result {
+		let ret_code = unsafe {
+			sys::transfer(
+				account_id.as_ptr(),
+				account_id.len() as u32,
+				value.as_ptr(),
+				value.len() as u32,
+			)
+		};
+		ret_code.into()
+	}
 
-pub fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result {
-	let ret_code = unsafe {
-		sys::sr25519_verify(
-			signature.as_ptr(),
-			pub_key.as_ptr(),
-			message.len() as u32,
-			message.as_ptr(),
-		)
-	};
-	ret_code.into()
-}
+	fn deposit_event(topics: &[u8], data: &[u8]) {
+		unsafe {
+			sys::deposit_event(
+				topics.as_ptr(),
+				topics.len() as u32,
+				data.as_ptr(),
+				data.len() as u32,
+			)
+		}
+	}
 
-pub fn is_contract(account_id: &[u8]) -> bool {
-	let ret_val = unsafe { sys::is_contract(account_id.as_ptr()) };
-	ret_val.into_bool()
-}
+	fn set_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
+		let ret_code = unsafe {
+			sys::set_storage(
+				key.as_ptr(),
+				key.len() as u32,
+				encoded_value.as_ptr(),
+				encoded_value.len() as u32,
+			)
+		};
+		ret_code.into()
+	}
 
-pub fn caller_is_origin() -> bool {
-	let ret_val = unsafe { sys::caller_is_origin() };
-	ret_val.into_bool()
-}
+	fn clear_storage(key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::clear_storage(key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
 
-pub fn set_code_hash(code_hash: &[u8]) -> Result {
-	let ret_val = unsafe { sys::set_code_hash(code_hash.as_ptr()) };
-	ret_val.into()
-}
+	#[inline(always)]
+	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::get_storage(
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
 
-pub fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result {
-	let mut output_len = output.len() as u32;
-	let ret_val =
-		unsafe { sys::code_hash(account_id.as_ptr(), output.as_mut_ptr(), &mut output_len) };
-	ret_val.into()
-}
+	#[inline(always)]
+	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::take_storage(
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
 
-pub fn own_code_hash(output: &mut [u8]) {
-	let mut output_len = output.len() as u32;
-	unsafe { sys::own_code_hash(output.as_mut_ptr(), &mut output_len) }
+	fn storage_contains(key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::contains_storage(key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
+
+	fn terminate(beneficiary: &[u8]) -> ! {
+		unsafe { sys::terminate(beneficiary.as_ptr()) }
+	}
+
+	#[inline(always)]
+	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32 {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::call_chain_extension(
+					func_id,
+					input.as_ptr(),
+					input.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into_u32()
+	}
+
+	#[inline(always)]
+	fn input(output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		{
+			unsafe { sys::input(output.as_mut_ptr(), &mut output_len) };
+		}
+		extract_from_slice(output, output_len as usize);
+	}
+
+	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
+		unsafe {
+			sys::seal_return(flags.into_u32(), return_value.as_ptr(), return_value.len() as u32)
+		}
+	}
+
+	fn call_runtime(call: &[u8]) -> Result {
+		let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
+		ret_code.into()
+	}
+
+	impl_wrapper_for! {
+		caller,
+		block_number,
+		address,
+		balance,
+		gas_left,
+		value_transferred,
+		now,
+		minimum_balance,
+	}
+
+	#[inline(always)]
+	fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		{
+			unsafe { sys::weight_to_fee(gas, output.as_mut_ptr(), &mut output_len) };
+		}
+		extract_from_slice(output, output_len as usize);
+	}
+
+	impl_hash_fn!(sha2_256, 32);
+	impl_hash_fn!(keccak_256, 32);
+	impl_hash_fn!(blake2_256, 32);
+	impl_hash_fn!(blake2_128, 16);
+
+	fn ecdsa_recover(
+		signature: &[u8; 65],
+		message_hash: &[u8; 32],
+		output: &mut [u8; 33],
+	) -> Result {
+		let ret_code = unsafe {
+			sys::ecdsa_recover(signature.as_ptr(), message_hash.as_ptr(), output.as_mut_ptr())
+		};
+		ret_code.into()
+	}
+
+	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
+		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
+		ret_code.into()
+	}
+
+	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result {
+		let ret_code = unsafe {
+			sys::sr25519_verify(
+				signature.as_ptr(),
+				pub_key.as_ptr(),
+				message.len() as u32,
+				message.as_ptr(),
+			)
+		};
+		ret_code.into()
+	}
+
+	fn is_contract(account_id: &[u8]) -> bool {
+		let ret_val = unsafe { sys::is_contract(account_id.as_ptr()) };
+		ret_val.into_bool()
+	}
+
+	fn caller_is_origin() -> bool {
+		let ret_val = unsafe { sys::caller_is_origin() };
+		ret_val.into_bool()
+	}
+
+	fn set_code_hash(code_hash: &[u8]) -> Result {
+		let ret_val = unsafe { sys::set_code_hash(code_hash.as_ptr()) };
+		ret_val.into()
+	}
+
+	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_val =
+			unsafe { sys::code_hash(account_id.as_ptr(), output.as_mut_ptr(), &mut output_len) };
+		ret_val.into()
+	}
+
+	fn own_code_hash(output: &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		unsafe { sys::own_code_hash(output.as_mut_ptr(), &mut output_len) }
+	}
 }

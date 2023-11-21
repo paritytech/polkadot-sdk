@@ -149,7 +149,8 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 	}
 
 	let stderr = String::from_utf8_lossy(&build_res.stderr);
-	anyhow::bail!("Failed to build contracts: {:?}", stderr);
+	eprintln!("{}", stderr);
+	anyhow::bail!("Failed to build contracts");
 }
 
 /// Post-process the compiled wasm contracts.
