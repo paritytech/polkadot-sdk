@@ -757,7 +757,7 @@ mod tests {
 
 	impl slots::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
-		type RuntimeOrigin = RuntimeOrigin;
+		type ParachainOrigin = RuntimeOrigin;
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;

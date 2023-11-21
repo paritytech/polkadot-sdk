@@ -86,12 +86,12 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The aggregated origin type must support the `parachains` origin. We require that we can
-		/// infallibly convert between this origin and the system origin, but in reality, they're
+		/// The origin type that support the `parachains` origin. We require that we can infallibly
+		/// convert between this origin and the system origin, but in reality, they're
 		/// the same type, we just can't express that to the Rust type system without writing a
 		/// `where` clause everywhere.
-		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
-			+ Into<result::Result<ParaOrigin, <Self as Config>::RuntimeOrigin>>;
+		type ParachainOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+			+ Into<result::Result<ParaOrigin, <Self as Config>::ParachainOrigin>>;
 
 		/// The currency type used for bidding.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -482,7 +482,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(())
 		}
 
-		if let Ok(caller) = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone())) {
+		if let Ok(caller) = ensure_parachain(<T as Config>::ParachainOrigin::from(origin.clone())) {
 			// Check if matching para id...
 			ensure!(caller == para, Error::<T>::NoPermission);
 		}
@@ -762,7 +762,7 @@ mod tests {
 
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
-		type RuntimeOrigin = RuntimeOrigin;
+		type ParachainOrigin = RuntimeOrigin;
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;

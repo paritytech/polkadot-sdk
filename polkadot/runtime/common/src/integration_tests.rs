@@ -255,7 +255,7 @@ parameter_types! {
 
 impl slots::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
+	type ParachainOrigin = RuntimeOrigin;
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
