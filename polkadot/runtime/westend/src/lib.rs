@@ -1562,7 +1562,7 @@ pub mod migrations {
 		pub const ImOnlinePalletName: &'static str = "ImOnline";
 	}
 
-	/// Upgrade Session keys to include BEEFY key.
+	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
