@@ -21,13 +21,13 @@ use crate::{
 	paras_inherent,
 	scheduler::{
 		self,
-		common::{AssignmentProvider, AssignmentProviderConfig, V0Assignment},
+		common::{AssignmentProvider, AssignmentProviderConfig},
 		CoreOccupied, ParasEntry,
 	},
 	session_info, shared,
 };
 #[cfg(test)]
-use crate::mock::MockAssigner;
+use crate::{mock::MockAssigner, scheduler::V0Assignment};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;

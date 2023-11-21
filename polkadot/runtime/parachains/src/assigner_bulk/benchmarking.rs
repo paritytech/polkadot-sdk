@@ -19,43 +19,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet, *};
-use crate::{
-	configuration::{HostConfiguration, Pallet as ConfigurationPallet},
-	paras::{Pallet as ParasPallet, ParaGenesisArgs, ParaKind, ParachainsCache},
-	shared::Pallet as ParasShared,
-};
-
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded;
-
-use primitives::{
-	HeadData, Id as ParaId, SessionIndex, ValidationCode, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
-};
-
-// Constants for the benchmarking
-const SESSION_INDEX: SessionIndex = 1;
-
-// Initialize a parathread for benchmarking.
-pub fn init_parathread<T>(para_id: ParaId)
-where
-	T: Config + crate::paras::Config + crate::shared::Config,
-{
-	ParasShared::<T>::set_session_index(SESSION_INDEX);
-	let mut config = HostConfiguration::default();
-	config.on_demand_cores = 1;
-	ConfigurationPallet::<T>::force_set_active_config(config);
-	let mut parachains = ParachainsCache::new();
-	ParasPallet::<T>::initialize_para_now(
-		&mut parachains,
-		para_id,
-		&ParaGenesisArgs {
-			para_kind: ParaKind::Parathread,
-			genesis_head: HeadData(vec![1, 2, 3, 4]),
-			validation_code: ValidationCode(vec![1, 2, 3, 4]),
-		},
-	);
-}
 
 #[benchmarks]
 mod benchmarks {
@@ -66,7 +31,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller(); // TODO: Make this the broker parachain origin
 
 		// Use valid assignment set with maximum number of assignments to maximize work
-		let mut assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; 100]
+		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; 100]
 			.into_iter()
 			.enumerate()
 			.map(|(index, parts)| (CoreAssignment::Task(index as u32), parts))
