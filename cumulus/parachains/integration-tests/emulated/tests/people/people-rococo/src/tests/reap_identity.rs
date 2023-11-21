@@ -1,16 +1,11 @@
 use crate::*;
 use emulated_integration_tests_common::xcm_emulator::Get;
-use frame_support::pallet_prelude::ConstU32;
-use frame_support::BoundedVec;
-use pallet_identity::{
-	legacy::IdentityInfo, types::Registration, Data, IdentityOf, SubsOf, SuperOf,
-};
+use pallet_identity::{legacy::IdentityInfo, Data};
 use people_rococo_runtime::people::IdentityInfo as IdentityInfoParachain;
-use people_rococo_runtime::IdentityMigrator;
 use rococo_runtime::MaxAdditionalFields;
-use rococo_system_emulated_network::rococo_emulated_chain::RococoRelayPallet;
-use rococo_system_emulated_network::{RococoRelay, RococoRelaySender};
-use sp_runtime::traits::Zero;
+use rococo_system_emulated_network::{
+	rococo_emulated_chain::RococoRelayPallet, RococoRelay, RococoRelaySender,
+};
 
 fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
@@ -45,13 +40,12 @@ fn identity_parachain() -> IdentityInfoParachain {
 fn reap_identity() {
 	let mut bal_before_relaychain: Balance = 0_u128;
 	let mut bal_after_relaychain: Balance = 0_u128;
-	let mut relay_chain_fee: Balance = 0_u128;
 
 	let mut bal_before_parachain: Balance = 0_u128;
 	let mut bal_after_parachain: Balance = 0_u128;
-	let mut parachain_fee: Balance = 0_u128;
 
-	let identity_info = identity_parachain();
+	let identity_relaychain = identity_relay();
+	let identity_parachain = identity_parachain();
 
 	// Set identity and Subs on Relay Chain
 	RococoRelay::execute_with(|| {
@@ -63,7 +57,7 @@ fn reap_identity() {
 		// 1. Set identity on Relay Chain
 		assert_ok!(<RococoRelay as RococoRelayPallet>::Identity::set_identity(
 			rococo_runtime::RuntimeOrigin::signed(RococoRelaySender::get()),
-			Box::new(identity_relay())
+			Box::new(identity_relaychain)
 		));
 		assert_expected_events!(
 			RococoRelay,
@@ -88,12 +82,6 @@ fn reap_identity() {
 
 		bal_after_relaychain =
 			<RococoRelay as RococoRelayPallet>::Balances::free_balance(RococoRelaySender::get());
-		println!(
-			"Balances: Relaychain before: {}, Relaychain after: {}",
-			bal_before_relaychain, bal_after_relaychain
-		);
-		relay_chain_fee = bal_before_relaychain - bal_after_relaychain;
-		println!("Relay Chain Fee: {}", relay_chain_fee);
 	});
 
 	// Set identity and Subs on Parachain with Zero deposit
@@ -103,23 +91,16 @@ fn reap_identity() {
 		bal_before_parachain =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
 
-		let bal_after_mutate =
-			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
-		println!(
-			"Balances: Parachain before: {}, Parachain after: {}",
-			bal_before_parachain, bal_after_mutate
-		);
-
 		// 3. Set identity on Parachain with zero deposit
 		assert_ok!(<PeopleRococo as PeopleRococoPallet>::Identity::set_identity_no_deposit(
 			&PeopleRococoSender::get(),
-			identity_parachain()
+			identity_parachain.clone()
 		));
 
 		// 4. Set sub-identity on Parachain
 		assert_ok!(<PeopleRococo as PeopleRococoPallet>::Identity::set_subs(
 			people_rococo_runtime::RuntimeOrigin::signed(PeopleRococoSender::get()),
-			vec![(PeopleRococoSender::get(), Data::Raw(vec![0; 1].try_into().unwrap()))],
+			vec![(PeopleRococoSender::get(), Data::Raw(vec![40; 1].try_into().unwrap()))],
 		));
 		assert_expected_events!(
 			PeopleRococo,
@@ -130,19 +111,13 @@ fn reap_identity() {
 
 		bal_after_parachain =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
-		println!(
-			"Balances: Parachain before: {}, Parachain after: {}",
-			bal_before_parachain, bal_after_parachain
-		);
-		parachain_fee = bal_before_parachain - bal_after_parachain;
-		println!("Parachain Fee: {}", parachain_fee);
+		let fees = bal_before_parachain - bal_after_parachain;
+		assert_eq!(bal_before_parachain - fees, bal_after_parachain);
 	});
 
-	// reap_identity on Relay Chain
+	// 5. reap_identity on Relay Chain
 	RococoRelay::execute_with(|| {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
-
-		// 5. Reap identity on Relaychain
 		assert_ok!(<RococoRelay as RococoRelayPallet>::Identity::reap_identity(
 			&RococoRelaySender::get(),
 		));
@@ -156,5 +131,8 @@ fn reap_identity() {
 			.is_none());
 		assert!(<RococoRelay as RococoRelayPallet>::Identity::super_of(&RococoRelaySender::get())
 			.is_none());
+		let bal_after_reap =
+			<RococoRelay as RococoRelayPallet>::Balances::free_balance(RococoRelaySender::get());
+		assert_eq!(bal_after_reap, bal_before_relaychain)
 	});
 }
