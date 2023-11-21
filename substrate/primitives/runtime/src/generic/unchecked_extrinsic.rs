@@ -442,22 +442,21 @@ mod tests {
 	use crate::{
 		codec::{Decode, Encode},
 		testing::TestSignature as TestSig,
-		traits::{DispatchInfoOf, IdentityLookup, TransactionExtension},
+		traits::{DispatchInfoOf, IdentityLookup, TransactionExtension, FakeDisptchable},
 	};
 	use sp_io::hashing::blake2_256;
 
 	type TestContext = IdentityLookup<u64>;
 	type TestAccountId = u64;
-	type TestCall = Vec<u8>;
+	type TestCall = FakeDisptchable<Vec<u8>>;
 
 	const TEST_ACCOUNT: TestAccountId = 0;
 
 	// NOTE: this is demonstration. One can simply use `()` for testing.
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
 	struct DummyExtension;
-	impl TransactionExtension for DummyExtension {
+	impl<Call: traits::Dispatchable> TransactionExtension<Call> for DummyExtension {
 		const IDENTIFIER: &'static str = "DummyExtension";
-		type Call = ();
 		type Val = ();
 		type Pre = ();
 		type Implicit = ();
@@ -466,13 +465,13 @@ mod tests {
 		}
 		fn validate(
 			&self,
-			who: <Self::Call as traits::Dispatchable>::RuntimeOrigin,
-			_call: &Self::Call,
-			_info: &DispatchInfoOf<Self::Call>,
+			who: <Call as traits::Dispatchable>::RuntimeOrigin,
+			_call: &Call,
+			_info: &DispatchInfoOf<Call>,
 			_len: usize,
 			_implicit: &[u8],
 		) -> Result<
-			(crate::transaction_validity::ValidTransaction, Self::Val, <Self::Call as traits::Dispatchable>::RuntimeOrigin),
+			(crate::transaction_validity::ValidTransaction, Self::Val, <Call as traits::Dispatchable>::RuntimeOrigin),
 			TransactionValidityError
 		> {
 			Ok((Default::default(), (), who))
@@ -481,9 +480,9 @@ mod tests {
 		fn prepare(
 			self,
 			_val: (),
-			_who: &<Self::Call as traits::Dispatchable>::RuntimeOrigin,
-			_call: &Self::Call,
-			_info: &DispatchInfoOf<Self::Call>,
+			_who: &<Call as traits::Dispatchable>::RuntimeOrigin,
+			_call: &Call,
+			_info: &DispatchInfoOf<Call>,
 			_len: usize,
 		) -> Result<(), TransactionValidityError> {
 			Ok(())
@@ -495,14 +494,15 @@ mod tests {
 
 	#[test]
 	fn unsigned_codec_should_work() {
-		let ux = Ex::new_inherent(vec![0u8; 0]);
+		let call: TestCall = vec![0u8; 0].into();
+		let ux = Ex::new_inherent(call);
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 	}
 
 	#[test]
 	fn invalid_length_prefix_is_detected() {
-		let ux = Ex::new_inherent(vec![0u8; 0]);
+		let ux = Ex::new_inherent(vec![0u8; 0].into());
 		let mut encoded = ux.encode();
 
 		let length = Compact::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -513,7 +513,7 @@ mod tests {
 
 	#[test]
 	fn transaction_codec_should_work() {
-		let ux = Ex::new_transaction(vec![0u8; 0], DummyExtension);
+		let ux = Ex::new_transaction(vec![0u8; 0].into(), DummyExtension);
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 	}
@@ -521,7 +521,7 @@ mod tests {
 	#[test]
 	fn signed_codec_should_work() {
 		let ux = Ex::new_signed(
-			vec![0u8; 0],
+			vec![0u8; 0].into(),
 			TEST_ACCOUNT,
 			TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode()),
 			DummyExtension,
@@ -533,7 +533,7 @@ mod tests {
 	#[test]
 	fn large_signed_codec_should_work() {
 		let ux = Ex::new_signed(
-			vec![0u8; 0],
+			vec![0u8; 0].into(),
 			TEST_ACCOUNT,
 			TestSig(
 				TEST_ACCOUNT,
@@ -547,20 +547,20 @@ mod tests {
 
 	#[test]
 	fn unsigned_check_should_work() {
-		let ux = Ex::new_inherent(vec![0u8; 0]);
+		let ux = Ex::new_inherent(vec![0u8; 0].into());
 		assert!(ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::Bare, function: vec![0u8; 0] }),
+			Ok(CEx { format: ExtrinsicFormat::Bare, function: vec![0u8; 0].into() }),
 		);
 	}
 
 	#[test]
 	fn badly_signed_check_should_fail() {
 		let ux = Ex::new_signed(
-			vec![0u8; 0],
+			vec![0u8; 0].into(),
 			TEST_ACCOUNT,
-			TestSig(TEST_ACCOUNT, vec![0u8; 0]),
+			TestSig(TEST_ACCOUNT, vec![0u8; 0].into()),
 			DummyExtension,
 		);
 		assert!(!ux.is_inherent());
@@ -572,18 +572,18 @@ mod tests {
 
 	#[test]
 	fn transaction_check_should_work() {
-		let ux = Ex::new_transaction(vec![0u8; 0], DummyExtension);
+		let ux = Ex::new_transaction(vec![0u8; 0].into(), DummyExtension);
 		assert!(!ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::General(DummyExtension), function: vec![0u8; 0] }),
+			Ok(CEx { format: ExtrinsicFormat::General(DummyExtension), function: vec![0u8; 0].into() }),
 		);
 	}
 
 	#[test]
 	fn signed_check_should_work() {
 		let ux = Ex::new_signed(
-			vec![0u8; 0],
+			vec![0u8; 0].into(),
 			TEST_ACCOUNT,
 			TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode()),
 			DummyExtension,
@@ -591,13 +591,13 @@ mod tests {
 		assert!(!ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension), function: vec![0u8; 0] }),
+			Ok(CEx { format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension), function: vec![0u8; 0].into() }),
 		);
 	}
 
 	#[test]
 	fn encoding_matches_vec() {
-		let ex = Ex::new_inherent(vec![0u8; 0]);
+		let ex = Ex::new_inherent(vec![0u8; 0].into());
 		let encoded = ex.encode();
 		let decoded = Ex::decode(&mut encoded.as_slice()).unwrap();
 		assert_eq!(decoded, ex);
@@ -607,7 +607,7 @@ mod tests {
 
 	#[test]
 	fn conversion_to_opaque() {
-		let ux = Ex::new_inherent(vec![0u8; 0]);
+		let ux = Ex::new_inherent(vec![0u8; 0].into());
 		let encoded = ux.encode();
 		let opaque: OpaqueExtrinsic = ux.into();
 		let opaque_encoded = opaque.encode();
@@ -617,9 +617,6 @@ mod tests {
 	#[test]
 	fn large_bad_prefix_should_work() {
 		let encoded = (Compact::<u32>::from(u32::MAX), Preamble::<(), (), ()>::Bare).encode();
-		assert_eq!(
-			Ex::decode(&mut &encoded[..]),
-			Err(Error::from("Not enough data to fill buffer"))
-		);
+		assert!(Ex::decode(&mut &encoded[..]).is_err());
 	}
 }

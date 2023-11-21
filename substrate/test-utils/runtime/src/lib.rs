@@ -299,9 +299,8 @@ impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::TransactionExtension for CheckSubstrateCall {
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
-	type Call = RuntimeCall;
 	type Pre = ();
 	type Val = ();
 	type Implicit = ();
@@ -311,13 +310,13 @@ impl sp_runtime::traits::TransactionExtension for CheckSubstrateCall {
 
 	fn validate(
 		&self,
-		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
 		_implicit: &[u8],
 	) -> Result<
-		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
+		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError
 	> {
 		log::trace!(target: LOG_TARGET, "validate");
@@ -332,9 +331,9 @@ impl sp_runtime::traits::TransactionExtension for CheckSubstrateCall {
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		_origin: &<RuntimeCall as Dispatchable>::RuntimeOrigin,
+		_call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(())
@@ -1071,7 +1070,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
-		traits::{Hash as _, TransactionExtension, DispatchTransaction},
+		traits::{Hash as _, DispatchTransaction},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{

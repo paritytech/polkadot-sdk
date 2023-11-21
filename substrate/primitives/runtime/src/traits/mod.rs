@@ -1458,6 +1458,39 @@ impl Dispatchable for () {
 	}
 }
 
+/// Dispatchable impl containing an arbitrary value which panics if it actually is dispatched.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct FakeDisptchable<Inner>(pub Inner);
+impl<Inner> From<Inner> for FakeDisptchable<Inner> {
+	fn from(inner: Inner) -> Self {
+		Self(inner)
+	}
+}
+impl<Inner> FakeDisptchable<Inner> {
+	/// Take `self` and return the underlying inner value.
+	pub fn deconstruct(self) -> Inner {
+		self.0
+	}
+}
+impl<Inner> AsRef<Inner> for FakeDisptchable<Inner> {
+	fn as_ref(&self) -> &Inner {
+		&self.0
+	}
+}
+
+impl<Inner> Dispatchable for FakeDisptchable<Inner> {
+	type RuntimeOrigin = ();
+	type Config = ();
+	type Info = ();
+	type PostInfo = ();
+	fn dispatch(
+		self,
+		_origin: Self::RuntimeOrigin,
+	) -> crate::DispatchResultWithInfo<Self::PostInfo> {
+		panic!("This implementation should not be used for actual dispatch.");
+	}
+}
+
 /// Runtime Origin which includes a System Origin variant whose `AccountId` is the parameter.
 pub trait CloneSystemOriginSigner<AccountId> {
 	/// Extract a copy of the inner value of the SystemOrigin Signed variant, if self has that
