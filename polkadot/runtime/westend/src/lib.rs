@@ -1569,6 +1569,7 @@ pub mod migrations {
 		fn on_runtime_upgrade() -> Weight {
 			if System::last_runtime_upgrade_spec_version() > 103000 {
 				log::warn!("Skipping session keys upgrade: already applied");
+				return <Runtime as frame_system::Config>::DbWeight::get().reads(1)
 			}
 			log::info!("Upgrading session keys");
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
