@@ -44,7 +44,3 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
-
-[[bin]]
-path = "src/fuzz.rs"
-name = "xcm-fuzzer"
