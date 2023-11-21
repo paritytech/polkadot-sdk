@@ -28,52 +28,48 @@
 //! See [`ChainSpecBuilderCmd`] for a list of available commands.
 //!
 //! ## Typical use-cases.
-//! #### Get default config from runtime.
+//! ##### Get default config from runtime.
 //!
 //!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
-//! spec. Tool can also store runtime's default genesis config in given file (`-d`):
+//! spec. Tool can also store runtime's default genesis config in given file:
 //!	```text
 //! chain-spec-builder create -r runtime.wasm default /dev/stdout
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is called.
 //!
 //!
-//! #### Generate raw storage chain spec using genesis config patch.
+//! ##### Generate raw storage chain spec using genesis config patch.
 //!
 //! Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
 //! ```text
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
-//! #### Generate raw storage chain spec using full genesis config.
+//! ##### Generate raw storage chain spec using full genesis config.
 //!
 //! Build the chain spec using provided full genesis config json file. No defaults will be used:
 //! ```text
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//! 
+//!
 //! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
-//! #### Generate human readable chain spec using provided genesis config patch.
+//! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```text
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//! 
-//! #### Generate human readable chain spec using provided full genesis config.
+//!
+//! ##### Generate human readable chain spec using provided full genesis config.
 //! ```text
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//! 
-//! #### The `chain-spec-builder` provides also some extra utilities:
-//! - `verify`: allows to verify if *human readable* chain spec is valid (precisely: all required
-//!    fields in genesis config are initialized),
-//! - `edit`, allows to:
-//! 		- update the code in the given chain spec,
-//! 		- convert given chain spec to the raw chain spec,
+//!
+//! ##### Extra tools.
+//! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`], [`UpdateCodeCmd`].
 //!
 //! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`node-cli`]: ../node_cli/index.html
@@ -102,8 +98,9 @@ pub struct ChainSpecBuilder {
 #[command(rename_all = "kebab-case")]
 pub enum ChainSpecBuilderCmd {
 	Create(CreateCmd),
-	Edit(EditCmd),
 	Verify(VerifyCmd),
+	UpdateCode(UpdateCodeCmd),
+	ConvertToRaw(ConvertToRawCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -160,22 +157,30 @@ struct DefaultCmd {
 	default_config_path: Option<PathBuf>,
 }
 
-/// Edits provided input chain spec. Input can be converted into raw storage chain-spec. The code
-/// can be updated with the runtime provided in the command line.
+/// Updates the code in the provided input chain spec.
+///
+/// The code field of the chain spec will be updated with the runtime provided in the
+/// command line. This operation supports both plain and raw formats.
 #[derive(Parser, Debug, Clone)]
-pub struct EditCmd {
-	/// Chain spec to be edited.
-	#[arg(long, short)]
+pub struct UpdateCodeCmd {
+	/// Chain spec to be updated.
 	pub input_chain_spec: PathBuf,
 	/// The path to new runtime wasm blob to be stored into chain-spec.
-	#[arg(long, short = 'r')]
-	pub runtime_wasm_path: Option<PathBuf>,
-	/// Convert genesis spec to raw format.
-	#[arg(long, short = 's')]
-	pub convert_to_raw: bool,
+	pub runtime_wasm_path: PathBuf,
 }
 
-/// Verifies provided input chain spec.
+/// Converts the given chain spec into the raw format.
+#[derive(Parser, Debug, Clone)]
+pub struct ConvertToRawCmd {
+	/// Chain spec to be converted.
+	pub input_chain_spec: PathBuf,
+}
+
+/// Verifies the provided input chain spec.
+///
+/// Silently checks if given input chain spec can be converted to raw. It allows to check if all
+/// RuntimeGenesisConfig fiels are properly initialized and if the json does not contain invalid
+/// fields.
 #[derive(Parser, Debug, Clone)]
 pub struct VerifyCmd {
 	/// Chain spec to be verified.
