@@ -17,7 +17,7 @@
 //! A malicious node variant that attempts to dispute finalized candidates.
 //! 
 //! This malus variant behaves honestly in backing and approval voting.
-//! The maliciosunes comes from emitting an extra dispute statement on top of the other ones.
+//! The maliciousness comes from emitting an extra dispute statement on top of the other ones.
 //! 
 //! Some extra quirks which generally should be insignificant:
 //! - The malus node will not dispute at session boundaries
