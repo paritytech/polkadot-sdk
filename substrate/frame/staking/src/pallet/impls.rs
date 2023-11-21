@@ -338,12 +338,9 @@ impl<T: Config> Pallet<T> {
 
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
 		let maybe_imbalance = match dest {
-			// NOTE: Post lazy migration, this should never happen. The `RewardDestination::Stash` case
-			// can then be a union of `Stash` and `Controller` until the variant is removed.
 			#[allow(deprecated)]
-			RewardDestination::Controller => Self::bonded(stash)
-				.map(|controller| T::Currency::deposit_creating(&controller, amount)),
-			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
+			RewardDestination::Stash | RewardDestination::Controller =>
+				T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
