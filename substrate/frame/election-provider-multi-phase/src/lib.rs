@@ -1386,7 +1386,7 @@ impl<T: Config> SnapshotWrapper<T> {
 		];
 
 		// All should either exist or not exist
-		snapshots.iter().skip(1).all(|v| snapshots[0] == v)
+		snapshots.iter().skip(1).all(|v| snapshots[0] == *v)
 	}
 }
 
