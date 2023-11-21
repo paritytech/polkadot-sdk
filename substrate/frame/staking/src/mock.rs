@@ -603,7 +603,7 @@ impl ExtBuilder {
 		ext.execute_with(test);
 		ext.execute_with(|| {
 			Staking::do_try_state(System::block_number())
-				.map_err(|err| println!(" 🕵️‍♂️  try_state failue: {:?}", err))
+				.map_err(|err| println!(" 🕵️‍♂️  try_state failure: {:?}", err))
 				.unwrap();
 		});
 	}
