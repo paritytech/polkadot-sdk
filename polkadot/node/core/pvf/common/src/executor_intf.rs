@@ -152,7 +152,7 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
 	let mut sem = DEFAULT_CONFIG.semantics.clone();
 	let mut stack_limit = sem
 		.deterministic_stack_limit
-		.expect("Default stack limit should always be available")
+		.expect("There is a comment to not change the default stack limit; it should always be available; qed")
 		.clone();
 
 	for p in par.iter() {
