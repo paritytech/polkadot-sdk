@@ -30,7 +30,7 @@ use polkadot_runtime_common::BlockHashCount;
 use polkadot_runtime_parachains::paras::{ParaGenesisArgs, ParaKind};
 use polkadot_service::{Error, FullClient, IsParachainNode, NewFull, PrometheusConfig};
 use polkadot_test_runtime::{
-	ParasCall, ParasSudoWrapperCall, Runtime, TxExtension, SignedPayload, SudoCall,
+	ParasCall, ParasSudoWrapperCall, Runtime, SignedPayload, SudoCall, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
 
@@ -376,7 +376,8 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-	).into();
+	)
+		.into();
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),

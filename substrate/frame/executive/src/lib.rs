@@ -742,7 +742,9 @@ mod tests {
 	use sp_runtime::{
 		generic::{DigestItem, Era},
 		testing::{Block, Digest, Header},
-		traits::{BlakeTwo256, Block as BlockT, Header as HeaderT, IdentityLookup, AsTransactionExtension},
+		traits::{
+			AsTransactionExtension, BlakeTwo256, Block as BlockT, Header as HeaderT, IdentityLookup,
+		},
 		transaction_validity::{
 			InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 		},
@@ -1015,7 +1017,8 @@ mod tests {
 			frame_system::CheckNonce::from(nonce),
 			frame_system::CheckWeight::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::from(fee),
-		).into()
+		)
+			.into()
 	}
 
 	fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
@@ -1284,7 +1287,8 @@ mod tests {
 	#[test]
 	fn validate_unsigned() {
 		let valid = TestXt::new_inherent(RuntimeCall::Custom(custom::Call::allowed_unsigned {}));
-		let invalid = TestXt::new_inherent(RuntimeCall::Custom(custom::Call::unallowed_unsigned {}));
+		let invalid =
+			TestXt::new_inherent(RuntimeCall::Custom(custom::Call::unallowed_unsigned {}));
 		let mut t = new_test_ext(1);
 
 		t.execute_with(|| {
@@ -1660,8 +1664,11 @@ mod tests {
 	#[test]
 	#[should_panic(expected = "A call was labelled as mandatory, but resulted in an Error.")]
 	fn invalid_inherents_fail_block_execution() {
-		let xt1 =
-			TestXt::new_signed(RuntimeCall::Custom(custom::Call::inherent_call {}), 1, tx_ext(0, 0));
+		let xt1 = TestXt::new_signed(
+			RuntimeCall::Custom(custom::Call::inherent_call {}),
+			1,
+			tx_ext(0, 0),
+		);
 
 		new_test_ext(1).execute_with(|| {
 			Executive::execute_block(Block::new(

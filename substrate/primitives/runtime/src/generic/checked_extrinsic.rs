@@ -20,8 +20,8 @@
 
 use crate::{
 	traits::{
-		self, DispatchInfoOf, Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf,
-		ValidateUnsigned, transaction_extension::TransactionExtension, DispatchTransaction,
+		self, transaction_extension::TransactionExtension, DispatchInfoOf, DispatchTransaction,
+		Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
@@ -86,14 +86,13 @@ where
 				#[allow(deprecated)]
 				let legacy_validation = Extension::validate_bare_compat(&self.function, info, len)?;
 				Ok(legacy_validation.combine_with(inherent_validation))
-			}
+			},
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
 				let origin = Some(signer.clone()).into();
 				extension.validate_only(origin, &self.function, info, len).map(|x| x.0)
-			}
-			ExtrinsicFormat::General(ref extension) => {
-				extension.validate_only(None.into(), &self.function, info, len).map(|x| x.0)
-			}
+			},
+			ExtrinsicFormat::General(ref extension) =>
+				extension.validate_only(None.into(), &self.function, info, len).map(|x| x.0),
 		}
 	}
 
@@ -122,7 +121,7 @@ where
 				#[allow(deprecated)]
 				Extension::post_dispatch_bare_compat(info, &post_info, len, &pd_res)?;
 				Ok(res)
-			}
+			},
 			ExtrinsicFormat::Signed(signer, extension) =>
 				extension.dispatch_transaction(Some(signer).into(), self.function, info, len),
 			ExtrinsicFormat::General(extension) =>

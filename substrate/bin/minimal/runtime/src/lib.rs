@@ -29,7 +29,8 @@ use frame::{
 			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult, OpaqueMetadata,
 		},
 		prelude::*,
-	}, traits::AsTransactionExtension,
+	},
+	traits::AsTransactionExtension,
 };
 use frame_support::genesis_builder_helper::{build_config, create_default_config};
 

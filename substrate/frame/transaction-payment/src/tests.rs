@@ -21,7 +21,10 @@ use crate as pallet_transaction_payment;
 use codec::Encode;
 
 use sp_runtime::{
-	testing::TestXt, traits::{One, DispatchTransaction}, transaction_validity::InvalidTransaction, BuildStorage,
+	testing::TestXt,
+	traits::{DispatchTransaction, One},
+	transaction_validity::InvalidTransaction,
+	BuildStorage,
 };
 
 use frame_support::{
@@ -128,7 +131,7 @@ fn default_post_info() -> PostDispatchInfo {
 	PostDispatchInfo { actual_weight: None, pays_fee: Default::default() }
 }
 
-type Ext = ChargeTransactionPayment::<Runtime>;
+type Ext = ChargeTransactionPayment<Runtime>;
 
 #[test]
 fn signed_extension_transaction_payment_work() {
@@ -539,7 +542,8 @@ fn actual_weight_higher_than_max_refunds_nothing() {
 			let info = info_from_weight(Weight::from_parts(100, 0));
 			let pre = Ext::from(5 /* tipped */)
 				.validate_and_prepare(Some(2).into(), CALL, &info, len)
-				.unwrap().0;
+				.unwrap()
+				.0;
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
 			let post_info = post_info_from_weight(Weight::from_parts(101, 0));
@@ -566,7 +570,8 @@ fn zero_transfer_on_free_transaction() {
 			let user = 69;
 			let pre = Ext::from(0)
 				.validate_and_prepare(Some(user).into(), CALL, &info, len)
-				.unwrap().0;
+				.unwrap()
+				.0;
 			assert_eq!(Balances::total_balance(&user), 0);
 			assert_ok!(Ext::post_dispatch(pre, &info, &default_post_info(), len, &Ok(())));
 			assert_eq!(Balances::total_balance(&user), 0);
@@ -596,9 +601,8 @@ fn refund_consistent_with_actual_weight() {
 
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
 
-			let pre = Ext::from(tip)
-				.validate_and_prepare(Some(2).into(), CALL, &info, len)
-				.unwrap().0;
+			let pre =
+				Ext::from(tip).validate_and_prepare(Some(2).into(), CALL, &info, len).unwrap().0;
 			Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);
@@ -733,7 +737,8 @@ fn post_info_can_change_pays_fee() {
 
 			let pre = ChargeTransactionPayment::<Runtime>::from(tip)
 				.validate_and_prepare(Some(2).into(), CALL, &info, len)
-				.unwrap().0;
+				.unwrap()
+				.0;
 			Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);

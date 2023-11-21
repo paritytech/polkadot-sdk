@@ -62,10 +62,11 @@ pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, Zero, TransactionExtension,
+		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{
-		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction, InvalidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+		ValidTransaction,
 	},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
@@ -911,16 +912,20 @@ where
 		_implicit: &[u8],
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError
+		TransactionValidityError,
 	> {
 		let who = frame_system::ensure_signed(origin.clone())
 			.map_err(|_| InvalidTransaction::BadSigner)?;
 		let (final_fee, imbalance) = self.withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
-		Ok((ValidTransaction {
-			priority: Self::get_priority(info, len, tip, final_fee),
-			..Default::default()
-		}, (self.0, who.clone(), imbalance), origin))
+		Ok((
+			ValidTransaction {
+				priority: Self::get_priority(info, len, tip, final_fee),
+				..Default::default()
+			},
+			(self.0, who.clone(), imbalance),
+			origin,
+		))
 	}
 
 	fn prepare(

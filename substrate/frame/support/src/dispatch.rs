@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::{TransactionExtension, Dispatchable},
+	traits::{Dispatchable, TransactionExtension},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::fmt;

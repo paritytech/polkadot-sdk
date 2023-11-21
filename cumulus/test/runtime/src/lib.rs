@@ -34,7 +34,10 @@ use sp_api::{decl_runtime_apis, impl_runtime_apis};
 use sp_core::{ConstU32, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify, AsTransactionExtension},
+	traits::{
+		AsTransactionExtension, BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup,
+		Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };

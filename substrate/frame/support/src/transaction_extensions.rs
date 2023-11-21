@@ -17,28 +17,41 @@
 
 //! Transaction extensions.
 
-use scale_info::{TypeInfo, StaticTypeInfo};
-use codec::{Encode, Decode, Codec};
-use sp_std::fmt::Debug;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::{TransactionExtension, Dispatchable, DispatchInfoOf, PostDispatchInfoOf, IdentifyAccount, Verify}, transaction_validity::{TransactionValidityError, ValidTransaction, InvalidTransaction}, DispatchResult};
 use crate::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use codec::{Codec, Decode, Encode};
+use scale_info::{StaticTypeInfo, TypeInfo};
+use sp_io::hashing::blake2_256;
+use sp_runtime::{
+	traits::{
+		DispatchInfoOf, Dispatchable, IdentifyAccount, PostDispatchInfoOf, TransactionExtension,
+		Verify,
+	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
+	DispatchResult,
+};
+use sp_std::fmt::Debug;
 
-#[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo,
+)]
 #[scale_info(skip_type_params(Call))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
-pub struct VerifyMultiSignature<V> where
+pub struct VerifyMultiSignature<V>
+where
 	V: Verify + StaticTypeInfo + Codec + Clone + Eq + PartialEq + Debug,
-	<V::Signer as IdentifyAccount>::AccountId: StaticTypeInfo + Codec + Clone + Eq + PartialEq + Debug,
+	<V::Signer as IdentifyAccount>::AccountId:
+		StaticTypeInfo + Codec + Clone + Eq + PartialEq + Debug,
 {
 	signature: V,
 	account: <V::Signer as IdentifyAccount>::AccountId,
 }
 
-impl<V, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiSignature<V> where
+impl<V, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiSignature<V>
+where
 	V: Send + Sync + Verify + TypeInfo + Codec + Clone + Eq + PartialEq + StaticTypeInfo + Debug,
-	<V::Signer as IdentifyAccount>::AccountId: Send + Sync + Clone + TypeInfo + Codec + Clone + Eq + PartialEq + StaticTypeInfo + Debug,
+	<V::Signer as IdentifyAccount>::AccountId:
+		Send + Sync + Clone + TypeInfo + Codec + Clone + Eq + PartialEq + StaticTypeInfo + Debug,
 	<Call as Dispatchable>::RuntimeOrigin: From<Option<<V::Signer as IdentifyAccount>::AccountId>>,
 {
 	const IDENTIFIER: &'static str = "VerifyMultiSignature";
@@ -58,13 +71,15 @@ impl<V, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiS
 		target: &[u8],
 	) -> Result<
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError
+		TransactionValidityError,
 	> {
 		let mut msg = call.encode();
 		msg.extend_from_slice(target);
 		let msg = blake2_256(&msg);
 
-		if !self.signature.verify(&msg[..], &self.account) { Err(InvalidTransaction::BadProof)? }
+		if !self.signature.verify(&msg[..], &self.account) {
+			Err(InvalidTransaction::BadProof)?
+		}
 		// We clobber the original origin. Maybe we shuld check that it's none?
 		let origin = Some(self.account.clone()).into();
 		Ok((ValidTransaction::default(), (), origin))
@@ -141,4 +156,3 @@ impl<C: Dispatchable> TransactionExtension for () {
 	}
 }
 */
-

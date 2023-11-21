@@ -108,7 +108,8 @@ pub fn create_extrinsic(
 					kitchensink_runtime::Runtime,
 				>::from(tip, None),
 			),
-		).into();
+		)
+			.into();
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
@@ -683,7 +684,7 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic, TxExtension,
+		Address, BalancesCall, RuntimeCall, TxExtension, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
 	use sc_client_api::BlockBackend;
@@ -894,7 +895,8 @@ mod tests {
 					check_nonce,
 					check_weight,
 					tx_payment,
-				).into();
+				)
+					.into();
 				let raw_payload = SignedPayload::from_raw(
 					function,
 					tx_ext,

@@ -21,8 +21,8 @@ use bridge_hub_rococo_runtime::{
 	bridge_common_config, bridge_to_westend_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, TxExtension,
-	TransactionPayment, UncheckedExtrinsic,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
+	TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types};
@@ -57,7 +57,8 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
-	).into();
+	)
+		.into();
 	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
 	UncheckedExtrinsic::new_signed(

@@ -19,7 +19,7 @@
 mod block_builder;
 use codec::{Decode, Encode};
 use runtime::{
-	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, TxExtension, SignedPayload,
+	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
 use sc_executor::HeapAllocStrategy;
@@ -150,7 +150,8 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-	).into();
+	)
+		.into();
 
 	let function = function.into();
 

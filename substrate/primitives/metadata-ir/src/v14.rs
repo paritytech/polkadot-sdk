@@ -20,8 +20,8 @@
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletCallMetadataIR, PalletConstantMetadataIR,
 	PalletErrorMetadataIR, PalletEventMetadataIR, PalletMetadataIR, PalletStorageMetadataIR,
-	TransactionExtensionMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
-	StorageHasherIR,
+	StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR,
+	TransactionExtensionMetadataIR,
 };
 
 use frame_metadata::v14::{

@@ -18,7 +18,7 @@
 //! Primitives for the runtime modules.
 
 use crate::{
-	generic::{Digest},
+	generic::Digest,
 	scale_info::{StaticTypeInfo, TypeInfo},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, UnknownTransaction,
@@ -53,7 +53,9 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 pub mod transaction_extension;
-pub use transaction_extension::{TransactionExtension, DispatchTransaction, AsTransactionExtension, TransactionExtensionMetadata};
+pub use transaction_extension::{
+	AsTransactionExtension, DispatchTransaction, TransactionExtension, TransactionExtensionMetadata,
+};
 
 /// A lazy value.
 pub trait Lazy<T: ?Sized> {
@@ -1304,7 +1306,9 @@ pub trait Extrinsic: Sized {
 	/// Returns `true` if this `Extrinsic` is bare.
 	fn is_bare(&self) -> bool {
 		#[allow(deprecated)]
-		!self.is_signed().expect("`is_signed` must return `Some` on production extrinsics; qed")
+		!self
+			.is_signed()
+			.expect("`is_signed` must return `Some` on production extrinsics; qed")
 	}
 
 	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or

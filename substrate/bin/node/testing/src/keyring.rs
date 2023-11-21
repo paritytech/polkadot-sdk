@@ -81,7 +81,8 @@ pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 		),
-	).into()
+	)
+		.into()
 }
 
 /// Sign given `CheckedExtrinsic`.
@@ -106,14 +107,21 @@ pub fn sign(
 				})
 				.into();
 			UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::Signed(sp_runtime::MultiAddress::Id(signed), signature, tx_ext),
+				preamble: sp_runtime::generic::Preamble::Signed(
+					sp_runtime::MultiAddress::Id(signed),
+					signature,
+					tx_ext,
+				),
 				function: payload.0,
 			}
 		},
-		ExtrinsicFormat::Bare => UncheckedExtrinsic { preamble: sp_runtime::generic::Preamble::Bare, function: xt.function },
+		ExtrinsicFormat::Bare => UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::Bare,
+			function: xt.function,
+		},
 		ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
 			preamble: sp_runtime::generic::Preamble::General(tx_ext),
-			function: xt.function
+			function: xt.function,
 		},
 	}
 }

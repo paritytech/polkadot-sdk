@@ -434,7 +434,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
@@ -454,7 +454,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
 		if cap.paths.is_empty() {

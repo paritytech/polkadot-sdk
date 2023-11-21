@@ -213,7 +213,10 @@ fn block_weight_capacity_report() {
 		let num_transfers = block_number * factor;
 		let mut xts = (0..num_transfers)
 			.map(|i| CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(nonce + i as Nonce, 0)),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(
+					charlie(),
+					tx_ext(nonce + i as Nonce, 0),
+				),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 0,
@@ -293,7 +296,10 @@ fn block_length_capacity_report() {
 					}),
 				},
 				CheckedExtrinsic {
-					format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(nonce, 0)),
+					format: sp_runtime::generic::ExtrinsicFormat::Signed(
+						charlie(),
+						tx_ext(nonce, 0),
+					),
 					function: RuntimeCall::System(frame_system::Call::remark {
 						remark: vec![0u8; (block_number * factor) as usize],
 					}),

@@ -785,7 +785,7 @@ fn json_eval_value_at_key(
 	fun: &dyn Fn(&json::Value) -> bool,
 ) -> bool {
 	let Some(key) = path.pop_front() else {
-		return false;
+		return false
 	};
 
 	if path.is_empty() {

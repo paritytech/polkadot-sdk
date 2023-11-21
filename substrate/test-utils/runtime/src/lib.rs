@@ -59,8 +59,13 @@ pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify, AsTransactionExtension, Dispatchable},
-	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction},
+	traits::{
+		AsTransactionExtension, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
+		NumberFor, Verify,
+	},
+	transaction_validity::{
+		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
 	ApplyExtrinsicResult, Perbill,
 };
 #[cfg(any(feature = "std", test))]
@@ -144,10 +149,8 @@ pub type Pair = sp_core::sr25519::Pair;
 
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
-pub type TxExtension = (
-	AsTransactionExtension<(CheckNonce<Runtime>, CheckWeight<Runtime>)>,
-	CheckSubstrateCall,
-);
+pub type TxExtension =
+	(AsTransactionExtension<(CheckNonce<Runtime>, CheckWeight<Runtime>)>, CheckSubstrateCall);
 /// The payload being signed in transactions.
 pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
@@ -317,7 +320,7 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 		_implicit: &[u8],
 	) -> Result<
 		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError
+		TransactionValidityError,
 	> {
 		log::trace!(target: LOG_TARGET, "validate");
 		let v = match call {
@@ -1070,7 +1073,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
-		traits::{Hash as _, DispatchTransaction},
+		traits::{DispatchTransaction, Hash as _},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
@@ -1231,7 +1234,8 @@ mod tests {
 						len,
 					)
 					.unwrap()
-					.0.priority,
+					.0
+					.priority,
 				16
 			);
 
@@ -1244,7 +1248,8 @@ mod tests {
 						len,
 					)
 					.unwrap()
-					.0.propagate,
+					.0
+					.propagate,
 				false
 			);
 		})

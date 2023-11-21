@@ -20,8 +20,8 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, Extrinsic, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member,
-		SignaturePayload, TransactionExtension, Dispatchable,
+		self, Checkable, Dispatchable, Extrinsic, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay,
+		Member, SignaturePayload, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -80,7 +80,8 @@ impl<Address, Signature, Extensions> Preamble<Address, Signature, Extensions> {
 	}
 }
 
-impl<Address, Signature, Extensions> fmt::Debug for Preamble<Address, Signature, Extensions> where
+impl<Address, Signature, Extensions> fmt::Debug for Preamble<Address, Signature, Extensions>
+where
 	Address: fmt::Debug,
 	Extensions: fmt::Debug,
 {
@@ -165,7 +166,12 @@ impl<Address, Call, Signature, Extensions>
 	}
 
 	/// New instance of an old-school signed transaction.
-	pub fn new_signed(function: Call, signed: Address, signature: Signature, tx_ext: Extensions) -> Self {
+	pub fn new_signed(
+		function: Call,
+		signed: Address,
+		signature: Signature,
+		tx_ext: Extensions,
+	) -> Self {
 		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
 	}
 
@@ -177,8 +183,8 @@ impl<Address, Call, Signature, Extensions>
 
 // TODO: We can get rid of this trait and just use UncheckedExtrinsic directly.
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extensions: TypeInfo>
-	Extrinsic for UncheckedExtrinsic<Address, Call, Signature, Extensions>
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extensions: TypeInfo> Extrinsic
+	for UncheckedExtrinsic<Address, Call, Signature, Extensions>
 {
 	type Call = Call;
 
@@ -234,10 +240,8 @@ where
 				format: ExtrinsicFormat::General(tx_ext),
 				function: self.function,
 			},
-			Preamble::Bare => CheckedExtrinsic {
-				format: ExtrinsicFormat::Bare,
-				function: self.function,
-			},
+			Preamble::Bare =>
+				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
 		})
 	}
 
@@ -258,22 +262,21 @@ where
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
 			},
-			Preamble::Bare => CheckedExtrinsic {
-				format: ExtrinsicFormat::Bare,
-				function: self.function,
-			},
+			Preamble::Bare =>
+				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
 		})
 	}
 }
 
-impl<Address, Call: Dispatchable, Signature, Extensions: TransactionExtension<Call>> ExtrinsicMetadata
-	for UncheckedExtrinsic<Address, Call, Signature, Extensions>
+impl<Address, Call: Dispatchable, Signature, Extensions: TransactionExtension<Call>>
+	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extensions>
 {
 	const VERSION: u8 = EXTRINSIC_FORMAT_VERSION;
 	type Extra = Extensions;
 }
 
-impl<Address, Call, Signature, Extensions> Decode for UncheckedExtrinsic<Address, Call, Signature, Extensions>
+impl<Address, Call, Signature, Extensions> Decode
+	for UncheckedExtrinsic<Address, Call, Signature, Extensions>
 where
 	Address: Decode,
 	Signature: Decode,
@@ -304,7 +307,8 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extensions> Encode for UncheckedExtrinsic<Address, Call, Signature, Extensions>
+impl<Address, Call, Signature, Extensions> Encode
+	for UncheckedExtrinsic<Address, Call, Signature, Extensions>
 where
 	Preamble<Address, Signature, Extensions>: Encode,
 	Call: Encode,
@@ -367,7 +371,9 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extensions: Decode>
 /// Note that the payload that we sign to produce unchecked extrinsic signature
 /// is going to be different than the `SignaturePayload` - so the thing the extrinsic
 /// actually contains.
-pub struct SignedPayload<Call: Dispatchable, Extensions: TransactionExtension<Call>>((Call, Extensions, Extensions::Implicit));
+pub struct SignedPayload<Call: Dispatchable, Extensions: TransactionExtension<Call>>(
+	(Call, Extensions, Extensions::Implicit),
+);
 
 impl<Call, Extensions> SignedPayload<Call, Extensions>
 where
@@ -420,8 +426,8 @@ where
 {
 }
 
-impl<Address, Call, Signature, Extensions> From<UncheckedExtrinsic<Address, Call, Signature, Extensions>>
-	for OpaqueExtrinsic
+impl<Address, Call, Signature, Extensions>
+	From<UncheckedExtrinsic<Address, Call, Signature, Extensions>> for OpaqueExtrinsic
 where
 	Address: Encode,
 	Signature: Encode,
@@ -442,7 +448,7 @@ mod tests {
 	use crate::{
 		codec::{Decode, Encode},
 		testing::TestSignature as TestSig,
-		traits::{DispatchInfoOf, IdentityLookup, TransactionExtension, FakeDisptchable},
+		traits::{DispatchInfoOf, FakeDisptchable, IdentityLookup, TransactionExtension},
 	};
 	use sp_io::hashing::blake2_256;
 
@@ -471,8 +477,12 @@ mod tests {
 			_len: usize,
 			_implicit: &[u8],
 		) -> Result<
-			(crate::transaction_validity::ValidTransaction, Self::Val, <Call as traits::Dispatchable>::RuntimeOrigin),
-			TransactionValidityError
+			(
+				crate::transaction_validity::ValidTransaction,
+				Self::Val,
+				<Call as traits::Dispatchable>::RuntimeOrigin,
+			),
+			TransactionValidityError,
 		> {
 			Ok((Default::default(), (), who))
 		}
@@ -576,7 +586,10 @@ mod tests {
 		assert!(!ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::General(DummyExtension), function: vec![0u8; 0].into() }),
+			Ok(CEx {
+				format: ExtrinsicFormat::General(DummyExtension),
+				function: vec![0u8; 0].into()
+			}),
 		);
 	}
 
@@ -591,7 +604,10 @@ mod tests {
 		assert!(!ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
-			Ok(CEx { format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension), function: vec![0u8; 0].into() }),
+			Ok(CEx {
+				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension),
+				function: vec![0u8; 0].into()
+			}),
 		);
 	}
 

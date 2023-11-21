@@ -50,8 +50,9 @@ use sp_consensus::BlockOrigin;
 use sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, Pair, Public};
 use sp_inherents::InherentData;
 use sp_runtime::{
+	generic::{ExtrinsicFormat, Preamble},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
-	OpaqueExtrinsic, generic::{Preamble, ExtrinsicFormat},
+	OpaqueExtrinsic,
 };
 
 /// Keyring full of accounts for benching.
@@ -582,14 +583,19 @@ impl BenchKeyring {
 					}
 				});
 				UncheckedExtrinsic {
-					preamble: Preamble::Signed(sp_runtime::MultiAddress::Id(signed), signature, tx_ext),
+					preamble: Preamble::Signed(
+						sp_runtime::MultiAddress::Id(signed),
+						signature,
+						tx_ext,
+					),
 					function: payload.0,
 				}
 			},
-			ExtrinsicFormat::Bare => UncheckedExtrinsic { preamble: Preamble::Bare, function: xt.function },
+			ExtrinsicFormat::Bare =>
+				UncheckedExtrinsic { preamble: Preamble::Bare, function: xt.function },
 			ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
 				preamble: sp_runtime::generic::Preamble::General(tx_ext),
-				function: xt.function
+				function: xt.function,
 			},
 		}
 	}

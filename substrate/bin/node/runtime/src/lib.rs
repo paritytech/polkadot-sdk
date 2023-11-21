@@ -78,8 +78,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor,
-		OpaqueKeys, SaturatedConversion, StaticLookup, AsTransactionExtension,
+		self, AccountIdConversion, AsTransactionExtension, BlakeTwo256, Block as BlockT, Bounded,
+		ConvertInto, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
@@ -1404,7 +1404,8 @@ where
 					tip, None,
 				),
 			),
-		).into();
+		)
+			.into();
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
 				log::warn!("Unable to create signed payload: {:?}", e);

@@ -207,7 +207,11 @@ pub mod runtime {
 	///   `AccountIdLookup` in [`frame_system::Config::Lookup`].
 	pub mod types_common {
 		use frame_system::Config as SysConfig;
-		use sp_runtime::{generic, traits::{self, AsTransactionExtension}, OpaqueExtrinsic};
+		use sp_runtime::{
+			generic,
+			traits::{self, AsTransactionExtension},
+			OpaqueExtrinsic,
+		};
 
 		/// A signature type compatible capably of handling multiple crypto-schemes.
 		pub type Signature = sp_runtime::MultiSignature;
@@ -261,9 +265,8 @@ pub mod runtime {
 		/// Default set of signed extensions exposed from the `frame_system`.
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
-		pub type SystemTransactionExtensionsOf<T> = AsTransactionExtension<
-			SystemSignedExtensionsOf<T>/*  as SignedExtension*/
-		>;
+		pub type SystemTransactionExtensionsOf<T> =
+			AsTransactionExtension<SystemSignedExtensionsOf<T> /* as SignedExtension */>;
 	}
 
 	/// The main prelude of FRAME for building runtimes, and in the context of testing.
