@@ -20,7 +20,9 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
-	traits::{DispatchInfoOf, SaturatedConversion, SignedExtension},
+	traits::{
+		DispatchInfoOf, Dispatchable, SaturatedConversion, SignedExtension, TransactionExtension,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -93,7 +95,63 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMortality<T> {
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
+	}
+}
+
+impl<T: Config + Send + Sync> TransactionExtension for CheckMortality<T> {
+	const IDENTIFIER: &'static str = "CheckMortality";
+	type Call = T::RuntimeCall;
+	type Pre = ();
+	type Val = ();
+	type Implicit = T::Hash;
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
+		let n = self.0.birth(current_u64).saturated_into::<BlockNumberFor<T>>();
+		if !<BlockHash<T>>::contains_key(n) {
+			Err(InvalidTransaction::AncientBirthBlock.into())
+		} else {
+			Ok(<Pallet<T>>::block_hash(n))
+		}
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
+	}
+
+	fn validate(
+		&self,
+		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(
+			sp_runtime::transaction_validity::ValidTransaction,
+			Self::Val,
+			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		),
+		sp_runtime::transaction_validity::TransactionValidityError,
+	> {
+		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
+		let valid_till = self.0.death(current_u64);
+		Ok((
+			ValidTransaction {
+				longevity: valid_till.saturating_sub(current_u64),
+				..Default::default()
+			},
+			(),
+			origin,
+		))
 	}
 }
 
@@ -112,17 +170,14 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			// future
 			assert_eq!(
-				CheckMortality::<Test>::from(Era::mortal(4, 2))
-					.additional_signed()
-					.err()
-					.unwrap(),
+				CheckMortality::<Test>::from(Era::mortal(4, 2)).implicit().err().unwrap(),
 				InvalidTransaction::AncientBirthBlock.into(),
 			);
 
 			// correct
 			System::set_block_number(13);
 			<BlockHash<Test>>::insert(12, H256::repeat_byte(1));
-			assert!(CheckMortality::<Test>::from(Era::mortal(4, 12)).additional_signed().is_ok());
+			assert!(CheckMortality::<Test>::from(Era::mortal(4, 12)).implicit().is_ok());
 		})
 	}
 
@@ -142,7 +197,13 @@ mod tests {
 			System::set_block_number(17);
 			<BlockHash<Test>>::insert(16, H256::repeat_byte(1));
 
-			assert_eq!(ext.validate(&1, CALL, &normal, len).unwrap().longevity, 15);
+			assert_eq!(
+				TransactionExtension::validate(&ext, Some(1).into(), CALL, &normal, len, &[])
+					.unwrap()
+					.0
+					.longevity,
+				15
+			);
 		})
 	}
 }

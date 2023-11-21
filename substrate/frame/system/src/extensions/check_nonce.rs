@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
+	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, TransactionExtension, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
@@ -130,6 +130,92 @@ where
 	}
 }
 
+impl<T: Config> TransactionExtension for CheckNonce<T>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+{
+	const IDENTIFIER: &'static str = "CheckNonce";
+	type Call = T::RuntimeCall;
+	type Pre = ();
+	type Val = ();
+	type Implicit = ();
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		Ok(())
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		let who =
+			crate::ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
+		let mut account = crate::Account::<T>::get(who.clone());
+		if account.providers.is_zero() && account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return Err(InvalidTransaction::Payment.into())
+		}
+		if self.0 != account.nonce {
+			return Err(if self.0 < account.nonce {
+				InvalidTransaction::Stale
+			} else {
+				InvalidTransaction::Future
+			}
+			.into())
+		}
+		account.nonce += T::Nonce::one();
+		crate::Account::<T>::insert(who, account);
+		Ok(())
+	}
+
+	fn validate(
+		&self,
+		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(
+			sp_runtime::transaction_validity::ValidTransaction,
+			Self::Val,
+			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		),
+		sp_runtime::transaction_validity::TransactionValidityError,
+	> {
+		let who =
+			crate::ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
+		let account = crate::Account::<T>::get(who.clone());
+		if account.providers.is_zero() && account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return Err(InvalidTransaction::Payment.into())
+		}
+		if self.0 < account.nonce {
+			return Err(InvalidTransaction::Stale.into())
+		}
+
+		let provides = vec![Encode::encode(&(who.clone(), self.0))];
+		let requires = if account.nonce < self.0 {
+			vec![Encode::encode(&(who, self.0 - One::one()))]
+		} else {
+			vec![]
+		};
+
+		let validity = ValidTransaction {
+			priority: 0,
+			requires,
+			provides,
+			longevity: TransactionLongevity::max_value(),
+			propagate: true,
+		};
+		Ok((validity, (), origin))
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -152,21 +238,43 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			// stale
-			assert_noop!(
-				CheckNonce::<Test>(0).validate(&1, CALL, &info, len),
-				InvalidTransaction::Stale
+			assert_eq!(
+				TransactionExtension::validate(
+					&CheckNonce::<Test>(0),
+					Some(1).into(),
+					CALL,
+					&info,
+					len,
+					&[]
+				)
+				.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Stale)
 			);
 			assert_noop!(
-				CheckNonce::<Test>(0).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>(0).prepare((), &Some(1).into(), CALL, &info, len),
 				InvalidTransaction::Stale
 			);
 			// correct
-			assert_ok!(CheckNonce::<Test>(1).validate(&1, CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).pre_dispatch(&1, CALL, &info, len));
+			assert_ok!(TransactionExtension::validate(
+				&CheckNonce::<Test>(1),
+				Some(1).into(),
+				CALL,
+				&info,
+				len,
+				&[]
+			));
+			assert_ok!(CheckNonce::<Test>(1).prepare((), &Some(1).into(), CALL, &info, len));
 			// future
-			assert_ok!(CheckNonce::<Test>(5).validate(&1, CALL, &info, len));
+			assert_ok!(TransactionExtension::validate(
+				&CheckNonce::<Test>(5),
+				Some(1).into(),
+				CALL,
+				&info,
+				len,
+				&[]
+			));
 			assert_noop!(
-				CheckNonce::<Test>(5).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>(5).prepare((), &Some(1).into(), CALL, &info, len),
 				InvalidTransaction::Future
 			);
 		})
@@ -198,20 +306,42 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			// Both providers and sufficients zero
-			assert_noop!(
-				CheckNonce::<Test>(1).validate(&1, CALL, &info, len),
-				InvalidTransaction::Payment
+			assert_eq!(
+				TransactionExtension::validate(
+					&CheckNonce::<Test>(1),
+					Some(1).into(),
+					CALL,
+					&info,
+					len,
+					&[]
+				)
+				.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
 			assert_noop!(
-				CheckNonce::<Test>(1).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>(1).prepare((), &Some(1).into(), CALL, &info, len),
 				InvalidTransaction::Payment
 			);
 			// Non-zero providers
-			assert_ok!(CheckNonce::<Test>(1).validate(&2, CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).pre_dispatch(&2, CALL, &info, len));
+			assert_ok!(TransactionExtension::validate(
+				&CheckNonce::<Test>(1),
+				Some(2).into(),
+				CALL,
+				&info,
+				len,
+				&[]
+			));
+			assert_ok!(CheckNonce::<Test>(1).prepare((), &Some(2).into(), CALL, &info, len));
 			// Non-zero sufficients
-			assert_ok!(CheckNonce::<Test>(1).validate(&3, CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).pre_dispatch(&3, CALL, &info, len));
+			assert_ok!(TransactionExtension::validate(
+				&CheckNonce::<Test>(1),
+				Some(3).into(),
+				CALL,
+				&info,
+				len,
+				&[]
+			));
+			assert_ok!(CheckNonce::<Test>(1).prepare((), &Some(3).into(), CALL, &info, len));
 		})
 	}
 }

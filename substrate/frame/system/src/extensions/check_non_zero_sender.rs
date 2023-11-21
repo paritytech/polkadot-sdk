@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchInfo, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension},
+	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -72,7 +72,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
 	}
 
 	fn validate(
@@ -89,22 +89,86 @@ where
 	}
 }
 
+impl<T: Config + Send + Sync> TransactionExtension for CheckNonZeroSender<T>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+{
+	const IDENTIFIER: &'static str = "CheckNonZeroSender";
+	type Call = T::RuntimeCall;
+	type Pre = ();
+	type Val = ();
+	type Implicit = ();
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		Ok(())
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
+	}
+
+	fn validate(
+		&self,
+		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(
+			sp_runtime::transaction_validity::ValidTransaction,
+			Self::Val,
+			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		),
+		sp_runtime::transaction_validity::TransactionValidityError,
+	> {
+		let who =
+			crate::ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
+		if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
+		}
+		Ok((ValidTransaction::default(), (), origin))
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
-	use frame_support::{assert_noop, assert_ok};
+	use frame_support::assert_ok;
 
 	#[test]
 	fn zero_account_ban_works() {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_noop!(
-				CheckNonZeroSender::<Test>::new().validate(&0, CALL, &info, len),
-				InvalidTransaction::BadSigner
+			assert_eq!(
+				TransactionExtension::validate(
+					&CheckNonZeroSender::<Test>::new(),
+					Some(0).into(),
+					CALL,
+					&info,
+					len,
+					&[]
+				)
+				.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::BadSigner)
 			);
-			assert_ok!(CheckNonZeroSender::<Test>::new().validate(&1, CALL, &info, len));
+			assert_ok!(TransactionExtension::validate(
+				&CheckNonZeroSender::<Test>::new(),
+				Some(1).into(),
+				CALL,
+				&info,
+				len,
+				&[]
+			));
 		})
 	}
 }

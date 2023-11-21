@@ -19,8 +19,8 @@ use crate::{pallet_prelude::BlockNumberFor, Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension, Zero},
-	transaction_validity::TransactionValidityError,
+	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension, Zero},
+	transaction_validity::{TransactionValidityError, ValidTransaction},
 };
 
 /// Genesis hash check to provide replay protection between different networks.
@@ -70,6 +70,47 @@ impl<T: Config + Send + Sync> SignedExtension for CheckGenesis<T> {
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
+	}
+}
+
+impl<T: Config + Send + Sync> TransactionExtension for CheckGenesis<T> {
+	type Call = T::RuntimeCall;
+	type Pre = ();
+	type Val = ();
+	type Implicit = T::Hash;
+	const IDENTIFIER: &'static str = "CheckGenesis";
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
+	}
+
+	fn validate(
+		&self,
+		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(
+			sp_runtime::transaction_validity::ValidTransaction,
+			Self::Val,
+			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+		),
+		sp_runtime::transaction_validity::TransactionValidityError,
+	> {
+		Ok((ValidTransaction::default(), (), origin))
 	}
 }
