@@ -671,6 +671,7 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 			Ok(None) => {
+				// A migration is done when it returns cursor `None`.
 				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });
 				Historic::<T>::insert(&bounded_id, ());
 				cursor.goto_next_migration(System::<T>::block_number());

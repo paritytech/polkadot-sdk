@@ -462,12 +462,31 @@ pub mod pallet {
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
 
+		/// All migrations that should run in the next runtime upgrade.
+		///
+		/// These used to be formerly configured in `Executive`. Parachains need to ensure that
+		/// running all these migrations in one block will not overflow the weight limit of a block.
 		type SingleBlockMigrations: OnRuntimeUpgrade;
 
+		/// The migrator that is used to run Multi-Block-Migrations.
+		///
+		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
 		type MultiBlockMigrator: MultiStepMigrator;
 
+		/// A callback that executes in *every block* directly before all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
 		type PreInherents: PreInherents;
+
+		/// A callback that executes in *every block* directly after all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
 		type PostInherents: PostInherents;
+
+		/// A callback that executes in *every block* directly after all transactions were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
 		type PostTransactions: PostTransactions;
 	}
 

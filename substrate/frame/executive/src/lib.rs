@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //! # Executive Module
 //!
 //! The Executive module acts as the orchestration layer for the runtime. It dispatches incoming
@@ -34,6 +36,8 @@
 //! - Execute a block.
 //! - Finalize a block.
 //! - Start an off-chain worker.
+//!
+//! The flow of their application in a block is explained in the [block flowchart](block_flowchart).
 //!
 //! ### Implementations
 //!
@@ -114,7 +118,35 @@
 //! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade>;
 //! ```
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(doc)]
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// # Block Execution
+///
+/// These are the steps of block execution as done by [`Executive::execute_block`]. A block is
+/// invalid if any of them fail.
+///
+/// ```mermaid
+/// flowchart TD
+///     Executive::execute_block --> on_runtime_upgrade
+///     on_runtime_upgrade --> System::initialize
+///     System::initialize --> Executive::initialize_block
+///     Executive::initialize_block --> on_initialize
+///     on_initialize --> PreInherents[System::PreInherents]
+///     PreInherents --> Inherents[Apply Inherents]
+///     Inherents --> PostInherents[System::PostInherents]
+///     PostInherents --> Check{MBM ongoing?}
+///     Check -->|No| poll
+///     Check -->|Yes| post_transactions_2[System::PostTransaction]
+///     post_transactions_2 --> Step[MBMs::step]
+///     Step --> on_finalize
+///     poll --> transactions[Apply Transactions]
+///     transactions --> post_transactions_1[System::PostTransaction]
+///     post_transactions_1 --> CheckIdle{Weight remaining?}
+///     CheckIdle -->|Yes| on_idle
+///     CheckIdle -->|No| on_finalize
+///     on_idle --> on_finalize
+/// ```
+pub mod block_flowchart {}
 
 #[cfg(test)]
 mod tests;
@@ -305,7 +337,7 @@ impl<
 
 		// Check if there are any forbidden non-inherents in the block.
 		if mode == ExtrinsicInclusionMode::OnlyInherents && extrinsics.len() > num_inherents {
-			return Err(InvalidTransaction::NotInherent.into())
+			return Err("Non-inherent extrinsic was supplied in a block that only allows inherent extrinsics".into())
 		}
 
 		let try_apply_extrinsic = |uxt: Block::Extrinsic| -> ApplyExtrinsicResult {
@@ -680,7 +712,8 @@ impl<
 		<frame_system::Pallet<System>>::finalize()
 	}
 
-	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining and there are no ongoing MBMs.
+	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining and there are no
+	/// ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if MultiStepMigrator::ongoing() {
 			return

@@ -26,10 +26,10 @@ pub mod genesismap;
 pub mod substrate_test_pallet;
 
 use codec::{Decode, Encode};
-use frame_support::genesis_builder_helper::{build_config, create_default_config};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
