@@ -409,8 +409,8 @@ where
 		block: B::Hash,
 		parallel: usize,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		// Divide the workload and return the start key of each chunks. Guarantee to return a
-		// non-empty list.
+		/// Divide the workload and return the start key of each chunks. Guaranteed to return a
+		/// non-empty list.
 		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
 			let mut prefix = prefix.as_ref().to_vec();
 			let scale = 32usize.saturating_sub(prefix.len());
@@ -691,12 +691,11 @@ where
 		prefix: StorageKey,
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
-		parallel: usize,
 	) -> Result<Vec<KeyValue>, &'static str> {
 		let start = Instant::now();
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
 		let keys = self
-			.rpc_get_keys_parallel(&prefix, at, parallel)
+			.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
 			.await?
 			.into_iter()
 			.collect::<Vec<_>>();
@@ -942,9 +941,8 @@ where
 		let mut keys_and_values = Vec::new();
 		for prefix in &config.hashed_prefixes {
 			let now = std::time::Instant::now();
-			// By observation, 4 parallel tasks almost always perform the best.
 			let additional_key_values =
-				self.rpc_get_pairs(StorageKey(prefix.to_vec()), at, pending_ext, 4).await?;
+				self.rpc_get_pairs(StorageKey(prefix.to_vec()), at, pending_ext).await?;
 			let elapsed = now.elapsed();
 			log::info!(
 				target: LOG_TARGET,
