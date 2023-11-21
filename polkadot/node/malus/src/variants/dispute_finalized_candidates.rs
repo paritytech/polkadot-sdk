@@ -15,18 +15,19 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A malicious node variant that attempts to dispute finalized candidates.
-//! 
+//!
 //! This malus variant behaves honestly in backing and approval voting.
 //! The maliciousness comes from emitting an extra dispute statement on top of the other ones.
-//! 
+//!
 //! Some extra quirks which generally should be insignificant:
 //! - The malus node will not dispute at session boundaries
 //! - The malus node will not dispute blocks it backed itself
-//! 
+//!
 //! Attention: For usage with `zombienet` only!
 
 #![allow(missing_docs)]
 
+use futures::channel::oneshot;
 use polkadot_cli::{
 	prepared_overseer_builder,
 	service::{
@@ -41,13 +42,9 @@ use polkadot_node_subsystem_types::{DefaultSubsystemClient, OverseerSignal};
 use polkadot_node_subsystem_util::request_candidate_events;
 use polkadot_primitives::CandidateEvent;
 use sp_core::traits::SpawnNamed;
-use futures::channel::oneshot;
 
 // Filter wrapping related types.
-use crate::{
-	interceptor::*,
-	shared::MALUS,
-};
+use crate::{interceptor::*, shared::MALUS};
 
 use std::sync::Arc;
 
@@ -55,8 +52,9 @@ use std::sync::Arc;
 /// Listens to finalization messages and if possible triggers disputes for their ancestors.
 #[derive(Clone)]
 struct AncestorDisputer<Spawner> {
-	spawner: Spawner, //stores the actual ApprovalVotingSubsystem spawner
-	dispute_offset: u32, //relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized etc
+	spawner: Spawner,    //stores the actual ApprovalVotingSubsystem spawner
+	dispute_offset: u32, /* relative depth of the disputed block to the finalized block,
+	                      * 0=finalized, 1=parent of finalized etc */
 }
 
 impl<Sender, Spawner> MessageInterceptor<Sender> for AncestorDisputer<Spawner>
@@ -73,8 +71,11 @@ where
 		msg: FromOrchestra<Self::Message>,
 	) -> Option<FromOrchestra<Self::Message>> {
 		match msg {
-			FromOrchestra::Communication{msg} => Some(FromOrchestra::Communication{msg}),
-			FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, finalized_height)) => {
+			FromOrchestra::Communication { msg } => Some(FromOrchestra::Communication { msg }),
+			FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+				finalized_hash,
+				finalized_height,
+			)) => {
 				gum::info!(
 					target: MALUS,
 					"😈 Block Finalization Interception! Block: {:?}", finalized_hash,
@@ -82,7 +83,10 @@ where
 
 				//Ensure that the chain is long enough for the target ancestor to exist
 				if finalized_height <= self.dispute_offset {
-					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, finalized_height)));
+					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+						finalized_hash,
+						finalized_height,
+					)))
 				}
 
 				let dispute_offset = self.dispute_offset;
@@ -93,7 +97,12 @@ where
 					Box::pin(async move {
 						// Query chain for the block hash at the target depth
 						let (tx, rx) = oneshot::channel();
-						sender.send_message(ChainApiMessage::FinalizedBlockHash(finalized_height - dispute_offset, tx)).await;
+						sender
+							.send_message(ChainApiMessage::FinalizedBlockHash(
+								finalized_height - dispute_offset,
+								tx,
+							))
+							.await;
 						let disputable_hash = match rx.await {
 							Ok(Ok(Some(hash))) => {
 								gum::info!(
@@ -107,12 +116,13 @@ where
 									target: MALUS,
 									"😈 Seems the target is not yet finalized! Nothing to dispute."
 								);
-								return; // Early return from the async block
+								return // Early return from the async block
 							},
 						};
 
 						// Fetch all candidate events for the target ancestor
-						let events = request_candidate_events(disputable_hash, &mut sender).await.await;
+						let events =
+							request_candidate_events(disputable_hash, &mut sender).await.await;
 						let events = match events {
 							Ok(Ok(events)) => events,
 							Ok(Err(e)) => {
@@ -120,28 +130,30 @@ where
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
-								return; // Early return from the async block
+								return // Early return from the async block
 							},
 							Err(e) => {
 								gum::error!(
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
-								return; // Early return from the async block
+								return // Early return from the async block
 							},
-
 						};
 
 						// Extract a token candidate from the events to use for disputing
-						let event = events.iter().find(|event| matches!(event, CandidateEvent::CandidateIncluded(_,_,_,_)));
+						let event = events.iter().find(|event| {
+							matches!(event, CandidateEvent::CandidateIncluded(_, _, _, _))
+						});
 						let candidate = match event {
-							Some(CandidateEvent::CandidateIncluded(candidate,_,_,_)) => candidate,
+							Some(CandidateEvent::CandidateIncluded(candidate, _, _, _)) =>
+								candidate,
 							_ => {
 								gum::error!(
 									target: MALUS,
 									"😈 No candidate included event found! Nothing to dispute."
 								);
-								return; // Early return from the async block
+								return // Early return from the async block
 							},
 						};
 
@@ -150,7 +162,12 @@ where
 
 						// Fetch the session index for the candidate
 						let (tx, rx) = oneshot::channel();
-						sender.send_message(RuntimeApiMessage::Request(disputable_hash, RuntimeApiRequest::SessionIndexForChild(tx))).await;
+						sender
+							.send_message(RuntimeApiMessage::Request(
+								disputable_hash,
+								RuntimeApiRequest::SessionIndexForChild(tx),
+							))
+							.await;
 						let session_index = match rx.await {
 							Ok(Ok(session_index)) => session_index,
 							_ => {
@@ -158,7 +175,7 @@ where
 									target: MALUS,
 									"😈 Failed to fetch session index for candidate."
 								);
-								return; // Early return from the async block
+								return // Early return from the async block
 							},
 						};
 						gum::info!(
@@ -167,17 +184,22 @@ where
 						);
 
 						// Start dispute
-						sender.send_unbounded_message(DisputeCoordinatorMessage::IssueLocalStatement(
-							session_index,
-							candidate_hash,
-							candidate.clone(),
-							false, // indicates candidate is invalid -> dispute starts
-						));
+						sender.send_unbounded_message(
+							DisputeCoordinatorMessage::IssueLocalStatement(
+								session_index,
+								candidate_hash,
+								candidate.clone(),
+								false, // indicates candidate is invalid -> dispute starts
+							),
+						);
 					}),
 				);
 
 				// Passthrough the finalization signal as usual (using it as hook only)
-				Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, finalized_height)))
+				Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+					finalized_hash,
+					finalized_height,
+				)))
 			},
 			FromOrchestra::Signal(signal) => Some(FromOrchestra::Signal(signal)),
 		}
@@ -190,7 +212,8 @@ where
 #[clap(rename_all = "kebab-case")]
 #[allow(missing_docs)]
 pub struct DisputeFinalizedCandidatesOptions {
-	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized etc
+	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of
+	/// finalized etc
 	#[clap(long, ignore_case = true, default_value_t = 2, value_parser = clap::value_parser!(u32).range(0..=50))]
 	pub dispute_offset: u32,
 
@@ -199,7 +222,8 @@ pub struct DisputeFinalizedCandidatesOptions {
 }
 /// DisputeFinalizedCandidates implementation wrapper which implements `OverseerGen` glue.
 pub(crate) struct DisputeFinalizedCandidates {
-	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of finalized etc
+	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of
+	/// finalized etc
 	pub dispute_offset: u32,
 }
 
