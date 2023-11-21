@@ -367,13 +367,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		Self::on_nominator_remove(who, vec![]);
 	}
 
-	// Fired when an existing nominator updates their nominations.
-	//
-	// This is called when a nominator updates their nominations. The nominator's stake remains the
-	// same (updates to the nominator's stake should emit [`Self::on_stake_update`] instead).
-	// However, the score of the nominated targets must be updated accordingly.
-	//
-	// Note: it is assumed that who's staking state is updated *before* calling this method.
+	/// Fired when an existing nominator updates their nominations.
+	///
+	/// This is called when a nominator updates their nominations. The nominator's stake remains the
+	/// same (updates to the nominator's stake should emit [`Self::on_stake_update`] instead).
+	/// However, the score of the nominated targets must be updated accordingly.
+	///
+	/// Note: it is assumed that who's staking state is updated *before* calling this method.
 	fn on_nominator_update(who: &T::AccountId, prev_nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
