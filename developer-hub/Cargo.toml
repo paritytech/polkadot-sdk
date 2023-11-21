@@ -48,7 +48,6 @@ cumulus-pallet-parachain-system = { path = "../cumulus/pallets/parachain-system"
 	"parameterized-consensus-hook",
 ] }
 parachain-info = { package = "staging-parachain-info", path = "../cumulus/parachains/pallets/parachain-info" }
-pallet-aura = { path = "../substrate/frame/aura", features = ["experimental"] }
 pallet-timestamp = { path = "../substrate/frame/timestamp" }
 
 # Primitives
@@ -59,8 +58,11 @@ sp-keyring = { path = "../substrate/primitives/keyring" }
 sp-runtime = { path = "../substrate/primitives/runtime" }
 
 [dev-dependencies]
+pallet-aura = { path = "../substrate/frame/aura", default-features = false }
 parity-scale-codec = "3.6.5"
 scale-info = "2.9.0"
 
 [features]
-experimental = []
+experimental = [
+	"pallet-aura/experimental"
+]
