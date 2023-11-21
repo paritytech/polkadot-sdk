@@ -65,7 +65,7 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
-pub struct RefundInfo<AccountId, Balance> {
+pub struct DepositInfo<AccountId, Balance> {
 	/// The `AccountId` that has its deposit reserved for this parachain.
 	///
 	/// This will either be the parachain manager or the sovereign account of the parachain.
@@ -229,11 +229,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
-	/// Stores all the necessary information for initiating deposit refunds whenever the validation
-	/// code is reduced for any parachain.
+	/// "Stores all the necessary information about the account currently holding the deposit for
+	/// the parachain, as well as whether the current or prior depositor has any pending refunds.
 	#[pallet::storage]
-	pub type Refunds<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, RefundInfo<T::AccountId, BalanceOf<T>>>;
+	pub type Deposits<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, DepositInfo<T::AccountId, BalanceOf<T>>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -665,10 +665,10 @@ impl<T: Config> Pallet<T> {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
-		let refund_info = RefundInfo { depositor: who.clone(), pending_refund: None };
+		let deposit_info = DepositInfo { depositor: who.clone(), pending_refund: None };
 
 		Paras::<T>::insert(id, info);
-		Refunds::<T>::insert(id, refund_info);
+		Deposits::<T>::insert(id, deposit_info);
 		// We check above that para has no lifecycle, so this should not fail.
 		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
@@ -720,10 +720,10 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
 		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-		let refund_info = Refunds::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let deposit_info = Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		let current_deposit = info.deposit;
-		let current_depositor = refund_info.depositor;
+		let current_depositor = deposit_info.depositor;
 
 		if let Some(caller) = maybe_caller.clone() {
 			if caller != current_depositor {
@@ -756,16 +756,14 @@ impl<T: Config> Pallet<T> {
 				// code to an empty blob. In such a case, the pre-checking process would fail, so
 				// the old code would remain on-chain even though there is no deposit to cover it.
 
-				println!("{:?}", current_deposit);
-				println!("{:?}", new_deposit);
-				let refund_info = RefundInfo {
+				let deposit_info = DepositInfo {
 					depositor: caller.clone(),
 					pending_refund: Some((
 						current_depositor,
 						current_deposit.saturating_sub(new_deposit),
 					)),
 				};
-				Refunds::<T>::insert(para, refund_info);
+				Deposits::<T>::insert(para, deposit_info);
 			}
 
 			<T as Config>::Currency::withdraw(
@@ -774,11 +772,22 @@ impl<T: Config> Pallet<T> {
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
 			)?;
-		}
 
-		// Update the deposit to the new appropriate amount.
-		info.deposit = new_deposit;
-		Paras::<T>::insert(para, info);
+			// Update the deposit to the new appropriate amount.
+			info.deposit = new_deposit;
+			Paras::<T>::insert(para, info);
+		} else if current_deposit > new_deposit {
+			// The depositor should receive a refund if the current deposit exceeds the new required
+			// deposit, even if they did not initiate the upgrade
+			let deposit_info = DepositInfo {
+				depositor: current_depositor.clone(),
+				pending_refund: Some((
+					current_depositor,
+					current_deposit.saturating_sub(new_deposit),
+				)),
+			};
+			Deposits::<T>::insert(para, deposit_info);
+		}
 
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
 	}
@@ -835,13 +844,13 @@ impl<T: Config> OnNewHead for Pallet<T> {
 
 impl<T: Config> OnCodeUpgrade for Pallet<T> {
 	fn on_code_upgrade(id: ParaId) -> Weight {
-		let mut refund_info =
-			Refunds::<T>::get(id).expect("The depositor must be known for each parachain; qed");
+		let mut deposit_info =
+			Deposits::<T>::get(id).expect("The depositor must be known for each parachain; qed");
 
-		if let Some((who, rebate)) = refund_info.pending_refund {
+		if let Some((who, rebate)) = deposit_info.pending_refund {
 			<T as Config>::Currency::unreserve(&who, rebate);
-			refund_info.pending_refund = None;
-			Refunds::<T>::insert(id, refund_info);
+			deposit_info.pending_refund = None;
+			Deposits::<T>::insert(id, deposit_info);
 
 			return T::DbWeight::get().reads_writes(2, 1)
 		}

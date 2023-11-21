@@ -582,7 +582,7 @@ fn para_upgrade_initiated_by_manager_works() {
 
 		// User 1 will own a parachain
 		let free_balance = 1_000_000_000;
-		Balances::make_free_balance_be(&account_id(1), 1_000_000_000);
+		Balances::make_free_balance_be(&account_id(1), free_balance);
 		// Register an on demand parachain
 		let mut code_size = 1024 * 1024;
 		let genesis_head = Registrar::worst_head_data();
@@ -695,6 +695,102 @@ fn para_upgrade_initiated_by_manager_works() {
 		);
 		// Even though the upgrade failed the upgrade fee is deducted from the caller's balance.
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (3 * UpgradeFee::get()));
+	});
+}
+
+#[test]
+fn root_upgrading_parachain_works() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_id = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own a parachain
+		Balances::make_free_balance_be(&account_id(1), 1_000_000_000);
+		// Register an on demand parachain
+		let code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
+		let code_0 = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_id),
+			genesis_head.clone(),
+			code_0.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Parathread));
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// CASE 1: Root schedules a para upgrade to set the validation code to a new one which is
+		// twice the size.
+
+		let code_1 = validation_code(code_size * 2);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			RuntimeOrigin::root(),
+			ParaId::from(para_id),
+			code_1.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 4);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
+
+		// The reserved deposit should remain the same since the upgrade was performed by root.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// CASE 2: Root schedules a para upgrade to set the validation code to a new one which has
+		// half the size of the initially registered code. The para manager should get a refund for
+		// the deposit they are no longer required to hold.
+
+		let code_2 = validation_code(code_size / 2);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			RuntimeOrigin::root(),
+			ParaId::from(para_id),
+			code_2.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_2, VALIDATORS, START_SESSION_INDEX + 4, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 6);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
+
+		// The reserved deposit should remain the same since the upgrade was performed by root.
+		let total_bytes_stored = (code_size / 2) as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
 	});
 }
 
