@@ -52,9 +52,9 @@ use std::sync::Arc;
 /// Listens to finalization messages and if possible triggers disputes for their ancestors.
 #[derive(Clone)]
 struct AncestorDisputer<Spawner> {
-	spawner: Spawner,    //stores the actual ApprovalVotingSubsystem spawner
+	spawner: Spawner, //stores the actual ApprovalVotingSubsystem spawner
 	dispute_offset: u32, /* relative depth of the disputed block to the finalized block,
-	                      * 0=finalized, 1=parent of finalized etc */
+	                   * 0=finalized, 1=parent of finalized etc */
 }
 
 impl<Sender, Spawner> MessageInterceptor<Sender> for AncestorDisputer<Spawner>
