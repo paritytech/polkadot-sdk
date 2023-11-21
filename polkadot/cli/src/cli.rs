@@ -98,6 +98,11 @@ pub struct RunCmd {
 	#[arg(long)]
 	pub no_beefy: bool,
 
+	/// Allows a validator to run insecurely outside of Secure Validator Mode. For more information
+	/// see https://github.com/w3f/polkadot-wiki/issues/4881.
+	#[arg(long = "insecure-validator-i-know-what-i-do", requires = "validator")]
+	pub insecure_validator: bool,
+
 	/// Add the destination address to the 'Jaeger' agent.
 	///
 	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).

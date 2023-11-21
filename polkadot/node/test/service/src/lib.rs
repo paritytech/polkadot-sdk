@@ -85,6 +85,7 @@ pub fn new_full(
 			jaeger_agent: None,
 			telemetry_worker_handle: None,
 			node_version: None,
+			secure_validator_mode: false,
 			workers_path,
 			workers_names: None,
 			overseer_gen: polkadot_service::RealOverseerGen,

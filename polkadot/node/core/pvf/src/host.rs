@@ -29,13 +29,13 @@ use crate::{
 use always_assert::never;
 use futures::{
 	channel::{mpsc, oneshot},
-	join, Future, FutureExt, SinkExt, StreamExt,
+	Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	pvf::PvfPrepData,
-	SecurityStatus,
 };
+use polkadot_node_subsystem::SubsystemResult;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
 	collections::HashMap,
@@ -153,6 +153,8 @@ pub struct Config {
 	pub cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
+	/// Whether the node is running as a secure validator.
+	pub secure_validator_mode: bool,
 
 	/// The path to the program that can be used to spawn the prepare workers.
 	pub prepare_worker_program_path: PathBuf,
@@ -177,12 +179,14 @@ impl Config {
 	pub fn new(
 		cache_path: PathBuf,
 		node_version: Option<String>,
+		secure_validator_mode: bool,
 		prepare_worker_program_path: PathBuf,
 		execute_worker_program_path: PathBuf,
 	) -> Self {
 		Self {
 			cache_path,
 			node_version,
+			secure_validator_mode,
 
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
@@ -204,24 +208,17 @@ impl Config {
 /// The future should not return normally but if it does then that indicates an unrecoverable error.
 /// In that case all pending requests will be canceled, dropping the result senders and new ones
 /// will be rejected.
-pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<Output = ()>) {
+pub async fn start(
+	config: Config,
+	metrics: Metrics,
+) -> Result<(ValidationHost, impl Future<Output = ()>), SubsystemError> {
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
-	// Run checks for supported security features once per host startup. Warn here if not enabled.
-	let security_status = {
-		// TODO: add check that syslog is available and that seccomp violations are logged?
-		let (can_enable_landlock, can_enable_seccomp, can_unshare_user_namespace_and_change_root) = join!(
-			security::check_landlock(&config.prepare_worker_program_path),
-			security::check_seccomp(&config.prepare_worker_program_path),
-			security::check_can_unshare_user_namespace_and_change_root(
-				&config.prepare_worker_program_path
-			)
-		);
-		SecurityStatus {
-			can_enable_landlock,
-			can_enable_seccomp,
-			can_unshare_user_namespace_and_change_root,
-		}
+	// Run checks for supported security features once per host startup. If some checks fail, warn
+	// if Secure Validator Mode is disabled and error otherwise.
+	let security_status = match security::check_security_status(&config).await {
+		Ok(ok) => ok,
+		Err(err) => return Err(SubsystemError::Context(err)),
 	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
@@ -288,7 +285,7 @@ pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Fu
 		};
 	};
 
-	(validation_host, task)
+	Ok((validation_host, task))
 }
 
 /// A mapping from an artifact ID which is in preparation state to the list of pending execution

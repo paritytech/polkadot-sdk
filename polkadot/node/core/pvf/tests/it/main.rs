@@ -57,11 +57,12 @@ impl TestHost {
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
 		);
 		f(&mut config);
-		let (host, task) = start(config, Metrics::default()).await;
+		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = tokio::task::spawn(task);
 		Self { cache_dir, host: Mutex::new(host) }
 	}
