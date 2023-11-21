@@ -23,7 +23,7 @@ para_id=$2
 
 echo "Generating chain spec for runtime: $rt_path and para_id: $para_id"
 
-binary="./target/release/rococo-parachain"
+binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
 $binary build-spec --chain coretime-rococo-dev > chain-spec-plain.json
@@ -78,7 +78,7 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.syste
 # build a raw spec
 $binary build-spec --chain edited-chain-spec-plain.json --raw > chain-spec-raw.json
 cp edited-chain-spec-plain.json coretime-rococo-spec.json
-cp chain-spec-raw.json ./parachains/chain-specs/coretime-rococo.json
+cp chain-spec-raw.json ./cumulus/parachains/chain-specs/coretime-rococo.json
 cp chain-spec-raw.json coretime-rococo-spec-raw.json
 
 # build genesis data
