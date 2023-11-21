@@ -302,8 +302,8 @@ pub mod pallet {
 		/// Handler for failed migrations.
 		type FailedMigrationHandler: FailedMigrationHandler;
 
-		/// The weight to spend each block to execute migrations.
-		type ServiceWeight: Get<Weight>;
+		/// The maximum weight to spend each block to execute migrations.
+		type MaxServiceWeight: Get<Weight>;
 
 		/// Weight information for the calls and functions of this pallet.
 		type WeightInfo: WeightInfo;
