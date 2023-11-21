@@ -19,7 +19,7 @@
 use futures::prelude::*;
 use libp2p::{Multiaddr, PeerId};
 
-use sc_consensus::{ImportQueue, Link};
+use sc_consensus::{ImportQueue, Link, SharedBlockImport};
 use sc_network::{
 	config::{self, FullNetworkConfiguration, MultiaddrWithPeerId, ProtocolId, TransportConfig},
 	event::Event,
@@ -134,7 +134,7 @@ impl TestNetworkBuilder {
 		#[async_trait::async_trait]
 		impl<B: BlockT> sc_consensus::Verifier<B> for PassThroughVerifier {
 			async fn verify(
-				&mut self,
+				&self,
 				mut block: sc_consensus::BlockImportParams<B>,
 			) -> Result<sc_consensus::BlockImportParams<B>, String> {
 				block.finalized = self.0;
@@ -146,7 +146,7 @@ impl TestNetworkBuilder {
 		let mut import_queue =
 			self.import_queue.unwrap_or(Box::new(sc_consensus::BasicQueue::new(
 				PassThroughVerifier(false),
-				Box::new(client.clone()),
+				SharedBlockImport::new(client.clone()),
 				None,
 				&sp_core::testing::TaskExecutor::new(),
 				None,

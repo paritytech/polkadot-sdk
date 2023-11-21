@@ -38,6 +38,7 @@ use sp_runtime::traits::Block as BlockT;
 use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams},
 	import_queue::{BasicQueue, Verifier},
+	SharedBlockImport,
 };
 
 use crate::ParachainBlockImportMarker;
@@ -50,7 +51,7 @@ pub struct VerifyNothing;
 #[async_trait::async_trait]
 impl<Block: BlockT> Verifier<Block> for VerifyNothing {
 	async fn verify(
-		&mut self,
+		&self,
 		params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		Ok(params)
@@ -72,5 +73,5 @@ where
 		+ Sync
 		+ 'static,
 {
-	BasicQueue::new(VerifyNothing, Box::new(block_import), None, spawner, registry)
+	BasicQueue::new(VerifyNothing, SharedBlockImport::new(block_import), None, spawner, registry)
 }

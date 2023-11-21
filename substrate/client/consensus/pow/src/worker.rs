@@ -24,7 +24,9 @@ use futures_timer::Delay;
 use log::*;
 use parking_lot::Mutex;
 use sc_client_api::ImportNotifications;
-use sc_consensus::{BlockImportParams, BoxBlockImport, StateAction, StorageChanges};
+use sc_consensus::{
+	BlockImport, BlockImportParams, SharedBlockImport, StateAction, StorageChanges,
+};
 use sp_consensus::{BlockOrigin, Proposal};
 use sp_runtime::{
 	generic::BlockId,
@@ -78,7 +80,7 @@ pub struct MiningHandle<
 	algorithm: Arc<Algorithm>,
 	justification_sync_link: Arc<L>,
 	build: Arc<Mutex<Option<MiningBuild<Block, Algorithm, Proof>>>>,
-	block_import: Arc<Mutex<BoxBlockImport<Block>>>,
+	block_import: SharedBlockImport<Block>,
 }
 
 impl<Block, Algorithm, L, Proof> MiningHandle<Block, Algorithm, L, Proof>
@@ -94,7 +96,7 @@ where
 
 	pub(crate) fn new(
 		algorithm: Algorithm,
-		block_import: BoxBlockImport<Block>,
+		block_import: SharedBlockImport<Block>,
 		justification_sync_link: L,
 	) -> Self {
 		Self {
@@ -102,7 +104,7 @@ where
 			algorithm: Arc::new(algorithm),
 			justification_sync_link: Arc::new(justification_sync_link),
 			build: Arc::new(Mutex::new(None)),
-			block_import: Arc::new(Mutex::new(block_import)),
+			block_import,
 		}
 	}
 
@@ -192,9 +194,8 @@ where
 		import_block.insert_intermediate(INTERMEDIATE_KEY, intermediate);
 
 		let header = import_block.post_header();
-		let mut block_import = self.block_import.lock();
 
-		match block_import.import_block(import_block).await {
+		match self.block_import.clone().import_block(import_block).await {
 			Ok(res) => {
 				res.handle_justification(
 					&header.hash(),

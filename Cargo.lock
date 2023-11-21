@@ -3678,6 +3678,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "futures",
  "parity-scale-codec",
+ "parking_lot 0.12.1",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-overseer",
@@ -15237,6 +15238,7 @@ dependencies = [
 name = "sc-consensus"
 version = "0.10.0-dev"
 dependencies = [
+ "async-lock",
  "async-trait",
  "futures",
  "futures-timer",
@@ -15256,6 +15258,7 @@ dependencies = [
  "sp-test-primitives",
  "substrate-prometheus-endpoint",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

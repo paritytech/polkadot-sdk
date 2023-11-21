@@ -20,7 +20,7 @@ use cumulus_client_consensus_common::ParachainBlockImportMarker;
 
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImport, BlockImportParams,
+	BlockImport, BlockImportParams, SharedBlockImport,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -52,7 +52,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		// Skip checks that include execution, if being told so, or when importing only state.
@@ -125,5 +125,5 @@ where
 {
 	let verifier = Verifier::new(client, create_inherent_data_providers);
 
-	Ok(BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry))
+	Ok(BasicQueue::new(verifier, SharedBlockImport::new(block_import), None, spawner, registry))
 }
