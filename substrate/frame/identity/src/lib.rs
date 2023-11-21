@@ -76,7 +76,7 @@ mod benchmarking;
 pub mod legacy;
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 pub mod weights;
 
 use codec::Encode;
@@ -162,7 +162,7 @@ pub mod pallet {
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	#[pallet::storage]
 	#[pallet::getter(fn identity)]
-	pub(super) type IdentityOf<T: Config> = StorageMap<
+	pub type IdentityOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -174,7 +174,7 @@ pub mod pallet {
 	/// context. If the account is not some other account's sub-identity, then just `None`.
 	#[pallet::storage]
 	#[pallet::getter(fn super_of)]
-	pub(super) type SuperOf<T: Config> =
+	pub type SuperOf<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, (T::AccountId, Data), OptionQuery>;
 
 	/// Alternative "sub" identities of this account.
@@ -184,7 +184,7 @@ pub mod pallet {
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	#[pallet::storage]
 	#[pallet::getter(fn subs_of)]
-	pub(super) type SubsOf<T: Config> = StorageMap<
+	pub type SubsOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -505,14 +505,16 @@ pub mod pallet {
 
 			let item = (reg_index, Judgement::FeePaid(registrar.fee));
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
-				Ok(i) =>
+				Ok(i) => {
 					if id.judgements[i].1.is_sticky() {
-						return Err(Error::<T>::StickyJudgement.into())
+						return Err(Error::<T>::StickyJudgement.into());
 					} else {
 						id.judgements[i] = item
-					},
-				Err(i) =>
-					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?,
+					}
+				},
+				Err(i) => {
+					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?
+				},
 			}
 
 			T::Currency::reserve(&sender, registrar.fee)?;
@@ -554,7 +556,7 @@ pub mod pallet {
 			let fee = if let Judgement::FeePaid(fee) = id.judgements.remove(pos).1 {
 				fee
 			} else {
-				return Err(Error::<T>::JudgementGiven.into())
+				return Err(Error::<T>::JudgementGiven.into());
 			};
 
 			let err_amount = T::Currency::unreserve(&sender, fee);
@@ -700,7 +702,7 @@ pub mod pallet {
 			let mut id = <IdentityOf<T>>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
 
 			if T::Hashing::hash_of(&id.info) != identity {
-				return Err(Error::<T>::JudgementForDifferentIdentity.into())
+				return Err(Error::<T>::JudgementForDifferentIdentity.into());
 			}
 
 			let item = (reg_index, judgement);
@@ -1005,8 +1007,7 @@ impl<T: Config> Pallet<T> {
 		Ok((new_id_deposit, new_subs_deposit))
 	}
 
-	/// Set an identity with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
-	#[cfg(feature = "runtime-benchmarks")]
+	/// Set an identity with zero deposit. Used for benchmarking and XCM emulator tests, involves `rejig_deposit`.
 	pub fn set_identity_no_deposit(
 		who: &T::AccountId,
 		info: T::IdentityInformation,
