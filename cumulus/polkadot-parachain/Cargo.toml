@@ -24,6 +24,7 @@ serde_json = "1.0.108"
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
 shell-runtime = { path = "../parachains/runtimes/starters/shell" }
+glutton-westend-runtime = { path = "../parachains/runtimes/glutton/glutton-westend" }
 glutton-runtime = { path = "../parachains/runtimes/glutton/glutton-kusama" }
 seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
 asset-hub-polkadot-runtime = { path = "../parachains/runtimes/assets/asset-hub-polkadot" }
@@ -31,6 +32,7 @@ asset-hub-kusama-runtime = { path = "../parachains/runtimes/assets/asset-hub-kus
 asset-hub-rococo-runtime = { path = "../parachains/runtimes/assets/asset-hub-rococo" }
 asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-westend" }
 collectives-polkadot-runtime = { path = "../parachains/runtimes/collectives/collectives-polkadot" }
+collectives-westend-runtime = { path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
 bridge-hub-kusama-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
@@ -119,11 +121,13 @@ runtime-benchmarks = [
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
+	"collectives-westend-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"glutton-runtime/runtime-benchmarks",
+	"glutton-westend-runtime/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
@@ -143,8 +147,10 @@ try-runtime = [
 	"bridge-hub-rococo-runtime/try-runtime",
 	"bridge-hub-westend-runtime/try-runtime",
 	"collectives-polkadot-runtime/try-runtime",
+	"collectives-westend-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
 	"glutton-runtime/try-runtime",
+	"glutton-westend-runtime/try-runtime",
 	"penpal-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
 	"polkadot-service/try-runtime",

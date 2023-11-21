@@ -549,6 +549,12 @@ impl<
 		let mut weight = Weight::zero();
 		if Self::runtime_upgraded() {
 			weight = weight.saturating_add(Self::execute_on_runtime_upgrade());
+
+			frame_system::LastRuntimeUpgrade::<System>::put(
+				frame_system::LastRuntimeUpgradeInfo::from(
+					<System::Version as frame_support::traits::Get<_>>::get(),
+				),
+			);
 		}
 		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest);
 		weight = weight.saturating_add(<AllPalletsWithSystem as OnInitialize<
@@ -566,19 +572,12 @@ impl<
 		frame_system::Pallet::<System>::note_finished_initialize();
 	}
 
-	/// Returns if the runtime was upgraded since the last time this function was called.
+	/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].
 	fn runtime_upgraded() -> bool {
 		let last = frame_system::LastRuntimeUpgrade::<System>::get();
 		let current = <System::Version as frame_support::traits::Get<_>>::get();
 
-		if last.map(|v| v.was_upgraded(&current)).unwrap_or(true) {
-			frame_system::LastRuntimeUpgrade::<System>::put(
-				frame_system::LastRuntimeUpgradeInfo::from(current),
-			);
-			true
-		} else {
-			false
-		}
+		last.map(|v| v.was_upgraded(&current)).unwrap_or(true)
 	}
 
 	/// Returns the index of the first extrinsic in the block.

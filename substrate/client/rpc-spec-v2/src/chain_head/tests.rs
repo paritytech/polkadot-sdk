@@ -28,7 +28,7 @@ use futures::Future;
 use jsonrpsee::{
 	core::{error::Error, server::rpc_module::Subscription as RpcSubscription},
 	rpc_params,
-	types::{error::CallError, EmptyServerParams as EmptyParams},
+	types::error::CallError,
 	RpcModule,
 };
 use sc_block_builder::BlockBuilderBuilder;
@@ -61,7 +61,6 @@ const MAX_PINNED_BLOCKS: usize = 32;
 const MAX_PINNED_SECS: u64 = 60;
 const MAX_OPERATIONS: usize = 16;
 const MAX_PAGINATION_LIMIT: usize = 5;
-const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
 const KEY: &[u8] = b":mock";
 const VALUE: &[u8] = b"hello world";
@@ -111,7 +110,6 @@ async fn setup_api() -> (
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -162,7 +160,6 @@ async fn follow_subscription_produces_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -231,7 +228,6 @@ async fn follow_with_runtime() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -343,31 +339,6 @@ async fn follow_with_runtime() {
 		with_runtime: false,
 	});
 	assert_eq!(event, expected);
-}
-
-#[tokio::test]
-async fn get_genesis() {
-	let builder = TestClientBuilder::new();
-	let backend = builder.backend();
-	let client = Arc::new(builder.build());
-
-	let api = ChainHead::new(
-		client.clone(),
-		backend,
-		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
-		ChainHeadConfig {
-			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
-			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
-			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-		},
-	)
-	.into_rpc();
-
-	let genesis: String =
-		api.call("chainHead_unstable_genesisHash", EmptyParams::new()).await.unwrap();
-	assert_eq!(genesis, hex_string(&CHAIN_GENESIS));
 }
 
 #[tokio::test]
@@ -569,7 +540,6 @@ async fn call_runtime_without_flag() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1228,7 +1198,6 @@ async fn separate_operation_ids_for_subscriptions() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1316,7 +1285,6 @@ async fn follow_generates_initial_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1472,7 +1440,6 @@ async fn follow_exceeding_pinned_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1549,7 +1516,6 @@ async fn follow_with_unpin() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1591,14 +1557,17 @@ async fn follow_with_unpin() {
 	// Unpin an invalid subscription ID must return Ok(()).
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let _res: () = api
-		.call("chainHead_unstable_unpin", ["invalid_sub_id", &invalid_hash])
+		.call("chainHead_unstable_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
 		.await
 		.unwrap();
 
 	// Valid subscription with invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let err = api
-		.call::<_, serde_json::Value>("chainHead_unstable_unpin", [&sub_id, &invalid_hash])
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &invalid_hash],
+		)
 		.await
 		.unwrap_err();
 	assert_matches!(err,
@@ -1606,7 +1575,10 @@ async fn follow_with_unpin() {
 	);
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
-	let _res: () = api.call("chainHead_unstable_unpin", [&sub_id, &block_hash]).await.unwrap();
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_hash])
+		.await
+		.unwrap();
 
 	// Block tree:
 	//   finalized_block -> block -> block2
@@ -1646,6 +1618,159 @@ async fn follow_with_unpin() {
 }
 
 #[tokio::test]
+async fn follow_with_multiple_unpin_hashes() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let sub_id = sub.subscription_id();
+	let sub_id = serde_json::to_string(&sub_id).unwrap();
+
+	// Import 3 blocks.
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_1_hash = block_1.header.hash();
+	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
+
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_2_hash = block_2.header.hash();
+	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
+
+	let block_3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_3_hash = block_3.header.hash();
+	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Unpin an invalid subscription ID must return Ok(()).
+	let invalid_hash = hex_string(&INVALID_HASH);
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
+		.await
+		.unwrap();
+
+	// Valid subscription with invalid block hash.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &invalid_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+	);
+
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_1_hash])
+		.await
+		.unwrap();
+
+	// One block hash is invalid. Block 1 is already unpinned.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_1_hash, &block_2_hash, &block_3_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+	);
+
+	// Unpin multiple blocks.
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_2_hash, &block_3_hash]])
+		.await
+		.unwrap();
+
+	// Check block 2 and 3 are unpinned.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &block_2_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+	);
+
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &block_3_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+	);
+}
+
+#[tokio::test]
 async fn follow_prune_best_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
@@ -1655,7 +1780,6 @@ async fn follow_prune_best_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1828,7 +1952,7 @@ async fn follow_prune_best_block() {
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 	let hash = format!("{:?}", block_2_hash);
-	let _res: () = api.call("chainHead_unstable_unpin", [&sub_id, &hash]).await.unwrap();
+	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
 }
 
 #[tokio::test]
@@ -1841,7 +1965,6 @@ async fn follow_forks_pruned_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1993,7 +2116,6 @@ async fn follow_report_multiple_pruned_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2239,7 +2361,6 @@ async fn pin_block_references() {
 		client.clone(),
 		backend.clone(),
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 3,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2305,7 +2426,10 @@ async fn pin_block_references() {
 	wait_pinned_references(&backend, &hash, 1).await;
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
-	let _res: () = api.call("chainHead_unstable_unpin", [&sub_id, &block_hash]).await.unwrap();
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_hash])
+		.await
+		.unwrap();
 
 	// Make sure unpin clears out the reference.
 	let refs = backend.pin_refs(&hash).unwrap();
@@ -2374,7 +2498,6 @@ async fn follow_finalized_before_new_block() {
 		client_mock.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2489,7 +2612,6 @@ async fn ensure_operation_limits_works() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2594,7 +2716,6 @@ async fn check_continue_operation() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2777,7 +2898,6 @@ async fn stop_storage_operation() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),

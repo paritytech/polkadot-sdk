@@ -94,7 +94,17 @@ short-benchmark-collectives-polkadot:
   variables:
     RUNTIME_CHAIN: collectives-polkadot-dev
 
+short-benchmark-collectives-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: collectives-westend-dev
+
 short-benchmark-glutton-kusama:
   <<: *short-bench-cumulus
   variables:
     RUNTIME_CHAIN: glutton-kusama-dev-1300
+
+short-benchmark-glutton-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: glutton-westend-dev-1300
