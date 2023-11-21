@@ -163,10 +163,11 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		// We check XCM messages recursively for blocklisted messages
 		fn matches_recursive(message: &mut Instruction<()>) -> Vec<Instruction<()>> {
 			match message {
-				SetErrorHandler(sub_m) | SetAppendix(sub_m) =>
-					Vec::from(sub_m.inner()).iter_mut().flat_map(matches_recursive).collect(),
-				DepositReserveAsset { xcm, .. } | InitiateReserveWithdraw { xcm, .. } =>
-					Vec::from(xcm.inner()).iter_mut().flat_map(matches_recursive).collect(),
+				DepositReserveAsset { xcm, .. } |
+				InitiateReserveWithdraw { xcm, .. } |
+				TransferReserveAsset { xcm, .. } |
+				SetErrorHandler(xcm) |
+				SetAppendix(xcm) => Vec::from(xcm.inner()).iter_mut().flat_map(matches_recursive).collect(),
 				_ => vec![message.clone()],
 			}
 		}
