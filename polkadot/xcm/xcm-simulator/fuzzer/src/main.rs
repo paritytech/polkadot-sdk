@@ -155,14 +155,17 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 	println!();
 
 	for xcm_message in xcm_messages {
+		// We block Transact messages because they can cause panics that are due to the test
+		// environment, and not XCM
 		fn matches_blocklisted_messages(message: Instruction<()>) -> bool {
-			matches!(message, Transact { .. }) || matches!(message, SetAppendix { .. })
+			matches!(message, Transact { .. })
 		}
+		// We check XCM messages recursively for blocklisted messages
 		fn matches_recursive(message: &mut Instruction<()>) -> Vec<Instruction<()>> {
 			match message {
-				SetErrorHandler(sub_m) =>
+				SetErrorHandler(sub_m) | SetAppendix(sub_m) =>
 					Vec::from(sub_m.inner()).iter_mut().flat_map(matches_recursive).collect(),
-				DepositReserveAsset { xcm, .. } =>
+				DepositReserveAsset { xcm, .. } | InitiateReserveWithdraw { xcm, .. } =>
 					Vec::from(xcm.inner()).iter_mut().flat_map(matches_recursive).collect(),
 				_ => vec![message.clone()],
 			}
