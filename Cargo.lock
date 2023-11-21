@@ -1586,16 +1586,15 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.4.1"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "199c42ab6972d92c9f8995f086273d25c42fc0f7b2a1fcefba465c1352d25ba5"
+checksum = "0231f06152bf547e9c2b5194f247cd97aacf6dcd8b15d8e5ec0663f64580da87"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.4",
  "cc",
  "cfg-if",
  "constant_time_eq 0.3.0",
- "digest 0.10.7",
 ]
 
 [[package]]
@@ -12569,6 +12568,7 @@ version = "1.0.0"
 dependencies = [
  "always-assert",
  "assert_matches",
+ "blake3",
  "cfg-if",
  "criterion 0.4.0",
  "futures",
@@ -12647,6 +12647,7 @@ dependencies = [
  "sp-externalities 0.19.0",
  "sp-io",
  "sp-tracing 10.0.0",
+ "substrate-build-script-utils",
  "tempfile",
  "thiserror",
  "tracing-gum",
@@ -12671,6 +12672,7 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
+ "blake3",
  "cfg-if",
  "criterion 0.4.0",
  "libc",
@@ -14529,6 +14531,7 @@ dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
+ "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
  "frame-benchmarking",
@@ -18314,18 +18317,11 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "staging-chain-spec-builder"
 version = "2.0.0"
 dependencies = [
- "ansi_term",
  "clap 4.4.6",
- "kitchensink-runtime",
  "log",
- "rand 0.8.5",
  "sc-chain-spec",
- "sc-keystore",
  "serde_json",
- "sp-core",
- "sp-keystore",
  "sp-tracing 10.0.0",
- "staging-node-cli",
 ]
 
 [[package]]

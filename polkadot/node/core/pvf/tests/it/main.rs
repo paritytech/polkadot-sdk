@@ -20,8 +20,7 @@ use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
 	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
-	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
-	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};
@@ -70,7 +69,7 @@ impl TestHost {
 		&self,
 		code: &[u8],
 		executor_params: ExecutorParams,
-	) -> Result<PrepareStats, PrepareError> {
+	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
 		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
@@ -163,7 +162,7 @@ async fn execute_job_terminates_on_timeout() {
 		.await;
 
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 
@@ -203,8 +202,8 @@ async fn ensure_parallel_execution() {
 	assert_matches!(
 		(res1, res2),
 		(
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout))
+			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)),
+			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout))
 		)
 	);
 
@@ -345,7 +344,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.await;
 
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 }
