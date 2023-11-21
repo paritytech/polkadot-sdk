@@ -90,6 +90,7 @@ fn module_error_outer_enum_expand_explicit() {
 			frame_system::Error::NonDefaultComposite => (),
 			frame_system::Error::NonZeroRefCount => (),
 			frame_system::Error::CallFiltered => (),
+			frame_system::Error::MultiBlockMigrationsOngoing => (),
 			frame_system::Error::__Ignore(_, _) => (),
 		},
 
