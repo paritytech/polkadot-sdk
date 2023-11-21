@@ -162,6 +162,8 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 			match message {
 				SetErrorHandler(sub_m) =>
 					Vec::from(sub_m.inner()).iter_mut().map(matches_recursive).flatten().collect(),
+				DepositReserveAsset { xcm, .. } =>
+					Vec::from(xcm.inner()).iter_mut().map(matches_recursive).flatten().collect(),
 				_ => vec![message.clone()],
 			}
 		}
