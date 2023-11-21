@@ -366,7 +366,9 @@ impl assigner_on_demand::Config for Test {
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
 }
 
-impl assigner_bulk::Config for Test {}
+impl assigner_bulk::Config for Test {
+	type WeightInfo = crate::assigner_bulk::TestWeightInfo;
+}
 
 impl crate::inclusion::Config for Test {
 	type WeightInfo = ();

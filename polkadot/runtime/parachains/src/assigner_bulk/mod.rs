@@ -185,6 +185,8 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config
 	{
+		/// Something that provides the weight of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Scheduled assignment sets.
