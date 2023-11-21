@@ -90,7 +90,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		// TODO Impl me!
 		//#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		pub fn request_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
 			// Ignore requests not coming from the External Broker parachain.
 			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
@@ -99,7 +99,7 @@ pub mod pallet {
 
 		// TODO Impl me!
 		//#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		pub fn request_revenue_info_at(
 			origin: OriginFor<T>,
 			when: BlockNumberFor<T>,
@@ -111,7 +111,7 @@ pub mod pallet {
 
 		// TODO Impl me!
 		//#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		pub fn credit_account(
 			origin: OriginFor<T>,
 			who: T::AccountId,
@@ -133,7 +133,7 @@ pub mod pallet {
 		/// -`end_hint`: An optional hint as to when this particular set of instructions will end.
 		// TODO: Weights!
 		//#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		pub fn assign_core(
 			origin: OriginFor<T>,
 			core: CoreIndex,
