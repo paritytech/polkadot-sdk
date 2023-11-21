@@ -27,6 +27,8 @@ use pallet_broker::CoreAssignment;
 use primitives::CoreIndex;
 use runtime_parachains::assigner_bulk::{self, PartsOf57600};
 
+use sp_std::prelude::*;
+
 const LOG_TARGET: &str = "runtime::common::coretime";
 
 pub use pallet::*;
