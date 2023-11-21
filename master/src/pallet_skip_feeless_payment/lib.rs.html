@@ -143,6 +143,9 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -222,9 +225,9 @@
 <span class="doccomment">/// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-</span><span class="kw">pub struct </span>SkipCheckIfFeeless&lt;T: Config, S: SignedExtension&gt;(<span class="kw">pub </span>S, sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>SkipCheckIfFeeless&lt;T, S&gt;(<span class="kw">pub </span>S, sp_std::marker::PhantomData&lt;T&gt;);
 
-<span class="kw">impl</span>&lt;T: Config, S: SignedExtension&gt; sp_std::fmt::Debug <span class="kw">for </span>SkipCheckIfFeeless&lt;T, S&gt; {
+<span class="kw">impl</span>&lt;T, S: Encode&gt; sp_std::fmt::Debug <span class="kw">for </span>SkipCheckIfFeeless&lt;T, S&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">&quot;SkipCheckIfFeeless&lt;{:?}&gt;&quot;</span>, <span class="self">self</span>.<span class="number">0</span>.encode())
@@ -235,9 +238,8 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync, S: SignedExtension&gt; SkipCheckIfFeeless&lt;T, S&gt; {
-	<span class="doccomment">/// utility constructor. Used only in client/factory code.
-	</span><span class="kw">pub fn </span>from(s: S) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;T, S&gt; From&lt;S&gt; <span class="kw">for </span>SkipCheckIfFeeless&lt;T, S&gt; {
+	<span class="kw">fn </span>from(s: S) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(s, sp_std::marker::PhantomData)
 	}
 }
@@ -251,7 +253,11 @@
 	<span class="kw">type </span>Call = S::Call;
 	<span class="kw">type </span>AdditionalSigned = S::AdditionalSigned;
 	<span class="kw">type </span>Pre = (<span class="self">Self</span>::AccountId, <span class="prelude-ty">Option</span>&lt;&lt;S <span class="kw">as </span>SignedExtension&gt;::Pre&gt;);
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;SkipCheckIfFeeless&quot;</span>;
+	<span class="comment">// From the outside this extension should be &quot;invisible&quot;, because it just extends the wrapped
+	// extension with an extra check in `pre_dispatch` and `post_dispatch`. Thus, we should forward
+	// the identifier of the wrapped extension to let wallets see this extension as it would only be
+	// the wrapped extension itself.
+	</span><span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = S::IDENTIFIER;
 
 	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
 		<span class="self">self</span>.<span class="number">0</span>.additional_signed()
