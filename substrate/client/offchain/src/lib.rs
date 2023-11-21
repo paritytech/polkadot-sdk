@@ -45,7 +45,7 @@ use parking_lot::Mutex;
 use sc_client_api::BlockchainEvents;
 use sc_network::{NetworkPeers, NetworkStateInfo};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_core::{offchain, traits::SpawnNamed};
 use sp_externalities::Extension;
 use sp_keystore::{KeystoreExt, KeystorePtr};
@@ -183,8 +183,7 @@ impl<RA, Block: traits::Block, Storage: offchain::OffchainStorage> fmt::Debug
 impl<RA, Block, Storage> OffchainWorkers<RA, Block, Storage>
 where
 	Block: traits::Block,
-	RA: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	RA::Api: OffchainWorkerApi<Block>,
+	RA: CallApiAt<Block> + Send + Sync + 'static,
 	Storage: offchain::OffchainStorage + 'static,
 {
 	/// Run the offchain workers on every block import.
@@ -218,21 +217,25 @@ where
 	/// Start the offchain workers after given block.
 	#[must_use]
 	fn on_block_imported(&self, header: &Block::Header) -> impl Future<Output = ()> {
-		let runtime = self.runtime_api_provider.runtime_api();
 		let hash = header.hash();
-		let has_api_v1 = runtime.has_api_with::<dyn OffchainWorkerApi<Block>, _>(hash, |v| v == 1);
-		let has_api_v2 = runtime.has_api_with::<dyn OffchainWorkerApi<Block>, _>(hash, |v| v == 2);
-		let version = match (has_api_v1, has_api_v2) {
-			(_, Ok(true)) => 2,
-			(Ok(true), _) => 1,
-			err => {
-				let help =
-					"Consider turning off offchain workers if they are not part of your runtime.";
+		let mut runtime = RuntimeInstance::builder(&self.runtime_api_provider, hash)
+			.off_chain_context()
+			.build();
+		let api_version = runtime.api_version::<dyn OffchainWorkerApi<Block>>();
+		let version = match api_version {
+			Ok(Some(v)) => v,
+			Ok(None) => {
 				tracing::error!(
 					target: LOG_TARGET,
-					"Unsupported Offchain Worker API version: {:?}. {}.",
-					err,
-					help
+					"`OffchainWorker` runtime api not found. Consider turning off offchain workers if they are not part of your runtime.",
+				);
+				0
+			},
+			Err(error) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					%error,
+					"Failed to get `OffchainWorker` runtime api version.",
 				);
 				0
 			},
@@ -265,36 +268,45 @@ where
 			let tx_pool = self.transaction_pool.clone();
 
 			self.spawn_worker(move || {
-				let mut runtime = client.runtime_api();
+				let mut runtime_api_builder =
+					RuntimeInstance::builder(client, hash).off_chain_context();
 				let api = Box::new(api);
 				tracing::debug!(target: LOG_TARGET, "Running offchain workers at {hash:?}");
 
-				if let Some(keystore) = keystore {
-					runtime.register_extension(KeystoreExt(keystore.clone()));
-				}
+				runtime_api_builder =
+					runtime_api_builder.register_optional_extension(keystore.map(KeystoreExt));
 
-				if let Some(pool) = tx_pool {
-					runtime.register_extension(pool.offchain_transaction_pool(hash));
-				}
+				runtime_api_builder = runtime_api_builder.register_optional_extension(
+					tx_pool.map(|p| p.offchain_transaction_pool(hash)),
+				);
 
-				if let Some(offchain_db) = db {
-					runtime.register_extension(offchain::OffchainDbExt::new(
-						offchain::LimitedExternalities::new(capabilities, offchain_db.clone()),
+				runtime_api_builder =
+					runtime_api_builder.register_optional_extension(db.map(|db| {
+						offchain::OffchainDbExt::new(offchain::LimitedExternalities::new(
+							capabilities,
+							db.clone(),
+						))
+					}));
+
+				runtime_api_builder =
+					runtime_api_builder.register_extension(offchain::OffchainWorkerExt::new(
+						offchain::LimitedExternalities::new(capabilities, api),
 					));
+
+				for ext in custom_extensions {
+					runtime_api_builder = runtime_api_builder.register_extension(ext);
 				}
 
-				runtime.register_extension(offchain::OffchainWorkerExt::new(
-					offchain::LimitedExternalities::new(capabilities, api),
-				));
+				let mut runtime_api = runtime_api_builder.build();
 
-				custom_extensions.into_iter().for_each(|ext| runtime.register_extension(ext));
-
-				/*
-				let run = if version == 2 {
-					runtime.offchain_worker(&header)
+				let run = if version > 1 {
+					OffchainWorkerApi::<Block>::offchain_worker(&mut runtime_api, &header)
 				} else {
 					#[allow(deprecated)]
-					runtime.offchain_worker_before_version_2(*header.number())
+					OffchainWorkerApi::<Block>::offchain_worker_before_version_2(
+						&mut runtime_api,
+						*header.number(),
+					)
 				};
 
 				if let Err(e) = run {
@@ -305,7 +317,6 @@ where
 						e
 					);
 				}
-				*/
 			});
 
 			runner.process()

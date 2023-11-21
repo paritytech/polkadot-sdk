@@ -87,9 +87,7 @@ pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TExPool> {
 	sync: Arc<SyncingService<TBl>>,
 }
 
-impl<TBl: BlockT, TBackend, TExec, TExPool>
-	TestNetComponents<TBl, TBackend, TExec,  TExPool>
-{
+impl<TBl: BlockT, TBackend, TExec, TExPool> TestNetComponents<TBl, TBackend, TExec, TExPool> {
 	pub fn new(
 		task_manager: TaskManager,
 		client: Arc<Client<TBackend, TExec, TBl>>,
@@ -121,7 +119,7 @@ impl<TBl: BlockT, TBackend, TExec, TExPool> Clone
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec,  TExPool> Future
+impl<TBl: BlockT, TBackend, TExec, TExPool> Future
 	for TestNetComponents<TBl, TBackend, TExec, TExPool>
 {
 	type Output = Result<(), Error>;
@@ -131,8 +129,7 @@ impl<TBl: BlockT, TBackend, TExec,  TExPool> Future
 	}
 }
 
-impl<TBl, TBackend, TExec, TExPool> TestNetNode
-	for TestNetComponents<TBl, TBackend, TExec, TExPool>
+impl<TBl, TBackend, TExec, TExPool> TestNetNode for TestNetComponents<TBl, TBackend, TExec, TExPool>
 where
 	TBl: BlockT,
 	TBackend: sc_client_api::Backend<TBl> + Send + Sync + 'static,

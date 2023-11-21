@@ -30,7 +30,7 @@ use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi, RuntimeInstance};
 use sp_blockchain::{HeaderMetadata, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
@@ -113,13 +113,12 @@ impl<Client, Block> FullChainApi<Client, Block> {
 impl<Client, Block> graph::ChainApi for FullChainApi<Client, Block>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
+	Client: BlockBackend<Block>
 		+ BlockIdTo<Block>
 		+ HeaderBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ CallApiAt<Block>,
 	Client: Send + Sync + 'static,
-	Client::Api: TaggedTransactionQueue<Block>,
 {
 	type Block = Block;
 	type Error = error::Error;
@@ -214,35 +213,35 @@ fn validate_transaction_blocking<Client, Block>(
 ) -> error::Result<TransactionValidity>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
+	Client: BlockBackend<Block>
 		+ BlockIdTo<Block>
 		+ HeaderBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ CallApiAt<Block>,
 	Client: Send + Sync + 'static,
-	Client::Api: TaggedTransactionQueue<Block>,
 {
 	sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
 	{
-		let runtime_api = client.runtime_api();
+		let mut runtime_api = RuntimeInstance::builder(client, at).off_chain_context().build();
 		let api_version = sp_tracing::within_span! { sp_tracing::Level::TRACE, "check_version";
 			runtime_api
-				.api_version::<dyn TaggedTransactionQueue<Block>>(at)
+				.api_version::<dyn TaggedTransactionQueue<Block>>()
 				.map_err(|e| Error::RuntimeApi(e.to_string()))?
 				.ok_or_else(|| Error::RuntimeApi(
 					format!("Could not find `TaggedTransactionQueue` api for block `{:?}`.", at)
 				))
 		}?;
 
-		use sp_api::Core;
-
 		sp_tracing::within_span!(
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
-			/*
 			if api_version >= 3 {
-				runtime_api.validate_transaction(at, source, uxt, at)
-					.map_err(|e| Error::RuntimeApi(e.to_string()))
+				TaggedTransactionQueue::<Block>::validate_transaction(
+					&mut runtime_api,
+					source,
+					uxt,
+					at,
+				).map_err(|e| Error::RuntimeApi(e.to_string()))
 			} else {
 				let block_number = client.to_number(&BlockId::Hash(at))
 					.map_err(|e| Error::RuntimeApi(e.to_string()))?
@@ -251,27 +250,32 @@ where
 					)?;
 
 				// The old versions require us to call `initialize_block` before.
-				runtime_api.initialize_block(at, &sp_runtime::traits::Header::new(
-					block_number + sp_runtime::traits::One::one(),
-					Default::default(),
-					Default::default(),
-					at,
-					Default::default()),
+				sp_api::Core::<Block>::initialize_block(
+					&mut runtime_api,
+					&sp_runtime::traits::Header::new(
+						block_number + sp_runtime::traits::One::one(),
+						Default::default(),
+						Default::default(),
+						at,
+						Default::default(),
+					),
 				).map_err(|e| Error::RuntimeApi(e.to_string()))?;
 
 				if api_version == 2 {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_3(at, source, uxt)
-						.map_err(|e| Error::RuntimeApi(e.to_string()))
+					TaggedTransactionQueue::<Block>::validate_transaction_before_version_3(
+						&mut runtime_api,
+						source,
+						uxt,
+					).map_err(|e| Error::RuntimeApi(e.to_string()))
 				} else {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_2(at, uxt)
-						.map_err(|e| Error::RuntimeApi(e.to_string()))
+					TaggedTransactionQueue::<Block>::validate_transaction_before_version_2(
+						&mut runtime_api,
+						uxt,
+					).map_err(|e| Error::RuntimeApi(e.to_string()))
 				}
 			}
-			*/
-
-			todo!()
 		})
 	})
 }
@@ -279,13 +283,12 @@ where
 impl<Client, Block> FullChainApi<Client, Block>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
+	Client: BlockBackend<Block>
 		+ BlockIdTo<Block>
 		+ HeaderBackend<Block>
+		+ CallApiAt<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
 	Client: Send + Sync + 'static,
-	Client::Api: TaggedTransactionQueue<Block>,
 {
 	/// Validates a transaction by calling into the runtime, same as
 	/// `validate_transaction` but blocks the current thread when performing

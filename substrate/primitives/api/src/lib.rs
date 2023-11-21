@@ -697,15 +697,15 @@ impl<T: CallApiAt<Block>, Block: BlockT> CallApiAt<Block> for std::sync::Arc<T> 
 	type StateBackend = T::StateBackend;
 
 	fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
-		(*self).call_api_at(params)
+		(**self).call_api_at(params)
 	}
 
 	fn runtime_version_at(&self, at_hash: Block::Hash) -> Result<RuntimeVersion, ApiError> {
-		(*self).runtime_version_at(at_hash)
+		(**self).runtime_version_at(at_hash)
 	}
 
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, ApiError> {
-		(*self).state_at(at)
+		(**self).state_at(at)
 	}
 
 	fn initialize_extensions(
@@ -713,7 +713,7 @@ impl<T: CallApiAt<Block>, Block: BlockT> CallApiAt<Block> for std::sync::Arc<T> 
 		at: Block::Hash,
 		extensions: &mut Extensions,
 	) -> Result<(), ApiError> {
-		(*self).initialize_extensions(at, extensions)
+		(**self).initialize_extensions(at, extensions)
 	}
 }
 
@@ -897,6 +897,13 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 
 	pub fn register_extension(mut self, ext: impl Extension) -> Self {
 		self.extensions.register(ext);
+		self
+	}
+
+	pub fn register_optional_extension(mut self, ext: Option<impl Extension>) -> Self {
+		if let Some(ext) = ext {
+			self.extensions.register(ext);
+		}
 		self
 	}
 

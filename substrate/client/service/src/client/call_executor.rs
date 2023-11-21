@@ -29,7 +29,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 };
 use sp_state_machine::{backend::AsTrieBackend, Ext, OverlayedChanges, StateMachine, StorageProof};
-use std::{cell::RefCell, sync::Arc};
+use std::sync::Arc;
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.

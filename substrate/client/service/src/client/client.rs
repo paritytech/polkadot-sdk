@@ -45,10 +45,7 @@ use sc_consensus::{
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
-use sp_api::{
-	ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi,
-	RuntimeInstance,
-};
+use sp_api::{CallApiAt, CallApiAtParams, Core as CoreApi, RuntimeInstance};
 use sp_blockchain::{
 	self as blockchain, Backend as ChainBackend, CachedHeaderMetadata, Error,
 	HeaderBackend as ChainHeaderBackend, HeaderMetadata, Info as BlockchainInfo,
