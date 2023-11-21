@@ -48,7 +48,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
-use parachains_common::xcm_config::ParentOrSiblings;
+use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 
 #[cfg(feature = "runtime-benchmarks")]
 use {cumulus_primitives_core::ParaId, sp_core::Get};
@@ -453,7 +453,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					// Parent and its pluralities (i.e. governance bodies) get free execution.
 					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,

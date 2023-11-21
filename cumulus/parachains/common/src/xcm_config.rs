@@ -120,8 +120,8 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 	}
 }
 
-pub struct ParentOrSiblings;
-impl Contains<MultiLocation> for ParentOrSiblings {
+pub struct ParentRelayOrSiblingParachains;
+impl Contains<MultiLocation> for ParentRelayOrSiblingParachains {
 	fn contains(location: &MultiLocation) -> bool {
 		matches!(
 			location,

@@ -55,7 +55,7 @@ use xcm_builder::{
 	XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
-use parachains_common::xcm_config::ParentOrSiblings;
+use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_primitives_core::ParaId;
@@ -484,7 +484,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<bridging::SiblingBridgeHub>,
 					)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,

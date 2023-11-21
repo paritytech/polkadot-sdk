@@ -38,7 +38,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
-use parachains_common::xcm_config::ParentOrSiblings;
+use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 
 parameter_types! {
 	pub const DotRelayLocation: MultiLocation = MultiLocation::parent();
@@ -171,7 +171,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					// get free execution.
 					AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, FellowsPlurality)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,

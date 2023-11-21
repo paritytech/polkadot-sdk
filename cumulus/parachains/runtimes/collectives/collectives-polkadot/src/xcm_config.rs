@@ -39,7 +39,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
-use parachains_common::xcm_config::ParentOrSiblings;
+use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 
 const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
 
@@ -230,7 +230,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					// Parent and its pluralities (i.e. governance bodies) get free execution.
 					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,

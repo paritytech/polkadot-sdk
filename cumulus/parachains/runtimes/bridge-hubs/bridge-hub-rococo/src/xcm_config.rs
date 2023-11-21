@@ -57,7 +57,7 @@ use xcm_executor::{
 	traits::{FeeReason, TransactAsset, WithOriginFilter},
 	XcmExecutor,
 };
-use parachains_common::xcm_config::ParentOrSiblings;
+use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 
 parameter_types! {
 	pub const TokenLocation: MultiLocation = MultiLocation::parent();
@@ -208,7 +208,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<RelayTreasuryLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
