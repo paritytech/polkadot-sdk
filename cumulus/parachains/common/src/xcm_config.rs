@@ -102,7 +102,7 @@ impl<SystemParachainMatcher: Contains<MultiLocation>, Runtime: parachain_info::C
 
 /// Contains all sibling system parachains, including the one where this matcher is used.
 ///
-/// This structure can only be used at a parachain level. At relay chain, please use
+/// This structure can only be used at a parachain level. In the Relay Chain, please use
 /// the `xcm_builder::IsChildSystemParachain` matcher.
 pub struct AllSiblingSystemParachains;
 
