@@ -35,7 +35,7 @@ fn calling_runtime_function() {
 	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
 
-	let runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
+	let mut runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
 
 	assert_eq!(runtime_api.benchmark_add_one(&1).unwrap(), 2);
 }
@@ -45,7 +45,7 @@ fn use_trie_function() {
 	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
 
-	let runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
+	let mut runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
 
 	assert_eq!(runtime_api.use_trie().unwrap(), 2);
 }
@@ -55,10 +55,10 @@ fn initialize_block_works() {
 	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
 
-	let runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
+	let mut runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
 
 	Core::<Block>::initialize_block(
-		&runtime_api,
+		&mut runtime_api,
 		&Header::new(
 			1,
 			Default::default(),
@@ -152,7 +152,7 @@ fn disable_logging_works() {
 		);
 
 		let client = builder.build();
-		let runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
+		let mut runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
 			.off_chain_context()
 			.build();
 		runtime_api.do_trace_log().expect("Logging should not fail");
@@ -179,7 +179,7 @@ fn ensure_transactional_works() {
 	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
 
-	let runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
+	let mut runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 	runtime_api.execute_in_transaction(|api| {
 		api.write_key_value(KEY.to_vec(), vec![1, 2, 3], false).unwrap();
 
@@ -195,7 +195,7 @@ fn ensure_transactional_works() {
 	let changes = runtime_api.into_storage_changes().unwrap();
 	assert_eq!(changes.main_storage_changes[0].1, Some(vec![1, 2, 3, 4]));
 
-	let runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
+	let mut runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 	runtime_api.execute_in_transaction(|api| {
 		assert!(api.write_key_value(KEY.to_vec(), vec![1, 2, 3], true).is_err());
 

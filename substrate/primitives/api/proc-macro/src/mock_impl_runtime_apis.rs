@@ -30,14 +30,8 @@ use syn::{
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
-	Attribute, Ident, ItemImpl, Pat, Type, TypePath,
+	Ident, ItemImpl, Type,
 };
-
-/// The `advanced` attribute.
-///
-/// If this attribute is given to a function, the function gets access to the `Hash` as first
-/// parameter and needs to return a `Result` with the appropriate error type.
-const ADVANCED_ATTRIBUTE: &str = "advanced";
 
 /// The structure used for parsing the runtime api implementations.
 struct RuntimeApiImpls {
@@ -79,7 +73,7 @@ fn implement_common_api_traits(
 				let function = params.function;
 				let arguments = params.arguments;
 
-				Ok(match dbg!(function) {
+				Ok(match function {
 					#( #match_arms )*
 					f => panic!("Unknown function: `{f}`"),
 				})
@@ -111,60 +105,6 @@ fn implement_common_api_traits(
 			}
 		}
 	))
-}
-
-/// Returns if the advanced attribute is present in the given `attributes`.
-///
-/// If the attribute was found, it will be automatically removed from the vec.
-fn has_advanced_attribute(attributes: &mut Vec<Attribute>) -> bool {
-	let mut found = false;
-	attributes.retain(|attr| {
-		if attr.path().is_ident(ADVANCED_ATTRIBUTE) {
-			found = true;
-			false
-		} else {
-			true
-		}
-	});
-
-	found
-}
-
-/// Get the name and type of the `at` parameter that is passed to a runtime api function.
-///
-/// If `is_advanced` is `false`, the name is `_`.
-fn get_at_param_name(
-	is_advanced: bool,
-	param_names: &mut Vec<Pat>,
-	param_types_and_borrows: &mut Vec<(TokenStream, bool)>,
-	function_span: Span,
-	default_hash_type: &TokenStream,
-) -> Result<(TokenStream, TokenStream)> {
-	if is_advanced {
-		if param_names.is_empty() {
-			return Err(Error::new(
-				function_span,
-				format!(
-					"If using the `{}` attribute, it is required that the function \
-					 takes at least one argument, the `Hash`.",
-					ADVANCED_ATTRIBUTE,
-				),
-			))
-		}
-
-		// `param_names` and `param_types` have the same length, so if `param_names` is not empty
-		// `param_types` can not be empty as well.
-		let ptype_and_borrows = param_types_and_borrows.remove(0);
-		let span = ptype_and_borrows.1.span();
-		if ptype_and_borrows.1 {
-			return Err(Error::new(span, "`Hash` needs to be taken by value and not by reference!"))
-		}
-
-		let name = param_names.remove(0);
-		Ok((quote!( #name ), ptype_and_borrows.0))
-	} else {
-		Ok((quote!(_), default_hash_type.clone()))
-	}
 }
 
 /// Auxiliary structure to fold a runtime api trait implementation into the expected format.

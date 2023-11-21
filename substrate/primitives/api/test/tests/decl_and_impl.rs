@@ -155,7 +155,7 @@ mock_impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn something_with_block(&self, _: Block) -> Block {
+		fn something_with_block(&mut self, _: Block) -> Block {
 			self.block.clone().unwrap()
 		}
 
@@ -248,11 +248,11 @@ fn mock_runtime_api_has_api() {
 
 #[test]
 fn mock_runtime_api_works_with_advanced() {
-	let runtime_api =
+	let mut runtime_api =
 		RuntimeInstance::<_, Block, _>::builder(MockApi { block: None }, Hash::default())
 			.off_chain_context()
 			.build();
 
-	Api::<Block>::same_name(&runtime_api).unwrap();
-	Api::<Block>::wild_card(&runtime_api, 1).unwrap();
+	Api::<Block>::same_name(&mut runtime_api).unwrap();
+	Api::<Block>::wild_card(&mut runtime_api, 1).unwrap();
 }
