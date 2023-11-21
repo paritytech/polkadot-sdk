@@ -74,15 +74,15 @@ where
 	) -> Option<FromOrchestra<Self::Message>> {
 		match msg {
 			FromOrchestra::Communication{msg} => Some(FromOrchestra::Communication{msg}),
-			FromOrchestra::Signal(OverseerSignal::BlockFinalized(h, n)) => {
+			FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, finalized_height)) => {
 				gum::info!(
 					target: MALUS,
-					"😈 Block Finalization Interception! Block: {:?}", h,
+					"😈 Block Finalization Interception! Block: {:?}", finalized_hash,
 				);
 
 				//Ensure that the chain is long enough for the target ancestor to exist
-				if n <= self.dispute_offset {
-					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(h, n)));
+				if finalized_height <= self.dispute_offset {
+					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, finalized_height)));
 				}
 
 				let dispute_offset = self.dispute_offset;
@@ -93,7 +93,7 @@ where
 					Box::pin(async move {
 						// Query chain for the block hash at the target depth
 						let (tx, rx) = oneshot::channel();
-						sender.send_message(ChainApiMessage::FinalizedBlockHash(n - dispute_offset, tx)).await;
+						sender.send_message(ChainApiMessage::FinalizedBlockHash(finalized_height - dispute_offset, tx)).await;
 						let disputable_hash = match rx.await {
 							Ok(Ok(Some(hash))) => {
 								gum::info!(
@@ -177,7 +177,7 @@ where
 				);
 
 				// Passthrough the finalization signal as usual (using it as hook only)
-				Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(h, n)))
+				Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, finalized_height)))
 			},
 			FromOrchestra::Signal(signal) => Some(FromOrchestra::Signal(signal)),
 		}
