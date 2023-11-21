@@ -14,19 +14,18 @@
 
 // TODO:
 // - remove duplicated doc in pallet_contracts
-// - bring in CallFlags, ReturnFlags
-// - check doc references are ok
+// - Move TopicOf to primitives
 // - Should we replace pallet_contracts::ReturnValue by uapi::Error
 // - storage_contains defines in uapi but not in pallet_contracts
 // - document return behavior for call_chain_extension
 
-use crate::{Result, ReturnFlags};
+use crate::{CallFlags, Result, ReturnFlags};
 use paste::paste;
 
 macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {
 		paste! {
-            #[doc = "Computes the " $name " " $bytes "-bit hash on the given input buffer."]
+			#[doc = "Computes the " $name " " $bytes "-bit hash on the given input buffer."]
 			#[doc = "\n# Parameters\n"]
 			#[doc = "- `input`: The input data buffer."]
 			#[doc = "- `output`: The output buffer to write the hash result to."]
@@ -37,6 +36,14 @@ macro_rules! hash_fn {
 
 pub trait Api {
 	/// Instantiate a contract from the given code.
+	///
+	/// This function creates an account and executes the constructor defined in the code specified
+	/// by the code hash.
+	///
+	/// # Note
+	///
+	/// The copy of the output buffer and address can be skipped by providing `None` for the
+	/// `out_address` and `out_return_value` parameters.
 	///
 	/// # Parameters
 	///
@@ -65,8 +72,8 @@ pub trait Api {
 		gas_limit: u64,
 		endowment: &[u8],
 		input: &[u8],
-		out_address: &mut &mut [u8],
-		out_return_value: &mut &mut [u8],
+		out_address: Option<&mut [u8]>,
+		out_return_value: Option<&mut [u8]>,
 		salt: &[u8],
 	) -> Result;
 
@@ -74,12 +81,17 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `flags`: See `pallet_contracts::wasm::runtime::CallFlags` for a documentation of the supported flags.
+	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `callee`: The address of the callee.
 	/// - `gas_limit`: How much gas to devote for the execution.
 	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the output data.
+	///
+	/// # Note
+	///
+	/// The copy of the output buffer can be skipped by providing `None` for the
+	/// `output` parameter.
 	///
 	/// # Errors
 	///
@@ -91,12 +103,12 @@ pub trait Api {
 	/// - [TransferFailed][crate::Error::TransferFailed]
 	/// - [NotCallable][crate::Error::NotCallable]
 	fn call(
-		flags: u32,
+		flags: CallFlags,
 		callee: &[u8],
 		gas_limit: u64,
 		value: &[u8],
 		input: &[u8],
-		output: &mut &mut [u8],
+		output: Option<&mut [u8]>,
 	) -> Result;
 
 	/// Execute code in the context (storage, caller, value) of the current contract.
@@ -107,10 +119,15 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `flags`: See `pallet_contracts::wasm::runtime::CallFlags` for a documentation of the supported flags.
+	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `code_hash`: The hash of the code to be executed.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the output data.
+	///
+	/// # Note
+	///
+	/// The copy of the output buffer can be skipped by providing `None` for the
+	/// `output` parameter.
 	///
 	/// # Errors
 	///
@@ -120,7 +137,12 @@ pub trait Api {
 	/// - [CalleeReverted][crate::Error::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][crate::Error::CalleeTrapped]
 	/// - [CodeNotFound][crate::Error::CodeNotFound]
-	fn delegate_call(flags: u32, code_hash: &[u8], input: &[u8], output: &mut &mut [u8]) -> Result;
+	fn delegate_call(
+		flags: CallFlags,
+		code_hash: &[u8],
+		input: &[u8],
+		output: Option<&mut [u8]>,
+	) -> Result;
 
 	/// Transfer some amount of funds into the specified account.
 	///
@@ -251,7 +273,7 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `flags`: See `pallet_contracts::wasm::runtime::ReturnFlags` for a documentation of the supported flags.
+	/// - `flags`: See [`ReturnFlags`] for a documentation of the supported flags.
 	/// - `return_value`: The return value buffer.
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> !;
 
@@ -323,7 +345,6 @@ pub trait Api {
 	/// - `output`: A reference to the output data buffer to write the transferred value.
 	fn value_transferred(output: &mut &mut [u8]);
 
-
 	/// Load the latest block timestamp into the supplied buffer
 	///
 	/// # Parameters
@@ -337,7 +358,6 @@ pub trait Api {
 	///
 	/// - `output`: A reference to the output data buffer to write the minimum balance.
 	fn minimum_balance(output: &mut &mut [u8]);
-
 
 	/// Stores the price for the specified amount of gas into the supplied buffer.
 	///
@@ -388,7 +408,7 @@ pub trait Api {
 	/// Verify a sr25519 signature
 	///
 	/// # Parameters
-    ///
+	///
 	/// - `signature`: The signature bytes.
 	/// - `message`: The message bytes.
 	///

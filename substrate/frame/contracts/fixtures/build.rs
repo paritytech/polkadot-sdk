@@ -100,10 +100,11 @@ fn create_cargo_toml<'a>(
 name = 'contracts'
 version = '0.1.0'
 
+# Binary targets are injected below.
 [[bin]]
 
 [dependencies]
-uapi = {{ package = 'pallet-contracts-uapi',  path = {uapi_path:?}}}
+uapi = {{ package = 'pallet-contracts-uapi', default-features = false,  path = {uapi_path:?}}}
 common = {{ package = 'pallet-contracts-fixtures-common',  path = {common_path:?}}}
 cfg-if = {{ version = '1.0', default-features = false }}
 

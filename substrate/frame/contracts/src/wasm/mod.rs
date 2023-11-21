@@ -26,9 +26,9 @@ pub use crate::wasm::runtime::api_doc;
 
 #[cfg(test)]
 pub use tests::MockExt;
-
+pub use pallet_contracts_uapi::ReturnFlags;
 pub use crate::wasm::runtime::{
-	AllowDeprecatedInterface, AllowUnstableInterface, CallFlags, Environment, ReturnCode, Runtime,
+	AllowDeprecatedInterface, AllowUnstableInterface, Environment, ReturnCode, Runtime,
 	RuntimeCosts,
 };
 
@@ -445,7 +445,8 @@ mod tests {
 		assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::Weight,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
+	use crate::primitives::ExecReturnValue;
+	use pallet_contracts_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_core::H256;
 	use sp_runtime::DispatchError;

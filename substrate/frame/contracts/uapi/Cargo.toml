@@ -9,10 +9,16 @@ repository.workspace = true
 description = "This crates exposes all the host functions that a contract can import"
 
 [dependencies]
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"], optional = true  }
 scale = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
-] }
+], optional = true }
 cfg-if = { version = "1.0", default-features = false }
 paste = { version = "1.0", default-features = false }
+bitflags = "1.0"
+
+[features]
+default = [ "scale" ]
+scale = ["scale-info", "dep:scale"]
 

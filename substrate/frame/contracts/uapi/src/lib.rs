@@ -18,6 +18,9 @@
 
 #![no_std]
 
+mod flags;
+pub use flags::*;
+
 mod api;
 pub use api::Api;
 
@@ -101,50 +104,21 @@ define_error_codes! {
 	XcmSendFailed = 14,
 }
 
-/// The flags to indicate further information about the end of a contract execution.
-#[derive(Default)]
-pub struct ReturnFlags {
-	value: u32,
-}
-
-impl ReturnFlags {
-	/// Initialize [`ReturnFlags`] with the reverted flag.
-	pub fn new_with_reverted(has_reverted: bool) -> Self {
-		Self::default().set_reverted(has_reverted)
-	}
-
-	/// Sets the bit to indicate that the execution is going to be reverted.
-	#[must_use]
-	pub fn set_reverted(mut self, has_reverted: bool) -> Self {
-		match has_reverted {
-			true => self.value |= has_reverted as u32,
-			false => self.value &= !has_reverted as u32,
-		}
-		self
-	}
-
-	/// Returns the underlying `u32` representation.
-	#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
-	pub(crate) fn into_u32(self) -> u32 {
-		self.value
-	}
-}
-
 /// The raw return code returned by the host side.
 #[repr(transparent)]
 pub struct ReturnCode(u32);
 
+/// Used as a sentinel value when reading and writing contract memory.
+///
+/// We use this value to signal `None` to a contract when only a primitive is
+/// allowed and we don't want to go through encoding a full Rust type.
+/// Using `u32::Max` is a safe sentinel because contracts are never
+/// allowed to use such a large amount of resources. So this value doesn't
+/// make sense for a memory location or length.
+pub(crate) const SENTINEL: u32 = u32::MAX;
+
 impl From<ReturnCode> for Option<u32> {
 	fn from(code: ReturnCode) -> Self {
-		/// Used as a sentinel value when reading and writing contract memory.
-		///
-		/// We use this value to signal `None` to a contract when only a primitive is
-		/// allowed and we don't want to go through encoding a full Rust type.
-		/// Using `u32::Max` is a safe sentinel because contracts are never
-		/// allowed to use such a large amount of resources. So this value doesn't
-		/// make sense for a memory location or length.
-		const SENTINEL: u32 = u32::MAX;
-
 		(code.0 < SENTINEL).then_some(code.0)
 	}
 }
@@ -168,4 +142,13 @@ fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 	debug_assert!(new_len <= output.len());
 	let tmp = core::mem::take(output);
 	*output = &mut tmp[..new_len];
+}
+
+#[inline(always)]
+#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
+fn ptr_and_len_from_slice(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
+	match data {
+		Some(ref mut data) => (data.as_mut_ptr(), data.len() as _),
+		None => (SENTINEL as _, 0),
+	}
 }

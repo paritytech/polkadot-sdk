@@ -94,6 +94,7 @@ mod gas;
 mod schedule;
 mod storage;
 mod wasm;
+mod primitives;
 
 pub mod chain_extension;
 pub mod debug;
@@ -128,7 +129,7 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
 };
-use pallet_contracts_primitives::{
+use crate::primitives::{
 	Code, CodeUploadResult, CodeUploadReturnValue, ContractAccessError, ContractExecResult,
 	ContractInstantiateResult, ContractResult, ExecReturnValue, GetStorageResult,
 	InstantiateReturnValue, StorageDeposit,

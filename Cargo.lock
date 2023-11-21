@@ -3183,7 +3183,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-contracts",
- "pallet-contracts-primitives",
+ "pallet-contracts-uapi",
  "pallet-insecure-randomness-collective-flip",
  "pallet-message-queue",
  "pallet-multisig",
@@ -7216,7 +7216,7 @@ dependencies = [
  "pallet-child-bounties",
  "pallet-collective",
  "pallet-contracts",
- "pallet-contracts-primitives",
+ "pallet-contracts-uapi",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
  "pallet-democracy",
@@ -9768,8 +9768,8 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-contracts-fixtures",
- "pallet-contracts-primitives",
  "pallet-contracts-proc-macro",
+ "pallet-contracts-uapi",
  "pallet-insecure-randomness-collective-flip",
  "pallet-message-queue",
  "pallet-proxy",
@@ -9826,8 +9826,8 @@ dependencies = [
  "pallet-balances",
  "pallet-contracts",
  "pallet-contracts-fixtures",
- "pallet-contracts-primitives",
  "pallet-contracts-proc-macro",
+ "pallet-contracts-uapi",
  "pallet-insecure-randomness-collective-flip",
  "pallet-message-queue",
  "pallet-proxy",
@@ -9854,18 +9854,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-contracts-primitives"
-version = "24.0.0"
-dependencies = [
- "bitflags 1.3.2",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime",
- "sp-std 8.0.0",
- "sp-weights",
-]
-
-[[package]]
 name = "pallet-contracts-proc-macro"
 version = "4.0.0-dev"
 dependencies = [
@@ -9878,9 +9866,11 @@ dependencies = [
 name = "pallet-contracts-uapi"
 version = "4.0.0-dev"
 dependencies = [
+ "bitflags 1.3.2",
  "cfg-if",
  "parity-scale-codec",
  "paste",
+ "scale-info",
 ]
 
 [[package]]

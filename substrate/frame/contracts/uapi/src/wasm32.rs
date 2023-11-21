@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{extract_from_slice, Result, ReturnCode};
-use crate::ReturnFlags;
+use super::{
+	extract_from_slice, ptr_and_len_from_slice, CallFlags, Result, ReturnCode, ReturnFlags,
+};
 
 mod sys {
 	use super::ReturnCode;
@@ -251,12 +252,14 @@ impl super::Api for ApiImpl {
 		gas_limit: u64,
 		endowment: &[u8],
 		input: &[u8],
-		out_address: &mut &mut [u8],
-		out_return_value: &mut &mut [u8],
+		mut out_address: Option<&mut [u8]>,
+		mut out_return_value: Option<&mut [u8]>,
 		salt: &[u8],
 	) -> Result {
-		let mut address_len = out_address.len() as u32;
-		let mut return_value_len = out_return_value.len() as u32;
+		let (out_addr_ptr, mut out_addr_len) = ptr_and_len_from_slice(&mut out_address);
+		let (return_value_ptr, mut return_value_len) =
+			ptr_and_len_from_slice(&mut out_return_value);
+
 		let ret_code = {
 			unsafe {
 				sys::instantiate(
@@ -265,64 +268,84 @@ impl super::Api for ApiImpl {
 					endowment.as_ptr(),
 					input.as_ptr(),
 					input.len() as u32,
-					out_address.as_mut_ptr(),
-					&mut address_len,
-					out_return_value.as_mut_ptr(),
+					out_addr_ptr,
+					&mut out_addr_len,
+					return_value_ptr,
 					&mut return_value_len,
 					salt.as_ptr(),
 					salt.len() as u32,
 				)
 			}
 		};
-		extract_from_slice(out_address, address_len as usize);
-		extract_from_slice(out_return_value, return_value_len as usize);
+
+		if let Some(ref mut out_address) = out_address {
+			extract_from_slice(out_address, out_addr_len as usize);
+		}
+
+		if let Some(ref mut out_return_value) = out_return_value {
+			extract_from_slice(out_return_value, return_value_len as usize);
+		}
+
 		ret_code.into()
 	}
 
 	#[inline(always)]
 	fn call(
-		flags: u32,
+		flags: CallFlags,
 		callee: &[u8],
 		gas_limit: u64,
 		value: &[u8],
 		input: &[u8],
-		output: &mut &mut [u8],
+		mut output: Option<&mut [u8]>,
 	) -> Result {
-		let mut output_len = output.len() as u32;
+		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
 		let ret_code = {
 			unsafe {
 				sys::call(
-					flags,
+					flags.bits(),
 					callee.as_ptr(),
 					gas_limit,
 					value.as_ptr(),
 					input.as_ptr(),
 					input.len() as u32,
-					output.as_mut_ptr(),
+					output_ptr,
 					&mut output_len,
 				)
 			}
 		};
-		extract_from_slice(output, output_len as usize);
+
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
+
 		ret_code.into()
 	}
 
 	#[inline(always)]
-	fn delegate_call(flags: u32, code_hash: &[u8], input: &[u8], output: &mut &mut [u8]) -> Result {
-		let mut output_len = output.len() as u32;
+	fn delegate_call(
+		flags: CallFlags,
+		code_hash: &[u8],
+		input: &[u8],
+		mut output: Option<&mut [u8]>,
+	) -> Result {
+		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
 		let ret_code = {
 			unsafe {
 				sys::delegate_call(
-					flags,
+					flags.bits(),
 					code_hash.as_ptr(),
 					input.as_ptr(),
 					input.len() as u32,
-					output.as_mut_ptr(),
+					output_ptr,
 					&mut output_len,
 				)
 			}
 		};
-		extract_from_slice(output, output_len as usize);
+
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
+
 		ret_code.into()
 	}
 
@@ -437,9 +460,7 @@ impl super::Api for ApiImpl {
 	}
 
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
-		unsafe {
-			sys::seal_return(flags.into_u32(), return_value.as_ptr(), return_value.len() as u32)
-		}
+		unsafe { sys::seal_return(flags.bits(), return_value.as_ptr(), return_value.len() as u32) }
 	}
 
 	fn call_runtime(call: &[u8]) -> Result {

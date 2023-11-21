@@ -54,7 +54,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts_fixtures::compile_module;
-use pallet_contracts_primitives::CodeUploadReturnValue;
+use crate::primitives::CodeUploadReturnValue;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
 use sp_io::hashing::blake2_256;

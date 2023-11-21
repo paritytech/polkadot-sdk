@@ -290,7 +290,6 @@ members = [
 	"substrate/frame/contracts/fixtures",
 	"substrate/frame/contracts/fixtures/common",
 	"substrate/frame/contracts/uapi",
-	"substrate/frame/contracts/primitives",
 	"substrate/frame/contracts/proc-macro",
 	"substrate/frame/contracts/mock-network",
 	"substrate/frame/conviction-voting",
