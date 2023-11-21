@@ -32,7 +32,6 @@ sp-io = { path = "../../primitives/io", features = [ "std" ] }
 sp-tracing = { path = "../../primitives/tracing", features = [ "std" ] }
 sp-version = { path = "../../primitives/version", features = [ "std" ] }
 
-docify = "0.1.14"
 pretty_assertions = "1.3.0"
 
 [features]

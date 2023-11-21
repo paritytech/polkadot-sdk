@@ -612,7 +612,7 @@ impl<
 		last.map(|v| v.was_upgraded(&current)).unwrap_or(true)
 	}
 
-	/// Returns the index of the first extrinsic in the block.
+	/// Returns the number of inherents in the block.
 	fn initial_checks(block: &Block) -> u32 {
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "initial_checks");
 		let header = block.header();
@@ -641,16 +641,21 @@ impl<
 			let mode = Self::initialize_block(block.header());
 			let num_inherents = Self::initial_checks(&block) as usize;
 			let (header, extrinsics) = block.deconstruct();
+			let num_extrinsics = extrinsics.len();
+
+			if mode == ExtrinsicInclusionMode::OnlyInherents && num_extrinsics > num_inherents {
+				// Invalid block
+				panic!("Only inherents are allowed in this block")
+			}
 
 			// Process inherents (if any).
-			Self::apply_extrinsics(extrinsics.iter(), mode);
+			Self::apply_extrinsics(extrinsics.into_iter());
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
 
 			// In this case there were no transactions to trigger this state transition:
 			if !<frame_system::Pallet<System>>::inherents_applied() {
-				defensive_assert!(num_inherents == extrinsics.len());
-				Self::post_inherent_hook();
-				<frame_system::Pallet<System>>::note_inherents_applied();
+				defensive_assert!(num_inherents == num_extrinsics);
+				Self::inherents_applied();
 			}
 
 			<System as frame_system::Config>::PostTransactions::post_transactions();
@@ -663,7 +668,10 @@ impl<
 
 	/// Progress ongoing MBM migrations.
 	// Used by the block builder and Executive.
-	pub fn post_inherent_hook() {
+	pub fn inherents_applied() {
+		<frame_system::Pallet<System>>::note_inherents_applied();
+		<System as frame_system::Config>::PostInherents::post_inherents();
+
 		if MultiStepMigrator::ongoing() {
 			let used_weight = MultiStepMigrator::step();
 			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
@@ -674,17 +682,12 @@ impl<
 			let block_number = <frame_system::Pallet<System>>::block_number();
 			Self::on_poll_hook(block_number);
 		}
-
-		<System as frame_system::Config>::PostInherents::post_inherents();
 	}
 
 	/// Execute given extrinsics.
-	fn apply_extrinsics<'a>(
-		extrinsics: impl Iterator<Item = &'a Block::Extrinsic>,
-		mode: ExtrinsicInclusionMode,
-	) {
+	fn apply_extrinsics(extrinsics: impl Iterator<Item = Block::Extrinsic>) {
 		extrinsics.into_iter().for_each(|e| {
-			if let Err(e) = Self::apply_extrinsic_with_mode(e.clone(), mode) {
+			if let Err(e) = Self::apply_extrinsic(e) {
 				let err: &'static str = e.into();
 				panic!("{}", err)
 			}
@@ -701,8 +704,7 @@ impl<
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		// In this case there were no transactions to trigger this state transition:
 		if !<frame_system::Pallet<System>>::inherents_applied() {
-			Self::post_inherent_hook();
-			<frame_system::Pallet<System>>::note_inherents_applied();
+			Self::inherents_applied();
 		}
 
 		<System as frame_system::Config>::PostTransactions::post_transactions();
@@ -736,10 +738,10 @@ impl<
 	}
 
 	fn on_poll_hook(block_number: NumberFor<Block>) {
-		if MultiStepMigrator::ongoing() {
-			debug_assert!(false, "on_poll should not be called during migrations");
-			return
-		}
+		defensive_assert!(
+			!MultiStepMigrator::ongoing(),
+			"on_poll should not be called during migrations"
+		);
 
 		let weight = <frame_system::Pallet<System>>::block_weight();
 		let max_weight = <System::BlockWeights as frame_support::traits::Get<_>>::get().max_block;
@@ -768,13 +770,6 @@ impl<
 	/// This doesn't attempt to validate anything regarding the block, but it builds a list of uxt
 	/// hashes.
 	pub fn apply_extrinsic(uxt: Block::Extrinsic) -> ApplyExtrinsicResult {
-		Self::apply_extrinsic_with_mode(uxt, Self::extrinsic_mode())
-	}
-
-	pub fn apply_extrinsic_with_mode(
-		uxt: Block::Extrinsic,
-		mode: ExtrinsicInclusionMode,
-	) -> ApplyExtrinsicResult {
 		sp_io::init_tracing();
 		let encoded = uxt.encode();
 		let encoded_len = encoded.len();
@@ -786,15 +781,14 @@ impl<
 		let is_inherent = dispatch_info.class == DispatchClass::Mandatory;
 
 		if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
-			Self::post_inherent_hook();
-			<frame_system::Pallet<System>>::note_inherents_applied();
+			Self::inherents_applied();
 		}
 
 		// Decode parameters and dispatch
-		if mode == ExtrinsicInclusionMode::OnlyInherents && !is_inherent {
+		/*if mode == ExtrinsicInclusionMode::OnlyInherents && !is_inherent {
 			// The block builder respects this by using the mode returned by `initialize_block`.
 			panic!("Only inherents are allowed in this block");
-		}
+		}*/
 
 		// We don't need to make sure to `note_extrinsic` only after we know it's going to be
 		// executed to prevent it from leaking in storage since at this point, it will either
