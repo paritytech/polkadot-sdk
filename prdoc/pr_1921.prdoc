@@ -12,4 +12,3 @@ migrations:
 
 crates:
   - name: polkadot-runtime-parachains
-    semver: patch

@@ -7,4 +7,3 @@ doc:
 
 crates:
   - name: frame-support-procedural
-    semver: minor

@@ -30,7 +30,7 @@
 
       "crates": {
         "title": "Crates",
-        "description": "You have the option to provide input about the semver level of your changes for each crate.\n This is used during the crate publishing to crates.io and to help users understand the impact of the changes introduced in your PR.\nYou can also set it to `no change` if you know there was no significant semver change",
+        "description": "You have the option to provide a hint about the crates that have noticeable changes.\n This is used during the crate publishing to crates.io and to help users understand the impact of the changes introduced in your PR.",
         "type": "array",
         "items": {
           "$ref": "#/$defs/crate"
@@ -109,28 +109,16 @@
       },
       "crate": {
         "type": "object",
-        "description": "You have the option here to provide a semver level as hint to help with the publishing of crates.",
+        "description": "You have the option here to provide a hint about a crate that has changed to help with the publishing of crates.",
         "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string"
           },
-          "semver": {
-            "$ref": "#/$defs/semver"
-          },
           "note": {
             "type": "string"
           }
         }
-      },
-      "semver": {
-        "type": "string",
-        "enum": [
-          "major",
-          "minor",
-          "patch",
-          "no change"
-        ]
       },
       "migration_db": {
         "type": "object",

@@ -7,4 +7,3 @@ doc:
 
 crates:
   - name: pallet-message-queue
-    semver: patch
