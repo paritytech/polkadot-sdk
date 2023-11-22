@@ -20,7 +20,7 @@ use crate::*;
 use cumulus_primitives_core::ListChannelInfos;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Get, OnRuntimeUpgrade, StorageVersion},
+	traits::{Get, OnRuntimeUpgrade},
 };
 
 /// Configs needed to run the V4 migration.
@@ -61,7 +61,7 @@ mod v3 {
 		StorageMap<Pallet<T>, Blake2_128Concat, ParaId, Vec<u8>, ValueQuery>;
 }
 
-#[deprecated = "Use `MigrateV3ToV4` instead"]
+/// Please use [`MigrateV3ToV4`] instead.
 pub struct UncheckedMigrateV3ToV4<T: V4Config>(core::marker::PhantomData<T>);
 
 impl<T: V4Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {

@@ -133,10 +133,10 @@ pub mod pallet {
 
 		/// Maximal number of outbound XCMP channels that can have messages queued at the same time.
 		///
-		/// If this is reached then no further messages can be sent to channels that do not yet have
+		/// If this is reached, then no further messages can be sent to channels that do not yet have
 		/// a message queued. This should be set the the expected maximum of outbound channels which
-		/// is determined by [`Self::ChannelInfo`]. It is important to set this correctly since
-		/// otherwise the congestion control protocol will not work correctly and messages may be
+		/// is determined by [`Self::ChannelInfo`]. It is important to set this correctly, since
+		/// otherwise the congestion control protocol will not work as intended and messages may be
 		/// dropped.
 		#[pallet::constant]
 		type MaxActiveOutboundChannels: Get<u32>;
@@ -145,7 +145,7 @@ pub mod pallet {
 		///
 		/// A lower limit can be set dynamically, but this is the hard-limit for the PoV worst case
 		/// benchmarking. The limit for the size of a message is slightly below this, since some
-		/// overhead for encoding the format is incurred.
+		/// overhead is incurred for encoding the format.
 		#[pallet::constant]
 		type MaxPageSize: Get<u32>;
 
@@ -295,6 +295,8 @@ pub mod pallet {
 		AlreadyResumed,
 		/// There are too many active outbound channels.
 		TooManyOutboundChannels,
+		/// The message is too big.
+		TooBig,
 	}
 
 	/// The suspended inbound XCMP channels. All others are not suspended.
@@ -517,7 +519,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			all_channels
 				.try_push(OutboundChannelDetails::new(recipient))
-				.map_err(|_| MessageSendError::QueueFull)?;
+				.map_err(|_| MessageSendError::TooManyChannels)?;
 			all_channels
 				.last_mut()
 				.expect("can't be empty; a new element was just pushed; qed")
@@ -561,7 +563,7 @@ impl<T: Config> Pallet<T> {
 			let last_page_size = new_page.len();
 			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
 			let bounded_page =
-				BoundedVec::try_from(new_page).map_err(|_| MessageSendError::QueueFull)?;
+				BoundedVec::try_from(new_page).map_err(|_| MessageSendError::TooBig)?;
 			<OutboundXcmpMessages<T>>::insert(recipient, page_index, bounded_page);
 			<OutboundXcmpStatus<T>>::put(all_channels);
 			(number_of_pages, last_page_size)
@@ -594,9 +596,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let page = BoundedVec::try_from((XcmpMessageFormat::Signals, signal).encode())
-			.map_err(|_| Error::<T>::TooManyOutboundChannels)?;
+			.map_err(|_| Error::<T>::TooBig)?;
+		
 		<SignalMessages<T>>::insert(dest, page);
-
 		<OutboundXcmpStatus<T>>::put(s);
 		Ok(())
 	}

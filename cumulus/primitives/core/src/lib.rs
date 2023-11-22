@@ -64,6 +64,8 @@ pub enum MessageSendError {
 	TooBig,
 	/// Some other error.
 	Other,
+	/// There are too many channels open at once.
+	TooManyChannels,
 }
 
 impl From<MessageSendError> for &'static str {
@@ -74,6 +76,7 @@ impl From<MessageSendError> for &'static str {
 			NoChannel => "NoChannel",
 			TooBig => "TooBig",
 			Other => "Other",
+			TooManyChannels => "TooManyChannels",
 		}
 	}
 }
