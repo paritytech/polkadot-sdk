@@ -129,6 +129,7 @@ pallet-transaction-payment = { path = "../../../frame/transaction-payment", defa
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false}
 pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment", default-features = false}
 pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment", default-features = false}
+pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false}
 pallet-transaction-storage = { path = "../../../frame/transaction-storage", default-features = false}
 pallet-uniques = { path = "../../../frame/uniques", default-features = false}
 pallet-vesting = { path = "../../../frame/vesting", default-features = false}
@@ -212,6 +213,7 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
+	"pallet-skip-feeless-payment/std",
 	"pallet-society/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
@@ -308,6 +310,7 @@ runtime-benchmarks = [
 	"pallet-salary/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
+	"pallet-skip-feeless-payment/runtime-benchmarks",
 	"pallet-society/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
@@ -381,6 +384,7 @@ try-runtime = [
 	"pallet-salary/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-skip-feeless-payment/try-runtime",
 	"pallet-society/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
