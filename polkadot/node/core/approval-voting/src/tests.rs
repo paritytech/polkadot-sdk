@@ -37,8 +37,8 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::HeadSupportsParachains;
 use polkadot_primitives::{
-	CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header, Id as ParaId, IndexedVec,
-	ValidationCode, ValidatorSignature,
+	vstaging::NodeFeatures, CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header,
+	Id as ParaId, IndexedVec, ValidationCode, ValidatorSignature,
 };
 use std::time::Duration;
 
@@ -999,6 +999,15 @@ async fn import_block(
 				}
 			);
 		}
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
 
 		assert_matches!(
 			overseer_recv(overseer).await,
