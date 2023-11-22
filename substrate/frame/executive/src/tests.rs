@@ -1095,7 +1095,6 @@ fn try_execute_block_works() {
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
-		// Let's build some fake block.
 		Executive::initialize_block(&Header::new_from_number(1));
 
 		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
@@ -1118,7 +1117,7 @@ fn try_execute_block_works() {
 /// Same as `extrinsic_while_exts_forbidden_errors` but using the try-runtime function.
 #[test]
 #[cfg(feature = "try-runtime")]
-#[should_panic = "Non-inherent extrinsic was supplied in a block that only allows inherent extrinsics"]
+#[should_panic = "Only inherents allowed"]
 fn try_execute_tx_forbidden_errors() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));

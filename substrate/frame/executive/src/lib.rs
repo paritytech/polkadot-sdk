@@ -332,10 +332,19 @@ where
 			} else {
 				uxt.unchecked_into_checked_i_know_what_i_am_doing(&Default::default())
 			}?;
-			<frame_system::Pallet<System>>::note_extrinsic(encoded);
 
 			let dispatch_info = xt.get_dispatch_info();
+			let is_inherent = dispatch_info.class == DispatchClass::Mandatory;
+			if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
+				Self::inherents_applied();
+			}
+
+			<frame_system::Pallet<System>>::note_extrinsic(encoded);
 			let r = Applyable::apply::<UnsignedValidator>(xt, &dispatch_info, encoded_len)?;
+
+			if r.is_err() && dispatch_info.class == DispatchClass::Mandatory {
+				return Err(InvalidTransaction::BadMandatory.into())
+			}
 
 			<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
 
@@ -356,6 +365,13 @@ where
 
 		// post-extrinsics book-keeping
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
+
+		// In this case there were no transactions to trigger this state transition:
+		if !<frame_system::Pallet<System>>::inherents_applied() {
+			Self::inherents_applied();
+		}
+
+		<System as frame_system::Config>::PostTransactions::post_transactions();
 
 		Self::on_idle_hook(*header.number());
 		Self::on_finalize_hook(*header.number());
@@ -755,12 +771,6 @@ where
 		if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
 		}
-
-		// Decode parameters and dispatch
-		/*if mode == ExtrinsicInclusionMode::OnlyInherents && !is_inherent {
-			// The block builder respects this by using the mode returned by `initialize_block`.
-			panic!("Only inherents are allowed in this block");
-		}*/
 
 		// We don't need to make sure to `note_extrinsic` only after we know it's going to be
 		// executed to prevent it from leaking in storage since at this point, it will either
