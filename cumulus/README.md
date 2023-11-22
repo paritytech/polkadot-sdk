@@ -145,6 +145,10 @@ git clone https://github.com/paritytech/polkadot-sdk
 # Compile Polkadot
 cargo build --release --bin polkadot
 
+# Compile Polkadot's `execute` and `prepare` binaries
+cargo build --release --bin polkadot-prepare
+cargo build --release --bin polkadot-execute
+
 # Generate a raw chain spec
 ./target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local-cfde.json
 
@@ -161,10 +165,10 @@ cargo build --release --bin polkadot
 # Clone
 git clone https://github.com/paritytech/polkadot-sdk
 
-# Compile
+# Compile (under `/polkadot-sdk/cumulus/polkadot-parachain`)
 cargo build --release --bin polkadot-parachain
 
-# Export genesis state
+# Export genesis state (under `/polkadot-sdk/` from now on)
 ./target/release/polkadot-parachain export-genesis-state > genesis-state
 
 # Export genesis wasm
@@ -172,15 +176,15 @@ cargo build --release --bin polkadot-parachain
 
 # Collator1
 ./target/release/polkadot-parachain --collator --alice --force-authoring \
-  --tmp --port 40335 --rpc-port 9946 -- --chain ../polkadot/rococo-local-cfde.json --port 30335
+  --tmp --port 40335 --rpc-port 9946 -- --chain rococo-local-cfde.json --port 30335
 
 # Collator2
 ./target/release/polkadot-parachain --collator --bob --force-authoring \
-  --tmp --port 40336 --rpc-port 9947 -- --chain ../polkadot/rococo-local-cfde.json --port 30336
+  --tmp --port 40336 --rpc-port 9947 -- --chain rococo-local-cfde.json --port 30336
 
 # Parachain Full Node 1
 ./target/release/polkadot-parachain --tmp --port 40337 --rpc-port 9948 -- \
-  --chain ../polkadot/rococo-local-cfde.json --port 30337
+  --chain rococo-local-cfde.json --port 30337
 ```
 
 #### Register the parachain
