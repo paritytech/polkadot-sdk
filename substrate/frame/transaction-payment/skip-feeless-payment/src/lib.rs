@@ -75,9 +75,16 @@ pub mod pallet {
 }
 
 /// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
 pub struct SkipCheckIfFeeless<T, S>(pub S, sp_std::marker::PhantomData<T>);
+
+// Make this extension "invisible" from the outside (ie metadata type information)
+impl<T, S: TypeInfo + 'static> TypeInfo for SkipCheckIfFeeless<T, S> {
+	type Identity = S;
+	fn type_info() -> scale_info::Type {
+		S::type_info()
+	}
+}
 
 impl<T, S: Encode> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
