@@ -49,7 +49,7 @@ pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 // TODO: @CrackTheCode016
-pub mod safe_defensive_programming;
+pub mod defensive_programming;
 
 /// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
 pub mod frame_composite_enums;

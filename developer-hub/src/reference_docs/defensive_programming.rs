@@ -3,6 +3,8 @@
 //! even handling floating point usage with fixed point arithmetic to mitigate issues that come with
 //! floating point calculations.
 //!
+//! Intentional and predictable design should be our first and foremost
+//! property for ensuring a well running, safely designed system.
 //!
 //! ## Defensive Programming
 //!
@@ -20,47 +22,17 @@
 //!
 //! ***DO NOT PANIC!***
 //!
-//! Most of the time, unless you wish for your node to be intentionally brought down - panicking is
-//! something that your runtime should feverishly protect against. This includes the following
-//! considerations:
+//! Most of the time - there are some exceptions, such as critical operations being actually more
+//! dangerous than allowing the node to continue running (block authoring, consensus, etc).
 //!
 //! - Directly using `unwrap()` for a [`Result`] shouldn't be used.
-//! - This includes accessing indices of some collection type, which may implicitly `panic!`
+//! - This includes accessing indices of some collection type, which may implicitly `panic!` (i.e.,
+//!   via `get()`)
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
 //! - Many seemingly, simplistic operations, such as **arithmetic** in the runtime, could present a
 //!   number of issues [(see more later in this document)](#integer-overflow).
-//!
-//! ### General Practices - Examples
-//!
-//! Below are examples of the above concepts in action - it will show what *problematic* code looks
-//! like, versus proper form.
-//!
-//! The following presents a rather obvious issue - one should always use the default of the type,
-//! or handle the error accordingly:
-#![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
-    bad_unwrap
-)]
-//!
-#![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
-    good_unwrap
-)]
-//!
-//! Other operations, such as indexing a vector (or a similar scenario like looping and accessing it
-//! in a similar fashion) must also be tread with caution:
-#![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
-    bad_collection_retrieval
-)]
-//!
-#![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
-    good_collection_retrieval
-)]
-//!
 //!
 //! ### Defensive Traits
 //!
@@ -71,77 +43,59 @@
 //! values.  This can be used in place of
 //! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
 //!
+//! The primary difference of defensive implementations bring over vanilla ones is the usage of [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions).
+//! `debug_assertions` allows for panics to occur in a testing context, but in
+//! production/release, they will merely log an error (i.e., `log::error`).
+//!
 //! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
 //! provide an alternative to 'vanilla' Rust functions:
 //!
 //! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or)
 //! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or)
 //!
-//! The primary difference here is when `debug_assertions` are enabled, that they panic, but in
-//! production/release, they will merely log an error via the logging instance the runtime is using
-//! (i.e., `log::error`).
-//!
-//! This is useful for catching issues in the development environment, without risking panicing in production.
+//! This traits are useful for catching issues in the development environment, without risking
+//! panicking in production.
 //!
 //! ## Integer Overflow
 //!
-//! The Rust compiler prevents any sort of static overflow from happening at compile time, for
-//! example:
-//!
-//! ```ignore
-//! let overflow = u8::MAX + 10;
-//! ```
-//! Would yield the following error:
-//! ```text
-//! error: this arithmetic operation will overflow
-//!    --> src/main.rs:121:24
-//!     |
-//! 121 |         let overflow = u8::MAX + 10;
-//!     |                        ^^^^^^^^^^^^ attempt to compute `u8::MAX + 10_u8`, which would overflow
-//!     |
-//! ```
-//!
+//! The Rust compiler prevents any sort of static overflow from happening at compile time.  
+//! The compiler panics in **debug** mode in the event of an integer overflow. In
+//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion.
 //!
 //! However in the runtime context, we don't always have control over what is being supplied as a
 //! parameter. For example, even this simple adding function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
-#![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", naive_add)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", naive_add)]
 //!
 //! If we passed in overflow-able values at runtime, this could actually panic (or wrap, if in
 //! release).
+//!
 //! ```ignore
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
 //!
-//! The Rust compiler would panic in **debug** mode in the event of an integer overflow. In
-//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion,
-//! (hence returning `4`).
-//!
 //! It is actually the _silent_ portion of this behavior that presents a real issue - as it may be
-//! an unintended, but also a very _silent killer_ in terms of producing bugs. In fact, it would
-//! have been better for this type of behavior to produce some sort of error, or even `panic!`, as
-//! in that scenario, at least such behavior could become obvious. Especially in the context of
-//! blockchain development, where unsafe arithmetic could produce unexpected consequences.
+//! an unintended in terms of producing bugs. Such behavior should be made obvious. Especially in
+//! the context of blockchain development, where unsafe arithmetic could produce unexpected
+//! consequences.
 //!
 //! A quick example is a user's balance overflowing: the default behavior of wrapping could result
-//! in the user's balance starting from zero, or vice versa, of a `0` balance turning into the `MAX`
-//! of some type. Naturally, this could lead to various exploits and issues down the road, which if
-//! failing silently, would be difficult to trace and rectify.
+//! in the user's balance starting from zero, or vice versa, of a `0` balance turning into the
+//! `MAX`. This could lead to various exploits and issues down the road, which if
+//! failing silently, would be difficult to trace and rectify in production.
 //!
 //! Luckily, there are ways to both represent and handle these scenarios depending on our specific
 //! use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
 //!
 //! ## Infallible Arithmetic
 //!
-//! Our main objective in runtime development is to reduce the likelihood of any *unintended* or
-//! *undefined* behavior. Intentional and predictable design should be our first and foremost
-//! property for ensuring a well running, safely designed system. Both Rust and Substrate
-//! provide safe ways to deal with numbers and alternatives to floating point arithmetic.
+//! Both Rust and Substrate provide safe ways to deal with numbers and alternatives to floating
+//! point arithmetic.
 //!
-//! Rather they (should) use fixed-point arithmetic to mitigate the potential for inaccuracy,
+//! A developer should use fixed-point arithmetic to mitigate the potential for inaccuracy,
 //! rounding errors, or other unexpected behavior. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
-//! Using **primitive** floating point number types in a blockchain context should also be avoided,
+//! Using **primitive** floating point number types in a blockchain context should be avoided,
 //! as a single nondeterministic result could cause chaos for consensus along with the
 //! aforementioned issues.
 //!
@@ -154,12 +108,12 @@
 //! matching to catch any unexpected behavior in the event of an overflow.
 //!
 //! This is an example of a valid operation:
-#![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", checked_add_example)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
 //!
 //! This is an example of an invalid operation, in this case, a simulated integer overflow, which
 //! would simply result in `None`:
 #![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
+    "./src/reference_docs/defensive_programming.rs",
     checked_add_handle_error_example
 )]
 //!
@@ -178,11 +132,11 @@
 //!
 //! Because wrapped operations return `Option<T>`, you can use a more verbose/explicit form of error
 //! handling via `if` or `if let`:
-#![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", increase_balance)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
 //!
 //! Optionally, `match` may also be directly used in a more concise manner:
 #![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
+    "./src/reference_docs/defensive_programming.rs",
     increase_balance_match
 )]
 //!
@@ -195,7 +149,7 @@
 //! `ok_or`. This is a less verbose way of expressing the above.  Which to use often boils down to
 //! the developer's preference:
 #![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
+    "./src/reference_docs/defensive_programming.rs",
     increase_balance_result
 )]
 //!
@@ -205,7 +159,7 @@
 //! Saturating a number limits it to the type's upper or lower bound, no matter the integer would
 //! overflow in runtime. For example, adding to `u32::MAX` would simply limit itself to `u32::MAX`:
 #![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
+    "./src/reference_docs/defensive_programming.rs",
     saturated_add_example
 )]
 //!
@@ -217,7 +171,7 @@
 //! of the [`Defensive`](frame::traits::Defensive) trait, only with saturating, mathematical
 //! operations:
 #![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
+    "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example
 )]
 //!
@@ -323,10 +277,10 @@
 //! For use cases which operate within the range of `[0, 1]` types that implement
 //! [`PerThing`](sp_arithmetic::PerThing) are used:
 //! - **[`Perbill`](sp_arithmetic::Perbill), parts of a billion**
-#![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", perbill_example)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", perbill_example)]
 //!
 //! - **[`Percent`](sp_arithmetic::Percent), parts of a hundred**
-#![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", percent_example)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_example)]
 //!
 //! Note that `190 / 400 = 0.475`, and that `Percent` represents it as a _rounded down_, fixed point
 //! number (`47`). Unlike primitive types, types that implement
@@ -342,7 +296,7 @@
 //!
 //! Similar to types that implement [`PerThing`](sp_arithmetic::PerThing), these are also
 //! fixed-point types, however, they are able to represent larger numbers:
-#![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", fixed_u64)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", fixed_u64)]
 //!
 //! Let's now explore these types in practice, and how they may be used with pallets to perform
 //! safer calculations in the runtime.
@@ -375,7 +329,7 @@
 //!
 //! As stated, one can also perform mathematics using these types directly. For example, finding the
 //! percentage of a particular item:
-#![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", percent_mult)]
+#![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_mult)]
 //!
 //!
 //! ### Fixed Point Types in Practice
@@ -385,7 +339,7 @@
 //! Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
 //! / supply to get a price for some on-chain compute:
 #![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
+    "./src/reference_docs/defensive_programming.rs",
     fixed_u64_block_computation_example
 )]
 //!
@@ -396,7 +350,7 @@
 //! Just as with [`PerThing`](sp_arithmetic::PerThing), you can also perform regular mathematical
 //! expressions:
 #![doc = docify::embed!(
-    "./src/reference_docs/safe_defensive_programming.rs",
+    "./src/reference_docs/defensive_programming.rs",
     fixed_u64_operation_example
 )]
 //!
