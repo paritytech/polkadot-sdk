@@ -33,8 +33,8 @@ fn identity_parachain() -> IdentityInfoParachain {
 		pgp_fingerprint: None,
 		image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
 		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
-		github: Data::Raw(b"xcm-test".to_vec().try_into().unwrap()),
-		discord: Data::Raw(b"xcm-test#0042".to_vec().try_into().unwrap()),
+		github: Data::None,
+		discord: Data::None,
 	}
 }
 
