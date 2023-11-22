@@ -1,0 +1,21 @@
+title: Storage bound the XCMP queue pallet
+
+doc:
+  - audience: Parachain Dev
+    description: |
+      Enforce upper limits for the number of suspended channels and on
+      the number of channels that have messages pending. This is needed to use
+      the worst-case PoV benchmarking.
+
+migrations:
+  db: []
+
+  runtime:
+    - pallet: cumulus-pallet-xcmp-queue
+      description: A No-OP migration is deployed to ensure that all `BoundedVec`s` still decode as expected.
+
+crates:
+  - name: cumulus-pallet-xcmp-queue
+    semver: major
+
+host_functions: []
