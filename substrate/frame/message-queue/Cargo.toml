@@ -35,6 +35,7 @@ rand_distr = "0.4.3"
 default = [ "std" ]
 std = [
 	"codec/std",
+	"environmental/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
