@@ -700,7 +700,7 @@ pub mod pallet {
 			let mut id = <IdentityOf<T>>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
 
 			if T::Hashing::hash_of(&id.info) != identity {
-				return Err(Error::<T>::JudgementForDifferentIdentity.into());
+				return Err(Error::<T>::JudgementForDifferentIdentity.into())
 			}
 
 			let item = (reg_index, judgement);
