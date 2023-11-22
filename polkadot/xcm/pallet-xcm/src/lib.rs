@@ -245,12 +245,10 @@ pub mod pallet {
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorMultiLocation>;
 
-		#[pallet::no_default]
 		const VERSION_DISCOVERY_QUEUE_SIZE: u32;
 
-		#[pallet::no_default]
-		/// The latest supported version that we advertise. Generally just set it to
-		/// `pallet_xcm::CurrentXcmVersion`.
+		/// The latest supported version that we advertise.
+		/// Its default is `pallet_xcm::CurrentXcmVersion`.
 		type AdvertisedXcmVersion: Get<XcmVersion>;
 
 		#[pallet::no_default]
@@ -268,15 +266,12 @@ pub mod pallet {
 		/// The maximum number of local XCM locks that a single account may have.
 		type MaxLockers: Get<u32>;
 
-		#[pallet::no_default]
 		/// The maximum number of consumers a single remote lock may have.
 		type MaxRemoteLockConsumers: Get<u32>;
 
-		#[pallet::no_default]
 		/// The ID type for local consumers of remote locks.
 		type RemoteLockConsumerIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
-		#[pallet::no_default]
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -307,7 +302,6 @@ pub mod pallet {
 		};
 		use xcm_builder::{
 			IsConcrete,
-			EnsureXcmOrigin,
 			LocationWithAssetFilters,
 		};
 
@@ -345,8 +339,16 @@ pub mod pallet {
 				AllowedAssetsToReserveTransfer,
 			>;
 
+			// Use latest version by default
+			type AdvertisedXcmVersion = CurrentXcmVersion;
+			const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
+
 			type TrustedLockers = ();
 			type MaxLockers = ConstU32<0>;
+			type MaxRemoteLockConsumers = ConstU32<0>;
+			type RemoteLockConsumerIdentifier = ();
+
+			type WeightInfo = TestWeightInfo;
 
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
