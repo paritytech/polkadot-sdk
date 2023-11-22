@@ -473,7 +473,7 @@ benchmarks! {
 	}
 
 	update_payee {
-		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, Default::default())?;
+		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		Payee::<T>::insert(&stash, {
 			#[allow(deprecated)]
 			RewardDestination::Controller
