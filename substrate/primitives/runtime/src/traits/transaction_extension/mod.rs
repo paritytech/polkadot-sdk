@@ -83,6 +83,15 @@ pub type ValidateResult<TE, Call> = Result<
 /// author is assumed to know). This data may be utilized by the above logic to alter how a node's
 /// transaction queue treats this transaction.
 ///
+/// ## Default implementations
+///
+/// Of the 5 functions in this trait, 3 of them must return a value of an associated type on
+/// success, and none of these types implement [Default] or anything like it. This means that
+/// default implementations cannot be provided for these functions. However, a macro is provided
+/// [impl_tx_ext_default] which is capable of generating default implementations for each of these
+/// 3 functions. If you do not wish to introduce additional logic into the transaction pipeline,
+/// then it is recommended that you use this macro to implement these functions.
+///
 /// ## Pipelines, Inherited Implications, and Authorized Origins
 ///
 /// Requiring a single transaction extension to define all of the above semantics would be
