@@ -304,7 +304,7 @@
 //!
 //!
 //! From the above, we can clearly see the problematic nature of seemingly simple operations in
-//! runtime. Of course, it may be that using checked math is perfectly fine under some scenarios -
+//! runtime. Of course, it may be that using unchecked math is perfectly fine under some scenarios -
 //! such as certain balance being never realistically attainable, or a number type being so large
 //! that it could never realistically overflow unless one sent thousands of transactions to the
 //! network.
