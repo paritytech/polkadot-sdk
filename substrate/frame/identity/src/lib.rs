@@ -507,7 +507,7 @@ pub mod pallet {
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
 				Ok(i) => {
 					if id.judgements[i].1.is_sticky() {
-						return Err(Error::<T>::StickyJudgement.into());
+						return Err(Error::<T>::StickyJudgement.into())
 					} else {
 						id.judgements[i] = item
 					}
