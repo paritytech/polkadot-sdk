@@ -4483,11 +4483,7 @@ mod tests {
 		);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
 
-		assert!(notif
-			.incoming
-			.iter()
-			.find(|entry| entry.incoming_id == IncomingIndex(0))
-			.is_some());
+		assert!(notif.incoming.iter().any(|entry| entry.incoming_id == IncomingIndex(0)));
 		notif.disconnect_peer(&peer, set_id);
 
 		// since the connection was closed, nothing happens for the peer state because
@@ -4499,11 +4495,7 @@ mod tests {
 			state => panic!("invalid state: {state:?}"),
 		};
 
-		assert!(notif
-			.incoming
-			.iter()
-			.find(|entry| entry.incoming_id == IncomingIndex(0))
-			.is_none());
+		assert!(!notif.incoming.iter().any(|entry| entry.incoming_id == IncomingIndex(0)));
 	}
 
 	#[test]
@@ -4593,11 +4585,7 @@ mod tests {
 		);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
 
-		assert!(notif
-			.incoming
-			.iter()
-			.find(|entry| entry.incoming_id == IncomingIndex(0))
-			.is_some());
+		assert!(notif.incoming.iter().any(|entry| entry.incoming_id == IncomingIndex(0)));
 		notif.disconnect_peer(&peer, set_id);
 
 		// since the connection was closed, nothing happens for the peer state because
@@ -4609,11 +4597,7 @@ mod tests {
 			state => panic!("invalid state: {state:?}"),
 		};
 
-		assert!(notif
-			.incoming
-			.iter()
-			.find(|entry| entry.incoming_id == IncomingIndex(0))
-			.is_none());
+		assert!(!notif.incoming.iter().any(|entry| entry.incoming_id == IncomingIndex(0)));
 	}
 
 	#[test]
