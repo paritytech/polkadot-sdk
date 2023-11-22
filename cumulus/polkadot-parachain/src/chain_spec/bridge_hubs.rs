@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
+use crate::chain_spec::{
+	get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec,
+};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use sc_chain_spec::ChainSpec;
@@ -72,24 +74,7 @@ impl BridgeHubRuntimeType {
 	pub const ID_PREFIX: &'static str = "bridge-hub";
 
 	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
-		match self {
-			BridgeHubRuntimeType::Polkadot |
-			BridgeHubRuntimeType::PolkadotLocal |
-			BridgeHubRuntimeType::PolkadotDevelopment =>
-				Ok(Box::new(polkadot::BridgeHubChainSpec::from_json_file(path)?)),
-			BridgeHubRuntimeType::Kusama |
-			BridgeHubRuntimeType::KusamaLocal |
-			BridgeHubRuntimeType::KusamaDevelopment =>
-				Ok(Box::new(kusama::BridgeHubChainSpec::from_json_file(path)?)),
-			BridgeHubRuntimeType::Westend |
-			BridgeHubRuntimeType::WestendLocal |
-			BridgeHubRuntimeType::WestendDevelopment =>
-				Ok(Box::new(westend::BridgeHubChainSpec::from_json_file(path)?)),
-			BridgeHubRuntimeType::Rococo |
-			BridgeHubRuntimeType::RococoLocal |
-			BridgeHubRuntimeType::RococoDevelopment =>
-				Ok(Box::new(rococo::BridgeHubChainSpec::from_json_file(path)?)),
-		}
+		Ok(Box::new(GenericChainSpec::from_json_file(path)?))
 	}
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
@@ -184,7 +169,7 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 /// Sub-module for Rococo setup
 pub mod rococo {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	use crate::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 
@@ -197,8 +182,7 @@ pub mod rococo {
 		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-
+	pub type BridgeHubChainSpec = GenericChainSpec;
 	pub type RuntimeApi = bridge_hub_rococo_runtime::RuntimeApi;
 
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
@@ -305,7 +289,8 @@ pub mod rococo {
 pub mod kusama {
 	use super::{BridgeHubBalance, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions,
+		GenericChainSpec, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
@@ -318,7 +303,7 @@ pub mod kusama {
 		parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+	pub type BridgeHubChainSpec = GenericChainSpec;
 	pub type RuntimeApi = bridge_hub_kusama_runtime::RuntimeApi;
 
 	pub fn local_config(
@@ -414,7 +399,7 @@ pub mod kusama {
 /// Sub-module for Westend setup.
 pub mod westend {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	use crate::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 
@@ -427,8 +412,7 @@ pub mod westend {
 		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec =
-		sc_service::GenericChainSpec<bridge_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
+	pub type BridgeHubChainSpec = GenericChainSpec;
 	pub type RuntimeApi = bridge_hub_westend_runtime::RuntimeApi;
 
 	pub fn local_config(
@@ -531,7 +515,8 @@ pub mod westend {
 pub mod polkadot {
 	use super::{BridgeHubBalance, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions,
+		GenericChainSpec, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
@@ -544,7 +529,7 @@ pub mod polkadot {
 		parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
 	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+	pub type BridgeHubChainSpec = GenericChainSpec;
 	pub type RuntimeApi = bridge_hub_polkadot_runtime::RuntimeApi;
 
 	pub fn local_config(
