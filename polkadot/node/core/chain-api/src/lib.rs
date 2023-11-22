@@ -135,11 +135,8 @@ where
 					let _timer = subsystem.metrics.time_ancestors();
 					gum::trace!(target: LOG_TARGET, hash=%hash, k=k, "ChainApiMessage::Ancestors");
 
-					let initial_hash = hash;
-					let closure_client = subsystem.client.clone();
-
 					let next_parent_stream = futures::stream::unfold(
-						(initial_hash, closure_client),
+						(hash, subsystem.client.clone()),
 						|(hash, client)| async move {
 							let maybe_header = client.header(hash).await;
 							match maybe_header {

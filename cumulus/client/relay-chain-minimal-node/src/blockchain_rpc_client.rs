@@ -465,7 +465,7 @@ impl BlockChainRpcClient {
 	}
 }
 
-// Implementation required by Availability-Distribution subsystem
+// Implementation required by ChainApiSubsystem
 // but never called in our case.
 impl AuxStore for BlockChainRpcClient {
 	fn insert_aux<
