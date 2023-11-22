@@ -842,6 +842,8 @@ pub mod pallet {
 		CommissionTooLow,
 		/// Some bound is not met.
 		BoundNotMet,
+		/// Used when attempting to use deprecated controller account logic.
+		ControllerDeprecated,
 	}
 
 	#[pallet::hooks]
@@ -1283,10 +1285,19 @@ pub mod pallet {
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
 			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
+			let ledger = Self::ledger(Controller(controller.clone()))?;
+
+			ensure!(
+				(payee != {
+					#[allow(deprecated)]
+					RewardDestination::Controller
+				}),
+				Error::<T>::ControllerDeprecated
+			);
+
 			let _ = ledger
 				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.");
+				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
 			Ok(())
 		}
@@ -1871,6 +1882,36 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			Self::do_payout_stakers_by_page(validator_stash, era, page)
+		}
+
+		/// Migrates an account's `RewardDestination::Controller` to
+		/// `RewardDestination::Account(controller)`.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// This will waive the transaction fee if the `payee` is successfully migrated.
+		#[pallet::call_index(27)]
+		#[pallet::weight(T::WeightInfo::update_payee())]
+		pub fn update_payee(
+			origin: OriginFor<T>,
+			controller: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+
+			ensure!(
+				(Payee::<T>::get(&ledger.stash) == {
+					#[allow(deprecated)]
+					RewardDestination::Controller
+				}),
+				Error::<T>::NotController
+			);
+
+			let _ = ledger
+				.set_payee(RewardDestination::Account(controller))
+				.defensive_proof("ledger should have been previously retrieved from storage.")?;
+
+			Ok(Pays::No.into())
 		}
 	}
 }
