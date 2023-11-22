@@ -554,7 +554,7 @@ pub mod pallet {
 			let fee = if let Judgement::FeePaid(fee) = id.judgements.remove(pos).1 {
 				fee
 			} else {
-				return Err(Error::<T>::JudgementGiven.into());
+				return Err(Error::<T>::JudgementGiven.into())
 			};
 
 			let err_amount = T::Currency::unreserve(&sender, fee);
