@@ -72,11 +72,11 @@
 //! candidate.
 
 use crate::{
-	worker::{stringify_panic_payload, WorkerKind},
+	worker::{stringify_panic_payload, WorkerInfo},
 	LOG_TARGET,
 };
 use seccompiler::*;
-use std::{collections::BTreeMap, path::Path};
+use std::collections::BTreeMap;
 
 /// The action to take on caught syscalls.
 #[cfg(not(test))]
@@ -98,16 +98,10 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Try to enable seccomp for the given kind of worker.
-pub fn enable_for_worker(
-	worker_kind: WorkerKind,
-	worker_pid: u32,
-	worker_dir_path: &Path,
-) -> Result<()> {
+pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_kind,
-		%worker_pid,
-		?worker_dir_path,
+		?worker_info,
 		"enabling seccomp",
 	);
 

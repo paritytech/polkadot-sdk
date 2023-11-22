@@ -35,6 +35,7 @@ use tokio::{
 /// configuration.
 pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, String> {
 	let Config { prepare_worker_program_path, secure_validator_mode, cache_path, .. } = config;
+	let secure_validator_mode = *secure_validator_mode;
 
 	// TODO: add check that syslog is available and that seccomp violations are logged?
 	let (landlock, seccomp, change_root) = join!(
@@ -44,6 +45,7 @@ pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, St
 	);
 
 	let security_status = SecurityStatus {
+		secure_validator_mode,
 		can_enable_landlock: landlock.is_ok(),
 		can_enable_seccomp: seccomp.is_ok(),
 		can_unshare_user_namespace_and_change_root: change_root.is_ok(),
@@ -53,12 +55,12 @@ pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, St
 		.into_iter()
 		.filter_map(|result| result.err())
 		.collect();
-	let err_occurred = print_secure_mode_message(*secure_validator_mode, errs);
+	let err_occurred = print_secure_mode_message(secure_validator_mode, errs);
 	if err_occurred {
 		return Err("could not enable Secure Validator Mode; check logs".into())
 	}
 
-	if *secure_validator_mode {
+	if secure_validator_mode {
 		gum::info!(
 			target: LOG_TARGET,
 			"👮‍♀️ Running in Secure Validator Mode. \

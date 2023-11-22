@@ -28,7 +28,7 @@
 pub use landlock::RulesetStatus;
 
 use crate::{
-	worker::{stringify_panic_payload, WorkerKind},
+	worker::{stringify_panic_payload, WorkerInfo, WorkerKind},
 	LOG_TARGET,
 };
 use landlock::*;
@@ -85,17 +85,13 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Try to enable landlock for the given kind of worker.
-pub fn enable_for_worker(
-	worker_kind: WorkerKind,
-	worker_pid: u32,
-	worker_dir_path: &Path,
-) -> Result<RulesetStatus> {
-	let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_kind {
+pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<RulesetStatus> {
+	let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_info.kind {
 		WorkerKind::Prepare => {
-			vec![(worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
+			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
 		},
 		WorkerKind::Execute => {
-			vec![(worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
+			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
 		},
 		WorkerKind::CheckPivotRoot =>
 			panic!("this should only be passed for checking pivot_root; qed"),
@@ -103,9 +99,7 @@ pub fn enable_for_worker(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_kind,
-		%worker_pid,
-		?worker_dir_path,
+		?worker_info,
 		"enabling landlock with exceptions: {:?}",
 		exceptions,
 	);

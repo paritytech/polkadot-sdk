@@ -12599,6 +12599,7 @@ dependencies = [
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
+ "thiserror",
  "tokio",
  "tracing-gum",
 ]

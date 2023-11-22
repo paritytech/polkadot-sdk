@@ -27,7 +27,10 @@
 //! - Restrict networking by blocking socket creation and io_uring.
 //! - Remove env vars
 
-use crate::{worker::WorkerKind, LOG_TARGET};
+use crate::{
+	worker::{WorkerInfo, WorkerKind},
+	LOG_TARGET,
+};
 
 #[cfg(target_os = "linux")]
 pub mod landlock;
@@ -40,11 +43,7 @@ pub mod seccomp;
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
 ///       "CLONE_NEWUSER requires that the calling process is not threaded."
 #[cfg(target_os = "linux")]
-pub fn unshare_user_namespace_and_change_root(
-	worker_kind: WorkerKind,
-	worker_pid: u32,
-	worker_dir_path: &std::path::Path,
-) -> Result<(), String> {
+pub fn unshare_user_namespace_and_change_root(worker_info: &WorkerInfo) -> Result<(), String> {
 	use std::{env, ffi::CString, os::unix::ffi::OsStrExt, path::Path, ptr};
 
 	// TODO: Remove this once this is stable: https://github.com/rust-lang/rust/issues/105723
@@ -56,13 +55,11 @@ pub fn unshare_user_namespace_and_change_root(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_kind,
-		%worker_pid,
-		?worker_dir_path,
+		?worker_info,
 		"unsharing the user namespace and calling pivot_root",
 	);
 
-	let worker_dir_path_c = CString::new(worker_dir_path.as_os_str().as_bytes())
+	let worker_dir_path_c = CString::new(worker_info.worker_dir_path.as_os_str().as_bytes())
 		.expect("on unix; the path will never contain 0 bytes; qed");
 
 	// Wrapper around all the work to prevent repetitive error handling.
@@ -98,7 +95,7 @@ pub fn unshare_user_namespace_and_change_root(
 			}
 			// Ensure that the new root is a mount point.
 			let additional_flags =
-				if let WorkerKind::Execute | WorkerKind::CheckPivotRoot = worker_kind {
+				if let WorkerKind::Execute | WorkerKind::CheckPivotRoot = worker_info.kind {
 					libc::MS_RDONLY
 				} else {
 					0
@@ -150,11 +147,10 @@ pub fn unshare_user_namespace_and_change_root(
 
 /// Require env vars to have been removed when spawning the process, to prevent malicious code from
 /// accessing them.
-pub fn check_env_vars_were_cleared(worker_kind: WorkerKind, worker_pid: u32) -> bool {
+pub fn check_env_vars_were_cleared(worker_info: &WorkerInfo) -> bool {
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_kind,
-		%worker_pid,
+		?worker_info,
 		"clearing env vars in worker",
 	);
 
@@ -162,8 +158,8 @@ pub fn check_env_vars_were_cleared(worker_kind: WorkerKind, worker_pid: u32) -> 
 
 	for (key, value) in std::env::vars_os() {
 		// TODO: *theoretically* the value (or mere presence) of `RUST_LOG` can be a source of
-		// randomness for malicious code. In the future we can remove it also and log in the host;
-		// see <https://github.com/paritytech/polkadot/issues/7117>.
+		// randomness for malicious code. It should be removed in the job process, which does no
+		// logging.
 		if key == "RUST_LOG" {
 			continue
 		}
@@ -175,8 +171,7 @@ pub fn check_env_vars_were_cleared(worker_kind: WorkerKind, worker_pid: u32) -> 
 
 		gum::error!(
 			target: LOG_TARGET,
-			%worker_kind,
-			%worker_pid,
+			?worker_info,
 			?key,
 			?value,
 			"env var was present that should have been removed",
