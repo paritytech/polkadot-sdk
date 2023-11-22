@@ -44,8 +44,6 @@ pub enum InvalidCandidate {
 	/// The candidate is reported to be invalid by the execution worker. The string contains the
 	/// error message.
 	WorkerReportedInvalid(String),
-	/// PVF execution (compilation is not included) took more time than was allotted.
-	HardTimeout,
 }
 
 /// Possibly transient issue that may resolve after retries.
@@ -70,6 +68,8 @@ pub enum PossiblyInvalidError {
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
 	AmbiguousJobDeath(String),
+	/// PVF execution (compilation is not included) took more time than was allotted.
+	HardTimeout,
 	/// An unexpected error occurred in the job process and we can't be sure whether the candidate
 	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
 	/// treat an error as internal as we would abstain from voting. This is bad because if the

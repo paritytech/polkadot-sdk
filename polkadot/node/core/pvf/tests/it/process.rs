@@ -153,7 +153,7 @@ rusty_fork_test! {
 
 			assert_matches!(
 				result,
-				Err(ValidationError::Invalid(InvalidCandidate::HardTimeout))
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::HardTimeout))
 			);
 		})
 	}

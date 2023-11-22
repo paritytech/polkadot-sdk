@@ -346,10 +346,6 @@ fn handle_job_finish(
 			None,
 		),
 		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
-		// Either the worker or the job timed out. Kill the worker in either case. Treated as
-		// definitely-invalid, because if we timed out, there's no time left for a retry.
-		Outcome::HardTimeout =>
-			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
 		Outcome::WorkerIntfErr => (
 			None,
@@ -361,6 +357,10 @@ fn handle_job_finish(
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			None,
 		),
+		// Either the worker or the job timed out. Kill the worker in either case. Treated as
+		// definitely-invalid, because if we timed out, there's no time left for a retry.
+		Outcome::HardTimeout =>
+			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::HardTimeout)), None),
 		Outcome::JobError { err } =>
 			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), None),
 	};

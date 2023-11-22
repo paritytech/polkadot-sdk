@@ -480,8 +480,8 @@ fn candidate_validation_bad_return_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
-			WasmInvalidCandidate::HardTimeout,
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::PossiblyInvalid(
+			PossiblyInvalidError::HardTimeout,
 		))),
 		validation_data,
 		validation_code,
@@ -758,8 +758,8 @@ fn candidate_validation_timeout_is_internal_error() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
-			WasmInvalidCandidate::HardTimeout,
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::PossiblyInvalid(
+			PossiblyInvalidError::HardTimeout,
 		))),
 		validation_data,
 		validation_code,
@@ -852,8 +852,8 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
-			WasmInvalidCandidate::HardTimeout,
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::PossiblyInvalid(
+			PossiblyInvalidError::HardTimeout,
 		))),
 		validation_data,
 		validation_code,

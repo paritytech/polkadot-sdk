@@ -19,8 +19,9 @@
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
-	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
-	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics,
+	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
+	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};
@@ -162,7 +163,7 @@ async fn execute_job_terminates_on_timeout() {
 		.await;
 
 	match result {
-		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 
@@ -202,8 +203,8 @@ async fn ensure_parallel_execution() {
 	assert_matches!(
 		(res1, res2),
 		(
-			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)),
-			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::HardTimeout)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::HardTimeout))
 		)
 	);
 
@@ -344,7 +345,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.await;
 
 	match result {
-		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 }
