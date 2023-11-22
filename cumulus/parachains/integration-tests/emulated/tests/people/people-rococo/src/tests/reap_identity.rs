@@ -129,8 +129,7 @@ fn reap_identity() {
 		);
 		assert!(<RococoRelay as RococoRelayPallet>::Identity::identity(&RococoRelaySender::get())
 			.is_none());
-		assert!(<RococoRelay as RococoRelayPallet>::Identity::super_of(&RococoRelaySender::get())
-			.is_none());
+		assert_eq!(<RococoRelay as RococoRelayPallet>::Identity::subs_of(&RococoRelaySender::get()), vec![]);
 		let bal_after_reap =
 			<RococoRelay as RococoRelayPallet>::Balances::free_balance(RococoRelaySender::get());
 		assert_eq!(bal_after_reap, bal_before_relaychain)
