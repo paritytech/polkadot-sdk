@@ -460,6 +460,11 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 		polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<ParaId>;
 }
 
+impl cumulus_pallet_xcmp_queue::migration::v4::V4Config for Runtime {
+	// This must be the same as the `ChannelInfo` from the `Config`:
+	type ChannelList = ParachainSystem;
+}
+
 parameter_types! {
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
@@ -724,6 +729,7 @@ type Migrations = (
 	import_kusama_fellowship::Migration<Runtime, FellowshipCollectiveInstance>,
 	// unreleased
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

@@ -663,6 +663,11 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
+impl cumulus_pallet_xcmp_queue::migration::v4::V4Config for Runtime {
+	// This must be the same as the `ChannelInfo` from the `Config`:
+	type ChannelList = ParachainSystem;
+}
+
 parameter_types! {
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
@@ -946,6 +951,7 @@ pub type Migrations = (
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	// unreleased
 	InitStorageVersions,
+	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.

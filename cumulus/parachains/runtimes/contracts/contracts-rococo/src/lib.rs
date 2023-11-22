@@ -103,6 +103,7 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	// unreleased
+	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
 );
 
 type EventRecord = frame_system::EventRecord<
