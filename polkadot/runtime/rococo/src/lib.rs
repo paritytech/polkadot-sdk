@@ -1485,7 +1485,8 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use sp_core::ByteArray;
+	#[cfg(feature = "try-runtime")]
+	use sp_core::crypto::ByteArray;
 
 	parameter_types! {
 		pub const DemocracyPalletName: &'static str = "Democracy";
