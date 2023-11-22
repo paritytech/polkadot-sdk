@@ -15,11 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Config;
+use crate::{Config, RawOrigin};
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchInfo, DefaultNoBound};
+use frame_support::{dispatch::DispatchInfo, traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
+	impl_tx_ext_default,
 	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -72,7 +73,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
+		<Self as SignedExtension>::validate(&self, who, call, info, len).map(|_| ())
 	}
 
 	fn validate(
@@ -89,53 +90,27 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension for CheckNonZeroSender<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-{
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	const IDENTIFIER: &'static str = "CheckNonZeroSender";
-	type Call = T::RuntimeCall;
-	type Pre = ();
 	type Val = ();
+	type Pre = ();
 	type Implicit = ();
-
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		Ok(())
-	}
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
-	}
-
 	fn validate(
 		&self,
-		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_implicit: &[u8],
-	) -> Result<
-		(
-			sp_runtime::transaction_validity::ValidTransaction,
-			Self::Val,
-			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		),
-		sp_runtime::transaction_validity::TransactionValidityError,
-	> {
-		let who =
-			crate::ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
-		if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
+		_target: &[u8],
+	) -> sp_runtime::traits::ValidateResult<Self, T::RuntimeCall> {
+		if let Some(RawOrigin::Signed(ref who)) = origin.as_system_ref() {
+			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
+				return Err(InvalidTransaction::BadSigner.into())
+			}
 		}
-		Ok((ValidTransaction::default(), (), origin))
+		Ok((Default::default(), (), origin))
 	}
+	impl_tx_ext_default!(T::RuntimeCall; implicit prepare);
 }
 
 #[cfg(test)]

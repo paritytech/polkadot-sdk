@@ -482,7 +482,7 @@ pub trait OriginTrait: Sized {
 	type Call;
 
 	/// The caller origin, overarching type of all pallets origins.
-	type PalletsOrigin: Into<Self> + CallerTrait<Self::AccountId> + MaxEncodedLen;
+	type PalletsOrigin: Send + Sync + Into<Self> + CallerTrait<Self::AccountId> + MaxEncodedLen;
 
 	/// The AccountId used across the system.
 	type AccountId;

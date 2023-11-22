@@ -19,8 +19,9 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
-	transaction_validity::{TransactionValidityError, ValidTransaction},
+	impl_tx_ext_default,
+	traits::{DispatchInfoOf, SignedExtension, TransactionExtension},
+	transaction_validity::TransactionValidityError,
 };
 
 /// Ensure the transaction version registered in the transaction is the same as at present.
@@ -69,47 +70,19 @@ impl<T: Config + Send + Sync> SignedExtension for CheckTxVersion<T> {
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
+		<Self as SignedExtension>::validate(&self, who, call, info, len).map(|_| ())
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension for CheckTxVersion<T> {
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
+	for CheckTxVersion<T>
+{
 	const IDENTIFIER: &'static str = "CheckTxVersion";
-	type Call = T::RuntimeCall;
-	type Pre = ();
 	type Val = ();
+	type Pre = ();
 	type Implicit = u32;
-
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().transaction_version)
 	}
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
-	}
-
-	fn validate(
-		&self,
-		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-		_target: &[u8],
-	) -> Result<
-		(
-			sp_runtime::transaction_validity::ValidTransaction,
-			Self::Val,
-			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		),
-		TransactionValidityError,
-	> {
-		Ok((ValidTransaction::default(), (), origin))
-	}
+	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }

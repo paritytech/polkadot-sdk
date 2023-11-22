@@ -20,9 +20,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
-	traits::{
-		DispatchInfoOf, Dispatchable, SaturatedConversion, SignedExtension, TransactionExtension,
-	},
+	traits::{DispatchInfoOf, SaturatedConversion, SignedExtension, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -99,9 +97,8 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMortality<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension for CheckMortality<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
 	const IDENTIFIER: &'static str = "CheckMortality";
-	type Call = T::RuntimeCall;
 	type Pre = ();
 	type Val = ();
 	type Implicit = T::Hash;
@@ -119,9 +116,9 @@ impl<T: Config + Send + Sync> TransactionExtension for CheckMortality<T> {
 	fn prepare(
 		self,
 		_val: Self::Val,
-		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		origin: &<T as Config>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
@@ -129,17 +126,13 @@ impl<T: Config + Send + Sync> TransactionExtension for CheckMortality<T> {
 
 	fn validate(
 		&self,
-		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_implicit: &[u8],
 	) -> Result<
-		(
-			sp_runtime::transaction_validity::ValidTransaction,
-			Self::Val,
-			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		),
+		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
 		sp_runtime::transaction_validity::TransactionValidityError,
 	> {
 		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();

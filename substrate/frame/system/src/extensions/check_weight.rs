@@ -283,11 +283,10 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension for CheckWeight<T>
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	type Call = T::RuntimeCall;
 	type Pre = ();
 	type Val = ();
 	type Implicit = ();
@@ -300,9 +299,9 @@ where
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		_origin: &T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Self::do_pre_dispatch(info, len)
@@ -310,33 +309,29 @@ where
 
 	fn validate(
 		&self,
-		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		origin: T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_implicit: &[u8],
 	) -> Result<
-		(
-			sp_runtime::transaction_validity::ValidTransaction,
-			Self::Val,
-			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		),
+		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
 		sp_runtime::transaction_validity::TransactionValidityError,
 	> {
 		Ok((Self::do_validate(info, len)?, (), origin))
 	}
 
 	fn pre_dispatch_bare_compat(
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		Self::do_pre_dispatch(info, len)
 	}
 
 	fn validate_bare_compat(
-		_call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> TransactionValidity {
 		Self::do_validate(info, len)
@@ -344,8 +339,8 @@ where
 
 	fn post_dispatch(
 		_pre: Self::Pre,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
@@ -715,7 +710,7 @@ mod tests {
 				info.weight + Weight::from_parts(256, 0)
 			);
 
-			assert_ok!(<CheckWeight::<Test> as TransactionExtension>::post_dispatch(
+			assert_ok!(<CheckWeight::<Test> as TransactionExtension<_>>::post_dispatch(
 				pre,
 				&info,
 				&post_info,
@@ -754,7 +749,7 @@ mod tests {
 					block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
 
-			assert_ok!(<CheckWeight::<Test> as TransactionExtension>::post_dispatch(
+			assert_ok!(<CheckWeight::<Test> as TransactionExtension<_>>::post_dispatch(
 				pre,
 				&info,
 				&post_info,

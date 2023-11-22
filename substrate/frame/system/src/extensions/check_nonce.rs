@@ -130,12 +130,11 @@ where
 	}
 }
 
-impl<T: Config> TransactionExtension for CheckNonce<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
 	const IDENTIFIER: &'static str = "CheckNonce";
-	type Call = T::RuntimeCall;
 	type Pre = ();
 	type Val = ();
 	type Implicit = ();
@@ -147,9 +146,9 @@ where
 	fn prepare(
 		self,
 		_val: Self::Val,
-		origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: &T::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let who =
@@ -174,17 +173,13 @@ where
 
 	fn validate(
 		&self,
-		origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_implicit: &[u8],
 	) -> Result<
-		(
-			sp_runtime::transaction_validity::ValidTransaction,
-			Self::Val,
-			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		),
+		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
 		sp_runtime::transaction_validity::TransactionValidityError,
 	> {
 		let who =
