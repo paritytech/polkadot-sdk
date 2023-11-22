@@ -1485,6 +1485,7 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
+	use sp_core::ByteArray;
 
 	parameter_types! {
 		pub const DemocracyPalletName: &'static str = "Democracy";
@@ -1533,15 +1534,69 @@ pub mod migrations {
 	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
+	const UPGRADE_SESSION_KEYS_FROM_SPEC: u32 = 103001;
+
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
+				log::warn!(target: "runtime::session_keys", "Skipping session keys migration pre-upgrade check due to spec version (already applied?)");
+				return Ok(Vec::new())
+			}
+
+			log::info!(target: "runtime::session_keys", "Collecting pre-upgrade session keys state");
+			let key_ids = SessionKeys::key_ids();
+			let storage_key = pallet_session::QueuedKeys::<Runtime>::hashed_key();
+			let mut state: Vec<u8> = Vec::new();
+			frame_support::storage::unhashed::get::<Vec<(ValidatorId, OldSessionKeys)>>(
+				&storage_key,
+			)
+			.ok_or::<sp_runtime::TryRuntimeError>("Queued keys are not available".into())?
+			.into_iter()
+			.for_each(|(id, keys)| {
+				state.extend_from_slice(id.as_slice());
+				for key_id in key_ids {
+					state.extend_from_slice(keys.get_raw(*key_id));
+				}
+			});
+			frame_support::ensure!(state.len() > 0, "Queued keys are not empty before upgrade");
+			Ok(state)
+		}
+
 		fn on_runtime_upgrade() -> Weight {
-			if System::last_runtime_upgrade_spec_version() > 103001 {
+			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::info!("Skipping session keys upgrade: already applied");
 				return <Runtime as frame_system::Config>::DbWeight::get().reads(1)
 			}
 			log::trace!("Upgrading session keys");
 			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
 			Perbill::from_percent(50) * BlockWeights::get().max_block
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(
+			old_state: sp_std::vec::Vec<u8>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
+				log::warn!(target: "runtime::session_keys", "Skipping session keys migration post-upgrade check due to spec version (already applied?)");
+				return Ok(())
+			}
+
+			let key_ids = SessionKeys::key_ids();
+			let mut new_state: Vec<u8> = Vec::new();
+			pallet_session::QueuedKeys::<Runtime>::get().into_iter().for_each(|(id, keys)| {
+				new_state.extend_from_slice(id.as_slice());
+				for key_id in key_ids {
+					new_state.extend_from_slice(keys.get_raw(*key_id));
+				}
+			});
+			frame_support::ensure!(new_state.len() > 0, "Queued keys are not empty after upgrade");
+			frame_support::ensure!(
+				old_state == new_state,
+				"Pre-upgrade and post-upgrade keys do not match!"
+			);
+			log::info!(target: "runtime::session_keys", "Session keys migrated successfully");
+			Ok(())
 		}
 	}
 
