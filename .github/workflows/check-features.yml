@@ -11,8 +11,9 @@ jobs:
       - name: Fetch latest code
         uses: actions/checkout@v4
       - name: Check
-        uses: hack-ink/cargo-featalign-action@v0.1.0
+        uses: hack-ink/cargo-featalign-action@v0.1.1
         with:
           crate: substrate/bin/node/runtime
           features: std,runtime-benchmarks,try-runtime
+          ignore: sc-executor
           default-std: true
