@@ -174,7 +174,8 @@ fn reap_identity() {
 		let free_bal =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
 
-		//Prior to reaping free balance was zero. If Free balance is > 0, then assets were teleported
+		//Prior to reaping free balance was zero. If Free balance is > 0, then assets were
+		// teleported
 		assert!(free_bal > 0);
 
 		let reserved_bal = <PeopleRococo as PeopleRococoPallet>::Balances::reserved_balance(
