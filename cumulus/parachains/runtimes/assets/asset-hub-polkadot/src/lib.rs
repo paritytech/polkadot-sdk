@@ -1070,6 +1070,12 @@ impl_runtime_apis! {
 			// have a backtrace here.
 			Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
 		}
+
+		fn decode_entire_state() {
+			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
+			// have a backtrace here.
+			Executive::try_decode_entire_state().unwrap()
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
