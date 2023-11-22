@@ -160,7 +160,10 @@ fn reap_identity() {
 		assert_expected_events!(
 			RococoRelay,
 			vec![
-				RuntimeEvent::Balances(pallet_balances::Event::Unreserved { .. }) => {},
+				RuntimeEvent::Balances(pallet_balances::Event::Unreserved { who, amount }) => {
+					who: *who == RococoRelaySender::get(),
+					amount: *amount == total_deposit,
+				},
 			]
 		);
 		assert!(<RococoRelay as RococoRelayPallet>::Identity::identity(&RococoRelaySender::get())
@@ -179,6 +182,11 @@ fn reap_identity() {
 	// 6. assert on Parachain
 	PeopleRococo::execute_with(|| {
 		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+		let free_bal =
+			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
+
+		//Prior to reaping free balance was zero. If Free balance is > 0, then assets were teleported
+		assert!(free_bal > 0);
 
 		let reserved_bal = <PeopleRococo as PeopleRococoPallet>::Balances::reserved_balance(
 			PeopleRococoSender::get(),
