@@ -86,20 +86,24 @@ mod v1 {
 
 			// for each pair assert reserved amount is what we expect
 			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
-				let lease_reserve_amount = LeaseInfo::<T>::get(para, who)
-					.expect("Migration should have inserted this entry")
-					.0;
+				let lease_info = LeaseInfo::<T>::get(para, who)
+					.expect("Migration should have inserted this entry");
 				let expected_deposit = Pallet::<T>::required_deposit(*para, who);
 				let reserved_balance = T::Currency::reserved_balance(who);
 
 				ensure!(
-					lease_reserve_amount == expected_deposit,
+					lease_info.0 == expected_deposit,
 					"reserved amount not same as required deposit"
 				);
 
 				ensure!(
-					reserved_balance >= lease_reserve_amount,
+					reserved_balance >= lease_info.0,
 					"reserved amount value should be at least the lease reserve amount"
+				);
+
+				ensure!(
+					lease_info.1 == 4u32.into(),
+					"lease count for existing leasers should be set to 4"
 				);
 
 				Ok(())

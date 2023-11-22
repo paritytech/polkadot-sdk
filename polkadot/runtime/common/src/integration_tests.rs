@@ -1836,10 +1836,17 @@ fn early_crowdloan_dissolve() {
 
 		let lease_end_block = 8 * LeasePeriod::get() + LeaseOffset::get();
 		// early refund can be applied from the 1st block in the last lease period.
-		let early_refund_start_block = lease_end_block - LeasePeriod::get() + 1;
-		run_to_block(early_refund_start_block);
+		let early_refund_start_block = lease_end_block - LeasePeriod::get();
 
-		// try early refund
+		// try early refund before the start of the last lease period
+		run_to_block(early_refund_start_block - 1);
+		assert_noop!(
+			Slots::early_lease_refund(signed(1), para_id),
+			SlotsError::<Test>::PreconditionNotMet
+		);
+
+		run_to_block(early_refund_start_block);
+		// now early refund should work
 		assert_ok!(Slots::early_lease_refund(signed(1), para_id));
 
 		// Withdraw of contributions works

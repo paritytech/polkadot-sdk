@@ -146,8 +146,8 @@ pub mod pallet {
 
 	/// Information about the currently leased slot of the leaser.
 	///
-	/// Keyed by para_id and leaser, value is a tuple of current_reserved_amount and
-	/// lease_period_count for the latest lease.
+	/// Keyed by para id and leaser account. Value is a tuple of reserved amount and the starting
+	/// period count of the lease for leaser.
 	#[pallet::storage]
 	pub type LeaseInfo<T: Config> = StorageDoubleMap<
 		_,
@@ -363,6 +363,13 @@ impl<T: Config> Pallet<T> {
 					// amount at all times.
 					if let Some(rebate) = current_hold.checked_sub(&required_hold) {
 						Self::unreserve(para, &ended_lease.0, rebate);
+					} else {
+						// In general this can happen when there is early lease refund but that
+						// lasts only for 1 LP and hence this should never be the case at a start of
+						// a LP.
+						defensive!(
+							"current hold for slot deposit should not be less than required hold."
+						);
 					}
 				}
 
