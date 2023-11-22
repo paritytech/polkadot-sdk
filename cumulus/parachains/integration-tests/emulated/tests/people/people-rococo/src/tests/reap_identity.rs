@@ -100,7 +100,6 @@ fn reap_identity() {
 	PeopleRococo::execute_with(|| {
 		let free_bal =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
-		//let total_deposit = SubAccountDeposit::get() + id_deposit_parachain(&identity_parachain);
 		let reserved_bal = <PeopleRococo as PeopleRococoPallet>::Balances::reserved_balance(
 			PeopleRococoSender::get(),
 		);
