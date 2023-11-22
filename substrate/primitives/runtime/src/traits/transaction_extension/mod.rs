@@ -19,10 +19,7 @@
 
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo, TypeInfo},
-	traits::SignedExtension,
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 	DispatchResult,
 };
 use codec::{Codec, Decode, Encode};
@@ -33,12 +30,10 @@ use sp_core::{self, RuntimeDebug};
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 
-use super::{CloneSystemOriginSigner, DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
+use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
 
-mod as_transaction_extension;
 mod dispatch_transaction;
 mod simple_transaction_extension;
-pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
 pub use simple_transaction_extension::{SimpleTransactionExtension, WithSimple};
 
