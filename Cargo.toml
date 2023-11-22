@@ -405,6 +405,7 @@ members = [
 	"substrate/primitives/consensus/sassafras",
 	"substrate/primitives/consensus/slots",
 	"substrate/primitives/core",
+	"substrate/primitives/core/fuzz",
 	"substrate/primitives/core/hashing",
 	"substrate/primitives/core/hashing/proc-macro",
 	"substrate/primitives/crypto/ec-utils",
