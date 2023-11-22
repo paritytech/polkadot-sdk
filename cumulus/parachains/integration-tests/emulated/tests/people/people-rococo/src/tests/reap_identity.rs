@@ -1,14 +1,19 @@
 use crate::*;
 use emulated_integration_tests_common::xcm_emulator::Get;
-use frame_support::BoundedVec;
+use frame_support::{dispatch::RawOrigin::Root, BoundedVec};
 use pallet_identity::{legacy::IdentityInfo, Data};
-use people_rococo_runtime::people::{
-	BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
-	IdentityInfo as IdentityInfoParachain,
+use pallet_xcm::Origin;
+use people_rococo_runtime::{
+	people::{
+		BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
+		IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
+	},
+	OriginCaller,
 };
 use rococo_runtime::{BasicDeposit, ByteDeposit, MaxAdditionalFields, SubAccountDeposit};
 use rococo_system_emulated_network::{
-	rococo_emulated_chain::RococoRelayPallet, RococoRelay, RococoRelayReceiver, RococoRelaySender,
+	rococo_emulated_chain, rococo_emulated_chain::RococoRelayPallet, RococoRelay,
+	RococoRelayReceiver, RococoRelaySender,
 };
 
 fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
@@ -57,6 +62,7 @@ fn id_deposit_relaychain(id: &IdentityInfo<MaxAdditionalFields>) -> Balance {
 fn reap_identity() {
 	let identity_relaychain = identity_relay();
 	let identity_parachain = identity_parachain();
+	let mut total_deposit = 0_u128;
 
 	// Set identity and Subs on Relay Chain
 	RococoRelay::execute_with(|| {
@@ -91,7 +97,7 @@ fn reap_identity() {
 		let reserved_bal = <RococoRelay as RococoRelayPallet>::Balances::reserved_balance(
 			RococoRelaySender::get(),
 		);
-		let total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&identity_relaychain);
+		total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&identity_relaychain);
 
 		// The reserved balance should equal the calculated total deposit
 		assert_eq!(reserved_bal, total_deposit);
@@ -142,8 +148,13 @@ fn reap_identity() {
 	// 5. reap_identity on Relay Chain
 	RococoRelay::execute_with(|| {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
+		let reserved_balance = <RococoRelay as RococoRelayPallet>::Balances::reserved_balance(
+			RococoRelaySender::get(),
+		);
+		//before reap reserved balance should be equal to total deposit
+		assert_eq!(reserved_balance, total_deposit);
 		assert_ok!(<RococoRelay as RococoRelayPallet>::IdentityMigrator::reap_identity(
-			rococo_runtime::RuntimeOrigin::signed(RococoRelaySender::get()),
+			rococo_runtime::RuntimeOrigin::root(),
 			RococoRelaySender::get(),
 		));
 		assert_expected_events!(
@@ -156,8 +167,33 @@ fn reap_identity() {
 			.is_none());
 		let tuple_subs =
 			<RococoRelay as RococoRelayPallet>::Identity::subs_of(&RococoRelaySender::get());
-		assert!(tuple_subs.1.len() == 0);
+		assert_eq!(tuple_subs.1.len(), 0);
 
-		// assert balances
+		let reserved_balance = <RococoRelay as RococoRelayPallet>::Balances::reserved_balance(
+			RococoRelaySender::get(),
+		);
+		// after reap reserved balance should be 0
+		assert_eq!(reserved_balance, 0);
+	});
+
+	// 6. assert on Parachain
+	PeopleRococo::execute_with(|| {
+		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+
+		let reserved_bal = <PeopleRococo as PeopleRococoPallet>::Balances::reserved_balance(
+			PeopleRococoSender::get(),
+		);
+
+		let total_deposit_parachain =
+			id_deposit_parachain(&identity_parachain) + SubAccountDepositParachain::get();
+
+		// reserved balance should be equal to total deposit calculated on the Parachain
+		assert_eq!(reserved_bal, total_deposit_parachain);
+
+		let free_bal =
+			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
+
+		// Atleast a single Existential Deposit should be free
+		assert!(free_bal > PEOPLE_ROCOCO_ED);
 	});
 }
