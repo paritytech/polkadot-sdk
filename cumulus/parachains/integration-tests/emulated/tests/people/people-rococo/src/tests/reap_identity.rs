@@ -138,10 +138,13 @@ fn reap_identity() {
 	// 5. reap_identity on Relay Chain
 	RococoRelay::execute_with(|| {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
+		let free_bal_before_reap =
+			<RococoRelay as RococoRelayPallet>::Balances::free_balance(RococoRelaySender::get());
 		let reserved_balance = <RococoRelay as RococoRelayPallet>::Balances::reserved_balance(
 			RococoRelaySender::get(),
 		);
 		//before reap reserved balance should be equal to total deposit
+		println!("reserved_balance: {:?}, total_deposit: {:?}", reserved_balance, total_deposit);
 		assert_eq!(reserved_balance, total_deposit);
 		assert_ok!(<RococoRelay as RococoRelayPallet>::IdentityMigrator::reap_identity(
 			rococo_runtime::RuntimeOrigin::root(),
@@ -167,12 +170,21 @@ fn reap_identity() {
 		);
 		// after reap reserved balance should be 0
 		assert_eq!(reserved_balance, 0);
+		let free_bal_after_reap =
+			<RococoRelay as RococoRelayPallet>::Balances::free_balance(RococoRelaySender::get());
+
+		println!(
+			"free_bal_before_reap: {:?}, free_bal_after_reap: {:?}",
+			free_bal_before_reap, free_bal_after_reap
+		);
+		//assert!(free_bal_after_reap > free_bal_before_reap);
 	});
 
 	// 6. assert on Parachain
 	PeopleRococo::execute_with(|| {
 		let free_bal =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
+		println!("free_bal: {:?}", free_bal);
 
 		//Prior to reaping free balance was zero. If Free balance is > 0, then assets were
 		// teleported
