@@ -25,7 +25,6 @@
 //! currently active assignments.
 
 mod mock_helpers;
-mod benchmarking;
 #[cfg(test)]
 mod tests;
 
@@ -46,21 +45,8 @@ use sp_std::prelude::*;
 
 pub use pallet::*;
 
-pub trait WeightInfo {
-	fn assign_core() -> Weight;
-}
-
-/// A weight info that is only suitable for testing.
-pub struct TestWeightInfo;
-
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 pub type PartsOf57600 = u16;
-
-impl WeightInfo for TestWeightInfo {
-	fn assign_core() -> Weight {
-		Weight::MAX
-	}
-}
 
 /// AssignmentSets as they are scheduled by block number
 ///
@@ -183,11 +169,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config
-	{
-		/// Something that provides the weight of this pallet.
-		type WeightInfo: WeightInfo;
-	}
+		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config {}
 
 	/// Scheduled assignment sets.
 	///
@@ -218,41 +200,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		/// Builds a schedule from the given assignments and places it in `CoreSchedules`.
-		/// This schedule will eventually enter the active `WorkState` for its core at its 
-		/// `begin` block number.
-		///
-		/// Parameters:
-		/// - `origin`: The sender of the call.
-		/// - `core_idx`: The core to be assigned
-		/// - `begin`: The block number at which to begin these assignments
-		/// - `assignments`: The various tasks over which to split a cores work, and their
-		///    proportions.
-		/// - `end_hint`: When to cease work for this set of assignments
-		///
-		/// Errors:
-		/// - `AssignmentsEmpty`
-		/// - `OverScheduled`: Assignments together exceeded 57600
-		/// - `DisallowedInsert`: Assign_core is only allowed to append new assignments at 
-		///    the end of already existing ones.
-		/// - `DuplicateInsert`
-		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
-		pub fn assign_core(
-			origin: OriginFor<T>,
-			core_idx: CoreIndex,
-			begin: BlockNumberFor<T>,
-			assignments: Vec<(CoreAssignment, PartsOf57600)>,
-			end_hint: Option<BlockNumberFor<T>>,
-		) -> DispatchResult {
-			let _sender = ensure_signed(origin)?;
-			//TODO: Check that sender is the broker parachain
-			Pallet::<T>::do_assign_core(core_idx, begin, assignments, end_hint)
-		}
-	}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -453,7 +400,7 @@ impl<T: Config> Pallet<T> {
 	/// The problem is that insertion complexity then depends on the size of the existing queue,
 	/// which makes determining weights hard and could lead to issues like overweight blocks (at
 	/// least in theory).
-	pub fn do_assign_core(
+	pub fn assign_core(
 		core_idx: CoreIndex,
 		begin: BlockNumberFor<T>,
 		assignments: Vec<(CoreAssignment, PartsOf57600)>,

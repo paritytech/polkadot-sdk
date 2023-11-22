@@ -96,7 +96,7 @@ fn assign_core_works_with_no_prior_schedule() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign_core
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(),
@@ -135,14 +135,14 @@ fn assign_core_works_with_prior_schedule() {
 			Schedule { next_schedule: Some(15u32), ..default_test_schedule() };
 
 		// Call assign_core twice
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
 			default_test_assignments(),
@@ -185,14 +185,14 @@ fn assign_core_enforces_higher_block_number() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign core twice to establish some schedules
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(12u32),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
 			default_test_assignments(),
@@ -201,7 +201,7 @@ fn assign_core_enforces_higher_block_number() {
 
 		// Call assign core with block number before QueueDescriptor first, expecting an error
 		assert_noop!(
-			BulkAssigner::do_assign_core(
+			BulkAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				default_test_assignments(),
@@ -213,7 +213,7 @@ fn assign_core_enforces_higher_block_number() {
 		// Call assign core with block number between already scheduled assignments, expecting an
 		// error
 		assert_noop!(
-			BulkAssigner::do_assign_core(
+			BulkAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(13u32),
 				default_test_assignments(),
@@ -252,7 +252,7 @@ fn assign_core_enforces_well_formed_schedule() {
 		// Attempting assign_core with malformed assignments such that all error cases
 		// are tested
 		assert_noop!(
-			BulkAssigner::do_assign_core(
+			BulkAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				empty_assignments,
@@ -261,7 +261,7 @@ fn assign_core_enforces_well_formed_schedule() {
 			Error::<Test>::AssignmentsEmpty
 		);
 		assert_noop!(
-			BulkAssigner::do_assign_core(
+			BulkAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				too_many_assignments,
@@ -327,35 +327,35 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 		let expected_schedule_5 = default_test_schedule();
 
 		// Call assign_core for each of five schedules
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_1),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_2),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_3),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_4),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_5),
 			default_test_assignments(),
@@ -436,7 +436,7 @@ fn ensure_workload_works() {
 
 		// Case 2: New schedule exists in CoreSchedules for core, but new
 		// schedule start is not yet reached.
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))],
@@ -488,7 +488,7 @@ fn pop_assignment_for_core_works() {
 		));
 
 		// Case 1: Assignment idle
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(), // Default is Idle
@@ -500,7 +500,7 @@ fn pop_assignment_for_core_works() {
 		assert_eq!(BulkAssigner::pop_assignment_for_core(core_idx), None);
 
 		// Case 2: Assignment pool
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(21u32),
 			assignments_pool,
@@ -515,7 +515,7 @@ fn pop_assignment_for_core_works() {
 		);
 
 		// Case 3: Assignment task
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(31u32),
 			assignments_task,
@@ -546,7 +546,7 @@ fn assignment_proportions_in_core_state_work() {
 			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 3)),
 		];
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
@@ -627,7 +627,7 @@ fn equal_assignments_served_equally() {
 			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 2)),
 		];
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
@@ -687,7 +687,7 @@ fn assignment_proportions_indivisible_by_step_work() {
 		let test_assignments =
 			vec![(CoreAssignment::Task(task_1), ratio_1), (CoreAssignment::Task(task_2), ratio_2)];
 
-		assert_ok!(BulkAssigner::do_assign_core(
+		assert_ok!(BulkAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
