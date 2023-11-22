@@ -32,46 +32,37 @@ $binary build-spec --chain coretime-rococo-dev > chain-spec-plain.json
 cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
 
 # replace the runtime in the spec with the given runtime and set some values to production
-# TODO: Get bootNodes, invulnerables, and session keys https://github.com/paritytech/devops/issues/2725
+# Related issue for bootNodes, invulnerables, and session keys: https://github.com/paritytech/devops/issues/2725
 cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.system.code = ("0x" + $code)' \
     | jq '.name = "Rococo Coretime"' \
     | jq '.id = "coretime-rococo"' \
     | jq '.chainType = "Live"' \
-    | jq '.bootNodes = []' \
+    | jq '.bootNodes = [
+          "/dns/rococo-coretime-collator-node-0.polkadot.io/tcp/30333/p2p/12D3KooWHBUH9wGBx1Yq1ZePov9VL3AzxRPv5DTR4KadiCU6VKxy",
+          "/dns/rococo-coretime-collator-node-1.polkadot.io/tcp/30333/p2p/12D3KooWB3SKxdj6kpwTkdMnHJi6YmadojCzmEqFkeFJjxN812XX"
+        ]' \
     | jq '.relay_chain = "rococo"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
     | jq --argjson para_id $para_id '.genesis.runtime.parachainInfo.parachainId = $para_id' \
-    | jq '.genesis.runtime.balances.balances = []' \
-    | jq '.genesis.runtime.collatorSelection.invulnerables = []' \
+    | jq '.genesis.runtime.collatorSelection.invulnerables = [
+          "5G6Zua7Sowmt6ziddwUyueQs7HXDUVvDLaqqJDXXFyKvQ6Y6",
+          "5C8aSedh7ShpWEPW8aTNEErbKkMbiibdwP8cRzVRNqLmzAWF"
+        ]' \
     | jq '.genesis.runtime.session.keys = [
-            [
-                "",
-                "",
-                    {
-                        "aura": ""
-                    }
-            ],
-            [
-                "",
-                "",
-                    {
-                        "aura": ""
-                    }
-            ],
-            [
-                "",
-                "",
-                    {
-                        "aura": ""
-                    }
-            ],
-            [
-                "",
-                "",
-                    {
-                        "aura": ""
-                    }
-            ]
+          [
+            "5G6Zua7Sowmt6ziddwUyueQs7HXDUVvDLaqqJDXXFyKvQ6Y6",
+            "5G6Zua7Sowmt6ziddwUyueQs7HXDUVvDLaqqJDXXFyKvQ6Y6",
+            {
+              "aura": "5G6Zua7Sowmt6ziddwUyueQs7HXDUVvDLaqqJDXXFyKvQ6Y6"
+            }
+          ],
+          [
+            "5C8aSedh7ShpWEPW8aTNEErbKkMbiibdwP8cRzVRNqLmzAWF",
+            "5C8aSedh7ShpWEPW8aTNEErbKkMbiibdwP8cRzVRNqLmzAWF",
+            {
+              "aura": "5C8aSedh7ShpWEPW8aTNEErbKkMbiibdwP8cRzVRNqLmzAWF"
+            }
+          ]
         ]' \
     > edited-chain-spec-plain.json
 
@@ -86,3 +77,9 @@ $binary export-genesis-state --chain chain-spec-raw.json > coretime-rococo-genes
 
 # build genesis wasm
 $binary export-genesis-wasm --chain chain-spec-raw.json > coretime-rococo-wasm
+
+# cleanup
+rm -f rt-hex.txt
+rm -f chain-spec-plain.json
+rm -f chain-spec-raw.json
+rm -f edited-chain-spec-plain.json
