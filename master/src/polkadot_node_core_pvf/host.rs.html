@@ -1701,6 +1701,9 @@
 <a href="#1701" id="1701">1701</a>
 <a href="#1702" id="1702">1702</a>
 <a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1727,7 +1730,7 @@
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{<span class="self">self</span>, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, ValidationError, LOG_TARGET,
+	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 <span class="kw">use </span>always_assert::never;
 <span class="kw">use </span>futures::{
@@ -1773,6 +1776,8 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>ValidationHost {
 	to_host_tx: mpsc::Sender&lt;ToHost&gt;,
+	<span class="doccomment">/// Available security features, detected by the host during startup.
+	</span><span class="kw">pub </span>security_status: SecurityStatus,
 }
 
 <span class="kw">impl </span>ValidationHost {
@@ -1919,7 +1924,7 @@
 
 	<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(<span class="number">10</span>);
 
-	<span class="kw">let </span>validation_host = ValidationHost { to_host_tx };
+	<span class="kw">let </span>validation_host = ValidationHost { to_host_tx, security_status: security_status.clone() };
 
 	<span class="kw">let </span>(to_prepare_pool, from_prepare_pool, run_prepare_pool) = prepare::start_pool(
 		metrics.clone(),
@@ -2681,7 +2686,8 @@
 
 		<span class="kw">fn </span>host_handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; ValidationHost {
 			<span class="kw">let </span>to_host_tx = <span class="self">self</span>.to_host_tx.take().unwrap();
-			ValidationHost { to_host_tx }
+			<span class="kw">let </span>security_status = Default::default();
+			ValidationHost { to_host_tx, security_status }
 		}
 
 		<span class="kw">async fn </span>poll_and_recv_result&lt;T&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, result_rx: oneshot::Receiver&lt;T&gt;) -&gt; T

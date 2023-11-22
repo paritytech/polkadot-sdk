@@ -617,7 +617,7 @@
 	<span class="comment">// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
 	// worker cache, and the child can&#39;t access any other artifacts or gain any information from the
 	// original filename.
-	</span><span class="kw">let </span>link_path = worker_dir::execute_artifact(<span class="kw-2">&amp;</span>worker_dir.path);
+	</span><span class="kw">let </span>link_path = worker_dir::execute_artifact(worker_dir.path());
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tokio::fs::hard_link(artifact_path, link_path).<span class="kw">await </span>{
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
@@ -631,7 +631,7 @@
 		}
 	}
 
-	<span class="kw">let </span>worker_dir_path = worker_dir.path.clone();
+	<span class="kw">let </span>worker_dir_path = worker_dir.path().to_owned();
 	<span class="kw">let </span>outcome = f(worker_dir).<span class="kw">await</span>;
 
 	<span class="comment">// Try to clear the worker dir.

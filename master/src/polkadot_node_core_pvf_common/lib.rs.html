@@ -125,7 +125,7 @@
 }
 
 <span class="doccomment">/// Status of security features on the current system.
-</span><span class="attr">#[derive(Debug, Clone, Default)]
+</span><span class="attr">#[derive(Debug, Clone, Default, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>SecurityStatus {
 	<span class="doccomment">/// Whether the landlock features we use are fully available on this system.
 	</span><span class="kw">pub </span>can_enable_landlock: bool,

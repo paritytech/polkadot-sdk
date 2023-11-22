@@ -462,17 +462,6 @@
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -546,6 +535,7 @@
 
 	with_transient_socket_path(debug_id, |socket_path| {
 		<span class="kw">let </span>socket_path = socket_path.to_owned();
+		<span class="kw">let </span>worker_dir_path = worker_dir.path().to_owned();
 
 		<span class="kw">async move </span>{
 			<span class="kw">let </span>listener = UnixListener::bind(<span class="kw-2">&amp;</span>socket_path).map_err(|err| {
@@ -566,7 +556,7 @@
 				<span class="kw-2">&amp;</span>program_path,
 				<span class="kw-2">&amp;</span>extra_args,
 				<span class="kw-2">&amp;</span>socket_path,
-				<span class="kw-2">&amp;</span>worker_dir.path,
+				<span class="kw-2">&amp;</span>worker_dir_path,
 				security_status,
 			)
 			.map_err(|err| {
@@ -575,7 +565,7 @@
 					%debug_id,
 					<span class="question-mark">?</span>program_path,
 					<span class="question-mark">?</span>extra_args,
-					<span class="question-mark">?</span>worker_dir.path,
+					<span class="question-mark">?</span>worker_dir_path,
 					<span class="question-mark">?</span>socket_path,
 					<span class="string">&quot;cannot spawn a worker: {:?}&quot;</span>,
 					err,
@@ -583,7 +573,6 @@
 				SpawnErr::ProcessSpawn
 			})<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>worker_dir_path = worker_dir.path.clone();
 			<span class="macro">futures::select! </span>{
 				accept_result = listener.accept().fuse() =&gt; {
 					<span class="kw">let </span>(stream, <span class="kw">_</span>) = accept_result.map_err(|err| {
@@ -625,7 +614,42 @@
 	</span>F: FnOnce(<span class="kw-2">&amp;</span>Path) -&gt; Fut,
 	Fut: futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;&gt; + <span class="lifetime">&#39;static</span>,
 {
-	<span class="kw">let </span>socket_path = tmppath(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;pvf-host-{}&quot;</span>, debug_id))
+	<span class="doccomment">/// Returns a path under [`std::env::temp_dir`]. The path name will start with the given prefix.
+	///
+	/// There is only a certain number of retries. If exceeded this function will give up and return
+	/// an error.
+	</span><span class="kw">pub async fn </span>tmppath(prefix: <span class="kw-2">&amp;</span>str) -&gt; io::Result&lt;PathBuf&gt; {
+		<span class="kw">fn </span>make_tmppath(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+			<span class="kw">use </span>rand::distributions::Alphanumeric;
+
+			<span class="kw">const </span>DESCRIMINATOR_LEN: usize = <span class="number">10</span>;
+
+			<span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
+			buf.extend(prefix.as_bytes());
+			buf.extend(rand::thread_rng().sample_iter(<span class="kw-2">&amp;</span>Alphanumeric).take(DESCRIMINATOR_LEN));
+
+			<span class="kw">let </span>s = std::str::from_utf8(<span class="kw-2">&amp;</span>buf)
+				.expect(<span class="string">&quot;the string is collected from a valid utf-8 sequence; qed&quot;</span>);
+
+			<span class="kw">let </span><span class="kw-2">mut </span>path = dir.to_owned();
+			path.push(s);
+			path
+		}
+
+		<span class="kw">const </span>NUM_RETRIES: usize = <span class="number">50</span>;
+
+		<span class="kw">let </span>dir = std::env::temp_dir();
+		<span class="kw">for _ in </span><span class="number">0</span>..NUM_RETRIES {
+			<span class="kw">let </span>tmp_path = make_tmppath(prefix, <span class="kw-2">&amp;</span>dir);
+			<span class="kw">if </span>!tmp_path.exists() {
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(tmp_path)
+			}
+		}
+
+		<span class="prelude-val">Err</span>(io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to create a temporary path&quot;</span>))
+	}
+
+	<span class="kw">let </span>socket_path = tmppath(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;pvf-host-{}-&quot;</span>, debug_id))
 		.<span class="kw">await
 		</span>.map_err(|<span class="kw">_</span>| SpawnErr::TmpPath)<span class="question-mark">?</span>;
 	<span class="kw">let </span>result = f(<span class="kw-2">&amp;</span>socket_path).<span class="kw">await</span>;
@@ -636,46 +660,6 @@
 
 	result
 }
-
-<span class="doccomment">/// Returns a path under the given `dir`. The path name will start with the given prefix.
-///
-/// There is only a certain number of retries. If exceeded this function will give up and return an
-/// error.
-</span><span class="kw">pub async fn </span>tmppath_in(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; io::Result&lt;PathBuf&gt; {
-	<span class="kw">fn </span>make_tmppath(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
-		<span class="kw">use </span>rand::distributions::Alphanumeric;
-
-		<span class="kw">const </span>DESCRIMINATOR_LEN: usize = <span class="number">10</span>;
-
-		<span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
-		buf.extend(prefix.as_bytes());
-		buf.extend(rand::thread_rng().sample_iter(<span class="kw-2">&amp;</span>Alphanumeric).take(DESCRIMINATOR_LEN));
-
-		<span class="kw">let </span>s = std::str::from_utf8(<span class="kw-2">&amp;</span>buf)
-			.expect(<span class="string">&quot;the string is collected from a valid utf-8 sequence; qed&quot;</span>);
-
-		<span class="kw">let </span><span class="kw-2">mut </span>path = dir.to_owned();
-		path.push(s);
-		path
-	}
-
-	<span class="kw">const </span>NUM_RETRIES: usize = <span class="number">50</span>;
-
-	<span class="kw">for _ in </span><span class="number">0</span>..NUM_RETRIES {
-		<span class="kw">let </span>tmp_path = make_tmppath(prefix, dir);
-		<span class="kw">if </span>!tmp_path.exists() {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(tmp_path)
-		}
-	}
-
-	<span class="prelude-val">Err</span>(io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to create a temporary path&quot;</span>))
-}
-
-<span class="doccomment">/// The same as [`tmppath_in`], but uses [`std::env::temp_dir`] as the directory.
-</span><span class="kw">pub async fn </span>tmppath(prefix: <span class="kw-2">&amp;</span>str) -&gt; io::Result&lt;PathBuf&gt; {
-	<span class="kw">let </span>temp_dir = std::env::temp_dir();
-	tmppath_in(prefix, <span class="kw-2">&amp;</span>temp_dir).<span class="kw">await
-</span>}
 
 <span class="doccomment">/// A struct that represents an idle worker.
 ///
@@ -699,8 +683,6 @@
 </span><span class="kw">pub enum </span>SpawnErr {
 	<span class="doccomment">/// Cannot obtain a temporary path location.
 	</span>TmpPath,
-	<span class="doccomment">/// An FS error occurred.
-	</span>Fs(String),
 	<span class="doccomment">/// Cannot bind the socket to the given path.
 	</span>Bind,
 	<span class="doccomment">/// An error happened during accepting a connection to the socket.
@@ -894,26 +876,22 @@
 /// ```
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>WorkerDir {
-	<span class="kw">pub </span>path: PathBuf,
+	tempdir: tempfile::TempDir,
 }
 
 <span class="kw">impl </span>WorkerDir {
 	<span class="doccomment">/// Creates a new, empty worker dir with a random name in the given cache dir.
 	</span><span class="kw">pub async fn </span>new(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, cache_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SpawnErr&gt; {
 		<span class="kw">let </span>prefix = <span class="macro">format!</span>(<span class="string">&quot;worker-dir-{}-&quot;</span>, debug_id);
-		<span class="kw">let </span>path = tmppath_in(<span class="kw-2">&amp;</span>prefix, cache_dir).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| SpawnErr::TmpPath)<span class="question-mark">?</span>;
-		tokio::fs::create_dir(<span class="kw-2">&amp;</span>path)
-			.<span class="kw">await
-			</span>.map_err(|err| SpawnErr::Fs(err.to_string()))<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ path })
+		<span class="kw">let </span>tempdir = tempfile::Builder::new()
+			.prefix(<span class="kw-2">&amp;</span>prefix)
+			.tempdir_in(cache_dir)
+			.map_err(|<span class="kw">_</span>| SpawnErr::TmpPath)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ tempdir })
 	}
-}
 
-<span class="comment">// Try to clean up the temporary worker dir at the end of the worker&#39;s lifetime. It should be wiped
-// on startup, but we make a best effort not to leave it around.
-</span><span class="kw">impl </span>Drop <span class="kw">for </span>WorkerDir {
-	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="kw">let _ </span>= std::fs::remove_dir_all(<span class="kw-2">&amp;</span><span class="self">self</span>.path);
+	<span class="kw">pub fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Path {
+		<span class="self">self</span>.tempdir.path()
 	}
 }
 
