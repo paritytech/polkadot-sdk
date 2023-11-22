@@ -31,8 +31,6 @@
 #![warn(missing_docs)]
 
 pub mod chain_spec;
-
-#[macro_use]
 pub mod service;
 #[cfg(feature = "cli")]
 mod benchmarking;
