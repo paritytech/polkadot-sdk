@@ -175,10 +175,9 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		// the chain spec as used for generating the upgrade genesis values
 		"asset-hub-rococo-genesis" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_genesis_config()),
-		"asset-hub-rococo" =>
-			Box::new(chain_spec::GenericChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/asset-hub-rococo.json")[..],
-			)?),
+		"asset-hub-rococo" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+			&include_bytes!("../chain-specs/asset-hub-rococo.json")[..],
+		)?),
 
 		// -- Asset Hub Westend
 		"asset-hub-westend-dev" | "westmint-dev" =>
@@ -199,18 +198,16 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			Box::new(chain_spec::collectives::collectives_polkadot_development_config()),
 		"collectives-polkadot-local" =>
 			Box::new(chain_spec::collectives::collectives_polkadot_local_config()),
-		"collectives-polkadot" =>
-			Box::new(chain_spec::GenericChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/collectives-polkadot.json")[..],
-			)?),
+		"collectives-polkadot" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+			&include_bytes!("../chain-specs/collectives-polkadot.json")[..],
+		)?),
 		"collectives-westend-dev" =>
 			Box::new(chain_spec::collectives::collectives_westend_development_config()),
 		"collectives-westend-local" =>
 			Box::new(chain_spec::collectives::collectives_westend_local_config()),
-		"collectives-westend" =>
-			Box::new(chain_spec::GenericChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/collectives-westend.json")[..],
-			)?),
+		"collectives-westend" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+			&include_bytes!("../chain-specs/collectives-westend.json")[..],
+		)?),
 
 		// -- Contracts on Rococo
 		"contracts-rococo-dev" =>
@@ -218,10 +215,9 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"contracts-rococo-local" =>
 			Box::new(chain_spec::contracts::contracts_rococo_local_config()),
 		"contracts-rococo-genesis" => Box::new(chain_spec::contracts::contracts_rococo_config()),
-		"contracts-rococo" =>
-			Box::new(chain_spec::GenericChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/contracts-rococo.json")[..],
-			)?),
+		"contracts-rococo" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+			&include_bytes!("../chain-specs/contracts-rococo.json")[..],
+		)?),
 
 		// -- BridgeHub
 		bridge_like_id

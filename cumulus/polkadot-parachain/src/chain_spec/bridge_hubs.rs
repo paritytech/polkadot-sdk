@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec,
-};
+use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use sc_chain_spec::ChainSpec;
@@ -289,8 +287,8 @@ pub mod rococo {
 pub mod kusama {
 	use super::{BridgeHubBalance, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions,
-		GenericChainSpec, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
@@ -515,8 +513,8 @@ pub mod westend {
 pub mod polkadot {
 	use super::{BridgeHubBalance, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions,
-		GenericChainSpec, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
