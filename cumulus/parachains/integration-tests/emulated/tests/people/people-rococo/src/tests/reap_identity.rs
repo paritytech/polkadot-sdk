@@ -1,5 +1,6 @@
 use crate::*;
 use emulated_integration_tests_common::xcm_emulator::Get;
+use frame_support::BoundedVec;
 use pallet_identity::{legacy::IdentityInfo, Data};
 use people_rococo_runtime::people::{
 	BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
@@ -77,7 +78,7 @@ fn reap_identity() {
 		// 2. Set sub-identity on Relay Chain
 		assert_ok!(<RococoRelay as RococoRelayPallet>::Identity::set_subs(
 			rococo_runtime::RuntimeOrigin::signed(RococoRelaySender::get()),
-			vec![(RococoRelayReceiver::get(), Data::Raw(vec![40; 1].try_into().unwrap()))],
+			vec![(RococoRelayReceiver::get(), Data::Raw(vec![42; 1].try_into().unwrap()))],
 		));
 		assert_expected_events!(
 			RococoRelay,
@@ -129,11 +130,13 @@ fn reap_identity() {
 			PeopleRococoSender::get(),
 		);
 		assert_eq!(reserved_bal, 0);
-
 		assert!(<PeopleRococo as PeopleRococoPallet>::Identity::identity(
 			&PeopleRococoSender::get()
 		)
 		.is_some());
+		let tuple_subs =
+			<PeopleRococo as PeopleRococoPallet>::Identity::subs_of(&PeopleRococoSender::get());
+		assert!(tuple_subs.1.len() > 0);
 	});
 
 	// 5. reap_identity on Relay Chain
@@ -151,8 +154,9 @@ fn reap_identity() {
 		);
 		assert!(<RococoRelay as RococoRelayPallet>::Identity::identity(&RococoRelaySender::get())
 			.is_none());
-		assert!(<RococoRelay as RococoRelayPallet>::Identity::super_of(&RococoRelaySender::get())
-			.is_none());
+		let tuple_subs =
+			<RococoRelay as RococoRelayPallet>::Identity::subs_of(&RococoRelaySender::get());
+		assert!(tuple_subs.1.len() == 0);
 
 		// assert balances
 	});
