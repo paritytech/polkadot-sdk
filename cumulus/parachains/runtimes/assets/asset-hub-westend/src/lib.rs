@@ -961,6 +961,7 @@ pub mod migrations {
 		InitStorageVersions,
     DeleteUndecodableStorage,
 	);
+}
 
 /// Asset Hub Westend has some undecodable storage, delete it.
 /// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.

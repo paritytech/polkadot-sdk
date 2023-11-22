@@ -982,7 +982,7 @@ pub mod migrations {
     pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
     InitStorageVersions
   );
-
+}
 
 /// Migration to initialize storage versions for pallets added after genesis.
 ///
