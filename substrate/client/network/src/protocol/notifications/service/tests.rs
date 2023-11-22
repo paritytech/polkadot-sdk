@@ -29,7 +29,11 @@ async fn validate_and_accept_substream() {
 	let (handle, _stream) = proto.split();
 
 	let peer_id = PeerId::random();
-	let rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -41,7 +45,7 @@ async fn validate_and_accept_substream() {
 		panic!("invalid event received");
 	}
 
-	assert_eq!(rx.await.unwrap(), ValidationResult::Accept);
+	assert_eq!(result_rx.await.unwrap(), ValidationResult::Accept);
 }
 
 #[tokio::test]
@@ -79,7 +83,11 @@ async fn send_sync_notification() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -127,7 +135,11 @@ async fn send_async_notification() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -202,7 +214,11 @@ async fn receive_notification() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -256,7 +272,11 @@ async fn backpressure_works() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -316,7 +336,11 @@ async fn peer_disconnects_then_sync_notification_is_sent() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -366,7 +390,11 @@ async fn peer_disconnects_then_async_notification_is_sent() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -422,7 +450,11 @@ async fn cloned_service_opening_substream_works() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let mut result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(mut result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	// verify that `notif1` gets the event
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
@@ -463,7 +495,11 @@ async fn cloned_service_one_service_rejects_substream() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let mut result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(mut result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	for notif in vec![&mut notif1, &mut notif2] {
 		if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
@@ -502,7 +538,11 @@ async fn cloned_service_opening_substream_sending_and_receiving_notifications_wo
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	for notif in vec![&mut notif1, &mut notif2, &mut notif3] {
 		// accept the inbound substream for all services
@@ -583,7 +623,11 @@ async fn sending_notifications_using_notifications_sink_works() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await
@@ -660,7 +704,11 @@ async fn notification_sink_replaced() {
 	let peer_id = PeerId::random();
 
 	// validate inbound substream
-	let result_rx = handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap();
+	let ValidationCallResult::WaitForValidation(result_rx) =
+		handle.report_incoming_substream(peer_id, vec![1, 3, 3, 7]).unwrap()
+	else {
+		panic!("peerset not enabled");
+	};
 
 	if let Some(NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx }) =
 		notif.next_event().await

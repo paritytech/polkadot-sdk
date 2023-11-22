@@ -19,7 +19,7 @@
 use crate::{
 	protocol::notifications::{
 		handler::{self, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
-		service::{metrics, NotificationCommand, ProtocolHandle},
+		service::{metrics, NotificationCommand, ProtocolHandle, ValidationCallResult},
 	},
 	protocol_controller::{self, IncomingIndex, Message, SetId},
 	service::traits::{Direction, ValidationResult},
@@ -38,7 +38,7 @@ use libp2p::{
 	},
 	PeerId,
 };
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use parking_lot::RwLock;
 use prometheus_endpoint::Registry;
 use rand::distributions::{Distribution as _, Uniform};
@@ -266,6 +266,9 @@ enum PeerState {
 		/// Incoming index tracking this connection.
 		incoming_index: IncomingIndex,
 
+		/// Peerset has signaled it wants the substream closed.
+		peerset_rejected: bool,
+
 		/// List of connections with this peer, and their state.
 		connections: SmallVec<[(ConnectionId, ConnectionState); crate::MAX_CONNECTIONS_PER_PEER]>,
 	},
@@ -427,7 +430,7 @@ impl Notifications {
 		assert!(!notif_protocols.is_empty());
 
 		let metrics = registry.as_ref().and_then(|registry| metrics::register(&registry).ok());
-		let (protocol_handles, command_streams): (Vec<_>, Vec<_>) = protocol_handles
+		let (mut protocol_handles, command_streams): (Vec<_>, Vec<_>) = protocol_handles
 			.into_iter()
 			.enumerate()
 			.map(|(set_id, (mut protocol_handle, command_stream))| {
@@ -436,6 +439,10 @@ impl Notifications {
 				(protocol_handle, (set_id, command_stream))
 			})
 			.unzip();
+
+		protocol_handles.iter_mut().skip(1).for_each(|handle| {
+			handle.delegate_to_peerset(true);
+		});
 
 		Self {
 			notif_protocols,
@@ -519,8 +526,6 @@ impl Notifications {
 					let event =
 						NotificationsOut::CustomProtocolClosed { peer_id: *peer_id, set_id };
 					self.events.push_back(ToSwarm::GenerateEvent(event));
-					// let _ = self.protocol_handles[usize::from(set_id)]
-					// 	.report_substream_closed(*peer_id);
 				}
 
 				for (connec_id, connec_state) in
@@ -822,8 +827,6 @@ impl Notifications {
 					let event =
 						NotificationsOut::CustomProtocolClosed { peer_id: entry.key().0, set_id };
 					self.events.push_back(ToSwarm::GenerateEvent(event));
-					// let _ = self.protocol_handles[usize::from(set_id)]
-					// 	.report_substream_closed(entry.key().0);
 				}
 
 				for (connec_id, connec_state) in
@@ -872,14 +875,21 @@ impl Notifications {
 				*entry.into_mut() = PeerState::Backoff { timer, timer_deadline }
 			},
 
-			// Invalid state transitions.
-			st @ PeerState::Incoming { .. } => {
-				info!(
+			// `ProtocolController` disconnected peer while it was still being validated by the
+			// protocol, mark the connection as rejected and once the validation is received from
+			// the protocol, reject the substream
+			PeerState::Incoming { backoff_until, connections, incoming_index, .. } => {
+				debug!(
 					target: "sub-libp2p",
 					"PSM => Drop({}, {:?}): Ignoring obsolete disconnect, we are awaiting accept/reject.",
 					entry.key().0, set_id,
 				);
-				*entry.into_mut() = st;
+				*entry.into_mut() = PeerState::Incoming {
+					backoff_until,
+					connections,
+					incoming_index,
+					peerset_rejected: true,
+				};
 			},
 			PeerState::Poisoned => {
 				error!(target: "sub-libp2p", "State of {:?} is poisoned", entry.key());
@@ -906,9 +916,13 @@ impl Notifications {
 		match self.protocol_handles[usize::from(incoming.set_id)]
 			.report_incoming_substream(incoming.peer_id, incoming.handshake.clone())
 		{
-			Ok(rx) => self
-				.pending_inbound_validations
-				.push(Box::pin(async move { (rx.await, index) })),
+			Ok(ValidationCallResult::Delegated) => {
+				self.protocol_report_accept(index);
+			},
+			Ok(ValidationCallResult::WaitForValidation(rx)) => {
+				self.pending_inbound_validations
+					.push(Box::pin(async move { (rx.await, index) }));
+			},
 			Err(err) => {
 				// parachain collators enable the syncing protocol but `NotificationService` for
 				// `SyncingEngine` is not created which causes `report_incoming_substream()` to
@@ -917,6 +931,7 @@ impl Notifications {
 				// the protocol has exited. Until the parachain collator issue is fixed, just report
 				// and error and reject the peer.
 				debug!(target: LOG_TARGET, "protocol has exited: {err:?} {:?}", incoming.set_id);
+
 				self.protocol_report_reject(index);
 			},
 		}
@@ -925,17 +940,29 @@ impl Notifications {
 	/// Function that is called when the peerset wants us to accept a connection
 	/// request from a peer.
 	fn protocol_report_accept(&mut self, index: IncomingIndex) {
-		let incoming = if let Some(pos) = self.incoming.iter().position(|i| i.incoming_id == index)
-		{
-			self.incoming.remove(pos)
-		} else {
-			error!(target: "sub-libp2p", "PSM => Accept({:?}): Invalid index", index);
-			return
+		let (pos, incoming) =
+			if let Some(pos) = self.incoming.iter().position(|i| i.incoming_id == index) {
+				(pos, self.incoming.get(pos))
+			} else {
+				error!(target: "sub-libp2p", "PSM => Accept({:?}): Invalid index", index);
+				return
+			};
+
+		let Some(incoming) = incoming else {
+			error!(target: "sub-libp2p", "Incoming connection ({:?}) doesn't exist", index);
+			debug_assert!(false);
+			return;
 		};
 
 		if !incoming.alive {
-			trace!(target: "sub-libp2p", "PSM => Accept({:?}, {}, {:?}): Obsolete incoming",
-				index, incoming.peer_id, incoming.set_id);
+			trace!(
+				target: "sub-libp2p",
+				"PSM => Accept({:?}, {}, {:?}): Obsolete incoming",
+				index,
+				incoming.peer_id,
+				incoming.set_id,
+			);
+
 			match self.peers.get_mut(&(incoming.peer_id, incoming.set_id)) {
 				Some(PeerState::DisabledPendingEnable { .. }) | Some(PeerState::Enabled { .. }) => {
 				},
@@ -946,26 +973,42 @@ impl Notifications {
 						.dropped(incoming.peer_id);
 				},
 			}
+
+			self.incoming.remove(pos);
 			return
 		}
 
 		let state = match self.peers.get_mut(&(incoming.peer_id, incoming.set_id)) {
 			Some(s) => s,
 			None => {
-				debug_assert!(false);
+				log::debug!(
+					target: "sub-libp2p",
+					"Connection to {:?} closed, ({:?} {:?}), ignoring accept",
+					incoming.peer_id,
+					incoming.set_id,
+					index,
+				);
+				self.incoming.remove(pos);
 				return
 			},
 		};
 
 		match mem::replace(state, PeerState::Poisoned) {
 			// Incoming => Enabled
-			PeerState::Incoming { mut connections, incoming_index, .. } => {
+			PeerState::Incoming {
+				mut connections,
+				incoming_index,
+				peerset_rejected,
+				backoff_until,
+			} => {
 				if index < incoming_index {
 					warn!(
 						target: "sub-libp2p",
 						"PSM => Accept({:?}, {}, {:?}): Ignoring obsolete incoming index, we are already awaiting {:?}.",
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
+
+					self.incoming.remove(pos);
 					return
 				} else if index > incoming_index {
 					error!(
@@ -973,12 +1016,39 @@ impl Notifications {
 						"PSM => Accept({:?}, {}, {:?}): Ignoring incoming index from the future, we are awaiting {:?}.",
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
+
+					self.incoming.remove(pos);
 					debug_assert!(false);
 					return
 				}
 
-				trace!(target: "sub-libp2p", "PSM => Accept({:?}, {}, {:?}): Enabling connections.",
-					index, incoming.peer_id, incoming.set_id);
+				// while the substream was being validated by the protocol, `Peerset` had request
+				// for the it to be closed so reject the substream now
+				if peerset_rejected {
+					trace!(
+						target: "sub-libp2p",
+						"Protocol accepted ({:?} {:?} {:?}) but Peerset had request disconnection, rejecting",
+						index,
+						incoming.peer_id,
+						incoming.set_id
+					);
+
+					*state = PeerState::Incoming {
+						connections,
+						backoff_until,
+						peerset_rejected,
+						incoming_index,
+					};
+					return self.report_reject(index).map_or((), |_| ());
+				}
+
+				trace!(
+					target: "sub-libp2p",
+					"PSM => Accept({:?}, {}, {:?}): Enabling connections.",
+					index,
+					incoming.peer_id,
+					incoming.set_id
+				);
 
 				debug_assert!(connections
 					.iter()
@@ -997,14 +1067,22 @@ impl Notifications {
 					*connec_state = ConnectionState::Opening;
 				}
 
+				self.incoming.remove(pos);
 				*state = PeerState::Enabled { connections };
 			},
-
+			st @ PeerState::Disabled { .. } | st @ PeerState::Backoff { .. } => {
+				self.incoming.remove(pos);
+				*state = st;
+			},
 			// Any state other than `Incoming` is invalid.
 			peer => {
-				error!(target: "sub-libp2p",
+				error!(
+					target: "sub-libp2p",
 					"State mismatch in libp2p: Expected alive incoming. Got {:?}.",
-					peer);
+					peer
+				);
+
+				self.incoming.remove(pos);
 				debug_assert!(false);
 			},
 		}
@@ -1033,15 +1111,27 @@ impl Notifications {
 		};
 
 		if !incoming.alive {
-			trace!(target: "sub-libp2p", "PSM => Reject({:?}, {}, {:?}): Obsolete incoming, \
-				ignoring", index, incoming.peer_id, incoming.set_id);
+			trace!(
+				target: "sub-libp2p",
+				"PSM => Reject({:?}, {}, {:?}): Obsolete incoming, ignoring",
+				index,
+				incoming.peer_id,
+				incoming.set_id,
+			);
+
 			return None
 		}
 
 		let state = match self.peers.get_mut(&(incoming.peer_id, incoming.set_id)) {
 			Some(s) => s,
 			None => {
-				debug_assert!(false);
+				log::debug!(
+					target: "sub-libp2p",
+					"Connection to {:?} closed, ({:?} {:?}), ignoring accept",
+					incoming.peer_id,
+					incoming.set_id,
+					index,
+				);
 				return None
 			},
 		};
@@ -1088,6 +1178,11 @@ impl Notifications {
 
 				*state = PeerState::Disabled { connections, backoff_until };
 				Some((incoming.set_id, incoming.peer_id))
+			},
+			// connection to peer may have been closed already
+			st @ PeerState::Disabled { .. } | st @ PeerState::Backoff { .. } => {
+				*state = st;
+				None
 			},
 			peer => {
 				error!(
@@ -1317,7 +1412,7 @@ impl NetworkBehaviour for Notifications {
 							mut connections,
 							backoff_until,
 							incoming_index,
-							..
+							peerset_rejected,
 						} => {
 							trace!(
 								target: "sub-libp2p",
@@ -1397,6 +1492,7 @@ impl NetworkBehaviour for Notifications {
 									connections,
 									backoff_until,
 									incoming_index,
+									peerset_rejected,
 								};
 							}
 						},
@@ -1439,11 +1535,6 @@ impl NetworkBehaviour for Notifications {
 												notifications_sink: replacement_sink.clone(),
 											};
 											self.events.push_back(ToSwarm::GenerateEvent(event));
-											// let _ = self.protocol_handles[usize::from(set_id)]
-											// 	.report_notification_sink_replaced(
-											// 		peer_id,
-											// 		replacement_sink,
-											// 	);
 										}
 									} else {
 										trace!(
@@ -1455,8 +1546,6 @@ impl NetworkBehaviour for Notifications {
 											set_id,
 										};
 										self.events.push_back(ToSwarm::GenerateEvent(event));
-										// let _ = self.protocol_handles[usize::from(set_id)]
-										// 	.report_substream_closed(peer_id);
 									}
 								}
 							} else {
@@ -1625,7 +1714,12 @@ impl NetworkBehaviour for Notifications {
 
 				match mem::replace(entry.get_mut(), PeerState::Poisoned) {
 					// Incoming => Incoming
-					PeerState::Incoming { mut connections, backoff_until, incoming_index } => {
+					PeerState::Incoming {
+						mut connections,
+						backoff_until,
+						incoming_index,
+						peerset_rejected,
+					} => {
 						debug_assert!(connections
 							.iter()
 							.any(|(_, s)| matches!(s, ConnectionState::OpenDesiredByRemote)));
@@ -1653,8 +1747,12 @@ impl NetworkBehaviour for Notifications {
 							debug_assert!(false);
 						}
 
-						*entry.into_mut() =
-							PeerState::Incoming { connections, backoff_until, incoming_index };
+						*entry.into_mut() = PeerState::Incoming {
+							connections,
+							backoff_until,
+							incoming_index,
+							peerset_rejected,
+						};
 					},
 
 					PeerState::Enabled { mut connections } => {
@@ -1724,6 +1822,7 @@ impl NetworkBehaviour for Notifications {
 								*entry.into_mut() = PeerState::Incoming {
 									connections,
 									backoff_until,
+									peerset_rejected: false,
 									incoming_index: incoming_id,
 								};
 							} else {
@@ -1859,8 +1958,6 @@ impl NetworkBehaviour for Notifications {
 									notifications_sink: replacement_sink.clone(),
 								};
 								self.events.push_back(ToSwarm::GenerateEvent(event));
-								// let _ = self.protocol_handles[usize::from(set_id)]
-								// 	.report_notification_sink_replaced(peer_id, replacement_sink);
 							}
 
 							*entry.into_mut() = PeerState::Enabled { connections };
@@ -1882,8 +1979,6 @@ impl NetworkBehaviour for Notifications {
 							trace!(target: "sub-libp2p", "External API <= Closed({}, {:?})", peer_id, set_id);
 							let event = NotificationsOut::CustomProtocolClosed { peer_id, set_id };
 							self.events.push_back(ToSwarm::GenerateEvent(event));
-							// let _ = self.protocol_handles[usize::from(set_id)]
-							// 	.report_substream_closed(peer_id);
 						}
 					},
 
@@ -1975,16 +2070,6 @@ impl NetworkBehaviour for Notifications {
 									notifications_sink: notifications_sink.clone(),
 								};
 								self.events.push_back(ToSwarm::GenerateEvent(event));
-								// let direction =
-								// 	if inbound { Direction::Inbound } else { Direction::Outbound };
-								// let _ = self.protocol_handles[protocol_index]
-								// 	.report_substream_opened(
-								// 		peer_id,
-								// 		direction,
-								// 		received_handshake,
-								// 		negotiated_fallback,
-								// 		notifications_sink.clone(),
-								// 	);
 							}
 							*connec_state = ConnectionState::Open(notifications_sink);
 						} else if let Some((_, connec_state)) =
@@ -2135,8 +2220,6 @@ impl NetworkBehaviour for Notifications {
 						message: message.clone(),
 					};
 					self.events.push_back(ToSwarm::GenerateEvent(event));
-				// let _ = self.protocol_handles[protocol_index]
-				// 	.report_notification_received(peer_id, message.to_vec());
 				} else {
 					trace!(
 						target: "sub-libp2p",
@@ -2158,23 +2241,6 @@ impl NetworkBehaviour for Notifications {
 	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
 		if let Some(event) = self.events.pop_front() {
 			return Poll::Ready(event)
-		}
-
-		while let Poll::Ready(Some((result, index))) =
-			self.pending_inbound_validations.poll_next_unpin(cx)
-		{
-			match result {
-				Ok(ValidationResult::Accept) => {
-					self.protocol_report_accept(index);
-				},
-				Ok(ValidationResult::Reject) => {
-					self.protocol_report_reject(index);
-				},
-				Err(_) => {
-					error!(target: LOG_TARGET, "Protocol has shut down");
-					break
-				},
-			}
 		}
 
 		// Poll for instructions from the protocol controllers.
@@ -2220,6 +2286,23 @@ impl NetworkBehaviour for Notifications {
 					break
 				},
 				Poll::Pending => break,
+			}
+		}
+
+		while let Poll::Ready(Some((result, index))) =
+			self.pending_inbound_validations.poll_next_unpin(cx)
+		{
+			match result {
+				Ok(ValidationResult::Accept) => {
+					self.protocol_report_accept(index);
+				},
+				Ok(ValidationResult::Reject) => {
+					self.protocol_report_reject(index);
+				},
+				Err(_) => {
+					error!(target: LOG_TARGET, "Protocol has shut down");
+					break
+				},
 			}
 		}
 
@@ -4311,13 +4394,12 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic]
 	#[cfg(debug_assertions)]
-	fn protocol_report_accept_incoming_peer() {
+	fn peerset_report_disconnect_with_incoming_peer_protocol_accepts() {
 		let (mut notif, _controller, _notif_service) = development_notifs();
 		let peer = PeerId::random();
-		let conn = ConnectionId::new_unchecked(0);
 		let set_id = SetId::from(0);
+		let conn = ConnectionId::new_unchecked(0);
 		let connected = ConnectedPoint::Listener {
 			local_addr: Multiaddr::empty(),
 			send_back_addr: Multiaddr::empty(),
@@ -4345,13 +4427,246 @@ mod tests {
 		);
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
 
-		assert!(std::matches!(
-			notif.incoming[0],
-			IncomingPeer { alive: true, incoming_id: IncomingIndex(0), .. },
+		// `Peerset` wants to disconnect the peer but since it's still under validation,
+		// it won't be disabled automatically
+		notif.peerset_report_disconnect(peer, set_id);
+
+		let incoming_index = match notif.peers.get(&(peer, set_id)) {
+			Some(&PeerState::Incoming { peerset_rejected, incoming_index, .. }) => {
+				assert!(peerset_rejected);
+				incoming_index
+			},
+			state => panic!("invalid state: {state:?}"),
+		};
+
+		// protocol accepted peer but since `Peerset` wanted to disconnect it, the peer will be
+		// disabled
+		notif.protocol_report_accept(incoming_index);
+
+		match notif.peers.get(&(peer, set_id)) {
+			Some(&PeerState::Disabled { .. }) => {},
+			state => panic!("invalid state: {state:?}"),
+		};
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	fn peer_disconnected_protocol_accepts() {
+		let (mut notif, _controller, _notif_service) = development_notifs();
+		let peer = PeerId::random();
+		let set_id = SetId::from(0);
+		let conn = ConnectionId::new_unchecked(0);
+		let connected = ConnectedPoint::Listener {
+			local_addr: Multiaddr::empty(),
+			send_back_addr: Multiaddr::empty(),
+		};
+
+		notif.on_swarm_event(FromSwarm::ConnectionEstablished(
+			libp2p::swarm::behaviour::ConnectionEstablished {
+				peer_id: peer,
+				connection_id: conn,
+				endpoint: &connected,
+				failed_addresses: &[],
+				other_established: 0usize,
+			},
+		));
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Disabled { .. })));
+
+		// remote opens a substream, verify that peer state is updated to `Incoming`
+		notif.on_connection_handler_event(
+			peer,
+			conn,
+			NotifsHandlerOut::OpenDesiredByRemote {
+				protocol_index: 0,
+				handshake: vec![1, 3, 3, 7],
+			},
+		);
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
+
+		assert!(notif
+			.incoming
+			.iter()
+			.find(|entry| entry.incoming_id == IncomingIndex(0))
+			.is_some());
+		notif.disconnect_peer(&peer, set_id);
+
+		// since the connection was closed, nothing happens for the peer state because
+		// there is nothing actionable
+		notif.protocol_report_accept(IncomingIndex(0));
+
+		match notif.peers.get(&(peer, set_id)) {
+			Some(&PeerState::Disabled { .. }) => {},
+			state => panic!("invalid state: {state:?}"),
+		};
+
+		assert!(notif
+			.incoming
+			.iter()
+			.find(|entry| entry.incoming_id == IncomingIndex(0))
+			.is_none());
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	fn connection_closed_protocol_accepts() {
+		let (mut notif, _controller, _notif_service) = development_notifs();
+		let peer = PeerId::random();
+		let set_id = SetId::from(0);
+		let conn = ConnectionId::new_unchecked(0);
+		let connected = ConnectedPoint::Listener {
+			local_addr: Multiaddr::empty(),
+			send_back_addr: Multiaddr::empty(),
+		};
+
+		notif.on_swarm_event(FromSwarm::ConnectionEstablished(
+			libp2p::swarm::behaviour::ConnectionEstablished {
+				peer_id: peer,
+				connection_id: conn,
+				endpoint: &connected,
+				failed_addresses: &[],
+				other_established: 0usize,
+			},
+		));
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Disabled { .. })));
+
+		// remote opens a substream, verify that peer state is updated to `Incoming`
+		notif.on_connection_handler_event(
+			peer,
+			conn,
+			NotifsHandlerOut::OpenDesiredByRemote {
+				protocol_index: 0,
+				handshake: vec![1, 3, 3, 7],
+			},
+		);
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
+
+		notif.on_swarm_event(FromSwarm::ConnectionClosed(
+			libp2p::swarm::behaviour::ConnectionClosed {
+				peer_id: peer,
+				connection_id: ConnectionId::new_unchecked(0),
+				endpoint: &connected.clone(),
+				handler: NotifsHandler::new(peer, connected, vec![], None),
+				remaining_established: 0usize,
+			},
 		));
 
-		notif.peers.remove(&(peer, set_id));
+		// connection closed, nothing to do
 		notif.protocol_report_accept(IncomingIndex(0));
+
+		match notif.peers.get(&(peer, set_id)) {
+			None => {},
+			state => panic!("invalid state: {state:?}"),
+		};
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	fn peer_disconnected_protocol_reject() {
+		let (mut notif, _controller, _notif_service) = development_notifs();
+		let peer = PeerId::random();
+		let set_id = SetId::from(0);
+		let conn = ConnectionId::new_unchecked(0);
+		let connected = ConnectedPoint::Listener {
+			local_addr: Multiaddr::empty(),
+			send_back_addr: Multiaddr::empty(),
+		};
+
+		notif.on_swarm_event(FromSwarm::ConnectionEstablished(
+			libp2p::swarm::behaviour::ConnectionEstablished {
+				peer_id: peer,
+				connection_id: conn,
+				endpoint: &connected,
+				failed_addresses: &[],
+				other_established: 0usize,
+			},
+		));
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Disabled { .. })));
+
+		// remote opens a substream, verify that peer state is updated to `Incoming`
+		notif.on_connection_handler_event(
+			peer,
+			conn,
+			NotifsHandlerOut::OpenDesiredByRemote {
+				protocol_index: 0,
+				handshake: vec![1, 3, 3, 7],
+			},
+		);
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
+
+		assert!(notif
+			.incoming
+			.iter()
+			.find(|entry| entry.incoming_id == IncomingIndex(0))
+			.is_some());
+		notif.disconnect_peer(&peer, set_id);
+
+		// since the connection was closed, nothing happens for the peer state because
+		// there is nothing actionable
+		notif.protocol_report_reject(IncomingIndex(0));
+
+		match notif.peers.get(&(peer, set_id)) {
+			Some(&PeerState::Disabled { .. }) => {},
+			state => panic!("invalid state: {state:?}"),
+		};
+
+		assert!(notif
+			.incoming
+			.iter()
+			.find(|entry| entry.incoming_id == IncomingIndex(0))
+			.is_none());
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	fn connection_closed_protocol_rejects() {
+		let (mut notif, _controller, _notif_service) = development_notifs();
+		let peer = PeerId::random();
+		let set_id = SetId::from(0);
+		let conn = ConnectionId::new_unchecked(0);
+		let connected = ConnectedPoint::Listener {
+			local_addr: Multiaddr::empty(),
+			send_back_addr: Multiaddr::empty(),
+		};
+
+		notif.on_swarm_event(FromSwarm::ConnectionEstablished(
+			libp2p::swarm::behaviour::ConnectionEstablished {
+				peer_id: peer,
+				connection_id: conn,
+				endpoint: &connected,
+				failed_addresses: &[],
+				other_established: 0usize,
+			},
+		));
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Disabled { .. })));
+
+		// remote opens a substream, verify that peer state is updated to `Incoming`
+		notif.on_connection_handler_event(
+			peer,
+			conn,
+			NotifsHandlerOut::OpenDesiredByRemote {
+				protocol_index: 0,
+				handshake: vec![1, 3, 3, 7],
+			},
+		);
+		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
+
+		notif.on_swarm_event(FromSwarm::ConnectionClosed(
+			libp2p::swarm::behaviour::ConnectionClosed {
+				peer_id: peer,
+				connection_id: ConnectionId::new_unchecked(0),
+				endpoint: &connected.clone(),
+				handler: NotifsHandler::new(peer, connected, vec![], None),
+				remaining_established: 0usize,
+			},
+		));
+
+		// connection closed, nothing to do
+		notif.protocol_report_reject(IncomingIndex(0));
+
+		match notif.peers.get(&(peer, set_id)) {
+			None => {},
+			state => panic!("invalid state: {state:?}"),
+		};
 	}
 
 	#[test]
@@ -4497,49 +4812,6 @@ mod tests {
 		notif.protocol_report_reject(0.into());
 
 		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
-	}
-
-	#[test]
-	#[should_panic]
-	#[cfg(debug_assertions)]
-	fn reject_non_existent_peer_but_alive_connection() {
-		let (mut notif, _controller, _notif_service) = development_notifs();
-		let peer = PeerId::random();
-		let conn = ConnectionId::new_unchecked(0);
-		let set_id = SetId::from(0);
-		let connected = ConnectedPoint::Listener {
-			local_addr: Multiaddr::empty(),
-			send_back_addr: Multiaddr::empty(),
-		};
-
-		notif.on_swarm_event(FromSwarm::ConnectionEstablished(
-			libp2p::swarm::behaviour::ConnectionEstablished {
-				peer_id: peer,
-				connection_id: conn,
-				endpoint: &connected,
-				failed_addresses: &[],
-				other_established: 0usize,
-			},
-		));
-		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Disabled { .. })));
-
-		// remote opens a substream, verify that peer state is updated to `Incoming`
-		notif.on_connection_handler_event(
-			peer,
-			conn,
-			NotifsHandlerOut::OpenDesiredByRemote {
-				protocol_index: 0,
-				handshake: vec![1, 3, 3, 7],
-			},
-		);
-		assert!(std::matches!(notif.peers.get(&(peer, set_id)), Some(&PeerState::Incoming { .. })));
-		assert!(std::matches!(
-			notif.incoming[0],
-			IncomingPeer { alive: true, incoming_id: IncomingIndex(0), .. },
-		));
-
-		notif.peers.remove(&(peer, set_id));
-		notif.protocol_report_reject(0.into());
 	}
 
 	#[test]

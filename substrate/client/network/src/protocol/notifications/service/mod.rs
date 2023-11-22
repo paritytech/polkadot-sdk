@@ -416,19 +416,36 @@ pub(crate) struct ProtocolHandle {
 	/// Number of connected peers.
 	num_peers: usize,
 
+	/// Delegate validation to `Peerset`.
+	delegate_to_peerset: bool,
+
 	/// Prometheus metrics.
 	metrics: Option<metrics::Metrics>,
+}
+
+pub(crate) enum ValidationCallResult {
+	WaitForValidation(oneshot::Receiver<ValidationResult>),
+	Delegated,
 }
 
 impl ProtocolHandle {
 	/// Create new [`ProtocolHandle`].
 	fn new(protocol: ProtocolName, subscribers: Subscribers) -> Self {
-		Self { protocol, subscribers, num_peers: 0usize, metrics: None }
+		Self { protocol, subscribers, num_peers: 0usize, metrics: None, delegate_to_peerset: false }
 	}
 
 	/// Set metrics.
 	pub fn set_metrics(&mut self, metrics: Option<metrics::Metrics>) {
 		self.metrics = metrics;
+	}
+
+	/// Delegate validation to `Peerset`.
+	///
+	/// Protocols that do not do any validation themselves and only rely on `Peerset` handling
+	/// validation can disable protocol-side validation entirely by delegating all validation to
+	/// `Peerset`.
+	pub fn delegate_to_peerset(&mut self, delegate: bool) {
+		self.delegate_to_peerset = delegate;
 	}
 
 	/// Report to the protocol that a substream has been opened and it must be validated by the
@@ -440,7 +457,7 @@ impl ProtocolHandle {
 		&self,
 		peer: PeerId,
 		handshake: Vec<u8>,
-	) -> Result<oneshot::Receiver<ValidationResult>, ()> {
+	) -> Result<ValidationCallResult, ()> {
 		let subscribers = self.subscribers.lock();
 
 		log::trace!(
@@ -448,6 +465,10 @@ impl ProtocolHandle {
 			"{}: report incoming substream for {peer}, handshake {handshake:?}",
 			self.protocol
 		);
+
+		if self.delegate_to_peerset {
+			return Ok(ValidationCallResult::Delegated)
+		}
 
 		// if there is only one subscriber, `Notifications` can wait directly on the
 		// `oneshot::channel()`'s RX half without indirection
@@ -459,7 +480,7 @@ impl ProtocolHandle {
 					handshake,
 					result_tx,
 				})
-				.map(|_| rx)
+				.map(|_| ValidationCallResult::WaitForValidation(rx))
 				.map_err(|_| ())
 		}
 
@@ -494,7 +515,7 @@ impl ProtocolHandle {
 			return tx.send(ValidationResult::Accept)
 		});
 
-		Ok(rx)
+		Ok(ValidationCallResult::WaitForValidation(rx))
 	}
 
 	/// Report to the protocol that a substream has been opened and that it can now use the handle
