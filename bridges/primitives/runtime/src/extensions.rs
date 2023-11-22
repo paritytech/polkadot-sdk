@@ -20,7 +20,8 @@ use codec::{Compact, Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension},
+	impl_tx_ext_default,
+	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
@@ -149,4 +150,30 @@ where
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(())
 	}
+}
+
+impl<S, C> TransactionExtension<C> for GenericSignedExtension<S>
+where
+	C: Dispatchable,
+	S: SignedExtensionSchema,
+	S::Payload: Send + Sync,
+	S::AdditionalSigned: Send + Sync,
+{
+	const IDENTIFIER: &'static str = "Not needed.";
+	type Implicit = S::AdditionalSigned;
+	type Pre = ();
+	type Val = ();
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		// we shall not ever see this error in relay, because we are never signing decoded
+		// transactions. Instead we're constructing and signing new transactions. So the error code
+		// is kinda random here
+		self.additional_signed.clone().ok_or(
+			frame_support::unsigned::TransactionValidityError::Unknown(
+				frame_support::unsigned::UnknownTransaction::Custom(0xFF),
+			),
+		)
+	}
+
+	impl_tx_ext_default!(C; validate prepare);
 }
