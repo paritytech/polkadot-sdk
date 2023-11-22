@@ -547,7 +547,7 @@ pub mod pallet {
 		InvalidAssetUnsupportedReserve,
 		/// Too many assets with different reserve locations have been attempted for transfer.
 		TooManyReserves,
-		/// Local XCM execution of asset transfer incomplete.
+		/// Local XCM execution incomplete.
 		LocalExecutionIncomplete,
 	}
 
@@ -1009,12 +1009,14 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
+			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
 			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
-			outcome.clone().ensure_complete().map_err(|error| {
-				log::error!(target: "runtime::xcm", "XCM execution failed with error {:?}", error);
+			let weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
 				Error::<T>::LocalExecutionIncomplete
 			})?;
-			Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into())
+			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
@@ -1500,7 +1502,10 @@ impl<T: Config> Pallet<T> {
 			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		outcome.ensure_complete().map_err(|error| {
-			log::error!(target: "runtime::xcm", "XCM execution failed with error {:?}", error);
+			log::error!(
+				target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
+				"XCM execution failed with error {:?}", error
+			);
 			Error::<T>::LocalExecutionIncomplete
 		})?;
 
@@ -1509,7 +1514,10 @@ impl<T: Config> Pallet<T> {
 				.map_err(Error::<T>::from)?;
 			if origin != Here.into_location() {
 				Self::charge_fees(origin, price).map_err(|error| {
-					log::error!(target: "runtime::xcm", "Unable to charge fee with error {:?}", error);
+					log::error!(
+						target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
+						"Unable to charge fee with error {:?}", error
+					);
 					Error::<T>::FeesNotMet
 				})?;
 			}

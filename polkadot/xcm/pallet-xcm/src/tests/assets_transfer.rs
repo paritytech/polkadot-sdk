@@ -1488,7 +1488,7 @@ fn intermediary_error_reverts_side_effects() {
 		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
-		// introduce artifcial error in sending outbound XCM
+		// introduce artificial error in sending outbound XCM
 		set_send_xcm_artificial_failure(true);
 
 		// do the transfer - extrinsic should completely fail on xcm send failure
