@@ -43,4 +43,7 @@
 //! - [`pallet_example_frame_crate`]: Example pallet showcasing how one can be
 //! built using only the `frame` umbrella crate.
 //!
+//! - [`pallet_example_mock_builder`]: A simple pallet demonstrating how to make testing with the
+//! mock-builder utility.
+//!
 //! **Tip**: Use `cargo doc --package <pallet-name> --open` to view each pallet's documentation.

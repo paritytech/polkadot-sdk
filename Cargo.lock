@@ -8444,6 +8444,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock-builder"
+version = "0.2.0"
+source = "git+https://github.com/foss3/runtime-pallet-library?branch=polkadot-v1.2.0#f1f74a76ee7a66fa90e9762bc9034b73e1c4f1b3"
+
+[[package]]
 name = "mockall"
 version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10078,6 +10083,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-mock-builder"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "mock-builder",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-example-offchain-worker"
 version = "4.0.0-dev"
 dependencies = [
@@ -10118,6 +10140,7 @@ dependencies = [
  "pallet-example-basic",
  "pallet-example-frame-crate",
  "pallet-example-kitchensink",
+ "pallet-example-mock-builder",
  "pallet-example-offchain-worker",
  "pallet-example-split",
 ]
