@@ -51,6 +51,7 @@ sp-core = { path = "../../substrate/primitives/core" }
 sp-session = { path = "../../substrate/primitives/session" }
 sc-consensus = { path = "../../substrate/client/consensus/common" }
 sp-tracing = { path = "../../substrate/primitives/tracing" }
+frame-support = { path = "../../substrate/frame/support", default-features = false}
 sc-cli = { path = "../../substrate/client/cli" }
 sc-client-api = { path = "../../substrate/client/api" }
 sc-executor = { path = "../../substrate/client/executor" }
@@ -63,12 +64,19 @@ sc-network-sync = { path = "../../substrate/client/network/sync" }
 sc-basic-authorship = { path = "../../substrate/client/basic-authorship" }
 sp-timestamp = { path = "../../substrate/primitives/timestamp" }
 sp-blockchain = { path = "../../substrate/primitives/blockchain" }
+sp-genesis-builder = { path = "../../substrate/primitives/genesis-builder", default-features = false }
 sp-block-builder = { path = "../../substrate/primitives/block-builder" }
 sp-keystore = { path = "../../substrate/primitives/keystore" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 sc-rpc = { path = "../../substrate/client/rpc" }
+sp-version = { path = "../../substrate/primitives/version" }
 sc-tracing = { path = "../../substrate/client/tracing" }
 sp-offchain = { path = "../../substrate/primitives/offchain" }
+frame-system-rpc-runtime-api = { path = "../../substrate/frame/system/rpc/runtime-api", default-features = false}
+pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment", default-features = false}
+pallet-transaction-payment-rpc-runtime-api = { path = "../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false}
+sp-std = { path = "../../substrate/primitives/std", default-features = false}
+sp-inherents = { path = "../../substrate/primitives/inherents", default-features = false}
 sp-api = { path = "../../substrate/primitives/api" }
 sp-consensus-aura = { path = "../../substrate/primitives/consensus/aura" }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
