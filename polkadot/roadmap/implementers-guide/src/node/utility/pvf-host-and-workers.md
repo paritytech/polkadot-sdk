@@ -31,19 +31,29 @@ hopefully resolve. We use a more brief delay here (1 second as opposed to 15
 minutes for preparation (see above)), because a successful execution must happen
 in a short amount of time.
 
+If the execution fails during the backing phase, we won't retry to reduce the chance of
+supporting nondeterministic candidates. This reduces the chance of nondeterministic blocks
+getting backed and honest backers getting slashed.
+
 We currently know of the following specific cases that will lead to a retried
 execution request:
 
-1. **OOM:** The host might have been temporarily low on memory due to other
-   processes running on the same machine. **NOTE:** This case will lead to
-   voting against the candidate (and possibly a dispute) if the retry is still
-   not successful.
-2. **Artifact missing:** The prepared artifact might have been deleted due to
+1. **OOM:** We have memory limits to try to prevent attackers from exhausting
+   host memory. If the memory limit is hit, we kill the job process and retry
+   the job. Alternatively, the host might have been temporarily low on memory
+   due to other processes running on the same machine. **NOTE:** This case will
+   lead to voting against the candidate (and possibly a dispute) if the retry is
+   still not successful.
+2. **Syscall violations:** If the job attempts a system call that is blocked by
+   the sandbox's security policy, the job process is immediately killed and we
+   retry. **NOTE:** In the future, if we have a proper way to detect that the
+   job died due to a security violation, it might make sense not to retry in
+   this case.
+3. **Artifact missing:** The prepared artifact might have been deleted due to
    operator error or some bug in the system.
-3. **Job errors:** For example, the worker thread panicked for some
-   indeterminate reason, which may or may not be independent of the candidate or
-   PVF.
-4. **Internal errors:** See "Internal Errors" section. In this case, after the
+4. **Job errors:** For example, the job process panicked for some indeterminate
+   reason, which may or may not be independent of the candidate or PVF.
+5. **Internal errors:** See "Internal Errors" section. In this case, after the
    retry we abstain from voting.
 
 ### Preparation timeouts
@@ -155,16 +165,14 @@ data on the host machine.
 
 *Currently this is only supported on Linux.*
 
-<!-- TODO: Uncomment when this has been enabled. -->
+### Restricting networking
 
-<!-- ### Restricting networking -->
+We also disable networking on PVF threads by disabling certain syscalls, such as
+the creation of sockets. This prevents attackers from either downloading
+payloads or communicating sensitive data from the validator's machine to the
+outside world.
 
-<!-- We also disable networking on PVF threads by disabling certain syscalls, such as -->
-<!-- the creation of sockets. This prevents attackers from either downloading -->
-<!-- payloads or communicating sensitive data from the validator's machine to the -->
-<!-- outside world. -->
-
-<!-- *Currently this is only supported on Linux.* -->
+*Currently this is only supported on Linux.*
 
 ### Clearing env vars
 

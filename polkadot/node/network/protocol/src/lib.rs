@@ -877,9 +877,8 @@ pub mod v2 {
 pub mod vstaging {
 	use parity_scale_codec::{Decode, Encode};
 
-	use polkadot_node_primitives::approval::{
-		v1::IndirectSignedApprovalVote,
-		v2::{CandidateBitfield, IndirectAssignmentCertV2},
+	use polkadot_node_primitives::approval::v2::{
+		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,
 	};
 
 	/// This parts of the protocol did not change from v2, so just alias them in vstaging,
@@ -903,7 +902,7 @@ pub mod vstaging {
 		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
 		/// Approvals for candidates in some recent, unfinalized block.
 		#[codec(index = 1)]
-		Approvals(Vec<IndirectSignedApprovalVote>),
+		Approvals(Vec<IndirectSignedApprovalVoteV2>),
 	}
 
 	/// All network messages on the validation peer-set.

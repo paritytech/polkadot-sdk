@@ -26,8 +26,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
-	SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
@@ -263,6 +264,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub minimum_backing_votes: u32,
 	/// Node features enablement.
 	pub node_features: NodeFeatures,
+	/// Params used by approval-voting
+	pub approval_voting_params: ApprovalVotingParams,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -308,6 +311,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			pvf_voting_ttl: 2u32.into(),
 			minimum_validation_upgrade_delay: 2.into(),
 			executor_params: Default::default(),
+			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
@@ -515,7 +519,8 @@ pub mod pallet {
 	/// v7-v8:  <https://github.com/paritytech/polkadot/pull/6969>
 	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
+	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1191,6 +1196,7 @@ pub mod pallet {
 				config.on_demand_ttl = new;
 			})
 		}
+
 		/// Set the minimum backing votes threshold.
 		#[pallet::call_index(52)]
 		#[pallet::weight((
@@ -1203,6 +1209,7 @@ pub mod pallet {
 				config.minimum_backing_votes = new;
 			})
 		}
+
 		/// Set/Unset a node feature.
 		#[pallet::call_index(53)]
 		#[pallet::weight((
@@ -1218,6 +1225,22 @@ pub mod pallet {
 					config.node_features.resize(index + 1, false);
 				}
 				config.node_features.set(index, value);
+			})
+		}
+
+		/// Set approval-voting-params.
+		#[pallet::call_index(54)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_executor_params(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_approval_voting_params(
+			origin: OriginFor<T>,
+			new: ApprovalVotingParams,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.approval_voting_params = new;
 			})
 		}
 	}
