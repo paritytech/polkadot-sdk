@@ -1,19 +1,12 @@
 use crate::*;
-use emulated_integration_tests_common::xcm_emulator::Get;
-use frame_support::{dispatch::RawOrigin::Root, BoundedVec};
 use pallet_identity::{legacy::IdentityInfo, Data};
-use pallet_xcm::Origin;
-use people_rococo_runtime::{
-	people::{
-		BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
-		IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
-	},
-	OriginCaller,
+use people_rococo_runtime::people::{
+	BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
+	IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
 };
 use rococo_runtime::{BasicDeposit, ByteDeposit, MaxAdditionalFields, SubAccountDeposit};
 use rococo_system_emulated_network::{
-	rococo_emulated_chain, rococo_emulated_chain::RococoRelayPallet, RococoRelay,
-	RococoRelayReceiver, RococoRelaySender,
+	rococo_emulated_chain::RococoRelayPallet, RococoRelay, RococoRelayReceiver, RococoRelaySender,
 };
 
 fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
@@ -105,8 +98,6 @@ fn reap_identity() {
 
 	// Set identity and Subs on Parachain with Zero deposit
 	PeopleRococo::execute_with(|| {
-		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-
 		let free_bal =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
 		//let total_deposit = SubAccountDeposit::get() + id_deposit_parachain(&identity_parachain);
@@ -181,7 +172,6 @@ fn reap_identity() {
 
 	// 6. assert on Parachain
 	PeopleRococo::execute_with(|| {
-		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 		let free_bal =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
 

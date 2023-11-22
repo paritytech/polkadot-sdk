@@ -1009,6 +1009,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Set an identity with zero deposit. Used for benchmarking and XCM emulator tests, involves
 	/// `rejig_deposit`.
+	#[cfg(feature = "xcm-emulator")]
 	pub fn set_identity_no_deposit(
 		who: &T::AccountId,
 		info: T::IdentityInformation,
@@ -1025,7 +1026,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Set subs with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
-	//#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "xcm-emulator", feature = "runtime-benchmarks"))]
 	pub fn set_sub_no_deposit(who: &T::AccountId, sub: T::AccountId) -> DispatchResult {
 		use frame_support::BoundedVec;
 		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub]).unwrap();
