@@ -470,7 +470,7 @@ benchmarks! {
 	}
 
 	set_payee {
-		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, Default::default())?;
+		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Staked);
 		whitelist_account!(controller);
 	}: _(RawOrigin::Signed(controller.clone()), RewardDestination::Account(controller.clone()))
@@ -480,7 +480,10 @@ benchmarks! {
 
 	update_payee {
 		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, Default::default())?;
-		Payee::<T>::insert(&stash, controller_rewards_destination::<T>());
+		Payee::<T>::insert(&stash, {
+			#[allow(deprecated)]
+			RewardDestination::Controller
+		});
 		whitelist_account!(controller);
 	}: _(RawOrigin::Signed(controller.clone()), controller.clone())
 	verify {
@@ -488,7 +491,7 @@ benchmarks! {
 	}
 
 	set_controller {
-		let (stash, ctlr) = create_unique_stash_controller::<T>(9000, 100, Default::default(), false)?;
+		let (stash, ctlr) = create_unique_stash_controller::<T>(9000, 100, RewardDestination::Staked, false)?;
 		// ensure `ctlr` is the currently stored controller.
 		assert!(!Ledger::<T>::contains_key(&stash));
 		assert!(Ledger::<T>::contains_key(&ctlr));
