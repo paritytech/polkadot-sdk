@@ -156,10 +156,6 @@ impl Contains<RuntimeCall> for BrokerCalls {
 	}
 }
 
-// Temporary weights
-pub trait WeightInfo {}
-impl WeightInfo for () {}
-
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
@@ -223,7 +219,7 @@ impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
 	type BaseCallFilter = EverythingBut<BrokerCalls>;
 	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = ();
+	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -239,7 +235,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -257,7 +253,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
@@ -289,7 +285,7 @@ parameter_types! {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
-	type WeightInfo = ();
+	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
@@ -313,7 +309,7 @@ parameter_types! {
 
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
 		cumulus_primitives_core::AggregateMessageOrigin,
@@ -370,7 +366,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = RootOrFellows;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type WeightInfo = ();
+	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
@@ -379,7 +375,7 @@ parameter_types! {
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
-	type WeightInfo = ();
+	type WeightInfo = weights::cumulus_pallet_dmp_queue::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type DmpSink = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 }
@@ -398,7 +394,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -436,7 +432,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -453,14 +449,14 @@ impl pallet_multisig::Config for Runtime {
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
