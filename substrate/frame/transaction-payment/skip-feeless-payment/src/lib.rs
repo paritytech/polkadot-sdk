@@ -79,7 +79,7 @@ pub mod pallet {
 pub struct SkipCheckIfFeeless<T, S>(pub S, sp_std::marker::PhantomData<T>);
 
 // Make this extension "invisible" from the outside (ie metadata type information)
-impl<T, S: TypeInfo + 'static> TypeInfo for SkipCheckIfFeeless<T, S> {
+impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
 	type Identity = S;
 	fn type_info() -> scale_info::Type {
 		S::type_info()
