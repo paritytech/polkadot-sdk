@@ -46,7 +46,7 @@ pub enum WorkerResponse {
 	///
 	/// We cannot treat this as an internal error because malicious code may have killed the job.
 	/// We still retry it, because in the non-malicious case it is likely spurious.
-	JobDied(String),
+	JobDied { err: String, job_pid: i32 },
 	/// An unexpected error occurred in the job process, e.g. failing to spawn a thread, panic,
 	/// etc.
 	///
