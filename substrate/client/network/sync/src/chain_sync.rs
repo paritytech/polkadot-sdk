@@ -998,12 +998,15 @@ where
 	}
 
 	/// Submit a validated block announcement.
+	///
+	/// Returns new best hash & best number of the peer if they are updated.
+	#[must_use]
 	pub fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,
 		peer_id: PeerId,
 		announce: &BlockAnnounce<B::Header>,
-	) {
+	) -> Option<(B::Hash, NumberFor<B>)> {
 		let number = *announce.header.number();
 		let hash = announce.header.hash();
 		let parent_status =
@@ -1016,19 +1019,23 @@ where
 			peer
 		} else {
 			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID");
-			return
+			return Some((hash, number))
 		};
 
 		if let PeerSyncState::AncestorSearch { .. } = peer.state {
 			trace!(target: LOG_TARGET, "Peer {} is in the ancestor search state.", peer_id);
-			return
+			return None
 		}
 
-		if is_best {
+		let new_peer_info = if is_best {
 			// update their best block
 			peer.best_number = number;
 			peer.best_hash = hash;
-		}
+
+			Some((hash, number))
+		} else {
+			None
+		};
 
 		// If the announced block is the best they have and is not ahead of us, our common number
 		// is either one further ahead or it's the one they just announced, if we know about it.
@@ -1049,7 +1056,7 @@ where
 			if let Some(target) = self.fork_targets.get_mut(&hash) {
 				target.peers.insert(peer_id);
 			}
-			return
+			return new_peer_info
 		}
 
 		if ancient_parent {
@@ -1060,7 +1067,7 @@ where
 				hash,
 				announce.header,
 			);
-			return
+			return new_peer_info
 		}
 
 		if self.status().state == SyncState::Idle {
@@ -1081,6 +1088,8 @@ where
 				.peers
 				.insert(peer_id);
 		}
+
+		new_peer_info
 	}
 
 	/// Notify that a sync peer has disconnected.

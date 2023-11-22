@@ -24,7 +24,7 @@ use crate::{
 	chain_sync::validate_blocks,
 	schema::v1::StateResponse,
 	state::{ImportResult, StateSync},
-	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse},
+	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 };
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
@@ -37,7 +37,10 @@ use sc_network_common::sync::message::{
 };
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
+use sp_runtime::{
+	traits::{Block as BlockT, Header, NumberFor, Zero},
+	SaturatedConversion,
+};
 use std::{collections::HashMap, fmt, sync::Arc};
 
 /// Log target for this file.
@@ -409,7 +412,7 @@ where
 		&mut self,
 		peer_id: PeerId,
 		request: BlockRequest<B>,
-		blocks: Vec<BlockData<B>>,
+		mut blocks: Vec<BlockData<B>>,
 	) -> Result<(), BadPeer> {
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
@@ -597,7 +600,7 @@ where
 	fn select_synced_available_peer(
 		&self,
 		min_best_number: Option<NumberFor<B>>,
-	) -> Option<(&PeerId, &Peer<B>)> {
+	) -> Option<(&PeerId, &mut Peer<B>)> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
 		if !targets.is_empty() {
 			targets.sort();
@@ -738,6 +741,42 @@ where
 			Phase::Complete => WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
 				total_bytes: self.total_proof_bytes + self.total_state_bytes,
+			},
+		}
+	}
+
+	/// Get the number of peers known to syncing.
+	pub fn num_peers(&self) -> usize {
+		self.peers.len()
+	}
+
+	/// Returns the current sync status.
+	pub fn status(&self) -> SyncStatus<B> {
+		SyncStatus {
+			state: match &self.phase {
+				Phase::WaitingForPeers { .. } => SyncState::Downloading { target: Zero::zero() },
+				Phase::WarpProof { .. } => SyncState::Downloading { target: Zero::zero() },
+				Phase::PendingTargetBlock => SyncState::Downloading { target: Zero::zero() },
+				Phase::TargetBlock(header) => SyncState::Downloading { target: *header.number() },
+				Phase::State(state_sync) =>
+					SyncState::Downloading { target: state_sync.target_block_num() },
+				Phase::Complete => SyncState::Idle,
+			},
+			best_seen_block: match &self.phase {
+				Phase::WaitingForPeers { .. } => None,
+				Phase::WarpProof { .. } => None,
+				Phase::PendingTargetBlock => None,
+				Phase::TargetBlock(header) => Some(*header.number()),
+				Phase::State(state_sync) => Some(state_sync.target_block_num()),
+				Phase::Complete => None,
+			},
+			num_peers: self.peers.len().saturated_into(),
+			num_connected_peers: self.peers.len().saturated_into(),
+			queued_blocks: 0,
+			state_sync: if let Phase::State(state_sync) = &self.phase {
+				Some(state_sync.progress())
+			} else {
+				None
 			},
 		}
 	}
