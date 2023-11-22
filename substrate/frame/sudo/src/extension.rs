@@ -18,9 +18,11 @@
 use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchInfo, ensure};
+use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension},
+	impl_tx_ext_default,
+	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
 		UnknownTransaction, ValidTransaction,
@@ -102,6 +104,48 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
 	}
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+	for CheckOnlySudoAccount<T>
+where
+	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+{
+	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
+	type Implicit = ();
+	type Pre = ();
+	type Val = ();
+
+	fn validate(
+		&self,
+		origin: <<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		_call: &<T as frame_system::Config>::RuntimeCall,
+		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+		_len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(
+			sp_runtime::transaction_validity::ValidTransaction,
+			Self::Val,
+			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		),
+		sp_runtime::transaction_validity::TransactionValidityError,
+	> {
+		let who = ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
+		let sudo_key: T::AccountId = <Pallet<T>>::key().ok_or(UnknownTransaction::CannotLookup)?;
+		ensure!(who == sudo_key, InvalidTransaction::BadSigner);
+
+		Ok((
+			ValidTransaction {
+				priority: info.weight.ref_time() as TransactionPriority,
+				..Default::default()
+			},
+			(),
+			origin,
+		))
+	}
+
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; implicit prepare);
 }
