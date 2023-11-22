@@ -28,7 +28,7 @@ fn identity_parachain() -> IdentityInfoParachain {
 		display: Data::Raw(b"xcm-test".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap()),
 		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
-		matrix: Data::Raw(b"@xcm-test:matrix.org".to_vec().try_into().unwrap()),
+		matrix: Data::None,
 		email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
 		pgp_fingerprint: None,
 		image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
