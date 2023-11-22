@@ -32,7 +32,7 @@ use polkadot_overseer::{
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash, PvfExecTimeoutKind};
+use polkadot_primitives::{CandidateReceipt, Hash, PvfExecKind};
 
 struct AlwaysSupportsParachains;
 
@@ -73,13 +73,13 @@ impl Subsystem1 {
 				commitments_hash: Hash::zero(),
 			};
 
-			let msg = CandidateValidationMessage::ValidateFromChainState(
+			let msg = CandidateValidationMessage::ValidateFromChainState {
 				candidate_receipt,
-				PoV { block_data: BlockData(Vec::new()) }.into(),
-				Default::default(),
-				PvfExecTimeoutKind::Backing,
-				tx,
-			);
+				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
+				executor_params: Default::default(),
+				exec_kind: PvfExecKind::Backing,
+				response_sender: tx,
+			};
 			ctx.send_message(msg).await;
 		}
 		()
@@ -163,7 +163,6 @@ fn main() {
 			.unwrap();
 
 		let overseer_fut = overseer.run().fuse();
-		let timer_stream = timer_stream;
 
 		pin_mut!(timer_stream);
 		pin_mut!(overseer_fut);

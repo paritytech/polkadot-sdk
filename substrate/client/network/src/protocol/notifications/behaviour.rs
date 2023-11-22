@@ -1423,7 +1423,6 @@ impl NetworkBehaviour for Notifications {
 									let delay_id = self.next_delay_id;
 									self.next_delay_id.0 += 1;
 									let delay = futures_timer::Delay::new(ban_duration);
-									let peer_id = peer_id;
 									self.delays.push(
 										async move {
 											delay.await;

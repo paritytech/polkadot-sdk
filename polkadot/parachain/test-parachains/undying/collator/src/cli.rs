@@ -18,6 +18,7 @@
 
 use clap::Parser;
 use sc_cli::SubstrateCli;
+use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, Parser)]
@@ -34,6 +35,10 @@ pub enum Subcommand {
 /// Command for exporting the genesis state of the parachain
 #[derive(Debug, Parser)]
 pub struct ExportGenesisStateCommand {
+	/// Output file name or stdout if unspecified.
+	#[arg()]
+	pub output: Option<PathBuf>,
+
 	/// Id of the parachain this collator collates for.
 	#[arg(long, default_value_t = 100)]
 	pub parachain_id: u32,
@@ -50,7 +55,11 @@ pub struct ExportGenesisStateCommand {
 
 /// Command for exporting the genesis wasm file.
 #[derive(Debug, Parser)]
-pub struct ExportGenesisWasmCommand {}
+pub struct ExportGenesisWasmCommand {
+	/// Output file name or stdout if unspecified.
+	#[arg()]
+	pub output: Option<PathBuf>,
+}
 
 #[allow(missing_docs)]
 #[derive(Debug, Parser)]
@@ -102,7 +111,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot/issues/new".into()
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {

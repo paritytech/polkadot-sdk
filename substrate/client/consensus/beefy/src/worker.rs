@@ -456,6 +456,7 @@ where
 			.filter(|genesis| *genesis == self.persisted_state.pallet_genesis)
 			.ok_or(Error::ConsensusReset)?;
 
+		let mut new_session_added = false;
 		if *header.number() > self.best_grandpa_block() {
 			// update best GRANDPA finalized block we have seen
 			self.persisted_state.set_best_grandpa(header.clone());
@@ -475,7 +476,13 @@ where
 			{
 				if let Some(new_validator_set) = find_authorities_change::<B>(&header) {
 					self.init_session_at(new_validator_set, *header.number());
+					new_session_added = true;
 				}
+			}
+
+			if new_session_added {
+				crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
+					.map_err(|e| Error::Backend(e.to_string()))?;
 			}
 
 			// Update gossip validator votes filter.
@@ -604,6 +611,11 @@ where
 			VersionedFinalityProof::V1(ref sc) => sc.commitment.block_number,
 		};
 
+		if block_num <= self.persisted_state.voting_oracle.best_beefy_block {
+			// we've already finalized this round before, short-circuit.
+			return Ok(())
+		}
+
 		// Finalize inner round and update voting_oracle state.
 		self.persisted_state.voting_oracle.finalize(block_num)?;
 
@@ -629,7 +641,7 @@ where
 				self.backend
 					.append_justification(hash, (BEEFY_ENGINE_ID, finality_proof.encode()))
 			}) {
-			error!(
+			debug!(
 				target: LOG_TARGET,
 				"🥩 Error {:?} on appending justification: {:?}", e, finality_proof
 			);
@@ -648,7 +660,7 @@ where
 	}
 
 	/// Handle previously buffered justifications, that now land in the voting interval.
-	fn try_pending_justififactions(&mut self) -> Result<(), Error> {
+	fn try_pending_justifications(&mut self) -> Result<(), Error> {
 		// Interval of blocks for which we can process justifications and votes right now.
 		let (start, end) = self.voting_oracle().accepted_interval()?;
 		// Process pending justifications.
@@ -782,7 +794,7 @@ where
 
 	fn process_new_state(&mut self) {
 		// Handle pending justifications and/or votes for now GRANDPA finalized blocks.
-		if let Err(err) = self.try_pending_justififactions() {
+		if let Err(err) = self.try_pending_justifications() {
 			debug!(target: LOG_TARGET, "🥩 {}", err);
 		}
 
@@ -843,15 +855,10 @@ where
 				.fuse(),
 		);
 
+		self.process_new_state();
 		let error = loop {
-			// Act on changed 'state'.
-			self.process_new_state();
-
 			// Mutable reference used to drive the gossip engine.
 			let mut gossip_engine = &mut self.comms.gossip_engine;
-			// Use temp val and report after async section,
-			// to avoid having to Mutex-wrap `gossip_engine`.
-			let mut gossip_report: Option<PeerReport> = None;
 
 			// Wait for, and handle external events.
 			// The branches below only change 'state', actual voting happens afterwards,
@@ -879,10 +886,15 @@ where
 							if let Err(err) = self.triage_incoming_justif(justif) {
 								debug!(target: LOG_TARGET, "🥩 {}", err);
 							}
-							gossip_report = Some(peer_report);
+							self.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
 						},
-						ResponseInfo::PeerReport(peer_report) => gossip_report = Some(peer_report),
-						ResponseInfo::Pending => (),
+						ResponseInfo::PeerReport(peer_report) => {
+							self.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
+							continue;
+						},
+						ResponseInfo::Pending => {
+							continue;
+						},
 					}
 				},
 				justif = block_import_justif.next() => {
@@ -919,12 +931,15 @@ where
 				},
 				// Process peer reports.
 				report = self.comms.gossip_report_stream.next() => {
-					gossip_report = report;
+					if let Some(PeerReport { who, cost_benefit }) = report {
+						self.comms.gossip_engine.report(who, cost_benefit);
+					}
+					continue;
 				},
 			}
-			if let Some(PeerReport { who, cost_benefit }) = gossip_report {
-				self.comms.gossip_engine.report(who, cost_benefit);
-			}
+
+			// Act on changed 'state'.
+			self.process_new_state();
 		};
 
 		// return error _and_ `comms` that can be reused

@@ -23,6 +23,7 @@ sc-consensus-babe = { path = "../../../client/consensus/babe" }
 sc-consensus-babe-rpc = { path = "../../../client/consensus/babe/rpc" }
 sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
 sc-consensus-grandpa-rpc = { path = "../../../client/consensus/grandpa/rpc" }
+sc-mixnet = { path = "../../../client/mixnet" }
 sc-rpc = { path = "../../../client/rpc" }
 sc-rpc-api = { path = "../../../client/rpc-api" }
 sc-rpc-spec-v2 = { path = "../../../client/rpc-spec-v2" }

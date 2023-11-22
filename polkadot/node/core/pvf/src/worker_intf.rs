@@ -20,7 +20,7 @@ use crate::LOG_TARGET;
 use futures::FutureExt as _;
 use futures_timer::Delay;
 use pin_project::pin_project;
-use polkadot_node_core_pvf_common::{worker_dir, SecurityStatus};
+use polkadot_node_core_pvf_common::SecurityStatus;
 use rand::Rng;
 use std::{
 	fmt, mem,
@@ -67,43 +67,35 @@ pub async fn spawn_with_program_path(
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let program_path = program_path.into();
 	let worker_dir = WorkerDir::new(debug_id, cache_path).await?;
-	let socket_path = worker_dir::socket(&worker_dir.path);
-
 	let extra_args: Vec<String> = extra_args.iter().map(|arg| arg.to_string()).collect();
 
-	let listener = UnixListener::bind(&socket_path).map_err(|err| {
-		gum::warn!(
-			target: LOG_TARGET,
-			%debug_id,
-			?program_path,
-			?extra_args,
-			?worker_dir,
-			?socket_path,
-			"cannot bind unix socket: {:?}",
-			err,
-		);
-		SpawnErr::Bind
-	})?;
+	with_transient_socket_path(debug_id, |socket_path| {
+		let socket_path = socket_path.to_owned();
+		let worker_dir_path = worker_dir.path().to_owned();
 
-	let handle = WorkerHandle::spawn(&program_path, &extra_args, &worker_dir.path, security_status)
-		.map_err(|err| {
-			gum::warn!(
-				target: LOG_TARGET,
-				%debug_id,
-				?program_path,
-				?extra_args,
-				?worker_dir.path,
-				?socket_path,
-				"cannot spawn a worker: {:?}",
-				err,
-			);
-			SpawnErr::ProcessSpawn
-		})?;
+		async move {
+			let listener = UnixListener::bind(&socket_path).map_err(|err| {
+				gum::warn!(
+					target: LOG_TARGET,
+					%debug_id,
+					?program_path,
+					?extra_args,
+					?worker_dir,
+					?socket_path,
+					"cannot bind unix socket: {:?}",
+					err,
+				);
+				SpawnErr::Bind
+			})?;
 
-	let worker_dir_path = worker_dir.path.clone();
-	futures::select! {
-		accept_result = listener.accept().fuse() => {
-			let (stream, _) = accept_result.map_err(|err| {
+			let handle = WorkerHandle::spawn(
+				&program_path,
+				&extra_args,
+				&socket_path,
+				&worker_dir_path,
+				security_status,
+			)
+			.map_err(|err| {
 				gum::warn!(
 					target: LOG_TARGET,
 					%debug_id,
@@ -111,68 +103,98 @@ pub async fn spawn_with_program_path(
 					?extra_args,
 					?worker_dir_path,
 					?socket_path,
-					"cannot accept a worker: {:?}",
+					"cannot spawn a worker: {:?}",
 					err,
 				);
-				SpawnErr::Accept
+				SpawnErr::ProcessSpawn
 			})?;
-			Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
+
+			futures::select! {
+				accept_result = listener.accept().fuse() => {
+					let (stream, _) = accept_result.map_err(|err| {
+						gum::warn!(
+							target: LOG_TARGET,
+							%debug_id,
+							?program_path,
+							?extra_args,
+							?worker_dir_path,
+							?socket_path,
+							"cannot accept a worker: {:?}",
+							err,
+						);
+						SpawnErr::Accept
+					})?;
+					Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
+				}
+				_ = Delay::new(spawn_timeout).fuse() => {
+					gum::warn!(
+						target: LOG_TARGET,
+						%debug_id,
+						?program_path,
+						?extra_args,
+						?worker_dir_path,
+						?socket_path,
+						?spawn_timeout,
+						"spawning and connecting to socket timed out",
+					);
+					Err(SpawnErr::AcceptTimeout)
+				}
+			}
 		}
-		_ = Delay::new(spawn_timeout).fuse() => {
-			gum::warn!(
-				target: LOG_TARGET,
-				%debug_id,
-				?program_path,
-				?extra_args,
-				?worker_dir_path,
-				?socket_path,
-				?spawn_timeout,
-				"spawning and connecting to socket timed out",
-			);
-			Err(SpawnErr::AcceptTimeout)
-		}
-	}
+	})
+	.await
 }
 
-/// Returns a path under the given `dir`. The path name will start with the given prefix.
-///
-/// There is only a certain number of retries. If exceeded this function will give up and return an
-/// error.
-pub async fn tmppath_in(prefix: &str, dir: &Path) -> io::Result<PathBuf> {
-	fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
-		use rand::distributions::Alphanumeric;
+async fn with_transient_socket_path<T, F, Fut>(debug_id: &'static str, f: F) -> Result<T, SpawnErr>
+where
+	F: FnOnce(&Path) -> Fut,
+	Fut: futures::Future<Output = Result<T, SpawnErr>> + 'static,
+{
+	/// Returns a path under [`std::env::temp_dir`]. The path name will start with the given prefix.
+	///
+	/// There is only a certain number of retries. If exceeded this function will give up and return
+	/// an error.
+	pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
+		fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
+			use rand::distributions::Alphanumeric;
 
-		const DESCRIMINATOR_LEN: usize = 10;
+			const DESCRIMINATOR_LEN: usize = 10;
 
-		let mut buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
-		buf.extend(prefix.as_bytes());
-		buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DESCRIMINATOR_LEN));
+			let mut buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
+			buf.extend(prefix.as_bytes());
+			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DESCRIMINATOR_LEN));
 
-		let s = std::str::from_utf8(&buf)
-			.expect("the string is collected from a valid utf-8 sequence; qed");
+			let s = std::str::from_utf8(&buf)
+				.expect("the string is collected from a valid utf-8 sequence; qed");
 
-		let mut path = dir.to_owned();
-		path.push(s);
-		path
-	}
-
-	const NUM_RETRIES: usize = 50;
-
-	for _ in 0..NUM_RETRIES {
-		let tmp_path = make_tmppath(prefix, dir);
-		if !tmp_path.exists() {
-			return Ok(tmp_path)
+			let mut path = dir.to_owned();
+			path.push(s);
+			path
 		}
+
+		const NUM_RETRIES: usize = 50;
+
+		let dir = std::env::temp_dir();
+		for _ in 0..NUM_RETRIES {
+			let tmp_path = make_tmppath(prefix, &dir);
+			if !tmp_path.exists() {
+				return Ok(tmp_path)
+			}
+		}
+
+		Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary path"))
 	}
 
-	Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary path"))
-}
+	let socket_path = tmppath(&format!("pvf-host-{}-", debug_id))
+		.await
+		.map_err(|_| SpawnErr::TmpPath)?;
+	let result = f(&socket_path).await;
 
-/// The same as [`tmppath_in`], but uses [`std::env::temp_dir`] as the directory.
-#[cfg(test)]
-pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
-	let temp_dir = PathBuf::from(std::env::temp_dir());
-	tmppath_in(prefix, &temp_dir).await
+	// Best effort to remove the socket file. Under normal circumstances the socket will be removed
+	// by the worker. We make sure that it is removed here, just in case a failed rendezvous.
+	let _ = tokio::fs::remove_file(socket_path).await;
+
+	result
 }
 
 /// A struct that represents an idle worker.
@@ -197,8 +219,6 @@ pub struct IdleWorker {
 pub enum SpawnErr {
 	/// Cannot obtain a temporary path location.
 	TmpPath,
-	/// An FS error occurred.
-	Fs(String),
 	/// Cannot bind the socket to the given path.
 	Bind,
 	/// An error happened during accepting a connection to the socket.
@@ -218,7 +238,7 @@ pub enum SpawnErr {
 /// has been terminated. Since the worker is running in another process it is obviously not
 /// necessary to poll this future to make the worker run, it's only for termination detection.
 ///
-/// This future relies on the fact that a child process's stdout `fd` is closed upon it's
+/// This future relies on the fact that a child process's stdout `fd` is closed upon its
 /// termination.
 #[pin_project]
 pub struct WorkerHandle {
@@ -234,6 +254,7 @@ impl WorkerHandle {
 	fn spawn(
 		program: impl AsRef<Path>,
 		extra_args: &[String],
+		socket_path: impl AsRef<Path>,
 		worker_dir_path: impl AsRef<Path>,
 		security_status: SecurityStatus,
 	) -> io::Result<Self> {
@@ -241,6 +262,9 @@ impl WorkerHandle {
 			let mut args = vec![];
 			if security_status.can_enable_landlock {
 				args.push("--can-enable-landlock".to_string());
+			}
+			if security_status.can_enable_seccomp {
+				args.push("--can-enable-seccomp".to_string());
 			}
 			if security_status.can_unshare_user_namespace_and_change_root {
 				args.push("--can-unshare-user-namespace-and-change-root".to_string());
@@ -255,8 +279,11 @@ impl WorkerHandle {
 		if let Ok(value) = std::env::var("RUST_LOG") {
 			command.env("RUST_LOG", value);
 		}
+
 		let mut child = command
 			.args(extra_args)
+			.arg("--socket-path")
+			.arg(socket_path.as_ref().as_os_str())
 			.arg("--worker-dir-path")
 			.arg(worker_dir_path.as_ref().as_os_str())
 			.args(&security_args)
@@ -385,26 +412,22 @@ pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>
 /// ```
 #[derive(Debug)]
 pub struct WorkerDir {
-	pub path: PathBuf,
+	tempdir: tempfile::TempDir,
 }
 
 impl WorkerDir {
 	/// Creates a new, empty worker dir with a random name in the given cache dir.
 	pub async fn new(debug_id: &'static str, cache_dir: &Path) -> Result<Self, SpawnErr> {
 		let prefix = format!("worker-dir-{}-", debug_id);
-		let path = tmppath_in(&prefix, cache_dir).await.map_err(|_| SpawnErr::TmpPath)?;
-		tokio::fs::create_dir(&path)
-			.await
-			.map_err(|err| SpawnErr::Fs(err.to_string()))?;
-		Ok(Self { path })
+		let tempdir = tempfile::Builder::new()
+			.prefix(&prefix)
+			.tempdir_in(cache_dir)
+			.map_err(|_| SpawnErr::TmpPath)?;
+		Ok(Self { tempdir })
 	}
-}
 
-// Try to clean up the temporary worker dir at the end of the worker's lifetime. It should be wiped
-// on startup, but we make a best effort not to leave it around.
-impl Drop for WorkerDir {
-	fn drop(&mut self) {
-		let _ = std::fs::remove_dir_all(&self.path);
+	pub fn path(&self) -> &Path {
+		self.tempdir.path()
 	}
 }
 
@@ -419,7 +442,7 @@ impl Drop for WorkerDir {
 /// artifacts from previous jobs.
 pub fn clear_worker_dir_path(worker_dir_path: &Path) -> io::Result<()> {
 	fn remove_dir_contents(path: &Path) -> io::Result<()> {
-		for entry in std::fs::read_dir(&path)? {
+		for entry in std::fs::read_dir(path)? {
 			let entry = entry?;
 			let path = entry.path();
 

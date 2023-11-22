@@ -35,6 +35,7 @@ use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, Transacti
 use sp_core::{crypto::Pair, sr25519};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::OpaqueExtrinsic;
+use staging_node_cli as node_cli;
 use tokio::runtime::Handle;
 
 fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
@@ -96,7 +97,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		wasm_runtime_overrides: None,
 	};
 
-	node_cli::service::new_full_base(config, false, |_, _| ()).expect("Creates node")
+	node_cli::service::new_full_base(config, None, false, |_, _| ()).expect("Creates node")
 }
 
 fn create_accounts(num: usize) -> Vec<sr25519::Pair> {
