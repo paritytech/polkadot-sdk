@@ -16,12 +16,12 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, Block, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, Id, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, runtime_api::ParachainHost, slashing, vstaging, Block, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
@@ -255,6 +255,16 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<async_backing::BackingState>, ApiError>;
+
+	// === v8 ===
+
+	/// Gets the disabled validators at a specific block height
+	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError>;
+
+	// === v9 ===
+
+	/// Get the node features.
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -497,11 +507,18 @@ where
 		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 
-	/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 	async fn async_backing_params(
 		&self,
 		at: Hash,
 	) -> Result<async_backing::AsyncBackingParams, ApiError> {
 		self.client.runtime_api().async_backing_params(at)
+	}
+
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError> {
+		self.client.runtime_api().node_features(at)
+	}
+
+	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		self.client.runtime_api().disabled_validators(at)
 	}
 }

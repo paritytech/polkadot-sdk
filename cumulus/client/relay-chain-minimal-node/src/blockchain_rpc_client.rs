@@ -24,6 +24,7 @@ use polkadot_overseer::RuntimeApiSubsystemClient;
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, BackingState},
 	slashing,
+	vstaging::NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sp_api::{ApiError, RuntimeApiInfo};
@@ -346,6 +347,13 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Ok(self.rpc_client.parachain_host_minimum_backing_votes(at, session_index).await?)
 	}
 
+	async fn disabled_validators(
+		&self,
+		at: Hash,
+	) -> Result<Vec<polkadot_primitives::ValidatorIndex>, ApiError> {
+		Ok(self.rpc_client.parachain_host_disabled_validators(at).await?)
+	}
+
 	async fn async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
 		Ok(self.rpc_client.parachain_host_async_backing_params(at).await?)
 	}
@@ -356,6 +364,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		para_id: cumulus_primitives_core::ParaId,
 	) -> Result<Option<BackingState>, ApiError> {
 		Ok(self.rpc_client.parachain_host_para_backing_state(at, para_id).await?)
+	}
+
+	async fn node_features(&self, at: Hash) -> Result<NodeFeatures, ApiError> {
+		Ok(self.rpc_client.parachain_host_node_features(at).await?)
 	}
 }
 

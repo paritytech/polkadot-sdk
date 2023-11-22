@@ -114,10 +114,10 @@
 //! separated from the stable primitives.
 
 use crate::{
-	async_backing, slashing, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	async_backing, slashing, vstaging, AsyncBackingParams, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
 use parity_scale_codec::{Decode, Encode};
@@ -248,6 +248,7 @@ sp_api::decl_runtime_apis! {
 		#[api_version(6)]
 		fn minimum_backing_votes() -> u32;
 
+
 		/***** Added in v7: Asynchronous backing *****/
 
 		/// Returns the state of parachain backing for a given para.
@@ -257,5 +258,18 @@ sp_api::decl_runtime_apis! {
 		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 		#[api_version(7)]
 		fn async_backing_params() -> AsyncBackingParams;
+
+		/***** Added in v8 *****/
+
+		/// Returns a list of all disabled validators at the given block.
+		#[api_version(8)]
+		fn disabled_validators() -> Vec<ValidatorIndex>;
+
+		/***** Added in v9 *****/
+
+		/// Get node features.
+		/// This is a staging method! Do not use on production runtimes!
+		#[api_version(9)]
+		fn node_features() -> vstaging::NodeFeatures;
 	}
 }

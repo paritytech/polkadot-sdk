@@ -3,6 +3,7 @@ name: Check Markdown
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
 
 permissions:
   packages: read
@@ -13,9 +14,9 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - uses: actions/setup-node@v3.8.1
+      - uses: actions/setup-node@v4.0.0
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -23,8 +24,8 @@ jobs:
 
       - name: Install tooling
         run: |
-            npm install -g markdownlint-cli
-            markdownlint --version
+          npm install -g markdownlint-cli
+          markdownlint --version
 
       - name: Check Markdown
         env:

@@ -183,11 +183,13 @@ impl cumulus_pallet_solo_to_para::Config for Runtime {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
+	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = cumulus_pallet_solo_to_para::Pallet<Runtime>;
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = ();
-	type DmpMessageHandler = ();
+	// Ignore all DMP messages by enqueueing them into `()`:
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 	type ReservedDmpWeight = ();
 	type XcmpMessageHandler = ();
 	type ReservedXcmpWeight = ();
@@ -216,7 +218,10 @@ impl pallet_aura::Config for Runtime {
 impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
+	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
+	#[cfg(not(feature = "experimental"))]
+	type MinimumPeriod = ConstU64<{ parachains_common::SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
 }
 

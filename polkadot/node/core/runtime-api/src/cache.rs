@@ -20,7 +20,7 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	async_backing, slashing, vstaging, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
 	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
@@ -64,8 +64,10 @@ pub(crate) struct RequestResultCache {
 	unapplied_slashes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
+	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
+	node_features: LruMap<SessionIndex, vstaging::NodeFeatures>,
 }
 
 impl Default for RequestResultCache {
@@ -96,8 +98,10 @@ impl Default for RequestResultCache {
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			disabled_validators: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -444,6 +448,36 @@ impl RequestResultCache {
 		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
+	pub(crate) fn node_features(
+		&mut self,
+		session_index: SessionIndex,
+	) -> Option<&vstaging::NodeFeatures> {
+		self.node_features.get(&session_index).map(|f| &*f)
+	}
+
+	pub(crate) fn cache_node_features(
+		&mut self,
+		session_index: SessionIndex,
+		features: vstaging::NodeFeatures,
+	) {
+		self.node_features.insert(session_index, features);
+	}
+
+	pub(crate) fn disabled_validators(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&Vec<ValidatorIndex>> {
+		self.disabled_validators.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_disabled_validators(
+		&mut self,
+		relay_parent: Hash,
+		disabled_validators: Vec<ValidatorIndex>,
+	) {
+		self.disabled_validators.insert(relay_parent, disabled_validators);
+	}
+
 	pub(crate) fn para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
@@ -520,6 +554,8 @@ pub(crate) enum RequestResult {
 		slashing::OpaqueKeyOwnershipProof,
 		Option<()>,
 	),
+	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
+	NodeFeatures(SessionIndex, vstaging::NodeFeatures),
 }

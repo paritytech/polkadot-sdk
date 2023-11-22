@@ -33,8 +33,8 @@ mod storage_alias;
 mod transactional;
 mod tt_macro;
 
-use frame_support_procedural_tools::generate_crate_access_2018;
-use macro_magic::import_tokens_attr;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
+use macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use std::{cell::RefCell, str::FromStr};
@@ -751,12 +751,12 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// Items that lack a `syn::Ident` for whatever reason are first checked to see if they exist,
 /// verbatim, in the local/destination trait before they are copied over, so you should not need to
 /// worry about collisions between identical unnamed items.
-#[import_tokens_attr {
+#[import_tokens_attr_verbatim {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_access_from_frame_or_crate("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
@@ -864,7 +864,12 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	let item_impl = syn::parse_macro_input!(tokens as ItemImpl);
 
 	// internally wrap macro_magic's `#[export_tokens]` macro
-	match macro_magic::mm_core::export_tokens_internal(attrs, item_impl.to_token_stream(), true) {
+	match macro_magic::mm_core::export_tokens_internal(
+		attrs,
+		item_impl.to_token_stream(),
+		true,
+		false,
+	) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -974,18 +979,23 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded by `Get`
-/// from [`pallet::config`](`macro@config`) into metadata, e.g.:
 ///
-/// ```ignore
-/// #[pallet::config]
-/// pub trait Config: frame_system::Config {
-/// 	#[pallet::constant]
-/// 	type Foo: Get<u32>;
-/// }
-/// ```
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant`.
 #[proc_macro_attribute]
 pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant_name`.
+#[proc_macro_attribute]
+pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1094,6 +1104,16 @@ pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::call`.
+#[proc_macro_attribute]
+pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
 /// Each dispatchable may also be annotated with the `#[pallet::call_index($idx)]` attribute,
 /// which explicitly defines the codec index for the dispatchable function in the `Call` enum.
 ///
@@ -1134,6 +1154,36 @@ pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 /// which returns the dispatchable metadata.
 #[proc_macro_attribute]
 pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
+/// which explicitly defines the condition for the dispatchable to be feeless.
+///
+/// The arguments for the closure must be the referenced arguments of the dispatchable function.
+///
+/// The closure must return `bool`.
+///
+/// ### Example
+/// ```ignore
+/// #[pallet::feeless_if(|_origin: &OriginFor<T>, something: &u32| -> bool {
+/// 		*something == 0
+/// 	})]
+/// pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
+///     ....
+/// }
+/// ```
+///
+/// Please note that this only works for signed dispatchables and requires a signed extension
+/// such as `SkipCheckIfFeeless` as defined in `pallet-skip-feeless-payment` to wrap the existing
+/// payment extension. Else, this is completely ignored and the dispatchable is still charged.
+///
+/// ### Macro expansion
+///
+/// The macro implements the `CheckIfFeeless` trait on the dispatchable and calls the corresponding
+/// closure in the implementation.
+#[proc_macro_attribute]
+pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1263,60 +1313,11 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::storage]` attribute lets you define some abstract storage inside of runtime
-/// storage and also set its metadata. This attribute can be used multiple times.
 ///
-/// Item should be defined as:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName<$some_generic> $optional_where_clause
-/// 	= $StorageType<$generic_name = $some_generics, $other_name = $some_other, ...>;
-/// ```
-///
-/// or with unnamed generic:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName<$some_generic> $optional_where_clause
-/// 	= $StorageType<_, $some_generics, ...>;
-/// ```
-///
-/// I.e. it must be a type alias, with generics: `T` or `T: Config`. The aliased type must be
-/// one of `StorageValue`, `StorageMap` or `StorageDoubleMap`. The generic arguments of the
-/// storage type can be given in two manners: named and unnamed. For named generic arguments,
-/// the name for each argument should match the name defined for it on the storage struct:
-/// * `StorageValue` expects `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `CountedStorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageDoubleMap` expects `Hasher1`, `Key1`, `Hasher2`, `Key2`, `Value` and optionally
-///   `QueryKind` and `OnEmpty`.
-///
-/// For unnamed generic arguments: Their first generic must be `_` as it is replaced by the
-/// macro and other generic must declared as a normal generic type declaration.
-///
-/// The `Prefix` generic written by the macro is generated using
-/// `PalletInfo::name::<Pallet<..>>()` and the name of the storage type. E.g. if runtime names
-/// the pallet "MyExample" then the storage `type Foo<T> = ...` should use the prefix:
-/// `Twox128(b"MyExample") ++ Twox128(b"Foo")`.
-///
-/// For the `CountedStorageMap` variant, the `Prefix` also implements
-/// `CountedStorageMapInstance`. It also associates a `CounterPrefix`, which is implemented the
-/// same as above, but the storage prefix is prepend with `"CounterFor"`. E.g. if runtime names
-/// the pallet "MyExample" then the storage `type Foo<T> = CountedStorageaMap<...>` will store
-/// its counter at the prefix: `Twox128(b"MyExample") ++ Twox128(b"CounterForFoo")`.
-///
-/// E.g:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// pub(super) type MyStorage<T> = StorageMap<Hasher = Blake2_128Concat, Key = u32, Value = u32>;
-/// ```
-///
-/// In this case the final prefix used by the map is `Twox128(b"MyExample") ++
-/// Twox128(b"OtherName")`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::storage`.
 #[proc_macro_attribute]
 pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1419,6 +1420,9 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+///
+/// ---
+///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_config`.
 #[proc_macro_attribute]
@@ -1426,6 +1430,9 @@ pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+///
+/// ---
+///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_build`.
 #[proc_macro_attribute]
@@ -1565,7 +1572,7 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	let _mod = parse_macro_input!(tokens_clone as ItemMod);
 
 	// use macro_magic's export_tokens as the internal implementation otherwise
-	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false) {
+	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false, true) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -1607,9 +1614,9 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 #[import_tokens_attr {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_access_from_frame_or_crate("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()

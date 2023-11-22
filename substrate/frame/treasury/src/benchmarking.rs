@@ -336,5 +336,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	impl_benchmark_test_suite!(Treasury, crate::tests::new_test_ext(), crate::tests::Test);
+	impl_benchmark_test_suite!(
+		Treasury,
+		crate::tests::ExtBuilder::default().build(),
+		crate::tests::Test
+	);
 }
