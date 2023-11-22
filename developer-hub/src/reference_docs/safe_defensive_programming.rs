@@ -135,7 +135,7 @@
 //!
 //! Our main objective in runtime development is to reduce the likelihood of any *unintended* or
 //! *undefined* behavior. Intentional and predictable design should be our first and foremost
-//! property for ensuring a well running, safely designed system. Both Rust and Substrate both
+//! property for ensuring a well running, safely designed system. Both Rust and Substrate
 //! provide safe ways to deal with numbers and alternatives to floating point arithmetic.
 //!
 //! Rather they (should) use fixed-point arithmetic to mitigate the potential for inaccuracy,
