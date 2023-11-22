@@ -40,16 +40,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::traits::{
-	fungible::{hold::Balanced as FnBalanced, Inspect as FnInspect, MutateHold as FnMutateHold},
+	fungible::{hold::Balanced as FunBalanced, Inspect as FunInspect, MutateHold as FunMutateHold},
 	tokens::{fungible::Credit, Precision},
 	OnUnbalanced,
 };
-pub use pallet::*;
+use pallet::*;
 use sp_runtime::traits::{Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Balance;
+type BalanceOf<T> = <<T as Config>::Currency as FunInspect<AccountIdOf<T>>>::Balance;
 type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -73,8 +73,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
-		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FnBalanced<Self::AccountId>;
+		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunBalanced<Self::AccountId>;
 
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -231,11 +231,8 @@ pub mod pallet {
 			// Grab their deposit (and check that they have one).
 			let deposit = <NameOf<T>>::take(&target).ok_or(Error::<T>::Unnamed)?.1;
 			// Slash their deposit from them.
-			let (imbalance, non_slashed) = <T::Currency as FnBalanced<T::AccountId>>::slash(
-				&HoldReason::Nicks.into(),
-				&target,
-				deposit,
-			);
+			let (imbalance, non_slashed) =
+				T::Currency::slash(&HoldReason::Nicks.into(), &target, deposit);
 			// Handle slashed amount.
 			T::OnSlash::on_unbalanced(imbalance);
 
