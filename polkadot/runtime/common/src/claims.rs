@@ -29,7 +29,9 @@ use scale_info::TypeInfo;
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
-	traits::{CheckedSub, DispatchInfoOf, SignedExtension, Zero},
+	traits::{
+		CheckedSub, DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension, Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -641,7 +643,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
 	}
 
 	// <weight>
@@ -665,6 +667,60 @@ where
 			}
 		}
 		Ok(ValidTransaction::default())
+	}
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for PrevalidateAttests<T>
+where
+	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+	const IDENTIFIER: &'static str = "PrevalidateAttests";
+	type Implicit = ();
+	type Pre = ();
+	type Val = ();
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		Ok(())
+	}
+
+	// <weight>
+	// The weight of this logic is included in the `attest` dispatchable.
+	// </weight>
+	fn validate(
+		&self,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		let who = frame_system::ensure_signed(origin.clone())
+			.map_err(|_| InvalidTransaction::BadSigner)?;
+		if let Some(local_call) = call.is_sub_type() {
+			if let Call::attest { statement: attested_statement } = local_call {
+				let signer = Preclaims::<T>::get(who)
+					.ok_or(InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()))?;
+				if let Some(s) = Signing::<T>::get(signer) {
+					let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
+					ensure!(&attested_statement[..] == s.to_text(), e);
+				}
+			}
+		}
+		Ok((ValidTransaction::default(), (), origin))
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
 	}
 }
 
@@ -1096,8 +1152,8 @@ mod tests {
 			});
 			let di = c.get_dispatch_info();
 			assert_eq!(di.pays_fee, Pays::No);
-			let r = p.validate(&42, &c, &di, 20);
-			assert_eq!(r, TransactionValidity::Ok(ValidTransaction::default()));
+			let r = TransactionExtension::validate(&p, Some(42).into(), &c, &di, 20, &[]);
+			assert_eq!(r.unwrap().0, ValidTransaction::default());
 		});
 	}
 
@@ -1109,13 +1165,13 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate(&42, &c, &di, 20);
+			let r = TransactionExtension::validate(&p, Some(42).into(), &c, &di, 20, &[]);
 			assert!(r.is_err());
 			let c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate(&69, &c, &di, 20);
+			let r = TransactionExtension::validate(&p, Some(69).into(), &c, &di, 20, &[]);
 			assert!(r.is_err());
 		});
 	}
