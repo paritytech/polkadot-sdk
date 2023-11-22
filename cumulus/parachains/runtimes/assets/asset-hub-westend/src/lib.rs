@@ -917,6 +917,35 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
+/// All migrations that will run on the next runtime upgrade.
+///
+/// This contains the combined migrations of the last 10 releases. It allows to skip runtime
+/// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
+#[rustfmt::skip]
+pub type Migrations = (
+	migrations::V0_09_20,
+	migrations::V1_04_00,
+	migrations::Unreleased
+);
+
+/// The runtime migrations per release.
+#[allow(deprecated, missing_docs)]
+pub mod migrations {
+	use super::*;
+
+	pub type V0_09_20 = (pallet_nfts::migration::v1::MigrateToV1<Runtime>,);
+
+	pub type V1_04_00 = ();
+
+	pub type Unreleased = (
+		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+		migrations::NativeAssetParents0ToParents1Migration<Runtime>,
+		pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+		InitStorageVersions,
+    	DeleteUndecodableStorage,
+	);
+}
+
 /// Asset Hub Westend has some undecodable storage, delete it.
 /// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.
 ///

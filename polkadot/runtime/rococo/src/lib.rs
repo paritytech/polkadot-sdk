@@ -1467,6 +1467,7 @@ pub type UncheckedExtrinsic =
 ///
 /// This contains the combined migrations of the last 10 releases. It allows to skip runtime
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
+#[rustfmt::skip]
 pub type Migrations = (
 	migrations::V1_04_00,
 	migrations::V1_05_00,
