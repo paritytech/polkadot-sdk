@@ -23,6 +23,8 @@ use std::{path::PathBuf, str::FromStr};
 pub enum CoretimeRuntimeType {
 	// Live
 	Rococo,
+	// Local
+	RococoLocal,
 	// Benchmarks
 	RococoDevelopment,
 
@@ -35,6 +37,7 @@ impl FromStr for CoretimeRuntimeType {
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
 			rococo::CORETIME_ROCOCO => Ok(CoretimeRuntimeType::Rococo),
+			rococo::CORETIME_ROCOCO_LOCAL => Ok(CoretimeRuntimeType::RococoLocal),
 			rococo::CORETIME_ROCOCO_DEVELOPMENT => Ok(CoretimeRuntimeType::RococoDevelopment),
 			westend::CORETIME_WESTEND => Ok(CoretimeRuntimeType::Westend),
 			_ => Err(format!("Value '{}' is not configured yet", value)),
@@ -47,7 +50,9 @@ impl CoretimeRuntimeType {
 
 	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			CoretimeRuntimeType::Rococo | CoretimeRuntimeType::RococoDevelopment =>
+			CoretimeRuntimeType::Rococo |
+			CoretimeRuntimeType::RococoLocal |
+			CoretimeRuntimeType::RococoDevelopment =>
 				Ok(Box::new(rococo::CoretimeChainSpec::from_json_file(path)?)),
 			CoretimeRuntimeType::Westend =>
 				Ok(Box::new(westend::CoretimeChainSpec::from_json_file(path)?)),
@@ -60,7 +65,13 @@ impl CoretimeRuntimeType {
 				Ok(Box::new(rococo::CoretimeChainSpec::from_json_bytes(
 					&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
 				)?)),
-			CoretimeRuntimeType::RococoDevelopment => Ok(Box::new(rococo::development_config(
+			CoretimeRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
+				rococo::CORETIME_ROCOCO_DEVELOPMENT,
+				"Rococo Coretime Local",
+				"rococo-local",
+				ParaId::new(1005),
+			))),
+			CoretimeRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
 				rococo::CORETIME_ROCOCO_DEVELOPMENT,
 				"Rococo Coretime Development",
 				"rococo-dev",
@@ -98,6 +109,7 @@ pub mod rococo {
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
+	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
 	const CORETIME_ROCOCO_ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
@@ -105,7 +117,7 @@ pub mod rococo {
 		sc_service::GenericChainSpec<coretime_rococo_runtime::RuntimeGenesisConfig, Extensions>;
 	pub type RuntimeApi = coretime_rococo_runtime::RuntimeApi;
 
-	pub fn development_config(
+	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
@@ -124,7 +136,7 @@ pub mod rococo {
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))
-		.with_chain_type(ChainType::Development)
+		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(genesis(
 			// initial collators.
 			vec![(
