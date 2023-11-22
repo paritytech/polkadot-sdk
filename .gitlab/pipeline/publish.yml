@@ -77,7 +77,7 @@ publish-rustdoc:
       --format=docker
       --build-arg VCS_REF="${CI_COMMIT_SHA}"
       --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-      --build-arg IMAGE_NAME="${IMAGE_NAME}"\
+      --build-arg IMAGE_NAME="${IMAGE_NAME}"
       --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}"
       --tag "$IMAGE_NAME:${DOCKER_IMAGES_VERSION}"
       --file ${DOCKERFILE} .
