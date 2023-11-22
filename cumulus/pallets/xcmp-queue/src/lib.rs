@@ -139,8 +139,13 @@ pub mod pallet {
 		/// otherwise the congestion control protocol will not work correctly and messages may be
 		/// dropped.
 		#[pallet::constant]
-		type MaxOutboundActive: Get<u32>;
+		type MaxActiveOutboundChannels: Get<u32>;
 
+		/// The maximal page size for HRMP message pages.
+		///
+		/// A lower limit can be set dynamically, but this is the hard-limit for the PoV worst case
+		/// benchmarking. The limit for the size of a message is slightly below this, since some
+		/// overhead for encoding the format is incurred.
 		#[pallet::constant]
 		type MaxPageSize: Get<u32>;
 
@@ -311,8 +316,11 @@ pub mod pallet {
 	/// case of the need to send a high-priority signal message this block.
 	/// The bool is true if there is a signal message waiting to be sent.
 	#[pallet::storage]
-	pub(super) type OutboundXcmpStatus<T: Config> =
-		StorageValue<_, BoundedVec<OutboundChannelDetails, T::MaxOutboundActive>, ValueQuery>;
+	pub(super) type OutboundXcmpStatus<T: Config> = StorageValue<
+		_,
+		BoundedVec<OutboundChannelDetails, T::MaxActiveOutboundChannels>,
+		ValueQuery,
+	>;
 
 	/// The messages outbound in a given XCMP channel.
 	#[pallet::storage]

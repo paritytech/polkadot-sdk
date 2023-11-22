@@ -30,7 +30,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -1051,6 +1051,14 @@ impl<T: Config> FeeTracker for Pallet<T> {
 				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
 			*f
 		})
+	}
+}
+
+impl<T: Config> ListChannelInfos for Pallet<T> {
+	fn outgoing_channels() -> Vec<ParaId> {
+		let Some(state) = Self::relevant_messaging_state() else { return Vec::new() };
+
+		state.egress_channels.into_iter().map(|(id, _)| id).collect()
 	}
 }
 

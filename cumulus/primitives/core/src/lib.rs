@@ -136,6 +136,11 @@ pub trait GetChannelInfo {
 	fn get_channel_info(id: ParaId) -> Option<ChannelInfo>;
 }
 
+/// List all open outgoing channels.
+pub trait ListChannelInfos {
+	fn outgoing_channels() -> Vec<ParaId>;
+}
+
 /// Something that should be called when sending an upward message.
 pub trait UpwardMessageSender {
 	/// Send the given UMP message; return the expected number of blocks before the message will
