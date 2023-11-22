@@ -133,11 +133,11 @@ pub mod pallet {
 
 		/// Maximal number of outbound XCMP channels that can have messages queued at the same time.
 		///
-		/// If this is reached, then no further messages can be sent to channels that do not yet have
-		/// a message queued. This should be set the the expected maximum of outbound channels which
-		/// is determined by [`Self::ChannelInfo`]. It is important to set this correctly, since
-		/// otherwise the congestion control protocol will not work as intended and messages may be
-		/// dropped.
+		/// If this is reached, then no further messages can be sent to channels that do not yet
+		/// have a message queued. This should be set the the expected maximum of outbound channels
+		/// which is determined by [`Self::ChannelInfo`]. It is important to set this correctly,
+		/// since otherwise the congestion control protocol will not work as intended and messages
+		/// may be dropped.
 		#[pallet::constant]
 		type MaxActiveOutboundChannels: Get<u32>;
 
@@ -597,7 +597,7 @@ impl<T: Config> Pallet<T> {
 
 		let page = BoundedVec::try_from((XcmpMessageFormat::Signals, signal).encode())
 			.map_err(|_| Error::<T>::TooBig)?;
-		
+
 		<SignalMessages<T>>::insert(dest, page);
 		<OutboundXcmpStatus<T>>::put(s);
 		Ok(())

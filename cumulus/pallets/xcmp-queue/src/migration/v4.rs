@@ -18,10 +18,7 @@
 
 use crate::*;
 use cumulus_primitives_core::ListChannelInfos;
-use frame_support::{
-	pallet_prelude::*,
-	traits::{Get, OnRuntimeUpgrade},
-};
+use frame_support::{pallet_prelude::*, traits::OnRuntimeUpgrade};
 
 /// Configs needed to run the V4 migration.
 pub trait V4Config: Config {
@@ -29,6 +26,10 @@ pub trait V4Config: Config {
 	type ChannelList: ListChannelInfos;
 }
 
+/// Ensures that the storage migrates cleanly to V4.
+///
+/// The migration itself is a no-op, but it checks that none of the `BoundedVec`s would truncate on
+/// the next decode after the upgrade was applied.
 pub type MigrateV3ToV4<T> = frame_support::migrations::VersionedMigration<
 	3,
 	4,
@@ -72,12 +73,13 @@ impl<T: V4Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 		// We dont need any front-run protection for this since channels are opened by governance.
-		let n = v3::OutboundXcmpStatus::<T>::get().len() as u32;
-		ensure!(n <= T::MaxActiveOutboundChannels::get(), "Too many outbound channels.");
+		ensure!(
+			v3::OutboundXcmpStatus::<T>::get().len() as u32 <= T::MaxActiveOutboundChannels::get(),
+			"Too many outbound channels."
+		);
 
-		// Check if any channels have a too large message max size.
+		// Check if any channels have a too large message max sizes.
 		let max_msg_len = T::MaxPageSize::get() - XcmpMessageFormat::max_encoded_len() as u32;
-
 		for channel in T::ChannelList::outgoing_channels() {
 			let info = T::ChannelInfo::get_channel_info(channel)
 				.expect("All listed channels must provide info");
@@ -98,7 +100,6 @@ impl<T: V4Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {
 				"Too long message in storage. Manual intervention required."
 			);
 		}
-
 		for page in v3::SignalMessages::<T>::iter_values() {
 			ensure!(
 				page.len() < T::MaxPageSize::get() as usize,
