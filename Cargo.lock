@@ -12591,6 +12591,7 @@ dependencies = [
  "rand 0.8.5",
  "rococo-runtime",
  "rusty-fork",
+ "sc-sysinfo",
  "slotmap",
  "sp-core",
  "sp-maybe-compressed-blob",
