@@ -292,7 +292,7 @@
 //! <details>
 //!  <summary><b>Solution: Checked</b></summary>
 //! For the proposal IDs, proper handling via `checked` math would've been much more suitable,
-//! Saturating could've been used - but it also would've 'failed' silently.  Using `checked_add` to
+//! Saturating could've been used - but it also would've 'failed' silently. Using `checked_add` to
 //! ensure that the next proposal ID would've been valid would've been a viable way to let the user
 //! know the state of their proposal:
 //!
