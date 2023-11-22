@@ -28,7 +28,7 @@ const SECURE_MODE_ANNOUNCEMENT: &'static str =
 
 /// Run checks for supported security features.
 ///
-/// # Return
+/// # Returns
 ///
 /// Returns the set of security features that we were able to enable. If an error occurs while
 /// enabling a security feature we set the corresponding status to `false`.
@@ -158,18 +158,15 @@ async fn check_can_unshare_user_namespace_and_change_root(
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			let cache_dir_tempdir =
-				crate::worker_intf::tmppath_in("check-can-unshare", cache_path)
-				.await
-				.map_err(
-					|err|
-					SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						format!("could not create a temporary directory in {:?}: {}", cache_path, err)
-					)
-				)?;
+			let cache_dir_tempdir = tempfile::Builder::new()
+				.prefix("check-can-unshare-")
+				.tempdir_in(cache_path)
+				.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+					format!("could not create a temporary directory in {:?}: {}", cache_path, err)
+				))?;
 			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-unshare-user-namespace-and-change-root")
-				.arg(cache_dir_tempdir)
+				.arg(cache_dir_tempdir.path())
 				.output()
 				.await
 			{
@@ -178,9 +175,15 @@ async fn check_can_unshare_user_namespace_and_change_root(
 					let stderr = std::str::from_utf8(&output.stderr)
 						.expect("child process writes a UTF-8 string to stderr; qed")
 						.trim();
-					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						format!("not available: {}", stderr)
-					))
+					if stderr.is_empty() {
+						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+							"not available".into()
+						))
+					} else {
+						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+							format!("not available: {}", stderr)
+						))
+					}
 				},
 				Err(err) =>
 					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
@@ -208,16 +211,25 @@ async fn check_landlock(
 		if #[cfg(target_os = "linux")] {
 			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-enable-landlock")
-				.status()
+				.output()
 				.await
 			{
-				Ok(status) if status.success() => Ok(()),
-				Ok(_status) => {
+				Ok(output) if output.status.success() => Ok(()),
+				Ok(output) => {
 					let abi =
 						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-					Err(SecureModeError::CannotEnableLandlock(
-						format!("landlock ABI {} not available", abi)
-					))
+					let stderr = std::str::from_utf8(&output.stderr)
+						.expect("child process writes a UTF-8 string to stderr; qed")
+						.trim();
+					if stderr.is_empty() {
+						Err(SecureModeError::CannotEnableLandlock(
+							format!("landlock ABI {} not available", abi)
+						))
+					} else {
+						Err(SecureModeError::CannotEnableLandlock(
+							format!("not available: {}", stderr)
+						))
+					}
 				},
 				Err(err) =>
 					Err(SecureModeError::CannotEnableLandlock(
@@ -238,7 +250,7 @@ async fn check_landlock(
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
 async fn check_seccomp(
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+	#[cfg_attr(not(all(target_os = "linux", target_arch = "x86_64")), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
@@ -247,14 +259,24 @@ async fn check_seccomp(
 				if #[cfg(target_arch = "x86_64")] {
 					match tokio::process::Command::new(prepare_worker_program_path)
 						.arg("--check-can-enable-seccomp")
-						.status()
+						.output()
 						.await
 					{
-						Ok(status) if status.success() => Ok(()),
-						Ok(_status) =>
-							Err(SecureModeError::CannotEnableSeccomp(
-								"not available".into()
-							)),
+						Ok(output) if output.status.success() => Ok(()),
+						Ok(output) => {
+							let stderr = std::str::from_utf8(&output.stderr)
+								.expect("child process writes a UTF-8 string to stderr; qed")
+								.trim();
+							if stderr.is_empty() {
+								Err(SecureModeError::CannotEnableSeccomp(
+									"not available".into()
+								))
+							} else {
+								Err(SecureModeError::CannotEnableSeccomp(
+									format!("not available: {}", stderr)
+								))
+							}
+						},
 						Err(err) =>
 							Err(SecureModeError::CannotEnableSeccomp(
 								format!("could not start child process: {}", err)
@@ -320,25 +342,25 @@ impl AuditLogFile {
 	}
 }
 
-/// Check if a seccomp violation occurred for the given worker. As the syslog may be in a different
-/// location, or seccomp auditing may be disabled, this function provides a best-effort attempt
-/// only.
+/// Check if a seccomp violation occurred for the given job process. As the syslog may be in a
+/// different location, or seccomp auditing may be disabled, this function provides a best-effort
+/// attempt only.
 ///
 /// The `audit_log_file` must have been obtained before the job started. It only allows reading
 /// entries that were written since it was obtained, so that we do not consider events from previous
 /// processes with the same pid. This can still be racy, but it's unlikely and fine for a
 /// best-effort attempt.
-pub async fn check_seccomp_violations_for_worker(
+pub async fn check_seccomp_violations_for_job(
 	audit_log_file: Option<AuditLogFile>,
-	worker_pid: u32,
+	job_pid: i32,
 ) -> Vec<u32> {
-	let audit_event_pid_field = format!("pid={worker_pid}");
+	let audit_event_pid_field = format!("pid={job_pid}");
 
 	let audit_log_file = match audit_log_file {
 		Some(file) => {
-			gum::debug!(
+			gum::trace!(
 				target: LOG_TARGET,
-				%worker_pid,
+				%job_pid,
 				audit_log_path = ?file.path,
 				"checking audit log for seccomp violations",
 			);
@@ -347,7 +369,7 @@ pub async fn check_seccomp_violations_for_worker(
 		None => {
 			gum::warn!(
 				target: LOG_TARGET,
-				%worker_pid,
+				%job_pid,
 				"could not open either {AUDIT_LOG_PATH} or {SYSLOG_PATH} for reading audit logs"
 			);
 			return vec![]
