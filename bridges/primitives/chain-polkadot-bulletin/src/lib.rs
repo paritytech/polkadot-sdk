@@ -37,7 +37,12 @@ use frame_support::{
 };
 use frame_system::limits;
 use scale_info::TypeInfo;
-use sp_runtime::{traits::DispatchInfoOf, transaction_validity::TransactionValidityError, Perbill};
+use sp_runtime::{
+	impl_tx_ext_default,
+	traits::{DispatchInfoOf, Dispatchable, TransactionExtension},
+	transaction_validity::TransactionValidityError,
+	Perbill,
+};
 
 // This chain reuses most of Polkadot primitives.
 pub use bp_polkadot_core::{
@@ -112,6 +117,21 @@ impl sp_runtime::traits::SignedExtension for SignedExtension {
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(())
 	}
+}
+
+impl<C> TransactionExtension<C> for SignedExtension
+where
+	C: Dispatchable,
+{
+	const IDENTIFIER: &'static str = "Not needed.";
+	type Implicit = <SignedExtensionSchema as TransactionExtension<C>>::Implicit;
+	type Pre = ();
+	type Val = ();
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		<SignedExtensionSchema as TransactionExtension<C>>::implicit(&self.0)
+	}
+	impl_tx_ext_default!(C; validate prepare);
 }
 
 impl SignedExtension {
