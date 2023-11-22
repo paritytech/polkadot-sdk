@@ -875,7 +875,7 @@ fn report_fork_equivocation_vote_current_set_works() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(era, equivocation_validator_id),
+			Staking::eras_stakers(era, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -989,7 +989,7 @@ fn report_fork_equivocation_vote_old_set_works() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(era, equivocation_validator_id),
+			Staking::eras_stakers(era, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -2312,7 +2312,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_ids[0]), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_ids[0]), 0);
 		assert_eq!(
-			Staking::eras_stakers(era, equivocation_validator_ids[0]),
+			Staking::eras_stakers(era, &equivocation_validator_ids[0]),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
