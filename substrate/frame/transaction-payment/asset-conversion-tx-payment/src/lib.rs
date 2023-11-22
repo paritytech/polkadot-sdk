@@ -56,7 +56,10 @@ use frame_support::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, Zero},
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, TransactionExtension,
+		Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -295,7 +298,7 @@ where
 						asset_id.is_none(),
 						"For that payment type the `asset_id` should be None"
 					);
-					pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch(
+					<pallet_transaction_payment::ChargeTransactionPayment::<T> as SignedExtension>::post_dispatch(
 						Some((tip, who, already_withdrawn)),
 						info,
 						post_info,
@@ -342,6 +345,138 @@ where
 					debug_assert!(tip.is_zero(), "tip should be zero if initial fee was zero.");
 				},
 			}
+		}
+
+		Ok(())
+	}
+}
+
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	AssetBalanceOf<T>: Send + Sync,
+	BalanceOf<T>: Send
+		+ Sync
+		+ From<u64>
+		+ Into<ChargeAssetBalanceOf<T>>
+		+ Into<ChargeAssetLiquidityOf<T>>
+		+ From<ChargeAssetLiquidityOf<T>>,
+	ChargeAssetIdOf<T>: Send + Sync,
+{
+	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
+	type Implicit = ();
+	type Val = (
+		// tip
+		BalanceOf<T>,
+		// who paid the fee
+		T::AccountId,
+		// imbalance resulting from withdrawing the fee
+		InitialPayment<T>,
+		// asset_id for the transaction payment
+		Option<ChargeAssetIdOf<T>>,
+	);
+	type Pre = Self::Val;
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		Ok(())
+	}
+
+	fn validate(
+		&self,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		let who = frame_system::ensure_signed(origin.clone())
+			.map_err(|_| InvalidTransaction::BadSigner)?;
+		use pallet_transaction_payment::ChargeTransactionPayment;
+		let (fee, imbalance) = self.withdraw_fee(&who, call, info, len)?;
+		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
+		let validity = ValidTransaction { priority, ..Default::default() };
+		let val = (self.tip, who.clone(), imbalance, self.asset_id.clone());
+		Ok((validity, val, origin))
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		let who = frame_system::ensure_signed(origin.clone())
+			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, len)?;
+		// Could just pass `val` here if `validate` is always called.
+		Ok((self.tip, who, initial_payment, self.asset_id))
+	}
+
+	fn post_dispatch(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		let (tip, who, initial_payment, asset_id) = pre;
+		match initial_payment {
+			InitialPayment::Native(already_withdrawn) => {
+				debug_assert!(
+					asset_id.is_none(),
+					"For that payment type the `asset_id` should be None"
+				);
+				<pallet_transaction_payment::ChargeTransactionPayment::<T> as TransactionExtension<_>>::post_dispatch(
+					(tip, who, already_withdrawn),
+					info,
+					post_info,
+					len,
+					result,
+				)?;
+			},
+			InitialPayment::Asset(already_withdrawn) => {
+				debug_assert!(
+					asset_id.is_some(),
+					"For that payment type the `asset_id` should be set"
+				);
+				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
+					len as u32, info, post_info, tip,
+				);
+
+				if let Some(asset_id) = asset_id {
+					let (used_for_fee, received_exchanged, asset_consumed) = already_withdrawn;
+					let converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
+						&who,
+						info,
+						post_info,
+						actual_fee.into(),
+						tip.into(),
+						used_for_fee.into(),
+						received_exchanged.into(),
+						asset_id.clone(),
+						asset_consumed.into(),
+					)?;
+
+					Pallet::<T>::deposit_event(Event::<T>::AssetTxFeePaid {
+						who,
+						actual_fee: converted_fee,
+						tip,
+						asset_id,
+					});
+				}
+			},
+			InitialPayment::Nothing => {
+				// `actual_fee` should be zero here for any signed extrinsic. It would be
+				// non-zero here in case of unsigned extrinsics as they don't pay fees but
+				// `compute_actual_fee` is not aware of them. In both cases it's fine to just
+				// move ahead without adjusting the fee, though, so we do nothing.
+				debug_assert!(tip.is_zero(), "tip should be zero if initial fee was zero.");
+			},
 		}
 
 		Ok(())
