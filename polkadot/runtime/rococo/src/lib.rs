@@ -21,6 +21,7 @@
 #![recursion_limit = "512"]
 
 use pallet_nis::WithMaximumOf;
+use pallet_xcm::EnsureXcm;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
 	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
@@ -31,7 +32,7 @@ use primitives::{
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
-	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
+	assigned_slots, auctions, claims, coretime, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
@@ -69,9 +70,9 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
-		ProcessMessageError, StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EnsureOrigin,
+		EverythingBut, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp,
+		ProcessMessage, ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -125,6 +126,7 @@ use governance::{
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
+use xcm_config::OnlyBroker;
 
 #[cfg(test)]
 mod tests;
@@ -992,6 +994,12 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 }
 
+impl coretime::Config for Runtime {
+	type Currency = Balances;
+	//type WeightInfo = weights::runtime_coretime::WeightInfo<Runtime>;
+	type ExternalBrokerOrigin = EnsureXcm<OnlyBroker>;
+}
+
 impl parachains_assigner_bulk::Config for Runtime {}
 
 impl parachains_assigner_parachains::Config for Runtime {}
@@ -1393,6 +1401,7 @@ construct_runtime! {
 		Slots: slots::{Pallet, Call, Storage, Event<T>} = 71,
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 72,
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 73,
+		Coretime: coretime::{Pallet, Call} = 74,
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
