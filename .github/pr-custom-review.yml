@@ -18,14 +18,26 @@ rules:
     check_type: changed_files
     condition:
       include: .*
-      # excluding files from 'Runtime files' and 'CI files' rules
-      exclude: ^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^cumulus/parachains/common/src/[^/]+\.rs$|^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))|^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$|^\.gitlab-ci\.yml|^docker/.*|^\.github/.*|^\.gitlab/.*|^\.config/nextest.toml|^\.cargo/.*
+      # excluding files from 'Runtime files {relay, system para}' and 'CI files' rules
+      exclude: ^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^cumulus/parachains/common/src/[^/]+\.rs$|^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))|^\.gitlab-ci\.yml|^docker/.*|^\.github/.*|^\.gitlab/.*|^\.config/nextest.toml|^\.cargo/.*
     min_approvals: 2
     teams:
       - core-devs
 
-  # cumulus
-  - name: Runtime files cumulus
+  # Relays
+  - name: Runtime files relay chains
+    check_type: changed_files
+    condition: ^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$
+    all_distinct:
+      - min_approvals: 1
+        teams:
+          - locks-review
+      - min_approvals: 1
+        teams:
+          - polkadot-review
+
+  # System Parachains
+  - name: Runtime files system parachains
     check_type: changed_files
     condition: ^cumulus/parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$|^cumulus/parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$|^cumulus/parachains/common/src/[^/]+\.rs$
     all_distinct:
@@ -44,8 +56,7 @@ rules:
     teams:
       - bridges-core
 
-  # substrate
-
+  # frame
   - name: FRAME coders substrate
     check_type: changed_files
     condition:
