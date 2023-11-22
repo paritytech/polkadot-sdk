@@ -2005,6 +2005,13 @@
 <a href="#2005" id="2005">2005</a>
 <a href="#2006" id="2006">2006</a>
 <a href="#2007" id="2007">2007</a>
+<a href="#2008" id="2008">2008</a>
+<a href="#2009" id="2009">2009</a>
+<a href="#2010" id="2010">2010</a>
+<a href="#2011" id="2011">2011</a>
+<a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2345,9 +2352,8 @@
 
 		<span class="kw">let </span>dest = <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()));
 		<span class="kw">let </span>maybe_imbalance = <span class="kw">match </span>dest {
-			RewardDestination::Controller =&gt; <span class="self">Self</span>::bonded(stash)
-				.map(|controller| T::Currency::deposit_creating(<span class="kw-2">&amp;</span>controller, amount)),
-			RewardDestination::Stash =&gt; T::Currency::deposit_into_existing(stash, amount).ok(),
+			RewardDestination::Stash  =&gt;
+				T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked =&gt; <span class="self">Self</span>::ledger(Stash(stash.clone()))
 				.and_then(|<span class="kw-2">mut </span>ledger| {
 					ledger.active += amount;
@@ -2364,6 +2370,14 @@
 			RewardDestination::Account(dest_account) =&gt;
 				<span class="prelude-val">Some</span>(T::Currency::deposit_creating(<span class="kw-2">&amp;</span>dest_account, amount)),
 			RewardDestination::None =&gt; <span class="prelude-val">None</span>,
+			<span class="attr">#[allow(deprecated)]
+			</span>RewardDestination::Controller =&gt; <span class="self">Self</span>::bonded(stash)
+					.map(|controller| {
+						<span class="macro">defensive!</span>(<span class="string">&quot;Paying out controller as reward destination which is deprecated and should be migrated&quot;</span>);
+						<span class="comment">// This should never happen once payees with a `Controller` variant have been migrated.
+						// But if it does, just pay the controller account.
+						</span>T::Currency::deposit_creating(<span class="kw-2">&amp;</span>controller, amount)
+		}),
 		};
 		maybe_imbalance
 			.map(|imbalance| (imbalance, <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()))))

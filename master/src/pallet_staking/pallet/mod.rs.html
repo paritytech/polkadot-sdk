@@ -1879,6 +1879,47 @@
 <a href="#1879" id="1879">1879</a>
 <a href="#1880" id="1880">1880</a>
 <a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2723,6 +2764,8 @@
 		</span>CommissionTooLow,
 		<span class="doccomment">/// Some bound is not met.
 		</span>BoundNotMet,
+		<span class="doccomment">/// Used when attempting to use deprecated controller account logic.
+		</span>ControllerDeprecated,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -3164,10 +3207,19 @@
 			payee: RewardDestination&lt;T::AccountId&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>controller = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(Controller(controller))<span class="question-mark">?</span>;
+			<span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(Controller(controller.clone()))<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(
+				(payee != {
+					<span class="attr">#[allow(deprecated)]
+					</span>RewardDestination::Controller
+				}),
+				Error::&lt;T&gt;::ControllerDeprecated
+			);
+
 			<span class="kw">let _ </span>= ledger
 				.set_payee(payee)
-				.defensive_proof(<span class="string">&quot;ledger was retrieved from storage, thus its bonded; qed.&quot;</span>);
+				.defensive_proof(<span class="string">&quot;ledger was retrieved from storage, thus its bonded; qed.&quot;</span>)<span class="question-mark">?</span>;
 
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -3752,6 +3804,36 @@
 		) -&gt; DispatchResultWithPostInfo {
 			ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_payout_stakers_by_page(validator_stash, era, page)
+		}
+
+		<span class="doccomment">/// Migrates an account&#39;s `RewardDestination::Controller` to
+		/// `RewardDestination::Account(controller)`.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// This will waive the transaction fee if the `payee` is successfully migrated.
+		</span><span class="attr">#[pallet::call_index(<span class="number">27</span>)]
+		#[pallet::weight(T::WeightInfo::update_payee())]
+		</span><span class="kw">pub fn </span>update_payee(
+			origin: OriginFor&lt;T&gt;,
+			controller: T::AccountId,
+		) -&gt; DispatchResultWithPostInfo {
+			<span class="kw">let _ </span>= ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(StakingAccount::Controller(controller.clone()))<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(
+				(Payee::&lt;T&gt;::get(<span class="kw-2">&amp;</span>ledger.stash) == {
+					<span class="attr">#[allow(deprecated)]
+					</span>RewardDestination::Controller
+				}),
+				Error::&lt;T&gt;::NotController
+			);
+
+			<span class="kw">let _ </span>= ledger
+				.set_payee(RewardDestination::Account(controller))
+				.defensive_proof(<span class="string">&quot;ledger should have been previously retrieved from storage.&quot;</span>)<span class="question-mark">?</span>;
+
+			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
 	}
 }

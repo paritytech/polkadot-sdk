@@ -1227,6 +1227,8 @@
 <a href="#1227" id="1227">1227</a>
 <a href="#1228" id="1228">1228</a>
 <a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1469,9 +1471,9 @@
 //! [`Payee`] storage item (see
 //! [`set_payee`](Call::set_payee)), to be one of the following:
 //!
-//! - Controller account, (obviously) not increasing the staked value.
 //! - Stash account, not increasing the staked value.
 //! - Stash account, also increasing the staked value.
+//! - Any other account, sent as free balance.
 //!
 //! ### Additional Fund Management Operations
 //!
@@ -1633,7 +1635,9 @@
 	</span>Staked,
 	<span class="doccomment">/// Pay into the stash account, not increasing the amount at stake.
 	</span>Stash,
-	<span class="doccomment">/// Pay into the controller account.
+	<span class="attr">#[deprecated(
+		note = <span class="string">&quot;`Controller` will be removed after January 2024. Use `Account(controller)` instead. This variant now behaves the same as `Stash` variant.&quot;
+	</span>)]
 	</span>Controller,
 	<span class="doccomment">/// Pay into a specified account.
 	</span>Account(AccountId),
