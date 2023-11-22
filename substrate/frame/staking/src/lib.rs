@@ -535,12 +535,12 @@ impl<T: Config> StakingLedger<T> {
 		let mut unlocking_balance = BalanceOf::<T>::zero();
 
 		while let Some(last) = self.unlocking.last_mut() {
-			if unlocking_balance.saturating_add(last.value) <= value {
+			if unlocking_balance.defensive_saturating_add(last.value) <= value {
 				unlocking_balance += last.value;
 				self.active += last.value;
 				self.unlocking.pop();
 			} else {
-				let diff = value.saturating_sub(unlocking_balance);
+				let diff = value.defensive_saturating_sub(unlocking_balance);
 
 				unlocking_balance += diff;
 				self.active += diff;
@@ -1191,7 +1191,7 @@ impl<T: Config> EraInfo<T> {
 		let nominator_count = exposure.others.len();
 		// expected page count is the number of nominators divided by the page size, rounded up.
 		let expected_page_count = nominator_count
-			.defensive_saturating_add((page_size as usize).saturating_sub(1))
+			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
 			.saturating_div(page_size as usize);
 
 		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
