@@ -28,8 +28,10 @@ pub fn deploy() {}
 
 #[no_mangle]
 pub fn call() {
-	let mut buffer = [0u8; 36]; // 4 bytes for the callee input data, 32 bytes for the callee address.
-	let mut out = [0u8; 0]; // No output data.
+	let mut buffer = [0u8; 40];
+	let callee_input = 0..4;
+	let callee_addr = 4..36;
+	let value = 36..40;
 
 	// Read the input data.
 	api::input(&mut &mut buffer[..]);
@@ -37,10 +39,10 @@ pub fn call() {
 	// Call the callee
 	api::call(
 		CallFlags::empty(),
-		&buffer[4..36],     // callee address.
-		0u64,               // How much gas to devote for the execution. 0 = all.
-		&buffer[36..],      // Pointer to value to transfer.
-		&buffer[0..4],      // Pointer to input data buffer address.
-		Some(&mut out[..]), // Pointer to output data buffer address.
+		&buffer[callee_addr],
+		0u64, // How much gas to devote for the execution. 0 = all.
+		&buffer[value],
+		&buffer[callee_input],
+		None,
 	);
 }
