@@ -151,7 +151,6 @@ check-runtime-migration-asset-hub-westend:
     PACKAGE: "asset-hub-westend-runtime"
     WASM: "asset_hub_westend_runtime.compact.compressed.wasm"
     URI: "wss://westend-asset-hub-rpc.polkadot.io:443"
-    COMMAND_EXTRA_ARGS: "--disable-spec-name-check"
 
 check-runtime-migration-asset-hub-rococo:
   stage: check
@@ -215,6 +214,7 @@ check-runtime-migration-collectives-westend:
     PACKAGE: "collectives-westend-runtime"
     WASM: "collectives_westend_runtime.compact.compressed.wasm"
     URI: "wss://westend-collectives-rpc.polkadot.io:443"
+    COMMAND_EXTRA_ARGS: "--disable-spec-name-check"
 
 find-fail-ci-phrase:
   stage: check
