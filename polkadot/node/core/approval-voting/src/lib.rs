@@ -114,7 +114,7 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
-const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
+const TICK_TOO_FAR_IN_FUTURE: Tick = 2000; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
@@ -842,7 +842,6 @@ where
 			}
 
 			next_msg = ctx.recv().fuse() => {
-
 				let mut actions = handle_from_overseer(
 					&mut ctx,
 					&mut state,
@@ -1662,6 +1661,14 @@ async fn handle_approved_ancestor<Context>(
 		};
 		let mut count_unapproved = 0;
 		for candidate in entry.unapproved_candidates() {
+			let candidate_entry = db.load_candidate_entry(&candidate).expect("Entry").unwrap();
+			let approval_entry =
+				candidate_entry.approval_entry(&entry.block_hash()).expect("Something");
+			let num_assignments = approval_entry
+				.tranches()
+				.iter()
+				.fold(0, |acc, val| acc + val.assignments().len());
+			gum::info!(target: LOG_TARGET, ?candidate, ?num_assignments, "Candidate entry");
 			count_unapproved = count_unapproved + 1;
 		}
 
@@ -2143,6 +2150,7 @@ where
 					)),
 			};
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
+			gum::info!(target: LOG_TARGET, ?assigned_candidate_hash, "Imported assignment ");
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
 			check_and_import_assignment_span.add_uint_tag("tranche", tranche as u64);
 
@@ -2175,7 +2183,7 @@ where
 		if is_duplicate {
 			AssignmentCheckResult::AcceptedDuplicate
 		} else if candidate_indices.count_ones() > 1 {
-			gum::trace!(
+			gum::info!(
 				target: LOG_TARGET,
 				validator = assignment.validator.0,
 				candidate_hashes = ?assigned_candidate_hashes,
@@ -2186,7 +2194,7 @@ where
 
 			AssignmentCheckResult::Accepted
 		} else {
-			gum::trace!(
+			gum::info!(
 				target: LOG_TARGET,
 				validator = assignment.validator.0,
 				candidate_hashes = ?assigned_candidate_hashes,

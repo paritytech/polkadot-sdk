@@ -57,7 +57,7 @@ impl OurAssignment {
 		&self.cert
 	}
 
-	pub(crate) fn tranche(&self) -> DelayTranche {
+	pub fn tranche(&self) -> DelayTranche {
 		self.tranche
 	}
 
@@ -317,7 +317,7 @@ impl AssignmentCriteria for RealAssignmentCriteria {
 /// different times. The idea is that most assignments are never triggered and fall by the wayside.
 ///
 /// This will not assign to anything the local validator was part of the backing group for.
-pub(crate) fn compute_assignments(
+pub fn compute_assignments(
 	keystore: &LocalKeystore,
 	relay_vrf_story: RelayVRFStory,
 	config: &Config,
@@ -481,7 +481,7 @@ fn assigned_cores_transcript(core_bitfield: &CoreBitfield) -> Transcript {
 	t
 }
 
-fn compute_relay_vrf_modulo_assignments_v2(
+pub fn compute_relay_vrf_modulo_assignments_v2(
 	assignments_key: &schnorrkel::Keypair,
 	validator_index: ValidatorIndex,
 	config: &Config,

@@ -1056,7 +1056,7 @@ impl State {
 			Some(entry) => entry,
 			None => {
 				if let Some(peer_id) = source.peer_id() {
-					gum::trace!(
+					gum::info!(
 						target: LOG_TARGET,
 						?peer_id,
 						hash = ?block_hash,
@@ -1091,7 +1091,7 @@ impl State {
 					if peer_knowledge.contains(&message_subject, message_kind) {
 						// wasn't included before
 						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-							gum::debug!(
+							gum::info!(
 								target: LOG_TARGET,
 								?peer_id,
 								?message_subject,
@@ -1106,7 +1106,7 @@ impl State {
 							)
 							.await;
 						} else {
-							gum::trace!(
+							gum::info!(
 								target: LOG_TARGET,
 								?peer_id,
 								hash = ?block_hash,
@@ -1119,7 +1119,7 @@ impl State {
 					}
 				},
 				hash_map::Entry::Vacant(_) => {
-					gum::debug!(
+					gum::info!(
 						target: LOG_TARGET,
 						?peer_id,
 						?message_subject,
@@ -1145,7 +1145,7 @@ impl State {
 				)
 				.await;
 				if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
-					gum::trace!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known assignment");
+					gum::info!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known assignment");
 					peer_knowledge.received.insert(message_subject, message_kind);
 				}
 				return
@@ -1170,7 +1170,7 @@ impl State {
 			};
 			drop(timer);
 
-			gum::trace!(
+			gum::info!(
 				target: LOG_TARGET,
 				?source,
 				?message_subject,
@@ -1492,7 +1492,7 @@ impl State {
 			};
 			drop(timer);
 
-			gum::trace!(
+			gum::info!(
 				target: LOG_TARGET,
 				?peer_id,
 				?message_subject,

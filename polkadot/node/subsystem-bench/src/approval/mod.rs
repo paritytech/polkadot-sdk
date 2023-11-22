@@ -15,22 +15,27 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	sync::Arc,
 	time::{Duration, Instant},
 };
+
+pub const LOG_TARGET: &str = "bench::approval";
 
 use futures::{channel::oneshot, select, FutureExt};
 use itertools::Itertools;
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
-	criteria::{compute_relay_vrf_modulo_assignments_v1, Config},
+	criteria::{
+		compute_assignments, compute_relay_vrf_modulo_assignments_v1,
+		compute_relay_vrf_modulo_assignments_v2, Config,
+	},
 	ApprovalVotingSubsystem, Metrics,
 };
 use polkadot_node_primitives::approval::{
 	self,
 	v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
-	v2::IndirectAssignmentCertV2,
+	v2::{CoreBitfield, IndirectAssignmentCertV2},
 };
 
 use polkadot_node_network_protocol::{
@@ -54,15 +59,15 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_node_subsystem_types::{
 	messages::{
 		network_bridge_event::NewGossipTopology, ApprovalDistributionMessage,
-		ApprovalVotingMessage, ChainApiMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
-		RuntimeApiMessage, RuntimeApiRequest,
+		ApprovalVotingMessage, ChainApiMessage, ChainSelectionMessage, NetworkBridgeEvent,
+		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
 	ActiveLeavesUpdate, OverseerSignal,
 };
 use polkadot_primitives::{
-	ApprovalVote, Block, BlockNumber, CandidateEvent, CandidateReceipt, CoreIndex, ExecutorParams,
-	GroupIndex, Hash, Header, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, Slot,
-	ValidatorIndex, ValidatorPair,
+	ApprovalVote, Block, BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, CoreIndex,
+	ExecutorParams, GroupIndex, Hash, Header, Id as ParaId, IndexedVec, SessionIndex, SessionInfo,
+	Slot, ValidatorIndex, ValidatorPair, ASSIGNMENT_KEY_TYPE_ID,
 };
 use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
 use sc_keystore::LocalKeystore;
@@ -74,7 +79,8 @@ use sp_consensus_babe::{
 	AllowedSlots, BabeEpochConfiguration, Epoch, Epoch as BabeEpoch, SlotDuration, VrfOutput,
 	VrfProof, VrfSignature, VrfTranscript,
 };
-use sp_core::{crypto::VrfSecret, Pair};
+use sp_core::{crypto::VrfSecret, hexdisplay::AsBytesRef, Pair};
+use sp_keystore::Keystore;
 use sp_runtime::{Digest, DigestItem};
 
 pub mod test_constants {
@@ -90,9 +96,9 @@ pub mod test_constants {
 
 const NUM_CORES: u32 = 100;
 const NUM_CANDIDATES_PER_BLOCK: u32 = 70;
-const NUM_HEADS: u8 = 4;
+const NUM_HEADS: u8 = 10;
 const NUM_VALIDATORS: u32 = 500;
-const BUFFER_FOR_GENERATION_MILLIS: u64 = 60_000;
+const BUFFER_FOR_GENERATION_MILLIS: u64 = 40_000 * NUM_HEADS as u64;
 
 #[derive(Clone, Debug)]
 struct BlockTestData {
@@ -108,6 +114,8 @@ pub struct TestState {
 	per_slot_heads: Vec<BlockTestData>,
 	identities: Vec<(Keyring, PeerId)>,
 	babe_epoch: BabeEpoch,
+	session_info: SessionInfo,
+	last_processing: HashMap<(Hash, ValidatorIndex, CandidateIndex), (Slot, u64)>,
 }
 
 impl TestState {
@@ -202,11 +210,13 @@ impl ApprovalSubsystemInstance {
 			SlotDuration::from_millis(test_constants::SLOT_DURATION_MILLIS),
 		);
 		let identities = generate_ids();
+		let mut last_processing = HashMap::new();
 
 		let mut generated_messages = HashMap::new();
 		let mut peer_connected_messages = generate_peer_connected(identities.clone());
 		let mut per_slot_heads = Vec::<BlockTestData>::new();
 		let babe_epoch = generate_babe_epoch(current_slot, identities.clone());
+		let session_info = dummy_session_info2(&identities);
 
 		for i in 1..NUM_HEADS + 1 {
 			let block_hash = Hash::repeat_byte(i);
@@ -233,12 +243,19 @@ impl ApprovalSubsystemInstance {
 				i,
 				block_info.candidates.len()
 			);
-			let mut assignments =
-				generate_many_assignments(&block_info, identities.clone(), &babe_epoch);
+			let start = Instant::now();
+			let mut assignments = generate_many_assignments(
+				&block_info,
+				identities.clone(),
+				&babe_epoch,
+				&session_info,
+				true,
+			);
 			println!(
-				"Generating approvals for {:} assignments generated {:}",
+				"Generating approvals for {:} assignments generated {:} took {:} seconds",
 				i,
-				assignments.len()
+				assignments.len(),
+				start.elapsed().as_secs()
 			);
 
 			assignments.extend(issue_approvals(
@@ -247,15 +264,21 @@ impl ApprovalSubsystemInstance {
 				identities.clone(),
 				block_info.candidates.clone(),
 			));
-			println!("Finished generating messages for {:}", i);
-
+			println!(
+				"Finished generating messages for {:} took {:} seconds",
+				i,
+				start.elapsed().as_secs()
+			);
 			per_block_messages.extend(assignments);
+			let last_message = key_from_message(per_block_messages.last().unwrap());
+			last_processing.insert(last_message, (current_slot, per_block_messages.len() as u64));
+
 			generated_messages.insert(block_hash, per_block_messages);
 			per_slot_heads.push(block_info);
-
 			current_slot = current_slot + 1;
 		}
-		let state = TestState { per_slot_heads, identities, babe_epoch };
+		let state =
+			TestState { per_slot_heads, identities, babe_epoch, session_info, last_processing };
 
 		let builder = Overseer::builder()
 			.approval_voting(approval_voting)
@@ -266,7 +289,7 @@ impl ApprovalSubsystemInstance {
 			.chain_selection(MockChainSelection {})
 			.dispute_coordinator(MockDisputeCoordinator {})
 			.runtime_api(MockRuntimeApi { state: state.clone() })
-			.network_bridge_tx(MockNetworkBridgeTx {})
+			.network_bridge_tx(MockNetworkBridgeTx { state: state.clone() })
 			.availability_distribution(MockAvailabilityDistribution {})
 			.availability_store(MockAvailabilityStore {})
 			.pvf_checker(MockPvfChecker {})
@@ -299,12 +322,10 @@ impl ApprovalSubsystemInstance {
 	}
 
 	pub async fn run_benchmark(mut self) {
-		println!("Sending active leaves ===========");
-
 		loop {
 			for block in &self.test_state.per_slot_heads {
 				loop {
-					sleep(Duration::from_secs(1)).await;
+					sleep(Duration::from_millis(50)).await;
 					let mut current_slot = Slot::from_timestamp(
 						Timestamp::current(),
 						SlotDuration::from_millis(test_constants::SLOT_DURATION_MILLIS),
@@ -317,15 +338,16 @@ impl ApprovalSubsystemInstance {
 				let active_leaves = OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
 					new_leaf(block_hash, 1),
 				));
+				gum::info!(target: LOG_TARGET, "Sending active leaves ===========");
 
 				self.mock_overseer.broadcast_signal(active_leaves).await;
+				gum::info!(target: LOG_TARGET, "Broadcasted active leaves ===========");
+
+				sleep(Duration::from_millis(100)).await;
+				gum::info!(target: LOG_TARGET, "Sending messages");
 
 				let distribution_messages =
 					self.distribution_messages.get_mut(&block_hash).unwrap().drain(..);
-				println!(
-				"approval_voting:  ======================    Sending assignments================== {:}",
-				distribution_messages.len()
-			);
 
 				for msg in distribution_messages {
 					self.mock_overseer
@@ -334,15 +356,16 @@ impl ApprovalSubsystemInstance {
 				}
 
 				println!(
-					"approval_voting:  ======================    Sent approvals==================="
+					"approval_voting:  ======================    Sent messages==================="
 				);
 			}
-			println!("approval_voting:  ======================    Finished ===================");
-			sleep(Duration::from_secs(10)).await;
+
+			println!("approval_voting:  ======================    Sleep a bit ===================");
+			sleep(Duration::from_secs(30)).await;
 			let (tx, rx) = oneshot::channel();
 			let target = self.test_state.per_slot_heads.last().unwrap().hash;
 			let msg = ApprovalVotingMessage::ApprovedAncestor(target, 0, tx);
-			println!("approval_voting:  ======================    Approval request ancestor =================== {:?} ", target);
+			println!("approval_voting:  ======================    Approval request ancestor request  =================== {:?} ", target);
 
 			self.mock_overseer
 				.route_message(AllMessages::ApprovalVoting(msg), "mock-test")
@@ -408,7 +431,7 @@ fn dummy_session_info2(keys: &[(Keyring, PeerId)]) -> SessionInfo {
 		),
 		n_cores: NUM_CORES,
 		needed_approvals: 30,
-		zeroth_delay_tranche_width: 5,
+		zeroth_delay_tranche_width: 0,
 		relay_vrf_modulo_samples: 6,
 		n_delay_tranches: 89,
 		no_show_slots: 3,
@@ -426,7 +449,7 @@ fn issue_approvals(
 	keyrings: Vec<(Keyring, PeerId)>,
 	candidates: Vec<CandidateEvent>,
 ) -> Vec<ApprovalDistributionMessage> {
-	assignments
+	let result = assignments
 		.iter()
 		.map(|message| match message {
 			ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
@@ -437,29 +460,36 @@ fn issue_approvals(
 					msg
 				{
 					let assignment = assignments.first().unwrap();
-					let candidate =
-						candidates.get(assignment.1.iter_ones().next().unwrap()).unwrap();
-					if let CandidateEvent::CandidateIncluded(candidate, _, _, _) = candidate {
-						let keyring =
-							keyrings.get(assignment.0.validator.0 as usize).unwrap().clone();
-						let payload = ApprovalVote(candidate.hash()).signing_payload(1);
-						let validator_key: ValidatorPair = keyring.0.pair().into();
-						let signature = validator_key.sign(&payload[..]);
-						let indirect = IndirectSignedApprovalVote {
-							block_hash,
-							candidate_index: assignment.1.iter_ones().next().unwrap() as u32,
-							validator: assignment.0.validator,
-							signature,
-						};
-						let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![
-							indirect,
-						]);
-						ApprovalDistributionMessage::NetworkBridgeUpdate(
-							NetworkBridgeEvent::PeerMessage(keyring.1, Versioned::VStaging(msg)),
-						)
-					} else {
-						panic!("Should not happend");
+					let mut messages = Vec::new();
+					for candidate_index in assignment.1.iter_ones() {
+						let candidate = candidates.get(candidate_index).unwrap();
+						if let CandidateEvent::CandidateIncluded(candidate, _, _, _) = candidate {
+							let keyring =
+								keyrings.get(assignment.0.validator.0 as usize).unwrap().clone();
+							let payload = ApprovalVote(candidate.hash()).signing_payload(1);
+							let validator_key: ValidatorPair = keyring.0.pair().into();
+							let signature = validator_key.sign(&payload[..]);
+							let indirect = IndirectSignedApprovalVote {
+								block_hash,
+								candidate_index: candidate_index as u32,
+								validator: assignment.0.validator,
+								signature,
+							};
+							let msg =
+								protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![
+									indirect,
+								]);
+							messages.push(ApprovalDistributionMessage::NetworkBridgeUpdate(
+								NetworkBridgeEvent::PeerMessage(
+									keyring.1,
+									Versioned::VStaging(msg),
+								),
+							))
+						} else {
+							panic!("Should not happend");
+						}
 					}
+					messages
 				} else {
 					panic!("Should not happen");
 				},
@@ -467,7 +497,8 @@ fn issue_approvals(
 				panic!("Should happen");
 			},
 		})
-		.collect_vec()
+		.collect_vec();
+	result.into_iter().flatten().collect_vec()
 }
 
 fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
@@ -515,18 +546,20 @@ fn generate_many_assignments(
 	block_info: &BlockTestData,
 	keyrings: Vec<(Keyring, PeerId)>,
 	babe_epoch: &BabeEpoch,
+	session_info: &SessionInfo,
+	generate_v1: bool,
 ) -> Vec<ApprovalDistributionMessage> {
-	let session_info = dummy_session_info2(&keyrings);
-
-	let config = Config::from(&session_info);
+	let config = Config::from(session_info);
+	let mut count_tranches = vec![0u32; 200];
 	let leaving_cores = block_info
 		.candidates
 		.clone()
 		.into_iter()
 		.map(|candidate_event| {
-			if let CandidateEvent::CandidateIncluded(candidate, _, core_index, _) = candidate_event
+			if let CandidateEvent::CandidateIncluded(candidate, _, core_index, group_index) =
+				candidate_event
 			{
-				(candidate.hash(), core_index)
+				(candidate.hash(), core_index, group_index)
 			} else {
 				panic!("SHOULD NOT HAPPEN")
 			}
@@ -538,48 +571,95 @@ fn generate_many_assignments(
 	let relay_vrf_story = unsafe_vrf
 		.compute_randomness(&babe_epoch.authorities, &babe_epoch.randomness, babe_epoch.epoch_index)
 		.expect("Should generate vrf_story");
+
 	for i in 0..keyrings.len() as u32 {
-		let mut assignments = HashMap::new();
+		let pair = keyrings[i as usize].0.clone().pair();
+
+		let store = LocalKeystore::in_memory();
+		let public = store
+			.sr25519_generate_new(
+				ASSIGNMENT_KEY_TYPE_ID,
+				Some(keyrings[i as usize].0.seed().as_str()),
+			)
+			.expect("should not fail");
+		// let mut assignments = HashMap::new();
 		let leaving_cores = leaving_cores
 			.clone()
 			.into_iter()
-			.filter(|(_, core_index)| core_index.0 != i)
+			.filter(|(_, core_index, group_index)| core_index.0 != i)
 			.collect_vec();
-		compute_relay_vrf_modulo_assignments_v1(
-			&keyrings[i as usize].0.clone().pair().into(),
-			ValidatorIndex(i),
-			&config,
+
+		let assignments = compute_assignments(
+			&store,
 			relay_vrf_story.clone(),
+			&config,
 			leaving_cores.clone(),
-			&mut assignments,
+			false,
 		);
 
+		// if generate_v1 {
+		// 	compute_relay_vrf_modulo_assignments_v1(
+		// 		&keyrings[i as usize].0.clone().pair().into(),
+		// 		ValidatorIndex(i),
+		// 		&config,
+		// 		relay_vrf_story.clone(),
+		// 		leaving_cores.clone(),
+		// 		&mut assignments,
+		// 	);
+		// } else {
+		// 	compute_relay_vrf_modulo_assignments_v2(
+		// 		&keyrings[i as usize].0.clone().pair().into(),
+		// 		ValidatorIndex(i),
+		// 		&config,
+		// 		relay_vrf_story.clone(),
+		// 		leaving_cores.clone(),
+		// 		&mut assignments,
+		// 	);
+		// }
+		let mut no_duplicates = HashSet::new();
 		for (core_index, assignment) in assignments {
-			indirect.push((
-				IndirectAssignmentCertV2 {
-					block_hash: block_info.hash,
-					validator: ValidatorIndex(i),
-					cert: assignment.cert().clone(),
-				},
-				block_info
-					.candidates
-					.iter()
-					.enumerate()
-					.filter(|(index, candidate)| {
-						if let CandidateEvent::CandidateIncluded(_, _, core, _) = candidate {
-							*core == core_index
-						} else {
-							panic!("Should not happen");
-						}
-					})
-					.map(|(index, _)| index as u32)
-					.next()
-					.unwrap()
-					.into(),
-			));
+			let assigned_cores = match &assignment.cert().kind {
+				approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
+					core_bitfield.iter_ones().map(|val| CoreIndex::from(val as u32)).collect_vec(),
+				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } =>
+					vec![*core_index],
+				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample } => vec![core_index],
+			};
+			count_tranches.get_mut(assignment.tranche() as usize).map(|val| *val = *val + 1);
+			let bitfiled: CoreBitfield = assigned_cores.clone().try_into().unwrap();
+			if no_duplicates.insert(bitfiled) {
+				indirect.push((
+					IndirectAssignmentCertV2 {
+						block_hash: block_info.hash,
+						validator: ValidatorIndex(i),
+						cert: assignment.cert().clone(),
+					},
+					block_info
+						.candidates
+						.iter()
+						.enumerate()
+						.filter(|(index, candidate)| {
+							if let CandidateEvent::CandidateIncluded(_, _, core, _) = candidate {
+								assigned_cores.contains(core)
+							} else {
+								panic!("Should not happen");
+							}
+						})
+						.map(|(index, _)| index as u32)
+						.collect_vec()
+						.try_into()
+						.unwrap(),
+				));
+			}
 		}
 	}
-
+	let mut sum = 0;
+	for (tranche, count) in count_tranches.iter().enumerate() {
+		sum += count;
+		if *count > 0 {
+			gum::info!("Generated at tranche {} num_assignments {} ", tranche, sum);
+		}
+	}
 	indirect
 		.into_iter()
 		.map(|indirect| {
@@ -614,7 +694,7 @@ fn generate_peer_connected(keyrings: Vec<(Keyring, PeerId)>) -> Vec<ApprovalDist
 			let network = NetworkBridgeEvent::PeerConnected(
 				peer_id,
 				ObservedRole::Full,
-				ProtocolVersion::from(ValidationVersion::V2),
+				ProtocolVersion::from(ValidationVersion::VStaging),
 				None,
 			);
 			ApprovalDistributionMessage::NetworkBridgeUpdate(network)
@@ -675,6 +755,8 @@ impl<Context> MockAvailabilityRecovery {
 	}
 }
 use tokio::time::sleep;
+
+use self::test_constants::SLOT_DURATION_MILLIS;
 #[overseer::contextbounds(AvailabilityRecovery, prefix = self::overseer)]
 impl MockAvailabilityRecovery {
 	async fn run<Context>(self, mut ctx: Context) {
@@ -718,7 +800,16 @@ impl<Context> MockChainSelection {
 impl MockChainSelection {
 	async fn run<Context>(self, mut ctx: Context) {
 		loop {
-			sleep(Duration::from_secs(3)).await;
+			let msg = ctx.recv().await.expect("Should not fail");
+			match msg {
+				orchestra::FromOrchestra::Signal(_) => {},
+				orchestra::FromOrchestra::Communication { msg } => match msg {
+					ChainSelectionMessage::Approved(hash) => {
+						gum::info!(target: LOG_TARGET, ?hash, "Chain selection approved");
+					},
+					_ => {},
+				},
+			}
 		}
 	}
 }
@@ -742,7 +833,9 @@ impl MockDisputeCoordinator {
 	}
 }
 
-pub struct MockNetworkBridgeTx {}
+pub struct MockNetworkBridgeTx {
+	state: TestState,
+}
 #[overseer::subsystem(NetworkBridgeTx, error=SubsystemError, prefix=self::overseer)]
 impl<Context> MockNetworkBridgeTx {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
@@ -755,24 +848,48 @@ impl<Context> MockNetworkBridgeTx {
 #[overseer::contextbounds(NetworkBridgeTx, prefix = self::overseer)]
 impl MockNetworkBridgeTx {
 	async fn run<Context>(self, mut ctx: Context) {
-		let mut first_message = None;
-		let mut count = 0;
 		loop {
 			let msg = ctx.recv().await.expect("Should not fail");
 			match msg {
 				orchestra::FromOrchestra::Signal(_) => {},
 				orchestra::FromOrchestra::Communication { msg } => {
-					count += 1;
-					if first_message.is_none() {
-						first_message = Some(Instant::now());
-					}
-					if count > 5000 {
-						let spent_time_from_first = first_message
-							.map(|time| time.elapsed().as_millis())
-							.unwrap_or_default();
-						println!(
-							" ============== Received message Spent above 5000 time {:?} ms =====================",
-							spent_time_from_first
+					println!(
+						" ============== Received message Spent above 5000 time {:?} ms =====================",
+						msg,
+					);
+					let message_key = match msg {
+						NetworkBridgeTxMessage::SendValidationMessage(val, msg) => match msg {
+							Versioned::VStaging(msg) => match msg {
+								protocol_vstaging::ValidationProtocol::ApprovalDistribution(
+									protocol_vstaging::ApprovalDistributionMessage::Approvals(
+										approvals,
+									),
+								) => {
+									let approval = approvals.last().unwrap();
+									(
+										approval.block_hash,
+										approval.validator,
+										approval.candidate_index,
+									)
+								},
+								_ => (Hash::repeat_byte(0xfe), ValidatorIndex(9999), 999),
+							},
+							_ => (Hash::repeat_byte(0xfe), ValidatorIndex(9999), 999),
+						},
+						_ => (Hash::repeat_byte(0xfe), ValidatorIndex(9999), 999),
+					};
+
+					if let Some((slot, num_messages)) = self.state.last_processing.get(&message_key)
+					{
+						let slot: u64 = **slot;
+						let timestamp_millis = slot * SLOT_DURATION_MILLIS;
+						let current = Timestamp::current();
+						gum::info!(
+							target: LOG_TARGET,
+							"Last message processed diff {:?} num {:?} ms {:?}",
+							message_key,
+							num_messages,
+							current.as_millis() - timestamp_millis
 						);
 					}
 				},
@@ -914,7 +1031,9 @@ impl MockRuntimeApi {
 						request,
 						RuntimeApiRequest::SessionInfo(session_index, sender),
 					) => {
-						sender.send(Ok(Some(dummy_session_info(self.state.identities.clone()))));
+						gum::info!(target: LOG_TARGET, "Request session info");
+						sender.send(Ok(Some(self.state.session_info.clone())));
+						gum::info!(target: LOG_TARGET, "Send session info");
 					},
 					RuntimeApiMessage::Request(
 						request,
@@ -1160,5 +1279,23 @@ impl MockProspectiveParachains {
 		loop {
 			sleep(Duration::from_secs(3)).await;
 		}
+	}
+}
+
+fn key_from_message(msg: &ApprovalDistributionMessage) -> (Hash, ValidatorIndex, CandidateIndex) {
+	match msg {
+		ApprovalDistributionMessage::NetworkBridgeUpdate(msg) => match msg {
+			NetworkBridgeEvent::PeerMessage(peer, msg) => match msg {
+				Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Approvals(
+					approvals,
+				)) => {
+					let approval = approvals.last().unwrap();
+					(approval.block_hash, approval.validator, approval.candidate_index)
+				},
+				_ => panic!("Should not happen"),
+			},
+			_ => panic!("Should not happen"),
+		},
+		_ => panic!("Should not happen"),
 	}
 }

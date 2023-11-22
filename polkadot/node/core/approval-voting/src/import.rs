@@ -124,6 +124,7 @@ async fn imported_block_info<Context>(
 	// Only unfinalized blocks factor into the approval voting process.
 
 	// fetch candidates
+
 	let included_candidates: Vec<_> = {
 		let (c_tx, c_rx) = oneshot::channel();
 		ctx.send_message(RuntimeApiMessage::Request(
@@ -227,6 +228,11 @@ async fn imported_block_info<Context>(
 		match unsafe_vrf {
 			Some(unsafe_vrf) => {
 				let slot = unsafe_vrf.slot();
+				gum::info!(
+					target: LOG_TARGET,
+					?block_hash,
+					"after unsafe vrf",
+				);
 
 				match unsafe_vrf.compute_randomness(
 					&babe_epoch.authorities,
@@ -234,6 +240,11 @@ async fn imported_block_info<Context>(
 					babe_epoch.epoch_index,
 				) {
 					Ok(relay_vrf) => {
+						gum::info!(
+							target: LOG_TARGET,
+							?block_hash,
+							"after compute_randomness",
+						);
 						let assignments = env.assignment_criteria.compute_assignments(
 							&env.keystore,
 							relay_vrf.clone(),
@@ -261,7 +272,7 @@ async fn imported_block_info<Context>(
 		}
 	};
 
-	gum::trace!(target: LOG_TARGET, n_assignments = assignments.len(), "Produced assignments");
+	gum::info!(target: LOG_TARGET, n_assignments = assignments.len(), "Produced assignments");
 
 	let force_approve =
 		block_header.digest.convert_first(|l| match ConsensusLog::from_digest_item(l) {
@@ -358,7 +369,12 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 			Ok(Some(h)) => h,
 		}
 	};
-
+	gum::info!(
+		target: LOG_TARGET,
+		head = ?head,
+		?header,
+		"Block header",
+	);
 	// If we've just started the node and are far behind,
 	// import at most `MAX_HEADS_LOOK_BACK` blocks.
 	let lower_bound_number = header.number.saturating_sub(MAX_HEADS_LOOK_BACK);
@@ -423,7 +439,7 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 		imported_blocks_and_info
 	};
 
-	gum::trace!(
+	gum::info!(
 		target: LOG_TARGET,
 		imported_blocks = imported_blocks_and_info.len(),
 		"Inserting imported blocks into database"
@@ -519,7 +535,7 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 			distributed_assignments: Default::default(),
 		};
 
-		gum::trace!(
+		gum::info!(
 			target: LOG_TARGET,
 			?block_hash,
 			block_number = block_header.number,
@@ -581,7 +597,7 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 		});
 	}
 
-	gum::trace!(
+	gum::info!(
 		target: LOG_TARGET,
 		head = ?head,
 		chain_length = approval_meta.len(),
