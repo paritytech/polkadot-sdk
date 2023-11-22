@@ -58,7 +58,7 @@ use sp_core::{
 		well_known_keys, ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData,
 		StorageKey,
 	},
-	traits::{CallContext, SpawnNamed},
+	traits::SpawnNamed,
 };
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
@@ -77,7 +77,6 @@ use sp_state_machine::{
 use sp_trie::{CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
-	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
 };

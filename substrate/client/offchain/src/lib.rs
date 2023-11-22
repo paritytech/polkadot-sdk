@@ -218,10 +218,10 @@ where
 	#[must_use]
 	fn on_block_imported(&self, header: &Block::Header) -> impl Future<Output = ()> {
 		let hash = header.hash();
-		let mut runtime = RuntimeInstance::builder(&self.runtime_api_provider, hash)
+		let runtime_api = RuntimeInstance::builder(&self.runtime_api_provider, hash)
 			.off_chain_context()
 			.build();
-		let api_version = runtime.api_version::<dyn OffchainWorkerApi<Block>>();
+		let api_version = runtime_api.api_version::<dyn OffchainWorkerApi<Block>>();
 		let version = match api_version {
 			Ok(Some(v)) => v,
 			Ok(None) => {
