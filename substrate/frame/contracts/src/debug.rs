@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use crate::exec::{ExecResult, ExportedFunction};
-pub use crate::primitives::ExecReturnValue;
+pub use crate::{
+	exec::{ExecResult, ExportedFunction},
+	primitives::ExecReturnValue,
+};
 use crate::{Config, LOG_TARGET};
 
 /// Umbrella trait for all interfaces that serves for debugging.

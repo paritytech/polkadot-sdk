@@ -91,10 +91,10 @@ mod address;
 mod benchmarking;
 mod exec;
 mod gas;
+mod primitives;
 mod schedule;
 mod storage;
 mod wasm;
-mod primitives;
 
 pub mod chain_extension;
 pub mod debug;
@@ -108,6 +108,11 @@ use crate::{
 		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
 	},
 	gas::GasMeter,
+	primitives::{
+		Code, CodeUploadResult, CodeUploadReturnValue, ContractAccessError, ContractExecResult,
+		ContractInstantiateResult, ContractResult, ExecReturnValue, GetStorageResult,
+		InstantiateReturnValue, StorageDeposit,
+	},
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
 };
@@ -128,11 +133,6 @@ use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
-};
-use crate::primitives::{
-	Code, CodeUploadResult, CodeUploadReturnValue, ContractAccessError, ContractExecResult,
-	ContractInstantiateResult, ContractResult, ExecReturnValue, GetStorageResult,
-	InstantiateReturnValue, StorageDeposit,
 };
 use scale_info::TypeInfo;
 use smallvec::Array;

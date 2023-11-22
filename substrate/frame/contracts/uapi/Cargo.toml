@@ -20,5 +20,5 @@ bitflags = "1.0"
 
 [features]
 default = [ "scale" ]
-scale = ["scale-info", "dep:scale"]
+scale = [ "dep:scale", "scale-info" ]
 

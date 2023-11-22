@@ -20,14 +20,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::weights::Weight;
+use pallet_contracts_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
-use frame_support::weights::Weight;
-use pallet_contracts_uapi::ReturnFlags;
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.

@@ -18,8 +18,8 @@
 use super::*;
 use crate::{
 	debug::{CallInterceptor, CallSpan, ExecResult, ExportedFunction, Tracing},
+	primitives::ExecReturnValue,
 	AccountIdOf,
-	primitives::ExecReturnValue
 };
 use frame_support::traits::Currency;
 use pretty_assertions::assert_eq;
