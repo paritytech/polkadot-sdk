@@ -47,7 +47,6 @@ use futures::StreamExt;
 use log::{debug, error, trace, warn};
 use sc_client_api::{Backend, BlockchainEvents, FinalityNotification, FinalityNotifications};
 use sc_offchain::OffchainDb;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_beefy::MmrRootHash;
 use sp_mmr_primitives::{utils, LeafIndex, MmrApi};
@@ -60,7 +59,7 @@ pub const LOG_TARGET: &str = "mmr";
 /// A convenience MMR client trait that defines all the type bounds a MMR client
 /// has to satisfy and defines some helper methods.
 pub trait MmrClient<B, BE>:
-	BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B> + ProvideRuntimeApi<B>
+	BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B>
 where
 	B: Block,
 	BE: Backend<B>,
@@ -108,7 +107,7 @@ impl<B, BE, T> MmrClient<B, BE> for T
 where
 	B: Block,
 	BE: Backend<B>,
-	T: BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B> + ProvideRuntimeApi<B>,
+	T: BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B>,
 	T::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	// empty

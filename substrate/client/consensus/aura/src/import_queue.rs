@@ -32,7 +32,6 @@ use sc_consensus::{
 };
 use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
-use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
@@ -139,7 +138,6 @@ where
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), Error<B>>
 	where
-		C: ProvideRuntimeApi<B>,
 		C::Api: BlockBuilderApi<B>,
 		CIDP: CreateInherentDataProviders<B, ()>,
 	{
@@ -165,7 +163,7 @@ where
 #[async_trait::async_trait]
 impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
 where
-	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
+	C:  Send + Sync + sc_client_api::backend::AuxStore,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
@@ -353,7 +351,7 @@ where
 	Block: BlockT,
 	C::Api: BlockBuilderApi<Block> + AuraApi<Block, AuthorityId<P>> + ApiExt<Block>,
 	C: 'static
-		+ ProvideRuntimeApi<Block>
+		
 		+ BlockOf
 		+ Send
 		+ Sync

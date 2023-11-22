@@ -42,7 +42,6 @@ use polkadot_primitives::{Header as PHeader, Id as ParaId};
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
-use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -296,7 +295,7 @@ pub async fn claim_slot<B, C, P>(
 ) -> Result<Option<SlotClaim<P::Public>>, Box<dyn Error>>
 where
 	B: BlockT,
-	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	C: Send + Sync + 'static,
 	C::Api: AuraApi<B, P::Public>,
 	P: Pair,
 	P::Public: Codec,

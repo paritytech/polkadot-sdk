@@ -38,7 +38,6 @@ use polkadot_primitives::{CollatorPair, Id as ParaId};
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
@@ -95,7 +94,7 @@ pub fn run<Block, P, BI, CIDP, Client, RClient, SO, Proposer, CS>(
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT + Send,
-	Client: ProvideRuntimeApi<Block>
+	Client:
 		+ BlockOf
 		+ AuxStore
 		+ HeaderBackend<Block>

@@ -41,7 +41,7 @@ use sp_core::{
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
 
-use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
+use sp_api::{CallApiAt, Metadata};
 
 use self::error::Error;
 

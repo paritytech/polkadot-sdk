@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use sp_api::ProvideRuntimeApi;
 use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };

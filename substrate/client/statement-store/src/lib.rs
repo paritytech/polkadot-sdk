@@ -55,7 +55,6 @@ use metrics::MetricsLink as PrometheusMetrics;
 use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_keystore::LocalKeystore;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
@@ -170,7 +169,7 @@ impl<Block, Client> ClientWrapper<Block, Client>
 where
 	Block: BlockT,
 	Block::Hash: From<BlockHash>,
-	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
+	Client:  HeaderBackend<Block> + Send + Sync + 'static,
 	Client::Api: ValidateStatement<Block>,
 {
 	fn validate_statement(
@@ -488,7 +487,7 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block>
+		Client: 
 			+ HeaderBackend<Block>
 			+ sc_client_api::ExecutorProvider<Block>
 			+ Send
@@ -527,7 +526,7 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
+		Client: HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
 		let mut path: std::path::PathBuf = path.into();
@@ -954,7 +953,6 @@ mod tests {
 		_inner: TestClient,
 	}
 
-	impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 		type Api = RuntimeApi;
 		fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
 			RuntimeApi { _inner: self.clone() }.into()

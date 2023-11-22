@@ -29,7 +29,6 @@ use polkadot_primitives::HeadData;
 use sc_client_api::UsageProvider;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
 use sc_executor_common::wasm_runtime::WasmModule;
-use sp_api::ProvideRuntimeApi;
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use sp_arithmetic::{

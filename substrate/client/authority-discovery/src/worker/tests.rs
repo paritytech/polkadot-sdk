@@ -39,7 +39,6 @@ use prometheus_endpoint::prometheus::default_registry;
 
 use sc_client_api::HeaderBackend;
 use sc_network::Signature;
-use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use substrate_test_runtime_client::runtime::Block;
@@ -51,7 +50,6 @@ pub(crate) struct TestApi {
 	pub(crate) authorities: Vec<AuthorityId>,
 }
 
-impl ProvideRuntimeApi<Block> for TestApi {
 	type Api = RuntimeApi;
 
 	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {

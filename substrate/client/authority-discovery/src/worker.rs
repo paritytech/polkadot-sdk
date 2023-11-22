@@ -45,7 +45,6 @@ use rand::{seq::SliceRandom, thread_rng};
 use sc_network::{
 	event::DhtEvent, KademliaKey, NetworkDHTProvider, NetworkSigner, NetworkStateInfo, Signature,
 };
-use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
 };
@@ -163,7 +162,7 @@ pub trait AuthorityDiscovery<Block: BlockT> {
 #[async_trait::async_trait]
 impl<Block, T> AuthorityDiscovery<Block> for T
 where
-	T: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync,
+	T: HeaderBackend<Block> + Send + Sync,
 	T::Api: AuthorityDiscoveryApi<Block>,
 	Block: BlockT,
 {

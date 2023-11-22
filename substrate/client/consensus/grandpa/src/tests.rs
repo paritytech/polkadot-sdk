@@ -34,7 +34,6 @@ use sc_network_test::{
 	PeersFullClient, TestClient, TestNetFactory,
 };
 use sc_transaction_pool_api::RejectAllTxPool;
-use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_consensus_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, GRANDPA_ENGINE_ID,
@@ -170,7 +169,6 @@ pub(crate) struct RuntimeApi {
 	inner: TestApi,
 }
 
-impl ProvideRuntimeApi<Block> for TestApi {
 	type Api = RuntimeApi;
 
 	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {

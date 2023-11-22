@@ -20,7 +20,7 @@
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_cli::{Error, Result};
 use sc_client_api::UsageProvider;
-use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
+use sp_api::{CallApiAt, Core};
 use sp_blockchain::{
 	ApplyExtrinsicFailed::Validity,
 	Error::{ApplyExtrinsicFailed, RuntimeApiError},
@@ -72,7 +72,6 @@ pub(crate) struct Benchmark<Block, C> {
 impl<Block, C> Benchmark<Block, C>
 where
 	Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-	C: ProvideRuntimeApi<Block>
 		+ CallApiAt<Block>
 		+ UsageProvider<Block>
 		+ sp_blockchain::HeaderBackend<Block>,

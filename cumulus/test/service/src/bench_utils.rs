@@ -34,7 +34,6 @@ use sc_consensus::{
 };
 use sc_executor::DEFAULT_HEAP_ALLOC_STRATEGY;
 use sc_executor_common::runtime_blob::RuntimeBlob;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed};
 use sp_consensus::BlockOrigin;
 use sp_core::{sr25519, Pair};

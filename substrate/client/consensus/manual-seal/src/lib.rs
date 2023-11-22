@@ -52,7 +52,6 @@ pub use self::{
 	seal_block::{seal_block, SealBlockParams, MAX_PROPOSAL_DURATION},
 };
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::ProvideRuntimeApi;
 
 const LOG_TARGET: &str = "manual-seal";
 
@@ -87,7 +86,7 @@ where
 }
 
 /// Params required to start the instant sealing authorship task.
-pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CS, CIDP, P> {
+pub struct ManualSealParams<B: BlockT, BI, E, C, TP, SC, CS, CIDP, P> {
 	/// Block import instance.
 	pub block_import: BI,
 
@@ -115,7 +114,7 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, C
 }
 
 /// Params required to start the manual sealing authorship task.
-pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CIDP, P> {
+pub struct InstantSealParams<B: BlockT, BI, E, C, TP, SC, CIDP, P> {
 	/// Block import instance for well. importing blocks.
 	pub block_import: BI,
 
@@ -165,7 +164,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> + ProvideRuntimeApi<B> + 'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> +  'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
 	E::Proposer: Proposer<B, Proof = P>,
@@ -224,7 +223,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> + ProvideRuntimeApi<B> + 'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> +  'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
 	E::Proposer: Proposer<B, Proof = P>,
@@ -274,7 +273,7 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P>(
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> + ProvideRuntimeApi<B> + 'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> +  'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
 	E::Proposer: Proposer<B, Proof = P>,
@@ -317,7 +316,7 @@ pub async fn run_delayed_finalize<B, CB, C, S>(
 ) where
 	B: BlockT + 'static,
 	CB: ClientBackend<B> + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> + ProvideRuntimeApi<B> + BlockchainEvents<B> + 'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> +  BlockchainEvents<B> + 'static,
 	S: SpawnNamed,
 {
 	let mut block_import_stream = client.import_notification_stream();
@@ -369,7 +368,6 @@ mod tests {
 	impl<B, C> ConsensusDataProvider<B> for TestDigestProvider<C>
 	where
 		B: BlockT,
-		C: ProvideRuntimeApi<B> + Send + Sync,
 	{
 		type Proof = ();
 

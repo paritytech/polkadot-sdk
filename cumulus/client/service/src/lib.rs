@@ -46,7 +46,6 @@ use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
@@ -146,7 +145,6 @@ where
 		+ Sync
 		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>
-		+ ProvideRuntimeApi<Block>
 		+ 'static,
 	Client::Api: CollectCollationInfo<Block>,
 	for<'b> &'b Client: BlockImport<Block>,
@@ -389,7 +387,7 @@ pub enum CollatorSybilResistance {
 pub struct BuildNetworkParams<
 	'a,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
+	Client: 
 		+ BlockBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
@@ -440,7 +438,6 @@ where
 		+ Sync
 		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>
-		+ ProvideRuntimeApi<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>

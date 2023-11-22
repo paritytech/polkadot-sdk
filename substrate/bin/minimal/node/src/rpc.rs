@@ -49,7 +49,6 @@ where
 	C: Send
 		+ Sync
 		+ 'static
-		+ sp_api::ProvideRuntimeApi<OpaqueBlock>
 		+ HeaderBackend<OpaqueBlock>
 		+ HeaderMetadata<OpaqueBlock, Error = BlockChainError>
 		+ 'static,

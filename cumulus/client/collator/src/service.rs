@@ -21,7 +21,7 @@ use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
 
 use sc_client_api::BlockBackend;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiExt};
 use sp_consensus::BlockStatus;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
@@ -99,7 +99,7 @@ impl<Block, BS, RA> CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
 	BS: BlockBackend<Block>,
-	RA: ProvideRuntimeApi<Block>,
+	RA,
 	RA::Api: CollectCollationInfo<Block>,
 {
 	/// Create a new instance.
@@ -303,7 +303,7 @@ impl<Block, BS, RA> ServiceInterface<Block> for CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
 	BS: BlockBackend<Block>,
-	RA: ProvideRuntimeApi<Block>,
+	RA,
 	RA::Api: CollectCollationInfo<Block>,
 {
 	fn check_block_status(&self, hash: Block::Hash, header: &Block::Header) -> bool {

@@ -65,7 +65,6 @@ impl log::Log for RuntimeLogger {
 
 #[cfg(test)]
 mod tests {
-	use sp_api::ProvideRuntimeApi;
 	use std::{env, str::FromStr};
 	use substrate_test_runtime_client::{
 		runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,

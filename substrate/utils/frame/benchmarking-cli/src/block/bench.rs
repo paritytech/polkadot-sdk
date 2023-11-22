@@ -25,7 +25,7 @@ use sc_cli::{Error, Result};
 use sc_client_api::{
 	Backend as ClientBackend, BlockBackend, HeaderBackend, StorageProvider, UsageProvider,
 };
-use sp_api::{ApiExt, Core, HeaderT, ProvideRuntimeApi};
+use sp_api::{Core, HeaderT};
 use sp_blockchain::Error::RuntimeApiError;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, DigestItem, OpaqueExtrinsic};
 use sp_storage::StorageKey;
@@ -71,7 +71,6 @@ impl<Block, BA, C> Benchmark<Block, BA, C>
 where
 	Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 	BA: ClientBackend<Block>,
-	C: ProvideRuntimeApi<Block>
 		+ StorageProvider<Block, BA>
 		+ UsageProvider<Block>
 		+ BlockBackend<Block>

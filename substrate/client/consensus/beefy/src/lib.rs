@@ -40,7 +40,7 @@ use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotificatio
 use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
-use sp_api::{HeaderT, NumberFor, ProvideRuntimeApi};
+use sp_api::{HeaderT, NumberFor};
 use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
@@ -98,7 +98,6 @@ where
 	T: BlockchainEvents<B>
 		+ HeaderBackend<B>
 		+ Finalizer<B, BE>
-		+ ProvideRuntimeApi<B>
 		+ Send
 		+ Sync,
 {
@@ -140,7 +139,6 @@ where
 	B: Block,
 	BE: Backend<B>,
 	I: BlockImport<B, Error = ConsensusError> + Send + Sync,
-	RuntimeApi: ProvideRuntimeApi<B> + Send + Sync,
 	RuntimeApi::Api: BeefyApi<B, AuthorityId>,
 {
 	// Voter -> RPC links
@@ -222,7 +220,6 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	BE: Backend<B>,
 	C: Client<B, BE> + BlockBackend<B>,
 	P: PayloadProvider<B> + Clone,
-	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
@@ -363,7 +360,6 @@ fn load_or_init_voter_state<B, BE, R>(
 where
 	B: Block,
 	BE: Backend<B>,
-	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	// Initialize voter state from AUX DB if compatible.
@@ -398,7 +394,6 @@ fn initialize_voter_state<B, BE, R>(
 where
 	B: Block,
 	BE: Backend<B>,
-	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	let beefy_genesis = runtime
@@ -494,7 +489,6 @@ async fn wait_for_runtime_pallet<B, R>(
 ) -> ClientResult<(NumberFor<B>, <B as Block>::Header)>
 where
 	B: Block,
-	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	info!(target: LOG_TARGET, "🥩 BEEFY gadget waiting for BEEFY pallet to become available...");
@@ -536,7 +530,6 @@ fn expect_validator_set<B, BE, R>(
 where
 	B: Block,
 	BE: Backend<B>,
-	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);

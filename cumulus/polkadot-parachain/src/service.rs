@@ -54,7 +54,7 @@ use sc_network::{config::FullNetworkConfiguration, NetworkBlock};
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
+use sp_api::{ApiExt, ConstructRuntimeApi};
 use sp_consensus_aura::AuraApi;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_keystore::KeystorePtr;
@@ -1206,7 +1206,7 @@ impl<Client, AuraId> Clone for WaitForAuraConsensus<Client, AuraId> {
 #[async_trait::async_trait]
 impl<Client, AuraId> ParachainConsensus<Block> for WaitForAuraConsensus<Client, AuraId>
 where
-	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,
+	Client: Send + Sync,
 	Client::Api: AuraApi<Block, AuraId>,
 	AuraId: Send + Codec + Sync,
 {
@@ -1248,7 +1248,7 @@ struct Verifier<Client, AuraId> {
 #[async_trait::async_trait]
 impl<Client, AuraId> VerifierT<Block> for Verifier<Client, AuraId>
 where
-	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,
+	Client: Send + Sync,
 	Client::Api: AuraApi<Block, AuraId>,
 	AuraId: Send + Sync + Codec,
 {

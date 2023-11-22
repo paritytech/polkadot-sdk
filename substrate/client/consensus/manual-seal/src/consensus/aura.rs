@@ -22,7 +22,6 @@
 use crate::{ConsensusDataProvider, Error};
 use sc_client_api::{AuxStore, UsageProvider};
 use sc_consensus::BlockImportParams;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{
 	digests::CompatibleDigestItem,
@@ -45,7 +44,7 @@ pub struct AuraConsensusDataProvider<B, C, P> {
 impl<B, C, P> AuraConsensusDataProvider<B, C, P>
 where
 	B: BlockT,
-	C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
+	C: AuxStore + UsageProvider<B>,
 	C::Api: AuraApi<B, AuthorityId>,
 {
 	/// Creates a new instance of the [`AuraConsensusDataProvider`], requires that `client`
@@ -65,7 +64,7 @@ where
 		+ HeaderBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ UsageProvider<B>
-		+ ProvideRuntimeApi<B>,
+		,
 	C::Api: AuraApi<B, AuthorityId>,
 	P: Send + Sync,
 {

@@ -1113,7 +1113,6 @@ where
 	Block: BlockT,
 	Client: HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
 		+ Send
 		+ Sync
 		+ AuxStore,
@@ -1328,7 +1327,6 @@ where
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ AuxStore
-		+ ProvideRuntimeApi<Block>
 		+ Send
 		+ Sync,
 	Client::Api: BabeApi<Block> + ApiExt<Block>,
@@ -1392,7 +1390,6 @@ where
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ AuxStore
-		+ ProvideRuntimeApi<Block>
 		+ Send
 		+ Sync,
 	Client::Api: BabeApi<Block> + ApiExt<Block>,
@@ -1816,7 +1813,7 @@ pub fn import_queue<Block: BlockT, Client, SelectChain, BI, CIDP, Spawn>(
 ) -> ClientResult<(DefaultImportQueue<Block>, BabeWorkerHandle<Block>)>
 where
 	BI: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
-	Client: ProvideRuntimeApi<Block>
+	Client: 
 		+ HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ AuxStore
@@ -1867,7 +1864,7 @@ where
 	Client: AuxStore
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
+		
 		+ UsageProvider<Block>,
 	Client::Api: BabeApi<Block>,
 	Backend: BackendT<Block>,

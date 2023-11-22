@@ -26,7 +26,6 @@ use jsonrpsee::{
 	types::error::{CallError, ErrorCode, ErrorObject},
 };
 use pallet_transaction_payment_rpc_runtime_api::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
@@ -85,7 +84,7 @@ impl<C, Block, Balance>
 	> for TransactionPayment<C, Block>
 where
 	Block: BlockT,
-	C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
+	C: HeaderBackend<Block> + Send + Sync + 'static,
 	C::Api: TransactionPaymentRuntimeApi<Block, Balance>,
 	Balance: Codec + MaybeDisplay + Copy + TryInto<NumberOrHex> + Send + Sync + 'static,
 {

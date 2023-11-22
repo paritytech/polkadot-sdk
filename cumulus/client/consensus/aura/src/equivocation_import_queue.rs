@@ -29,7 +29,6 @@ use sc_consensus::{
 };
 use sc_consensus_aura::standalone as aura_internal;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
-use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::error::Error as ConsensusError;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -83,8 +82,7 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
+	Client: Send + Sync,
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
@@ -232,8 +230,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
+	Client: Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::<P, _, _, _> {

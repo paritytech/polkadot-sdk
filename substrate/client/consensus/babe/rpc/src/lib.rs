@@ -31,7 +31,6 @@ use serde::{Deserialize, Serialize};
 use sc_consensus_babe::{authorship, BabeWorkerHandle};
 use sc_consensus_epochs::Epoch as EpochT;
 use sc_rpc_api::DenyUnsafe;
-use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{Error as ConsensusError, SelectChain};
@@ -82,7 +81,7 @@ impl<B: BlockT, C, SC> Babe<B, C, SC> {
 impl<B: BlockT, C, SC> BabeApiServer for Babe<B, C, SC>
 where
 	B: BlockT,
-	C: ProvideRuntimeApi<B>
+	C: 
 		+ HeaderBackend<B>
 		+ HeaderMetadata<B, Error = BlockChainError>
 		+ 'static,

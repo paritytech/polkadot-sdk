@@ -48,7 +48,6 @@ use sc_network_test::{
 };
 use sc_utils::notification::NotificationReceiver;
 use serde::{Deserialize, Serialize};
-use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 use sp_consensus::BlockOrigin;
 use sp_consensus_beefy::{

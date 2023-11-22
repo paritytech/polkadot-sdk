@@ -31,7 +31,7 @@ use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -179,7 +179,7 @@ impl<Block, C, A, PR> ProposerFactory<A, C, PR>
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	C: HeaderBackend<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 {
 	fn init_with_now(
@@ -214,7 +214,7 @@ impl<A, Block, C, PR> sp_consensus::Environment<Block> for ProposerFactory<A, C,
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -247,7 +247,7 @@ impl<A, Block, C, PR> sp_consensus::Proposer<Block> for Proposer<Block, C, A, PR
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -298,7 +298,7 @@ impl<A, Block, C, PR> Proposer<Block, C, A, PR>
 where
 	A: TransactionPool<Block = Block>,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {

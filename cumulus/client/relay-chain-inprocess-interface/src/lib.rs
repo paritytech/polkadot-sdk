@@ -36,7 +36,6 @@ use sc_client_api::{
 	StorageProof,
 };
 use sc_telemetry::TelemetryWorkerHandle;
-use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
 use sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
 use sp_state_machine::{Backend as StateBackend, StorageValue};

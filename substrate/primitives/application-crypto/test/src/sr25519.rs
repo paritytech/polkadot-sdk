@@ -17,7 +17,6 @@
 
 //! Integration tests for sr25519
 
-use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::sr25519::AppPair;
 use sp_core::{
 	crypto::{ByteArray, Pair},

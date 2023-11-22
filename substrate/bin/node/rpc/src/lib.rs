@@ -43,7 +43,6 @@ use sc_consensus_grandpa::{
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
@@ -112,7 +111,7 @@ pub fn create_full<C, P, SC, B>(
 	}: FullDeps<C, P, SC, B>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-	C: ProvideRuntimeApi<Block>
+	C:
 		+ sc_client_api::BlockBackend<Block>
 		+ HeaderBackend<Block>
 		+ AuxStore

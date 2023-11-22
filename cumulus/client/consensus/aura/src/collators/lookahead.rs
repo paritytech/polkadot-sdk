@@ -55,7 +55,6 @@ use futures::{channel::oneshot, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::standalone as aura_internal;
-use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
@@ -113,7 +112,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS>(
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
+	Client: 
 		+ BlockOf
 		+ AuxStore
 		+ HeaderBackend<Block>
@@ -408,7 +407,6 @@ async fn can_build_upon<Block: BlockT, Client, P>(
 	keystore: &KeystorePtr,
 ) -> Option<SlotClaim<P::Public>>
 where
-	Client: ProvideRuntimeApi<Block>,
 	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block>,
 	P: Pair,
 	P::Public: Codec,

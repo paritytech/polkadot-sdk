@@ -36,7 +36,7 @@ use log::{debug, error, info, log_enabled, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_network_gossip::GossipEngine;
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
-use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_api::{BlockId};
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
@@ -354,7 +354,6 @@ where
 	BE: Backend<B>,
 	P: PayloadProvider<B>,
 	S: SyncOracle,
-	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {

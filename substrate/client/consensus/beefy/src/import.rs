@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use log::debug;
 
-use sp_api::ProvideRuntimeApi;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID};
 use sp_runtime::{
@@ -82,7 +81,6 @@ impl<Block, BE, Runtime, I> BeefyBlockImport<Block, BE, Runtime, I>
 where
 	Block: BlockT,
 	BE: Backend<Block>,
-	Runtime: ProvideRuntimeApi<Block>,
 	Runtime::Api: BeefyApi<Block, AuthorityId> + Send,
 {
 	fn decode_and_verify(
@@ -119,7 +117,6 @@ where
 	Block: BlockT,
 	BE: Backend<Block>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync,
-	Runtime: ProvideRuntimeApi<Block> + Send + Sync,
 	Runtime::Api: BeefyApi<Block, AuthorityId>,
 {
 	type Error = ConsensusError;

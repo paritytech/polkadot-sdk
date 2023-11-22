@@ -22,7 +22,6 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams,
 };
-use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::Result as ClientResult;
 use sp_consensus::error::Error as ConsensusError;
@@ -47,8 +46,7 @@ impl<Client, Block, CIDP> Verifier<Client, Block, CIDP> {
 impl<Client, Block, CIDP> VerifierT<Block> for Verifier<Client, Block, CIDP>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	Client: Send + Sync,
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
@@ -119,8 +117,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	Client: Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::new(client, create_inherent_data_providers);

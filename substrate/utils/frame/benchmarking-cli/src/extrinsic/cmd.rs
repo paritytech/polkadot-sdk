@@ -18,7 +18,6 @@
 use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::UsageProvider;
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_runtime::{traits::Block as BlockT, DigestItem, OpaqueExtrinsic};
 
 use clap::{Args, Parser};
@@ -93,7 +92,6 @@ impl ExtrinsicCmd {
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-		C: ProvideRuntimeApi<Block>
 			+ CallApiAt<Block>
 			+ UsageProvider<Block>
 			+ sp_blockchain::HeaderBackend<Block>,

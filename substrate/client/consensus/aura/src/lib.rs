@@ -42,7 +42,7 @@ use sc_consensus_slots::{
 	SlotInfo, StorageChanges,
 };
 use sc_telemetry::TelemetryHandle;
-use sp_api::{Core, ProvideRuntimeApi};
+use sp_api::{Core};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
@@ -175,7 +175,7 @@ where
 	P::Public: AppPublic + Member,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 	B: BlockT,
-	C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync,
+	C:  BlockOf + AuxStore + HeaderBackend<B> + Send + Sync,
 	C::Api: AuraApi<B, AuthorityId<P>>,
 	SC: SelectChain<B>,
 	I: BlockImport<B> + Send + Sync + 'static,
@@ -276,7 +276,7 @@ pub fn build_aura_worker<P, B, C, PF, I, SO, L, BS, Error>(
 >
 where
 	B: BlockT,
-	C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync,
+	C:  BlockOf + AuxStore + HeaderBackend<B> + Send + Sync,
 	C::Api: AuraApi<B, AuthorityId<P>>,
 	PF: Environment<B, Error = Error> + Send + Sync + 'static,
 	PF::Proposer: Proposer<B, Error = Error>,
@@ -327,7 +327,7 @@ impl<B, C, E, I, P, Error, SO, L, BS> sc_consensus_slots::SimpleSlotWorker<B>
 	for AuraWorker<C, E, I, P, SO, L, BS, NumberFor<B>>
 where
 	B: BlockT,
-	C: ProvideRuntimeApi<B> + BlockOf + HeaderBackend<B> + Sync,
+	C:  BlockOf + HeaderBackend<B> + Sync,
 	C::Api: AuraApi<B, AuthorityId<P>>,
 	E: Environment<B, Error = Error> + Send + Sync,
 	E::Proposer: Proposer<B, Error = Error>,
@@ -513,7 +513,6 @@ fn authorities<A, B, C>(
 where
 	A: Codec + Debug,
 	B: BlockT,
-	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
 	let runtime_api = client.runtime_api();

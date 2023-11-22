@@ -22,7 +22,6 @@ use crate::{rpc, ConsensusDataProvider, CreatedBlock, Error};
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{self, BlockOrigin, Environment, Proposer, SelectChain};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
@@ -33,7 +32,7 @@ use std::{sync::Arc, time::Duration};
 pub const MAX_PROPOSAL_DURATION: u64 = 10;
 
 /// params for sealing a new block
-pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, TP, CIDP, P> {
+pub struct SealBlockParams<'a, B: BlockT, BI, SC, C, E, TP, CIDP, P> {
 	/// if true, empty blocks(without extrinsics) will be created.
 	/// otherwise, will return Error::EmptyTransactionPool.
 	pub create_empty: bool,
@@ -77,7 +76,7 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP, P>(
 ) where
 	B: BlockT,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
-	C: HeaderBackend<B> + ProvideRuntimeApi<B>,
+	C: HeaderBackend<B>,
 	E: Environment<B>,
 	E::Proposer: Proposer<B, Proof = P>,
 	TP: TransactionPool<Block = B>,

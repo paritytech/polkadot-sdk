@@ -21,7 +21,6 @@
 use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::{Backend as ClientBackend, BlockBackend, StorageProvider, UsageProvider};
-use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
 
@@ -85,7 +84,6 @@ impl BlockCmd {
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 		BA: ClientBackend<Block>,
 		C: BlockBackend<Block>
-			+ ProvideRuntimeApi<Block>
 			+ StorageProvider<Block, BA>
 			+ UsageProvider<Block>
 			+ HeaderBackend<Block>,

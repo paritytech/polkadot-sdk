@@ -30,7 +30,7 @@ use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi, RuntimeInstance};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_blockchain::{HeaderMetadata, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{

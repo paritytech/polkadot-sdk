@@ -88,7 +88,7 @@ impl<P: TransactionPool, C, B> System<P, C, B> {
 impl<P, C, Block, AccountId, Nonce>
 	SystemApiServer<<Block as traits::Block>::Hash, AccountId, Nonce> for System<P, C, Block>
 where
-	C: sp_api::ProvideRuntimeApi<Block>,
+	C: 
 	C: HeaderBackend<Block>,
 	C: Send + Sync + 'static,
 	C::Api: AccountNonceApi<Block, AccountId, Nonce>,

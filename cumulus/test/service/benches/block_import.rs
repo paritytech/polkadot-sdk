@@ -23,7 +23,7 @@ use sc_client_api::UsageProvider;
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sp_api::{Core, ProvideRuntimeApi};
+use sp_api::{Core};
 use sp_keyring::Sr25519Keyring::Alice;
 
 use cumulus_test_service::bench_utils as utils;

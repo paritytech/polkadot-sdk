@@ -25,7 +25,7 @@ mod tests;
 use jsonrpsee::core::RpcResult;
 use sc_client_api::{BlockBackend, HeaderBackend};
 use sc_rpc_api::{dev::error::Error, DenyUnsafe};
-use sp_api::{ApiExt, Core, ProvideRuntimeApi};
+use sp_api::{CallApiAt, Core, RuntimeInstance};
 use sp_core::Encode;
 use sp_runtime::{
 	generic::DigestItem,
@@ -57,13 +57,7 @@ impl<Block: BlockT, Client> Dev<Block, Client> {
 impl<Block, Client> DevApiServer<Block::Hash> for Dev<Block, Client>
 where
 	Block: BlockT + 'static,
-	Client: BlockBackend<Block>
-		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static,
-	Client::Api: Core<Block>,
+	Client: BlockBackend<Block> + HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 {
 	fn block_stats(&self, hash: Block::Hash) -> RpcResult<Option<BlockStats>> {
 		self.deny_unsafe.check_if_safe()?;
@@ -95,8 +89,10 @@ where
 		let block_len = block.encoded_size() as u64;
 		let num_extrinsics = block.extrinsics().len() as u64;
 		let pre_root = *parent_header.state_root();
-		let mut runtime_api = self.client.runtime_api();
-		runtime_api.record_proof();
+		let mut runtime_api = RuntimeInstance::builder(&self.client, parent_header.hash())
+			.off_chain_context()
+			.with_recorder()
+			.build();
 		runtime_api.execute_block(block).map_err(|_| Error::BlockExecutionFailed)?;
 		let witness = runtime_api
 			.extract_proof()

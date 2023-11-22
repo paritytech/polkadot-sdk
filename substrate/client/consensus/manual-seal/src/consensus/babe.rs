@@ -33,7 +33,6 @@ use sp_keystore::KeystorePtr;
 use std::{marker::PhantomData, sync::Arc};
 
 use sc_consensus::{BlockImportParams, ForkChoiceStrategy, Verifier};
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_babe::{
 	digests::{NextEpochDescriptor, PreDigest, SecondaryPlainPreDigest},
@@ -136,7 +135,6 @@ where
 	B: BlockT,
 	C: AuxStore
 		+ HeaderBackend<B>
-		+ ProvideRuntimeApi<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ UsageProvider<B>,
 	C::Api: BabeApi<B>,
@@ -193,7 +191,7 @@ where
 		+ HeaderBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ UsageProvider<B>
-		+ ProvideRuntimeApi<B>,
+		,
 	C::Api: BabeApi<B>,
 	P: Send + Sync,
 {

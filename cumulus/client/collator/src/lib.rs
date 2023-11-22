@@ -21,7 +21,6 @@ use cumulus_primitives_core::{
 };
 
 use sc_client_api::BlockBackend;
-use sp_api::ProvideRuntimeApi;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -65,7 +64,7 @@ impl<Block, BS, RA> Collator<Block, BS, RA>
 where
 	Block: BlockT,
 	BS: BlockBackend<Block>,
-	RA: ProvideRuntimeApi<Block>,
+	RA,
 	RA::Api: CollectCollationInfo<Block>,
 {
 	/// Create a new instance.
@@ -279,7 +278,7 @@ pub async fn start_collator<Block, RA, BS, Spawner>(
 	Block: BlockT,
 	BS: BlockBackend<Block> + Send + Sync + 'static,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	RA: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	RA: Send + Sync + 'static,
 	RA::Api: CollectCollationInfo<Block>,
 {
 	// This never needed to be asynchronous, but shouldn't be changed due to backcompat.
@@ -304,7 +303,7 @@ pub fn start_collator_sync<Block, RA, BS, Spawner>(
 	Block: BlockT,
 	BS: BlockBackend<Block> + Send + Sync + 'static,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	RA: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	RA: Send + Sync + 'static,
 	RA::Api: CollectCollationInfo<Block>,
 {
 	let collator_service =

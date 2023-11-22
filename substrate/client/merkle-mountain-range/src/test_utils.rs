@@ -24,7 +24,6 @@ use sc_client_api::{
 	StorageEventStream, StorageKey,
 };
 use sc_offchain::OffchainDb;
-use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::{BlockStatus, CachedHeaderMetadata, HeaderBackend, HeaderMetadata, Info};
 use sp_consensus::BlockOrigin;
 use sp_core::{
@@ -287,7 +286,6 @@ impl BlockchainEvents<Block> for MockClient {
 	}
 }
 
-impl ProvideRuntimeApi<Block> for MockClient {
 	type Api = MockRuntimeApi;
 
 	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {

@@ -71,7 +71,6 @@ use sc_network::types::ProtocolName;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
-use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata, Result as ClientResult};
 use sp_consensus::SelectChain;
@@ -306,7 +305,6 @@ pub trait ClientForGrandpa<Block, BE>:
 	+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 	+ HeaderBackend<Block>
 	+ BlockchainEvents<Block>
-	+ ProvideRuntimeApi<Block>
 	+ ExecutorProvider<Block>
 	+ BlockImport<Block, Error = sp_consensus::Error>
 	+ StorageProvider<Block, BE>
@@ -326,7 +324,6 @@ where
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
 		+ BlockchainEvents<Block>
-		+ ProvideRuntimeApi<Block>
 		+ ExecutorProvider<Block>
 		+ BlockImport<Block, Error = sp_consensus::Error>
 		+ StorageProvider<Block, BE>,

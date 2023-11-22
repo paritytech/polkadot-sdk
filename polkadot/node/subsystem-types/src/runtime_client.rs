@@ -24,7 +24,7 @@ use polkadot_primitives::{
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiError, ApiExt};
 use sp_authority_discovery::AuthorityDiscoveryApi;
 use sp_consensus_babe::{BabeApi, Epoch};
 use std::{collections::BTreeMap, sync::Arc};
@@ -286,7 +286,7 @@ impl<Client> DefaultSubsystemClient<Client> {
 #[async_trait]
 impl<Client> RuntimeApiSubsystemClient for DefaultSubsystemClient<Client>
 where
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client: Send + Sync,
 	Client::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 {
 	async fn validators(&self, at: Hash) -> Result<Vec<ValidatorId>, ApiError> {

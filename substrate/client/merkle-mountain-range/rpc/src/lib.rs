@@ -30,7 +30,7 @@ use jsonrpsee::{
 };
 use serde::{Deserialize, Serialize};
 
-use sp_api::{ApiExt, NumberFor, ProvideRuntimeApi};
+use sp_api::{ApiExt, NumberFor};
 use sp_blockchain::HeaderBackend;
 use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
@@ -148,7 +148,7 @@ impl<Client, Block, MmrHash, S> MmrApiServer<<Block as BlockT>::Hash, NumberFor<
 	for Mmr<Client, (Block, MmrHash), S>
 where
 	Block: BlockT,
-	Client: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+	Client: Send + Sync + 'static + HeaderBackend<Block>,
 	Client::Api: MmrRuntimeApi<Block, MmrHash, NumberFor<Block>>,
 	MmrHash: Codec + Send + Sync + 'static,
 	S: OffchainStorage + 'static,

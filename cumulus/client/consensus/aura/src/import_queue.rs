@@ -23,7 +23,6 @@ use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
 use sc_consensus_aura::{AuraVerifier, CompatibilityMode};
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
-use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
@@ -65,7 +64,6 @@ where
 	Block: BlockT,
 	C::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public> + ApiExt<Block>,
 	C: 'static
-		+ ProvideRuntimeApi<Block>
 		+ BlockOf
 		+ Send
 		+ Sync

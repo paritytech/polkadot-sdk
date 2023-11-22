@@ -43,7 +43,6 @@ use sc_transaction_pool_api::{
 };
 use std::sync::Arc;
 
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
