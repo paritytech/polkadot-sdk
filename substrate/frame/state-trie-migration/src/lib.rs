@@ -84,7 +84,6 @@ pub mod pallet {
 				hold::Balanced as FunBalanced, Inspect as FunInspect,
 				InspectHold as FunInspectHold, Mutate as FunMutate, MutateHold as FunMutateHold,
 			},
-			tokens::{Fortitude, Preservation},
 			Get,
 		},
 	};
@@ -657,6 +656,7 @@ pub mod pallet {
 			// ensure they can pay more than the fee.
 			let deposit = T::SignedDepositPerItem::get().saturating_mul(limits.item.into());
 			sp_std::if_std! {
+				use frame_support::traits::tokens::{Fortitude, Preservation};
 				println!("+ {:?} / {:?} / {:?}", who, deposit, T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force));
 			}
 			ensure!(
@@ -732,6 +732,7 @@ pub mod pallet {
 				T::SignedDepositPerItem::get().saturating_mul((keys.len() as u32).into()),
 			);
 			sp_std::if_std! {
+				use frame_support::traits::tokens::{Fortitude, Preservation};
 				println!("+ {:?} / {:?} / {:?}", who, deposit, T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force));
 			}
 			ensure!(
@@ -799,6 +800,7 @@ pub mod pallet {
 				T::SignedDepositPerItem::get().saturating_mul((child_keys.len() as u32).into()),
 			);
 			sp_std::if_std! {
+				use frame_support::traits::tokens::{Fortitude, Preservation};
 				println!("+ {:?} / {:?} / {:?}", who, deposit, T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force));
 			}
 			ensure!(
