@@ -262,6 +262,7 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -288,6 +289,7 @@
 	NetworkBridgeTx <span class="kw">as </span>NetworkBridgeTxSubsystem,
 };
 <span class="kw">use </span>polkadot_node_collation_generation::CollationGenerationSubsystem;
+<span class="kw">use </span>polkadot_node_core_chain_api::ChainApiSubsystem;
 <span class="kw">use </span>polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 <span class="kw">use </span>polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 <span class="kw">use </span>polkadot_node_network_protocol::{
@@ -376,7 +378,7 @@
 		.candidate_backing(DummySubsystem)
 		.candidate_validation(DummySubsystem)
 		.pvf_checker(DummySubsystem)
-		.chain_api(DummySubsystem)
+		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)<span class="question-mark">?</span>))
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)<span class="question-mark">?</span>))
 		.collator_protocol({
 			<span class="kw">let </span>side = ProtocolSide::Collator {

@@ -160,6 +160,13 @@
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -197,13 +204,13 @@
 
 <span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>sc_client_api::AuxStore;
-<span class="kw">use </span>sp_blockchain::HeaderBackend;
 
+<span class="kw">use </span>futures::stream::StreamExt;
 <span class="kw">use </span>polkadot_node_subsystem::{
 	messages::ChainApiMessage, overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError, SubsystemResult,
 };
-<span class="kw">use </span>polkadot_primitives::Block;
+<span class="kw">use </span>polkadot_node_subsystem_types::ChainApiBackend;
 
 <span class="kw">mod </span>metrics;
 <span class="kw">use </span><span class="self">self</span>::metrics::Metrics;
@@ -229,7 +236,7 @@
 <span class="attr">#[overseer::subsystem(ChainApi, error = SubsystemError, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">impl</span>&lt;Client, Context&gt; ChainApiSubsystem&lt;Client&gt;
 <span class="kw">where
-	</span>Client: HeaderBackend&lt;Block&gt; + AuxStore + <span class="lifetime">&#39;static</span>,
+	</span>Client: ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">let </span>future = run::&lt;Client, Context&gt;(ctx, <span class="self">self</span>)
@@ -245,7 +252,7 @@
 	subsystem: ChainApiSubsystem&lt;Client&gt;,
 ) -&gt; SubsystemResult&lt;()&gt;
 <span class="kw">where
-	</span>Client: HeaderBackend&lt;Block&gt; + AuxStore,
+	</span>Client: ChainApiBackend + AuxStore,
 {
 	<span class="kw">loop </span>{
 		<span class="kw">match </span>ctx.recv().<span class="kw">await</span><span class="question-mark">? </span>{
@@ -255,13 +262,15 @@
 			FromOrchestra::Communication { msg } =&gt; <span class="kw">match </span>msg {
 				ChainApiMessage::BlockNumber(hash, response_channel) =&gt; {
 					<span class="kw">let </span>_timer = subsystem.metrics.time_block_number();
-					<span class="kw">let </span>result = subsystem.client.number(hash).map_err(|e| e.to_string().into());
+					<span class="kw">let </span>result =
+						subsystem.client.number(hash).<span class="kw">await</span>.map_err(|e| e.to_string().into());
 					subsystem.metrics.on_request(result.is_ok());
 					<span class="kw">let _ </span>= response_channel.send(result);
 				},
 				ChainApiMessage::BlockHeader(hash, response_channel) =&gt; {
 					<span class="kw">let </span>_timer = subsystem.metrics.time_block_header();
-					<span class="kw">let </span>result = subsystem.client.header(hash).map_err(|e| e.to_string().into());
+					<span class="kw">let </span>result =
+						subsystem.client.header(hash).<span class="kw">await</span>.map_err(|e| e.to_string().into());
 					subsystem.metrics.on_request(result.is_ok());
 					<span class="kw">let _ </span>= response_channel.send(result);
 				},
@@ -275,46 +284,51 @@
 				ChainApiMessage::FinalizedBlockHash(number, response_channel) =&gt; {
 					<span class="kw">let </span>_timer = subsystem.metrics.time_finalized_block_hash();
 					<span class="comment">// Note: we don&#39;t verify it&#39;s finalized
-					</span><span class="kw">let </span>result = subsystem.client.hash(number).map_err(|e| e.to_string().into());
+					</span><span class="kw">let </span>result =
+						subsystem.client.hash(number).<span class="kw">await</span>.map_err(|e| e.to_string().into());
 					subsystem.metrics.on_request(result.is_ok());
 					<span class="kw">let _ </span>= response_channel.send(result);
 				},
 				ChainApiMessage::FinalizedBlockNumber(response_channel) =&gt; {
 					<span class="kw">let </span>_timer = subsystem.metrics.time_finalized_block_number();
-					<span class="kw">let </span>result = subsystem.client.info().finalized_number;
-					<span class="comment">// always succeeds
-					</span>subsystem.metrics.on_request(<span class="bool-val">true</span>);
-					<span class="kw">let _ </span>= response_channel.send(<span class="prelude-val">Ok</span>(result));
+					<span class="kw">let </span>result = subsystem
+						.client
+						.info()
+						.<span class="kw">await
+						</span>.map_err(|e| e.to_string().into())
+						.map(|info| info.finalized_number);
+					subsystem.metrics.on_request(result.is_ok());
+					<span class="kw">let _ </span>= response_channel.send(result);
 				},
 				ChainApiMessage::Ancestors { hash, k, response_channel } =&gt; {
 					<span class="kw">let </span>_timer = subsystem.metrics.time_ancestors();
 					<span class="macro">gum::trace!</span>(target: LOG_TARGET, hash=%hash, k=k, <span class="string">&quot;ChainApiMessage::Ancestors&quot;</span>);
 
-					<span class="kw">let </span><span class="kw-2">mut </span>hash = hash;
+					<span class="kw">let </span>next_parent_stream = futures::stream::unfold(
+						(hash, subsystem.client.clone()),
+						|(hash, client)| <span class="kw">async move </span>{
+							<span class="kw">let </span>maybe_header = client.header(hash).<span class="kw">await</span>;
+							<span class="kw">match </span>maybe_header {
+								<span class="comment">// propagate the error
+								</span><span class="prelude-val">Err</span>(e) =&gt; {
+									<span class="kw">let </span>e = e.to_string().into();
+									<span class="prelude-val">Some</span>((<span class="prelude-val">Err</span>(e), (hash, client)))
+								},
+								<span class="comment">// fewer than `k` ancestors are available
+								</span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
+								<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) =&gt; {
+									<span class="comment">// stop at the genesis header.
+									</span><span class="kw">if </span>header.number == <span class="number">0 </span>{
+										<span class="prelude-val">None
+									</span>} <span class="kw">else </span>{
+										<span class="prelude-val">Some</span>((<span class="prelude-val">Ok</span>(header.parent_hash), (header.parent_hash, client)))
+									}
+								},
+							}
+						},
+					);
 
-					<span class="kw">let </span>next_parent = core::iter::from_fn(|| {
-						<span class="kw">let </span>maybe_header = subsystem.client.header(hash);
-						<span class="kw">match </span>maybe_header {
-							<span class="comment">// propagate the error
-							</span><span class="prelude-val">Err</span>(e) =&gt; {
-								<span class="kw">let </span>e = e.to_string().into();
-								<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e))
-							},
-							<span class="comment">// fewer than `k` ancestors are available
-							</span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
-							<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) =&gt; {
-								<span class="comment">// stop at the genesis header.
-								</span><span class="kw">if </span>header.number == <span class="number">0 </span>{
-									<span class="prelude-val">None
-								</span>} <span class="kw">else </span>{
-									hash = header.parent_hash;
-									<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(hash))
-								}
-							},
-						}
-					});
-
-					<span class="kw">let </span>result = next_parent.take(k).collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;();
+					<span class="kw">let </span>result = next_parent_stream.take(k).try_collect().<span class="kw">await</span>;
 					subsystem.metrics.on_request(result.is_ok());
 					<span class="kw">let _ </span>= response_channel.send(result);
 				},
