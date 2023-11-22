@@ -46,12 +46,6 @@ const MAX_SLASHES: u32 = 1000;
 type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
 type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
 
-// Getter for deprecated `RewardDestination::Controller` variant.
-fn controller_rewards_destination<T: Config>() -> RewardDestination<T::AccountId> {
-	#[allow(deprecated)]
-	RewardDestination::Controller
-}
-
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
 // read and write operations.
 pub fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
