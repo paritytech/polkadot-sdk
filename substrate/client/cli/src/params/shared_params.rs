@@ -35,6 +35,7 @@ pub struct SharedParams {
 	///
 	/// This flag sets `--chain=dev`, `--force-authoring`, `--rpc-cors=all`,
 	/// `--alice`, and `--tmp` flags, unless explicitly overridden.
+	/// It also disables local peer discovery (see --no-mdns and --discover-local)
 	#[arg(long, conflicts_with_all = &["chain"])]
 	pub dev: bool,
 

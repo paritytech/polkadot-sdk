@@ -47,7 +47,8 @@ pub use xcm::{
 pub use cumulus_pallet_parachain_system;
 pub use cumulus_pallet_xcmp_queue;
 pub use cumulus_primitives_core::{
-	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler,
+	relay_chain::HrmpChannelId, DmpMessageHandler, Junction, Junctions, NetworkId, ParaId,
+	XcmpMessageHandler,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
@@ -62,11 +63,14 @@ use bp_messages::{
 	LaneId, MessageKey, OutboundLaneData,
 };
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-pub use pallet_bridge_messages::Instance2 as BridgeMessagesInstance2;
-use pallet_bridge_messages::{Config, Instance1, OutboundLanes, Pallet};
+use pallet_bridge_messages::{Config, OutboundLanes, Pallet};
+pub use pallet_bridge_messages::{
+	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
+	Instance3 as BridgeMessagesInstance3,
+};
 
-pub struct BridgeHubMessageHandler<S, T, I> {
-	_marker: std::marker::PhantomData<(S, T, I)>,
+pub struct BridgeHubMessageHandler<S, SI, T, TI> {
+	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
 }
 
 struct LaneIdWrapper(LaneId);
@@ -83,13 +87,14 @@ impl From<u32> for LaneIdWrapper {
 	}
 }
 
-impl<S, T, I> BridgeMessageHandler for BridgeHubMessageHandler<S, T, I>
+impl<S, SI, T, TI> BridgeMessageHandler for BridgeHubMessageHandler<S, SI, T, TI>
 where
-	S: Config<Instance1>,
-	T: Config<I>,
-	I: 'static,
-	<T as Config<I>>::InboundPayload: From<Vec<u8>>,
-	<T as Config<I>>::MessageDispatch:
+	S: Config<SI>,
+	SI: 'static,
+	T: Config<TI>,
+	TI: 'static,
+	<T as Config<TI>>::InboundPayload: From<Vec<u8>>,
+	<T as Config<TI>>::MessageDispatch:
 		MessageDispatch<DispatchLevelResult = XcmBlobMessageDispatchResult>,
 {
 	fn get_source_outbound_messages() -> Vec<BridgeMessage> {
@@ -100,16 +105,13 @@ where
 
 		// collect messages from `OutboundMessages` for each active outbound lane in the source
 		for lane in active_lanes {
-			let latest_generated_nonce =
-				OutboundLanes::<S, Instance1>::get(lane).latest_generated_nonce;
-			let latest_received_nonce =
-				OutboundLanes::<S, Instance1>::get(lane).latest_received_nonce;
+			let latest_generated_nonce = OutboundLanes::<S, SI>::get(lane).latest_generated_nonce;
+			let latest_received_nonce = OutboundLanes::<S, SI>::get(lane).latest_received_nonce;
 
 			(latest_received_nonce + 1..=latest_generated_nonce).for_each(|nonce| {
-				let encoded_payload: Vec<u8> =
-					Pallet::<S, Instance1>::outbound_message_data(*lane, nonce)
-						.expect("Bridge message does not exist")
-						.into();
+				let encoded_payload: Vec<u8> = Pallet::<S, SI>::outbound_message_data(*lane, nonce)
+					.expect("Bridge message does not exist")
+					.into();
 				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
 					.expect("Decodign XCM message failed");
 				let id: u32 = LaneIdWrapper(*lane).into();
@@ -133,9 +135,9 @@ where
 
 		// Directly dispatch outbound messages assuming everything is correct
 		// and bypassing the `Relayers`  and `InboundLane` logic
-		let dispatch_result = TargetMessageDispatch::<T, I>::dispatch(DispatchMessage {
+		let dispatch_result = TargetMessageDispatch::<T, TI>::dispatch(DispatchMessage {
 			key: MessageKey { lane_id, nonce },
-			data: DispatchMessageData::<InboundPayload<T, I>> { payload },
+			data: DispatchMessageData::<InboundPayload<T, TI>> { payload },
 		});
 
 		let result = match dispatch_result.dispatch_level_result {
@@ -151,14 +153,14 @@ where
 	}
 
 	fn notify_source_message_delivery(lane_id: u32) {
-		let data = OutboundLanes::<S, Instance1>::get(LaneIdWrapper::from(lane_id).0);
+		let data = OutboundLanes::<S, SI>::get(LaneIdWrapper::from(lane_id).0);
 		let new_data = OutboundLaneData {
 			oldest_unpruned_nonce: data.oldest_unpruned_nonce + 1,
 			latest_received_nonce: data.latest_received_nonce + 1,
 			..data
 		};
 
-		OutboundLanes::<S, Instance1>::insert(LaneIdWrapper::from(lane_id).0, new_data);
+		OutboundLanes::<S, SI>::insert(LaneIdWrapper::from(lane_id).0, new_data);
 	}
 }
 
@@ -392,6 +394,23 @@ macro_rules! impl_accounts_helpers_for_parachain {
 						}
 					});
 				}
+
+				/// Return local sovereign account of `para_id` on other `network_id`
+				pub fn sovereign_account_of_parachain_on_other_global_consensus(
+					network_id: $crate::impls::NetworkId,
+					para_id: $crate::impls::ParaId,
+				) -> $crate::impls::AccountId {
+					let remote_location = $crate::impls::MultiLocation {
+						parents: 2,
+						interior: $crate::impls::Junctions::X2(
+							$crate::impls::Junction::GlobalConsensus(network_id),
+							$crate::impls::Junction::Parachain(para_id.into()),
+						),
+					};
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						Self::sovereign_account_id_of(remote_location)
+					})
+				}
 			}
 		}
 	};
@@ -614,7 +633,9 @@ macro_rules! impl_assets_helpers_for_parachain {
 						$crate::impls::assert_expected_events!(
 							Self,
 							vec![
-								RuntimeEvent::<N>::Assets($crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+								RuntimeEvent::<N>::Assets(
+									$crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }
+								) => {
 									asset_id: *asset_id == id,
 									owner: *owner == beneficiary.clone().into(),
 									amount: *amount == amount_to_mint,
@@ -681,6 +702,88 @@ macro_rules! impl_assets_helpers_for_parachain {
 						);
 
 						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.into()));
+					});
+				}
+			}
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_foreign_assets_helpers_for_parachain {
+	( $chain:ident, $relay_chain:ident ) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Create foreign assets using sudo `ForeignAssets::force_create()`
+				pub fn force_create_foreign_asset(
+					id: $crate::impls::MultiLocation,
+					owner: $crate::impls::AccountId,
+					is_sufficient: bool,
+					min_balance: u128,
+					prefund_accounts: Vec<($crate::impls::AccountId, u128)>,
+				) {
+					use $crate::impls::Inspect;
+					let sudo_origin = <$chain<N> as $crate::impls::Chain>::RuntimeOrigin::root();
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(
+							<Self as [<$chain ParaPallet>]>::ForeignAssets::force_create(
+								sudo_origin,
+								id,
+								owner.clone().into(),
+								is_sufficient,
+								min_balance,
+							)
+						);
+						assert!(<Self as [<$chain ParaPallet>]>::ForeignAssets::asset_exists(id));
+						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
+						$crate::impls::assert_expected_events!(
+							Self,
+							vec![
+								RuntimeEvent::<N>::ForeignAssets(
+									$crate::impls::pallet_assets::Event::ForceCreated {
+										asset_id,
+										..
+									}
+								) => { asset_id: *asset_id == id, },
+							]
+						);
+					});
+					for (beneficiary, amount) in prefund_accounts.into_iter() {
+						let signed_origin =
+							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
+						Self::mint_foreign_asset(signed_origin, id, beneficiary, amount);
+					}
+				}
+
+				/// Mint assets making use of the ForeignAssets pallet-assets instance
+				pub fn mint_foreign_asset(
+					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
+					id: $crate::impls::MultiLocation,
+					beneficiary: $crate::impls::AccountId,
+					amount_to_mint: u128,
+				) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::ForeignAssets::mint(
+							signed_origin,
+							id.into(),
+							beneficiary.clone().into(),
+							amount_to_mint
+						));
+
+						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
+
+						$crate::impls::assert_expected_events!(
+							Self,
+							vec![
+								RuntimeEvent::<N>::ForeignAssets(
+									$crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }
+								) => {
+									asset_id: *asset_id == id,
+									owner: *owner == beneficiary.clone().into(),
+									amount: *amount == amount_to_mint,
+								},
+							]
+						);
 					});
 				}
 			}
