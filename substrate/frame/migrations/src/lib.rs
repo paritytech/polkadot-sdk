@@ -705,7 +705,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Fail the current runtime upgrade, caused by `migration`.
 	fn upgrade_failed(migration: Option<u32>) {
-		use FailedUpgradeHandling::*;
+		use FailedMigrationHandling::*;
 		Self::deposit_event(Event::UpgradeFailed);
 
 		match T::FailedMigrationHandler::failed(migration) {

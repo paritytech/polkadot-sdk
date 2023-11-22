@@ -440,18 +440,18 @@ pub trait FailedMigrationHandler {
 	/// Gets passed in the optional index of the migration in the batch that caused the failure.
 	/// Returning `None` means that no automatic handling should take place and the callee decides
 	/// in the implementation what to do.
-	fn failed(migration: Option<u32>) -> Option<FailedUpgradeHandling>;
+	fn failed(migration: Option<u32>) -> Option<FailedMigrationHandling>;
 }
 
 impl FailedMigrationHandler for () {
-	fn failed(_migration: Option<u32>) -> Option<FailedUpgradeHandling> {
-		Some(FailedUpgradeHandling::KeepStuck)
+	fn failed(_migration: Option<u32>) -> Option<FailedMigrationHandling> {
+		Some(FailedMigrationHandling::KeepStuck)
 	}
 }
 
 /// How to proceed after a runtime upgrade failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FailedUpgradeHandling {
+pub enum FailedMigrationHandling {
 	/// Resume extrinsic processing of the chain. This will not resume the upgrade.
 	///
 	/// This should be supplemented with additional measures to ensure that the broken chain state
@@ -907,6 +907,8 @@ mod tests {
 			)
 			.unwrap());
 			assert!(unhashed::exists(&[0]));
+
+			let _g = crate::StorageNoopGuard::new();
 			assert!(<(M0, F0) as SteppedMigrations>::nth_transactional_step(
 				1,
 				Default::default(),
@@ -914,7 +916,13 @@ mod tests {
 			)
 			.unwrap()
 			.is_err());
-			assert!(!unhashed::exists(&[3]), "Should roll back");
+			assert!(<(F0, M1) as SteppedMigrations>::nth_transactional_step(
+				0,
+				Default::default(),
+				&mut WeightMeter::new()
+			)
+			.unwrap()
+			.is_err());
 		});
 	}
 }

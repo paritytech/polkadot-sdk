@@ -20,7 +20,7 @@
 use crate::{
 	mock::{Test as T, *},
 	mock_helpers::{MockedMigrationKind::*, *},
-	Cursor, Event, FailedUpgradeHandling, MigrationCursor,
+	Cursor, Event, FailedMigrationHandling, MigrationCursor,
 };
 use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 
@@ -63,7 +63,7 @@ fn simple_works() {
 #[test]
 fn failing_migration_sets_cursor_to_stuck() {
 	test_closure(|| {
-		FailedUpgradeResponse::set(FailedUpgradeHandling::KeepStuck);
+		FailedUpgradeResponse::set(FailedMigrationHandling::KeepStuck);
 		MigrationsStorage::set(vec![(FailAfter, 2)]);
 
 		System::set_block_number(1);
@@ -93,7 +93,7 @@ fn failing_migration_sets_cursor_to_stuck() {
 #[test]
 fn failing_migration_force_unstuck_works() {
 	test_closure(|| {
-		FailedUpgradeResponse::set(FailedUpgradeHandling::ForceUnstuck);
+		FailedUpgradeResponse::set(FailedMigrationHandling::ForceUnstuck);
 		MigrationsStorage::set(vec![(FailAfter, 2)]);
 
 		System::set_block_number(1);

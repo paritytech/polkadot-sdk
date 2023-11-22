@@ -143,7 +143,7 @@ frame_support::parameter_types! {
 	/// The migrations that failed.
 	pub static UpgradesFailed: Vec<Option<u32>> = vec![];
 	/// Return value of [`MockedFailedMigrationHandler::failed`].
-	pub static FailedUpgradeResponse: FailedUpgradeHandling = FailedUpgradeHandling::KeepStuck;
+	pub static FailedUpgradeResponse: FailedMigrationHandling = FailedMigrationHandling::KeepStuck;
 }
 
 /// Records all started and completed upgrades in `UpgradesStarted` and `UpgradesCompleted`.
@@ -163,7 +163,7 @@ impl MigrationStatusHandler for MockedMigrationStatusHandler {
 /// Records all failed upgrades in `UpgradesFailed`.
 pub struct MockedFailedMigrationHandler;
 impl FailedMigrationHandler for MockedFailedMigrationHandler {
-	fn failed(migration: Option<u32>) -> Option<FailedUpgradeHandling> {
+	fn failed(migration: Option<u32>) -> Option<FailedMigrationHandling> {
 		UpgradesFailed::mutate(|v| v.push(migration));
 		let res = FailedUpgradeResponse::get();
 		log::error!("FailedMigrationHandler failed at: {migration:?}, handling as {res:?}");

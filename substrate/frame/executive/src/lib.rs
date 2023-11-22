@@ -636,7 +636,6 @@ where
 				panic!("Only inherents are allowed in this block")
 			}
 
-			// Process inherents (if any).
 			Self::apply_extrinsics(extrinsics.into_iter());
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
 
@@ -654,8 +653,9 @@ where
 		}
 	}
 
-	/// Progress ongoing MBM migrations.
-	// Used by the block builder and Executive.
+	/// Logic that runs directly after inherent application.
+	///
+	/// It advances the Multi-Block-Migrations or runs the `on_poll` hook.
 	pub fn inherents_applied() {
 		<frame_system::Pallet<System>>::note_inherents_applied();
 		<System as frame_system::Config>::PostInherents::post_inherents();
@@ -765,6 +765,8 @@ where
 				ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
 		// Verify that the signature is good.
 		let xt = uxt.check(&Default::default())?;
+
+		// Automatically call `inherents_applied` if this is the first TX after the inherents:
 		let dispatch_info = xt.get_dispatch_info();
 		let is_inherent = dispatch_info.class == DispatchClass::Mandatory;
 
@@ -779,7 +781,6 @@ where
 
 		// AUDIT: Under no circumstances may this function panic from here onwards.
 
-		// Check whether we need to error because extrinsics are paused.
 		let r = Applyable::apply::<UnsignedValidator>(xt, &dispatch_info, encoded_len)?;
 
 		// Mandatory(inherents) are not allowed to fail.
