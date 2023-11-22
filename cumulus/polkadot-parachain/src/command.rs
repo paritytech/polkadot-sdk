@@ -16,6 +16,7 @@
 
 use crate::{
 	chain_spec,
+	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{new_partial, Block},
 };
@@ -125,13 +126,13 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		// - Defaul-like
 		"staging" =>
 			Box::new(chain_spec::rococo_parachain::staging_rococo_parachain_local_config()),
-		"tick" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+		"tick" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/tick.json")[..],
 		)?),
-		"trick" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+		"trick" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/trick.json")[..],
 		)?),
-		"track" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+		"track" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/track.json")[..],
 		)?),
 
@@ -148,10 +149,9 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"asset-hub-polkadot-genesis" | "statemint-genesis" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_polkadot_config()),
 		// the shell-based chain spec as used for syncing
-		"asset-hub-polkadot" | "statemint" =>
-			Box::new(chain_spec::GenericChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/asset-hub-polkadot.json")[..],
-			)?),
+		"asset-hub-polkadot" | "statemint" => Box::new(GenericChainSpec::from_json_bytes(
+			&include_bytes!("../chain-specs/asset-hub-polkadot.json")[..],
+		)?),
 
 		// -- Asset Hub Kusama
 		"asset-hub-kusama-dev" | "statemine-dev" =>
@@ -162,10 +162,9 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"asset-hub-kusama-genesis" | "statemine-genesis" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_kusama_config()),
 		// the shell-based chain spec as used for syncing
-		"asset-hub-kusama" | "statemine" =>
-			Box::new(chain_spec::GenericChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/asset-hub-kusama.json")[..],
-			)?),
+		"asset-hub-kusama" | "statemine" => Box::new(GenericChainSpec::from_json_bytes(
+			&include_bytes!("../chain-specs/asset-hub-kusama.json")[..],
+		)?),
 
 		// -- Asset Hub Rococo
 		"asset-hub-rococo-dev" =>
@@ -175,7 +174,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		// the chain spec as used for generating the upgrade genesis values
 		"asset-hub-rococo-genesis" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_genesis_config()),
-		"asset-hub-rococo" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+		"asset-hub-rococo" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/asset-hub-rococo.json")[..],
 		)?),
 
@@ -188,24 +187,23 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"asset-hub-westend-genesis" | "westmint-genesis" =>
 			Box::new(chain_spec::asset_hubs::asset_hub_westend_config()),
 		// the shell-based chain spec as used for syncing
-		"asset-hub-westend" | "westmint" =>
-			Box::new(chain_spec::GenericChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/asset-hub-westend.json")[..],
-			)?),
+		"asset-hub-westend" | "westmint" => Box::new(GenericChainSpec::from_json_bytes(
+			&include_bytes!("../chain-specs/asset-hub-westend.json")[..],
+		)?),
 
 		// -- Polkadot Collectives
 		"collectives-polkadot-dev" =>
 			Box::new(chain_spec::collectives::collectives_polkadot_development_config()),
 		"collectives-polkadot-local" =>
 			Box::new(chain_spec::collectives::collectives_polkadot_local_config()),
-		"collectives-polkadot" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+		"collectives-polkadot" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/collectives-polkadot.json")[..],
 		)?),
 		"collectives-westend-dev" =>
 			Box::new(chain_spec::collectives::collectives_westend_development_config()),
 		"collectives-westend-local" =>
 			Box::new(chain_spec::collectives::collectives_westend_local_config()),
-		"collectives-westend" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+		"collectives-westend" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/collectives-westend.json")[..],
 		)?),
 
@@ -215,7 +213,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"contracts-rococo-local" =>
 			Box::new(chain_spec::contracts::contracts_rococo_local_config()),
 		"contracts-rococo-genesis" => Box::new(chain_spec::contracts::contracts_rococo_config()),
-		"contracts-rococo" => Box::new(chain_spec::GenericChainSpec::from_json_bytes(
+		"contracts-rococo" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/contracts-rococo.json")[..],
 		)?),
 
@@ -269,14 +267,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		},
 
 		// -- Loading a specific spec from disk
-		path => {
-			let path: PathBuf = path.into();
-			match path.runtime() {
-				Runtime::BridgeHub(bridge_hub_runtime_type) =>
-					bridge_hub_runtime_type.chain_spec_from_json_file(path)?,
-				_ => Box::new(chain_spec::GenericChainSpec::from_json_file(path)?),
-			}
-		},
+		path => Box::new(GenericChainSpec::from_json_file(path.into())?),
 	})
 }
 

@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec};
+use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use sc_chain_spec::ChainSpec;
 use sp_core::sr25519;
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 
 /// Collects all supported BridgeHub configurations
 #[derive(Debug, PartialEq)]
@@ -70,10 +70,6 @@ impl FromStr for BridgeHubRuntimeType {
 
 impl BridgeHubRuntimeType {
 	pub const ID_PREFIX: &'static str = "bridge-hub";
-
-	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
-		Ok(Box::new(GenericChainSpec::from_json_file(path)?))
-	}
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
