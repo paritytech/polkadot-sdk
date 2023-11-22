@@ -361,7 +361,7 @@
 //! Each of these can be used to construct and represent ratios within our runtime.
 //! You will find types like [`Perbill`](sp_arithmetic::Perbill) being used often in pallet
 //! development.  [`pallet_referenda`] is a good example of a pallet which makes good use of fixed
-//! point arithmetic to calculate
+//! point arithmetic to calculate.
 //!
 //! Let's examine the usage of `Perbill` and how exactly we can use it as an alternative to floating
 //! point numbers in Substrate development. For this scenario, let's say we are demonstrating a
