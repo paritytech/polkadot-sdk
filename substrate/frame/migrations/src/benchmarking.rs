@@ -18,7 +18,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::mock_helpers::{MigrationsStorage, MockedMigrationKind::SucceedAfter};
 
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
@@ -54,7 +53,6 @@ mod benches {
 
 	#[benchmark]
 	fn exec_migration_worst_case() -> Result<(), BenchmarkError> {
-		MigrationsStorage::set(vec![(SucceedAfter, 2)]);
 		if T::Migrations::len() == 0 {
 			// No weight if there are no migrations to run.
 			return Err(BenchmarkError::Weightless);
