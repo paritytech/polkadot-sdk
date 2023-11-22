@@ -4,6 +4,7 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Runtime metric interface for the Polkadot node"
 
 [dependencies]
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false}

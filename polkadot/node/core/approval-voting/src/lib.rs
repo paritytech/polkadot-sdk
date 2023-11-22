@@ -56,7 +56,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	vstaging::{ApprovalVoteMultipleCandidates, ApprovalVotingParams},
 	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement, ExecutorParams,
-	GroupIndex, Hash, PvfExecTimeoutKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
+	GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
 	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
@@ -3170,15 +3170,15 @@ async fn launch_approval<Context>(
 
 		let (val_tx, val_rx) = oneshot::channel();
 		sender
-			.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-				available_data.validation_data,
+			.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: available_data.validation_data,
 				validation_code,
-				candidate.clone(),
-				available_data.pov,
+				candidate_receipt: candidate.clone(),
+				pov: available_data.pov,
 				executor_params,
-				PvfExecTimeoutKind::Approval,
-				val_tx,
-			))
+				exec_kind: PvfExecKind::Approval,
+				response_sender: val_tx,
+			})
 			.await;
 
 		match val_rx.await {

@@ -16,18 +16,121 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::configuration::{self, Config, Pallet};
-use frame_support::{
-	migrations::VersionedMigration, pallet_prelude::*, traits::Defensive, weights::Weight,
-};
+use crate::configuration::{Config, Pallet};
+use frame_support::{pallet_prelude::*, traits::Defensive, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::ApprovalVotingParams, SessionIndex};
+use primitives::{
+	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+};
+use sp_runtime::Perbill;
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 
 use super::v9::V9HostConfiguration;
-type V10HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
+// All configuration of the runtime with respect to paras.
+#[derive(Clone, Encode, PartialEq, Decode, Debug)]
+pub struct V10HostConfiguration<BlockNumber> {
+	pub max_code_size: u32,
+	pub max_head_data_size: u32,
+	pub max_upward_queue_count: u32,
+	pub max_upward_queue_size: u32,
+	pub max_upward_message_size: u32,
+	pub max_upward_message_num_per_candidate: u32,
+	pub hrmp_max_message_num_per_candidate: u32,
+	pub validation_upgrade_cooldown: BlockNumber,
+	pub validation_upgrade_delay: BlockNumber,
+	pub async_backing_params: AsyncBackingParams,
+	pub max_pov_size: u32,
+	pub max_downward_message_size: u32,
+	pub hrmp_max_parachain_outbound_channels: u32,
+	pub hrmp_sender_deposit: Balance,
+	pub hrmp_recipient_deposit: Balance,
+	pub hrmp_channel_max_capacity: u32,
+	pub hrmp_channel_max_total_size: u32,
+	pub hrmp_max_parachain_inbound_channels: u32,
+	pub hrmp_channel_max_message_size: u32,
+	pub executor_params: ExecutorParams,
+	pub code_retention_period: BlockNumber,
+	pub on_demand_cores: u32,
+	pub on_demand_retries: u32,
+	pub on_demand_queue_max_size: u32,
+	pub on_demand_target_queue_utilization: Perbill,
+	pub on_demand_fee_variability: Perbill,
+	pub on_demand_base_fee: Balance,
+	pub on_demand_ttl: BlockNumber,
+	pub group_rotation_frequency: BlockNumber,
+	pub paras_availability_period: BlockNumber,
+	pub scheduling_lookahead: u32,
+	pub max_validators_per_core: Option<u32>,
+	pub max_validators: Option<u32>,
+	pub dispute_period: SessionIndex,
+	pub dispute_post_conclusion_acceptance_period: BlockNumber,
+	pub no_show_slots: u32,
+	pub n_delay_tranches: u32,
+	pub zeroth_delay_tranche_width: u32,
+	pub needed_approvals: u32,
+	pub relay_vrf_modulo_samples: u32,
+	pub pvf_voting_ttl: SessionIndex,
+	pub minimum_validation_upgrade_delay: BlockNumber,
+	pub minimum_backing_votes: u32,
+	pub node_features: NodeFeatures,
+}
+
+impl<BlockNumber: Default + From<u32>> Default for V10HostConfiguration<BlockNumber> {
+	fn default() -> Self {
+		Self {
+			async_backing_params: AsyncBackingParams {
+				max_candidate_depth: 0,
+				allowed_ancestry_len: 0,
+			},
+			group_rotation_frequency: 1u32.into(),
+			paras_availability_period: 1u32.into(),
+			no_show_slots: 1u32.into(),
+			validation_upgrade_cooldown: Default::default(),
+			validation_upgrade_delay: 2u32.into(),
+			code_retention_period: Default::default(),
+			max_code_size: Default::default(),
+			max_pov_size: Default::default(),
+			max_head_data_size: Default::default(),
+			on_demand_cores: Default::default(),
+			on_demand_retries: Default::default(),
+			scheduling_lookahead: 1,
+			max_validators_per_core: Default::default(),
+			max_validators: None,
+			dispute_period: 6,
+			dispute_post_conclusion_acceptance_period: 100.into(),
+			n_delay_tranches: Default::default(),
+			zeroth_delay_tranche_width: Default::default(),
+			needed_approvals: Default::default(),
+			relay_vrf_modulo_samples: Default::default(),
+			max_upward_queue_count: Default::default(),
+			max_upward_queue_size: Default::default(),
+			max_downward_message_size: Default::default(),
+			max_upward_message_size: Default::default(),
+			max_upward_message_num_per_candidate: Default::default(),
+			hrmp_sender_deposit: Default::default(),
+			hrmp_recipient_deposit: Default::default(),
+			hrmp_channel_max_capacity: Default::default(),
+			hrmp_channel_max_total_size: Default::default(),
+			hrmp_max_parachain_inbound_channels: Default::default(),
+			hrmp_channel_max_message_size: Default::default(),
+			hrmp_max_parachain_outbound_channels: Default::default(),
+			hrmp_max_message_num_per_candidate: Default::default(),
+			pvf_voting_ttl: 2u32.into(),
+			minimum_validation_upgrade_delay: 2.into(),
+			executor_params: Default::default(),
+			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+			on_demand_base_fee: 10_000_000u128,
+			on_demand_fee_variability: Perbill::from_percent(3),
+			on_demand_target_queue_utilization: Perbill::from_percent(25),
+			on_demand_ttl: 5u32.into(),
+			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
+			node_features: NodeFeatures::EMPTY,
+		}
+	}
+}
 
 mod v9 {
 	use super::*;
@@ -59,16 +162,8 @@ mod v10 {
 	>;
 }
 
-pub type MigrateV9ToV10<T> = VersionedMigration<
-	9,
-	10,
-	UncheckedMigrateToV10<T>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
-
-pub struct UncheckedMigrateToV10<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV10<T> {
+pub struct VersionUncheckedMigrateToV10<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV10<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV10");
@@ -76,19 +171,14 @@ impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV10<T> {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 started");
-		let weight_consumed = migrate_to_v10::<T>();
-
-		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 executed successfully");
-
-		weight_consumed
+		migrate_to_v10::<T>()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running post_upgrade() for HostConfiguration MigrateToV10");
 		ensure!(
-			StorageVersion::get::<Pallet<T>>() >= 10,
+			Pallet::<T>::on_chain_storage_version() >= StorageVersion::new(10),
 			"Storage version should be >= 10 after the migration"
 		);
 
@@ -96,70 +186,73 @@ impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV10<T> {
 	}
 }
 
-fn migrate_to_v10<T: Config>() -> Weight {
-	// Unusual formatting is justified:
-	// - make it easier to verify that fields assign what they supposed to assign.
-	// - this code is transient and will be removed after all migrations are done.
-	// - this code is important enough to optimize for legibility sacrificing consistency.
-	#[rustfmt::skip]
-	let translate =
-		|pre: V9HostConfiguration<BlockNumberFor<T>>| ->
-		V10HostConfiguration<BlockNumberFor<T>>
-	{
-		V10HostConfiguration {
-max_code_size                            : pre.max_code_size,
-max_head_data_size                       : pre.max_head_data_size,
-max_upward_queue_count                   : pre.max_upward_queue_count,
-max_upward_queue_size                    : pre.max_upward_queue_size,
-max_upward_message_size                  : pre.max_upward_message_size,
-max_upward_message_num_per_candidate     : pre.max_upward_message_num_per_candidate,
-hrmp_max_message_num_per_candidate       : pre.hrmp_max_message_num_per_candidate,
-validation_upgrade_cooldown              : pre.validation_upgrade_cooldown,
-validation_upgrade_delay                 : pre.validation_upgrade_delay,
-max_pov_size                             : pre.max_pov_size,
-max_downward_message_size                : pre.max_downward_message_size,
-hrmp_sender_deposit                      : pre.hrmp_sender_deposit,
-hrmp_recipient_deposit                   : pre.hrmp_recipient_deposit,
-hrmp_channel_max_capacity                : pre.hrmp_channel_max_capacity,
-hrmp_channel_max_total_size              : pre.hrmp_channel_max_total_size,
-hrmp_max_parachain_inbound_channels      : pre.hrmp_max_parachain_inbound_channels,
-hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
-hrmp_channel_max_message_size            : pre.hrmp_channel_max_message_size,
-code_retention_period                    : pre.code_retention_period,
-on_demand_cores                          : pre.on_demand_cores,
-on_demand_retries                        : pre.on_demand_retries,
-group_rotation_frequency                 : pre.group_rotation_frequency,
-paras_availability_period                : pre.paras_availability_period,
-scheduling_lookahead                     : pre.scheduling_lookahead,
-max_validators_per_core                  : pre.max_validators_per_core,
-max_validators                           : pre.max_validators,
-dispute_period                           : pre.dispute_period,
-dispute_post_conclusion_acceptance_period: pre.dispute_post_conclusion_acceptance_period,
-no_show_slots                            : pre.no_show_slots,
-n_delay_tranches                         : pre.n_delay_tranches,
-zeroth_delay_tranche_width               : pre.zeroth_delay_tranche_width,
-needed_approvals                         : pre.needed_approvals,
-relay_vrf_modulo_samples                 : pre.relay_vrf_modulo_samples,
-pvf_voting_ttl                           : pre.pvf_voting_ttl,
-minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
-async_backing_params                     : pre.async_backing_params,
-executor_params                          : pre.executor_params,
-on_demand_queue_max_size                 : pre.on_demand_queue_max_size,
-on_demand_base_fee                       : pre.on_demand_base_fee,
-on_demand_fee_variability                : pre.on_demand_fee_variability,
-on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
-on_demand_ttl                            : pre.on_demand_ttl,
-minimum_backing_votes                    : pre.minimum_backing_votes,
-approval_voting_params                   : ApprovalVotingParams {
-												max_approval_coalesce_count: 1,
-											}
-		}
-	};
+pub type MigrateToV10<T> = frame_support::migrations::VersionedMigration<
+	9,
+	10,
+	VersionUncheckedMigrateToV10<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
+// Unusual formatting is justified:
+// - make it easier to verify that fields assign what they supposed to assign.
+// - this code is transient and will be removed after all migrations are done.
+// - this code is important enough to optimize for legibility sacrificing consistency.
+#[rustfmt::skip]
+fn translate<T: Config>(pre: V9HostConfiguration<BlockNumberFor<T>>) -> V10HostConfiguration<BlockNumberFor<T>> {
+	V10HostConfiguration {
+		max_code_size                            : pre.max_code_size,
+		max_head_data_size                       : pre.max_head_data_size,
+		max_upward_queue_count                   : pre.max_upward_queue_count,
+		max_upward_queue_size                    : pre.max_upward_queue_size,
+		max_upward_message_size                  : pre.max_upward_message_size,
+		max_upward_message_num_per_candidate     : pre.max_upward_message_num_per_candidate,
+		hrmp_max_message_num_per_candidate       : pre.hrmp_max_message_num_per_candidate,
+		validation_upgrade_cooldown              : pre.validation_upgrade_cooldown,
+		validation_upgrade_delay                 : pre.validation_upgrade_delay,
+		max_pov_size                             : pre.max_pov_size,
+		max_downward_message_size                : pre.max_downward_message_size,
+		hrmp_sender_deposit                      : pre.hrmp_sender_deposit,
+		hrmp_recipient_deposit                   : pre.hrmp_recipient_deposit,
+		hrmp_channel_max_capacity                : pre.hrmp_channel_max_capacity,
+		hrmp_channel_max_total_size              : pre.hrmp_channel_max_total_size,
+		hrmp_max_parachain_inbound_channels      : pre.hrmp_max_parachain_inbound_channels,
+		hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
+		hrmp_channel_max_message_size            : pre.hrmp_channel_max_message_size,
+		code_retention_period                    : pre.code_retention_period,
+		on_demand_cores                          : pre.on_demand_cores,
+		on_demand_retries                        : pre.on_demand_retries,
+		group_rotation_frequency                 : pre.group_rotation_frequency,
+		paras_availability_period                : pre.paras_availability_period,
+		scheduling_lookahead                     : pre.scheduling_lookahead,
+		max_validators_per_core                  : pre.max_validators_per_core,
+		max_validators                           : pre.max_validators,
+		dispute_period                           : pre.dispute_period,
+		dispute_post_conclusion_acceptance_period: pre.dispute_post_conclusion_acceptance_period,
+		no_show_slots                            : pre.no_show_slots,
+		n_delay_tranches                         : pre.n_delay_tranches,
+		zeroth_delay_tranche_width               : pre.zeroth_delay_tranche_width,
+		needed_approvals                         : pre.needed_approvals,
+		relay_vrf_modulo_samples                 : pre.relay_vrf_modulo_samples,
+		pvf_voting_ttl                           : pre.pvf_voting_ttl,
+		minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
+		async_backing_params                     : pre.async_backing_params,
+		executor_params                          : pre.executor_params,
+		on_demand_queue_max_size                 : pre.on_demand_queue_max_size,
+		on_demand_base_fee                       : pre.on_demand_base_fee,
+		on_demand_fee_variability                : pre.on_demand_fee_variability,
+		on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
+		on_demand_ttl                            : pre.on_demand_ttl,
+		minimum_backing_votes                    : pre.minimum_backing_votes,
+		node_features                            : NodeFeatures::EMPTY
+	}
+}
+
+fn migrate_to_v10<T: Config>() -> Weight {
 	let v9 = v9::ActiveConfig::<T>::get()
 		.defensive_proof("Could not decode old config")
 		.unwrap_or_default();
-	let v10 = translate(v9);
+	let v10 = translate::<T>(v9);
 	v10::ActiveConfig::<T>::set(Some(v10));
 
 	// Allowed to be empty.
@@ -167,7 +260,7 @@ approval_voting_params                   : ApprovalVotingParams {
 	let mut pending_v10 = Vec::new();
 
 	for (session, v9) in pending_v9.into_iter() {
-		let v10 = translate(v9);
+		let v10 = translate::<T>(v9);
 		pending_v10.push((session, v10));
 	}
 	v10::PendingConfigs::<T>::set(Some(pending_v10.clone()));
@@ -178,10 +271,9 @@ approval_voting_params                   : ApprovalVotingParams {
 
 #[cfg(test)]
 mod tests {
-	use primitives::LEGACY_MIN_BACKING_VOTES;
-
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
+	use primitives::LEGACY_MIN_BACKING_VOTES;
 
 	#[test]
 	fn v10_deserialized_from_actual_data() {
@@ -206,7 +298,7 @@ mod tests {
 		// doesn't need to be read and also leaving it as one line allows to easily copy it.
 		let raw_config =
 	hex_literal::hex!["
-	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c90180969800000000000000000000000000050000001400000004000000010000000101000000000600000064000000020000001900000000000000030000000200000002000000050000000200000001000000"
+	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c90180969800000000000000000000000000050000001400000004000000010000000101000000000600000064000000020000001900000000000000020000000200000002000000050000000200000000"
 	];
 
 		let v10 =
@@ -224,9 +316,11 @@ mod tests {
 		assert_eq!(v10.on_demand_cores, 0);
 		assert_eq!(v10.on_demand_base_fee, 10_000_000);
 		assert_eq!(v10.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
-		assert_eq!(v10.approval_voting_params.max_approval_coalesce_count, 1);
+		assert_eq!(v10.node_features, NodeFeatures::EMPTY);
 	}
 
+	// Test that `migrate_to_v10`` correctly applies the `translate` function to current and pending
+	// configs.
 	#[test]
 	fn test_migrate_to_v10() {
 		// Host configuration has lots of fields. However, in this migration we only add one
@@ -252,59 +346,18 @@ mod tests {
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v9 version in the state.
-			v9::ActiveConfig::<Test>::set(Some(v9));
+			v9::ActiveConfig::<Test>::set(Some(v9.clone()));
 			v9::PendingConfigs::<Test>::set(Some(pending_configs));
 
 			migrate_to_v10::<Test>();
 
-			let v10 = v10::ActiveConfig::<Test>::get().unwrap();
-			assert_eq!(v10.approval_voting_params.max_approval_coalesce_count, 1);
-
+			let v10 = translate::<Test>(v9);
 			let mut configs_to_check = v10::PendingConfigs::<Test>::get().unwrap();
-			configs_to_check.push((0, v10.clone()));
+			configs_to_check.push((0, v10::ActiveConfig::<Test>::get().unwrap()));
 
-			for (_, v9) in configs_to_check {
-				#[rustfmt::skip]
-				{
-					assert_eq!(v9.max_code_size                            , v10.max_code_size);
-					assert_eq!(v9.max_head_data_size                       , v10.max_head_data_size);
-					assert_eq!(v9.max_upward_queue_count                   , v10.max_upward_queue_count);
-					assert_eq!(v9.max_upward_queue_size                    , v10.max_upward_queue_size);
-					assert_eq!(v9.max_upward_message_size                  , v10.max_upward_message_size);
-					assert_eq!(v9.max_upward_message_num_per_candidate     , v10.max_upward_message_num_per_candidate);
-					assert_eq!(v9.hrmp_max_message_num_per_candidate       , v10.hrmp_max_message_num_per_candidate);
-					assert_eq!(v9.validation_upgrade_cooldown              , v10.validation_upgrade_cooldown);
-					assert_eq!(v9.validation_upgrade_delay                 , v10.validation_upgrade_delay);
-					assert_eq!(v9.max_pov_size                             , v10.max_pov_size);
-					assert_eq!(v9.max_downward_message_size                , v10.max_downward_message_size);
-					assert_eq!(v9.hrmp_max_parachain_outbound_channels     , v10.hrmp_max_parachain_outbound_channels);
-					assert_eq!(v9.hrmp_sender_deposit                      , v10.hrmp_sender_deposit);
-					assert_eq!(v9.hrmp_recipient_deposit                   , v10.hrmp_recipient_deposit);
-					assert_eq!(v9.hrmp_channel_max_capacity                , v10.hrmp_channel_max_capacity);
-					assert_eq!(v9.hrmp_channel_max_total_size              , v10.hrmp_channel_max_total_size);
-					assert_eq!(v9.hrmp_max_parachain_inbound_channels      , v10.hrmp_max_parachain_inbound_channels);
-					assert_eq!(v9.hrmp_channel_max_message_size            , v10.hrmp_channel_max_message_size);
-					assert_eq!(v9.code_retention_period                    , v10.code_retention_period);
-					assert_eq!(v9.on_demand_cores                          , v10.on_demand_cores);
-					assert_eq!(v9.on_demand_retries                        , v10.on_demand_retries);
-					assert_eq!(v9.group_rotation_frequency                 , v10.group_rotation_frequency);
-					assert_eq!(v9.paras_availability_period                , v10.paras_availability_period);
-					assert_eq!(v9.scheduling_lookahead                     , v10.scheduling_lookahead);
-					assert_eq!(v9.max_validators_per_core                  , v10.max_validators_per_core);
-					assert_eq!(v9.max_validators                           , v10.max_validators);
-					assert_eq!(v9.dispute_period                           , v10.dispute_period);
-					assert_eq!(v9.no_show_slots                            , v10.no_show_slots);
-					assert_eq!(v9.n_delay_tranches                         , v10.n_delay_tranches);
-					assert_eq!(v9.zeroth_delay_tranche_width               , v10.zeroth_delay_tranche_width);
-					assert_eq!(v9.needed_approvals                         , v10.needed_approvals);
-					assert_eq!(v9.relay_vrf_modulo_samples                 , v10.relay_vrf_modulo_samples);
-					assert_eq!(v9.pvf_voting_ttl                           , v10.pvf_voting_ttl);
-					assert_eq!(v9.minimum_validation_upgrade_delay         , v10.minimum_validation_upgrade_delay);
-					assert_eq!(v9.async_backing_params.allowed_ancestry_len, v10.async_backing_params.allowed_ancestry_len);
-					assert_eq!(v9.async_backing_params.max_candidate_depth , v10.async_backing_params.max_candidate_depth);
-					assert_eq!(v9.executor_params						   , v10.executor_params);
-				    assert_eq!(v9.minimum_backing_votes					   , v10.minimum_backing_votes);
-				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
+			for (_, config) in configs_to_check {
+				assert_eq!(config, v10);
+				assert_eq!(config.node_features, NodeFeatures::EMPTY);
 			}
 		});
 	}
@@ -319,7 +372,7 @@ mod tests {
 			// Implant the v9 version in the state.
 			v9::ActiveConfig::<Test>::set(Some(v9));
 			// Ensure there're no pending configs.
-			v10::PendingConfigs::<Test>::set(None);
+			v9::PendingConfigs::<Test>::set(None);
 
 			// Shouldn't fail.
 			migrate_to_v10::<Test>();

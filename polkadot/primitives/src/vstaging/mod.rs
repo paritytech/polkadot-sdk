@@ -43,3 +43,8 @@ pub struct ApprovalVotingParams {
 	/// Setting it to 1, means we send the approval as soon as we have it available.
 	pub max_approval_coalesce_count: u32,
 }
+
+use bitvec::vec::BitVec;
+
+/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;

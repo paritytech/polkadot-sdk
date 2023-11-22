@@ -24,10 +24,9 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
-
 use sp_runtime::Perbill;
 use sp_std::vec::Vec;
 

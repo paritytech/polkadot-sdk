@@ -16,12 +16,15 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, vstaging::ApprovalVotingParams, Block,
-	BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing,
+	runtime_api::ParachainHost,
+	slashing,
+	vstaging::{self, ApprovalVotingParams},
+	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
@@ -257,10 +260,15 @@ pub trait RuntimeApiSubsystemClient {
 	) -> Result<Option<async_backing::BackingState>, ApiError>;
 
 	// === v8 ===
+
 	/// Gets the disabled validators at a specific block height
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError>;
 
-	// == v9: Approval voting params ==
+	// === v9 ===
+	/// Get the node features.
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
+
+	// == v10: Approval voting params ==
 	/// Approval voting configuration parameters
 	async fn approval_voting_params(
 		&self,
@@ -514,6 +522,10 @@ where
 		at: Hash,
 	) -> Result<async_backing::AsyncBackingParams, ApiError> {
 		self.client.runtime_api().async_backing_params(at)
+	}
+
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError> {
+		self.client.runtime_api().node_features(at)
 	}
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {

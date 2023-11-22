@@ -33,6 +33,7 @@ use cumulus_primitives_core::{
 		async_backing::{AsyncBackingParams, BackingState},
 		slashing,
 		vstaging::ApprovalVotingParams,
+		vstaging::NodeFeatures,
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -203,7 +204,7 @@ impl RelayChainRpcClient {
 
 		let value = rx.await.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(format!(
-				"Unexpected channel close on RPC worker side: {}",
+				"RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}",
 				err
 			))
 		})??;
@@ -596,6 +597,14 @@ impl RelayChainRpcClient {
 		_session_index: SessionIndex,
 	) -> Result<u32, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_minimum_backing_votes", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_node_features(
+		&self,
+		at: RelayHash,
+	) -> Result<NodeFeatures, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_node_features", at, None::<()>)
 			.await
 	}
 

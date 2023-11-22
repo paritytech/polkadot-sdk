@@ -16,12 +16,11 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use primitives::vstaging::ApprovalVotingParams;
-
-use crate::{configuration, initializer};
-
-use crate::shared;
-use primitives::ValidatorIndex;
+use crate::{configuration, initializer, shared};
+use primitives::{
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	ValidatorIndex,
+};
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
 /// Implementation for `DisabledValidators`
@@ -45,6 +44,11 @@ where
 		.iter()
 		.filter_map(|v| reverse_index.get(v).cloned())
 		.collect()
+}
+
+/// Returns the current state of the node features.
+pub fn node_features<T: initializer::Config>() -> NodeFeatures {
+	<configuration::Pallet<T>>::config().node_features
 }
 
 /// Approval voting subsystem configuration parameteres

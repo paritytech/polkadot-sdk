@@ -42,12 +42,12 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing, vstaging::ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate,
+	async_backing, slashing, vstaging::{NodeFeatures, ApprovalVotingParams}, AuthorityDiscoveryId, BackedCandidate,
 	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
 	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
@@ -143,14 +143,18 @@ pub enum CandidateValidationMessage {
 	///
 	/// If there is no state available which can provide this data or the core for
 	/// the para is not free at the relay-parent, an error is returned.
-	ValidateFromChainState(
-		CandidateReceipt,
-		Arc<PoV>,
-		ExecutorParams,
-		/// Execution timeout
-		PvfExecTimeoutKind,
-		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	),
+	ValidateFromChainState {
+		/// The candidate receipt
+		candidate_receipt: CandidateReceipt,
+		/// The proof-of-validity
+		pov: Arc<PoV>,
+		/// Session's executor parameters
+		executor_params: ExecutorParams,
+		/// Execution kind, used for timeouts and retries (backing/approvals)
+		exec_kind: PvfExecKind,
+		/// The sending side of the response channel
+		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
+	},
 	/// Validate a candidate with provided, exhaustive parameters for validation.
 	///
 	/// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full
@@ -160,27 +164,35 @@ pub enum CandidateValidationMessage {
 	/// cases where the validity of the candidate is established. This is the case for the typical
 	/// use-case: secondary checkers would use this request relying on the full prior checks
 	/// performed by the relay-chain.
-	ValidateFromExhaustive(
-		PersistedValidationData,
-		ValidationCode,
-		CandidateReceipt,
-		Arc<PoV>,
-		ExecutorParams,
-		/// Execution timeout
-		PvfExecTimeoutKind,
-		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	),
+	ValidateFromExhaustive {
+		/// Persisted validation data
+		validation_data: PersistedValidationData,
+		/// Validation code
+		validation_code: ValidationCode,
+		/// The candidate receipt
+		candidate_receipt: CandidateReceipt,
+		/// The proof-of-validity
+		pov: Arc<PoV>,
+		/// Session's executor parameters
+		executor_params: ExecutorParams,
+		/// Execution kind, used for timeouts and retries (backing/approvals)
+		exec_kind: PvfExecKind,
+		/// The sending side of the response channel
+		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
+	},
 	/// Try to compile the given validation code and send back
 	/// the outcome.
 	///
 	/// The validation code is specified by the hash and will be queried from the runtime API at
 	/// the given relay-parent.
-	PreCheck(
-		// Relay-parent
-		Hash,
-		ValidationCodeHash,
-		oneshot::Sender<PreCheckOutcome>,
-	),
+	PreCheck {
+		/// Relay-parent
+		relay_parent: Hash,
+		/// Validation code hash
+		validation_code_hash: ValidationCodeHash,
+		/// The sending side of the response channel
+		response_sender: oneshot::Sender<PreCheckOutcome>,
+	},
 }
 
 /// Messages received by the Collator Protocol subsystem.
@@ -706,8 +718,10 @@ pub enum RuntimeApiRequest {
 	///
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
 	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
+	/// Get the node features.
+	NodeFeatures(SessionIndex, RuntimeApiSender<NodeFeatures>),
 	/// Approval voting params
-	/// `V9`
+	/// `V10`
 	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
 }
 
@@ -738,8 +752,11 @@ impl RuntimeApiRequest {
 	/// `DisabledValidators`
 	pub const DISABLED_VALIDATORS_RUNTIME_REQUIREMENT: u32 = 8;
 
+	/// `Node features`
+	pub const NODE_FEATURES_RUNTIME_REQUIREMENT: u32 = 9;
+
 	/// `approval_voting_params`
-	pub const APPROVAL_VOTING_PARAMS_REQUIREMENT: u32 = 9;
+	pub const APPROVAL_VOTING_PARAMS_REQUIREMENT: u32 = 10;
 }
 
 /// A message to the Runtime API subsystem.
