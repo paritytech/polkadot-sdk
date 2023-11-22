@@ -742,9 +742,7 @@ mod tests {
 	use sp_runtime::{
 		generic::{DigestItem, Era},
 		testing::{Block, Digest, Header},
-		traits::{
-			AsTransactionExtension, BlakeTwo256, Block as BlockT, Header as HeaderT, IdentityLookup,
-		},
+		traits::{BlakeTwo256, Block as BlockT, Header as HeaderT, IdentityLookup},
 		transaction_validity::{
 			InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 		},
@@ -977,12 +975,12 @@ mod tests {
 			Default::default();
 	}
 
-	type TxExtension = AsTransactionExtension<(
+	type TxExtension = (
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	)>;
+	);
 	type TestXt = sp_runtime::testing::TestXt<RuntimeCall, TxExtension>;
 	type TestBlock = Block<TestXt>;
 

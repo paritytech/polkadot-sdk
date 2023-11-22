@@ -27,14 +27,10 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSigned};
 //use polkadot_test_runtime::TxExtension;
 use primitives::{AccountIndex, BlakeTwo256, Signature};
-use sp_runtime::{
-	generic,
-	traits::{AsTransactionExtension, MaybeEquivalence},
-	AccountId32, BuildStorage,
-};
+use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
-pub type TxExtension = AsTransactionExtension<(
+pub type TxExtension = (
 	frame_system::CheckNonZeroSender<Test>,
 	frame_system::CheckSpecVersion<Test>,
 	frame_system::CheckTxVersion<Test>,
@@ -42,7 +38,7 @@ pub type TxExtension = AsTransactionExtension<(
 	frame_system::CheckMortality<Test>,
 	frame_system::CheckNonce<Test>,
 	frame_system::CheckWeight<Test>,
-)>;
+);
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;

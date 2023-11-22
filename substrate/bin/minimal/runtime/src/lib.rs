@@ -30,7 +30,6 @@ use frame::{
 		},
 		prelude::*,
 	},
-	traits::AsTransactionExtension,
 };
 use frame_support::genesis_builder_helper::{build_config, create_default_config};
 
@@ -52,7 +51,7 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-type TxExtension = AsTransactionExtension<(
+type TxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -61,7 +60,7 @@ type TxExtension = AsTransactionExtension<(
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-)>;
+);
 
 construct_runtime!(
 	pub struct Runtime {

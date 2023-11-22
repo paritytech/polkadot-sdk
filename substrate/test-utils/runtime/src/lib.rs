@@ -59,10 +59,7 @@ pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str, impl_opaque_keys,
-	traits::{
-		AsTransactionExtension, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
-		NumberFor, Verify,
-	},
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -149,8 +146,7 @@ pub type Pair = sp_core::sr25519::Pair;
 
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
-pub type TxExtension =
-	(AsTransactionExtension<(CheckNonce<Runtime>, CheckWeight<Runtime>)>, CheckSubstrateCall);
+pub type TxExtension = ((CheckNonce<Runtime>, CheckWeight<Runtime>), CheckSubstrateCall);
 /// The payload being signed in transactions.
 pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
