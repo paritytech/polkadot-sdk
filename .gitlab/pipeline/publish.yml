@@ -77,7 +77,8 @@ publish-rustdoc:
       --format=docker
       --build-arg VCS_REF="${CI_COMMIT_SHA}"
       --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-      --build-arg IMAGE_NAME="${IMAGE_NAME}"
+      --build-arg IMAGE_NAME="${IMAGE_NAME}"\
+      --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}"
       --tag "$IMAGE_NAME:${DOCKER_IMAGES_VERSION}"
       --file ${DOCKERFILE} .
     - echo "$PARITYPR_PASS" |
@@ -357,3 +358,20 @@ build-push-image-substrate-pr:
 #       artifacts: true
 #   after_script:
 #     - buildah logout "$IMAGE_NAME"
+
+build-push-image-bridges-zombienet-tests:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+    - job: build-linux-stable-cumulus
+      artifacts: true
+    - job: prepare-bridges-zombienet-artifacts
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/bridges-zombienet-tests"
