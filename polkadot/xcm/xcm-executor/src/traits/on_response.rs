@@ -14,10 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::Xcm;
+use crate::{Junctions::Here, Xcm};
 use core::result;
-use frame_support::pallet_prelude::{Get, TypeInfo};
-use parity_scale_codec::{FullCodec, MaxEncodedLen};
+use frame_support::{
+	pallet_prelude::{Get, TypeInfo},
+	parameter_types,
+};
+use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
 use xcm::latest::{
@@ -103,7 +106,7 @@ impl VersionChangeNotifier for () {
 }
 
 /// The possible state of an XCM query response.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub enum QueryResponseStatus<BlockNumber> {
 	/// The response has arrived, and includes the inner Response and the block number it arrived
 	/// at.
@@ -129,7 +132,7 @@ pub trait QueryHandler {
 		+ PartialEq
 		+ Debug
 		+ Copy;
-	type BlockNumber: Zero;
+	type BlockNumber: Zero + Encode;
 	type Error;
 	type UniversalLocation: Get<InteriorMultiLocation>;
 
@@ -164,4 +167,37 @@ pub trait QueryHandler {
 	/// Makes sure to expect a response with the given id.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn expect_response(id: Self::QueryId, response: Response);
+}
+
+parameter_types! {
+	pub UniversalLocation: InteriorMultiLocation = Here;
+}
+
+impl QueryHandler for () {
+	type BlockNumber = u64;
+	type Error = ();
+	type QueryId = u64;
+	type UniversalLocation = UniversalLocation;
+
+	fn take_response(_query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+		QueryResponseStatus::NotFound
+	}
+	fn new_query(
+		_responder: impl Into<MultiLocation>,
+		_timeout: Self::BlockNumber,
+		_match_querier: impl Into<MultiLocation>,
+	) -> Self::QueryId {
+		0u64
+	}
+
+	fn report_outcome(
+		_message: &mut Xcm<()>,
+		_responder: impl Into<MultiLocation>,
+		_timeout: Self::BlockNumber,
+	) -> Result<Self::QueryId, Self::Error> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn expect_response(_id: Self::QueryId, _response: crate::Response) {}
 }
