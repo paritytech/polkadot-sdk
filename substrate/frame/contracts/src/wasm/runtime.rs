@@ -126,6 +126,8 @@ pub enum ReturnCode {
 	XcmExecutionFailed = 13,
 	/// The `xcm_send` call failed.
 	XcmSendFailed = 14,
+	/// The `xcm_query` was executed but returned an error.
+	XcmQueryFailed = 15,
 }
 
 parameter_types! {
@@ -2791,6 +2793,86 @@ pub mod env {
 				Ok(ReturnCode::XcmSendFailed)
 			},
 		}
+	}
+
+	/// Create a new query, using the contract's address as the responder.
+	///
+	/// # Parameters
+	///
+	/// - `timeout_ptr`: the pointer into the linear memory where the timeout is placed.
+	/// - `match_querier_ptr`: the pointer into the linear memory where the match_querier is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the
+	///   [`xcm_builder::QueryHandler::QueryId`] is placed.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when the query was successfully created. When the query
+	/// creation fails, `ReturnCode::XcmQueryFailed` is returned.
+	#[unstable]
+	fn xcm_query(
+		ctx: _,
+		memory: _,
+		timeout_ptr: u32,
+		match_querier_ptr: u32,
+		output_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use frame_system::pallet_prelude::BlockNumberFor;
+		use xcm::VersionedMultiLocation;
+		use xcm_builder::{QueryController, QueryControllerWeightInfo};
+
+		let timeout: BlockNumberFor<E::T> = ctx.read_sandbox_memory_as(memory, timeout_ptr)?;
+		let match_querier: VersionedMultiLocation =
+			ctx.read_sandbox_memory_as(memory, match_querier_ptr)?;
+
+		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::query();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+
+		match <<E::T as Config>::Xcm>::query(origin, timeout, match_querier) {
+			Ok(query_id) => {
+				ctx.write_sandbox_memory(memory, output_ptr, &query_id.encode())?;
+				Ok(ReturnCode::Success)
+			},
+			Err(e) => {
+				if ctx.ext.append_debug_buffer("") {
+					ctx.ext.append_debug_buffer("call failed with: ");
+					ctx.ext.append_debug_buffer(e.into());
+				};
+				Ok(ReturnCode::XcmQueryFailed)
+			},
+		}
+	}
+
+	/// Take an XCM response for the specified query.
+	///
+	/// # Parameters
+	///
+	/// - `query_id_ptr`: the pointer into the linear memory where the
+	///   [`xcm_builder::QueryHandler::QueryId`] is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the response
+	///   [`xcm_builder::QueryResponseStatus`] is placed.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when successful.
+	#[unstable]
+	fn xcm_take_response(
+		ctx: _,
+		memory: _,
+		query_id_ptr: u32,
+		output_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use xcm_builder::{QueryController, QueryControllerWeightInfo, QueryHandler};
+
+		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
+			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
+
+		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::take_response();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+
+		let response = <<E::T as Config>::Xcm>::take_response(query_id).encode();
+		ctx.write_sandbox_memory(memory, output_ptr, &response)?;
+		Ok(ReturnCode::Success)
 	}
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
