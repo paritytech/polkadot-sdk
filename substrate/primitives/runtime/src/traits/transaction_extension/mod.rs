@@ -34,7 +34,7 @@ pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 use tuplex::{PopFront, PushBack};
 
-use super::{CloneSystemOriginSigner, DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
+use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
 
 mod as_transaction_extension;
 mod dispatch_transaction;

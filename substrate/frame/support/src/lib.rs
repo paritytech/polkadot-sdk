@@ -52,7 +52,7 @@ pub mod __private {
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
-		traits::{CloneSystemOriginSigner, Dispatchable},
+		traits::{AsSystemOriginSigner, Dispatchable},
 		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]

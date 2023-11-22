@@ -18,6 +18,8 @@
 //! The [AsTransactionExtension] adapter struct for adapting [SignedExtension]s to
 //! [TransactionExtension]s.
 
+use crate::traits::AsSystemOriginSigner;
+
 use super::*;
 
 /// Adapter to use a `SignedExtension` in the place of a `TransactionExtension`.
@@ -39,7 +41,7 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 
 impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
 where
-	<SE::Call as Dispatchable>::RuntimeOrigin: CloneSystemOriginSigner<SE::AccountId> + Clone,
+	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
 {
 	const IDENTIFIER: &'static str = SE::IDENTIFIER;
 	type Val = ();
@@ -62,8 +64,9 @@ where
 		(ValidTransaction, (), <SE::Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let who = origin.clone_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
-		Ok((self.0.validate(&who, call, info, len)?, (), origin))
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+		let r = self.0.validate(who, call, info, len)?;
+		Ok((r, (), origin))
 	}
 
 	fn prepare(
@@ -74,8 +77,8 @@ where
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let who = origin.clone_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
-		self.0.pre_dispatch(&who, call, info, len)
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+		self.0.pre_dispatch(who, call, info, len)
 	}
 
 	fn post_dispatch(

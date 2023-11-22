@@ -305,10 +305,10 @@ pub fn expand_outer_origin(
 			}
 		}
 
-		impl #scrate::__private::CloneSystemOriginSigner<<#runtime as #system_path::Config>::AccountId> for RuntimeOrigin {
-			fn clone_system_origin_signer(&self) -> Option<<#runtime as #system_path::Config>::AccountId> {
+		impl #scrate::__private::AsSystemOriginSigner<<#runtime as #system_path::Config>::AccountId> for RuntimeOrigin {
+			fn as_system_origin_signer(&self) -> Option<&<#runtime as #system_path::Config>::AccountId> {
 				if let OriginCaller::system(#system_path::Origin::<#runtime>::Signed(ref signed)) = &self.caller {
-					Some(signed.clone())
+					Some(signed)
 				} else {
 					None
 				}
