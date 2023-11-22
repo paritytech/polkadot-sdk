@@ -273,7 +273,7 @@
 //!   <summary><b>Solution: Saturating</b></summary>
 //!   For Alice's balance problem, using `saturated_sub` could've mitigated this issue.  As debt or
 //!   having a negative balance is not a concept within blockchains, a saturating calculation
-//! would've   simply limited her balance to the lower bound of u32.
+//! would've simply limited her balance to the lower bound of u32.
 //!
 //!   In other words: Alice's balance would've stayed at "0", even after being slashed.
 //!
