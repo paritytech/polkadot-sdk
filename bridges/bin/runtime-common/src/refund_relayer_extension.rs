@@ -48,9 +48,14 @@ use pallet_transaction_payment::{Config as TransactionPaymentConfig, OnChargeTra
 use pallet_utility::{Call as UtilityCall, Config as UtilityConfig, Pallet as UtilityPallet};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, SignedExtension, Zero},
+	impl_tx_ext_default,
+	traits::{
+		DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, SignedExtension,
+		TransactionExtension, Zero,
+	},
 	transaction_validity::{
-		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransactionBuilder,
+		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+		ValidTransactionBuilder,
 	},
 	DispatchResult, FixedPointOperand, RuntimeDebug,
 };
@@ -515,7 +520,7 @@ where
 			target: "runtime::bridge",
 			"{} via {:?} has boosted priority of message delivery transaction \
 			of relayer {:?}: {} messages -> {} priority",
-			Self::IDENTIFIER,
+			<Self as SignedExtension>::IDENTIFIER,
 			<T::Msgs as RefundableMessagesLaneId>::Id::get(),
 			who,
 			bundled_messages,
@@ -539,7 +544,7 @@ where
 			log::trace!(
 				target: "runtime::bridge",
 				"{} via {:?} parsed bridge transaction in pre-dispatch: {:?}",
-				Self::IDENTIFIER,
+				<Self as SignedExtension>::IDENTIFIER,
 				<T::Msgs as RefundableMessagesLaneId>::Id::get(),
 				call_info,
 			);
@@ -568,7 +573,7 @@ where
 				log::trace!(
 					target: "runtime::bridge",
 					"{} via {:?} has registered reward: {:?} for {:?}",
-					Self::IDENTIFIER,
+					<Self as SignedExtension>::IDENTIFIER,
 					<T::Msgs as RefundableMessagesLaneId>::Id::get(),
 					reward,
 					relayer,
@@ -580,6 +585,152 @@ where
 
 		Ok(())
 	}
+}
+
+impl<T: RefundSignedExtension> TransactionExtension<CallOf<T::Runtime>>
+	for RefundSignedExtensionAdapter<T>
+where
+	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
+		Chain<BlockNumber = RelayBlockNumber>,
+	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
+		+ GrandpaCallSubType<T::Runtime, T::GrandpaInstance>
+		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
+{
+	const IDENTIFIER: &'static str = T::Id::STR;
+	type Implicit = ();
+	type Pre = Option<PreDispatchData<AccountIdOf<T::Runtime>>>;
+	type Val = Option<PreDispatchData<AccountIdOf<T::Runtime>>>;
+
+	fn validate(
+		&self,
+		origin: <CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin,
+		call: &CallOf<T::Runtime>,
+		_info: &DispatchInfoOf<CallOf<T::Runtime>>,
+		_len: usize,
+		_implicit: &[u8],
+	) -> Result<
+		(
+			sp_runtime::transaction_validity::ValidTransaction,
+			Self::Val,
+			<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin,
+		),
+		sp_runtime::transaction_validity::TransactionValidityError,
+	> {
+		let who = frame_system::ensure_signed(origin.clone())
+			.map_err(|_| InvalidTransaction::BadSigner)?;
+		// this is the only relevant line of code for the `pre_dispatch`
+		//
+		// we're not calling `validate` from `pre_dispatch` directly because of performance
+		// reasons, so if you're adding some code that may fail here, please check if it needs
+		// to be added to the `pre_dispatch` as well
+		let parsed_call = T::parse_and_check_for_obsolete_call(call)?;
+
+		// the following code just plays with transaction priority and never returns an error
+
+		// we only boost priority of presumably correct message delivery transactions
+		let bundled_messages = match T::bundled_messages_for_priority_boost(parsed_call.as_ref()) {
+			Some(bundled_messages) => bundled_messages,
+			None =>
+				return Ok((
+					Default::default(),
+					parsed_call
+						.map(|call_info| PreDispatchData { relayer: who.clone(), call_info }),
+					origin,
+				)),
+		};
+
+		// we only boost priority if relayer has staked required balance
+		if !RelayersPallet::<T::Runtime>::is_registration_active(&who) {
+			return Ok((
+				Default::default(),
+				parsed_call.map(|call_info| PreDispatchData { relayer: who.clone(), call_info }),
+				origin,
+			))
+		}
+
+		// compute priority boost
+		let priority_boost =
+			crate::priority_calculator::compute_priority_boost::<T::Priority>(bundled_messages);
+		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
+
+		log::trace!(
+			target: "runtime::bridge",
+			"{} via {:?} has boosted priority of message delivery transaction \
+			of relayer {:?}: {} messages -> {} priority",
+			<Self as SignedExtension>::IDENTIFIER,
+			<T::Msgs as RefundableMessagesLaneId>::Id::get(),
+			who,
+			bundled_messages,
+			priority_boost,
+		);
+
+		let validity = valid_transaction.build()?;
+		let val = parsed_call.map(|call_info| PreDispatchData { relayer: who.clone(), call_info });
+		Ok((validity, val, origin))
+	}
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin,
+		call: &CallOf<T::Runtime>,
+		_info: &DispatchInfoOf<CallOf<T::Runtime>>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		let who = frame_system::ensure_signed(origin.clone())
+			.map_err(|_| InvalidTransaction::BadSigner)?;
+		// this is a relevant piece of `validate` that we need here (in `pre_dispatch`)
+		let parsed_call = T::parse_and_check_for_obsolete_call(call)?;
+		// Could probably just return `_val` since we build it anyway in `validate`, but it looks
+		// like `prepare` should do `parse_and_check_for_obsolete_call` anyway, so we can construct
+		// the return here with no additional cost.
+		Ok(parsed_call.map(|call_info| {
+			log::trace!(
+				target: "runtime::bridge",
+				"{} via {:?} parsed bridge transaction in pre-dispatch: {:?}",
+				<Self as SignedExtension>::IDENTIFIER,
+				<T::Msgs as RefundableMessagesLaneId>::Id::get(),
+				call_info,
+			);
+			PreDispatchData { relayer: who.clone(), call_info }
+		}))
+	}
+
+	fn post_dispatch(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<CallOf<T::Runtime>>,
+		post_info: &PostDispatchInfoOf<CallOf<T::Runtime>>,
+		len: usize,
+		result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		let call_result = T::analyze_call_result(Some(pre), info, post_info, len, result);
+
+		match call_result {
+			RelayerAccountAction::None => (),
+			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
+				RelayersPallet::<T::Runtime>::register_relayer_reward(
+					reward_account,
+					&relayer,
+					reward,
+				);
+
+				log::trace!(
+					target: "runtime::bridge",
+					"{} via {:?} has registered reward: {:?} for {:?}",
+					<Self as SignedExtension>::IDENTIFIER,
+					<T::Msgs as RefundableMessagesLaneId>::Id::get(),
+					reward,
+					relayer,
+				);
+			},
+			RelayerAccountAction::Slash(relayer, slash_account) =>
+				RelayersPallet::<T::Runtime>::slash_and_deregister(&relayer, slash_account),
+		}
+
+		Ok(())
+	}
+	impl_tx_ext_default!(CallOf<T::Runtime>; implicit);
 }
 
 /// Signed extension that refunds a relayer for new messages coming from a parachain.
@@ -1294,13 +1445,29 @@ mod tests {
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestExtension =
 			RefundSignedExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
-		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+		TransactionExtension::validate(
+			&extension,
+			Some(relayer_account_at_this_chain()).into(),
+			&call,
+			&DispatchInfo::default(),
+			0,
+			&[],
+		)
+		.map(|res| res.0)
 	}
 
 	fn run_grandpa_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestGrandpaExtension =
 			RefundSignedExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
-		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+		TransactionExtension::validate(
+			&extension,
+			Some(relayer_account_at_this_chain()).into(),
+			&call,
+			&DispatchInfo::default(),
+			0,
+			&[],
+		)
+		.map(|res| res.0)
 	}
 
 	fn run_validate_ignore_priority(call: RuntimeCall) -> TransactionValidity {
@@ -1345,8 +1512,8 @@ mod tests {
 		pre_dispatch_data: Option<PreDispatchData<ThisChainAccountId>>,
 		dispatch_result: DispatchResult,
 	) {
-		let post_dispatch_result = TestExtension::post_dispatch(
-			Some(pre_dispatch_data),
+		let post_dispatch_result = <TestExtension as TransactionExtension<_>>::post_dispatch(
+			pre_dispatch_data,
 			&dispatch_info(),
 			&post_dispatch_info(),
 			1024,
