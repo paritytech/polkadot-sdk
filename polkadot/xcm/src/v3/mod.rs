@@ -485,6 +485,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	WithdrawAsset(MultiAssets),
 
 	/// Asset(s) (`assets`) have been received into the ownership of this system on the `origin`
@@ -498,6 +499,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ReserveAssetDeposited(MultiAssets),
 
 	/// Asset(s) (`assets`) have been destroyed on the `origin` system and equivalent assets should
@@ -511,6 +513,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ReceiveTeleportedAsset(MultiAssets),
 
 	/// Respond with information that the local system is expecting.
@@ -835,6 +838,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ClaimAsset { assets: MultiAssets, ticket: MultiLocation },
 
 	/// Always throws an error of type `Trap`.

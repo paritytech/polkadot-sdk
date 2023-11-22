@@ -50,7 +50,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 pub struct JustTheParent;
 impl Contains<Location> for JustTheParent {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, HERE))
+		matches!(location.unpack(), (1, []))
 	}
 }
 

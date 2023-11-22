@@ -651,7 +651,7 @@ mod tests {
 	}
 
 	#[test]
-	fn location_conversion_functions() {
+	fn location_conversion_functions_work() {
 		let location: Location =
 			(Parent, Parachain(1000), PalletInstance(50), GeneralIndex(1984)).into();
 		assert_eq!(

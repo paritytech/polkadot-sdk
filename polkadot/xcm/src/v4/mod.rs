@@ -44,7 +44,7 @@ pub use asset::{
 	MAX_ITEMS_IN_ASSETS,
 };
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
-pub use junctions::{Junctions, HERE};
+pub use junctions::Junctions;
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
@@ -188,7 +188,7 @@ pub mod prelude {
 			WeightLimit::{self, *},
 			WildAsset::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
-			XcmContext, XcmHash, XcmWeightInfo, HERE, VERSION as XCM_VERSION,
+			XcmContext, XcmHash, XcmWeightInfo, VERSION as XCM_VERSION,
 		};
 	}
 	pub use super::{Instruction, Xcm};
@@ -362,7 +362,14 @@ impl XcmContext {
 ///
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
-#[derive(Derivative, Encode, Decode, TypeInfo, xcm_procedural::XcmWeightInfoTrait)]
+#[derive(
+	Derivative,
+	Encode,
+	Decode,
+	TypeInfo,
+	xcm_procedural::XcmWeightInfoTrait,
+	xcm_procedural::Builder,
+)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
@@ -376,6 +383,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	WithdrawAsset(Assets),
 
 	/// Asset(s) (`assets`) have been received into the ownership of this system on the `origin`
@@ -389,6 +397,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ReserveAssetDeposited(Assets),
 
 	/// Asset(s) (`assets`) have been destroyed on the `origin` system and equivalent assets should
@@ -402,6 +411,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ReceiveTeleportedAsset(Assets),
 
 	/// Respond with information that the local system is expecting.
@@ -726,6 +736,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ClaimAsset { assets: Assets, ticket: Location },
 
 	/// Always throws an error of type `Trap`.
