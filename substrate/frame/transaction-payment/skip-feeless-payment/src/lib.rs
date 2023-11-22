@@ -40,7 +40,7 @@ use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
 	traits::{IsType, OriginTrait},
 };
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::TransactionValidityError,
