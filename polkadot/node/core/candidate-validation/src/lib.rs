@@ -767,21 +767,20 @@ trait ValidationBackend {
 					} else {
 						break;
 					},
-
-				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::JobError(_) | PossiblyInvalidError::HardTimeout,
+				)) =>
 					if num_job_error_retries_left > 0 {
 						num_job_error_retries_left -= 1;
 					} else {
 						break;
 					},
-
 				Err(ValidationError::Internal(_)) =>
 					if num_internal_retries_left > 0 {
 						num_internal_retries_left -= 1;
 					} else {
 						break;
 					},
-
 				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
 			}
 
