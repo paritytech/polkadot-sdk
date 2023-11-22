@@ -99,12 +99,11 @@ impl ChainApiBackend for BlockChainRpcClient {
 		&self,
 		hash: <Block as BlockT>::Hash,
 	) -> sp_blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
-		let result = self
+		Ok(self
 			.rpc_client
 			.chain_get_header(Some(hash))
 			.await?
-			.map(|maybe_header| maybe_header.number);
-		Ok(result)
+			.map(|maybe_header| maybe_header.number))
 	}
 
 	async fn hash(
