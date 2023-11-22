@@ -588,8 +588,8 @@ where
 			DispatchClass::Mandatory,
 		);
 
-		<System as frame_system::Config>::PreInherents::pre_inherents();
 		frame_system::Pallet::<System>::note_finished_initialize();
+		<System as frame_system::Config>::PreInherents::pre_inherents();
 	}
 
 	/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].

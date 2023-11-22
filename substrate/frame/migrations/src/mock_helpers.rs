@@ -17,7 +17,6 @@
 
 //! Test helpers for internal and external usage.
 
-#![cfg(any(feature = "std", test))]
 #![allow(missing_docs)]
 
 use codec::{Decode, Encode};
