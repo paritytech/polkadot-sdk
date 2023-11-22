@@ -1525,20 +1525,30 @@ pub mod migrations {
 
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
-		pallet_im_online::migration::v1::Migration<Runtime>,
-		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
-		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
-		assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
-		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
-		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::MigrateToV1<Runtime, ()>,
-		pallet_nomination_pools::migration::versioned::V5toV6<Runtime>,
-		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
-		pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
-		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
+		// pallet_im_online::migration::v1::Migration<Runtime>,
+		// parachains_configuration::migration::v7::MigrateToV7<Runtime>,
+		// pallet_staking::migrations::v14::MigrateToV14<Runtime>,
+		// assigned_slots::migration::v1::MigrateToV1<Runtime>,
+		// parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
+		// parachains_configuration::migration::v8::MigrateToV8<Runtime>,
+		// parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+		// paras_registrar::migration::MigrateToV1<Runtime, ()>,
+		// pallet_nomination_pools::migration::versioned::V5toV6<Runtime>,
+		// pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
+		// pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
+		// pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+		// parachains_configuration::migration::v10::MigrateToV10<Runtime>,
+		ReproduceFailingToDecode,
 	);
+}
+
+pub struct ReproduceFailingToDecode;
+impl frame_support::traits::OnRuntimeUpgrade for ReproduceFailingToDecode {
+	fn on_runtime_upgrade() -> Weight {
+		let snapshot = pallet_election_provider_multi_phase::Snapshot::<Runtime>::get();
+		log::error!("{:?}", snapshot);
+		unimplemented!();
+	}
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
