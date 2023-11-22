@@ -43,10 +43,10 @@ The staking system in Substrate NPoS is designed to make the following possible:
 
 #### Staking
 
-Almost any interaction with the Staking module requires a process of _**bonding**_ (also known as being a _staker_). To 
-become *bonded*, a fund-holding account known as the _stash account_, which holds some or all of the funds that become frozen 
-in place as part of the staking process. The controller account, which this pallet now assigns the stash account to, issues 
-instructions on how funds shall be used.
+Almost any interaction with the Staking module requires a process of _**bonding**_ (also known as being a _staker_). To
+become *bonded*, a fund-holding account known as the _stash account_, which holds some or all of the funds that become
+frozen in place as part of the staking process. The controller account, which this pallet now assigns the stash account to,
+issues instructions on how funds shall be used.
 
 An account can become a bonded stash account using the
 [`bond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.bond) call.
@@ -231,7 +231,7 @@ following:
 Any funds already placed into stash can be the target of the following operations:
 
 The controller account can free a portion (or all) of the funds using the
-[`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond) call. Note that the 
+[`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond) call. Note that the
 funds are not immediately accessible. Instead, a duration denoted by
 [`BondingDuration`](https://docs.rs/pallet-staking/latest/pallet_staking/trait.Config.html#associatedtype.BondingDuration)
 (in number of eras) must pass until the funds can actually be removed. Once the `BondingDuration` is over, the
