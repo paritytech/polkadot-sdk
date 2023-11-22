@@ -320,7 +320,7 @@
 //! _represents_ a floating point number in base 10, i.e., a **fixed point number**, can be used
 //! instead.
 //!
-//! For use cases which operate within the range of `[0, 1]` types which implement
+//! For use cases which operate within the range of `[0, 1]` types that implement
 //! [`PerThing`](sp_arithmetic::PerThing) are used:
 //! - **[`Perbill`](sp_arithmetic::Perbill), parts of a billion**
 #![doc = docify::embed!("./src/reference_docs/safe_defensive_programming.rs", perbill_example)]
