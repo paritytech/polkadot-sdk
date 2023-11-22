@@ -101,7 +101,8 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZ
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_target: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> sp_runtime::traits::ValidateResult<Self, T::RuntimeCall> {
 		if let Some(RawOrigin::Signed(ref who)) = origin.as_system_ref() {
 			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
@@ -118,17 +119,25 @@ mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_noop, assert_ok};
+	use sp_runtime::traits::DispatchTransaction;
 
 	#[test]
 	fn zero_account_ban_works() {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_noop!(
-				CheckNonZeroSender::<Test>::new().validate(&0, CALL, &info, len),
-				InvalidTransaction::BadSigner
+			assert_eq!(
+				CheckNonZeroSender::<Test>::new()
+					.validate_only(Some(0).into(), CALL, &info, len)
+					.unwrap_err(),
+				TransactionValidityError::from(InvalidTransaction::BadSigner)
 			);
-			assert_ok!(CheckNonZeroSender::<Test>::new().validate(&1, CALL, &info, len));
+			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
 		})
 	}
 }

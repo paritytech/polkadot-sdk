@@ -60,6 +60,7 @@ use frame_support::{
 pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
+	impl_tx_ext_default,
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
 		Saturating, TransactionExtension, Zero,
@@ -899,9 +900,8 @@ where
 	);
 	type Pre = Self::Val;
 	type Implicit = ();
-	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
-		Ok(())
-	}
+
+	impl_tx_ext_default!(T::RuntimeCall; implicit);
 
 	fn validate(
 		&self,
@@ -909,7 +909,8 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_implicit: &[u8],
+		_: (),
+		_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,

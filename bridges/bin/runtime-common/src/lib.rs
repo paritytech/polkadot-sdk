@@ -161,7 +161,8 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				call: &$call,
 				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
-				_target: &[u8],
+				_self_implicit: Self::Implicit,
+				_inherited_implication: &impl codec::Encode,
 			) -> Result<
 				(
 					sp_runtime::transaction_validity::ValidTransaction,

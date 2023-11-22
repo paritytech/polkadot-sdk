@@ -18,6 +18,8 @@
 //! Generic implementation of an extrinsic that has passed the verification
 //! stage.
 
+use codec::Encode;
+
 use crate::{
 	traits::{
 		self, transaction_extension::TransactionExtension, DispatchInfoOf, DispatchTransaction,
@@ -68,7 +70,7 @@ impl<AccountId, Call, Extension, RuntimeOrigin> traits::Applyable
 	for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	AccountId: Member + MaybeDisplay,
-	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin>,
+	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
 	Extension: TransactionExtension<Call>,
 	RuntimeOrigin: From<Option<AccountId>>,
 {

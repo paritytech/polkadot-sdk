@@ -73,7 +73,8 @@ pub trait SimpleTransactionExtension<Call: Dispatchable>:
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		_target: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> SimpleValidateResult<Self, Call> {
 		Ok((Default::default(), Default::default(), origin))
 	}
@@ -166,9 +167,10 @@ impl<Call: Dispatchable, S: SimpleTransactionExtension<Call>> TransactionExtensi
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		target: &[u8],
+		self_implicit: Self::Implicit,
+		inherited_implication: &impl Encode,
 	) -> ValidateResult<Self, Call> {
-		self.0.validate(origin, call, info, len, target)
+		self.0.validate(origin, call, info, len, self_implicit, inherited_implication)
 	}
 	fn prepare(
 		self,

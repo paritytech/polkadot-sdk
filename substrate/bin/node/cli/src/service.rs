@@ -93,35 +93,40 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
-			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
-			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
-			frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
-			frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
-				period,
-				best_block.saturated_into(),
-			)),
-			frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
-			frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
+			(
+				frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
+				frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
+				frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
+				frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
+				frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
+					period,
+					best_block.saturated_into(),
+				)),
+				frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
+				frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
+			)
+				.into(),
 			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<
 					kitchensink_runtime::Runtime,
-				>::from(tip, None),
+				>::from(tip, None)
+				.into(),
 			),
-		)
-			.into();
+		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			(),
-			kitchensink_runtime::VERSION.spec_version,
-			kitchensink_runtime::VERSION.transaction_version,
-			genesis_hash,
-			best_hash,
-			(),
-			(),
+			(
+				(),
+				kitchensink_runtime::VERSION.spec_version,
+				kitchensink_runtime::VERSION.transaction_version,
+				genesis_hash,
+				best_hash,
+				(),
+				(),
+			),
 			(),
 		),
 	);
@@ -884,23 +889,28 @@ mod tests {
 				let check_nonce = frame_system::CheckNonce::from(index);
 				let check_weight = frame_system::CheckWeight::new();
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
-					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None).into(),
 				);
 				let tx_ext: TxExtension = (
-					check_non_zero_sender,
-					check_spec_version,
-					check_tx_version,
-					check_genesis,
-					check_era,
-					check_nonce,
-					check_weight,
+					(
+						check_non_zero_sender,
+						check_spec_version,
+						check_tx_version,
+						check_genesis,
+						check_era,
+						check_nonce,
+						check_weight,
+					)
+						.into(),
 					tx_payment,
-				)
-					.into();
+				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
 					tx_ext,
-					((), spec_version, transaction_version, genesis_hash, genesis_hash, (), (), ()),
+					(
+						((), spec_version, transaction_version, genesis_hash, genesis_hash, (), ()),
+						(),
+					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, tx_ext, _) = raw_payload.deconstruct();

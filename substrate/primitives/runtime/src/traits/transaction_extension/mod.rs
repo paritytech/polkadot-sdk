@@ -32,6 +32,7 @@ use sp_core::{self, RuntimeDebug};
 #[doc(hidden)]
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
+use tuplex::{PopFront, PushBack};
 
 use super::{CloneSystemOriginSigner, DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
 
@@ -50,6 +51,78 @@ pub type ValidateResult<TE, Call> = Result<
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
+///
+/// The simplest transaction extension would be the Unit type (and empty pipeline) `()`. This
+/// executes no additional logic and implies a dispatch of the transaction's call using
+/// the inherited origin (either `None` or `Signed`, depending on whether this is a signed or
+/// general transaction).
+///
+/// Transaction extensions are capable of altering certain associated semantics:
+///
+/// - They may define the origin with which the transaction's call should be dispatched.
+/// - They may define various parameters used by the transction queue to determine under what
+///   conditions the transaction should be retained and introduced on-chain.
+/// - They may define whether this transaction is acceptable for introduction on-chain at all.
+///
+/// Each of these semantics are defined by the `validate` function.
+///
+/// **NOTE: Transaction extensions cannot under any circumctances alter the call itself.**
+///
+/// Transaction extensions are capable of defining logic which is executed additionally to the
+/// dispatch of the call:
+///
+/// - They may define logic which must be executed prior to the dispatch of the call.
+/// - They may also define logic which must be executed after the dispatch of the call.
+///
+/// Each of these semantics are defined by the `prepare` and `post_dispatch` functions respectively.
+///
+/// Finally, transaction extensions may define additional data to help define the implications of
+/// the logic they introduce. This additional data may be explicitly defined by the transaction
+/// author (in which case it is included as part of the transaction body), or it may be implicitly
+/// defined by the transaction extension based around the on-chain state (which the transaction
+/// author is assumed to know). This data may be utilized by the above logic to alter how a node's
+/// transaction queue treats this transaction.
+///
+/// ## Pipelines, Inherited Implications, and Authorized Origins
+///
+/// Requiring a single transaction extension to define all of the above semantics would be
+/// cumbersome and would lead to a lot of boilerplate. Instead, transaction extensions are
+/// aggregated into pipelines, which are tuples of transaction extensions. Each extension in the
+/// pipeline is executed in order, and the output of each extension is aggregated and/or relayed as
+/// the input to the next extension in the pipeline.
+///
+/// This ordered composition happens with all datatypes ([Val], [Pre] and [Implicit]) as well as
+/// all functions. There are important consequences stemming from how the composition affects the
+/// meaning of the `origin` and `implication` parameters as well as the results. Whereas the
+/// [prepare] and [post_dispatch] functions are clear in their meaning, the [validate] function is
+/// sfairly sophisticated and warrants further explanation.
+///
+/// Firstly, the `origin` parameter. The `origin` passed into the first item in a pipeline is simply
+/// that passed into the tuple itself. It represents an authority who has authorized the implication
+/// of the transaction, as of the extension it has been passed into *and any further extensions it
+/// may pass though, all the way to, and including, the transaction's dispatch call itself.
+/// Each following item in the pipeline is passed the origin which the previous item returned. The
+/// origin returned from the final item in the pipeline is the origin which is returned by the tuple
+/// itself.
+///
+/// This means that if a constituent extension returns a different origin to the one it was called
+/// with, then (assuming no other extension changes it further) *this new origin will be used for
+/// all extensions following it in the pipeline, and will be returned from the pipeline to be used
+/// as the origin for the call's dispatch*. The call itself as well as all these extensions
+/// following may each imply consequence for this origin. We call this the *inherited implication*.
+///
+/// The *inherited implication* is the cumulated on-chain effects born by whatever origin is
+/// returned. It is expressed to the [validate] function only as the `implication` argument which
+/// implements the [Encode] trait. A transaction extension may define its own implications through
+/// its own fields and the [implicit] function. This is only utilized by extensions which preceed
+/// it in a pipeline or, if the transaction is an old-school signed trasnaction, the udnerlying
+/// transaction verification logic.
+///
+/// **The inherited implication passed as the `implication` parameter to [validate] does not
+/// include the extension's inner data itself nor does it include the result of the extension's
+/// `implicit` function.** If you both provide an implication and rely on the implication, then you
+/// need to manually aggregate your extensions implication with the aggregated implication passed
+/// in.
 pub trait TransactionExtension<Call: Dispatchable>:
 	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
@@ -83,13 +156,35 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	/// validity against current state. It should perform all checks that determine a valid
 	/// transaction, that can pay for its execution and quickly eliminate ones that are stale or
 	/// incorrect.
+	///
+	/// Parameters:
+	/// - `origin`: The origin of the transaction which this extension inherited; coming from an
+	///   "old-school" *signed transaction*, this will be a system `RawOrigin::Signed` value. If the
+	///   transaction is a "new-school" *General Transaction*, then this will be a system
+	///   `RawOrigin::None` value. If this extension is an item in a composite, then it could be
+	///   anything which was previously returned as an `origin` value in the result of a `validate`
+	///   call.
+	/// - `call`: The call which will ultimately be dispatched by this transaction.
+	/// - `info`: Information concerning, and inherent to, the `call`.
+	/// - `len`: The total length of the encoded transaction.
+	/// - `implication`: The *implication* which this extension inherits. Coming directly from a
+	///   transaction, this is simply the transaction's `call`. However, if this extension is
+	///   expressed as part of a composite type, then this is equal to any further implications to
+	///   which the returned `origin` could potentially apple. See Pipelines, Inherited
+	///   Implications, and Authorized Origins for more information.
+	///
+	/// Returns a [ValidateResult], which is a [Result] whose success type is a tuple of
+	/// [ValidTransaction] (defining useful metadata for the transaction queue), the [Self::Val]
+	/// token of this transaction, which gets passed into [prepare], and the origin of the
+	/// transaction, which gets passed into [prepare] and is ultimately used for dispatch.
 	fn validate(
 		&self,
 		origin: OriginOf<Call>,
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		target: &[u8],
+		self_implicit: Self::Implicit,
+		inherited_implication: &impl Encode,
 	) -> ValidateResult<Self, Call>;
 
 	/// Do any pre-flight stuff for a transaction after validation.
@@ -195,8 +290,11 @@ pub trait TransactionExtension<Call: Dispatchable>:
 /// Implict
 #[macro_export]
 macro_rules! impl_tx_ext_default {
+	($call:ty ; , $( $rest:tt )*) => {
+		impl_tx_ext_default!{$call ; $( $rest )*}
+	};
 	($call:ty ; implicit $( $rest:tt )*) => {
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		fn implicit(&self) -> Result<Self::Implicit, $crate::TransactionValidityError> {
 			Ok(Default::default())
 		}
 		impl_tx_ext_default!{$call ; $( $rest )*}
@@ -204,12 +302,13 @@ macro_rules! impl_tx_ext_default {
 	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
 			&self,
-			origin: sp_runtime::traits::OriginOf<$call>,
+			origin: $crate::traits::OriginOf<$call>,
 			_call: &$call,
-			_info: &DispatchInfoOf<$call>,
+			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
-			_target: &[u8],
-		) -> sp_runtime::traits::ValidateResult<Self, $call> {
+			_self_implicit: Self::Implicit,
+			_inherited_implication: &impl $crate::codec::Encode,
+		) -> $crate::traits::ValidateResult<Self, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
 		impl_tx_ext_default!{$call ; $( $rest )*}
@@ -218,11 +317,11 @@ macro_rules! impl_tx_ext_default {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &sp_runtime::traits::OriginOf<$call>,
+			_origin: &$crate::traits::OriginOf<$call>,
 			_call: &$call,
-			_info: &DispatchInfoOf<$call>,
+			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
-		) -> Result<Self::Pre, TransactionValidityError> {
+		) -> Result<Self::Pre, $crate::TransactionValidityError> {
 			Ok(Default::default())
 		}
 		impl_tx_ext_default!{$call ; $( $rest )*}
@@ -258,19 +357,38 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		implicit: &[u8],
+		self_implicit: Self::Implicit,
+		inherited_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let mut aggregated_valid = ValidTransaction::default();
-		let mut aggregated_origin = origin;
-		let aggregated_val = for_tuples!( ( #( {
-			let (valid, val, origin) = Tuple.validate(aggregated_origin, call, info, len, implicit)?;
-			aggregated_origin = origin;
-			aggregated_valid = aggregated_valid.combine_with(valid);
-			val
-		} ),* ) );
+		let aggregated_valid = ValidTransaction::default();
+		let aggregated_origin = origin;
+		let aggregated_val = ();
+		let following_explicit_implications = for_tuples!( ( #( &self.Tuple ),* ) );
+		let following_implicit_implications = self_implicit;
+
+		for_tuples!(#(
+			// Implication of this pipeline element not relevant for later items, so we pop it.
+			let (_item, following_explicit_implications) = following_explicit_implications.pop_front();
+			let (item_implicit, following_implicit_implications) = following_implicit_implications.pop_front();
+			let (valid, val, aggregated_origin) = {
+				let aggregate_implications = (
+					// This is the implication born of the fact we return the mutated origin
+					inherited_implication,
+					// This is the explicitly made implication born of the fact the new origin is
+					// passed into the next items in this pipeline-tuple.
+					&following_explicit_implications,
+					// This is the implicitly made implication born of the fact the new origin is
+					// passed into the next items in this pipeline-tuple.
+					&following_implicit_implications,
+				);
+				Tuple.validate(aggregated_origin, call, info, len, item_implicit, &aggregate_implications)?
+			};
+			let aggregated_valid = aggregated_valid.combine_with(valid);
+			let aggregated_val = aggregated_val.push_back(val);
+		)* );
 		Ok((aggregated_valid, aggregated_val, aggregated_origin))
 	}
 
@@ -319,7 +437,8 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		_implicit: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, (), <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,

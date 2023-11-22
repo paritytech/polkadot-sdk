@@ -22,12 +22,9 @@ use codec::{Codec, Decode, Encode};
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{
-		DispatchInfoOf, Dispatchable, IdentifyAccount, PostDispatchInfoOf, TransactionExtension,
-		Verify,
-	},
+	impl_tx_ext_default,
+	traits::{DispatchInfoOf, Dispatchable, IdentifyAccount, TransactionExtension, Verify},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
-	DispatchResult,
 };
 use sp_std::fmt::Debug;
 
@@ -58,24 +55,21 @@ where
 	type Val = ();
 	type Pre = ();
 	type Implicit = ();
-	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
-		Ok(())
-	}
+	impl_tx_ext_default!(Call; implicit prepare);
 
 	fn validate(
 		&self,
 		_origin: <Call as Dispatchable>::RuntimeOrigin,
-		call: &Call,
+		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		target: &[u8],
+		_: (),
+		inherited_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let mut msg = call.encode();
-		msg.extend_from_slice(target);
-		let msg = blake2_256(&msg);
+		let msg = inherited_implication.using_encoded(blake2_256);
 
 		if !self.signature.verify(&msg[..], &self.account) {
 			Err(InvalidTransaction::BadProof)?
@@ -84,75 +78,4 @@ where
 		let origin = Some(self.account.clone()).into();
 		Ok((ValidTransaction::default(), (), origin))
 	}
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &<Call as Dispatchable>::RuntimeOrigin,
-		_call: &Call,
-		_info: &DispatchInfoOf<Call>,
-		_len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(())
-	}
-
-	fn post_dispatch(
-		_pre: Self::Pre,
-		_info: &DispatchInfoOf<Call>,
-		_post_info: &PostDispatchInfoOf<Call>,
-		_len: usize,
-		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		Ok(())
-	}
 }
-
-/*
-impl AdditionalSigned for () {
-	type Data = ();
-	fn additional_signed(&self) -> sp_std::result::Result<Self::Data, TransactionValidityError> {
-		Ok(())
-	}
-}
-
-impl<C: Dispatchable> TransactionExtension for () {
-	const IDENTIFIER: &'static str = "...";
-	type Call = ...;
-	type Val = ();
-	type Pre = ();
-
-	fn validate(
-		&self,
-		origin: <Self::Call as Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> Result<
-		(ValidTransaction, Self::Val, <Self::Call as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError
-	> {
-		Ok((ValidTransaction::default(), Self::Val, origin))
-	}
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &<Self::Call as Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(Self::Pre)
-	}
-
-	fn post_dispatch(
-		_pre: Self::Pre,
-		_info: &DispatchInfoOf<Self::Call>,
-		_post_info: &PostDispatchInfoOf<Self::Call>,
-		_len: usize,
-		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		Ok(())
-	}
-}
-*/

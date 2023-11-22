@@ -125,6 +125,11 @@ pub use sp_arithmetic::{
 	Perquintill, Rational128, Rounding, UpperOf,
 };
 
+pub use transaction_validity::{
+	InvalidTransaction, TransactionSource, TransactionValidityError, UnknownTransaction,
+	ValidTransaction,
+};
+
 pub use either::Either;
 
 /// The number of bytes of the module-specific `error` field defined in [`ModuleError`].

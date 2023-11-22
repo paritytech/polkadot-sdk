@@ -58,7 +58,7 @@ use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	create_runtime_str, impl_opaque_keys,
+	create_runtime_str, impl_opaque_keys, impl_tx_ext_default,
 	traits::{
 		AsTransactionExtension, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
 		NumberFor, Verify,
@@ -307,9 +307,7 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 	type Pre = ();
 	type Val = ();
 	type Implicit = ();
-	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
-		Ok(())
-	}
+	impl_tx_ext_default!(RuntimeCall; implicit prepare);
 
 	fn validate(
 		&self,
@@ -317,7 +315,8 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 		call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_implicit: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
@@ -329,17 +328,6 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 			_ => Default::default(),
 		};
 		Ok((v, (), origin))
-	}
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &<RuntimeCall as Dispatchable>::RuntimeOrigin,
-		_call: &RuntimeCall,
-		_info: &DispatchInfoOf<RuntimeCall>,
-		_len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(())
 	}
 }
 
