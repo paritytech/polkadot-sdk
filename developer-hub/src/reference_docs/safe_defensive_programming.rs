@@ -231,7 +231,7 @@
 //!
 //!
 //! Known scenarios that could be fallible should be avoided: i.e., avoiding the possibility of
-//! dividing/modulo by zero at any point should be mitigated.  One should be, instead, opting for a
+//! dividing/modulo by zero at any point should be mitigated. One should be, instead, opting for a
 //! `checked_` method in order to introduce safe arithmetic in their code.
 //!
 //!
