@@ -663,14 +663,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Rejig the hold on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
 	fn update_hold(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
-		let class_hold_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
+		let class_freeze_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
 			voting.rejig(frame_system::Pallet::<T>::block_number());
 			voting.held_balance()
 		});
-		let hold_needed = ClassHoldsFor::<T, I>::mutate(who, |holds| {
+		let freeze_needed = ClassHoldsFor::<T, I>::mutate(who, |holds| {
 			holds.retain(|x| &x.0 != class);
-			if !class_hold_needed.is_zero() {
-				let ok = holds.try_push((class.clone(), class_hold_needed)).is_ok();
+			if !class_freeze_needed.is_zero() {
+				let ok = holds.try_push((class.clone(), class_freeze_needed)).is_ok();
 				debug_assert!(
 					ok,
 					"Vec bounded by number of classes; \
@@ -680,10 +680,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 			holds.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
 		});
-		if hold_needed.is_zero() {
+		if freeze_needed.is_zero() {
 			T::Currency::thaw(&FreezeReason::ConvictionVoting.into(), who)?;
 		} else {
-			T::Currency::extend_freeze(&FreezeReason::ConvictionVoting.into(), who, hold_needed)?;
+			T::Currency::set_freeze(&FreezeReason::ConvictionVoting.into(), who, freeze_needed)?;
 		}
 		Ok(())
 	}

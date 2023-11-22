@@ -26,7 +26,7 @@ use frame_support::{
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, TokenError,
+	BuildStorage,
 };
 
 use super::*;
@@ -87,10 +87,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = HoldReason;
-	type MaxHolds = ConstU32<1>;
+	type FreezeIdentifier = FreezeReason;
+	type MaxFreezes = ConstU32<1>;
+	type RuntimeHoldReason = ();
+	type MaxHolds = ();
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -181,7 +181,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 }
 
 impl Config for Test {
-	type RuntimeHoldReason = HoldReason;
+	type RuntimeFreezeReason = FreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
 	type VoteHoldingPeriod = ConstU64<3>;
@@ -194,7 +194,7 @@ impl Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 11), (2, 21), (3, 31), (4, 41), (5, 51), (6, 61)],
+		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -207,7 +207,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 216);
+		assert_eq!(Balances::total_issuance(), 210);
 	});
 }
 
@@ -294,7 +294,7 @@ fn basic_voting_works() {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), class(3), 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -311,7 +311,7 @@ fn split_voting_works() {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), class(3), 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -334,10 +334,10 @@ fn abstain_voting_works() {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), class(3), 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 
 		assert_ok!(Voting::release(RuntimeOrigin::signed(2), class(3), 2));
-		assert_eq!(Balances::usable_balance(2), 21);
+		assert_eq!(Balances::usable_balance(2), 20);
 	});
 }
 
@@ -366,7 +366,7 @@ fn voting_balance_gets_held() {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), class(3), 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -379,7 +379,7 @@ fn successful_but_zero_conviction_vote_balance_can_be_released() {
 		Polls::set(vec![(3, Completed(3, false))].into_iter().collect());
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), Some(c), 3));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(2), c, 2));
-		assert_eq!(Balances::usable_balance(2), 21);
+		assert_eq!(Balances::usable_balance(2), 20);
 	});
 }
 
@@ -392,7 +392,7 @@ fn unsuccessful_conviction_vote_balance_can_be_released() {
 		Polls::set(vec![(3, Completed(3, false))].into_iter().collect());
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(c), 3));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), c, 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -412,10 +412,7 @@ fn successful_conviction_vote_balance_stays_held_for_correct_time() {
 			for i in 1..=5 {
 				assert_ok!(Voting::release(RuntimeOrigin::signed(i), c, i));
 				let expired = block >= (3 << (i - 1)) + 3;
-				assert_eq!(
-					Balances::usable_balance(i),
-					((i * 10) + 1) - if expired { 0 } else { 11 }
-				);
+				assert_eq!(Balances::usable_balance(i), (i * 10) - if expired { 0 } else { 10 });
 			}
 		}
 	});
@@ -604,7 +601,7 @@ fn lock_amalgamation_valid_with_multiple_removed_votes() {
 
 		run_to(7);
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -630,7 +627,7 @@ fn lock_amalgamation_valid_with_multiple_delegations() {
 
 		run_to(7);
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -664,7 +661,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 
 		run_to(7);
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -698,7 +695,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 
 		run_to(7);
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -729,7 +726,7 @@ fn lock_aggregation_over_different_classes_with_delegation_works() {
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 2, 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -773,7 +770,7 @@ fn lock_aggregation_over_different_classes_with_casting_works() {
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 1, 1));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 2, 1));
-		assert_eq!(Balances::usable_balance(1), 11);
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
 
@@ -794,7 +791,7 @@ fn errors_with_vote_work() {
 		);
 		assert_noop!(
 			Voting::vote(RuntimeOrigin::signed(1), 3, aye(11, 0)),
-			TokenError::FundsUnavailable
+			Error::<Test>::InsufficientFunds
 		);
 
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
@@ -829,7 +826,7 @@ fn errors_with_delegating_work() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 11),
-			TokenError::FundsUnavailable
+			Error::<Test>::InsufficientFunds
 		);
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 3, 2, Conviction::None, 10),
