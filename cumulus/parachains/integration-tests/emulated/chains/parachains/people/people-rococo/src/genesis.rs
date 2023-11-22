@@ -29,13 +29,6 @@ pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT
 pub fn genesis() -> Storage {
 	let genesis_config = people_rococo_runtime::RuntimeGenesisConfig {
 		system: people_rococo_runtime::SystemConfig::default(),
-		balances: people_rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.cloned()
-				.map(|k| (k, ED * 4096 * 4096))
-				.collect(),
-		},
 		parachain_info: people_rococo_runtime::ParachainInfoConfig {
 			parachain_id: ParaId::from(PARA_ID),
 			..Default::default()
