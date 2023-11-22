@@ -30,14 +30,14 @@
 
 #![warn(missing_docs)]
 
-pub mod chain_spec;
-pub mod service;
 #[cfg(feature = "cli")]
 mod benchmarking;
+pub mod chain_spec;
 #[cfg(feature = "cli")]
 mod cli;
 #[cfg(feature = "cli")]
 mod command;
+pub mod service;
 
 #[cfg(feature = "cli")]
 pub use cli::*;
