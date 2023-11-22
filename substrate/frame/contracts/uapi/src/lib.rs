@@ -42,8 +42,11 @@ macro_rules! define_error_codes {
         )*
     ) => {
         /// Every error that can be returned to a contract when it calls any of the host functions.
+		#[derive(Debug)]
         #[repr(u32)]
-        pub enum Error {
+        pub enum ReturnErrorCode {
+			/// API call successful.
+			Success = 0,
             $(
                 $( #[$attr] )*
                 $name = $discr,
@@ -58,13 +61,19 @@ macro_rules! define_error_codes {
                 match return_code.0 {
                     0 => Ok(()),
                     $(
-                        $discr => Err(Error::$name),
+                        $discr => Err(ReturnErrorCode::$name),
                     )*
-                    _ => Err(Error::Unknown),
+                    _ => Err(ReturnErrorCode::Unknown),
                 }
             }
         }
     };
+}
+
+impl From<ReturnErrorCode> for u32 {
+	fn from(code: ReturnErrorCode) -> u32 {
+		code as u32
+	}
 }
 
 define_error_codes! {
@@ -115,7 +124,7 @@ pub struct ReturnCode(u32);
 /// Using `u32::Max` is a safe sentinel because contracts are never
 /// allowed to use such a large amount of resources. So this value doesn't
 /// make sense for a memory location or length.
-pub(crate) const SENTINEL: u32 = u32::MAX;
+const SENTINEL: u32 = u32::MAX;
 
 impl From<ReturnCode> for Option<u32> {
 	fn from(code: ReturnCode) -> Self {
@@ -134,7 +143,7 @@ impl ReturnCode {
 	}
 }
 
-type Result = core::result::Result<(), Error>;
+type Result = core::result::Result<(), ReturnErrorCode>;
 
 #[inline(always)]
 #[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]

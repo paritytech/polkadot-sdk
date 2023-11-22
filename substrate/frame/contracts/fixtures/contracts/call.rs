@@ -21,7 +21,7 @@
 
 extern crate common;
 extern crate uapi;
-use uapi::{Api, CallFlags, ApiImpl as api};
+use uapi::{Api, ApiImpl as api, CallFlags};
 
 #[no_mangle]
 pub fn deploy() {}
@@ -32,15 +32,15 @@ pub fn call() {
 	let mut out = [0u8; 0]; // No output data.
 
 	// Read the input data.
-    api::input(&mut &mut buffer[..]);
+	api::input(&mut &mut buffer[..]);
 
-	// xx Call the callee.
-    api::call(
-        CallFlags::empty(),
-        &buffer[4..36],     // callee address.
-        0u64,               // How much gas to devote for the execution. 0 = all.
-        &buffer[36..],      // Pointer to value to transfer.
-        &buffer[0..4],      // Pointer to input data buffer address.
-        Some(&mut out[..]), // Pointer to output data buffer address.
-    );
+	// Call the callee
+	api::call(
+		CallFlags::empty(),
+		&buffer[4..36],     // callee address.
+		0u64,               // How much gas to devote for the execution. 0 = all.
+		&buffer[36..],      // Pointer to value to transfer.
+		&buffer[0..4],      // Pointer to input data buffer address.
+		Some(&mut out[..]), // Pointer to output data buffer address.
+	);
 }

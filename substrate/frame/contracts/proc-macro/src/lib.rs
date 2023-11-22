@@ -271,7 +271,7 @@ impl HostFn {
 		// process return type
 		let msg = r#"Should return one of the following:
 				- Result<(), TrapReason>,
-				- Result<ReturnCode, TrapReason>,
+				- Result<ReturnErrorCode, TrapReason>,
 				- Result<u64, TrapReason>,
 				- Result<u32, TrapReason>"#;
 		let ret_ty = match item.clone().sig.output {
@@ -336,7 +336,7 @@ impl HostFn {
 							"()" => Ok(HostFnReturn::Unit),
 							"u32" => Ok(HostFnReturn::U32),
 							"u64" => Ok(HostFnReturn::U64),
-							"ReturnCode" => Ok(HostFnReturn::ReturnCode),
+							"ReturnErrorCode" => Ok(HostFnReturn::ReturnCode),
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
 

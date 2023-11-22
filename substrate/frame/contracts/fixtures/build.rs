@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Compile contracts to wasm and RISC-V binaries.
 use anyhow::Result;
 use parity_wasm::elements::{deserialize_file, serialize_to_file, Internal};
 use std::{

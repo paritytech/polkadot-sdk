@@ -13,11 +13,7 @@
 // limitations under the License.
 
 // TODO:
-// - remove duplicated doc in pallet_contracts
-// - Move TopicOf to primitives
-// - Should we replace pallet_contracts::ReturnValue by uapi::Error
-// - storage_contains defines in uapi but not in pallet_contracts
-// - document return behavior for call_chain_extension
+// - Add missing unstable methods
 
 use crate::{CallFlags, Result, ReturnFlags};
 use paste::paste;
@@ -26,6 +22,10 @@ macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {
 		paste! {
 			#[doc = "Computes the " $name " " $bytes "-bit hash on the given input buffer."]
+			#[doc = "\n# Notes\n"]
+			#[doc = "- The `input` and `output` buffer may overlap."]
+			#[doc = "- The output buffer is expected to hold at least " $bytes " bits."]
+			#[doc = "- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function."]
 			#[doc = "\n# Parameters\n"]
 			#[doc = "- `input`: The input data buffer."]
 			#[doc = "- `output`: The output buffer to write the hash result to."]
@@ -35,15 +35,10 @@ macro_rules! hash_fn {
 }
 
 pub trait Api {
-	/// Instantiate a contract from the given code.
+	/// Instantiate a contract with the specified code hash.
 	///
 	/// This function creates an account and executes the constructor defined in the code specified
 	/// by the code hash.
-	///
-	/// # Note
-	///
-	/// The copy of the output buffer and address can be skipped by providing `None` for the
-	/// `out_address` and `out_return_value` parameters.
 	///
 	/// # Parameters
 	///
@@ -51,22 +46,24 @@ pub trait Api {
 	/// - `gas_limit`: How much gas to devote for the execution.
 	/// - `endowment`: The value to transfer into the contract.
 	/// - `input`: The input data buffer.
-	/// - `out_address`: A reference to the address buffer to write the address of the contract.
-	/// - `out_return_value`: A reference to the return value buffer to write the return value.
+	/// - `out_address`: A reference to the address buffer to write the address of the contract. If
+	///   `None` is provided then the output buffer is not copied.
+	/// - `out_return_value`: A reference to the return value buffer to write the constructor output
+	///   buffer. If `None` is provided then the output buffer is not copied.
 	/// - `salt`: The salt bytes to use for this instantiation.
 	///
 	/// # Errors
 	///
-	/// Please consult the [Error][`crate::Error`] enum declaration for more information on those
+	/// Please consult the [`ReturnErrorCode`] enum declaration for more information on those
 	/// errors. Here we only note things specific to this function.
 	///
 	/// An error means that the account wasn't created and no address or output buffer
 	/// is returned unless stated otherwise.
 	///
-	/// - [CalleeReverted][crate::Error::CalleeReverted]: Output buffer is returned.
-	/// - [CalleeTrapped][crate::Error::CalleeTrapped]
-	/// - [TransferFailed][crate::Error::TransferFailed]
-	/// - [CodeNotFound][crate::Error::CodeNotFound]
+	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
+	/// - [`ReturnErrorCode::CalleeTrapped`]
+	/// - [`ReturnErrorCode::TransferFailed`]
+	/// - [`ReturnErrorCode::CodeNotFound`]
 	fn instantiate(
 		code_hash: &[u8],
 		gas_limit: u64,
@@ -82,26 +79,24 @@ pub trait Api {
 	/// # Parameters
 	///
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
-	/// - `callee`: The address of the callee.
+	/// - `callee`: The address of the callee. Should be decodable as an `T::AccountId`. Traps
+	///   otherwise.
 	/// - `gas_limit`: How much gas to devote for the execution.
-	/// - `value`: The value to transfer into the contract.
+	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
+	///   Traps otherwise.
 	/// - `input`: The input data buffer used to call the contract.
-	/// - `output`: A reference to the output data buffer to write the output data.
-	///
-	/// # Note
-	///
-	/// The copy of the output buffer can be skipped by providing `None` for the
-	/// `output` parameter.
+	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
+	///   is provided then the output buffer is not copied.
 	///
 	/// # Errors
 	///
 	/// An error means that the call wasn't successful output buffer is returned unless
 	/// stated otherwise.
 	///
-	/// - [CalleeReverted][crate::Error::CalleeReverted]: Output buffer is returned.
-	/// - [CalleeTrapped][crate::Error::CalleeTrapped]
-	/// - [TransferFailed][crate::Error::TransferFailed]
-	/// - [NotCallable][crate::Error::NotCallable]
+	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
+	/// - [`ReturnErrorCode::CalleeTrapped`]
+	/// - [`ReturnErrorCode::TransferFailed`]
+	/// - [`ReturnErrorCode::NotCallable`]
 	fn call(
 		flags: CallFlags,
 		callee: &[u8],
@@ -122,21 +117,17 @@ pub trait Api {
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `code_hash`: The hash of the code to be executed.
 	/// - `input`: The input data buffer used to call the contract.
-	/// - `output`: A reference to the output data buffer to write the output data.
-	///
-	/// # Note
-	///
-	/// The copy of the output buffer can be skipped by providing `None` for the
-	/// `output` parameter.
+	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
+	///   is provided then the output buffer is not copied.
 	///
 	/// # Errors
 	///
 	/// An error means that the call wasn't successful and no output buffer is returned unless
 	/// stated otherwise.
 	///
-	/// - [CalleeReverted][crate::Error::CalleeReverted]: Output buffer is returned.
-	/// - [CalleeTrapped][crate::Error::CalleeTrapped]
-	/// - [CodeNotFound][crate::Error::CodeNotFound]
+	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
+	/// - [`ReturnErrorCode::CalleeTrapped`]
+	/// - [`ReturnErrorCode::CodeNotFound`]
 	fn delegate_call(
 		flags: CallFlags,
 		code_hash: &[u8],
@@ -148,25 +139,29 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the account to transfer funds to.
-	/// - `value`: The value to transfer.
+	/// - `account_id`: The address of the account to transfer funds to. Should be decodable as an
+	///   `T::AccountId`. Traps otherwise.
+	/// - `value`: The value to transfer. Should be decodable as a `T::Balance`. Traps otherwise.
 	///
 	/// # Errors
 	///
-	/// - [TransferFailed][crate::Error::TransferFailed]
+	/// - [`ReturnErrorCode::TransferFailed`]
 	fn transfer(account_id: &[u8], value: &[u8]) -> Result;
 
-	/// Deposit an event with the given topics.
+	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
+	/// on the maximum number of topics specified by `event_topics`.
 	///
 	/// There should not be any duplicates in `topics`.
 	///
 	/// # Parameters
 	///
-	/// - `topics`: The encoded `Vec` of `pallet_contracts::TopicOf` topic to deposit.
+	/// - `topics`: The topics list encoded as `Vec<T::Hash>`. It can't contain duplicates.
 	fn deposit_event(topics: &[u8], data: &[u8]);
 
-	/// Set the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted.
+	/// Set the value at the given key in the contract storage.
+	///
+	/// The key and value lengths must not exceed the maximums defined by the contracts module
+	/// parameters.
 	///
 	/// # Parameters
 	///
@@ -175,9 +170,8 @@ pub trait Api {
 	///
 	/// # Return
 	///
-	/// Returns the size of the pre-existing value at the specified key if any. Otherwise
-	/// `SENTINEL` is returned as a sentinel value.
-	fn set_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32>;
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn set_storage(key: &[u8], value: &[u8]) -> Option<u32>;
 
 	/// Clear the value at the given key in the contract storage.
 	///
@@ -187,11 +181,12 @@ pub trait Api {
 	///
 	/// # Return
 	///
-	/// Returns the size of the pre-existing value at the specified key if any. Otherwise
-	/// `SENTINEL` is returned as a sentinel value.
+	/// Returns the size of the pre-existing value at the specified key if any.
 	fn clear_storage(key: &[u8]) -> Option<u32>;
 
-	/// Reads the storage entry of the executing account by the given `key`.
+	/// Retrieve the value under the given key from storage.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
 	///
 	/// # Parameters
 	/// - `key`: The storage key.
@@ -199,7 +194,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// [KeyNotFound][crate::Error::KeyNotFound]
+	/// [`ReturnErrorCode::KeyNotFound`]
 	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Retrieve and remove the value under the given key from storage.
@@ -210,10 +205,12 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// [KeyNotFound][crate::Error::KeyNotFound]
+	/// [`ReturnErrorCode::KeyNotFound`]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Checks whether there is a value stored under the given key.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
 	///
 	/// # Parameters
 	/// - `key`: The storage key.
@@ -231,7 +228,8 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `beneficiary`: The address of the beneficiary account.
+	/// - `beneficiary`: The address of the beneficiary account, Should be decodable as an
+	/// `T::AccountId`.
 	///
 	/// # Traps
 	///
@@ -259,10 +257,17 @@ pub trait Api {
 	/// - `output`: A reference to the output data buffer to write the output data.
 	///
 	/// # Return
-	/// TODO
+	///
+	/// The chain extension returned value, if executed successfully.
 	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32;
 
 	/// Stores the input passed by the caller into the supplied buffer.
+	///
+	/// # Note
+	///
+	/// This function traps if:
+	/// - the input is larger than the available space.
+	/// - the input was previously forwarded by a [`call()`][`Self::call()`].
 	///
 	/// # Parameters
 	///
@@ -271,9 +276,19 @@ pub trait Api {
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
+	/// This function never returns as it stops execution of the caller.
+	/// This is the only way to return a data buffer to the caller. Returning from
+	/// execution without calling this function is equivalent to calling:
+	/// ```nocompile
+	/// return_value(ReturnFlags::empty(), &[])
+	/// ```
+	///
+	/// Using an unnamed non empty `ReturnFlags` triggers a trap.
+	///
 	/// # Parameters
 	///
-	/// - `flags`: See [`ReturnFlags`] for a documentation of the supported flags.
+	/// - `flags`: Flag used to signal special return conditions to the supervisor. See
+	///   [`ReturnFlags`] for a documentation of the supported flags.
 	/// - `return_value`: The return value buffer.
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> !;
 
@@ -305,12 +320,23 @@ pub trait Api {
 
 	/// Stores the address of the caller into the supplied buffer.
 	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
+	/// extrinsic will be returned. Otherwise, if this call is initiated by another contract then
+	/// the address of the contract will be returned.
+	///
+	/// If there is no address associated with the caller (e.g. because the caller is root) then
+	/// it traps with `BadOrigin`.
+	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the caller address.
 	fn caller(output: &mut &mut [u8]);
 
 	/// Stores the current block number of the current contract into the supplied buffer.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
@@ -319,6 +345,8 @@ pub trait Api {
 
 	/// Stores the address of the current contract into the supplied buffer.
 	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the address.
@@ -326,12 +354,17 @@ pub trait Api {
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the balance.
 	fn balance(output: &mut &mut [u8]);
 
 	/// Stores the amount of weight left into the supplied buffer.
+	/// The data is encoded as Weight.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
@@ -339,6 +372,9 @@ pub trait Api {
 	fn gas_left(output: &mut &mut [u8]);
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
+	/// The data is encoded as `T::Balance`.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
@@ -347,12 +383,17 @@ pub trait Api {
 
 	/// Load the latest block timestamp into the supplied buffer
 	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the timestamp.
 	fn now(output: &mut &mut [u8]);
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
+	/// The data is encoded as `T::Balance`.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
@@ -360,6 +401,9 @@ pub trait Api {
 	fn minimum_balance(output: &mut &mut [u8]);
 
 	/// Stores the price for the specified amount of gas into the supplied buffer.
+	/// The data is encoded as `T::Balance`.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
@@ -385,7 +429,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [EcdsaRecoveryFailed][crate::Error::EcdsaRecoveryFailed]
+	/// - [`ReturnErrorCode::EcdsaRecoveryFailed`]
 	fn ecdsa_recover(
 		signature: &[u8; 65],
 		message_hash: &[u8; 32],
@@ -402,7 +446,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [EcdsaRecoveryFailed][crate::Error::EcdsaRecoveryFailed]
+	/// - [`ReturnErrorCode::EcdsaRecoveryFailed`]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
 
 	/// Verify a sr25519 signature
@@ -414,14 +458,15 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [r25519VerifyFailed ][crate::Error::Sr25519VerifyFailed]
+	/// - [`ReturnErrorCode::Sr25519VerifyFailed`]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 
 	/// Checks whether a specified address belongs to a contract.
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address to check.
+	/// - `account_id`: The address to check. Should be decodable as an `T::AccountId`. Traps
+	///   otherwise.
 	///
 	/// # Return
 	///
@@ -466,20 +511,21 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [CodeNotFound ][crate::Error::CodeNotFound]
+	/// - [`ReturnErrorCode::CodeNotFound`]
 	fn set_code_hash(code_hash: &[u8]) -> Result;
 
 	/// Retrieve the code hash for a specified contract address.
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the contract.
+	/// - `account_id`: The address of the contract.Should be decodable as an `T::AccountId`. Traps
+	///   otherwise.
 	/// - `output`: A reference to the output data buffer to write the code hash.
 	///
 	///
 	/// # Errors
 	///
-	/// - [CodeNotFound ][crate::Error::CodeNotFound]
+	/// - [`ReturnErrorCode::CodeNotFound`]
 	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result;
 
 	/// Retrieve the code hash of the currently executing contract.
