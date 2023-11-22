@@ -22,3 +22,14 @@ use bitvec::vec::BitVec;
 
 /// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
 pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
+
+/// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
+pub mod node_features {
+	/// Tells if tranch0 assignments could be sent in a single certificate.
+	/// Reserved for: https://github.com/paritytech/polkadot-sdk/issues/628
+	pub const ENABLE_ASSIGNMENTS_V2: u8 = 0;
+	/// First unassigned feature bit.
+	/// Every time a new feature flag is assigned it should take this value.
+	/// and this should be incremented.
+	pub const FIRST_UNASSIGNED: u8 = 1;
+}

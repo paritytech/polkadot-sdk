@@ -43,10 +43,13 @@ use polkadot_node_subsystem::{
 	},
 	overseer, RuntimeApiError, SubsystemError, SubsystemResult,
 };
-use polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
+use polkadot_node_subsystem_util::{
+	determine_new_blocks,
+	runtime::{request_node_features, RuntimeInfo},
+};
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ConsensusLog, CoreIndex,
-	GroupIndex, Hash, Header, SessionIndex,
+	vstaging::node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt,
+	ConsensusLog, CoreIndex, GroupIndex, Hash, Header, SessionIndex,
 };
 use sc_keystore::LocalKeystore;
 use sp_consensus_slots::Slot;
@@ -217,7 +220,17 @@ async fn imported_block_info<Context>(
 	let session_info = get_session_info(env.runtime_info, ctx.sender(), block_hash, session_index)
 		.await
 		.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)?;
-
+	let enable_v2_assignments = request_node_features(block_hash, session_index, ctx.sender())
+		.await
+		.ok()
+		.flatten()
+		.map_or(false, |node_features| {
+			*node_features
+				.get(node_features::ENABLE_ASSIGNMENTS_V2 as usize)
+				.as_deref()
+				.unwrap_or(&false)
+		});
+	gum::debug!(target: LOG_TARGET, ?enable_v2_assignments, "V2 assignments");
 	let (assignments, slot, relay_vrf_story) = {
 		let unsafe_vrf = approval_types::v1::babe_unsafe_vrf_info(&block_header);
 
@@ -239,6 +252,7 @@ async fn imported_block_info<Context>(
 								.iter()
 								.map(|(c_hash, _, core, group)| (*c_hash, *core, *group))
 								.collect(),
+							enable_v2_assignments,
 						);
 
 						(assignments, slot, relay_vrf)
@@ -667,6 +681,7 @@ pub(crate) mod tests {
 				polkadot_primitives::CoreIndex,
 				polkadot_primitives::GroupIndex,
 			)>,
+			_enable_assignments_v2: bool,
 		) -> HashMap<polkadot_primitives::CoreIndex, criteria::OurAssignment> {
 			HashMap::new()
 		}

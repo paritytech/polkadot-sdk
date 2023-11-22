@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_types::RuntimeApiSubsystemClient;
-use polkadot_primitives::Hash;
+use polkadot_primitives::{vstaging::node_features::FIRST_UNASSIGNED, Hash};
 
 use cache::{RequestResult, RequestResultCache};
 use futures::{channel::oneshot, prelude::*, select, stream::FuturesUnordered};
@@ -173,8 +173,13 @@ where
 				.cache_para_backing_state((relay_parent, para_id), constraints),
 			AsyncBackingParams(relay_parent, params) =>
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
-			NodeFeatures(session_index, params) =>
-				self.requests_cache.cache_node_features(session_index, params),
+			NodeFeatures(session_index, params) => {
+				let last_set_index = params.iter_ones().last().unwrap_or_default();
+				if last_set_index >= FIRST_UNASSIGNED as usize {
+					gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
+				}
+				self.requests_cache.cache_node_features(session_index, params)
+			},
 		}
 	}
 
