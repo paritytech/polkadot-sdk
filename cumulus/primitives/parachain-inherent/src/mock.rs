@@ -62,7 +62,7 @@ pub struct MockValidationDataInherentDataProvider<R = ()> {
 	// Inbound Horizontal messages sorted by channel
 	pub raw_horizontal_messages: Vec<(ParaId, Vec<u8>)>,
 	// Additional key-value pairs that should be injected.
-	pub additional_key_values: Option<Vec<(Vec<u8>, Vec<u8>)>>
+	pub additional_key_values: Option<Vec<(Vec<u8>, Vec<u8>)>>,
 }
 
 pub trait GenerateRandomness<I> {
