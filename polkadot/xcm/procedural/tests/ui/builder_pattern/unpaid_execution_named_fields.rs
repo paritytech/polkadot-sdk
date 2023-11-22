@@ -14,19 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! UI tests for XCM procedural macros
+//! Test error when the `BuyExecution` instruction doesn't take named fields.
 
-#[cfg(not(feature = "disable-ui-tests"))]
-#[test]
-fn ui() {
-	// Only run the ui tests when `RUN_UI_TESTS` is set.
-	if std::env::var("RUN_UI_TESTS").is_err() {
-		return;
-	}
+use xcm_procedural::Builder;
 
-	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
-	std::env::set_var("SKIP_WASM_BUILD", "1");
+struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-	let t = trybuild::TestCases::new();
-	t.compile_fail("tests/ui/**/*.rs");
+#[derive(Builder)]
+enum Instruction<Call> {
+    BuyExecution { fees: u128 },
+    UnpaidExecution(u32, u32),
+    Transact { call: Call },
 }
+
+fn main() {}
