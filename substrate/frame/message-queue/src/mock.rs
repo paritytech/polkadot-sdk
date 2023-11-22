@@ -367,6 +367,6 @@ pub fn num_overweight_enqueued_events() -> u32 {
 		.count() as u32
 }
 
-pub fn fp(ready_pages: u32, pages: u32, count: u64, size: u64) -> QueueFootprint {
+pub fn fp(pages: u32, ready_pages: u32, count: u64, size: u64) -> QueueFootprint {
 	QueueFootprint { storage: Footprint { count, size }, pages, ready_pages }
 }

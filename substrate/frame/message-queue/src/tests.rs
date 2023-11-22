@@ -1070,7 +1070,7 @@ fn footprint_num_pages_works() {
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
 		assert_eq!(System::events().len(), 2);
 		// `ready_pages` decreases but `page` count does not.
-		assert_eq!(MessageQueue::footprint(Here), fp(0, 2, 2, 16));
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 0, 2, 16));
 
 		// Now execute the second message.
 		assert_eq!(
@@ -1078,7 +1078,7 @@ fn footprint_num_pages_works() {
 				.unwrap(),
 			3.into_weight()
 		);
-		assert_eq!(MessageQueue::footprint(Here), fp(0, 1, 1, 8));
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 0, 1, 8));
 		// And the first one:
 		assert_eq!(
 			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
