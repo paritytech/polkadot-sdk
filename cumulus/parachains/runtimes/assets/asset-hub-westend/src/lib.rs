@@ -955,7 +955,7 @@ pub type Migrations = (
 	InitStorageVersions,
 	// unreleased
 	DeleteUndecodableStorage,
-	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationV3ToV4<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

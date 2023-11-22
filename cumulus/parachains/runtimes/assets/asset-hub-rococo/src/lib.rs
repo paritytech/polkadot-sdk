@@ -971,7 +971,7 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
-	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationV3ToV4<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
