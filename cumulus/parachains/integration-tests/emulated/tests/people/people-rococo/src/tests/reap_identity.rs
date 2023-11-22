@@ -192,6 +192,6 @@ fn reap_identity() {
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
 
 		// Atleast a single Existential Deposit should be free
-		assert!(free_bal > PEOPLE_ROCOCO_ED);
+		assert!(free_bal >= PEOPLE_ROCOCO_ED);
 	});
 }
