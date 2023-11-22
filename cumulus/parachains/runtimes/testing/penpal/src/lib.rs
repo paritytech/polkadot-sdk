@@ -132,7 +132,7 @@ pub type UncheckedExtrinsic =
 
 #[rustfmt::skip]
 pub type Migrations = (
-	migrations::V1_04_00,
+	migrations::V1_05_00,
 	migrations::Unreleased
 );
 
@@ -141,7 +141,7 @@ pub type Migrations = (
 pub mod migrations {
 	use super::*;
 
-	pub type V1_04_00 = ();
+	pub type V1_05_00 = ();
 
 	pub type Unreleased = (
 		pallet_balances::migration::MigrateToTrackInactive<Runtime, xcm_config::CheckingAccount>,

@@ -103,7 +103,7 @@ pub type UncheckedExtrinsic =
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
 #[rustfmt::skip]
 pub type Migrations = (
-	migrations::V1_04_00,
+	migrations::V1_05_00,
 	migrations::Unreleased
 );
 
@@ -112,7 +112,7 @@ pub type Migrations = (
 pub mod migrations {
 	use super::*;
 
-	pub type V1_04_00 = ();
+	pub type V1_05_00 = ();
 
 	pub type Unreleased = (
 		cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
