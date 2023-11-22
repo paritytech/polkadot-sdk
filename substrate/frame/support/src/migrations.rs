@@ -376,8 +376,7 @@ pub trait SteppedMigration {
 	/// **ANY STORAGE CHANGES MUST BE ROLLED-BACK BY THE CALLER UPON ERROR.** This is necessary
 	/// since the caller cannot return a cursor in the error case. [`Self::transactional_step`] is
 	/// provided as convenience for a caller. A cursor of `None` implies that the migration is at
-	/// its end.
-	// TODO: Think about iterator `fuse` requirement.
+	/// its end. A migration that once returned `Nonce` is guaranteed to never be called again.
 	fn step(
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
