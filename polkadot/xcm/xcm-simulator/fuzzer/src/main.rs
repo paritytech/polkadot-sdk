@@ -165,6 +165,7 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 			match message {
 				DepositReserveAsset { xcm, .. } |
 				InitiateReserveWithdraw { xcm, .. } |
+				InitiateTeleport { xcm, .. } |
 				TransferReserveAsset { xcm, .. } |
 				SetErrorHandler(xcm) |
 				SetAppendix(xcm) => Vec::from(xcm.inner()).iter_mut().flat_map(matches_recursive).collect(),
