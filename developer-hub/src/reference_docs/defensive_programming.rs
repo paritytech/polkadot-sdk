@@ -74,8 +74,7 @@
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
 //!
-//! It is actually the _silent_ portion of this behavior that presents a real issue - as it may be
-//! an unintended in terms of producing bugs. Such behavior should be made obvious. Especially in
+//! It is actually the _silent_ portion of this behavior that presents a real issue. Such behavior should be made obvious, especially in
 //! the context of blockchain development, where unsafe arithmetic could produce unexpected
 //! consequences.
 //!
