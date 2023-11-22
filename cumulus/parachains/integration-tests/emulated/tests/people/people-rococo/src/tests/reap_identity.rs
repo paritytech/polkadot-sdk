@@ -182,11 +182,11 @@ fn reap_identity() {
 		assert_expected_events!(
 			PeopleRococo,
 			vec![
-				RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
-				RuntimeEvent::Balances(pallet_balances::Event::Endowed { .. }) => {},
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { .. }) => {},
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { .. }) => {},
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { .. }) => {},
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { ..}) => {},
+				RuntimeEvent::Balances(pallet_balances::Event::Endowed {  ..}) => {},
+				RuntimeEvent::Balances(pallet_balances::Event::Reserved { ..}) => {},
+				RuntimeEvent::Balances(pallet_balances::Event::Reserved { ..}) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
 			]
 		);
 
