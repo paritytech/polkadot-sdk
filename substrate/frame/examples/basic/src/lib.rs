@@ -63,7 +63,11 @@ use frame_system::ensure_signed;
 use log::info;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Bounded, DispatchInfoOf, SaturatedConversion, Saturating, SignedExtension},
+	impl_tx_ext_default,
+	traits::{
+		Bounded, DispatchInfoOf, OriginOf, SaturatedConversion, Saturating, SignedExtension,
+		TransactionExtension, ValidateResult,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -512,7 +516,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
 	}
 
 	fn validate(
@@ -539,4 +543,43 @@ where
 			_ => Ok(Default::default()),
 		}
 	}
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+	for WatchDummy<T>
+where
+	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+	const IDENTIFIER: &'static str = "WatchDummy";
+	type Implicit = ();
+	type Pre = ();
+	type Val = ();
+
+	fn validate(
+		&self,
+		origin: OriginOf<<T as frame_system::Config>::RuntimeCall>,
+		call: &<T as frame_system::Config>::RuntimeCall,
+		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+		len: usize,
+		_target: &[u8],
+	) -> ValidateResult<Self, <T as frame_system::Config>::RuntimeCall> {
+		// if the transaction is too big, just drop it.
+		if len > 200 {
+			return Err(InvalidTransaction::ExhaustsResources.into())
+		}
+
+		// check for `set_dummy`
+		let validity = match call.is_sub_type() {
+			Some(Call::set_dummy { .. }) => {
+				sp_runtime::print("set_dummy was received.");
+
+				let valid_tx =
+					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };
+				valid_tx
+			},
+			_ => Default::default(),
+		};
+		Ok((validity, (), origin))
+	}
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; implicit prepare);
 }
