@@ -11,17 +11,15 @@
 <a href="#11" id="11">11</a>
 <a href="#12" id="12">12</a>
 <a href="#13" id="13">13</a>
-<a href="#14" id="14">14</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Substrate Node Template CLI library.
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">mod </span>chain_spec;
-<span class="attr">#[macro_use]
-</span><span class="kw">mod </span>service;
-<span class="kw">mod </span>benchmarking;
+</span><span class="kw">mod </span>benchmarking;
+<span class="kw">mod </span>chain_spec;
 <span class="kw">mod </span>cli;
 <span class="kw">mod </span>command;
 <span class="kw">mod </span>rpc;
+<span class="kw">mod </span>service;
 
 <span class="kw">fn </span>main() -&gt; sc_cli::Result&lt;()&gt; {
 	command::run()
