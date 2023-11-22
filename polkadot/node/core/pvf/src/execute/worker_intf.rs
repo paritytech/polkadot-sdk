@@ -30,10 +30,10 @@ use futures_timer::Delay;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, Response},
+	execute::{Handshake, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
-use polkadot_parachain_primitives::primitives::ValidationResult;
+use polkadot_parachain_primitives::primitives::{ValidationCodeHash, ValidationResult};
 use polkadot_primitives::ExecutorParams;
 use std::{path::Path, time::Duration};
 use tokio::{io, net::UnixStream};
@@ -88,19 +88,26 @@ pub enum Outcome {
 	/// a trap. Errors related to the preparation process are not expected to be encountered by the
 	/// execution workers.
 	InvalidCandidate { err: String, idle_worker: IdleWorker },
+	/// The execution time exceeded the hard limit. The worker is terminated.
+	HardTimeout,
+	/// An I/O error happened during communication with the worker. This may mean that the worker
+	/// process already died. The token is not returned in any case.
+	WorkerIntfErr,
+	/// The job process has died. We must kill the worker just in case.
+	///
+	/// We cannot treat this as an internal error because malicious code may have caused this.
+	JobDied { err: String },
+	/// An unexpected error occurred in the job process.
+	///
+	/// Because malicious code can cause a job error, we must not treat it as an internal error.
+	JobError { err: String },
+
 	/// An internal error happened during the validation. Such an error is most likely related to
 	/// some transient glitch.
 	///
 	/// Should only ever be used for errors independent of the candidate and PVF. Therefore it may
 	/// be a problem with the worker, so we terminate it.
 	InternalError { err: InternalValidationError },
-	/// The execution time exceeded the hard limit. The worker is terminated.
-	HardTimeout,
-	/// An I/O error happened during communication with the worker. This may mean that the worker
-	/// process already died. The token is not returned in any case.
-	IoErr,
-	/// An unexpected panic has occurred in the execution worker.
-	Panic { err: String },
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -137,7 +144,7 @@ pub async fn start_work(
 				?error,
 				"failed to send an execute request",
 			);
-			return Outcome::IoErr
+			return Outcome::WorkerIntfErr
 		}
 
 		// We use a generous timeout here. This is in addition to the one in the child process, in
@@ -149,6 +156,16 @@ pub async fn start_work(
 		let response = futures::select! {
 			response = recv_response(&mut stream).fuse() => {
 				match response {
+					Ok(response) =>
+						handle_response(
+							response,
+							pid,
+							&artifact.id.code_hash,
+							&artifact_path,
+							execution_timeout,
+							audit_log_file
+						)
+							.await,
 					Err(error) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -157,55 +174,8 @@ pub async fn start_work(
 							?error,
 							"failed to recv an execute response",
 						);
-						// The worker died. Check if it was due to a seccomp violation.
-						//
-						// NOTE: Log, but don't change the outcome. Not all validators may have
-						// auditing enabled, so we don't want attackers to abuse a non-deterministic
-						// outcome.
-						for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-							gum::error!(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								%syscall,
-								validation_code_hash = ?artifact.id.code_hash,
-								?artifact_path,
-								"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-							);
-						}
 
-						return Outcome::IoErr
-					},
-					Ok(response) => {
-						// Check if any syscall violations occurred during the job. For now this is
-						// only informative, as we are not enforcing the seccomp policy yet.
-						for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-							gum::error!(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								%syscall,
-								validation_code_hash = ?artifact.id.code_hash,
-								?artifact_path,
-								"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-							);
-						}
-
-						if let Response::Ok{duration, ..} = response {
-							if duration > execution_timeout {
-								// The job didn't complete within the timeout.
-								gum::warn!(
-									target: LOG_TARGET,
-									worker_pid = %pid,
-									"execute job took {}ms cpu time, exceeded execution timeout {}ms.",
-									duration.as_millis(),
-									execution_timeout.as_millis(),
-								);
-
-								// Return a timeout error.
-								return Outcome::HardTimeout;
-							}
-						}
-
-						response
+						return Outcome::WorkerIntfErr
 					},
 				}
 			},
@@ -216,26 +186,78 @@ pub async fn start_work(
 					validation_code_hash = ?artifact.id.code_hash,
 					"execution worker exceeded lenient timeout for execution, child worker likely stalled",
 				);
-				Response::TimedOut
+				WorkerResponse::JobTimedOut
 			},
 		};
 
 		match response {
-			Response::Ok { result_descriptor, duration } => Outcome::Ok {
+			WorkerResponse::Ok { result_descriptor, duration } => Outcome::Ok {
 				result_descriptor,
 				duration,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
-			Response::InvalidCandidate(err) => Outcome::InvalidCandidate {
+			WorkerResponse::InvalidCandidate(err) => Outcome::InvalidCandidate {
 				err,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
-			Response::TimedOut => Outcome::HardTimeout,
-			Response::Panic(err) => Outcome::Panic { err },
-			Response::InternalError(err) => Outcome::InternalError { err },
+			WorkerResponse::JobTimedOut => Outcome::HardTimeout,
+			WorkerResponse::JobDied { err, job_pid: _ } => Outcome::JobDied { err },
+			WorkerResponse::JobError(err) => Outcome::JobError { err },
+
+			WorkerResponse::InternalError(err) => Outcome::InternalError { err },
 		}
 	})
 	.await
+}
+
+/// Handles the case where we successfully received response bytes on the host from the child.
+///
+/// Here we know the artifact exists, but is still located in a temporary file which will be cleared
+/// by [`with_worker_dir_setup`].
+async fn handle_response(
+	response: WorkerResponse,
+	worker_pid: u32,
+	validation_code_hash: &ValidationCodeHash,
+	artifact_path: &Path,
+	execution_timeout: Duration,
+	audit_log_file: Option<security::AuditLogFile>,
+) -> WorkerResponse {
+	if let WorkerResponse::Ok { duration, .. } = response {
+		if duration > execution_timeout {
+			// The job didn't complete within the timeout.
+			gum::warn!(
+				target: LOG_TARGET,
+				worker_pid,
+				"execute job took {}ms cpu time, exceeded execution timeout {}ms.",
+				duration.as_millis(),
+				execution_timeout.as_millis(),
+			);
+
+			// Return a timeout error.
+			return WorkerResponse::JobTimedOut
+		}
+	}
+
+	if let WorkerResponse::JobDied { err: _, job_pid } = response {
+		// The job died. Check if it was due to a seccomp violation.
+		//
+		// NOTE: Log, but don't change the outcome. Not all validators may have
+		// auditing enabled, so we don't want attackers to abuse a non-deterministic
+		// outcome.
+		for syscall in security::check_seccomp_violations_for_job(audit_log_file, job_pid).await {
+			gum::error!(
+				target: LOG_TARGET,
+				%worker_pid,
+				%job_pid,
+				%syscall,
+				?validation_code_hash,
+				?artifact_path,
+				"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
+			);
+		}
+	}
+
+	response
 }
 
 /// Create a temporary file for an artifact in the worker cache, execute the given future/closure
@@ -306,9 +328,9 @@ async fn send_request(
 	framed_send(stream, &execution_timeout.encode()).await
 }
 
-async fn recv_response(stream: &mut UnixStream) -> io::Result<Response> {
+async fn recv_response(stream: &mut UnixStream) -> io::Result<WorkerResponse> {
 	let response_bytes = framed_recv(stream).await?;
-	Response::decode(&mut &response_bytes[..]).map_err(|e| {
+	WorkerResponse::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			format!("execute pvf recv_response: decode error: {:?}", e),
