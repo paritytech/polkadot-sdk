@@ -924,7 +924,7 @@ pub type UncheckedExtrinsic =
 #[rustfmt::skip]
 pub type Migrations = (
 	migrations::V0_09_20,
-	migrations::V1_04_00,
+	migrations::V1_05_00,
 	migrations::Unreleased
 );
 
@@ -935,7 +935,7 @@ pub mod migrations {
 
 	pub type V0_09_20 = (pallet_nfts::migration::v1::MigrateToV1<Runtime>,);
 
-	pub type V1_04_00 = ();
+	pub type V1_05_00 = ();
 
 	pub type Unreleased = (
 		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
