@@ -39,7 +39,11 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
-use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
+use sp_runtime::{
+	generic,
+	traits::{AsTransactionExtension, Block as BlockT},
+	SaturatedConversion,
+};
 use std::sync::Arc;
 
 /// The full client type definition.
@@ -106,12 +110,11 @@ pub fn create_extrinsic(
 				frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
 			)
 				.into(),
-			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(AsTransactionExtension::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<
 					kitchensink_runtime::Runtime,
-				>::from(tip, None)
-				.into(),
-			),
+				>::from(tip, None),
+			)),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -707,7 +710,9 @@ mod tests {
 	use sp_runtime::{
 		generic::{Digest, Era, SignedPayload},
 		key_types::BABE,
-		traits::{Block as BlockT, Header as HeaderT, IdentifyAccount, Verify},
+		traits::{
+			AsTransactionExtension, Block as BlockT, Header as HeaderT, IdentifyAccount, Verify,
+		},
 		RuntimeAppPublic,
 	};
 	use sp_timestamp;
@@ -889,7 +894,9 @@ mod tests {
 				let check_nonce = frame_system::CheckNonce::from(index);
 				let check_weight = frame_system::CheckWeight::new();
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
-					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None).into(),
+					AsTransactionExtension::from(
+						pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
+					),
 				);
 				let tx_ext: TxExtension = (
 					(

@@ -117,10 +117,6 @@ impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
 where
 	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
 {
-	type AccountId = T::AccountId;
-	type Call = S::Call;
-	type AdditionalSigned = S::AdditionalSigned;
-	type Pre = (Self::AccountId, Option<<S as SignedExtension>::Pre>);
 	// From the outside this extension should be "invisible", because it just extends the wrapped
 	// extension with an extra check in `pre_dispatch` and `post_dispatch`. Thus, we should forward
 	// the identifier of the wrapped extension to let wallets see this extension as it would only be

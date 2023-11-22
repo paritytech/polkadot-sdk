@@ -1402,12 +1402,11 @@ where
 				frame_system::CheckWeight::<Runtime>::new(),
 			)
 				.into(),
-			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(AsTransactionExtension::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
 					tip, None,
-				)
-				.into(),
-			),
+				),
+			)),
 		);
 
 		let raw_payload = SignedPayload::new(call, tx_ext)

@@ -22,7 +22,10 @@ use codec::Encode;
 use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, TxExtension, UncheckedExtrinsic};
 use node_primitives::{AccountId, Balance, Nonce};
 use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
-use sp_runtime::generic::{Era, ExtrinsicFormat};
+use sp_runtime::{
+	generic::{Era, ExtrinsicFormat},
+	traits::AsTransactionExtension,
+};
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -81,9 +84,9 @@ pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 			frame_system::CheckWeight::new(),
 		)
 			.into(),
-		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None).into(),
-		),
+		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(AsTransactionExtension::from(
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
+		)),
 	)
 }
 
