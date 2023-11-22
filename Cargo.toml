@@ -270,6 +270,8 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
+	"substrate/deprecated/hashing",
+	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",

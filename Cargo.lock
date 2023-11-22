@@ -17442,6 +17442,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-core-hashing"
+version = "9.1.0"
+dependencies = [
+ "sp-crypto-hashing",
+]
+
+[[package]]
+name = "sp-core-hashing-proc-macro"
+version = "9.1.0"
+dependencies = [
+ "sp-crypto-hashing-proc-macro",
+]
+
+[[package]]
 name = "sp-crypto-ec-utils"
 version = "0.4.1"
 dependencies = [
