@@ -2770,7 +2770,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::claim_commission())] // TODO: insert correct
+		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
 		pub fn set_commission_claim_permission(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
