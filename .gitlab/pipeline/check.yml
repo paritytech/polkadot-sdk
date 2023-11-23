@@ -110,7 +110,7 @@ check-rust-feature-propagation:
       echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
       time ./try-runtime ${COMMAND_EXTRA_ARGS} \
           --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
-          on-runtime-upgrade --disable-spec-version-check --checks=pre-and-post ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
+          on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
 
 # Check runtime migrations for Parity managed relay chains
 check-runtime-migration-westend:
