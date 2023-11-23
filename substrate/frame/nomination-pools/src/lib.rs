@@ -1098,7 +1098,7 @@ impl<T: Config> BondedPool<T> {
 			self.is_root(who)
 		}
 	}
-	
+
 	fn is_destroying(&self) -> bool {
 		matches!(self.state, PoolState::Destroying)
 	}
