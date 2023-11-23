@@ -48,7 +48,7 @@ pub mod tests {
 }
 
 /// Status of security features on the current system.
-#[derive(Debug, Clone, Default, Encode, Decode)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Encode, Decode)]
 pub struct SecurityStatus {
 	/// Whether Secure Validator Mode is enabled.
 	pub secure_validator_mode: bool,

@@ -76,6 +76,7 @@ pub async fn spawn_with_program_path(
 
 	with_transient_socket_path(debug_id, |socket_path| {
 		let socket_path = socket_path.to_owned();
+		let worker_dir_path = worker_dir.path().to_owned();
 
 		async move {
 			let listener = match UnixListener::bind(&socket_path) {
@@ -120,7 +121,42 @@ where
 	F: FnOnce(&Path) -> Fut,
 	Fut: futures::Future<Output = Result<T, SpawnErr>> + 'static,
 {
-	let socket_path = tmppath(&format!("pvf-host-{}", debug_id))
+	/// Returns a path under [`std::env::temp_dir`]. The path name will start with the given prefix.
+	///
+	/// There is only a certain number of retries. If exceeded this function will give up and return
+	/// an error.
+	pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
+		fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
+			use rand::distributions::Alphanumeric;
+
+			const DESCRIMINATOR_LEN: usize = 10;
+
+			let mut buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
+			buf.extend(prefix.as_bytes());
+			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DESCRIMINATOR_LEN));
+
+			let s = std::str::from_utf8(&buf)
+				.expect("the string is collected from a valid utf-8 sequence; qed");
+
+			let mut path = dir.to_owned();
+			path.push(s);
+			path
+		}
+
+		const NUM_RETRIES: usize = 50;
+
+		let dir = std::env::temp_dir();
+		for _ in 0..NUM_RETRIES {
+			let tmp_path = make_tmppath(prefix, &dir);
+			if !tmp_path.exists() {
+				return Ok(tmp_path)
+			}
+		}
+
+		Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary path"))
+	}
+
+	let socket_path = tmppath(&format!("pvf-host-{}-", debug_id))
 		.await
 		.map_err(|_| SpawnErr::TmpPath)?;
 	let result = f(&socket_path).await;
@@ -130,46 +166,6 @@ where
 	let _ = tokio::fs::remove_file(socket_path).await;
 
 	result
-}
-
-/// Returns a path under the given `dir`. The path name will start with the given prefix.
-///
-/// There is only a certain number of retries. If exceeded this function will give up and return an
-/// error.
-pub async fn tmppath_in(prefix: &str, dir: &Path) -> io::Result<PathBuf> {
-	fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
-		use rand::distributions::Alphanumeric;
-
-		const DESCRIMINATOR_LEN: usize = 10;
-
-		let mut buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
-		buf.extend(prefix.as_bytes());
-		buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DESCRIMINATOR_LEN));
-
-		let s = std::str::from_utf8(&buf)
-			.expect("the string is collected from a valid utf-8 sequence; qed");
-
-		let mut path = dir.to_owned();
-		path.push(s);
-		path
-	}
-
-	const NUM_RETRIES: usize = 50;
-
-	for _ in 0..NUM_RETRIES {
-		let tmp_path = make_tmppath(prefix, dir);
-		if !tmp_path.exists() {
-			return Ok(tmp_path)
-		}
-	}
-
-	Err(io::Error::new(io::ErrorKind::Other, "failed to create a temporary path"))
-}
-
-/// The same as [`tmppath_in`], but uses [`std::env::temp_dir`] as the directory.
-pub async fn tmppath(prefix: &str) -> io::Result<PathBuf> {
-	let temp_dir = std::env::temp_dir();
-	tmppath_in(prefix, &temp_dir).await
 }
 
 /// A struct that represents an idle worker.
@@ -197,8 +193,6 @@ pub struct IdleWorker {
 pub enum SpawnErr {
 	#[error("cannot obtain a temporary path location")]
 	TmpPath,
-	#[error("an FS error occurred: {err}")]
-	Fs { err: String },
 	#[error("cannot bind the socket to the given path {socket_path:?}: {err}")]
 	Bind { socket_path: PathBuf, err: String },
 	#[error(
@@ -386,26 +380,22 @@ async fn send_worker_handshake(
 /// ```
 #[derive(Debug)]
 pub struct WorkerDir {
-	pub path: PathBuf,
+	tempdir: tempfile::TempDir,
 }
 
 impl WorkerDir {
 	/// Creates a new, empty worker dir with a random name in the given cache dir.
 	pub async fn new(debug_id: &'static str, cache_dir: &Path) -> Result<Self, SpawnErr> {
 		let prefix = format!("worker-dir-{}-", debug_id);
-		let path = tmppath_in(&prefix, cache_dir).await.map_err(|_| SpawnErr::TmpPath)?;
-		tokio::fs::create_dir(&path)
-			.await
-			.map_err(|err| SpawnErr::Fs { err: err.to_string() })?;
-		Ok(Self { path })
+		let tempdir = tempfile::Builder::new()
+			.prefix(&prefix)
+			.tempdir_in(cache_dir)
+			.map_err(|_| SpawnErr::TmpPath)?;
+		Ok(Self { tempdir })
 	}
-}
 
-// Try to clean up the temporary worker dir at the end of the worker's lifetime. It should be wiped
-// on startup, but we make a best effort not to leave it around.
-impl Drop for WorkerDir {
-	fn drop(&mut self) {
-		let _ = std::fs::remove_dir_all(&self.path);
+	pub fn path(&self) -> &Path {
+		self.tempdir.path()
 	}
 }
 
