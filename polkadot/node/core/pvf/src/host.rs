@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, ValidationError, LOG_TARGET,
+	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -70,6 +70,8 @@ pub(crate) type PrecheckResultSender = oneshot::Sender<PrecheckResult>;
 #[derive(Clone)]
 pub struct ValidationHost {
 	to_host_tx: mpsc::Sender<ToHost>,
+	/// Available security features, detected by the host during startup.
+	pub security_status: SecurityStatus,
 }
 
 impl ValidationHost {
@@ -216,7 +218,7 @@ pub async fn start(
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
 
-	let validation_host = ValidationHost { to_host_tx };
+	let validation_host = ValidationHost { to_host_tx, security_status: security_status.clone() };
 
 	let (to_prepare_pool, from_prepare_pool, run_prepare_pool) = prepare::start_pool(
 		metrics.clone(),
@@ -873,7 +875,7 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::InvalidCandidate;
+	use crate::PossiblyInvalidError;
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::{
@@ -978,7 +980,8 @@ pub(crate) mod tests {
 
 		fn host_handle(&mut self) -> ValidationHost {
 			let to_host_tx = self.to_host_tx.take().unwrap();
-			ValidationHost { to_host_tx }
+			let security_status = Default::default();
+			ValidationHost { to_host_tx, security_status }
 		}
 
 		async fn poll_and_recv_result<T>(&mut self, result_rx: oneshot::Receiver<T>) -> T
@@ -1211,27 +1214,27 @@ pub(crate) mod tests {
 		);
 
 		result_tx_pvf_1_1
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_1_1.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_1_2
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_1_2.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_2
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_2.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 	}
 
@@ -1337,7 +1340,7 @@ pub(crate) mod tests {
 		assert_matches!(result_rx.now_or_never().unwrap().unwrap(), Err(PrepareError::TimedOut));
 		assert_matches!(
 			result_rx_execute.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InternalError(_))
+			Err(ValidationError::Internal(_))
 		);
 
 		// Reversed case: first send multiple precheck requests, then ask for an execution.
@@ -1479,7 +1482,7 @@ pub(crate) mod tests {
 
 		// The result should contain the error.
 		let result = test.poll_and_recv_result(result_rx).await;
-		assert_matches!(result, Err(ValidationError::InternalError(_)));
+		assert_matches!(result, Err(ValidationError::Internal(_)));
 
 		// Submit another execute request. We shouldn't try to prepare again, yet.
 		let (result_tx_2, result_rx_2) = oneshot::channel();
@@ -1498,7 +1501,7 @@ pub(crate) mod tests {
 
 		// The result should contain the original error.
 		let result = test.poll_and_recv_result(result_rx_2).await;
-		assert_matches!(result, Err(ValidationError::InternalError(_)));
+		assert_matches!(result, Err(ValidationError::Internal(_)));
 
 		// Pause for enough time to reset the cooldown for this failed prepare request.
 		futures_timer::Delay::new(PREPARE_FAILURE_COOLDOWN).await;
@@ -1538,11 +1541,11 @@ pub(crate) mod tests {
 		// Send an error for the execution here, just so we can check the result receiver is still
 		// alive.
 		result_tx_3
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_3.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 	}
 
@@ -1581,10 +1584,7 @@ pub(crate) mod tests {
 
 		// The result should contain the error.
 		let result = test.poll_and_recv_result(result_rx).await;
-		assert_matches!(
-			result,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(_)))
-		);
+		assert_matches!(result, Err(ValidationError::Preparation(_)));
 
 		// Submit another execute request.
 		let (result_tx_2, result_rx_2) = oneshot::channel();
@@ -1603,10 +1603,7 @@ pub(crate) mod tests {
 
 		// The result should contain the original error.
 		let result = test.poll_and_recv_result(result_rx_2).await;
-		assert_matches!(
-			result,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(_)))
-		);
+		assert_matches!(result, Err(ValidationError::Preparation(_)));
 
 		// Pause for enough time to reset the cooldown for this failed prepare request.
 		futures_timer::Delay::new(PREPARE_FAILURE_COOLDOWN).await;
@@ -1628,10 +1625,7 @@ pub(crate) mod tests {
 
 		// The result should still contain the original error.
 		let result = test.poll_and_recv_result(result_rx_3).await;
-		assert_matches!(
-			result,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(_)))
-		);
+		assert_matches!(result, Err(ValidationError::Preparation(_)));
 	}
 
 	// Test that multiple heads-up requests trigger preparation retries if the first one failed.
