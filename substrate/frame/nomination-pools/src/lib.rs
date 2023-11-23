@@ -1089,15 +1089,13 @@ impl<T: Config> BondedPool<T> {
 	}
 
 	fn can_claim_commission(&self, who: &T::AccountId) -> bool {
-		match self.commission.claim_permission.as_ref() {
-			// If no permission is set, check `who` is the `root` role of the pool.
-			None => self.is_root(who),
-			// Permission has explicitly been set, ensure `who` satisfies the permission.
-			Some(permission) => match permission {
+		if let Some(permission) = self.commission.claim_permission.as_ref() {
+			match permission {
 				CommissionClaimPermission::Permissionless => true,
-				CommissionClaimPermission::Account(ref account) =>
-					account == who || self.is_root(who),
-			},
+				CommissionClaimPermission::Account(account) => account == who || self.is_root(who),
+			}
+		} else {
+			self.is_root(who)
 		}
 	}
 
