@@ -28,7 +28,7 @@ const SECURE_MODE_ANNOUNCEMENT: &'static str =
 
 /// Run checks for supported security features.
 ///
-/// # Return
+/// # Returns
 ///
 /// Returns the set of security features that we were able to enable. If an error occurs while
 /// enabling a security feature we set the corresponding status to `false`.
@@ -158,18 +158,15 @@ async fn check_can_unshare_user_namespace_and_change_root(
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			let cache_dir_tempdir =
-				crate::worker_intf::tmppath_in("check-can-unshare", cache_path)
-				.await
-				.map_err(
-					|err|
-					SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						format!("could not create a temporary directory in {:?}: {}", cache_path, err)
-					)
-				)?;
+			let cache_dir_tempdir = tempfile::Builder::new()
+				.prefix("check-can-unshare-")
+				.tempdir_in(cache_path)
+				.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+					format!("could not create a temporary directory in {:?}: {}", cache_path, err)
+				))?;
 			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-unshare-user-namespace-and-change-root")
-				.arg(cache_dir_tempdir)
+				.arg(cache_dir_tempdir.path())
 				.output()
 				.await
 			{
