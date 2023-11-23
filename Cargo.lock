@@ -4183,6 +4183,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
+ "polkadot-node-core-chain-api",
  "polkadot-node-core-prospective-parachains",
  "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
@@ -4190,16 +4191,19 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-authority-discovery",
+ "sc-client-api",
  "sc-network",
  "sc-network-common",
  "sc-service",
  "sc-tracing",
  "sc-utils",
  "sp-api",
+ "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-runtime",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
@@ -12443,6 +12447,7 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "sc-client-api",
  "sc-consensus-babe",
@@ -12591,6 +12596,7 @@ dependencies = [
  "rand 0.8.5",
  "rococo-runtime",
  "rusty-fork",
+ "sc-sysinfo",
  "slotmap",
  "sp-core",
  "sp-maybe-compressed-blob",
@@ -12850,6 +12856,7 @@ dependencies = [
  "smallvec",
  "sp-api",
  "sp-authority-discovery",
+ "sp-blockchain",
  "sp-consensus-babe",
  "substrate-prometheus-endpoint",
  "thiserror",
@@ -14530,6 +14537,7 @@ dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
+ "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
  "frame-benchmarking",
@@ -18315,18 +18323,11 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "staging-chain-spec-builder"
 version = "2.0.0"
 dependencies = [
- "ansi_term",
  "clap 4.4.6",
- "kitchensink-runtime",
  "log",
- "rand 0.8.5",
  "sc-chain-spec",
- "sc-keystore",
  "serde_json",
- "sp-core",
- "sp-keystore",
  "sp-tracing 10.0.0",
- "staging-node-cli",
 ]
 
 [[package]]
@@ -21519,6 +21520,7 @@ dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
+ "staging-xcm",
  "syn 2.0.38",
  "trybuild",
 ]
