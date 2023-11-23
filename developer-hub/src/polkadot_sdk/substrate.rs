@@ -40,11 +40,11 @@
 //! the system is highly configurable through parameterization. Learn more about this in
 //! [`crate::reference_docs::trait_based_programming`].
 //!
-//! ## How to Get Stared
+//! ## How to Get Started
 //!
 //! Substrate offers different options at the spectrum of technical freedom <-> development ease.
 //!
-//! * The easiest way to use Substrate is to use one of the templates (some o which listed at
+//! * The easiest way to use Substrate is to use one of the templates (some of which listed at
 //!   [`crate::polkadot_sdk::templates`]) and only tweak the parameters of the runtime or node. This
 //!   allows you to launch a blockchain in minutes, but is limited in technical freedom.
 //! * Next, most developers wish to develop their custom runtime modules, for which the de-facto way
