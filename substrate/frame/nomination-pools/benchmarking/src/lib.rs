@@ -706,6 +706,12 @@ frame_benchmarking::benchmarks! {
 			max_increase: Perbill::from_percent(20),
 			min_delay: 0u32.into(),
 		}).unwrap();
+		// set a claim permission to an account.
+		Pools::<T>::set_commission_claim_permission(
+			RuntimeOrigin::Signed(depositor.clone()).into(), 
+			1u32.into(), 
+			Some(CommissionClaimPermission::Account(claimer.clone()))
+		).unwrap();
 
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), Some((Perbill::from_percent(20), depositor.clone())))
 	verify {
@@ -717,7 +723,7 @@ frame_benchmarking::benchmarks! {
 					min_delay: 0u32.into()
 			}),
 			throttle_from: Some(1u32.into()),
-			claim_permission: None,
+			claim_permission: CommissionClaimPermission::Account(claimer),
 		});
 	}
 
@@ -757,6 +763,22 @@ frame_benchmarking::benchmarks! {
 		});
   }
 
+	set_commission_claim_permission {
+		let claimer = account("claimer", USER_SEED + 4, 0);
+		// Create a pool.
+		let (depositor, pool_account) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
+	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), CommissionClaimPermission::Account(claimer.clone()))
+	verify {
+		assert_eq!(
+			BondedPools::<T>::get(1).unwrap().commission, Commission {
+			current: None,
+			max: None,
+			change_rate: None,
+			throttle_from: None,
+			claim_permission: CommissionClaimPermission::Account(claimer),
+		});
+	}
+
 	set_claim_permission {
 		// Create a pool
 		let min_create_bond = Pools::<T>::depositor_min_bond();
@@ -789,8 +811,13 @@ frame_benchmarking::benchmarks! {
 		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
 
 		// member claims a payout to make some commission available.
-		let _ = Pools::<T>::claim_payout(RuntimeOrigin::Signed(claimer).into());
-
+		let _ = Pools::<T>::claim_payout(RuntimeOrigin::Signed(claimer.clone()).into());
+		// set a claim permission to an account.
+		let _ = Pools::<T>::set_commission_claim_permission(
+			RuntimeOrigin::Signed(depositor.clone()).into(), 
+			1u32.into(), 
+			Some(CommissionClaimPermission::Account(claimer))
+		);
 		whitelist_account!(depositor);
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into())
 	verify {
