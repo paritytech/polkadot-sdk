@@ -774,6 +774,7 @@ where
 			} else {
 				None
 			},
+			warp_sync: Some(self.progress()),
 		}
 	}
 

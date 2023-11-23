@@ -30,6 +30,8 @@ use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
 pub use sc_network_common::sync::SyncMode;
 
+use crate::warp::WarpSyncProgress;
+
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
 pub struct PeerInfo<Block: BlockT> {
@@ -92,6 +94,8 @@ pub struct SyncStatus<Block: BlockT> {
 	pub queued_blocks: u32,
 	/// State sync status in progress, if any.
 	pub state_sync: Option<StateDownloadProgress>,
+	/// Warp sync in progress, if any.
+	pub warp_sync: Option<WarpSyncProgress<Block>>,
 }
 
 /// A peer did not behave as expected and should be reported.

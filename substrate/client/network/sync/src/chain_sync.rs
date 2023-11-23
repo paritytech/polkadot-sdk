@@ -34,6 +34,7 @@ use crate::{
 	schema::v1::StateResponse,
 	state::{ImportResult, StateSync},
 	types::{BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
+	warp::{WarpSyncPhase, WarpSyncProgress},
 };
 
 use codec::Encode;
@@ -386,6 +387,11 @@ where
 			SyncState::Idle
 		};
 
+		let warp_sync_progress = self.gap_sync.as_ref().map(|gap_sync| WarpSyncProgress {
+			phase: WarpSyncPhase::DownloadingBlocks(gap_sync.best_queued_number),
+			total_bytes: 0,
+		});
+
 		SyncStatus {
 			state: sync_state,
 			best_seen_block,
@@ -393,6 +399,7 @@ where
 			num_connected_peers: 0u32,
 			queued_blocks: self.queue_blocks.len() as u32,
 			state_sync: self.state_sync.as_ref().map(|s| s.progress()),
+			warp_sync: warp_sync_progress,
 		}
 	}
 
