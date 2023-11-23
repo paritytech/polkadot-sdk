@@ -560,7 +560,8 @@ where
 
 	/// Returns the number of peers we're connected to.
 	pub fn num_connected_peers(&self) -> usize {
-		self.notif_protocol_handles.get(0).map_or(0usize, |handle| handle.num_peers())
+		self.network_service.behaviour().user_protocol().num_sync_peers()
+		// self.notif_protocol_handles.get(0).map_or(0usize, |handle| handle.num_peers())
 	}
 
 	/// Adds an address for a node.
@@ -1235,8 +1236,8 @@ where
 		};
 
 		// Update the `num_connected` count shared with the `NetworkService`.
-		let num_connected_peers =
-			self.notif_protocol_handles.get(0).map_or(0usize, |handle| handle.num_peers());
+		let num_connected_peers = self.network_service.behaviour().user_protocol().num_sync_peers();
+		// self.notif_protocol_handles.get(0).map_or(0usize, |handle| handle.num_peers());
 		self.num_connected.store(num_connected_peers, Ordering::Relaxed);
 
 		if let Some(metrics) = self.metrics.as_ref() {

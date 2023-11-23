@@ -138,6 +138,10 @@ impl<B: BlockT> Protocol<B> {
 		Ok((protocol, handles))
 	}
 
+	pub fn num_sync_peers(&self) -> usize {
+		self.sync_handle.num_peers()
+	}
+
 	/// Returns the list of all the peers we have an open channel to.
 	pub fn open_peers(&self) -> impl Iterator<Item = &PeerId> {
 		self.behaviour.open_peers()
