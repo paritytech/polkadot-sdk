@@ -717,6 +717,7 @@ frame_benchmarking::benchmarks! {
 					min_delay: 0u32.into()
 			}),
 			throttle_from: Some(1u32.into()),
+			claim_permission: None,
 		});
 	}
 
@@ -731,6 +732,7 @@ frame_benchmarking::benchmarks! {
 			max: Some(Perbill::from_percent(50)),
 			change_rate: None,
 			throttle_from: Some(0u32.into()),
+			claim_permission: None,
 		});
 	}
 
@@ -751,6 +753,7 @@ frame_benchmarking::benchmarks! {
 				min_delay: 1000u32.into(),
 			}),
 			throttle_from: Some(1_u32.into()),
+			claim_permission: None,
 		});
   }
 
