@@ -940,7 +940,7 @@ pub mod migrations {
 	#[rustfmt::skip]
 	pub type Unreleased = (
 		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-		migrations::NativeAssetParents0ToParents1Migration<Runtime>,
+		asset_hub_westend_migrations::NativeAssetParents0ToParents1Migration<Runtime>,
 		pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 		InitStorageVersions,
 		DeleteUndecodableStorage,
@@ -1672,7 +1672,7 @@ cumulus_pallet_parachain_system::register_validate_block! {
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
 
-pub mod migrations {
+pub mod asset_hub_westend_migrations {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::Get,
