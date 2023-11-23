@@ -998,7 +998,7 @@ fn set_collection_system_attributes_should_work() {
 		let attribute_key = [0u8];
 		let attribute_value = [0u8];
 
-		assert_ok!(<Nfts as Mutate<AccountIdOf<Test>, ItemConfig>>::set_collection_attribute(
+		assert_ok!(<Nfts as Mutate<AccountIdOf<Test>>>::set_collection_attribute(
 			&collection_id,
 			&attribute_key,
 			&attribute_value
@@ -1021,13 +1021,11 @@ fn set_collection_system_attributes_should_work() {
 		struct TypedAttributeValue(u32);
 		let typed_attribute_value = TypedAttributeValue(42);
 
-		assert_ok!(
-			<Nfts as Mutate<AccountIdOf<Test>, ItemConfig>>::set_typed_collection_attribute(
-				&collection_id,
-				&typed_attribute_key,
-				&typed_attribute_value
-			)
-		);
+		assert_ok!(<Nfts as Mutate<AccountIdOf<Test>>>::set_typed_collection_attribute(
+			&collection_id,
+			&typed_attribute_key,
+			&typed_attribute_value
+		));
 
 		assert_eq!(
 			<Nfts as Inspect<AccountIdOf<Test>>>::typed_system_attribute(
@@ -1384,7 +1382,7 @@ fn validate_deposit_required_setting() {
 			bvec![2],
 			bvec![0],
 		));
-		assert_ok!(<Nfts as Mutate<<Test as SystemConfig>::AccountId, ItemConfig>>::set_attribute(
+		assert_ok!(<Nfts as Mutate<<Test as SystemConfig>::AccountId>>::set_attribute(
 			&0,
 			&0,
 			&[3],
@@ -1403,13 +1401,11 @@ fn validate_deposit_required_setting() {
 		assert_eq!(Balances::reserved_balance(account(2)), 3);
 		assert_eq!(Balances::reserved_balance(account(3)), 3);
 
-		assert_ok!(
-			<Nfts as Mutate<<Test as SystemConfig>::AccountId, ItemConfig>>::clear_attribute(
-				&0,
-				&0,
-				&[3],
-			)
-		);
+		assert_ok!(<Nfts as Mutate<<Test as SystemConfig>::AccountId>>::clear_attribute(
+			&0,
+			&0,
+			&[3],
+		));
 		assert_eq!(
 			attributes(0),
 			vec![
@@ -3078,9 +3074,9 @@ fn collection_locking_should_work() {
 
 		let stored_config = CollectionConfigOf::<Test>::get(collection_id).unwrap();
 		let full_lock_config = collection_config_from_disabled_settings(
-			CollectionSetting::TransferableItems |
-				CollectionSetting::UnlockedMetadata |
-				CollectionSetting::UnlockedAttributes,
+			CollectionSetting::TransferableItems
+				| CollectionSetting::UnlockedMetadata
+				| CollectionSetting::UnlockedAttributes,
 		);
 		assert_eq!(stored_config, full_lock_config);
 	});

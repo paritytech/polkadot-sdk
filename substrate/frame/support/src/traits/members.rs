@@ -391,3 +391,178 @@ impl<T: Clone + Ord> ChangeMembers<T> for () {
 	fn set_members_sorted(_: &[T], _: &[T]) {}
 	fn set_prime(_: Option<T>) {}
 }
+
+pub mod membership {
+	use super::*;
+	use crate::traits::tokens::nonfungible_v2 as nonfungible;
+	use crate::traits::Get;
+	use crate::Parameter;
+	use core::num::NonZeroU8;
+	use sp_arithmetic::traits::Bounded;
+	use sp_runtime::traits::BlockNumberProvider;
+
+	/// Access data associated to a unique membership
+	pub trait Inspect<AccountId> {
+		type MembershipId: Parameter;
+		type MembershipInfo: Membership<Id = Self::MembershipId>;
+		type MembershipsIter: Iterator<Item = Self::MembershipId>;
+
+		/// Retrieve membership data that is expected to belong to member
+		fn get_membership(
+			id: impl Into<Self::MembershipId>,
+			member: &AccountId,
+		) -> Option<Self::MembershipInfo>;
+
+		/// Retrieve all memberships belonging to member
+		fn account_memberships(member: &AccountId) -> Self::MembershipsIter;
+
+		/// Check membership is owned by the given account
+		fn has_membership(id: impl Into<Self::MembershipId>, member: &AccountId) -> bool {
+			Self::get_membership(id, member).is_some()
+		}
+	}
+
+	/// Change data related to a unique membership
+	pub trait Mutate<AccountId>: Inspect<AccountId> {
+		/// Update the membership possibly changing its owner
+		fn update(
+			id: impl Into<Self::MembershipId>,
+			membership: Self::MembershipInfo,
+			maybe_member: Option<AccountId>,
+		) -> DispatchResult;
+	}
+
+	/// A unique membership
+	pub trait Membership: codec::Decode + codec::Encode {
+		type Id: Parameter;
+
+		fn new(id: Self::Id) -> Self;
+
+		fn id(&self) -> Self::Id;
+	}
+
+	/// A membership with a rating system
+	pub trait WithRank<Rank = GenericRank>: Membership
+	where
+		Rank: Eq + Ord,
+	{
+		fn rank(&self) -> Rank;
+		fn set_rank(&mut self, rank: impl Into<Rank>);
+	}
+
+	/// A generic rank in the range 0 to 100
+	#[derive(
+		Clone,
+		Copy,
+		Debug,
+		Default,
+		Eq,
+		Ord,
+		PartialEq,
+		PartialOrd,
+		codec::Decode,
+		codec::Encode,
+		codec::MaxEncodedLen,
+		scale_info::TypeInfo,
+	)]
+	pub struct GenericRank(u8);
+	impl GenericRank {
+		pub const MIN: Self = GenericRank(0);
+		pub const MAX: Self = GenericRank(100);
+		pub const ADMIN: Self = Self::MAX;
+
+		pub fn set(&mut self, n: u8) {
+			*self = Self(n.min(Self::MAX.0))
+		}
+		pub fn promote_by(&mut self, n: NonZeroU8) {
+			*self = Self(self.0.saturating_add(n.get()).min(Self::MAX.0))
+		}
+		pub fn demote_by(&mut self, n: NonZeroU8) {
+			*self = Self(self.0.saturating_sub(n.get()).max(Self::MIN.0))
+		}
+	}
+	impl From<u8> for GenericRank {
+		fn from(value: u8) -> Self {
+			Self(value)
+		}
+	}
+
+	/// A membership that can expire
+	pub trait WithLifetime: Membership {
+		type BlockProvider: BlockNumberProvider;
+
+		fn extend_validity(&mut self, _until: BlockNumberFor<Self>) {}
+
+		fn valid_until(&self) -> BlockNumberFor<Self> {
+			Bounded::max_value()
+		}
+
+		fn is_valid(&self) -> bool {
+			let now = Self::BlockProvider::current_block_number();
+			self.valid_until() < now
+		}
+	}
+	type BlockNumberFor<T> =
+		<<T as WithLifetime>::BlockProvider as BlockNumberProvider>::BlockNumber;
+
+	/// Adapter to auto implement Membership traits for anything that implements nonfungible.
+	pub struct NonFungibleAdpter<T, M, Attr>(PhantomData<(T, M, Attr)>);
+
+	impl<T, M, AccountId, Attr> Inspect<AccountId> for NonFungibleAdpter<T, M, Attr>
+	where
+		T: nonfungible::Inspect<AccountId>
+			+ nonfungible::InspectEnumerable<
+				AccountId,
+				OwnedIterator = crate::storage::KeyPrefixIterator<
+					<T as nonfungible::Inspect<AccountId>>::ItemId,
+				>,
+			>,
+		M: Membership<Id = T::ItemId>,
+		AccountId: Eq,
+		Attr: Get<&'static [u8; 10]>,
+	{
+		type MembershipId = T::ItemId;
+		type MembershipInfo = M;
+		type MembershipsIter = crate::storage::KeyPrefixIterator<T::ItemId>;
+
+		fn get_membership(
+			id: impl Into<Self::MembershipId>,
+			member: &AccountId,
+		) -> Option<Self::MembershipInfo> {
+			let id = id.into();
+			T::owner(&id).and_then(|o| member.eq(&o).then_some(()))?;
+			T::typed_system_attribute(&id, Attr::get())
+		}
+
+		fn account_memberships(member: &AccountId) -> Self::MembershipsIter {
+			T::owned(member)
+		}
+	}
+
+	impl<T, M, AccountId, Attr> Mutate<AccountId> for NonFungibleAdpter<T, M, Attr>
+	where
+		T: nonfungible::Inspect<AccountId>
+			+ nonfungible::InspectEnumerable<
+				AccountId,
+				OwnedIterator = crate::storage::KeyPrefixIterator<
+					<T as nonfungible::Inspect<AccountId>>::ItemId,
+				>,
+			> + nonfungible::Mutate<AccountId>
+			+ nonfungible::Transfer<AccountId>,
+		M: Membership<Id = T::ItemId>,
+		AccountId: Eq,
+		Attr: Get<&'static [u8; 10]>,
+	{
+		fn update(
+			id: impl Into<Self::MembershipId>,
+			membership: Self::MembershipInfo,
+			maybe_member: Option<AccountId>,
+		) -> DispatchResult {
+			let id = id.into();
+			if let Some(new_owner) = maybe_member {
+				T::transfer(&id, &new_owner)?;
+			}
+			T::set_typed_attribute(&id, Attr::get(), &membership)
+		}
+	}
+}
