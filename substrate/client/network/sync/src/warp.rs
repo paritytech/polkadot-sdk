@@ -337,7 +337,7 @@ where
 	}
 
 	fn try_to_start_warp_sync(&mut self) {
-		let Phase::WaitingForPeers { warp_sync_provider } = self.phase else { return };
+		let Phase::WaitingForPeers { warp_sync_provider } = &self.phase else { return };
 
 		if self.peers.len() < MIN_PEERS_TO_START_WARP_SYNC {
 			return
@@ -349,7 +349,7 @@ where
 			set_id: 0,
 			authorities: warp_sync_provider.current_authorities(),
 			last_hash: genesis_hash,
-			warp_sync_provider,
+			warp_sync_provider: Arc::clone(warp_sync_provider),
 		};
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
@@ -569,23 +569,31 @@ where
 
 		trace!(target: LOG_TARGET, "Warp sync: imported {imported} of {count}.");
 
+		let mut complete = false;
+
 		for (result, hash) in results {
-			if hash != state_sync.target() {
+			if hash == state_sync.target() {
+				match result {
+					Ok(_) => {
+						complete = true;
+					},
+					Err(e) => {
+						error!(
+							target: LOG_TARGET,
+							"Warp sync failed. Failed to import target block with state: {e:?}."
+						);
+					},
+				}
+			} else {
 				debug!(
 					target: LOG_TARGET,
 					"Unexpected block processed: {hash} with result {result:?}.",
 				);
-				continue
 			}
+		}
 
-			if let Err(e) = result {
-				error!(
-					target: LOG_TARGET,
-					"Warp sync failed. Failed to import target block with state: {e:?}."
-				);
-			}
-
-			let total_mib = (self.total_proof_bytes + state_sync.progress().size) / (1024 * 1024);
+		if complete {
+			let total_mib = (self.total_proof_bytes + self.total_state_bytes) / (1024 * 1024);
 			info!(
 				target: LOG_TARGET,
 				"Warp sync is complete ({total_mib} MiB), continuing with block sync.",
@@ -596,31 +604,12 @@ where
 		}
 	}
 
-	/// Get candidate for warp/block request.
-	fn select_synced_available_peer(
-		&self,
-		min_best_number: Option<NumberFor<B>>,
-	) -> Option<(&PeerId, &mut Peer<B>)> {
-		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
-		if !targets.is_empty() {
-			targets.sort();
-			let median = targets[targets.len() / 2];
-			let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
-			// Find a random peer that is synced as much as peer majority and is above
-			// `best_number_at_least`.
-			for (peer_id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() && peer.best_number >= threshold {
-					return Some((peer_id, peer))
-				}
-			}
-		}
-
-		None
-	}
-
 	/// Produce next warp proof request.
-	fn warp_proof_request(&self) -> Option<(PeerId, WarpProofRequest<B>)> {
+	fn warp_proof_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
 		let Phase::WarpProof { last_hash, .. } = &self.phase else { return None };
+
+		// Copy `last_hash` early to cut the borrowing tie.
+		let begin = *last_hash;
 
 		if self
 			.peers
@@ -631,16 +620,18 @@ where
 			return None
 		}
 
-		let Some((peer_id, peer)) = self.select_synced_available_peer(None) else { return None };
+		let Some((peer_id, peer)) = select_synced_available_peer(&mut self.peers, None) else {
+			return None
+		};
 
-		trace!(target: LOG_TARGET, "New WarpProofRequest to {peer_id}, begin hash: {last_hash}.");
+		trace!(target: LOG_TARGET, "New WarpProofRequest to {peer_id}, begin hash: {begin}.");
 		peer.state = PeerState::DownloadingProofs;
 
-		Some((*peer_id, WarpProofRequest { begin: *last_hash }))
+		Some((*peer_id, WarpProofRequest { begin }))
 	}
 
 	/// Produce next target block request.
-	fn target_block_request(&self) -> Option<(PeerId, BlockRequest<B>)> {
+	fn target_block_request(&mut self) -> Option<(PeerId, BlockRequest<B>)> {
 		let Phase::TargetBlock(target_header) = &self.phase else { return None };
 
 		if self
@@ -652,8 +643,12 @@ where
 			return None
 		}
 
+		// Cut the borrowing tie.
+		let target_hash = target_header.hash();
+		let target_number = *target_header.number();
+
 		let Some((peer_id, peer)) =
-			self.select_synced_available_peer(Some(*target_header.number()))
+			select_synced_available_peer(&mut self.peers, Some(target_number))
 		else {
 			return None
 		};
@@ -661,9 +656,10 @@ where
 		trace!(
 			target: LOG_TARGET,
 			"New target block request to {peer_id}, target: {} ({}).",
-			target_header.hash(),
-			target_header.number(),
+			target_hash,
+			target_number,
 		);
+
 		peer.state = PeerState::DownloadingTargetBlock;
 
 		Some((
@@ -673,7 +669,7 @@ where
 				fields: BlockAttributes::HEADER |
 					BlockAttributes::BODY |
 					BlockAttributes::JUSTIFICATION,
-				from: FromBlock::Hash(target_header.hash()),
+				from: FromBlock::Hash(target_hash),
 				direction: Direction::Ascending,
 				max: Some(1),
 			},
@@ -681,7 +677,7 @@ where
 	}
 
 	/// Produce next state request.
-	fn state_request(&self) -> Option<(PeerId, OpaqueStateRequest)> {
+	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
 		let Phase::State(state_sync) = &self.phase else { return None };
 
 		if self
@@ -694,12 +690,12 @@ where
 		}
 
 		let Some((peer_id, peer)) =
-			self.select_synced_available_peer(Some(state_sync.target_block_num()))
+			select_synced_available_peer(&mut self.peers, Some(state_sync.target_block_num()))
 		else {
 			return None
 		};
 
-		peer.state = PeerState::DownloadingTargetBlock;
+		peer.state = PeerState::DownloadingState;
 		let request = state_sync.next_request();
 		trace!(
 			target: LOG_TARGET,
@@ -804,4 +800,28 @@ where
 
 		std::mem::take(&mut self.actions).into_iter()
 	}
+}
+
+/// Get candidate for warp/block request.
+///
+/// Due to borrowing issues this is a free-standing function accepting a reference to `peers`.
+fn select_synced_available_peer<B: BlockT>(
+	peers: &mut HashMap<PeerId, Peer<B>>,
+	min_best_number: Option<NumberFor<B>>,
+) -> Option<(&PeerId, &mut Peer<B>)> {
+	let mut targets: Vec<_> = peers.values().map(|p| p.best_number).collect();
+	if !targets.is_empty() {
+		targets.sort();
+		let median = targets[targets.len() / 2];
+		let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
+		// Find a random peer that is synced as much as peer majority and is above
+		// `best_number_at_least`.
+		for (peer_id, peer) in peers.iter_mut() {
+			if peer.state.is_available() && peer.best_number >= threshold {
+				return Some((peer_id, peer))
+			}
+		}
+	}
+
+	None
 }

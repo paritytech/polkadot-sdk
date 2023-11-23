@@ -33,9 +33,7 @@ use crate::{
 	extra_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	state::{ImportResult, StateSync},
-	types::{
-		BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncState, SyncStatus,
-	},
+	types::{BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 };
 
 use codec::Encode;
@@ -89,9 +87,6 @@ const STATE_SYNC_FINALITY_THRESHOLD: u32 = 8;
 /// the ancestor search to not waste time doing that when we are
 /// so far behind.
 const MAJOR_SYNC_BLOCKS: u8 = 5;
-
-/// Number of peers that need to be connected before warp sync is started.
-const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -365,13 +360,6 @@ where
 
 		sync.reset_sync_start_point()?;
 		Ok(sync)
-	}
-
-	/// Get peer's best hash & number.
-	pub fn peer_info(&self, peer_id: &PeerId) -> Option<PeerInfo<B>> {
-		self.peers
-			.get(peer_id)
-			.map(|p| PeerInfo { best_hash: p.best_hash, best_number: p.best_number })
 	}
 
 	/// Returns the current sync status.
