@@ -92,7 +92,7 @@ impl Keyring {
 	}
 
 	pub fn public(self) -> Public {
-		self.pair().public()
+		Public::from_raw(self.into())
 	}
 
 	pub fn to_seed(self) -> String {
