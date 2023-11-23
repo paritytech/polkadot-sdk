@@ -191,9 +191,10 @@ pub mod pallet {
 
 	/// Randomness accumulator.
 	///
-	/// During block execution doesn't include randomness which ships within that block header.
+	/// Excluded the first imported block, its value is updated on block finalization.
 	#[pallet::storage]
-	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
+	#[pallet::getter(fn randomness_accumulator)]
+	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]
@@ -290,7 +291,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			EpochConfig::<T>::put(self.epoch_config);
-			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
+			Pallet::<T>::genesis_authorities_initialize(&self.authorities);
 
 			#[cfg(feature = "construct-dummy-ring-context")]
 			{
@@ -325,14 +326,15 @@ pub mod pallet {
 				.expect("Valid claim must have vrf signature; qed");
 			ClaimTemporaryData::<T>::put(randomness_output);
 
-			T::WeightInfo::on_initialize() +
-				T::EpochChangeTrigger::trigger::<T>(block_num).unwrap_or_default()
+			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
+
+			T::WeightInfo::on_initialize() + trigger_weight
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
 			// At the end of the block, we can safely include the current slot randomness
-			// to the randomness accumulator. If we've determined that this block was the
-			// first in a new epoch, the changeover logic has already occurred at this point
+			// to the accumulator. If we've determined that this block was the first in
+			// a new epoch, the changeover logic has already occurred at this point
 			// (i.e. `enact_epoch_change` has already been called).
 			let randomness_input = vrf::slot_claim_input(
 				&Self::randomness(),
@@ -524,7 +526,7 @@ impl<T: Config> Pallet<T> {
 	/// Determine whether an epoch change should take place at this block.
 	///
 	/// Assumes that initialization has already taken place.
-	pub fn should_end_epoch(block_num: BlockNumberFor<T>) -> bool {
+	pub(crate) fn should_end_epoch(block_num: BlockNumberFor<T>) -> bool {
 		// The epoch has technically ended during the passage of time between this block and the
 		// last, but we have to "end" the epoch now, since there is no earlier possible block we
 		// could have done it.
@@ -583,14 +585,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Enact an epoch change.
 	///
-	/// Should be done on every block where [`should_end_epoch`] has returned `true`, and the caller
-	/// is the only caller of this function.
-	///
-	/// Typically, this is not handled directly, but by a higher-level component implementing the
-	/// [`EpochChangeTrigger`] or [`OneSessionHandler`] trait.
+	/// WARNING: Should be called on every block once and if and only if [`should_end_epoch`]
+	/// has returned `true`.
 	///
 	/// If we detect one or more skipped epochs the policy is to use the authorities and values
-	/// from the first skipped epoch. The tickets are invalidated.
+	/// from the first skipped epoch. The tickets data is invalidated.
 	pub(crate) fn enact_epoch_change(
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
@@ -688,10 +687,9 @@ impl<T: Config> Pallet<T> {
 
 		let accumulator = RandomnessAccumulator::<T>::get();
 
-		let mut buf = [0; 2 * RANDOMNESS_LENGTH + 8];
+		let mut buf = [0; RANDOMNESS_LENGTH + 8];
 		buf[..RANDOMNESS_LENGTH].copy_from_slice(&accumulator[..]);
-		buf[RANDOMNESS_LENGTH..2 * RANDOMNESS_LENGTH].copy_from_slice(&curr_epoch_randomness[..]);
-		buf[2 * RANDOMNESS_LENGTH..].copy_from_slice(&next_epoch_index.to_le_bytes());
+		buf[RANDOMNESS_LENGTH..].copy_from_slice(&next_epoch_index.to_le_bytes());
 
 		let next_randomness = hashing::blake2_256(&buf);
 		NextRandomness::<T>::put(&next_randomness);
@@ -719,12 +717,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Initialize authorities on genesis phase.
-	fn initialize_genesis_authorities(authorities: &[AuthorityId]) {
-		// Genesis authorities may have been initialized via other means (e.g. via session pallet).
-		// If this function has already been called with some authorities, then the new list
-		// should be match the previously set one.
+	//
+	// Genesis authorities may have been initialized via other means (e.g. via session pallet).
+	//
+	// If this function has already been called with some authorities, then the new list
+	// should match the previously set one.
+	fn genesis_authorities_initialize(authorities: &[AuthorityId]) {
 		let prev_authorities = Authorities::<T>::get();
+
 		if !prev_authorities.is_empty() {
+			// This function has already been called.
 			if prev_authorities.as_slice() == authorities {
 				return
 			} else {
@@ -1033,7 +1035,7 @@ pub trait EpochChangeTrigger {
 	/// Returns an optional `Weight` if epoch change has been triggered.
 	///
 	/// This should be called during every block, after initialization is done.
-	fn trigger<T: Config>(_: BlockNumberFor<T>) -> Option<Weight>;
+	fn trigger<T: Config>(_: BlockNumberFor<T>) -> Weight;
 }
 
 /// An `EpochChangeTrigger` which does nothing.
@@ -1043,9 +1045,9 @@ pub trait EpochChangeTrigger {
 pub struct EpochChangeExternalTrigger;
 
 impl EpochChangeTrigger for EpochChangeExternalTrigger {
-	fn trigger<T: Config>(_: BlockNumberFor<T>) -> Option<Weight> {
+	fn trigger<T: Config>(_: BlockNumberFor<T>) -> Weight {
 		// nothing - trigger is external.
-		None
+		Weight::zero()
 	}
 }
 
@@ -1056,15 +1058,15 @@ impl EpochChangeTrigger for EpochChangeExternalTrigger {
 pub struct EpochChangeInternalTrigger;
 
 impl EpochChangeTrigger for EpochChangeInternalTrigger {
-	fn trigger<T: Config>(block_num: BlockNumberFor<T>) -> Option<Weight> {
+	fn trigger<T: Config>(block_num: BlockNumberFor<T>) -> Weight {
 		if Pallet::<T>::should_end_epoch(block_num) {
 			let authorities = Pallet::<T>::next_authorities();
 			let next_authorities = authorities.clone();
 			let len = next_authorities.len() as u32;
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
-			Some(T::WeightInfo::enact_epoch_change(len, T::EpochLength::get()))
+			T::WeightInfo::enact_epoch_change(len, T::EpochLength::get())
 		} else {
-			None
+			Weight::zero()
 		}
 	}
 }

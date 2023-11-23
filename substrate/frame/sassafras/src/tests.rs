@@ -32,9 +32,56 @@ fn b2h<const N: usize>(bytes: [u8; N]) -> String {
 
 #[test]
 fn genesis_values_assumptions_check() {
-	new_test_ext(4).execute_with(|| {
-		assert_eq!(Sassafras::authorities().len(), 4);
-		assert_eq!(EpochConfig::<Test>::get(), TEST_EPOCH_CONFIGURATION);
+	new_test_ext(3).execute_with(|| {
+		assert_eq!(Sassafras::authorities().len(), 3);
+		assert_eq!(Sassafras::config(), TEST_EPOCH_CONFIGURATION);
+	});
+}
+
+#[test]
+fn randomness_progression_check() {
+	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
+	let pair = &pairs[0];
+
+	ext.execute_with(|| {
+		assert_eq!(Sassafras::randomness(), [0; 32]);
+		assert_eq!(Sassafras::next_randomness(), [0; 32]);
+		assert_eq!(Sassafras::randomness_accumulator(), [0; 32]);
+
+		// Test the values with a zero genesis block hash
+		let _ = initialize_block(1, 123.into(), [0x00; 32].into(), pair);
+
+		assert_eq!(Sassafras::randomness(), [0; 32]);
+		assert_eq!(
+			Sassafras::next_randomness(),
+			h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+		);
+		assert_eq!(
+			Sassafras::randomness_accumulator(),
+			h2b("89eb0d6a8a691dae2cd15ed0369931ce0a949ecafa5c3f93f8121833646e15c3")
+		);
+		let (id1, _) = make_ticket_bodies(1, Some(pair))[0];
+
+		// Reset what is relevant
+		NextRandomness::<Test>::set([0; 32]);
+		RandomnessAccumulator::<Test>::set([0; 32]);
+
+		// Test the values with a non-zero genesis block hash
+		let _ = initialize_block(1, 123.into(), [0xff; 32].into(), pair);
+
+		assert_eq!(Sassafras::randomness(), [0; 32]);
+		assert_eq!(
+			Sassafras::next_randomness(),
+			h2b("fac8fc12590eef22a45ffeadf96014e4cc0b8d3086456d6e25eab0910941f66a")
+		);
+		assert_eq!(
+			Sassafras::randomness_accumulator(),
+			h2b("e2021160500f01190b8b9f36f9d0d1dacf8e91ae70deed6ddda43ed414585ed4")
+		);
+		let (id2, _) = make_ticket_bodies(1, Some(pair))[0];
+
+		// Ticket ids should be different when next epoch randomness is different
+		assert_ne!(id1, id2);
 	});
 }
 
@@ -179,14 +226,20 @@ fn on_first_block_after_genesis() {
 			assert_eq!(Sassafras::current_epoch_start(), start_slot);
 			assert_eq!(Sassafras::current_slot_index(), 0);
 			assert_eq!(Sassafras::randomness(), [0; 32]);
-			assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+			assert_eq!(
+				Sassafras::next_randomness(),
+				h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+			);
 		};
 
 		// Post-initialization status
 
 		assert!(ClaimTemporaryData::<Test>::exists());
 		common_assertions();
-		assert_eq!(RandomnessAccumulator::<Test>::get(), [0; 32]);
+		assert_eq!(
+			Sassafras::randomness_accumulator(),
+			h2b("89eb0d6a8a691dae2cd15ed0369931ce0a949ecafa5c3f93f8121833646e15c3")
+		);
 
 		let header = finalize_block(start_block);
 
@@ -194,10 +247,10 @@ fn on_first_block_after_genesis() {
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
 		common_assertions();
-		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
+		println!("{}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
-			RandomnessAccumulator::<Test>::get(),
-			h2b("4ed5df8b0754e47244b5ff0db38208d6f82fce26c5ab3dcdf9abac72c14afda3"),
+			Sassafras::randomness_accumulator(),
+			h2b("702a4f2ee3ee6b96ca41b6abe49488884a0d7226d759974f10c5676f67a1af7a"),
 		);
 
 		// Header data check
@@ -208,8 +261,8 @@ fn on_first_block_after_genesis() {
 		// Genesis epoch start deposits consensus
 		let consensus_log = sp_consensus_sassafras::digests::ConsensusLog::NextEpochData(
 			sp_consensus_sassafras::digests::NextEpochDescriptor {
-				authorities: NextAuthorities::<Test>::get().to_vec(),
-				randomness: NextRandomness::<Test>::get(),
+				authorities: Sassafras::next_authorities().into_inner(),
+				randomness: Sassafras::next_randomness(),
 				config: None,
 			},
 		);
@@ -242,17 +295,19 @@ fn on_normal_block() {
 			assert_eq!(Sassafras::current_epoch_start(), start_slot);
 			assert_eq!(Sassafras::current_slot_index(), 1);
 			assert_eq!(Sassafras::randomness(), [0; 32]);
-			assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
+			assert_eq!(
+				Sassafras::next_randomness(),
+				h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+			);
 		};
 
 		// Post-initialization status
 
 		assert!(ClaimTemporaryData::<Test>::exists());
 		common_assertions();
-		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
-			RandomnessAccumulator::<Test>::get(),
-			h2b("4ed5df8b0754e47244b5ff0db38208d6f82fce26c5ab3dcdf9abac72c14afda3"),
+			Sassafras::randomness_accumulator(),
+			h2b("702a4f2ee3ee6b96ca41b6abe49488884a0d7226d759974f10c5676f67a1af7a"),
 		);
 
 		let header = finalize_block(end_block);
@@ -261,10 +316,9 @@ fn on_normal_block() {
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
 		common_assertions();
-		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
-			RandomnessAccumulator::<Test>::get(),
-			h2b("b4cb6fb46df700d6b7851d784cd2ef7b985f8142a5a64ddc9c1555251fa4fba8"),
+			Sassafras::randomness_accumulator(),
+			h2b("486c94eb248ad8b6df2c40d81212e131789d17361d2a05de5827f7a6c86c1e8d"),
 		);
 
 		// Header data check
@@ -296,22 +350,23 @@ fn produce_epoch_change_digest_no_config() {
 			assert_eq!(Sassafras::epoch_index(), 1);
 			assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_length);
 			assert_eq!(Sassafras::current_slot_index(), 0);
-			assert_eq!(Sassafras::randomness(), [0; 32]);
+			assert_eq!(
+				Sassafras::randomness(),
+				h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+			);
 		};
 
 		// Post-initialization status
 
 		assert!(ClaimTemporaryData::<Test>::exists());
 		common_assertions();
-		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
-			NextRandomness::<Test>::get(),
-			h2b("c0e28016280191601a8dd21b903da74af7402d18b2a80201a38b3799ddf1c6eb"),
+			Sassafras::next_randomness(),
+			h2b("acbfe70cfe39eda61b56ef73ed6dcdd1b385f6e5eacd394be60420d3a3901c46"),
 		);
-		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
-			RandomnessAccumulator::<Test>::get(),
-			h2b("462e6bad93c97b2f5da04b39011c29cb1340bc4974dcccf1ce8e37aafbd0a020"),
+			Sassafras::randomness_accumulator(),
+			h2b("949ff79675daea2c5173669ee0b740bde545fbbe67e77d6d69e48c09c34b68c3"),
 		);
 
 		let header = finalize_block(end_block);
@@ -320,15 +375,13 @@ fn produce_epoch_change_digest_no_config() {
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
 		common_assertions();
-		println!("{}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
-			NextRandomness::<Test>::get(),
-			h2b("c0e28016280191601a8dd21b903da74af7402d18b2a80201a38b3799ddf1c6eb"),
+			Sassafras::next_randomness(),
+			h2b("acbfe70cfe39eda61b56ef73ed6dcdd1b385f6e5eacd394be60420d3a3901c46"),
 		);
-		println!("{}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
-			RandomnessAccumulator::<Test>::get(),
-			h2b("ebd53da015a76084b1bd31b5edca25e5fb7a8abafd39ded626a7dc87844a0309"),
+			Sassafras::randomness_accumulator(),
+			h2b("0fdd337a09da828e4b41c27680929e95773c50465ad92fc117383efb3be696e2"),
 		);
 
 		// Header data check
@@ -338,8 +391,8 @@ fn produce_epoch_change_digest_no_config() {
 		// Deposits consensus log on epoch change
 		let consensus_log = sp_consensus_sassafras::digests::ConsensusLog::NextEpochData(
 			sp_consensus_sassafras::digests::NextEpochDescriptor {
-				authorities: NextAuthorities::<Test>::get().to_vec(),
-				randomness: NextRandomness::<Test>::get(),
+				authorities: Sassafras::next_authorities().into_inner(),
+				randomness: Sassafras::next_randomness(),
 				config: None,
 			},
 		);
@@ -377,9 +430,9 @@ fn produce_epoch_change_digest_with_config() {
 		// Deposits consensus log on epoch change
 		let consensus_log = sp_consensus_sassafras::digests::ConsensusLog::NextEpochData(
 			sp_consensus_sassafras::digests::NextEpochDescriptor {
-				authorities: NextAuthorities::<Test>::get().to_vec(),
-				randomness: NextRandomness::<Test>::get(),
-				config: Some(config), // We are mostly interested in this
+				authorities: Sassafras::next_authorities().into_inner(),
+				randomness: Sassafras::next_randomness(),
+				config: Some(config),
 			},
 		);
 		let consensus_digest = DigestItem::Consensus(SASSAFRAS_ENGINE_ID, consensus_log.encode());
@@ -574,7 +627,7 @@ fn block_allowed_to_skip_epochs() {
 		let tickets = make_ticket_bodies(3, Some(pair));
 		persist_next_epoch_tickets(&tickets);
 
-		let next_random = NextRandomness::<Test>::get();
+		let next_random = Sassafras::next_randomness();
 
 		// We want to skip 3 epochs in this test.
 		let offset = 4 * epoch_length;
@@ -718,9 +771,9 @@ fn submit_tickets_with_ring_proof_check_works() {
 		let start_slot = Slot::from(100);
 		let start_block = 1;
 
-		// Tweak the config to discard ~holf of the tickets.
+		// Tweak the config to discard ~half of the tickets.
 		let mut config = EpochConfig::<Test>::get();
-		config.redundancy_factor = 20;
+		config.redundancy_factor = 25;
 		EpochConfig::<Test>::set(config);
 
 		initialize_block(start_block, start_slot, Default::default(), pair);
@@ -741,9 +794,9 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Check state after submission
 		assert_eq!(
 			TicketsMeta::<Test>::get(),
-			TicketsMetadata { unsorted_tickets_count: 10, tickets_count: [0, 0] },
+			TicketsMetadata { unsorted_tickets_count: 11, tickets_count: [0, 0] },
 		);
-		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 10);
+		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 11);
 		assert_eq!(UnsortedSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);
@@ -765,10 +818,16 @@ fn make_tickets_data() {
 	let authorities: Vec<_> = pairs.iter().map(|sk| sk.public()).collect();
 
 	ext.execute_with(|| {
+		let start_slot = Slot::from(100);
+		let start_block = 1;
 		let config = EpochConfig::<Test>::get();
 
 		let tickets_count = tickets_authors_count * config.attempts_number as usize;
 		let mut tickets = Vec::with_capacity(tickets_count);
+
+		// This is only to properly initialize the "NextRandomness" value which is
+		// used to construct the next epoch tickets.
+		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		println!("Constructing {} tickets", tickets_count);
 		pairs.iter().take(tickets_authors_count).enumerate().for_each(|(i, pair)| {

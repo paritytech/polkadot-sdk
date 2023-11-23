@@ -39,6 +39,7 @@ use sp_runtime::{
 const LOG_TARGET: &str = "sassafras::tests";
 
 const EPOCH_LENGTH: u32 = 10;
+const MAX_AUTHORITIES: u32 = 100;
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -76,7 +77,7 @@ where
 
 impl pallet_sassafras::Config for Test {
 	type EpochLength = ConstU32<EPOCH_LENGTH>;
-	type MaxAuthorities = ConstU32<100>;
+	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
 }
