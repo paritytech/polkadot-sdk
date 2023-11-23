@@ -850,7 +850,10 @@ pub mod migrations {
 
 	pub type V1_05_00 = ();
 
-	pub type Unreleased = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
+	#[rustfmt::skip]
+	pub type Unreleased = (
+		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	);
 }
 
 /// Executive: handles dispatch to the various modules.

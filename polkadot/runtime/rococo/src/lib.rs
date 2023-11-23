@@ -1498,6 +1498,7 @@ pub mod migrations {
 	}
 
 	/// Unreleased migrations. Add new ones here:
+	#[rustfmt::skip]
 	pub type Unreleased = (
 		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
 		pallet_im_online::migration::v1::Migration<Runtime>,
