@@ -1091,11 +1091,12 @@ impl<T: Config> BondedPool<T> {
 	fn can_claim_commission(&self, who: &T::AccountId) -> bool {
 		match self.commission.claim_permission.as_ref() {
 			// If no permission is set, check `who` is the `root` role of the pool.
-			None => self.roles.root.as_ref().map_or(false, |root| root == who),
+			None => self.is_root(who),
 			// Permission has explicitly been set, ensure `who` satisfies the permission.
 			Some(permission) => match permission {
 				CommissionClaimPermission::Permissionless => true,
-				CommissionClaimPermission::Account(ref account) => account == who,
+				CommissionClaimPermission::Account(ref account) =>
+					account == who || self.is_root(who),
 			},
 		}
 	}
@@ -2773,7 +2774,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::claim_commission())] // TODO: insert correct weight.
+		#[pallet::weight(T::WeightInfo::claim_commission())] // TODO: insert correct
 		pub fn set_commission_claim_permission(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
