@@ -1,4 +1,4 @@
-name: Check Migrations
+name: Lint Migration Tuples
 
 on:
   pull_request:
