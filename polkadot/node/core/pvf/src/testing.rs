@@ -59,20 +59,20 @@ pub fn validate_candidate(
 ///
 /// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
 /// paths of the built workers.
-pub fn build_workers_and_get_paths(release_build: bool) -> (PathBuf, PathBuf) {
+pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 	// Only needs to be called once for the current process.
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
-	fn build_workers(release_build: bool) {
+	fn build_workers() {
 		let mut build_args = vec![
 			"build",
 			"--package=polkadot",
 			"--bin=polkadot-prepare-worker",
 			"--bin=polkadot-execute-worker",
 		];
-		if release_build {
-			build_args.push("--release");
-		}
+
+		#[cfg(build_type = "release")]
+		build_args.push("--release");
 
 		let mut cargo = std::process::Command::new("cargo");
 		let cmd = cargo
@@ -117,11 +117,7 @@ pub fn build_workers_and_get_paths(release_build: bool) -> (PathBuf, PathBuf) {
 			}
 		}
 
-		// release build
-		#[cfg(not(debug_assertions))]
-		let release_build = true;
-
-		build_workers(release_build);
+		build_workers();
 
 		Mutex::new((prepare_worker_path, execute_worker_path))
 	});
