@@ -174,7 +174,7 @@ impl<
 	}
 }
 
-/// Converts a `fungible`` `imbalance` instance to an instance of a `fungibles` imbalance type using
+/// Converts a `fungible` `imbalance` instance to an instance of a `fungibles` imbalance type using
 /// a specified `asset`.
 ///
 /// This function facilitates imbalance conversions within the implementations of
