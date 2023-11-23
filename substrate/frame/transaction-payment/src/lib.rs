@@ -63,7 +63,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, TransactionExtension, Zero,
+		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
@@ -818,12 +818,17 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
+impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
+	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+	type Implicit = ();
+}
+
+impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context>
+	for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
 	type Val = (
 		// tip
 		BalanceOf<T>,
@@ -838,7 +843,8 @@ where
 		// imbalance resulting from withdrawing the fee
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	);
-	type Implicit = ();
+
+	impl_tx_ext_default!(T::RuntimeCall; Context; implicit);
 
 	fn validate(
 		&self,
@@ -846,6 +852,7 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
+		_context: &mut Context,
 		_: (),
 		_implication: &impl Encode,
 	) -> Result<
@@ -873,6 +880,7 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (tip, who) = val;
 		// Mutating call to `withdraw_fee` to actually charge for the transaction.
@@ -886,6 +894,7 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
@@ -894,7 +903,6 @@ where
 		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
 		Ok(())
 	}
-	impl_tx_ext_default!(T::RuntimeCall; implicit);
 }
 
 impl<T: Config, AnyCall: GetDispatchInfo + Encode> EstimateCallFee<AnyCall, BalanceOf<T>>

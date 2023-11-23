@@ -157,15 +157,14 @@ fn transaction_payment_in_native_possible() {
 			let initial_balance = 10 * balance_factor;
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 10);
 
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_weight(WEIGHT_5),
-					&default_post_info(),
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_weight(WEIGHT_5),
+				&default_post_info(),
+				len,
+				&Ok(()),
+				&()
+			));
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 10);
 
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None)
@@ -174,15 +173,14 @@ fn transaction_payment_in_native_possible() {
 			let initial_balance_for_2 = 20 * balance_factor;
 
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 5);
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_weight(WEIGHT_100),
-					&post_info_from_weight(WEIGHT_50),
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_weight(WEIGHT_100),
+				&post_info_from_weight(WEIGHT_50),
+				len,
+				&Ok(()),
+				&()
+			));
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 5);
 		});
 }
@@ -241,15 +239,14 @@ fn transaction_payment_in_asset_possible() {
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_weight(WEIGHT_5), // estimated tx weight
-					&default_post_info(),        // weight actually used == estimated
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_weight(WEIGHT_5), // estimated tx weight
+				&default_post_info(),        // weight actually used == estimated
+				len,
+				&Ok(()),
+				&()
+			));
 
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 			assert_eq!(TipUnbalancedAmount::get(), 0);
@@ -355,15 +352,14 @@ fn transaction_payment_without_fee() {
 			.unwrap();
 			assert_eq!(refund, 199);
 
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_weight(WEIGHT_5),
-					&post_info_from_pays(Pays::No),
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_weight(WEIGHT_5),
+				&post_info_from_pays(Pays::No),
+				len,
+				&Ok(()),
+				&()
+			));
 
 			// caller should get refunded
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset + refund);
@@ -429,15 +425,14 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			)
 			.unwrap();
 
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_weight(WEIGHT_100),
-					&post_info_from_weight(WEIGHT_50),
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_weight(WEIGHT_100),
+				&post_info_from_weight(WEIGHT_50),
+				len,
+				&Ok(()),
+				&()
+			));
 
 			assert_eq!(TipUnbalancedAmount::get(), tip);
 			assert_eq!(FeeUnbalancedAmount::get(), expected_fee);
@@ -512,15 +507,14 @@ fn payment_from_account_with_only_assets() {
 			)
 			.unwrap();
 
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_weight(WEIGHT_5),
-					&default_post_info(),
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_weight(WEIGHT_5),
+				&default_post_info(),
+				len,
+				&Ok(()),
+				&()
+			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset + refund);
 			assert_eq!(Balances::free_balance(caller), 0);
 
@@ -570,15 +564,14 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				// `Pays::No` implies there are no fees
 				assert_eq!(Assets::balance(asset_id, caller), balance);
 
-				assert_ok!(
-					<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-						pre,
-						&info_from_pays(Pays::No),
-						&post_info_from_pays(Pays::No),
-						len,
-						&Ok(())
-					)
-				);
+				assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+					pre,
+					&info_from_pays(Pays::No),
+					&post_info_from_pays(Pays::No),
+					len,
+					&Ok(()),
+					&()
+				));
 				assert_eq!(Assets::balance(asset_id, caller), balance);
 			}
 
@@ -602,15 +595,14 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_weight(Weight::from_parts(weight, 0)),
-					&default_post_info(),
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_weight(Weight::from_parts(weight, 0)),
+				&default_post_info(),
+				len,
+				&Ok(()),
+				&()
+			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 		});
 }
@@ -665,15 +657,14 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 
 			// `Pays::Yes` on post-dispatch does not mean we pay (we never charge more than the
 			// initial fee)
-			assert_ok!(
-				<ChargeAssetTxPayment::<Runtime> as TransactionExtension<_>>::post_dispatch(
-					pre,
-					&info_from_pays(Pays::No),
-					&post_info_from_pays(Pays::Yes),
-					len,
-					&Ok(())
-				)
-			);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				pre,
+				&info_from_pays(Pays::No),
+				&post_info_from_pays(Pays::Yes),
+				len,
+				&Ok(()),
+				&()
+			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});
 }

@@ -30,7 +30,10 @@ use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{CheckedSub, DispatchInfoOf, Dispatchable, TransactionExtension, Zero},
+	traits::{
+		CheckedSub, DispatchInfoOf, Dispatchable, TransactionExtension, TransactionExtensionBase,
+		Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -621,12 +624,19 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for PrevalidateAttests<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
 	const IDENTIFIER: &'static str = "PrevalidateAttests";
 	type Implicit = ();
+}
+
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for PrevalidateAttests<T>
+where
+	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
 	type Pre = ();
 	type Val = ();
 
@@ -639,6 +649,7 @@ where
 		call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -659,7 +670,7 @@ where
 		}
 		Ok((ValidTransaction::default(), (), origin))
 	}
-	impl_tx_ext_default!(T::RuntimeCall; implicit prepare);
+	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]

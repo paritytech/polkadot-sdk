@@ -22,7 +22,7 @@ use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, TransactionExtension},
+	traits::{DispatchInfoOf, Dispatchable, TransactionExtension, TransactionExtensionBase},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
 		UnknownTransaction, ValidTransaction,
@@ -67,13 +67,15 @@ impl<T: Config + Send + Sync> CheckOnlySudoAccount<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
-	for CheckOnlySudoAccount<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckOnlySudoAccount<T> {
+	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
+	type Implicit = ();
+}
+impl<T: Config + Send + Sync, Context>
+	TransactionExtension<<T as frame_system::Config>::RuntimeCall, Context> for CheckOnlySudoAccount<T>
 where
 	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
-	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
-	type Implicit = ();
 	type Pre = ();
 	type Val = ();
 
@@ -83,6 +85,7 @@ where
 		_call: &<T as frame_system::Config>::RuntimeCall,
 		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -107,5 +110,5 @@ where
 		))
 	}
 
-	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; implicit prepare);
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; Context; prepare);
 }

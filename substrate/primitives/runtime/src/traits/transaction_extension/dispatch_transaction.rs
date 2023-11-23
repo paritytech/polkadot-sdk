@@ -48,7 +48,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	fn validate_and_prepare(
 		self,
 		origin: Self::Origin,
-		function: &Call,
+		call: &Call,
 		info: &Self::Info,
 		len: usize,
 	) -> Result<(Self::Pre, Self::Origin), TransactionValidityError>;
@@ -56,13 +56,28 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	fn dispatch_transaction(
 		self,
 		origin: Self::Origin,
-		function: Call,
+		call: Call,
 		info: &Self::Info,
 		len: usize,
 	) -> Self::Result;
+	/// Do everything which would be done in a `dispatch_transaction`, but instead of executing the
+	/// call, execute [substitute] instead. Since this doesn't actually dispatch the call, it
+	/// doesn't need to consume it and so `call` can be passed as a reference.
+	fn test_run(
+		self,
+		origin: Self::Origin,
+		call: &Call,
+		info: &Self::Info,
+		len: usize,
+		substitute: impl FnOnce(
+			Self::Origin,
+		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
+	) -> Self::Result;
 }
 
-impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransaction<Call> for T {
+impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTransaction<Call>
+	for T
+{
 	type Origin = <Call as Dispatchable>::RuntimeOrigin;
 	type Info = DispatchInfoOf<Call>;
 	type Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>;
@@ -76,7 +91,7 @@ impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransac
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		self.validate(origin, call, info, len, self.implicit()?, call)
+		self.validate(origin, call, info, len, &mut (), self.implicit()?, call)
 	}
 	fn validate_and_prepare(
 		self,
@@ -86,7 +101,7 @@ impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransac
 		len: usize,
 	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
 		let (_, val, origin) = self.validate_only(origin, call, info, len)?;
-		let pre = self.prepare(val, &origin, &call, info, len)?;
+		let pre = self.prepare(val, &origin, &call, info, len, &())?;
 		Ok((pre, origin))
 	}
 	fn dispatch_transaction(
@@ -103,7 +118,27 @@ impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransac
 			Err(err) => err.post_info,
 		};
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
-		T::post_dispatch(pre, info, &post_info, len, &pd_res)?;
+		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
+		Ok(res)
+	}
+	fn test_run(
+		self,
+		origin: Self::Origin,
+		call: &Call,
+		info: &Self::Info,
+		len: usize,
+		substitute: impl FnOnce(
+			Self::Origin,
+		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
+	) -> Self::Result {
+		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
+		let res = substitute(origin);
+		let post_info = match res {
+			Ok(info) => info,
+			Err(err) => err.post_info,
+		};
+		let pd_res = res.map(|_| ()).map_err(|e| e.error);
+		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
 		Ok(res)
 	}
 }

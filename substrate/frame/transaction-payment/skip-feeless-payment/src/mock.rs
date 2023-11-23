@@ -41,12 +41,14 @@ parameter_types! {
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DummyExtension;
 
-impl TransactionExtension<RuntimeCall> for DummyExtension {
+impl TransactionExtensionBase for DummyExtension {
 	const IDENTIFIER: &'static str = "DummyExtension";
+	type Implicit = ();
+}
+impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
 	type Val = ();
 	type Pre = ();
-	type Implicit = ();
-	impl_tx_ext_default!(RuntimeCall; implicit, validate);
+	impl_tx_ext_default!(RuntimeCall; C; implicit, validate);
 	fn prepare(
 		self,
 		_val: Self::Val,
@@ -54,6 +56,7 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
+		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		PreDispatchCount::mutate(|c| *c += 1);
 		Ok(())

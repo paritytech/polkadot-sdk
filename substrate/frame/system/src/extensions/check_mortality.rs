@@ -21,7 +21,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, SaturatedConversion, TransactionExtension},
+	traits::{DispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
@@ -53,10 +53,8 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckMortality<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
 	const IDENTIFIER: &'static str = "CheckMortality";
-	type Pre = ();
-	type Val = ();
 	type Implicit = T::Hash;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
@@ -68,6 +66,12 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 			Ok(<Pallet<T>>::block_hash(n))
 		}
 	}
+}
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckMortality<T>
+{
+	type Pre = ();
+	type Val = ();
 
 	fn validate(
 		&self,
@@ -75,6 +79,7 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -92,7 +97,7 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 			origin,
 		))
 	}
-	impl_tx_ext_default!(T::RuntimeCall; prepare);
+	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
 }
 
 #[cfg(test)]

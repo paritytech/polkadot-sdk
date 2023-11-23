@@ -43,7 +43,10 @@ use frame_support::{
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
-	traits::{DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult},
+	traits::{
+		DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase, ValidateResult,
+	},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -112,24 +115,28 @@ pub enum Intermediate<T, O> {
 }
 use Intermediate::*;
 
-impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
-	TransactionExtension<T::RuntimeCall> for SkipCheckIfFeeless<T, S>
-where
-	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
+impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionBase
+	for SkipCheckIfFeeless<T, S>
 {
 	// From the outside this extension should be "invisible", because it just extends the wrapped
 	// extension with an extra check in `pre_dispatch` and `post_dispatch`. Thus, we should forward
 	// the identifier of the wrapped extension to let wallets see this extension as it would only be
 	// the wrapped extension itself.
 	const IDENTIFIER: &'static str = S::IDENTIFIER;
-
-	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
-	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 	type Implicit = S::Implicit;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
 	}
+}
+
+impl<T: Config + Send + Sync, Context, S: TransactionExtension<T::RuntimeCall, Context>>
+	TransactionExtension<T::RuntimeCall, Context> for SkipCheckIfFeeless<T, S>
+where
+	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
+{
+	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 
 	fn validate(
 		&self,
@@ -137,14 +144,22 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
+		context: &mut Context,
 		self_implicit: S::Implicit,
 		inherited_implication: &impl Encode,
-	) -> ValidateResult<Self, T::RuntimeCall> {
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if call.is_feeless(&origin) {
 			Ok((Default::default(), Skip(origin.caller().clone()), origin))
 		} else {
-			let (x, y, z) =
-				self.0.validate(origin, call, info, len, self_implicit, inherited_implication)?;
+			let (x, y, z) = self.0.validate(
+				origin,
+				call,
+				info,
+				len,
+				context,
+				self_implicit,
+				inherited_implication,
+			)?;
 			Ok((x, Apply(y), z))
 		}
 	}
@@ -156,9 +171,10 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
+		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
-			Apply(val) => self.0.prepare(val, origin, call, info, len).map(Apply),
+			Apply(val) => self.0.prepare(val, origin, call, info, len, context).map(Apply),
 			Skip(origin) => Ok(Skip(origin)),
 		}
 	}
@@ -169,9 +185,10 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
+		context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		match pre {
-			Apply(pre) => S::post_dispatch(pre, info, post_info, len, result),
+			Apply(pre) => S::post_dispatch(pre, info, post_info, len, result, context),
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
 				Ok(())

@@ -104,17 +104,13 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 	($call:ty, $account_id:ty, $($filter_call:ty),*) => {
 		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 		pub struct BridgeRejectObsoleteHeadersAndMessages;
-		impl sp_runtime::traits::TransactionExtension<$call> for BridgeRejectObsoleteHeadersAndMessages {
+		impl sp_runtime::traits::TransactionExtensionBase for BridgeRejectObsoleteHeadersAndMessages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
+			type Implicit = ();
+		}
+		impl<Context> sp_runtime::traits::TransactionExtension<$call, Context> for BridgeRejectObsoleteHeadersAndMessages {
 			type Pre = ();
 			type Val = ();
-			type Implicit = ();
-			fn implicit(&self) -> sp_std::result::Result<
-				(),
-				sp_runtime::transaction_validity::TransactionValidityError,
-			> {
-				Ok(())
-			}
 
 			fn validate(
 				&self,
@@ -122,6 +118,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				call: &$call,
 				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
+				_context: &mut Context,
 				_self_implicit: Self::Implicit,
 				_inherited_implication: &impl codec::Encode,
 			) -> Result<
@@ -146,6 +143,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				_call: &$call,
 				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
+				_context: &Context,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
 				Ok(())
 			}

@@ -21,7 +21,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, TransactionExtension},
+	traits::{Dispatchable, TransactionExtension, TransactionExtensionBase},
 	transaction_validity::TransactionValidityError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
@@ -35,7 +35,7 @@ pub trait TransactionExtensionSchema:
 	type Payload: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 	/// Parameters which are part of the payload used to produce transaction signature,
 	/// but don't end up in the transaction itself (i.e. inherent part of the runtime).
-	type AdditionalSigned: Encode + Debug + Eq + Clone + StaticTypeInfo;
+	type AdditionalSigned: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 }
 
 impl TransactionExtensionSchema for () {
@@ -50,7 +50,7 @@ pub struct GenericTransactionExtensionSchema<P, S>(PhantomData<(P, S)>);
 impl<P, S> TransactionExtensionSchema for GenericTransactionExtensionSchema<P, S>
 where
 	P: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
-	S: Encode + Debug + Eq + Clone + StaticTypeInfo,
+	S: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
 {
 	type Payload = P;
 	type AdditionalSigned = S;
@@ -121,17 +121,14 @@ impl<S: TransactionExtensionSchema> GenericTransactionExtension<S> {
 	}
 }
 
-impl<S, C> TransactionExtension<C> for GenericTransactionExtension<S>
+impl<S> TransactionExtensionBase for GenericTransactionExtension<S>
 where
-	C: Dispatchable,
 	S: TransactionExtensionSchema,
 	S::Payload: Send + Sync,
 	S::AdditionalSigned: Send + Sync,
 {
 	const IDENTIFIER: &'static str = "Not needed.";
 	type Implicit = S::AdditionalSigned;
-	type Pre = ();
-	type Val = ();
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		// we shall not ever see this error in relay, because we are never signing decoded
@@ -143,6 +140,16 @@ where
 			),
 		)
 	}
+}
+impl<S, C, Context> TransactionExtension<C, Context> for GenericTransactionExtension<S>
+where
+	C: Dispatchable,
+	S: TransactionExtensionSchema,
+	S::Payload: Send + Sync,
+	S::AdditionalSigned: Send + Sync,
+{
+	type Pre = ();
+	type Val = ();
 
-	impl_tx_ext_default!(C; validate prepare);
+	impl_tx_ext_default!(C; Context; validate prepare);
 }

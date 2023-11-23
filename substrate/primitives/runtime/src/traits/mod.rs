@@ -54,7 +54,8 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionMetadata, ValidateResult,
+	DispatchTransaction, TransactionExtension, TransactionExtensionBase,
+	TransactionExtensionInterior, TransactionExtensionMetadata, ValidateResult,
 };
 
 /// A lazy value.
@@ -1524,7 +1525,7 @@ pub trait SignedExtension:
 
 	/// Any additional data that will go into the signed payload. This may be created dynamically
 	/// from the transaction using the `additional_signed` function.
-	type AdditionalSigned: Encode + TypeInfo;
+	type AdditionalSigned: Codec + TypeInfo;
 
 	/// The type that encodes information that can be passed from pre_dispatch to post-dispatch.
 	type Pre;

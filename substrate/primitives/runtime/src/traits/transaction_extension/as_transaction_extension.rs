@@ -39,18 +39,25 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 	}
 }
 
-impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
-where
-	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
-{
+impl<SE: SignedExtension> TransactionExtensionBase for AsTransactionExtension<SE> {
 	const IDENTIFIER: &'static str = SE::IDENTIFIER;
-	type Val = ();
-	type Pre = SE::Pre;
 	type Implicit = SE::AdditionalSigned;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.additional_signed()
 	}
+	fn metadata() -> Vec<TransactionExtensionMetadata> {
+		SE::metadata()
+	}
+}
+
+impl<SE: SignedExtension, Context> TransactionExtension<SE::Call, Context>
+	for AsTransactionExtension<SE>
+where
+	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
+{
+	type Val = ();
+	type Pre = SE::Pre;
 
 	fn validate(
 		&self,
@@ -58,6 +65,7 @@ where
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -76,6 +84,7 @@ where
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		self.0.pre_dispatch(who, call, info, len)
@@ -87,6 +96,7 @@ where
 		post_info: &PostDispatchInfoOf<SE::Call>,
 		len: usize,
 		result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		SE::post_dispatch(Some(pre), info, post_info, len, result)
 	}

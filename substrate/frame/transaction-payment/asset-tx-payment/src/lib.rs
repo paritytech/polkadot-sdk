@@ -52,8 +52,10 @@ use frame_support::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension, Zero},
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase, Zero,
+	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
@@ -208,9 +210,8 @@ impl<T: Config> sp_std::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for ChargeAssetTxPayment<T>
 where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
 	ChargeAssetIdOf<T>: Send + Sync,
@@ -218,6 +219,17 @@ where
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
+}
+
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for ChargeAssetTxPayment<T>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	AssetBalanceOf<T>: Send + Sync,
+	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
+	ChargeAssetIdOf<T>: Send + Sync,
+	Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
+{
 	type Val = (
 		// tip
 		BalanceOf<T>,
@@ -241,6 +253,7 @@ where
 		_call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -265,6 +278,7 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (tip, who) = val;
 		// Mutating call of `withdraw_fee` to actually charge for the transaction.
@@ -278,16 +292,18 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		let (tip, who, initial_payment, asset_id) = pre;
 		match initial_payment {
 			InitialPayment::Native(already_withdrawn) => {
-				<pallet_transaction_payment::ChargeTransactionPayment::<T> as TransactionExtension<_>>::post_dispatch(
+				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch(
 					(tip, who, already_withdrawn),
 					info,
 					post_info,
 					len,
 					result,
+					&(),
 				)?;
 			},
 			InitialPayment::Asset(already_withdrawn) => {
@@ -322,5 +338,4 @@ where
 
 		Ok(())
 	}
-	impl_tx_ext_default!(T::RuntimeCall; implicit);
 }

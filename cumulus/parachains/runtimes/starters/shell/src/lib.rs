@@ -321,25 +321,24 @@ impl sp_runtime::traits::TransactionExtension for DisallowSigned {
 	}
 }
 
-impl sp_runtime::traits::TransactionExtension<RuntimeCall> for DisallowSigned {
+impl sp_runtime::traits::TransactionExtensionBase for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
+	type Implicit = ();
+}
+
+impl<C> sp_runtime::traits::TransactionExtension<RuntimeCall, C> for DisallowSigned {
 	type Val = ();
 	type Pre = ();
-	type Implicit = ();
-	fn implicit(
-		&self,
-	) -> sp_std::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
-		Ok(())
-	}
 	fn validate(
 		&self,
 		_origin: sp_runtime::traits::OriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &sp_runtime::traits::DispatchInfoOf<RuntimeCall>,
 		_len: usize,
+		_context: &mut C,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> sp_runtime::traits::ValidateResult<Self, RuntimeCall> {
+	) -> sp_runtime::traits::ValidateResult<Self::Val, RuntimeCall> {
 		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
 	}
 	fn prepare(
@@ -349,6 +348,7 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for DisallowSigned {
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
+		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
 	}

@@ -4237,6 +4237,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-storage 13.0.0",
+ "sp-version",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -10423,6 +10424,7 @@ dependencies = [
  "pallet-nfts",
  "parity-scale-codec",
  "sp-api",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
@@ -16124,6 +16126,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-externalities 0.19.0",
  "sp-maybe-compressed-blob",
  "sp-rpc",
  "sp-runtime",
@@ -16357,6 +16360,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
+ "parity-scale-codec",
  "parking_lot 0.12.1",
  "regex",
  "rustc-hash",

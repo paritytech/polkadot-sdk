@@ -20,8 +20,9 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, One, TransactionExtension, Zero},
+	traits::{
+		DispatchInfoOf, Dispatchable, One, TransactionExtension, TransactionExtensionBase, Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
 	},
@@ -58,14 +59,17 @@ impl<T: Config> sp_std::fmt::Debug for CheckNonce<T> {
 	}
 }
 
-impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonce<T> {
+	const IDENTIFIER: &'static str = "CheckNonce";
+	type Implicit = ();
+}
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
-	const IDENTIFIER: &'static str = "CheckNonce";
 	type Val = (T::AccountId, AccountInfo<T::Nonce, T::AccountData>);
 	type Pre = ();
-	type Implicit = ();
 
 	fn validate(
 		&self,
@@ -73,6 +77,7 @@ where
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -114,6 +119,7 @@ where
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (who, mut account) = val;
 		// `self.0 < account.nonce` already checked in `validate`.
@@ -124,7 +130,6 @@ where
 		crate::Account::<T>::insert(who, account);
 		Ok(())
 	}
-	impl_tx_ext_default!(T::RuntimeCall; implicit);
 }
 
 #[cfg(test)]

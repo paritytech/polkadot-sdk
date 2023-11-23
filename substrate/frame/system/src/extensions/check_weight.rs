@@ -23,8 +23,10 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase,
+	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	DispatchResult, ValidTransaction,
 };
@@ -206,14 +208,17 @@ where
 	Ok(all_weight)
 }
 
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckWeight<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
+	const IDENTIFIER: &'static str = "CheckWeight";
+	type Implicit = ();
+}
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	type Pre = ();
 	type Val = u32; /* next block length */
-	type Implicit = ();
-	const IDENTIFIER: &'static str = "CheckWeight";
 
 	fn prepare(
 		self,
@@ -222,6 +227,7 @@ where
 		_call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Self::do_prepare(info, val)
 	}
@@ -232,6 +238,7 @@ where
 		_call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -248,6 +255,7 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		let unspent = post_info.calc_unspent(info);
 		if unspent.any_gt(Weight::zero()) {
@@ -270,7 +278,6 @@ where
 
 		Ok(())
 	}
-	impl_tx_ext_default!(T::RuntimeCall; implicit);
 }
 
 impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckWeight<T> {
@@ -638,12 +645,13 @@ mod tests {
 				info.weight + Weight::from_parts(256, 0)
 			);
 
-			assert_ok!(<CheckWeight::<Test> as TransactionExtension<_>>::post_dispatch(
+			assert_ok!(CheckWeight::<Test>::post_dispatch(
 				pre,
 				&info,
 				&post_info,
 				len,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
@@ -678,12 +686,13 @@ mod tests {
 					block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
 
-			assert_ok!(<CheckWeight::<Test> as TransactionExtension<_>>::post_dispatch(
+			assert_ok!(CheckWeight::<Test>::post_dispatch(
 				pre,
 				&info,
 				&post_info,
 				len,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),

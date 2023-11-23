@@ -48,11 +48,12 @@ use pallet_transaction_payment::{Config as TransactionPaymentConfig, OnChargeTra
 use pallet_utility::{Call as UtilityCall, Config as UtilityConfig, Pallet as UtilityPallet};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, TransactionExtension, Zero},
+	traits::{
+		DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase, Zero,
+	},
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
-		ValidTransactionBuilder,
+		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransactionBuilder,
 	},
 	DispatchResult, FixedPointOperand, RuntimeDebug,
 };
@@ -462,7 +463,7 @@ where
 	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
 		Chain<BlockNumber = RelayBlockNumber>;
 
-impl<T: RefundTransactionExtension> TransactionExtension<CallOf<T::Runtime>>
+impl<T: RefundTransactionExtension> TransactionExtensionBase
 	for RefundTransactionExtensionAdapter<T>
 where
 	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
@@ -474,6 +475,18 @@ where
 {
 	const IDENTIFIER: &'static str = T::Id::STR;
 	type Implicit = ();
+}
+
+impl<T: RefundTransactionExtension, Context> TransactionExtension<CallOf<T::Runtime>, Context>
+	for RefundTransactionExtensionAdapter<T>
+where
+	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
+		Chain<BlockNumber = RelayBlockNumber>,
+	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
+		+ GrandpaCallSubType<T::Runtime, T::GrandpaInstance>
+		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
+{
 	type Pre = Option<PreDispatchData<AccountIdOf<T::Runtime>>>;
 	type Val = Option<CallInfo>;
 
@@ -483,6 +496,7 @@ where
 		call: &CallOf<T::Runtime>,
 		_info: &DispatchInfoOf<CallOf<T::Runtime>>,
 		_len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -542,6 +556,7 @@ where
 		_call: &CallOf<T::Runtime>,
 		_info: &DispatchInfoOf<CallOf<T::Runtime>>,
 		_len: usize,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let who = frame_system::ensure_signed(origin.clone())
 			.map_err(|_| InvalidTransaction::BadSigner)?;
@@ -563,6 +578,7 @@ where
 		post_info: &PostDispatchInfoOf<CallOf<T::Runtime>>,
 		len: usize,
 		result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		let call_result = T::analyze_call_result(Some(pre), info, post_info, len, result);
 
@@ -590,7 +606,6 @@ where
 
 		Ok(())
 	}
-	impl_tx_ext_default!(CallOf<T::Runtime>; implicit);
 }
 
 /// Transaction extension that refunds a relayer for new messages coming from a parachain.
@@ -868,7 +883,7 @@ mod tests {
 	};
 	use sp_runtime::{
 		traits::{ConstU64, DispatchTransaction, Header as HeaderT},
-		transaction_validity::{InvalidTransaction, ValidTransaction},
+		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
 	};
 
@@ -1384,12 +1399,13 @@ mod tests {
 		pre_dispatch_data: Option<PreDispatchData<ThisChainAccountId>>,
 		dispatch_result: DispatchResult,
 	) {
-		let post_dispatch_result = <TestExtension as TransactionExtension<_>>::post_dispatch(
+		let post_dispatch_result = TestExtension::post_dispatch(
 			pre_dispatch_data,
 			&dispatch_info(),
 			&post_dispatch_info(),
 			1024,
 			&dispatch_result,
+			&(),
 		);
 		assert_eq!(post_dispatch_result, Ok(()));
 	}
