@@ -19,6 +19,7 @@ use std::{marker::PhantomData, sync::Arc};
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
 
 use sc_consensus::{
+	block_import::ForkChoiceStrategy,
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams,
 };
@@ -30,6 +31,7 @@ use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 /// A verifier that just checks the inherents.
+
 pub struct Verifier<Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
@@ -55,6 +57,8 @@ where
 		&mut self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
+		block_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
 		// This is done for example when gap syncing and it is expected that the block after the gap
@@ -100,7 +104,6 @@ where
 		}
 
 		block_params.post_hash = Some(block_params.header.hash());
-
 		Ok(block_params)
 	}
 }
