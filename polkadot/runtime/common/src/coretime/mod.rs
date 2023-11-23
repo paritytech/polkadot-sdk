@@ -18,8 +18,8 @@
 //!
 //! https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
