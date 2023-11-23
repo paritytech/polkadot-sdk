@@ -388,4 +388,4 @@ prepare-bridges-zombienet-artifacts:
   script:
     - cp -r bridges/zombienet ./artifacts/bridges
     - cp -r cumulus/scripts ./artifacts/bridges/cumulus-scripts
-    - cp -r cumulus/zombienet/brige-hubs ./artifacts/bridges/cumulus-brige-hubs
+    - cp -r cumulus/zombienet/bridge-hubs ./artifacts/bridges/cumulus-brige-hubs
