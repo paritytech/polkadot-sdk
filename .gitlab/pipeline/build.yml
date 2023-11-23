@@ -381,6 +381,7 @@ prepare-bridges-zombienet-artifacts:
   extends:
     - .docker-env
     - .common-refs
+    - .run-immediately
     - .collect-artifacts
   before_script:
     - mkdir -p ./artifacts/bridges/
