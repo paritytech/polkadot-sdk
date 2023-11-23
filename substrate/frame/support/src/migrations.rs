@@ -18,11 +18,15 @@
 use crate::{
 	defensive,
 	storage::transactional::with_transaction_opaque_err,
-	traits::{Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, StorageVersion},
+	traits::{
+		Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, SafeMode,
+		StorageVersion,
+	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
+use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_runtime::traits::Zero;
@@ -440,12 +444,46 @@ pub trait FailedMigrationHandler {
 	/// Gets passed in the optional index of the migration in the batch that caused the failure.
 	/// Returning `None` means that no automatic handling should take place and the callee decides
 	/// in the implementation what to do.
-	fn failed(migration: Option<u32>) -> Option<FailedMigrationHandling>;
+	fn failed(migration: Option<u32>) -> FailedMigrationHandling;
 }
 
-impl FailedMigrationHandler for () {
-	fn failed(_migration: Option<u32>) -> Option<FailedMigrationHandling> {
-		Some(FailedMigrationHandling::KeepStuck)
+/// Do now allow any transactions to be processed after a runtime upgrade failed.
+///
+/// This is **not a sane default**, since it prevents governance intervention.
+pub struct FreezeChainOnFailedMigration;
+
+impl FailedMigrationHandler for FreezeChainOnFailedMigration {
+	fn failed(_migration: Option<u32>) -> FailedMigrationHandling {
+		FailedMigrationHandling::KeepStuck
+	}
+}
+
+/// Enter safe mode on a failed runtime upgrade.
+///
+/// This can be very useful to manually intervene and fix the chain state. `Else` is used in case
+/// that the safe mode could not be entered.
+pub struct EnterSafeModeOnFailedMigration<SM, Else: FailedMigrationHandler>(
+	PhantomData<(SM, Else)>,
+);
+
+impl<Else: FailedMigrationHandler, SM: SafeMode> FailedMigrationHandler
+	for EnterSafeModeOnFailedMigration<SM, Else>
+where
+	<SM as SafeMode>::BlockNumber: Bounded,
+{
+	fn failed(migration: Option<u32>) -> FailedMigrationHandling {
+		let entered = if SM::is_entered() {
+			SM::extend(Bounded::max_value())
+		} else {
+			SM::enter(Bounded::max_value())
+		};
+
+		// If we could not enter or extend safe mode (for whatever reason), then we try the next.
+		if entered.is_err() {
+			Else::failed(migration)
+		} else {
+			FailedMigrationHandling::KeepStuck
+		}
 	}
 }
 
