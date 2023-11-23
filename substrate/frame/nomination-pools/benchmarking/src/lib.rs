@@ -35,9 +35,10 @@ use frame_support::{
 use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,
-	Commission, CommissionChangeRate, ConfigOp, GlobalMaxCommission, MaxPoolMembers,
-	MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond, Pallet as Pools,
-	PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
+	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, 
+	GlobalMaxCommission, MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, 
+	MinCreateBond, MinJoinBond, Pallet as Pools, PoolMembers, PoolRoles, PoolState, 
+	RewardPools, SubPoolsStorage,
 };
 use pallet_staking::MaxNominationsOf;
 use sp_runtime::{
@@ -710,20 +711,20 @@ frame_benchmarking::benchmarks! {
 		Pools::<T>::set_commission_claim_permission(
 			RuntimeOrigin::Signed(depositor.clone()).into(),
 			1u32.into(),
-			Some(CommissionClaimPermission::Account(claimer.clone()))
+			Some(CommissionClaimPermission::Account(depositor.clone()))
 		).unwrap();
 
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), Some((Perbill::from_percent(20), depositor.clone())))
 	verify {
 		assert_eq!(BondedPools::<T>::get(1).unwrap().commission, Commission {
-			current: Some((Perbill::from_percent(20), depositor)),
+			current: Some((Perbill::from_percent(20), depositor.clone())),
 			max: Some(Perbill::from_percent(50)),
 			change_rate: Some(CommissionChangeRate {
 					max_increase: Perbill::from_percent(20),
 					min_delay: 0u32.into()
 			}),
 			throttle_from: Some(1u32.into()),
-			claim_permission: CommissionClaimPermission::Account(claimer),
+			claim_permission: CommissionClaimPermission::Account(depositor),
 		});
 	}
 
