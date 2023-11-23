@@ -59,3 +59,34 @@ fn get_version(impl_commit: &str) -> String {
 		impl_commit
 	)
 }
+
+/// Generate `SUBSTRATE_WASMTIME_VERSION`
+pub fn generate_wasmtime_version() {
+	generate_dependency_version("wasmtime", "SUBSTRATE_WASMTIME_VERSION");
+}
+
+fn generate_dependency_version(dep: &str, env_var: &str) {
+	// we only care about the root
+	match std::process::Command::new("cargo")
+		.args(["tree", "--depth=0", "--locked", "--package", dep])
+		.output()
+	{
+		Ok(output) if output.status.success() => {
+			let version = String::from_utf8_lossy(&output.stdout);
+
+			// <DEP> vX.X.X
+			if let Some(ver) = version.strip_prefix(&format!("{} v", dep)) {
+				println!("cargo:rustc-env={}={}", env_var, ver);
+			} else {
+				println!("cargo:warning=Unexpected result {}", version);
+			}
+		},
+
+		// command errors out when it could not find the given dependency
+		// or when having multiple versions of it
+		Ok(output) =>
+			println!("cargo:warning=`cargo tree` {}", String::from_utf8_lossy(&output.stderr)),
+
+		Err(err) => println!("cargo:warning=Could not run `cargo tree`: {}", err),
+	}
+}

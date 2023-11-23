@@ -20,5 +20,5 @@ comparing keys, not the values.
 `renamed_authorities`.
 
 
-`default_genesis_config_invalid.json` is just an imcomplete copy of
+`default_genesis_config_invalid.json` is just an incomplete copy of
 `default_genesis_config.json` with `babe::authorities` field removed.

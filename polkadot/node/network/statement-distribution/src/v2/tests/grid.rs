@@ -29,7 +29,7 @@ fn backed_candidate_leads_to_advertisement() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -41,7 +41,8 @@ fn backed_candidate_leads_to_advertisement() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -55,9 +56,9 @@ fn backed_candidate_leads_to_advertisement() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 		let target_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
+			state.group_validators((local_group_index.0 + 1).into(), true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 		let v_c = target_group_validators[0];
@@ -219,7 +220,7 @@ fn backed_candidate_leads_to_advertisement() {
 					assert_eq!(manifest, BackedCandidateManifest {
 						relay_parent,
 						candidate_hash,
-						group_index: local_validator.group_index,
+						group_index: local_group_index,
 						para_id: local_para,
 						parent_head_data_hash: pvd.parent_head.hash(),
 						statement_knowledge: StatementFilter {
@@ -244,7 +245,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -256,9 +257,9 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -273,7 +274,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 		let target_group_validators = state.group_validators(other_group, true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
@@ -424,7 +425,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -435,9 +436,9 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -672,7 +673,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -683,9 +684,9 @@ fn received_advertisement_after_confirmation_before_backing() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -858,7 +859,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -869,9 +870,9 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -1155,7 +1156,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1167,7 +1168,8 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -1181,9 +1183,9 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 		let target_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
+			state.group_validators((local_group_index.0 + 1).into(), true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 		let v_c = target_group_validators[0];
@@ -1336,7 +1338,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			let expected_manifest = BackedCandidateManifest {
 				relay_parent,
 				candidate_hash,
-				group_index: local_validator.group_index,
+				group_index: local_group_index,
 				para_id: local_para,
 				parent_head_data_hash: pvd.parent_head.hash(),
 				statement_knowledge: StatementFilter {
@@ -1377,7 +1379,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1389,7 +1391,8 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -1403,9 +1406,9 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(local_group_index, true);
 		let target_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
+			state.group_validators((local_group_index.0 + 1).into(), true);
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 		let v_c = target_group_validators[0];
@@ -1567,7 +1570,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 					assert_eq!(manifest, BackedCandidateManifest {
 						relay_parent,
 						candidate_hash,
-						group_index: local_validator.group_index,
+						group_index: local_group_index,
 						para_id: local_para,
 						parent_head_data_hash: pvd.parent_head.hash(),
 						statement_knowledge: StatementFilter {
@@ -1599,7 +1602,7 @@ fn grid_statements_imported_to_backing() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1610,9 +1613,9 @@ fn grid_statements_imported_to_backing() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -1803,7 +1806,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1815,9 +1818,9 @@ fn advertisements_rejected_from_incorrect_peers() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -1832,12 +1835,12 @@ fn advertisements_rejected_from_incorrect_peers() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(local_validator.group_index, true);
-		let other_group_validators = state.group_validators(other_group, true);
-		let v_a = target_group_validators[0];
-		let v_b = target_group_validators[1];
-		let v_c = other_group_validators[0];
-		let v_d = other_group_validators[1];
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let target_group_validators = state.group_validators(other_group, true);
+		let v_a = other_group_validators[0];
+		let v_b = other_group_validators[1];
+		let v_c = target_group_validators[0];
+		let v_d = target_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -1948,7 +1951,7 @@ fn manifest_rejected_with_unknown_relay_parent() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1959,9 +1962,9 @@ fn manifest_rejected_with_unknown_relay_parent() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -2054,7 +2057,7 @@ fn manifest_rejected_when_not_a_validator() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: false,
+		local_validator: LocalRole::None,
 		async_backing_params: None,
 	};
 
@@ -2156,7 +2159,7 @@ fn manifest_rejected_when_group_does_not_match_para() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -2166,9 +2169,9 @@ fn manifest_rejected_when_group_does_not_match_para() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		// Create a mismatch between group and para.
 		let other_para = next_group_index(other_group, validator_count, group_size);
 		let other_para = ParaId::from(other_para.0);
@@ -2263,7 +2266,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -2274,9 +2277,9 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -2450,6 +2453,144 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 					if p == peer_c && r == COST_CONFLICTING_MANIFEST.into()
 			);
 		}
+
+		overseer
+	});
+}
+
+#[test]
+fn inactive_local_participates_in_grid() {
+	let validator_count = 11;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::InactiveValidator,
+		async_backing_params: None,
+	};
+
+	let dummy_relay_parent = Hash::repeat_byte(2);
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let local_validator = state.local.clone().unwrap();
+		assert_eq!(local_validator.validator_index.0, validator_count as u32);
+
+		let group_idx = GroupIndex::from(0);
+		let para = ParaId::from(0);
+
+		// Dummy leaf is needed to update topology.
+		let dummy_leaf = state.make_dummy_leaf(Hash::repeat_byte(2));
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		let (candidate, pvd) = make_candidate(
+			relay_parent,
+			1,
+			para,
+			test_leaf.para_data(para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let first_group = state.group_validators(group_idx, true);
+		let v_a = first_group.last().unwrap().clone();
+		let v_b = first_group.first().unwrap().clone();
+
+		{
+			connect_peer(
+				&mut overseer,
+				peer_a.clone(),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
+			)
+			.await;
+
+			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+		}
+
+		activate_leaf(&mut overseer, &dummy_leaf, &state, true).await;
+		answer_expected_hypothetical_depth_request(
+			&mut overseer,
+			vec![],
+			Some(dummy_relay_parent),
+			false,
+		)
+		.await;
+
+		// Send gossip topology.
+		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, false).await;
+		answer_expected_hypothetical_depth_request(
+			&mut overseer,
+			vec![],
+			Some(relay_parent),
+			false,
+		)
+		.await;
+
+		// Receive an advertisement from A.
+		let manifest = BackedCandidateManifest {
+			relay_parent,
+			candidate_hash,
+			group_index: group_idx,
+			para_id: para,
+			parent_head_data_hash: pvd.parent_head.hash(),
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 0, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 1, 0, 1],
+			},
+		};
+		send_peer_message(
+			&mut overseer,
+			peer_a.clone(),
+			protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(manifest),
+		)
+		.await;
+
+		let statements = vec![
+			state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone(),
+			state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone(),
+		];
+		// Inactive node requests this candidate.
+		handle_sent_request(
+			&mut overseer,
+			peer_a,
+			candidate_hash,
+			StatementFilter::blank(group_size),
+			candidate.clone(),
+			pvd.clone(),
+			statements,
+		)
+		.await;
+
+		for _ in 0..2 {
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
+			);
+		}
+		assert_matches!(
+			overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+				if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+		);
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
 
 		overseer
 	});
