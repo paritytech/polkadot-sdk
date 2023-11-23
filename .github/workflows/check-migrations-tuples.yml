@@ -1,5 +1,9 @@
 name: Lint Migration Tuples
 
+# This GHA uses https://crates.io/crates/submig to check the namingg and the
+# syntax of the migrations, ensuring they are versioning. `submig` parses the code
+# and checks that all runtimes found comply with the pattern.
+
 on:
   pull_request:
     types: [labeled, opened, synchronize, unlabeled]
