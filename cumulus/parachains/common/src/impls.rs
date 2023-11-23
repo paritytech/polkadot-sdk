@@ -17,21 +17,14 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
-	fungible::{self, Balanced as FungibleBalanced},
-	fungibles::{self, Balanced as FungiblesBalanced},
-	tokens::imbalance::ResolveTo,
-	Contains, ContainsPair, Currency, Defensive, Get, Imbalance, OnUnbalanced,
+	tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive, Get, Imbalance,
+	OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
 use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
-
-/// Type alias to conveniently refer to the `Currency::NegativeImbalance` associated type.
-pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
 
 /// Type alias to conveniently refer to `frame_system`'s `Config::AccountId`.
 pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
