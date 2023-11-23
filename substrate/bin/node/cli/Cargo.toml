@@ -96,6 +96,7 @@ pallet-assets = { path = "../../../frame/assets" }
 pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment" }
 pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment" }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false}
+pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false}
 
 # node-specific dependencies
 kitchensink-runtime = { path = "../runtime" }
@@ -108,7 +109,7 @@ sc-cli = { path = "../../../client/cli", optional = true}
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
-serde_json = "1.0.107"
+serde_json = "1.0.108"
 
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }
@@ -124,7 +125,6 @@ futures = "0.3.21"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
 nix = { version = "0.26.1", features = ["signal"] }
-serde_json = "1.0"
 regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
@@ -169,6 +169,7 @@ runtime-benchmarks = [
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
+	"pallet-skip-feeless-payment/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
@@ -184,6 +185,7 @@ try-runtime = [
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-im-online/try-runtime",
+	"pallet-skip-feeless-payment/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",

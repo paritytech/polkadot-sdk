@@ -23,10 +23,16 @@ use crate::{
 	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
-
 use bitflags::bitflags;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
-use frame_support::{ensure, traits::Get, weights::Weight};
+use frame_support::{
+	dispatch::DispatchInfo,
+	ensure,
+	pallet_prelude::{DispatchResult, DispatchResultWithPostInfo},
+	parameter_types,
+	traits::Get,
+	weights::Weight,
+};
 use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
 use pallet_contracts_proc_macro::define_env;
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
@@ -36,6 +42,9 @@ use sp_runtime::{
 };
 use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
+use xcm::VersionedXcm;
+
+type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
@@ -113,6 +122,17 @@ pub enum ReturnCode {
 	EcdsaRecoverFailed = 11,
 	/// sr25519 signature verification failed.
 	Sr25519VerifyFailed = 12,
+	/// The `xcm_execute` call failed.
+	XcmExecutionFailed = 13,
+	/// The `xcm_send` call failed.
+	XcmSendFailed = 14,
+}
+
+parameter_types! {
+	/// Getter types used by [`crate::api_doc::Current::call_runtime`]
+	const CallRuntimeFailed: ReturnCode = ReturnCode::CallRuntimeFailed;
+	/// Getter types used by [`crate::api_doc::Current::xcm_execute`]
+	const XcmExecutionFailed: ReturnCode = ReturnCode::XcmExecutionFailed;
 }
 
 impl From<ExecReturnValue> for ReturnCode {
@@ -461,6 +481,29 @@ fn already_charged(_: u32) -> Option<RuntimeCosts> {
 	None
 }
 
+/// Ensure that the XCM program is executable, by checking that it does not contain any [`Transact`]
+/// instruction with a call that is not allowed by the CallFilter.
+fn ensure_executable<T: Config>(message: &VersionedXcm<CallOf<T>>) -> DispatchResult {
+	use frame_support::traits::Contains;
+	use xcm::prelude::{Transact, Xcm};
+
+	let mut message: Xcm<CallOf<T>> =
+		message.clone().try_into().map_err(|_| Error::<T>::XCMDecodeFailed)?;
+
+	message.iter_mut().try_for_each(|inst| -> DispatchResult {
+		let Transact { ref mut call, .. } = inst else { return Ok(()) };
+		let call = call.ensure_decoded().map_err(|_| Error::<T>::XCMDecodeFailed)?;
+
+		if !<T as Config>::CallFilter::contains(call) {
+			return Err(frame_system::Error::<T>::CallFiltered.into())
+		}
+
+		Ok(())
+	})?;
+
+	Ok(())
+}
+
 /// Can only be used for one call.
 pub struct Runtime<'a, E: Ext + 'a> {
 	ext: &'a mut E,
@@ -558,6 +601,32 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		self.ext.gas_meter_mut().adjust_gas(charged, token);
 	}
 
+	/// Charge, Run and adjust gas, for executing the given dispatchable.
+	fn call_dispatchable<
+		ErrorReturnCode: Get<ReturnCode>,
+		F: FnOnce(&mut Self) -> DispatchResultWithPostInfo,
+	>(
+		&mut self,
+		dispatch_info: DispatchInfo,
+		run: F,
+	) -> Result<ReturnCode, TrapReason> {
+		use frame_support::dispatch::extract_actual_weight;
+		let charged = self.charge_gas(RuntimeCosts::CallRuntime(dispatch_info.weight))?;
+		let result = run(self);
+		let actual_weight = extract_actual_weight(&result, &dispatch_info);
+		self.adjust_gas(charged, RuntimeCosts::CallRuntime(actual_weight));
+		match result {
+			Ok(_) => Ok(ReturnCode::Success),
+			Err(e) => {
+				if self.ext.append_debug_buffer("") {
+					self.ext.append_debug_buffer("call failed with: ");
+					self.ext.append_debug_buffer(e.into());
+				};
+				Ok(ErrorReturnCode::get())
+			},
+		}
+	}
+
 	/// Read designated chunk from the sandbox memory.
 	///
 	/// Returns `Err` if one of the following conditions occurs:
@@ -633,8 +702,10 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let ptr = ptr as usize;
 		let mut bound_checked =
 			memory.get(ptr..ptr + len as usize).ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+
 		let decoded = D::decode_all_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
+
 		Ok(decoded)
 	}
 
@@ -1023,6 +1094,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 // for every function.
 #[define_env(doc)]
 pub mod env {
+
 	/// Set the value at the given key in the contract storage.
 	///
 	/// Equivalent to the newer [`seal1`][`super::api_doc::Version1::set_storage`] version with the
@@ -2584,7 +2656,7 @@ pub mod env {
 	/// # Return Value
 	///
 	/// Returns `ReturnCode::Success` when the dispatchable was successfully executed and
-	/// returned `Ok`. When the dispatchable was exeuted but returned an error
+	/// returned `Ok`. When the dispatchable was executed but returned an error
 	/// `ReturnCode::CallRuntimeFailed` is returned. The full error is not
 	/// provided because it is not guaranteed to be stable.
 	///
@@ -2605,23 +2677,118 @@ pub mod env {
 		call_ptr: u32,
 		call_len: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo};
+		use frame_support::dispatch::GetDispatchInfo;
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let call: <E::T as Config>::RuntimeCall =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-		let dispatch_info = call.get_dispatch_info();
-		let charged = ctx.charge_gas(RuntimeCosts::CallRuntime(dispatch_info.weight))?;
-		let result = ctx.ext.call_runtime(call);
-		let actual_weight = extract_actual_weight(&result, &dispatch_info);
-		ctx.adjust_gas(charged, RuntimeCosts::CallRuntime(actual_weight));
-		match result {
-			Ok(_) => Ok(ReturnCode::Success),
+		ctx.call_dispatchable::<CallRuntimeFailed, _>(call.get_dispatch_info(), |ctx| {
+			ctx.ext.call_runtime(call)
+		})
+	}
+
+	/// Execute an XCM program locally, using the contract's address as the origin.
+	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
+	/// the function is called directly instead of being dispatched.
+	///
+	/// # Parameters
+	///
+	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::prelude::VersionedXcm`] is
+	///   placed.
+	/// - `msg_len`: the length of the message in bytes.
+	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::prelude::Outcome`]
+	///   message id is placed.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when the XCM was successfully executed. When the XCM
+	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned.
+	#[unstable]
+	fn xcm_execute(
+		ctx: _,
+		memory: _,
+		msg_ptr: u32,
+		msg_len: u32,
+		output_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use frame_support::dispatch::DispatchInfo;
+		use xcm::VersionedXcm;
+		use xcm_builder::{ExecuteController, ExecuteControllerWeightInfo};
+
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
+		let message: VersionedXcm<CallOf<E::T>> =
+			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
+
+		let execute_weight =
+			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
+		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
+		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+
+		ensure_executable::<E::T>(&message)?;
+		ctx.call_dispatchable::<XcmExecutionFailed, _>(dispatch_info, |ctx| {
+			let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+			let outcome = <<E::T as Config>::Xcm>::execute(
+				origin,
+				Box::new(message),
+				weight.saturating_sub(execute_weight),
+			)?;
+
+			ctx.write_sandbox_memory(memory, output_ptr, &outcome.encode())?;
+			let pre_dispatch_weight =
+				<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
+			Ok(Some(outcome.weight_used().saturating_add(pre_dispatch_weight)).into())
+		})
+	}
+
+	/// Send an XCM program from the contract to the specified destination.
+	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
+	/// the function is called directly instead of being dispatched.
+	///
+	/// # Parameters
+	///
+	/// - `dest_ptr`: the pointer into the linear memory where the
+	///   [`xcm::prelude::VersionedMultiLocation`] is placed.
+	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::prelude::VersionedXcm`] is
+	///   placed.
+	/// - `msg_len`: the length of the message in bytes.
+	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::v3::XcmHash`] message id
+	///   is placed.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
+	/// execution fails, `ReturnCode::CallRuntimeFailed` is returned.
+	#[unstable]
+	fn xcm_send(
+		ctx: _,
+		memory: _,
+		dest_ptr: u32,
+		msg_ptr: u32,
+		msg_len: u32,
+		output_ptr: u32,
+	) -> Result<ReturnCode, TrapReason> {
+		use xcm::{VersionedMultiLocation, VersionedXcm};
+		use xcm_builder::{SendController, SendControllerWeightInfo};
+
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
+		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
+
+		let message: VersionedXcm<()> =
+			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
+		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+
+		match <<E::T as Config>::Xcm>::send(origin, dest.into(), message.into()) {
+			Ok(message_id) => {
+				ctx.write_sandbox_memory(memory, output_ptr, &message_id.encode())?;
+				Ok(ReturnCode::Success)
+			},
 			Err(e) => {
 				if ctx.ext.append_debug_buffer("") {
-					ctx.ext.append_debug_buffer("seal0::call_runtime failed with: ");
+					ctx.ext.append_debug_buffer("seal0::xcm_send failed with: ");
 					ctx.ext.append_debug_buffer(e.into());
 				};
-				Ok(ReturnCode::CallRuntimeFailed)
+				Ok(ReturnCode::XcmSendFailed)
 			},
 		}
 	}

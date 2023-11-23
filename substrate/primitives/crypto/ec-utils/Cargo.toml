@@ -37,6 +37,7 @@ std = [
 	"ark-bw6-761-ext?/std",
 	"ark-bw6-761?/std",
 	"ark-ec?/parallel",
+	"ark-ec?/std",
 	"ark-ed-on-bls12-377-ext?/std",
 	"ark-ed-on-bls12-377?/std",
 	"ark-ed-on-bls12-381-bandersnatch-ext?/std",

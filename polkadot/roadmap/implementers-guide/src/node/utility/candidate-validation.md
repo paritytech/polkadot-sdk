@@ -31,7 +31,7 @@ all the necessary parameters to the validation function. These are:
   * The [`ValidationData`](../../types/candidate.md#validationdata).
   * The [`PoV`](../../types/availability.md#proofofvalidity).
 
-The second category is for PVF pre-checking. This is primarly used by the [PVF pre-checker](pvf-prechecker.md)
+The second category is for PVF pre-checking. This is primarily used by the [PVF pre-checker](pvf-prechecker.md)
 subsystem.
 
 ### Determining Parameters

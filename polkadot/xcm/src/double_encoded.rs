@@ -70,6 +70,11 @@ impl<T> DoubleEncoded<T> {
 	pub fn as_ref(&self) -> Option<&T> {
 		self.decoded.as_ref()
 	}
+
+	/// Access the encoded data.
+	pub fn into_encoded(self) -> Vec<u8> {
+		self.encoded
+	}
 }
 
 impl<T: Decode> DoubleEncoded<T> {
