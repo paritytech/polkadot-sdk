@@ -833,7 +833,8 @@ where
 
 		if strategy_finished {
 			if let SyncingStrategy::WarpSyncStrategy(_) = &self.strategy {
-				let chain_sync = match ChainSync::new(
+				// `ChainSyncStrategy` continues `WarpSyncStrategy`.
+				let mut chain_sync = match ChainSync::new(
 					self.chain_sync_mode,
 					self.client.clone(),
 					self.max_parallel_downloads,
@@ -845,6 +846,12 @@ where
 						panic!("Failed to start `ChainSync` due to error: {e}.");
 					},
 				};
+				// Let `ChainSync` know about connected peers.
+				for (peer_id, peer) in &self.peers {
+					if peer.info.roles.is_full() {
+						chain_sync.new_peer(*peer_id, peer.info.best_hash, peer.info.best_number);
+					}
+				}
 				self.strategy = SyncingStrategy::ChainSyncStrategy(chain_sync);
 			} else {
 				error!(
