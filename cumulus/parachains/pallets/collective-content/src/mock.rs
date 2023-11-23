@@ -96,7 +96,9 @@ impl WeightInfo for CCWeightInfo {
 // Build test environment.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig::default().build_storage().unwrap().into();
-	sp_io::TestExternalities::new(t)
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
 
 #[cfg(feature = "runtime-benchmarks")]
