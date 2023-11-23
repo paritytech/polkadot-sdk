@@ -27,9 +27,37 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 
-struct Runtime;
+pub struct Runtime;
 
 sp_api::impl_runtime_apis! {
+	impl sp_api::Core<Block> for Runtime {
+		fn version() -> sp_version::RuntimeVersion {
+			unimplemented!()
+		}
+
+		fn execute_block(_: Block) {
+			unimplemented!()
+		}
+
+		fn initialize_block(_: &<Block as BlockT>::Header) {
+			unimplemented!()
+		}
+	}
+
+	impl sp_api::Metadata<Block> for Runtime {
+		fn metadata() -> OpaqueMetadata {
+			unimplemented!()
+		}
+
+		fn metadata_at_version(_: u32) -> Option<OpaqueMetadata> {
+			unimplemented!()
+		}
+
+		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+			unimplemented!()
+		}
+	}
+
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
 			unimplemented!()
@@ -42,43 +70,15 @@ sp_api::impl_runtime_apis! {
 
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
-			included_hash: <Block as BlockT>::Hash,
-			slot: cumulus_primitives_aura::Slot,
+			_: <Block as BlockT>::Hash,
+			_: cumulus_primitives_aura::Slot,
 		) -> bool {
 			unimplemented!()
 		}
 	}
 
-	impl sp_api::Core<Block> for Runtime {
-		fn version() -> sp_version::RuntimeVersion {
-			unimplemented!()
-		}
-
-		fn execute_block(block: Block) {
-			unimplemented!()
-		}
-
-		fn initialize_block(header: &<Block as BlockT>::Header) {
-			unimplemented!()
-		}
-	}
-
-	impl sp_api::Metadata<Block> for Runtime {
-		fn metadata() -> OpaqueMetadata {
-			unimplemented!()
-		}
-
-		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
-			unimplemented!()
-		}
-
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
-			unimplemented!()
-		}
-	}
-
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
-		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
+		fn apply_extrinsic(_: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
 			unimplemented!()
 		}
 
@@ -86,91 +86,88 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+		fn inherent_extrinsics(_: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
 			unimplemented!()
 		}
 
-		fn check_inherents(
-			block: Block,
-			data: sp_inherents::InherentData,
-		) -> sp_inherents::CheckInherentsResult {
+		fn check_inherents(_: Block, _: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
 			unimplemented!()
 		}
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
-			source: TransactionSource,
-			tx: <Block as BlockT>::Extrinsic,
-			block_hash: <Block as BlockT>::Hash,
+			_: TransactionSource,
+			_: <Block as BlockT>::Extrinsic,
+			_: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
-		unimplemented!()
+			unimplemented!()
 		}
 	}
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(header: &<Block as BlockT>::Header) {
-		unimplemented!()
+		fn offchain_worker(_: &<Block as BlockT>::Header) {
+			unimplemented!()
 		}
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-		unimplemented!()
+		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+			unimplemented!()
 		}
 
 		fn decode_session_keys(
-			encoded: Vec<u8>,
+			_: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-		unimplemented!()
-		}
-	}
-
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
-		fn account_nonce(account: AccountId) -> Nonce {
 			unimplemented!()
 		}
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
-			uxt: <Block as BlockT>::Extrinsic,
-			len: u32,
+			_: <Block as BlockT>::Extrinsic,
+			_: u32,
 		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
 			unimplemented!()
 		}
 		fn query_fee_details(
-			uxt: <Block as BlockT>::Extrinsic,
-			len: u32,
+			_: <Block as BlockT>::Extrinsic,
+			_: u32,
 		) -> pallet_transaction_payment::FeeDetails<Balance> {
 			unimplemented!()
 		}
-		fn query_weight_to_fee(weight: Weight) -> Balance {
+		fn query_weight_to_fee(_: Weight) -> Balance {
 			unimplemented!()
 		}
-		fn query_length_to_fee(length: u32) -> Balance {
+		fn query_length_to_fee(_: u32) -> Balance {
 			unimplemented!()
 		}
 	}
 
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
-		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
+		fn collect_collation_info(_: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			unimplemented!()
 		}
 	}
 
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
-		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
+		fn on_runtime_upgrade(_: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
 			unimplemented!()
 		}
 
 		fn execute_block(
-			block: Block,
-			state_root_check: bool,
-			signature_check: bool,
-			select: frame_try_runtime::TryStateSelect,
+			_: Block,
+			_: bool,
+			_: bool,
+			_: frame_try_runtime::TryStateSelect,
 		) -> Weight {
+			unimplemented!()
+		}
+	}
+
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(_: AccountId) -> Nonce {
 			unimplemented!()
 		}
 	}
@@ -196,7 +193,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+		fn build_config(_: Vec<u8>) -> sp_genesis_builder::Result {
 			unimplemented!()
 		}
 	}
