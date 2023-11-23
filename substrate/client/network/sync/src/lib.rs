@@ -18,7 +18,7 @@
 
 //! Blockchain syncing implementation in Substrate.
 
-pub use service::chain_sync::SyncingService;
+pub use service::syncing_service::SyncingService;
 pub use types::{SyncEvent, SyncEventStream, SyncState, SyncStatus, SyncStatusProvider};
 
 mod block_announce_validator;

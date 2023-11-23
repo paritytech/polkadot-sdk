@@ -67,11 +67,9 @@
 //!
 //! # Action on syscall violations
 //!
-//! On syscall violations we currently only log, to make sure this works correctly before enforcing.
-//!
-//! In the future, when a forbidden syscall is attempted we immediately kill the process in order to
-//! prevent the attacker from doing anything else. In execution, this will result in voting against
-//! the candidate.
+//! When a forbidden syscall is attempted we immediately kill the process in order to prevent the
+//! attacker from doing anything else. In execution, this will result in voting against the
+//! candidate.
 
 use crate::{
 	worker::{stringify_panic_payload, WorkerKind},
@@ -82,7 +80,7 @@ use std::{collections::BTreeMap, path::Path};
 
 /// The action to take on caught syscalls.
 #[cfg(not(test))]
-const CAUGHT_ACTION: SeccompAction = SeccompAction::Log;
+const CAUGHT_ACTION: SeccompAction = SeccompAction::KillProcess;
 /// Don't kill the process when testing.
 #[cfg(test)]
 const CAUGHT_ACTION: SeccompAction = SeccompAction::Errno(libc::EACCES as u32);
