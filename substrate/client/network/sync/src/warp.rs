@@ -684,6 +684,10 @@ where
 	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
 		let Phase::State(state_sync) = &self.phase else { return None };
 
+		if state_sync.is_complete() {
+			return None
+		}
+
 		if self
 			.peers
 			.iter()
