@@ -263,10 +263,6 @@ where
 			let tx_pool = self.transaction_pool.clone();
 			let custom_extensions = (*self.custom_extensions)(hash);
 
-			let keystore = self.keystore.clone();
-			let db = self.offchain_db.clone();
-			let tx_pool = self.transaction_pool.clone();
-
 			self.spawn_worker(move || {
 				let mut runtime_api_builder =
 					RuntimeInstance::builder(client, hash).off_chain_context();

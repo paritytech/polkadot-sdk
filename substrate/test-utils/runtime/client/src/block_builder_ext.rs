@@ -17,8 +17,7 @@
 
 //! Block Builder extensions for tests.
 
-use sc_block_builder::BlockBuilderApi;
-use sp_api::{ApiExt, GetProofRecorder};
+use sp_api::GetProofRecorder;
 use substrate_test_runtime::*;
 
 /// Extension trait for test block builder.

@@ -23,7 +23,6 @@ use sp_core::traits::CallContext;
 use sp_externalities::Extensions;
 use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{OverlayedChanges, StorageProof};
-use std::cell::RefCell;
 
 use crate::execution_extensions::ExecutionExtensions;
 use sp_api::{HashingFor, ProofRecorder};

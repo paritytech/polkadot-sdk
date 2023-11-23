@@ -72,7 +72,6 @@ extern crate self as sp_api;
 
 #[doc(hidden)]
 pub use codec::{self, Decode, DecodeLimit, Encode};
-use core::marker::PhantomData;
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub use hash_db::Hasher;

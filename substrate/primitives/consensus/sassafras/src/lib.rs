@@ -24,7 +24,7 @@
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{ConsensusEngineId, RuntimeDebug};
+use sp_runtime::{ConsensusEngineId, RuntimeDebug, traits::Block as BlockT};
 use sp_std::vec::Vec;
 
 pub use sp_consensus_slots::{Slot, SlotDuration};
@@ -124,7 +124,7 @@ pub struct OpaqueKeyOwnershipProof(Vec<u8>);
 // Runtime API.
 sp_api::decl_runtime_apis! {
 	/// API necessary for block authorship with Sassafras.
-	pub trait SassafrasApi {
+	pub trait SassafrasApi<Block: BlockT> {
 		/// Get ring context to be used for ticket construction and verification.
 		fn ring_context() -> Option<vrf::RingContext>;
 

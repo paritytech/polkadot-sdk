@@ -47,7 +47,7 @@ use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Keccak256, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Hash, Keccak256, NumberFor};
 use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
@@ -391,7 +391,7 @@ impl OpaqueKeyOwnershipProof {
 sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters.
 	#[api_version(3)]
-	pub trait BeefyApi<AuthorityId> where
+	pub trait BeefyApi<Block: BlockT, AuthorityId> where
 		AuthorityId : Codec + RuntimeAppPublic,
 	{
 		/// Return the block number where BEEFY consensus is enabled/started

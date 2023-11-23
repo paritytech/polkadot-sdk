@@ -150,7 +150,7 @@ pub use mmr_root_provider::MmrRootProvider;
 mod mmr_root_provider {
 	use super::*;
 	use crate::{known_payloads, payload::PayloadProvider, Payload};
-	use sp_api::{NumberFor};
+	use sp_api::{CallApiAt, NumberFor, RuntimeInstance};
 	use sp_mmr_primitives::MmrApi;
 	use sp_std::{marker::PhantomData, sync::Arc};
 
@@ -171,7 +171,7 @@ mod mmr_root_provider {
 	impl<B, R> MmrRootProvider<B, R>
 	where
 		B: Block,
-		R::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
+		R: CallApiAt<B>,
 	{
 		/// Create new BEEFY Payload provider with MMR Root as payload.
 		pub fn new(runtime: Arc<R>) -> Self {
@@ -181,7 +181,13 @@ mod mmr_root_provider {
 		/// Simple wrapper that gets MMR root from header digests or from client state.
 		fn mmr_root_from_digest_or_runtime(&self, header: &B::Header) -> Option<MmrRootHash> {
 			find_mmr_root_digest::<B>(header).or_else(|| {
-				self.runtime.runtime_api().mmr_root(header.hash()).ok().and_then(|r| r.ok())
+				let mut runtime_api = RuntimeInstance::builder(&self.runtime, header.hash())
+					.off_chain_context()
+					.build();
+
+				MmrApi::<MmrRootHash, NumberFor<B>>::mmr_root(&mut runtime_api)
+					.ok()
+					.and_then(|r| r.ok())
 			})
 		}
 	}
@@ -189,7 +195,7 @@ mod mmr_root_provider {
 	impl<B: Block, R> PayloadProvider<B> for MmrRootProvider<B, R>
 	where
 		B: Block,
-		R::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
+		R: CallApiAt<B>,
 	{
 		fn payload(&self, header: &B::Header) -> Option<Payload> {
 			self.mmr_root_from_digest_or_runtime(header).map(|mmr_root| {

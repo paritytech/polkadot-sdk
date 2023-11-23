@@ -376,7 +376,7 @@ pub struct CollationInfo {
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	#[api_version(2)]
-	pub trait CollectCollationInfo {
+	pub trait CollectCollationInfo<Block: BlockT> {
 		/// Collect information about a collation.
 		#[changed_in(2)]
 		fn collect_collation_info() -> CollationInfoV1;

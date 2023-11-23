@@ -34,7 +34,7 @@ use tracing::{
 
 use crate::{SpanDatum, TraceEvent, Values};
 use sc_client_api::BlockBackend;
-use sp_api::{Core, Encode, Metadata};
+use sp_api::{Core, Encode, RuntimeInstance, CallApiAt};
 use sp_blockchain::HeaderBackend;
 use sp_core::hexdisplay::HexDisplay;
 use sp_rpc::tracing::{BlockTrace, Span, TraceBlockResponse};
@@ -170,7 +170,7 @@ pub struct BlockExecutor<Block: BlockT, Client> {
 impl<Block, Client> BlockExecutor<Block, Client>
 where
 	Block: BlockT + 'static,
-	Client: HeaderBackend<Block> + BlockBackend<Block> + Send + Sync + 'static,
+	Client: HeaderBackend<Block> + BlockBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 {
 	/// Create a new `BlockExecutor`
 	pub fn new(
@@ -220,8 +220,10 @@ where
 			if let Err(e) = dispatcher::with_default(&dispatch, || {
 				let span = tracing::info_span!(target: TRACE_TARGET, "trace_block");
 				let _enter = span.enter();
-				// self.client.runtime_api().execute_block(parent_hash, block)
-				Ok::<_, String>(todo!())
+				let mut runtime_api =
+					RuntimeInstance::builder(&self.client, parent_hash).off_chain_context().build();
+
+				Core::<Block>::execute_block(&mut runtime_api, block)
 			}) {
 				return Err(Error::Dispatch(format!(
 					"Failed to collect traces and execute block: {}",

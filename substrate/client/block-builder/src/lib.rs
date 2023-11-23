@@ -28,12 +28,11 @@
 
 use codec::Encode;
 use sp_api::{
-	ApiExt, ApiRef, CallApiAt, Core, DisableProofRecorder, EnableProofRecorder, GetProofRecorder,
+	CallApiAt, Core, DisableProofRecorder, EnableProofRecorder, GetProofRecorder,
 	RuntimeInstance, RuntimeInstanceBuilderStage2, StorageChanges, StorageProof,
 	TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
-use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
@@ -194,7 +193,6 @@ pub struct BlockBuilder<Block: BlockT, CallApiAt, ProofRecorder> {
 	extrinsics: Vec<Block::Extrinsic>,
 	runtime_instance: RuntimeInstance<CallApiAt, Block, ProofRecorder>,
 	version: u32,
-	parent_hash: Block::Hash,
 	/// The estimated size of the block header.
 	estimated_header_size: usize,
 	_phantom: PhantomData<ProofRecorder>,
@@ -234,7 +232,6 @@ where
 			.ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;
 
 		Ok(BlockBuilder {
-			parent_hash,
 			extrinsics: Vec::new(),
 			runtime_instance,
 			version,
