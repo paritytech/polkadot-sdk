@@ -49,6 +49,7 @@ sp-runtime = { path = "../../substrate/primitives/runtime", default-features = f
 sp-io = { path = "../../substrate/primitives/io" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-session = { path = "../../substrate/primitives/session" }
+frame-try-runtime = { path = "../../substrate/frame/try-runtime", default-features = false, optional = true}
 sc-consensus = { path = "../../substrate/client/consensus/common" }
 sp-tracing = { path = "../../substrate/primitives/tracing" }
 frame-support = { path = "../../substrate/frame/support", default-features = false}
@@ -159,6 +160,7 @@ try-runtime = [
 	"collectives-westend-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
 	"frame-support/try-runtime",
+	"frame-try-runtime/try-runtime",
 	"glutton-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
