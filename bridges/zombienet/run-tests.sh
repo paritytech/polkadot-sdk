@@ -6,13 +6,13 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
-export POLKADOT_SDK_FOLDER=`realpath $(dirname "$0")/../..`
+export POLKADOT_SDK_FOLDER=/home/nonroot/bridges
 export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_FOLDER/bridges/zombienet/tests
-export POLKADOT_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot
-export POLKADOT_PARACHAIN_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot-parachain
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_BINARY_PATH
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
-export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
+export POLKADOT_BINARY_PATH=/usr/local/bin/polkadot
+export POLKADOT_PARACHAIN_BINARY_PATH=/usr/local/bin/polkadot-parachain
+export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/usr/local/bin/polkadot-parachain
+export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/usr/local/bin/polkadot-parachain
+export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
 
 # bridge configuration
 export LANE_ID="00000002"
