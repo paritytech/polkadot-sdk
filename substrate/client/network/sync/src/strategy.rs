@@ -223,7 +223,8 @@ where
 	// Are we in major sync mode?
 	pub fn is_major_syncing(&self) -> bool {
 		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => false,
+			SyncingStrategy::WarpSyncStrategy(strategy) =>
+				strategy.status().state.is_major_syncing(),
 			SyncingStrategy::ChainSyncStrategy(strategy) =>
 				strategy.status().state.is_major_syncing(),
 		}
