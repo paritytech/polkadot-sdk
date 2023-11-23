@@ -1088,6 +1088,20 @@ impl<T: Config> BondedPool<T> {
 		self.is_root(who)
 	}
 
+	fn can_claim_commission(&self, who: &T::AccountId) -> bool {
+		match self.commission.claim_permission.as_ref() {
+			// If no permission is set, check `who` is the `root` role of the pool.
+			None => self.roles.root.as_ref().map_or(false, |root| root == who),
+			// Permission has explicitly been set, ensure `who` satisfies the permission.
+			Some(permission) => match permission {
+				CommissionClaimPermission::Permissionless => true,
+				CommissionClaimPermission::Account(ref account) => account == who,
+			},
+		}
+	}
+
+	// TODO: add `set_commission_claim_permission` to set the permission for claiming commission.
+
 	fn is_destroying(&self) -> bool {
 		matches!(self.state, PoolState::Destroying)
 	}
@@ -3116,7 +3130,7 @@ impl<T: Config> Pallet<T> {
 
 	fn do_claim_commission(who: T::AccountId, pool_id: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-		ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
+		ensure!(bonded_pool.can_claim_commission(&who), Error::<T>::DoesNotHavePermission);
 
 		let mut reward_pool = RewardPools::<T>::get(pool_id)
 			.defensive_ok_or::<Error<T>>(DefensiveError::RewardPoolNotFound.into())?;
