@@ -13190,7 +13190,6 @@ dependencies = [
  "pallet-staking",
  "pallet-timestamp",
  "pallet-vesting",
- "pallet-xcm",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
