@@ -30,6 +30,7 @@ use frame_support::{
 	StorageNoopGuard,
 };
 use frame_system::Event as SysEvent;
+use sp_runtime::traits::DispatchTransaction;
 
 const ID_1: LockIdentifier = *b"1       ";
 const ID_2: LockIdentifier = *b"2       ";
@@ -240,7 +241,7 @@ fn lock_should_work_reserve() {
 				TokenError::Frozen
 			);
 			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
-			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
 				Some(1).into(),
 				CALL,
@@ -248,7 +249,7 @@ fn lock_should_work_reserve() {
 				1,
 			)
 			.is_err());
-			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(0),
 				Some(1).into(),
 				CALL,
@@ -271,7 +272,7 @@ fn lock_should_work_tx_fee() {
 				TokenError::Frozen
 			);
 			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
-			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
 				Some(1).into(),
 				CALL,
@@ -279,7 +280,7 @@ fn lock_should_work_tx_fee() {
 				1,
 			)
 			.is_err());
-			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(0),
 				Some(1).into(),
 				CALL,

@@ -306,7 +306,7 @@ pub trait SuffixedCommonTransactionExtensionExt<Suffix: TransactionExtensionSche
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::AdditionalSigned),
+		extra: (Suffix::Payload, Suffix::Implicit),
 	) -> Self;
 
 	/// Return transaction nonce.
@@ -328,7 +328,7 @@ where
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::AdditionalSigned),
+		extra: (Suffix::Payload, Suffix::Implicit),
 	) -> Self {
 		GenericTransactionExtension::new(
 			(

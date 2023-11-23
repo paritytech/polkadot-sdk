@@ -257,11 +257,6 @@ pub mod runtime {
 			frame_system::CheckNonce<T>,
 			frame_system::CheckWeight<T>,
 		);
-
-		/// Default set of signed extensions exposed from the `frame_system`.
-		///
-		/// crucially, this does NOT contain any tx-payment extension.
-		pub type SystemTransactionExtensionsOf<T> = SystemTransactionExtensionsOf<T>;
 	}
 
 	/// The main prelude of FRAME for building runtimes, and in the context of testing.

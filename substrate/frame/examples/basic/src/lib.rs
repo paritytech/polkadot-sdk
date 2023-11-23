@@ -67,11 +67,9 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		Bounded, DispatchInfoOf, OriginOf, SaturatedConversion, Saturating, TransactionExtension,
-		ValidateResult,
+		TransactionExtensionBase, ValidateResult,
 	},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -517,7 +515,7 @@ where
 		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> ValidateResult<Self, <T as frame_system::Config>::RuntimeCall> {
+	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
 		// if the transaction is too big, just drop it.
 		if len > 200 {
 			return Err(InvalidTransaction::ExhaustsResources.into())

@@ -12860,6 +12860,7 @@ dependencies = [
  "sp-authority-discovery",
  "sp-blockchain",
  "sp-consensus-babe",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]

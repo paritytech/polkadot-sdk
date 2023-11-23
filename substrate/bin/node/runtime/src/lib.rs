@@ -1402,11 +1402,11 @@ where
 				frame_system::CheckWeight::<Runtime>::new(),
 			)
 				.into(),
-			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(AsTransactionExtension::from(
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
 					tip, None,
 				),
-			)),
+			),
 		);
 
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -2178,7 +2178,7 @@ pub type TxExtension = (
 	),
 	pallet_skip_feeless_payment::SkipCheckIfFeeless<
 		Runtime,
-		AsTransactionExtension<pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>>,
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
 );
 

@@ -283,7 +283,7 @@ where
 		let (tip, who) = val;
 		// Mutating call of `withdraw_fee` to actually charge for the transaction.
 		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, len)?;
-		Ok((tip, who, initial_payment, self.asset_id.clone()))
+		Ok((tip, who, initial_payment, self.asset_id))
 	}
 
 	fn post_dispatch(

@@ -1129,7 +1129,7 @@ mod tests {
 				assert_eq!(payload.encode(), bh_indirect_payload.encode());
 				assert_eq!(
 					payload.implicit().unwrap().encode(),
-					bh_indirect_payload.additional_signed().unwrap().encode()
+					bh_indirect_payload.implicit().unwrap().encode()
 				)
 			}
 		});

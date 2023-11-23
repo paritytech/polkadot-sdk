@@ -78,7 +78,7 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 		}
 		Ok((Default::default(), (), origin))
 	}
-	impl_tx_ext_default!(T::RuntimeCall; Context; implicit prepare);
+	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
 }
 
 #[cfg(test)]

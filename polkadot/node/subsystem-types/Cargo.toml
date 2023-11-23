@@ -20,6 +20,7 @@ sp-api = { path = "../../../substrate/primitives/api" }
 sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sc-client-api = { path = "../../../substrate/client/api" }
 sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
 smallvec = "1.8.0"

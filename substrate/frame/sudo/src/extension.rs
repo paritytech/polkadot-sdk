@@ -24,7 +24,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{DispatchInfoOf, Dispatchable, TransactionExtension, TransactionExtensionBase},
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+		InvalidTransaction, TransactionPriority, TransactionValidityError,
 		UnknownTransaction, ValidTransaction,
 	},
 };
@@ -90,11 +90,11 @@ where
 		_inherited_implication: &impl Encode,
 	) -> Result<
 		(
-			sp_runtime::transaction_validity::ValidTransaction,
+			ValidTransaction,
 			Self::Val,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
 		),
-		sp_runtime::transaction_validity::TransactionValidityError,
+		TransactionValidityError,
 	> {
 		let who = ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
 		let sudo_key: T::AccountId = <Pallet<T>>::key().ok_or(UnknownTransaction::CannotLookup)?;

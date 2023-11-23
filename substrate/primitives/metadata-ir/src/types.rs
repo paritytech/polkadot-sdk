@@ -189,15 +189,15 @@ impl IntoPortable for ExtrinsicMetadataIR {
 	}
 }
 
-/// Metadata of an extrinsic's signed extension.
+/// Metadata of an extrinsic's transaction extension.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct TransactionExtensionMetadataIR<T: Form = MetaForm> {
-	/// The unique signed extension identifier, which may be different from the type name.
+	/// The unique transaction extension identifier, which may be different from the type name.
 	pub identifier: T::String,
-	/// The type of the signed extension, with the data to be included in the extrinsic.
+	/// The type of the transaction extension, with the data to be included in the extrinsic.
 	pub ty: T::Type,
-	/// The type of the additional signed data, with the data to be included in the signed payload.
-	pub additional_signed: T::Type,
+	/// The type of the implicit data, with the data to be included in the signed payload.
+	pub implicit: T::Type,
 }
 
 impl IntoPortable for TransactionExtensionMetadataIR {
@@ -207,7 +207,7 @@ impl IntoPortable for TransactionExtensionMetadataIR {
 		TransactionExtensionMetadataIR {
 			identifier: self.identifier.into_portable(registry),
 			ty: registry.register_type(&self.ty),
-			additional_signed: registry.register_type(&self.additional_signed),
+			implicit: registry.register_type(&self.implicit),
 		}
 	}
 }

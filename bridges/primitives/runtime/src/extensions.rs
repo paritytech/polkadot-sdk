@@ -35,12 +35,12 @@ pub trait TransactionExtensionSchema:
 	type Payload: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 	/// Parameters which are part of the payload used to produce transaction signature,
 	/// but don't end up in the transaction itself (i.e. inherent part of the runtime).
-	type AdditionalSigned: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
+	type Implicit: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 }
 
 impl TransactionExtensionSchema for () {
 	type Payload = ();
-	type AdditionalSigned = ();
+	type Implicit = ();
 }
 
 /// An implementation of `TransactionExtensionSchema` using generic params.
@@ -53,7 +53,7 @@ where
 	S: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
 {
 	type Payload = P;
-	type AdditionalSigned = S;
+	type Implicit = S;
 }
 
 /// The `TransactionExtensionSchema` for `frame_system::CheckNonZeroSender`.
@@ -99,7 +99,7 @@ pub type RefundBridgedParachainMessagesSchema = GenericTransactionExtensionSchem
 #[impl_for_tuples(1, 12)]
 impl TransactionExtensionSchema for Tuple {
 	for_tuples!( type Payload = ( #( Tuple::Payload ),* ); );
-	for_tuples!( type AdditionalSigned = ( #( Tuple::AdditionalSigned ),* ); );
+	for_tuples!( type Implicit = ( #( Tuple::Implicit ),* ); );
 }
 
 /// A simplified version of signed extensions meant for producing signed transactions
@@ -112,12 +112,12 @@ pub struct GenericTransactionExtension<S: TransactionExtensionSchema> {
 	// (and it makes no sense to do that) => decoded version of `TransactionExtensions` is only
 	// used to read fields of the `payload`. And when resigning transaction, we're reconstructing
 	// `TransactionExtensions` from scratch.
-	additional_signed: Option<S::AdditionalSigned>,
+	implicit: Option<S::Implicit>,
 }
 
 impl<S: TransactionExtensionSchema> GenericTransactionExtension<S> {
-	pub fn new(payload: S::Payload, additional_signed: Option<S::AdditionalSigned>) -> Self {
-		Self { payload, additional_signed }
+	pub fn new(payload: S::Payload, implicit: Option<S::Implicit>) -> Self {
+		Self { payload, implicit }
 	}
 }
 
@@ -125,20 +125,20 @@ impl<S> TransactionExtensionBase for GenericTransactionExtension<S>
 where
 	S: TransactionExtensionSchema,
 	S::Payload: Send + Sync,
-	S::AdditionalSigned: Send + Sync,
+	S::Implicit: Send + Sync,
 {
 	const IDENTIFIER: &'static str = "Not needed.";
-	type Implicit = S::AdditionalSigned;
+	type Implicit = S::Implicit;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		// we shall not ever see this error in relay, because we are never signing decoded
 		// transactions. Instead we're constructing and signing new transactions. So the error code
 		// is kinda random here
-		self.additional_signed.clone().ok_or(
-			frame_support::unsigned::TransactionValidityError::Unknown(
+		self.implicit
+			.clone()
+			.ok_or(frame_support::unsigned::TransactionValidityError::Unknown(
 				frame_support::unsigned::UnknownTransaction::Custom(0xFF),
-			),
-		)
+			))
 	}
 }
 impl<S, C, Context> TransactionExtension<C, Context> for GenericTransactionExtension<S>
@@ -146,7 +146,7 @@ where
 	C: Dispatchable,
 	S: TransactionExtensionSchema,
 	S::Payload: Send + Sync,
-	S::AdditionalSigned: Send + Sync,
+	S::Implicit: Send + Sync,
 {
 	type Pre = ();
 	type Val = ();
