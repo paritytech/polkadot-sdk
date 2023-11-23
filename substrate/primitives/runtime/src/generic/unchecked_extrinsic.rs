@@ -447,8 +447,9 @@ mod tests {
 	use super::*;
 	use crate::{
 		codec::{Decode, Encode},
+		impl_tx_ext_default,
 		testing::TestSignature as TestSig,
-		traits::{DispatchInfoOf, FakeDisptchable, IdentityLookup, TransactionExtension},
+		traits::{FakeDisptchable, IdentityLookup, TransactionExtension},
 	};
 	use sp_io::hashing::blake2_256;
 
@@ -466,37 +467,7 @@ mod tests {
 		type Val = ();
 		type Pre = ();
 		type Implicit = ();
-		fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
-			Ok(())
-		}
-		fn validate(
-			&self,
-			who: <Call as traits::Dispatchable>::RuntimeOrigin,
-			_call: &Call,
-			_info: &DispatchInfoOf<Call>,
-			_len: usize,
-			_implicit: &[u8],
-		) -> Result<
-			(
-				crate::transaction_validity::ValidTransaction,
-				Self::Val,
-				<Call as traits::Dispatchable>::RuntimeOrigin,
-			),
-			TransactionValidityError,
-		> {
-			Ok((Default::default(), (), who))
-		}
-
-		fn prepare(
-			self,
-			_val: (),
-			_who: &<Call as traits::Dispatchable>::RuntimeOrigin,
-			_call: &Call,
-			_info: &DispatchInfoOf<Call>,
-			_len: usize,
-		) -> Result<(), TransactionValidityError> {
-			Ok(())
-		}
+		impl_tx_ext_default!(Call; implicit validate prepare);
 	}
 
 	type Ex = UncheckedExtrinsic<TestAccountId, TestCall, TestSig, DummyExtension>;

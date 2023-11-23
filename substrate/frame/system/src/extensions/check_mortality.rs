@@ -20,6 +20,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
+	impl_tx_ext_default,
 	traits::{DispatchInfoOf, SaturatedConversion, SignedExtension, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -113,24 +114,14 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 		}
 	}
 
-	fn prepare(
-		self,
-		_val: Self::Val,
-		origin: &<T as Config>::RuntimeOrigin,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
-	}
-
 	fn validate(
 		&self,
 		origin: <T as Config>::RuntimeOrigin,
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_implicit: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> Result<
 		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
 		sp_runtime::transaction_validity::TransactionValidityError,
@@ -146,6 +137,7 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 			origin,
 		))
 	}
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
 
 #[cfg(test)]
@@ -157,6 +149,7 @@ mod tests {
 		weights::Weight,
 	};
 	use sp_core::H256;
+	use sp_runtime::traits::DispatchTransaction;
 
 	#[test]
 	fn signed_ext_check_era_should_work() {
@@ -191,10 +184,7 @@ mod tests {
 			<BlockHash<Test>>::insert(16, H256::repeat_byte(1));
 
 			assert_eq!(
-				TransactionExtension::validate(&ext, Some(1).into(), CALL, &normal, len, &[])
-					.unwrap()
-					.0
-					.longevity,
+				ext.validate_only(Some(1).into(), CALL, &normal, len).unwrap().0.longevity,
 				15
 			);
 		})

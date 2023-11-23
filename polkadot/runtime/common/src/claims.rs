@@ -29,6 +29,7 @@ use scale_info::TypeInfo;
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
+	impl_tx_ext_default,
 	traits::{
 		CheckedSub, DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension, Zero,
 	},
@@ -679,10 +680,6 @@ where
 	type Pre = ();
 	type Val = ();
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		Ok(())
-	}
-
 	// <weight>
 	// The weight of this logic is included in the `attest` dispatchable.
 	// </weight>
@@ -692,7 +689,8 @@ where
 		call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_implicit: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
@@ -711,17 +709,7 @@ where
 		}
 		Ok((ValidTransaction::default(), (), origin))
 	}
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		TransactionExtension::validate(&self, origin.clone(), call, info, len, &[]).map(|_| ())
-	}
+	impl_tx_ext_default!(T::RuntimeCall; implicit prepare);
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -773,7 +761,7 @@ mod tests {
 	};
 	use pallet_balances;
 	use sp_runtime::{
-		traits::{BlakeTwo256, Identity, IdentityLookup},
+		traits::{BlakeTwo256, DispatchTransaction, Identity, IdentityLookup},
 		transaction_validity::TransactionLongevity,
 		BuildStorage,
 		DispatchError::BadOrigin,
@@ -1152,7 +1140,7 @@ mod tests {
 			});
 			let di = c.get_dispatch_info();
 			assert_eq!(di.pays_fee, Pays::No);
-			let r = TransactionExtension::validate(&p, Some(42).into(), &c, &di, 20, &[]);
+			let r = p.validate_only(Some(42).into(), &c, &di, 20);
 			assert_eq!(r.unwrap().0, ValidTransaction::default());
 		});
 	}
@@ -1165,13 +1153,13 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = TransactionExtension::validate(&p, Some(42).into(), &c, &di, 20, &[]);
+			let r = p.validate_only(Some(42).into(), &c, &di, 20);
 			assert!(r.is_err());
 			let c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = TransactionExtension::validate(&p, Some(69).into(), &c, &di, 20, &[]);
+			let r = p.validate_only(Some(69).into(), &c, &di, 20);
 			assert!(r.is_err());
 		});
 	}

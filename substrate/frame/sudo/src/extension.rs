@@ -124,7 +124,8 @@ where
 		_call: &<T as frame_system::Config>::RuntimeCall,
 		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
-		_implicit: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> Result<
 		(
 			sp_runtime::transaction_validity::ValidTransaction,

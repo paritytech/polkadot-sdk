@@ -337,7 +337,8 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for DisallowSigned {
 		_call: &RuntimeCall,
 		_info: &sp_runtime::traits::DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_target: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> sp_runtime::traits::ValidateResult<Self, RuntimeCall> {
 		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
 	}

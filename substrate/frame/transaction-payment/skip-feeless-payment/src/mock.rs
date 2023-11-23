@@ -18,7 +18,10 @@ use crate as pallet_skip_feeless_payment;
 
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
-use sp_runtime::traits::{OriginOf, TransactionExtension};
+use sp_runtime::{
+	impl_tx_ext_default,
+	traits::{OriginOf, TransactionExtension},
+};
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
@@ -43,19 +46,7 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 	type Val = ();
 	type Pre = ();
 	type Implicit = ();
-	fn implicit(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-	fn validate(
-		&self,
-		origin: OriginOf<RuntimeCall>,
-		_call: &RuntimeCall,
-		_info: &DispatchInfoOf<RuntimeCall>,
-		_len: usize,
-		_target: &[u8],
-	) -> sp_runtime::traits::ValidateResult<Self, RuntimeCall> {
-		Ok((Default::default(), (), origin))
-	}
+	impl_tx_ext_default!(RuntimeCall; implicit, validate);
 	fn prepare(
 		self,
 		_val: Self::Val,

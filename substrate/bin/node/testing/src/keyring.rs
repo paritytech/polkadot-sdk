@@ -22,7 +22,10 @@ use codec::Encode;
 use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, TxExtension, UncheckedExtrinsic};
 use node_primitives::{AccountId, Balance, Nonce};
 use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
-use sp_runtime::generic::{Era, ExtrinsicFormat};
+use sp_runtime::{
+	generic::{Era, ExtrinsicFormat},
+	traits::AsTransactionExtension,
+};
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -71,18 +74,20 @@ pub fn to_session_keys(
 /// Returns transaction extra.
 pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 	(
-		frame_system::CheckNonZeroSender::new(),
-		frame_system::CheckSpecVersion::new(),
-		frame_system::CheckTxVersion::new(),
-		frame_system::CheckGenesis::new(),
-		frame_system::CheckEra::from(Era::mortal(256, 0)),
-		frame_system::CheckNonce::from(nonce),
-		frame_system::CheckWeight::new(),
-		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+		(
+			frame_system::CheckNonZeroSender::new(),
+			frame_system::CheckSpecVersion::new(),
+			frame_system::CheckTxVersion::new(),
+			frame_system::CheckGenesis::new(),
+			frame_system::CheckEra::from(Era::mortal(256, 0)),
+			frame_system::CheckNonce::from(nonce),
+			frame_system::CheckWeight::new(),
+		)
+			.into(),
+		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(AsTransactionExtension::from(
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
-		),
+		)),
 	)
-		.into()
 }
 
 /// Sign given `CheckedExtrinsic`.

@@ -62,7 +62,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	) -> Self::Result;
 }
 
-impl<T: TransactionExtension<Call>, Call: Dispatchable> DispatchTransaction<Call> for T {
+impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransaction<Call> for T {
 	type Origin = <Call as Dispatchable>::RuntimeOrigin;
 	type Info = DispatchInfoOf<Call>;
 	type Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>;
@@ -76,8 +76,7 @@ impl<T: TransactionExtension<Call>, Call: Dispatchable> DispatchTransaction<Call
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		let target = (self, self.implicit()?).encode();
-		self.validate(origin, call, info, len, &target[..])
+		self.validate(origin, call, info, len, self.implicit()?, call)
 	}
 	fn validate_and_prepare(
 		self,

@@ -53,7 +53,7 @@ use frame_support::{
 	},
 	DefaultNoBound,
 };
-use pallet_transaction_payment::OnChargeTransaction;
+use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
@@ -267,7 +267,6 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> TransactionValidity {
-		use pallet_transaction_payment::ChargeTransactionPayment;
 		let (fee, _) = self.withdraw_fee(who, call, info, len)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		Ok(ValidTransaction { priority, ..Default::default() })
@@ -370,12 +369,17 @@ where
 		BalanceOf<T>,
 		// who paid the fee
 		T::AccountId,
+	);
+	type Pre = (
+		// tip
+		BalanceOf<T>,
+		// who paid the fee
+		T::AccountId,
 		// imbalance resulting from withdrawing the fee
 		InitialPayment<T>,
 		// asset_id for the transaction payment
 		Option<ChargeAssetIdOf<T>>,
 	);
-	type Pre = Self::Val;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
@@ -384,37 +388,37 @@ where
 	fn validate(
 		&self,
 		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		call: &T::RuntimeCall,
+		_call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_implicit: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
 		let who = frame_system::ensure_signed(origin.clone())
 			.map_err(|_| InvalidTransaction::BadSigner)?;
-		use pallet_transaction_payment::ChargeTransactionPayment;
-		let (fee, imbalance) = self.withdraw_fee(&who, call, info, len)?;
+		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
+		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
-		let val = (self.tip, who.clone(), imbalance, self.asset_id.clone());
+		let val = (self.tip, who);
 		Ok((validity, val, origin))
 	}
 
 	fn prepare(
 		self,
-		_val: Self::Val,
-		origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		val: Self::Val,
+		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let who = frame_system::ensure_signed(origin.clone())
-			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let (tip, who) = val;
+		// Mutating call of `withdraw_fee` to actually charge for the transaction.
 		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, len)?;
-		// Could just pass `val` here if `validate` is always called.
-		Ok((self.tip, who, initial_payment, self.asset_id))
+		Ok((tip, who, initial_payment, self.asset_id.clone()))
 	}
 
 	fn post_dispatch(

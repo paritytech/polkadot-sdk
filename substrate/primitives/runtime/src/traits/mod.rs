@@ -1498,10 +1498,10 @@ impl<Inner> Dispatchable for FakeDisptchable<Inner> {
 }
 
 /// Runtime Origin which includes a System Origin variant whose `AccountId` is the parameter.
-pub trait CloneSystemOriginSigner<AccountId> {
-	/// Extract a copy of the inner value of the SystemOrigin Signed variant, if self has that
-	/// variant.
-	fn clone_system_origin_signer(&self) -> Option<AccountId>;
+pub trait AsSystemOriginSigner<AccountId> {
+	/// Extract a reference of the inner value of the System `Origin::Signed` variant, if self has
+	/// that variant.
+	fn as_system_origin_signer(&self) -> Option<&AccountId>;
 }
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic

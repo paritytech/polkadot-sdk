@@ -20,6 +20,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
 use sp_runtime::{
+	impl_tx_ext_default,
 	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, TransactionExtension, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
@@ -139,10 +140,6 @@ where
 	type Val = ();
 	type Implicit = ();
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		Ok(())
-	}
-
 	fn prepare(
 		self,
 		_val: Self::Val,
@@ -177,7 +174,8 @@ where
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_implicit: &[u8],
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
 	) -> Result<
 		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
 		sp_runtime::transaction_validity::TransactionValidityError,
@@ -209,6 +207,7 @@ where
 		};
 		Ok((validity, (), origin))
 	}
+	impl_tx_ext_default!(T::RuntimeCall; implicit);
 }
 
 #[cfg(test)]
@@ -216,6 +215,7 @@ mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_noop, assert_ok};
+	use sp_runtime::traits::DispatchTransaction;
 
 	#[test]
 	fn signed_ext_check_nonce_works() {
@@ -234,15 +234,9 @@ mod tests {
 			let len = 0_usize;
 			// stale
 			assert_eq!(
-				TransactionExtension::validate(
-					&CheckNonce::<Test>(0),
-					Some(1).into(),
-					CALL,
-					&info,
-					len,
-					&[]
-				)
-				.unwrap_err(),
+				CheckNonce::<Test>(0)
+					.validate_only(Some(1).into(), CALL, &info, len,)
+					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Stale)
 			);
 			assert_noop!(
@@ -250,24 +244,10 @@ mod tests {
 				InvalidTransaction::Stale
 			);
 			// correct
-			assert_ok!(TransactionExtension::validate(
-				&CheckNonce::<Test>(1),
-				Some(1).into(),
-				CALL,
-				&info,
-				len,
-				&[]
-			));
+			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(1).into(), CALL, &info, len));
 			assert_ok!(CheckNonce::<Test>(1).prepare((), &Some(1).into(), CALL, &info, len));
 			// future
-			assert_ok!(TransactionExtension::validate(
-				&CheckNonce::<Test>(5),
-				Some(1).into(),
-				CALL,
-				&info,
-				len,
-				&[]
-			));
+			assert_ok!(CheckNonce::<Test>(5).validate_only(Some(1).into(), CALL, &info, len));
 			assert_noop!(
 				CheckNonce::<Test>(5).prepare((), &Some(1).into(), CALL, &info, len),
 				InvalidTransaction::Future
@@ -302,15 +282,9 @@ mod tests {
 			let len = 0_usize;
 			// Both providers and sufficients zero
 			assert_eq!(
-				TransactionExtension::validate(
-					&CheckNonce::<Test>(1),
-					Some(1).into(),
-					CALL,
-					&info,
-					len,
-					&[]
-				)
-				.unwrap_err(),
+				CheckNonce::<Test>(1)
+					.validate_only(Some(1).into(), CALL, &info, len)
+					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
 			assert_noop!(
@@ -318,24 +292,10 @@ mod tests {
 				InvalidTransaction::Payment
 			);
 			// Non-zero providers
-			assert_ok!(TransactionExtension::validate(
-				&CheckNonce::<Test>(1),
-				Some(2).into(),
-				CALL,
-				&info,
-				len,
-				&[]
-			));
+			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(2).into(), CALL, &info, len));
 			assert_ok!(CheckNonce::<Test>(1).prepare((), &Some(2).into(), CALL, &info, len));
 			// Non-zero sufficients
-			assert_ok!(TransactionExtension::validate(
-				&CheckNonce::<Test>(1),
-				Some(3).into(),
-				CALL,
-				&info,
-				len,
-				&[]
-			));
+			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(3).into(), CALL, &info, len));
 			assert_ok!(CheckNonce::<Test>(1).prepare((), &Some(3).into(), CALL, &info, len));
 		})
 	}
