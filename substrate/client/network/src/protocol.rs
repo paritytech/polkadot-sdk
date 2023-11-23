@@ -58,7 +58,7 @@ pub mod message;
 pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 1024;
 
 /// Identifier of the peerset for the block announces protocol.
-const _HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
+const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT> {
@@ -66,6 +66,7 @@ pub struct Protocol<B: BlockT> {
 	behaviour: Notifications,
 	/// List of notifications protocols that have been registered.
 	notification_protocols: Vec<ProtocolName>,
+	sync_handle: ProtocolHandle,
 	_marker: std::marker::PhantomData<B>,
 }
 
@@ -128,6 +129,7 @@ impl<B: BlockT> Protocol<B> {
 
 		let protocol = Self {
 			behaviour,
+			sync_handle: handles[0].clone(),
 			notification_protocols,
 			// TODO: remove when `BlockAnnouncesHandshake` is moved away from `Protocol`
 			_marker: Default::default(),
@@ -285,30 +287,69 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				notifications_sink,
 				negotiated_fallback,
 				..
-			} => CustomMessageOutcome::NotificationStreamOpened {
-				remote: peer_id,
-				set_id,
-				direction,
-				negotiated_fallback,
-				received_handshake,
-				notifications_sink,
-			},
+			} =>
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self.sync_handle.report_substream_opened(
+						peer_id,
+						direction,
+						received_handshake,
+						negotiated_fallback,
+						notifications_sink,
+					);
+					None
+				} else {
+					Some(CustomMessageOutcome::NotificationStreamOpened {
+						remote: peer_id,
+						set_id,
+						direction,
+						negotiated_fallback,
+						received_handshake,
+						notifications_sink,
+					})
+				},
 			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } =>
-				CustomMessageOutcome::NotificationStreamReplaced {
-					remote: peer_id,
-					set_id,
-					notifications_sink,
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self
+						.sync_handle
+						.report_notification_sink_replaced(peer_id, notifications_sink);
+					None
+				} else {
+					Some(CustomMessageOutcome::NotificationStreamReplaced {
+						remote: peer_id,
+						set_id,
+						notifications_sink,
+					})
 				},
-			NotificationsOut::CustomProtocolClosed { peer_id, set_id } =>
-				CustomMessageOutcome::NotificationStreamClosed { remote: peer_id, set_id },
-			NotificationsOut::Notification { peer_id, set_id, message } =>
-				CustomMessageOutcome::NotificationsReceived {
-					remote: peer_id,
-					set_id,
-					notification: message.freeze().into(),
-				},
+			NotificationsOut::CustomProtocolClosed { peer_id, set_id } => {
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self.sync_handle.report_substream_closed(peer_id);
+					None
+				} else {
+					Some(CustomMessageOutcome::NotificationStreamClosed { remote: peer_id, set_id })
+				}
+			},
+			NotificationsOut::Notification { peer_id, set_id, message } => {
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self
+						.sync_handle
+						.report_notification_received(peer_id, message.freeze().into());
+					None
+				} else {
+					Some(CustomMessageOutcome::NotificationsReceived {
+						remote: peer_id,
+						set_id,
+						notification: message.freeze().into(),
+					})
+				}
+			},
 		};
 
-		return Poll::Ready(ToSwarm::GenerateEvent(outcome))
+		match outcome {
+			Some(event) => Poll::Ready(ToSwarm::GenerateEvent(event)),
+			None => {
+				cx.waker().wake_by_ref();
+				Poll::Pending
+			},
+		}
 	}
 }
