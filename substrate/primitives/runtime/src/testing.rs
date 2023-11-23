@@ -395,7 +395,7 @@ where
 		+ Codec
 		+ Debug
 		+ Dispatchable<RuntimeOrigin = Origin>,
-	Extension: TransactionExtension<Call>,
+	Extension: TransactionExtension<Call, ()>,
 	Origin: From<Option<u64>>,
 {
 	type Call = Call;

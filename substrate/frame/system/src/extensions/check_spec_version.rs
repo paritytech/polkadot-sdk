@@ -20,7 +20,10 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, SignedExtension, TransactionExtension},
+	traits::{
+		transaction_extension::TransactionExtensionBase, DispatchInfoOf, SignedExtension,
+		TransactionExtension,
+	},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -75,15 +78,17 @@ impl<T: Config + Send + Sync> SignedExtension for CheckSpecVersion<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
-	for CheckSpecVersion<T>
-{
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckSpecVersion<T> {
 	const IDENTIFIER: &'static str = "CheckSpecVersion";
-	type Val = ();
-	type Pre = ();
 	type Implicit = u32;
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().spec_version)
 	}
-	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
+}
+impl<T: Config + Send + Sync, Context> TransactionExtension<<T as Config>::RuntimeCall, Context>
+	for CheckSpecVersion<T>
+{
+	type Val = ();
+	type Pre = ();
+	impl_tx_ext_default!(<T as Config>::RuntimeCall; Context; validate prepare);
 }

@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::{Dispatchable, TransactionExtension},
+	traits::Dispatchable,
 	DispatchError, RuntimeDebug,
 };
 use sp_std::fmt;
@@ -258,7 +258,7 @@ impl GetDispatchInfo for () {
 	}
 }
 
-/// Extract the actual weight from a dispatch result if any or fall back to the default weight.
+/// Extensionct the actual weight from a dispatch result if any or fall back to the default weight.
 pub fn extract_actual_weight(result: &DispatchResultWithPostInfo, info: &DispatchInfo) -> Weight {
 	match result {
 		Ok(post_info) => post_info,
@@ -267,7 +267,8 @@ pub fn extract_actual_weight(result: &DispatchResultWithPostInfo, info: &Dispatc
 	.calc_actual_weight(info)
 }
 
-/// Extract the actual pays_fee from a dispatch result if any or fall back to the default weight.
+/// Extensionct the actual pays_fee from a dispatch result if any or fall back to the default
+/// weight.
 pub fn extract_actual_pays_fee(result: &DispatchResultWithPostInfo, info: &DispatchInfo) -> Pays {
 	match result {
 		Ok(post_info) => post_info,
@@ -367,11 +368,10 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call, Signature, Extra> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Call, Signature, Extra>
+impl<Address, Call, Signature, Extension> GetDispatchInfo
+	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Call: GetDispatchInfo + Dispatchable,
-	Extra: TransactionExtension<Call>,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
@@ -379,7 +379,7 @@ where
 }
 
 /// Implementation for checked extrinsic.
-impl<AccountId, Call, Extra> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extra>
+impl<AccountId, Call, Extension> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	Call: GetDispatchInfo,
 {
@@ -390,8 +390,8 @@ where
 
 /// Implementation for test extrinsic.
 #[cfg(feature = "std")]
-impl<Call: Encode + GetDispatchInfo, Extra: Encode> GetDispatchInfo
-	for sp_runtime::testing::TestXt<Call, Extra>
+impl<Call: Encode + GetDispatchInfo, Extension: Encode> GetDispatchInfo
+	for sp_runtime::testing::TestXt<Call, Extension>
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		// for testing: weight == size.

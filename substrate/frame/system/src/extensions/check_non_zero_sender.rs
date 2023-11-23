@@ -21,7 +21,10 @@ use frame_support::{dispatch::DispatchInfo, traits::OriginTrait, DefaultNoBound}
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
+	traits::{
+		transaction_extension::TransactionExtensionBase, DispatchInfoOf, Dispatchable,
+		SignedExtension, TransactionExtension,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -90,20 +93,25 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
+impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T> {
 	const IDENTIFIER: &'static str = "CheckNonZeroSender";
+	type Implicit = ();
+}
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckNonZeroSender<T>
+{
 	type Val = ();
 	type Pre = ();
-	type Implicit = ();
 	fn validate(
 		&self,
 		origin: T::RuntimeOrigin,
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> sp_runtime::traits::ValidateResult<Self, T::RuntimeCall> {
+	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
 		if let Some(RawOrigin::Signed(ref who)) = origin.as_system_ref() {
 			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
 				return Err(InvalidTransaction::BadSigner.into())
@@ -111,7 +119,7 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZ
 		}
 		Ok((Default::default(), (), origin))
 	}
-	impl_tx_ext_default!(T::RuntimeCall; implicit prepare);
+	impl_tx_ext_default!(T::RuntimeCall; Context; implicit prepare);
 }
 
 #[cfg(test)]

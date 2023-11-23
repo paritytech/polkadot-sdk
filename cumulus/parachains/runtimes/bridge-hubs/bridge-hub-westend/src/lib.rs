@@ -1092,7 +1092,7 @@ mod tests {
 	use codec::Encode;
 	use sp_runtime::{
 		generic::Era,
-		traits::{SignedExtension, TransactionExtension, Zero},
+		traits::{SignedExtension, TransactionExtensionBase, Zero},
 	};
 
 	#[test]

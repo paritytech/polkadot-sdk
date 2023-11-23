@@ -32,7 +32,7 @@ pub trait SignedExtensionSchema: Encode + Decode + Debug + Eq + Clone + StaticTy
 	type Payload: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 	/// Parameters which are part of the payload used to produce transaction signature,
 	/// but don't end up in the transaction itself (i.e. inherent part of the runtime).
-	type AdditionalSigned: Encode + Debug + Eq + Clone + StaticTypeInfo;
+	type AdditionalSigned: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 }
 
 impl SignedExtensionSchema for () {
@@ -47,7 +47,7 @@ pub struct GenericSignedExtensionSchema<P, S>(PhantomData<(P, S)>);
 impl<P, S> SignedExtensionSchema for GenericSignedExtensionSchema<P, S>
 where
 	P: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
-	S: Encode + Debug + Eq + Clone + StaticTypeInfo,
+	S: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
 {
 	type Payload = P;
 	type AdditionalSigned = S;

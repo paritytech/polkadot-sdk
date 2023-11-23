@@ -27,7 +27,6 @@ use crate::{
 };
 use codec::{Codec, Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
-use scale_info::Type;
 use sp_core::{self, RuntimeDebug};
 #[doc(hidden)]
 pub use sp_std::marker::PhantomData;
@@ -38,16 +37,65 @@ use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
 
 mod as_transaction_extension;
 mod dispatch_transaction;
-mod simple_transaction_extension;
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
-pub use simple_transaction_extension::{SimpleTransactionExtension, WithSimple};
 
 /// Shortcut for the result value of the `validate` function.
-pub type ValidateResult<TE, Call> = Result<
-	(ValidTransaction, <TE as TransactionExtension<Call>>::Val, OriginOf<Call>),
-	TransactionValidityError,
->;
+pub type ValidateResult<Val, Call> =
+	Result<(ValidTransaction, Val, OriginOf<Call>), TransactionValidityError>;
+
+/// Simple blanket implementation trait to denote the bounds of a type which can be contained within
+/// a [`TransactionExtension`].
+pub trait TransactionExtensionInterior:
+	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+{
+}
+impl<T: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo>
+	TransactionExtensionInterior for T
+{
+}
+
+/// Base for [TransactionExtension]s; this contains the associated types and does not require any
+/// generic parameterization.
+pub trait TransactionExtensionBase: TransactionExtensionInterior {
+	/// Unique identifier of this signed extension.
+	///
+	/// This will be exposed in the metadata to identify the signed extension used
+	/// in an extrinsic.
+	const IDENTIFIER: &'static str;
+
+	/// Any additional data which was known at the time of transaction construction and
+	/// can be useful in authenticating the transaction. This is determined dynamically in part
+	/// from the on-chain environment using the `implied` function and not directly contained in
+	/// the transction itself and therefore is considered "implicit".
+	type Implicit: Codec + StaticTypeInfo;
+
+	/// Determine any additional data which was known at the time of transaction construction and
+	/// can be useful in authenticating the transaction. The expected usage of this is to include
+	/// in any data which is signed and verified as part of transactiob validation. Also perform
+	/// any pre-signature-verification checks and return an error if needed.
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		use InvalidTransaction::IndeterminateImplicit;
+		Ok(Self::Implicit::decode(&mut &[][..]).map_err(|_| IndeterminateImplicit)?)
+	}
+
+	/// Returns the metadata for this extension.
+	///
+	/// As a [`TransactionExtension`] can be a tuple of [`TransactionExtension`]s we need to return
+	/// a `Vec` that holds the metadata of each one. Each individual `TransactionExtension` must
+	/// return *exactly* one [`TransactionExtensionMetadata`].
+	///
+	/// This method provides a default implementation that returns a vec containing a single
+	/// [`TransactionExtensionMetadata`].
+	fn metadata() -> Vec<TransactionExtensionMetadata> {
+		sp_std::vec![TransactionExtensionMetadata {
+			identifier: Self::IDENTIFIER,
+			ty: scale_info::meta_type::<Self>(),
+			// TODO: Metadata-v16: Rename to "implicit"
+			additional_signed: scale_info::meta_type::<Self::Implicit>()
+		}]
+	}
+}
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
@@ -132,32 +180,12 @@ pub type ValidateResult<TE, Call> = Result<
 /// `implicit` function.** If you both provide an implication and rely on the implication, then you
 /// need to manually aggregate your extensions implication with the aggregated implication passed
 /// in.
-pub trait TransactionExtension<Call: Dispatchable>:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
-{
-	/// Unique identifier of this signed extension.
-	///
-	/// This will be exposed in the metadata to identify the signed extension used
-	/// in an extrinsic.
-	const IDENTIFIER: &'static str;
-
+pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensionBase {
 	/// The type that encodes information that can be passed from validate to prepare.
 	type Val;
 
 	/// The type that encodes information that can be passed from prepare to post-dispatch.
 	type Pre;
-
-	/// Any additional data which was known at the time of transaction construction and
-	/// can be useful in authenticating the transaction. This is determined dynamically in part
-	/// from the on-chain environment using the `implied` function and not directly contained in
-	/// the transction itself and therefore is considered "implicit".
-	type Implicit: Encode + StaticTypeInfo;
-
-	/// Determine any additional data which was known at the time of transaction construction and
-	/// can be useful in authenticating the transaction. The expected usage of this is to include
-	/// in any data which is signed and verified as part of transactiob validation. Also perform
-	/// any pre-signature-verification checks and return an error if needed.
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError>;
 
 	/// Validate a transaction for the transaction queue.
 	///
@@ -173,14 +201,15 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	///   `RawOrigin::None` value. If this extension is an item in a composite, then it could be
 	///   anything which was previously returned as an `origin` value in the result of a `validate`
 	///   call.
-	/// - `call`: The call which will ultimately be dispatched by this transaction.
-	/// - `info`: Information concerning, and inherent to, the `call`.
+	/// - `info`: Information concerning, and inherent to, the transaction's call.
 	/// - `len`: The total length of the encoded transaction.
-	/// - `implication`: The *implication* which this extension inherits. Coming directly from a
-	///   transaction, this is simply the transaction's `call`. However, if this extension is
-	///   expressed as part of a composite type, then this is equal to any further implications to
-	///   which the returned `origin` could potentially apple. See Pipelines, Inherited
-	///   Implications, and Authorized Origins for more information.
+	/// - `inherited_implication`: The *implication* which this extension inherits. This is a tuple
+	///   of the transaction's call and some additional opaque-but-encodable data. Coming directly
+	///   from a transaction, the latter is [()]. However, if this extension is expressed as part of
+	///   a composite type, then the latter component is equal to any further implications to which
+	///   the returned `origin` could potentially apply. See Pipelines, Inherited Implications, and
+	///   Authorized Origins for more information.
+	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// Returns a [ValidateResult], which is a [Result] whose success type is a tuple of
 	/// [ValidTransaction] (defining useful metadata for the transaction queue), the [Self::Val]
@@ -192,20 +221,22 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
+		context: &mut Context,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
-	) -> ValidateResult<Self, Call>;
+	) -> ValidateResult<Self::Val, Call>;
 
 	/// Do any pre-flight stuff for a transaction after validation.
 	///
 	/// This is for actions which do not happen in the transaction queue but only immediately prior
 	/// to the point of dispatch on-chain. This should not return an error, since errors
 	/// should already have been identified during the [validate] call. If an error is returned,
-	/// the transaction will be considered invalid.
+	/// the transaction will be considered invalid but no state changes will happen and therefore
+	/// work done in [validate] will not be paid for.
 	///
 	/// Unlike `validate`, this function may consume `self`.
 	///
-	/// Checks made in validation need not be repeated here.
+	/// IMPORTANT: **Checks made in validation need not be repeated here.**
 	fn prepare(
 		self,
 		val: Self::Val,
@@ -213,6 +244,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
+		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError>;
 
 	/// Do any post-flight stuff for an extrinsic.
@@ -226,35 +258,17 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	/// WARNING: It is dangerous to return an error here. To do so will fundamentally invalidate the
 	/// transaction and any block that it is included in, causing the block author to not be
 	/// compensated for their work in validating the transaction or producing the block so far.
-	///
-	/// It can only be used safely when you *know* that the extrinsic is one that can only be
-	/// introduced by the current block author; generally this implies that it is an inherent and
-	/// will come from either an offchain-worker or via `InherentData`.
+	/// It can only be used safely when you *know* that the transaction is one that would only be
+	/// introduced by the current block author.
 	fn post_dispatch(
 		_pre: Self::Pre,
 		_info: &DispatchInfoOf<Call>,
 		_post_info: &PostDispatchInfoOf<Call>,
 		_len: usize,
 		_result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		Ok(())
-	}
-
-	/// Returns the metadata for this extension.
-	///
-	/// As a [`TransactionExtension`] can be a tuple of [`TransactionExtension`]s we need to return
-	/// a `Vec` that holds the metadata of each one. Each individual `TransactionExtension` must
-	/// return *exactly* one [`TransactionExtensionMetadata`].
-	///
-	/// This method provides a default implementation that returns a vec containing a single
-	/// [`TransactionExtensionMetadata`].
-	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		sp_std::vec![TransactionExtensionMetadata {
-			identifier: Self::IDENTIFIER,
-			ty: scale_info::meta_type::<Self>(),
-			// TODO: Metadata-v16: Rename to "implicit"
-			additional_signed: scale_info::meta_type::<Self::Implicit>()
-		}]
 	}
 
 	/// Compatibility function for supporting the `SignedExtension::validate_unsigned` function.
@@ -299,30 +313,31 @@ pub trait TransactionExtension<Call: Dispatchable>:
 /// Implict
 #[macro_export]
 macro_rules! impl_tx_ext_default {
-	($call:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $( $rest )*}
+	($call:ty ; $context:ty ; , $( $rest:tt )*) => {
+		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
-	($call:ty ; implicit $( $rest:tt )*) => {
-		fn implicit(&self) -> Result<Self::Implicit, $crate::TransactionValidityError> {
+	($call:ty ; $context:ty ; implicit $( $rest:tt )*) => {
+/*		fn implicit(&self) -> Result<Self::Implicit, $crate::TransactionValidityError> {
 			Ok(Default::default())
-		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		}*/
+		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
-	($call:ty ; validate $( $rest:tt )*) => {
+	($call:ty ; $context:ty ; validate $( $rest:tt )*) => {
 		fn validate(
 			&self,
 			origin: $crate::traits::OriginOf<$call>,
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
+			_context: &mut $context,
 			_self_implicit: Self::Implicit,
 			_inherited_implication: &impl $crate::codec::Encode,
-		) -> $crate::traits::ValidateResult<Self, $call> {
+		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
-	($call:ty ; prepare $( $rest:tt )*) => {
+	($call:ty ; $context:ty ; prepare $( $rest:tt )*) => {
 		fn prepare(
 			self,
 			_val: Self::Val,
@@ -330,12 +345,13 @@ macro_rules! impl_tx_ext_default {
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
+			_context: & $context,
 		) -> Result<Self::Pre, $crate::TransactionValidityError> {
 			Ok(Default::default())
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
-	($call:ty ;) => {};
+	($call:ty ; $context:ty ;) => {};
 }
 
 /// Information about a [`TransactionExtension`] for the runtime metadata.
@@ -350,15 +366,25 @@ pub struct TransactionExtensionMetadata {
 }
 
 #[impl_for_tuples(1, 12)]
-impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
-	for_tuples!( where #( Tuple: TransactionExtension<Call> )* );
+impl TransactionExtensionBase for Tuple {
+	for_tuples!( where #( Tuple: TransactionExtensionBase )* );
 	const IDENTIFIER: &'static str = "Use `metadata()`!";
-	for_tuples!( type Val = ( #( Tuple::Val ),* ); );
-	for_tuples!( type Pre = ( #( Tuple::Pre ),* ); );
 	for_tuples!( type Implicit = ( #( Tuple::Implicit ),* ); );
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(for_tuples!( ( #( Tuple.implicit()? ),* ) ))
 	}
+	fn metadata() -> Vec<TransactionExtensionMetadata> {
+		let mut ids = Vec::new();
+		for_tuples!( #( ids.extend(Tuple::metadata()); )* );
+		ids
+	}
+}
+
+#[impl_for_tuples(1, 12)]
+impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple {
+	for_tuples!( where #( Tuple: TransactionExtension<Call, Context> )* );
+	for_tuples!( type Val = ( #( Tuple::Val ),* ); );
+	for_tuples!( type Pre = ( #( Tuple::Pre ),* ); );
 
 	fn validate(
 		&self,
@@ -366,15 +392,15 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
+		context: &mut Context,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let aggregated_valid = ValidTransaction::default();
-		let aggregated_origin = origin;
-		let aggregated_val = ();
+		let valid = ValidTransaction::default();
+		let val = ();
 		let following_explicit_implications = for_tuples!( ( #( &self.Tuple ),* ) );
 		let following_implicit_implications = self_implicit;
 
@@ -382,9 +408,10 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 			// Implication of this pipeline element not relevant for later items, so we pop it.
 			let (_item, following_explicit_implications) = following_explicit_implications.pop_front();
 			let (item_implicit, following_implicit_implications) = following_implicit_implications.pop_front();
-			let (valid, val, aggregated_origin) = {
-				let aggregate_implications = (
-					// This is the implication born of the fact we return the mutated origin
+			let (item_valid, item_val, origin) = {
+				let implications = (
+					// The first is the implications born of the fact we return the mutated
+					// origin.
 					inherited_implication,
 					// This is the explicitly made implication born of the fact the new origin is
 					// passed into the next items in this pipeline-tuple.
@@ -393,12 +420,12 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 					// passed into the next items in this pipeline-tuple.
 					&following_implicit_implications,
 				);
-				Tuple.validate(aggregated_origin, call, info, len, item_implicit, &aggregate_implications)?
+				Tuple.validate(origin, call, info, len, context, item_implicit, &implications)?
 			};
-			let aggregated_valid = aggregated_valid.combine_with(valid);
-			let aggregated_val = aggregated_val.push_back(val);
+			let valid = valid.combine_with(item_valid);
+			let val = val.push_back(item_val);
 		)* );
-		Ok((aggregated_valid, aggregated_val, aggregated_origin))
+		Ok((valid, val, origin))
 	}
 
 	fn prepare(
@@ -408,9 +435,10 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
+		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(for_tuples!( ( #(
-			Tuple::prepare(self.Tuple, val.Tuple, origin, call, info, len)?
+			Tuple::prepare(self.Tuple, val.Tuple, origin, call, info, len, context)?
 		),* ) ))
 	}
 
@@ -420,32 +448,31 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		post_info: &PostDispatchInfoOf<Call>,
 		len: usize,
 		result: &DispatchResult,
+		context: &Context,
 	) -> Result<(), TransactionValidityError> {
-		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result)?; )* );
+		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result, context)?; )* );
 		Ok(())
-	}
-
-	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		let mut ids = Vec::new();
-		for_tuples!( #( ids.extend(Tuple::metadata()); )* );
-		ids
 	}
 }
 
-impl<Call: Dispatchable> TransactionExtension<Call> for () {
+impl TransactionExtensionBase for () {
 	const IDENTIFIER: &'static str = "UnitTransactionExtension";
-	type Val = ();
-	type Pre = ();
 	type Implicit = ();
 	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
+}
+
+impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for () {
+	type Val = ();
+	type Pre = ();
 	fn validate(
 		&self,
 		origin: <Call as Dispatchable>::RuntimeOrigin,
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
+		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -461,6 +488,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		Ok(())
 	}

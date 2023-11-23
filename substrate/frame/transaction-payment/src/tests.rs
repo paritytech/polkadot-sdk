@@ -140,29 +140,28 @@ fn signed_extension_transaction_payment_work() {
 		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
-			let ext = Ext::from(0);
-			let len = 10;
-			let origin = Some(1).into();
 			let info = info_from_weight(Weight::from_parts(5, 0));
-			let pre = ext.validate_and_prepare(origin, CALL, &info, len).unwrap().0;
-			assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
-
-			assert_ok!(Ext::post_dispatch(pre, &info, &default_post_info(), len, &Ok(())));
+			Ext::from(0)
+				.test_run(Some(1).into(), CALL, &info, 10, |_| {
+					assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
+					Ok(default_post_info())
+				})
+				.unwrap()
+				.unwrap();
 			assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 			assert_eq!(FeeUnbalancedAmount::get(), 5 + 5 + 10);
 			assert_eq!(TipUnbalancedAmount::get(), 0);
 
 			FeeUnbalancedAmount::mutate(|a| *a = 0);
 
-			let ext = Ext::from(5 /* tipped */);
-			let len = 10;
-			let origin = Some(2).into();
 			let info = info_from_weight(Weight::from_parts(100, 0));
-			let pre = ext.validate_and_prepare(origin, CALL, &info, len).unwrap().0;
-			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
-
-			let post = post_info_from_weight(Weight::from_parts(50, 0));
-			assert_ok!(Ext::post_dispatch(pre, &info, &post, len, &Ok(())));
+			Ext::from(5 /* tipped */)
+				.test_run(Some(2).into(), CALL, &info, 10, |_| {
+					assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
+					Ok(post_info_from_weight(Weight::from_parts(50, 0)))
+				})
+				.unwrap()
+				.unwrap();
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 50 - 5);
 			assert_eq!(FeeUnbalancedAmount::get(), 5 + 10 + 50);
 			assert_eq!(TipUnbalancedAmount::get(), 5);
@@ -178,16 +177,18 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
 		.execute_with(|| {
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
 
-			let ext = Ext::from(5 /* tipped */);
 			let len = 10;
 			let origin = Some(2).into();
 			let info = info_from_weight(Weight::from_parts(100, 0));
-			let pre = ext.validate_and_prepare(origin, CALL, &info, len).unwrap().0;
-			// 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
-			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 150 - 5);
+			Ext::from(5 /* tipped */)
+				.test_run(origin, CALL, &info, len, |_| {
+					// 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
+					assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 150 - 5);
+					Ok(post_info_from_weight(Weight::from_parts(50, 0)))
+				})
+				.unwrap()
+				.unwrap();
 
-			let post = post_info_from_weight(Weight::from_parts(50, 0));
-			assert_ok!(Ext::post_dispatch(pre, &info, &post, len, &Ok(())));
 			// 75 (3/2 of the returned 50 units of weight) is refunded
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 75 - 5);
 		});
@@ -504,19 +505,23 @@ fn refund_does_not_recreate_account() {
 		.execute_with(|| {
 			// So events are emitted
 			System::set_block_number(10);
-			let len = 10;
 			let info = info_from_weight(Weight::from_parts(100, 0));
-			let (pre, origin) = Ext::from(5 /* tipped */)
-				.validate_and_prepare(Some(2).into(), CALL, &info, len)
+			Ext::from(5 /* tipped */)
+				.test_run(Some(2).into(), CALL, &info, 10, |origin| {
+					assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
+
+					// kill the account between pre and post dispatch
+					assert_ok!(Balances::transfer_allow_death(
+						origin,
+						3,
+						Balances::free_balance(2)
+					));
+					assert_eq!(Balances::free_balance(2), 0);
+
+					Ok(post_info_from_weight(Weight::from_parts(50, 0)))
+				})
+				.unwrap()
 				.unwrap();
-			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
-
-			// kill the account between pre and post dispatch
-			assert_ok!(Balances::transfer_allow_death(origin, 3, Balances::free_balance(2)));
-			assert_eq!(Balances::free_balance(2), 0);
-
-			let post_info = post_info_from_weight(Weight::from_parts(50, 0));
-			assert_ok!(Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())));
 			assert_eq!(Balances::free_balance(2), 0);
 			// Transfer Event
 			System::assert_has_event(RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -538,16 +543,14 @@ fn actual_weight_higher_than_max_refunds_nothing() {
 		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
-			let len = 10;
 			let info = info_from_weight(Weight::from_parts(100, 0));
-			let pre = Ext::from(5 /* tipped */)
-				.validate_and_prepare(Some(2).into(), CALL, &info, len)
+			Ext::from(5 /* tipped */)
+				.test_run(Some(2).into(), CALL, &info, 10, |_| {
+					assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
+					Ok(post_info_from_weight(Weight::from_parts(101, 0)))
+				})
 				.unwrap()
-				.0;
-			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
-
-			let post_info = post_info_from_weight(Weight::from_parts(101, 0));
-			assert_ok!(Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())));
+				.unwrap();
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 		});
 }
@@ -561,19 +564,19 @@ fn zero_transfer_on_free_transaction() {
 		.execute_with(|| {
 			// So events are emitted
 			System::set_block_number(10);
-			let len = 10;
 			let info = DispatchInfo {
 				weight: Weight::from_parts(100, 0),
 				pays_fee: Pays::No,
 				class: DispatchClass::Normal,
 			};
 			let user = 69;
-			let pre = Ext::from(0)
-				.validate_and_prepare(Some(user).into(), CALL, &info, len)
+			Ext::from(0)
+				.test_run(Some(user).into(), CALL, &info, 10, |_| {
+					assert_eq!(Balances::total_balance(&user), 0);
+					Ok(default_post_info())
+				})
 				.unwrap()
-				.0;
-			assert_eq!(Balances::total_balance(&user), 0);
-			assert_ok!(Ext::post_dispatch(pre, &info, &default_post_info(), len, &Ok(())));
+				.unwrap();
 			assert_eq!(Balances::total_balance(&user), 0);
 			// TransactionFeePaid Event
 			System::assert_has_event(RuntimeEvent::TransactionPayment(
@@ -601,9 +604,10 @@ fn refund_consistent_with_actual_weight() {
 
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
 
-			let pre =
-				Ext::from(tip).validate_and_prepare(Some(2).into(), CALL, &info, len).unwrap().0;
-			Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
+			Ext::from(tip)
+				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info))
+				.unwrap()
+				.unwrap();
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);
 			let actual_fee =
@@ -735,11 +739,10 @@ fn post_info_can_change_pays_fee() {
 
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
 
-			let pre = ChargeTransactionPayment::<Runtime>::from(tip)
-				.validate_and_prepare(Some(2).into(), CALL, &info, len)
+			let post_info = ChargeTransactionPayment::<Runtime>::from(tip)
+				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info.clone()))
 				.unwrap()
-				.0;
-			Ext::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
+				.unwrap();
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);
 			let actual_fee =

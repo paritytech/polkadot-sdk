@@ -18,44 +18,51 @@
 //! Transaction extensions.
 
 use crate::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
-use codec::{Codec, Decode, Encode};
-use scale_info::{StaticTypeInfo, TypeInfo};
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, IdentifyAccount, TransactionExtension, Verify},
+	traits::{
+		transaction_extension::{TransactionExtensionBase, TransactionExtensionInterior},
+		DispatchInfoOf, Dispatchable, IdentifyAccount, TransactionExtension, Verify,
+	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
-use sp_std::fmt::Debug;
 
 #[derive(
 	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo,
 )]
-#[scale_info(skip_type_params(Call))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
-pub struct VerifyMultiSignature<V>
+pub struct VerifyMultiSignature<V: Verify>
 where
-	V: Verify + StaticTypeInfo + Codec + Clone + Eq + PartialEq + Debug,
-	<V::Signer as IdentifyAccount>::AccountId:
-		StaticTypeInfo + Codec + Clone + Eq + PartialEq + Debug,
+	V: TransactionExtensionInterior,
+	<V::Signer as IdentifyAccount>::AccountId: TransactionExtensionInterior,
 {
 	signature: V,
 	account: <V::Signer as IdentifyAccount>::AccountId,
 }
 
-impl<V, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiSignature<V>
+impl<V: Verify> TransactionExtensionBase for VerifyMultiSignature<V>
 where
-	V: Send + Sync + Verify + TypeInfo + Codec + Clone + Eq + PartialEq + StaticTypeInfo + Debug,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Send + Sync + Clone + TypeInfo + Codec + Clone + Eq + PartialEq + StaticTypeInfo + Debug,
-	<Call as Dispatchable>::RuntimeOrigin: From<Option<<V::Signer as IdentifyAccount>::AccountId>>,
+	V: TransactionExtensionInterior,
+	<V::Signer as IdentifyAccount>::AccountId: TransactionExtensionInterior,
 {
 	const IDENTIFIER: &'static str = "VerifyMultiSignature";
+	type Implicit = ();
+}
+
+impl<V: Verify, Call: Dispatchable + Encode, Context> TransactionExtension<Call, Context>
+	for VerifyMultiSignature<V>
+where
+	V: TransactionExtensionInterior,
+	<V::Signer as IdentifyAccount>::AccountId: TransactionExtensionInterior,
+	<Call as Dispatchable>::RuntimeOrigin: From<Option<<V::Signer as IdentifyAccount>::AccountId>>,
+{
 	type Val = ();
 	type Pre = ();
-	type Implicit = ();
-	impl_tx_ext_default!(Call; implicit prepare);
+	impl_tx_ext_default!(Call; Context; implicit prepare);
 
 	fn validate(
 		&self,
@@ -63,6 +70,7 @@ where
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
+		_: &mut Context,
 		_: (),
 		inherited_implication: &impl Encode,
 	) -> Result<
