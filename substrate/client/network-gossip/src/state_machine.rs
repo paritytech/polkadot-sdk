@@ -161,6 +161,117 @@ pub struct ConsensusGossip<B: BlockT> {
 	validator: Arc<dyn Validator<B>>,
 	next_broadcast: Instant,
 	metrics: Option<Metrics>,
+	stats: Stats<B::Hash>,
+}
+
+struct Stats<Hash> {
+	seen: HashMap<Hash, (Instant, usize, usize)>, // (first_seen, size, count)
+	last_dump: Instant,
+}
+
+impl<Hash: std::fmt::Debug + Eq + std::hash::Hash> Stats<Hash> {
+	fn new() -> Stats<Hash> {
+		Stats { seen: HashMap::new(), last_dump: Instant::now() }
+	}
+
+	fn register(&mut self, hash: Hash, size: usize) {
+		// only track votes (prevote / precommit)
+		if size != 150 {
+			return
+		}
+
+		self.seen.entry(hash).or_insert_with(|| (Instant::now(), size, 0)).2 += 1;
+	}
+
+	fn dump(&mut self) {
+		if self.last_dump.elapsed() < time::Duration::from_secs(60) {
+			return
+		}
+
+		self.dump_bucket(time::Duration::ZERO, time::Duration::from_secs(1 * 60), "< 1 minute");
+
+		self.dump_bucket(
+			time::Duration::from_secs(1 * 60),
+			time::Duration::from_secs(5 * 60),
+			"[1, 5] minutes",
+		);
+
+		self.dump_bucket(
+			time::Duration::from_secs(5 * 60),
+			time::Duration::from_secs(10 * 60),
+			"[5, 10] minutes",
+		);
+
+		self.dump_bucket(
+			time::Duration::from_secs(10 * 60),
+			time::Duration::from_secs(20 * 60),
+			"[10, 20] minutes",
+		);
+
+		self.dump_bucket(time::Duration::from_secs(20 * 60), time::Duration::MAX, "> 20 minutes");
+
+		self.last_dump = Instant::now();
+	}
+
+	fn dump_bucket(&self, min_elapsed: time::Duration, max_elapsed: time::Duration, name: &str) {
+		let it = || {
+			self.seen.values().filter(|(seen, _, _)| {
+				seen.elapsed() >= min_elapsed && seen.elapsed() <= max_elapsed
+			})
+		};
+
+		let mut sizes = it().map(|(_, size, _)| size).cloned().collect::<Vec<_>>();
+
+		if sizes.is_empty() {
+			return;
+		}
+
+		let median_size = bytesize::ByteSize::b(stats_util::median(&mut sizes) as u64);
+		let total_size =
+			bytesize::ByteSize::b(it().map(|(_, size, count)| size * count).sum::<usize>() as u64);
+
+		let total_count = it().map(|(_, _, count)| count).sum::<usize>();
+
+		let mut counts = it().map(|(_, _, count)| count).cloned().collect::<Vec<_>>();
+
+		let average = stats_util::average(&counts);
+		let median = stats_util::median(&mut counts);
+		let mode = stats_util::mode(&counts);
+
+		tracing::info!(
+			target: "gossip",
+			"bucket: {}, count: {}, median size: {}, total size: {}. frequency = average: {:.1}x, median: {}x, mode: {}x",
+			name, total_count, median_size, total_size, average, median, mode
+		);
+	}
+}
+
+mod stats_util {
+	use std::collections::HashMap;
+
+	pub fn average(numbers: &[usize]) -> f64 {
+		numbers.iter().sum::<usize>() as f64 / numbers.len() as f64
+	}
+
+	pub fn median(numbers: &mut [usize]) -> usize {
+		numbers.sort();
+		let mid = numbers.len() / 2;
+		numbers[mid]
+	}
+
+	pub fn mode(numbers: &[usize]) -> usize {
+		let mut occurrences = HashMap::new();
+
+		for &value in numbers {
+			*occurrences.entry(value).or_insert(0) += 1;
+		}
+
+		occurrences
+			.into_iter()
+			.max_by_key(|&(_, count)| count)
+			.map(|(val, _)| val)
+			.expect("Cannot compute the mode of zero numbers")
+	}
 }
 
 impl<B: BlockT> ConsensusGossip<B> {
@@ -187,6 +298,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 			validator,
 			next_broadcast: Instant::now() + REBROADCAST_INTERVAL,
 			metrics,
+			stats: Stats::new(),
 		}
 	}
 
@@ -345,6 +457,8 @@ impl<B: BlockT> ConsensusGossip<B> {
 		for message in messages {
 			let message_hash = HashingFor::<B>::hash(&message[..]);
 
+			self.stats.register(message_hash, message.len());
+
 			if self.known_messages.get(&message_hash).is_some() {
 				tracing::trace!(
 					target: "gossip",
@@ -407,6 +521,8 @@ impl<B: BlockT> ConsensusGossip<B> {
 				self.register_message_hashed(message_hash, topic, message, Some(who));
 			}
 		}
+
+		self.stats.dump();
 
 		to_forward
 	}
