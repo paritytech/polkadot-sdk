@@ -708,8 +708,8 @@ frame_benchmarking::benchmarks! {
 		}).unwrap();
 		// set a claim permission to an account.
 		Pools::<T>::set_commission_claim_permission(
-			RuntimeOrigin::Signed(depositor.clone()).into(), 
-			1u32.into(), 
+			RuntimeOrigin::Signed(depositor.clone()).into(),
+			1u32.into(),
 			Some(CommissionClaimPermission::Account(claimer.clone()))
 		).unwrap();
 
@@ -814,8 +814,8 @@ frame_benchmarking::benchmarks! {
 		let _ = Pools::<T>::claim_payout(RuntimeOrigin::Signed(claimer.clone()).into());
 		// set a claim permission to an account.
 		let _ = Pools::<T>::set_commission_claim_permission(
-			RuntimeOrigin::Signed(depositor.clone()).into(), 
-			1u32.into(), 
+			RuntimeOrigin::Signed(depositor.clone()).into(),
+			1u32.into(),
 			Some(CommissionClaimPermission::Account(claimer))
 		);
 		whitelist_account!(depositor);
