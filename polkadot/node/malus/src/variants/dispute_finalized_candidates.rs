@@ -220,6 +220,7 @@ pub struct DisputeFinalizedCandidatesOptions {
 	#[clap(flatten)]
 	pub cli: Cli,
 }
+
 /// DisputeFinalizedCandidates implementation wrapper which implements `OverseerGen` glue.
 pub(crate) struct DisputeFinalizedCandidates {
 	/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of
