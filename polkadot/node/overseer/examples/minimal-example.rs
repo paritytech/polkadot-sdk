@@ -32,7 +32,7 @@ use polkadot_overseer::{
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash, PvfExecTimeoutKind};
+use polkadot_primitives::{CandidateReceipt, Hash, PvfExecKind};
 
 struct AlwaysSupportsParachains;
 
@@ -77,7 +77,7 @@ impl Subsystem1 {
 				candidate_receipt,
 				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 				executor_params: Default::default(),
-				exec_timeout_kind: PvfExecTimeoutKind::Backing,
+				exec_kind: PvfExecKind::Backing,
 				response_sender: tx,
 			};
 			ctx.send_message(msg).await;

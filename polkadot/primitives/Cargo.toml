@@ -7,7 +7,7 @@ license.workspace = true
 description = "Shared primitives used by Polkadot runtime"
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "0.4.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["bit-vec", "derive", "serde"] }

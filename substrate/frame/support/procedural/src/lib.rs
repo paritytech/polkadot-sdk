@@ -1157,6 +1157,36 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
+/// which explicitly defines the condition for the dispatchable to be feeless.
+///
+/// The arguments for the closure must be the referenced arguments of the dispatchable function.
+///
+/// The closure must return `bool`.
+///
+/// ### Example
+/// ```ignore
+/// #[pallet::feeless_if(|_origin: &OriginFor<T>, something: &u32| -> bool {
+/// 		*something == 0
+/// 	})]
+/// pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
+///     ....
+/// }
+/// ```
+///
+/// Please note that this only works for signed dispatchables and requires a signed extension
+/// such as `SkipCheckIfFeeless` as defined in `pallet-skip-feeless-payment` to wrap the existing
+/// payment extension. Else, this is completely ignored and the dispatchable is still charged.
+///
+/// ### Macro expansion
+///
+/// The macro implements the `CheckIfFeeless` trait on the dispatchable and calls the corresponding
+/// closure in the implementation.
+#[proc_macro_attribute]
+pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
 /// Allows you to define some extra constants to be added into constant metadata.
 ///
 /// Item must be defined as:
