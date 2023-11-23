@@ -18,6 +18,7 @@
 
 use crate::{
 	config, error,
+	peer_store::{PeerStoreHandle, PeerStoreProvider},
 	protocol_controller::{self, SetId},
 	service::traits::Direction,
 	types::ProtocolName,
@@ -34,12 +35,13 @@ use libp2p::{
 };
 use log::warn;
 
+use codec::DecodeAll;
 use prometheus_endpoint::Registry;
 use sc_network_common::role::Roles;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
-use std::{iter, task::Poll};
+use std::{collections::HashSet, iter, task::Poll};
 
 use notifications::{Notifications, NotificationsOut};
 
@@ -58,7 +60,7 @@ pub mod message;
 pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 1024;
 
 /// Identifier of the peerset for the block announces protocol.
-const _HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
+const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT> {
@@ -66,6 +68,11 @@ pub struct Protocol<B: BlockT> {
 	behaviour: Notifications,
 	/// List of notifications protocols that have been registered.
 	notification_protocols: Vec<ProtocolName>,
+	/// Handle to `PeerStore`.
+	peer_store_handle: PeerStoreHandle,
+	/// Streams for peers whose handshake couldn't be determined.
+	bad_handshake_streams: HashSet<PeerId>,
+	sync_handle: ProtocolHandle,
 	_marker: std::marker::PhantomData<B>,
 }
 
@@ -76,6 +83,7 @@ impl<B: BlockT> Protocol<B> {
 		registry: &Option<Registry>,
 		notification_protocols: Vec<config::NonDefaultSetConfig>,
 		block_announces_protocol: config::NonDefaultSetConfig,
+		peer_store_handle: PeerStoreHandle,
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<protocol_controller::Message>,
 	) -> error::Result<(Self, Vec<ProtocolHandle>)> {
@@ -128,12 +136,19 @@ impl<B: BlockT> Protocol<B> {
 
 		let protocol = Self {
 			behaviour,
+			sync_handle: handles[0].clone(),
+			peer_store_handle,
 			notification_protocols,
+			bad_handshake_streams: HashSet::new(),
 			// TODO: remove when `BlockAnnouncesHandshake` is moved away from `Protocol`
 			_marker: Default::default(),
 		};
 
 		Ok((protocol, handles))
+	}
+
+	pub fn num_sync_peers(&self) -> usize {
+		self.sync_handle.num_peers()
 	}
 
 	/// Returns the list of all the peers we have an open channel to.
@@ -151,6 +166,15 @@ impl<B: BlockT> Protocol<B> {
 			self.behaviour.disconnect_peer(peer_id, SetId::from(position));
 		} else {
 			warn!(target: "sub-libp2p", "disconnect_peer() with invalid protocol name")
+		}
+	}
+
+	/// Check if role is available for `peer_id` by attempt to decode the handshake to roles and if
+	/// that fails, check if the role has been registered to `PeerStore`.
+	fn role_available(&self, peer_id: &PeerId, handshake: &Vec<u8>) -> bool {
+		match Roles::decode_all(&mut &handshake[..]) {
+			Ok(_) => true,
+			Err(_) => self.peer_store_handle.peer_role(&peer_id).is_some(),
 		}
 	}
 }
@@ -285,30 +309,81 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				notifications_sink,
 				negotiated_fallback,
 				..
-			} => CustomMessageOutcome::NotificationStreamOpened {
-				remote: peer_id,
-				set_id,
-				direction,
-				negotiated_fallback,
-				received_handshake,
-				notifications_sink,
-			},
+			} =>
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self.sync_handle.report_substream_opened(
+						peer_id,
+						direction,
+						received_handshake,
+						negotiated_fallback,
+						notifications_sink,
+					);
+					None
+				} else {
+					match self.role_available(&peer_id, &received_handshake) {
+						true => Some(CustomMessageOutcome::NotificationStreamOpened {
+							remote: peer_id,
+							set_id,
+							direction,
+							negotiated_fallback,
+							received_handshake,
+							notifications_sink,
+						}),
+						false => {
+							self.bad_handshake_streams.insert(peer_id);
+							None
+						},
+					}
+				},
 			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } =>
-				CustomMessageOutcome::NotificationStreamReplaced {
-					remote: peer_id,
-					set_id,
-					notifications_sink,
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self
+						.sync_handle
+						.report_notification_sink_replaced(peer_id, notifications_sink);
+					None
+				} else {
+					(!self.bad_handshake_streams.contains(&peer_id)).then_some(
+						CustomMessageOutcome::NotificationStreamReplaced {
+							remote: peer_id,
+							set_id,
+							notifications_sink,
+						},
+					)
 				},
-			NotificationsOut::CustomProtocolClosed { peer_id, set_id } =>
-				CustomMessageOutcome::NotificationStreamClosed { remote: peer_id, set_id },
-			NotificationsOut::Notification { peer_id, set_id, message } =>
-				CustomMessageOutcome::NotificationsReceived {
-					remote: peer_id,
-					set_id,
-					notification: message.freeze().into(),
-				},
+			NotificationsOut::CustomProtocolClosed { peer_id, set_id } => {
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self.sync_handle.report_substream_closed(peer_id);
+					None
+				} else {
+					(!self.bad_handshake_streams.remove(&peer_id)).then_some(
+						CustomMessageOutcome::NotificationStreamClosed { remote: peer_id, set_id },
+					)
+				}
+			},
+			NotificationsOut::Notification { peer_id, set_id, message } => {
+				if set_id == HARDCODED_PEERSETS_SYNC {
+					let _ = self
+						.sync_handle
+						.report_notification_received(peer_id, message.freeze().into());
+					None
+				} else {
+					(!self.bad_handshake_streams.contains(&peer_id)).then_some(
+						CustomMessageOutcome::NotificationsReceived {
+							remote: peer_id,
+							set_id,
+							notification: message.freeze().into(),
+						},
+					)
+				}
+			},
 		};
 
-		return Poll::Ready(ToSwarm::GenerateEvent(outcome))
+		match outcome {
+			Some(event) => Poll::Ready(ToSwarm::GenerateEvent(event)),
+			None => {
+				cx.waker().wake_by_ref();
+				Poll::Pending
+			},
+		}
 	}
 }
