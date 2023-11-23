@@ -16,7 +16,7 @@
 
 //! Extrinsics implementing the relay chain side of the Coretime interface.
 //!
-//! https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md
+//! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
 // #[cfg(test)]
 // mod tests;
