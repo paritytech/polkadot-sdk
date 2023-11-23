@@ -774,7 +774,7 @@ frame_benchmarking::benchmarks! {
 			max: None,
 			change_rate: None,
 			throttle_from: None,
-			claim_permission: Some(CommissionClaimPermission::Account(depositor).clone()),
+			claim_permission: Some(CommissionClaimPermission::Account(depositor)),
 		});
 	}
 
