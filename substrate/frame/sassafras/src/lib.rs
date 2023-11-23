@@ -314,18 +314,8 @@ pub mod pallet {
 
 			CurrentSlot::<T>::put(claim.slot);
 
-			// As the slots may not be zero-based, we need to keep track of what is the
-			// slot used for the first block.
 			if frame_system::Pallet::<T>::block_number() == One::one() {
-				GenesisSlot::<T>::put(claim.slot);
-
-				// Deposit a log as this is the first block in first epoch.
-				let next_epoch = NextEpochDescriptor {
-					randomness: Self::next_randomness(),
-					authorities: Self::next_authorities().into_inner(),
-					config: None,
-				};
-				Self::deposit_next_epoch_descriptor_digest(next_epoch);
+				Self::post_genesis_initialize(claim.slot);
 			}
 
 			let randomness_output = claim
@@ -746,6 +736,28 @@ impl<T: Config> Pallet<T> {
 			.expect("Initial number of authorities should be lower than T::MaxAuthorities");
 		Authorities::<T>::put(&authorities);
 		NextAuthorities::<T>::put(&authorities);
+	}
+
+	// Method to be called on first block `on_initialize` to properly populate some key parameters.
+	fn post_genesis_initialize(slot: Slot) {
+		// Keep track of the actual first slot used (may not be zero based).
+		GenesisSlot::<T>::put(slot);
+
+		// Properly initialize accumulator and randomness using the genesis hash.
+		// This is important to guarantee that the tickets of two different chains using the
+		// same ring parameters are not interchangeable.
+		let genesis_hash = frame_system::Pallet::<T>::parent_hash();
+		let randomness = hashing::blake2_256(genesis_hash.as_ref());
+		RandomnessAccumulator::<T>::put(randomness);
+		let next_randoness = Self::update_epoch_randomness(1);
+
+		// Deposit a log as this is the first block in first epoch.
+		let next_epoch = NextEpochDescriptor {
+			randomness: next_randoness,
+			authorities: Self::next_authorities().into_inner(),
+			config: None,
+		};
+		Self::deposit_next_epoch_descriptor_digest(next_epoch);
 	}
 
 	/// Current epoch information.
