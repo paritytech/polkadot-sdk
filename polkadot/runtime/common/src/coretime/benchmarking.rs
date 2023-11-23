@@ -21,6 +21,10 @@
 use super::{Pallet, *};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
+use xcm::latest::prelude::*;
+// TODO: Find a more future proof way to provide this
+const BROKER_ID: u32 = 1004;
+const BROKER_LOCATION: MultiLocation = MultiLocation { parents: 0, interior: X1(Parachain(BROKER_ID)) };
 
 #[benchmarks]
 mod benchmarks {
@@ -28,8 +32,6 @@ mod benchmarks {
 	#[benchmark]
 	fn assign_core() {
 		// Setup
-		let caller: T::AccountId = whitelisted_caller(); // TODO: Make this the broker parachain origin
-
 		// Use valid assignment set with maximum number of assignments to maximize work
 		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; 100]
 			.into_iter()

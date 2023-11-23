@@ -998,6 +998,7 @@ impl coretime::Config for Runtime {
 	type Currency = Balances;
 	//type WeightInfo = weights::runtime_coretime::WeightInfo<Runtime>;
 	type ExternalBrokerOrigin = EnsureXcm<OnlyBroker>;
+	type WeightInfo = runtime_common::coretime::TestWeightInfo;
 }
 
 impl parachains_assigner_bulk::Config for Runtime {}

@@ -18,6 +18,7 @@
 //!
 //! https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md
 
+mod benchmarking;
 #[cfg(test)]
 mod tests;
 
@@ -80,6 +81,8 @@ pub mod pallet {
 		/// The external origin allowed to enact coretime extrinsics. Usually the broker system
 		/// parachain.
 		type ExternalBrokerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Something that provides the weight of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::error]
@@ -136,6 +139,7 @@ pub mod pallet {
 		// TODO: Weights!
 		//#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
 		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
 		pub fn assign_core(
 			origin: OriginFor<T>,
 			core: CoreIndex,
