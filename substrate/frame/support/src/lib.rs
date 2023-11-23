@@ -106,7 +106,8 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::TypeId;
 pub use sp_runtime::{
-	self, ensure, fail, print, runtime_print, traits::Printable, ConsensusEngineId,
+	self, ensure, fail, print, runtime_print, traits::Printable, CloneNoBound, ConsensusEngineId,
+	DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 	MAX_MODULE_ERROR_ENCODED_SIZE,
 };
 
