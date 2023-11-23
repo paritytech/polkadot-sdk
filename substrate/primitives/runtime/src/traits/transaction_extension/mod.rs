@@ -31,6 +31,7 @@ use sp_core::{self, RuntimeDebug};
 #[doc(hidden)]
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
+use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
 use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
@@ -77,6 +78,11 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		use InvalidTransaction::IndeterminateImplicit;
 		Ok(Self::Implicit::decode(&mut &[][..]).map_err(|_| IndeterminateImplicit)?)
+	}
+
+	/// The weight consumed by executing this extension instance fully during transaction dispatch.
+	fn weight(&self) -> Weight {
+		Weight::zero()
 	}
 
 	/// Returns the metadata for this extension.
@@ -373,6 +379,11 @@ impl TransactionExtensionBase for Tuple {
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(for_tuples!( ( #( Tuple.implicit()? ),* ) ))
 	}
+	fn weight(&self) -> Weight {
+		let mut weight = Weight::zero();
+		for_tuples!( #( weight += Tuple.weight(); )* );
+		weight
+	}
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		let mut ids = Vec::new();
 		for_tuples!( #( ids.extend(Tuple::metadata()); )* );
@@ -460,6 +471,9 @@ impl TransactionExtensionBase for () {
 	type Implicit = ();
 	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
+	}
+	fn weight(&self) -> Weight {
+		Weight::zero()
 	}
 }
 
