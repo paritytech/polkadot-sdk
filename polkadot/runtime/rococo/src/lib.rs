@@ -1535,7 +1535,7 @@ pub mod migrations {
 	/// Upgrade Session keys to exclude `ImOnline` key.
 	/// When this is removed, should also remove `OldSessionKeys`.
 	pub struct UpgradeSessionKeys;
-	const UPGRADE_SESSION_KEYS_FROM_SPEC: u32 = 103001;
+	const UPGRADE_SESSION_KEYS_FROM_SPEC: u32 = 104000;
 
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 		#[cfg(feature = "try-runtime")]
@@ -1547,6 +1547,10 @@ pub mod migrations {
 
 			log::info!(target: "runtime::session_keys", "Collecting pre-upgrade session keys state");
 			let key_ids = SessionKeys::key_ids();
+			frame_support::ensure!(
+				key_ids.into_iter().find(|&k| *k == sp_core::crypto::key_types::IM_ONLINE) == None,
+				"New session keys contain the ImOnline key that should have been removed",
+			);
 			let storage_key = pallet_session::QueuedKeys::<Runtime>::hashed_key();
 			let mut state: Vec<u8> = Vec::new();
 			frame_support::storage::unhashed::get::<Vec<(ValidatorId, OldSessionKeys)>>(

@@ -1557,6 +1557,8 @@ pub type Migrations = migrations::Unreleased;
 #[allow(deprecated, missing_docs)]
 pub mod migrations {
 	use super::*;
+	#[cfg(feature = "try-runtime")]
+	use sp_core::crypto::ByteArray;
 
 	parameter_types! {
 		pub const ImOnlinePalletName: &'static str = "ImOnline";
@@ -1577,6 +1579,10 @@ pub mod migrations {
 
 			log::info!(target: "runtime::session_keys", "Collecting pre-upgrade session keys state");
 			let key_ids = SessionKeys::key_ids();
+			frame_support::ensure!(
+				key_ids.into_iter().find(|&k| *k == sp_core::crypto::key_types::IM_ONLINE) == None,
+				"New session keys contain the ImOnline key that should have been removed",
+			);
 			let storage_key = pallet_session::QueuedKeys::<Runtime>::hashed_key();
 			let mut state: Vec<u8> = Vec::new();
 			frame_support::storage::unhashed::get::<Vec<(ValidatorId, OldSessionKeys)>>(
