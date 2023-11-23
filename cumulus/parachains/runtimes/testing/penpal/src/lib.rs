@@ -148,8 +148,7 @@ pub mod migrations {
 
 	pub type V1_05_00 = ();
 
-	pub type V1_05_00 = ();
-
+	#[rustfmt::skip]
 	pub type Unreleased = (
 		pallet_balances::migration::MigrateToTrackInactive<Runtime, xcm_config::CheckingAccount>,
 		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,

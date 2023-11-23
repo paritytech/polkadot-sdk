@@ -115,8 +115,7 @@ pub mod migrations {
 
 	pub type V1_05_00 = ();
 
-	pub type V1_05_00 = ();
-
+	#[rustfmt::skip]
 	pub type Unreleased = (
 		cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 		cumulus_pallet_xcmp_queue::migration::v2::MigrationToV2<Runtime>,

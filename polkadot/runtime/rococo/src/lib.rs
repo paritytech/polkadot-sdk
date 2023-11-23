@@ -1606,6 +1606,7 @@ pub mod migrations {
 	pub type V1_05_00 = ();
 
 	/// Unreleased migrations. Add new ones here:
+	#[rustfmt::skip]
 	pub type Unreleased = (
 		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
