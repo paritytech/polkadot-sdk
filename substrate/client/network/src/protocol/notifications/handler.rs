@@ -349,7 +349,7 @@ pub struct NotificationsSink {
 }
 
 impl NotificationsSink {
-	/// Create new
+	/// Create new [`NotificationsSink`].
 	/// NOTE: only used for testing but must be `pub` as other crates in `client/network` use this.
 	pub fn new(
 		peer_id: PeerId,

@@ -109,7 +109,6 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 					},
 					notif_handle,
 					command_stream,
-					// protocol_handle_pair,
 				)),
 			),
 			peer_store_future: peer_store.run().boxed(),

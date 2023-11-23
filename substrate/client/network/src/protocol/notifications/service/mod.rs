@@ -46,7 +46,7 @@ pub(crate) mod metrics;
 mod tests;
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "notification-service";
+const LOG_TARGET: &str = "sub-libp2p";
 
 /// Default command queue size.
 const COMMAND_QUEUE_SIZE: usize = 64;
@@ -231,8 +231,6 @@ impl NotificationService for NotificationHandle {
 
 	/// Send synchronous `notification` to `peer`.
 	fn send_sync_notification(&self, peer: &PeerId, notification: Vec<u8>) {
-		log::trace!(target: LOG_TARGET, "{}: send sync notification to {peer:?}", self.protocol);
-
 		if let Some(info) = self.peers.get(&peer) {
 			metrics::register_notification_sent(
 				&info.sink.metrics(),
@@ -250,8 +248,6 @@ impl NotificationService for NotificationHandle {
 		peer: &PeerId,
 		notification: Vec<u8>,
 	) -> Result<(), error::Error> {
-		log::trace!(target: LOG_TARGET, "{}: send async notification to {peer:?}", self.protocol);
-
 		let notification_len = notification.len();
 		let sink = &self.peers.get(&peer).ok_or_else(|| error::Error::PeerDoesntExist(*peer))?.sink;
 

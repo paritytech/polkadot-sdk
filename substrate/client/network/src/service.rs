@@ -382,7 +382,6 @@ where
 			&params.metrics_registry,
 			notification_protocols,
 			params.block_announce_config,
-			params.peer_store.clone(),
 			protocol_handles.clone(),
 			from_protocol_controllers,
 		)?;
@@ -1009,7 +1008,6 @@ where
 	}
 }
 
-// TODO(aaro): remove this trait
 impl<B, H> NetworkNotification for NetworkService<B, H>
 where
 	B: BlockT + 'static,

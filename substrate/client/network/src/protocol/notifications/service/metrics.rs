@@ -45,7 +45,7 @@ impl Metrics {
 				HistogramVec::new(
 					HistogramOpts {
 						common_opts: Opts::new(
-							"substrate_sub_libp2p_notification_service_total_sizes",
+							"substrate_sub_libp2p_notifications_sizes",
 							"Sizes of the notifications send to and received from all nodes",
 						),
 						buckets: prometheus::exponential_buckets(64.0, 4.0, 8)
@@ -58,7 +58,7 @@ impl Metrics {
 			notifications_streams_closed_total: prometheus::register(
 				CounterVec::new(
 					Opts::new(
-						"substrate_sub_libp2p_notification_service_streams_closed_total",
+						"substrate_sub_libp2p_notifications_streams_closed_total",
 						"Total number of notification substreams that have been closed",
 					),
 					&["protocol"],
@@ -68,7 +68,7 @@ impl Metrics {
 			notifications_streams_opened_total: prometheus::register(
 				CounterVec::new(
 					Opts::new(
-						"substrate_sub_libp2p_notification_service_streams_opened_total",
+						"substrate_sub_libp2p_notifications_streams_opened_total",
 						"Total number of notification substreams that have been opened",
 					),
 					&["protocol"],

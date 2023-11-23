@@ -18,14 +18,12 @@
 
 use crate::{
 	config, error,
-	peer_store::PeerStoreHandle,
 	protocol_controller::{self, SetId},
 	service::traits::Direction,
 	types::ProtocolName,
 };
 
 use codec::Encode;
-use futures::{stream::FuturesUnordered, StreamExt};
 use libp2p::{
 	core::Endpoint,
 	swarm::{
@@ -41,7 +39,7 @@ use sc_network_common::role::Roles;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
-use std::{collections::HashMap, future::Future, iter, pin::Pin, task::Poll};
+use std::{iter, task::Poll};
 
 use notifications::{Notifications, NotificationsOut};
 
@@ -60,22 +58,14 @@ pub mod message;
 pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 1024;
 
 /// Identifier of the peerset for the block announces protocol.
-const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
-
-type PendingSyncSubstreamValidation =
-	Pin<Box<dyn Future<Output = Result<(PeerId, Roles), PeerId>> + Send>>;
+const _HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT> {
-	// /// Used to report reputation changes.
-	// peer_store_handle: PeerStoreHandle,
 	/// Handles opening the unique substream and sending and receiving raw messages.
 	behaviour: Notifications,
 	/// List of notifications protocols that have been registered.
 	notification_protocols: Vec<ProtocolName>,
-	/// Connected peers on sync protocol.
-	peers: HashMap<PeerId, Roles>,
-	sync_substream_validations: FuturesUnordered<PendingSyncSubstreamValidation>,
 	_marker: std::marker::PhantomData<B>,
 }
 
@@ -86,7 +76,6 @@ impl<B: BlockT> Protocol<B> {
 		registry: &Option<Registry>,
 		notification_protocols: Vec<config::NonDefaultSetConfig>,
 		block_announces_protocol: config::NonDefaultSetConfig,
-		_peer_store_handle: PeerStoreHandle,
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<protocol_controller::Message>,
 	) -> error::Result<(Self, Vec<ProtocolHandle>)> {
@@ -140,8 +129,6 @@ impl<B: BlockT> Protocol<B> {
 		let protocol = Self {
 			behaviour,
 			notification_protocols,
-			peers: HashMap::new(),
-			sync_substream_validations: FuturesUnordered::new(),
 			// TODO: remove when `BlockAnnouncesHandshake` is moved away from `Protocol`
 			_marker: Default::default(),
 		};
@@ -181,29 +168,35 @@ pub enum CustomMessageOutcome {
 		direction: Direction,
 		/// See [`crate::Event::NotificationStreamOpened::negotiated_fallback`].
 		negotiated_fallback: Option<ProtocolName>,
-		// roles: Roles,
+		/// Received handshake.
 		received_handshake: Vec<u8>,
+		/// Notification sink.
 		notifications_sink: NotificationsSink,
 	},
 	/// The [`NotificationsSink`] of some notification protocols need an update.
 	NotificationStreamReplaced {
+		// Peer ID.
 		remote: PeerId,
+		/// Set ID.
 		set_id: SetId,
-		// protocol: ProtocolName,
+		/// New notification sink.
 		notifications_sink: NotificationsSink,
 	},
 	/// Notification protocols have been closed with a remote.
 	NotificationStreamClosed {
+		// Peer ID.
 		remote: PeerId,
+		/// Set ID.
 		set_id: SetId,
-		// protocol: ProtocolName,
 	},
 	/// Messages have been received on one or more notifications protocols.
 	NotificationsReceived {
+		// Peer ID.
 		remote: PeerId,
+		/// Set ID.
 		set_id: SetId,
+		/// Received notification.
 		notification: Vec<u8>,
-		// messages: Vec<(ProtocolName, Bytes)>,
 	},
 }
 
@@ -271,23 +264,6 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 		cx: &mut std::task::Context,
 		params: &mut impl PollParameters,
 	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
-		while let Poll::Ready(Some(validation_result)) =
-			self.sync_substream_validations.poll_next_unpin(cx)
-		{
-			match validation_result {
-				Ok((peer, roles)) => {
-					self.peers.insert(peer, roles);
-				},
-				Err(peer) => {
-					log::debug!(
-						target: "sub-libp2p",
-						"`SyncingEngine` rejected stream"
-					);
-					self.behaviour.disconnect_peer(&peer, HARDCODED_PEERSETS_SYNC);
-				},
-			}
-		}
-
 		let event = match self.behaviour.poll(cx, params) {
 			Poll::Pending => return Poll::Pending,
 			Poll::Ready(ToSwarm::GenerateEvent(ev)) => ev,
