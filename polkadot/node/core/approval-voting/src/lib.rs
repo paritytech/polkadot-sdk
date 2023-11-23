@@ -81,7 +81,7 @@ use std::{
 		btree_map::Entry as BTMEntry, hash_map::Entry as HMEntry, BTreeMap, HashMap, HashSet,
 	},
 	sync::Arc,
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 use schnellru::{ByLength, LruMap};
@@ -775,6 +775,8 @@ struct State {
 	clock: Box<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	spans: HashMap<Hash, jaeger::PerLeafSpan>,
+	spent_assignments: u128,
+	spent_approvals: u128,
 }
 
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
@@ -929,6 +931,8 @@ where
 		clock,
 		assignment_criteria,
 		spans: HashMap::new(),
+		spent_approvals: 0,
+		spent_assignments: 0,
 	};
 
 	// `None` on start-up. Gets initialized/updated on leaf update
@@ -1590,6 +1594,7 @@ async fn handle_from_overseer<Context>(
 		},
 		FromOrchestra::Communication { msg } => match msg {
 			ApprovalVotingMessage::CheckAndImportAssignment(a, claimed_cores, res) => {
+				let start = Instant::now();
 				let (check_outcome, actions) = check_and_import_assignment(
 					ctx.sender(),
 					state,
@@ -1600,11 +1605,13 @@ async fn handle_from_overseer<Context>(
 				)
 				.await?;
 				let _ = res.send(check_outcome);
-
+				state.spent_assignments += start.elapsed().as_nanos();
 				actions
 			},
-			ApprovalVotingMessage::CheckAndImportApproval(a, res) =>
-				check_and_import_approval(
+			ApprovalVotingMessage::CheckAndImportApproval(a, res) => {
+				let start = Instant::now();
+
+				let res = check_and_import_approval(
 					ctx.sender(),
 					state,
 					db,
@@ -1616,7 +1623,10 @@ async fn handle_from_overseer<Context>(
 					},
 				)
 				.await?
-				.0,
+				.0;
+				state.spent_approvals += start.elapsed().as_nanos();
+				res
+			},
 			ApprovalVotingMessage::ApprovedAncestor(target, lower_bound, res) => {
 				let mut approved_ancestor_span = state
 					.spans
@@ -1625,6 +1635,7 @@ async fn handle_from_overseer<Context>(
 					.unwrap_or_else(|| jaeger::Span::new(target, "approved-ancestor"))
 					.with_stage(jaeger::Stage::ApprovalChecking)
 					.with_string_tag("leaf", format!("{:?}", target));
+				gum::info!(target: LOG_TARGET, "Spent ancestor assignments {} approvals {}", state.spent_assignments / 1000 / 1000, state.spent_approvals / 1000 / 1000);
 				match handle_approved_ancestor(
 					ctx,
 					db,

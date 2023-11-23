@@ -28,4 +28,5 @@ pub mod configuration;
 pub mod display;
 pub mod environment;
 pub mod keyring;
+pub mod mock_subsystems;
 pub mod network;

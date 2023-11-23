@@ -56,7 +56,7 @@ use polkadot_primitives::{
 use rand::{CryptoRng, Rng, SeedableRng};
 use std::{
 	collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 mod metrics;
@@ -114,6 +114,7 @@ struct ApprovalRouting {
 	required_routing: RequiredRouting,
 	local: bool,
 	random_routing: RandomRouting,
+	random_peers: Vec<PeerId>,
 }
 
 // This struct is responsible for tracking the full state of an assignment and grid routing
@@ -343,6 +344,21 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	count_approved_allowed: u128,
+	count_approved_accepted: u128,
+	count_build_list: u128,
+	count_distribute: u128,
+	count_note_approval: u128,
+	count_assignments_for_approval: u128,
+	count_next: u128,
+	count_next2: u128,
+	count_build_list_of_assignments: u128,
+	count_partition_list_of_assignments: u128,
+	count_mark_sent_assignments: u128,
+	count_send_of_assignments: u128,
+	peer_filter_in_topology: u128,
+	peer_filter_assignments: u128,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -646,9 +662,9 @@ impl BlockEntry {
 	pub fn note_approval(
 		&mut self,
 		approval: IndirectSignedApprovalVoteV2,
-	) -> Result<RequiredRouting, ApprovalEntryError> {
+	) -> Result<(RequiredRouting, HashSet<PeerId>), ApprovalEntryError> {
 		let mut required_routing = None;
-
+		let mut random_peer_ids = HashSet::new();
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
 			return Err(ApprovalEntryError::CandidateIndexOutOfBounds)
 		}
@@ -670,7 +686,7 @@ impl BlockEntry {
 				self.approval_entries.get_mut(&(approval.validator, assignment_bitfield))
 			{
 				approval_entry.note_approval(approval.clone())?;
-
+				random_peer_ids.extend(approval_entry.routing_info().random_peers.iter());
 				if let Some(required_routing) = required_routing {
 					if required_routing != approval_entry.routing_info().required_routing {
 						// This shouldn't happen since the required routing is computed based on the
@@ -688,7 +704,7 @@ impl BlockEntry {
 		}
 
 		if let Some(required_routing) = required_routing {
-			Ok(required_routing)
+			Ok((required_routing, random_peer_ids))
 		} else {
 			Err(ApprovalEntryError::UnknownAssignment)
 		}
@@ -1489,7 +1505,12 @@ impl State {
 		let approval_entry = entry.insert_approval_entry(ApprovalEntry::new(
 			assignment.clone(),
 			claimed_candidate_indices.clone(),
-			ApprovalRouting { required_routing, local, random_routing: Default::default() },
+			ApprovalRouting {
+				required_routing,
+				local,
+				random_routing: Default::default(),
+				random_peers: Default::default(),
+			},
 		));
 
 		// Dispatch the message to all peers in the routing set which
@@ -1531,6 +1552,7 @@ impl State {
 
 			if route_random {
 				approval_entry.routing_info_mut().random_routing.inc_sent();
+				approval_entry.routing_info_mut().random_peers.push(peer);
 				peers.push(peer);
 			}
 		}
@@ -1667,7 +1689,7 @@ impl State {
 			.with_string_tag("block-hash", format!("{:?}", vote.block_hash))
 			.with_optional_peer_id(source.peer_id().as_ref())
 			.with_stage(jaeger::Stage::ApprovalDistribution);
-
+		let start = Instant::now();
 		let block_hash = vote.block_hash;
 		let validator_index = vote.validator;
 		let candidate_indices = &vote.candidate_indices;
@@ -1719,6 +1741,8 @@ impl State {
 				return
 			}
 
+			self.count_approved_allowed += start.elapsed().as_nanos();
+
 			let (tx, rx) = oneshot::channel();
 
 			ctx.send_message(ApprovalVotingMessage::CheckAndImportApproval(vote.clone(), tx))
@@ -1741,6 +1765,8 @@ impl State {
 				?vote,
 				"Checked approval",
 			);
+			self.count_approved_accepted += start.elapsed().as_nanos();
+
 			match result {
 				ApprovalCheckResult::Accepted => {
 					modify_reputation(
@@ -1797,7 +1823,7 @@ impl State {
 			}
 		}
 
-		let required_routing = match entry.note_approval(vote.clone()) {
+		let (required_routing, random_peer_ids) = match entry.note_approval(vote.clone()) {
 			Ok(required_routing) => required_routing,
 			Err(err) => {
 				gum::warn!(
@@ -1812,8 +1838,10 @@ impl State {
 				return
 			},
 		};
+		self.count_note_approval += start.elapsed().as_nanos();
 
 		let assignments = entry.assignments_for_approval(&vote).unwrap_or_default();
+		self.count_assignments_for_approval += start.elapsed().as_nanos();
 
 		// Invariant: to our knowledge, none of the peers except for the `source` know about the
 		// approval.
@@ -1825,8 +1853,9 @@ impl State {
 		let source_peer = source.peer_id();
 
 		let peer_filter = move |peer, knowledge: &PeerKnowledge| {
+			let start = Instant::now();
 			if Some(peer) == source_peer.as_ref() {
-				return false
+				return (false, 0, 0)
 			}
 
 			// Here we're leaning on a few behaviors of assignment propagation:
@@ -1840,45 +1869,68 @@ impl State {
 			//   3. Any randomly selected peers have been sent the assignment already.
 			let in_topology = topology
 				.map_or(false, |t| t.local_grid_neighbors().route_to_peer(required_routing, peer));
-			in_topology || knowledge.sent.contains_any(&assignments_knowledge_keys)
+			let in_topology_duration = start.elapsed().as_nanos();
+			(
+				in_topology || random_peer_ids.contains(peer),
+				in_topology_duration,
+				start.elapsed().as_nanos(),
+			)
 		};
+		self.count_next += start.elapsed().as_nanos();
 
 		let peers = entry
 			.known_by
 			.iter()
-			.filter(|(p, k)| peer_filter(p, k))
+			.filter(|(p, k)| {
+				let (filter_result, duration1, duration2) = peer_filter(p, k);
+				self.peer_filter_in_topology += duration1;
+				self.peer_filter_assignments += duration2;
+				filter_result
+			})
 			.filter_map(|(p, _)| self.peer_views.get(p).map(|entry| (*p, entry.version)))
 			.collect::<Vec<_>>();
 
+		self.count_next2 += start.elapsed().as_nanos();
+		let mut total_assignments = 0;
 		// Add the metadata of the assignment to the knowledge of each peer.
 		for peer in peers.iter() {
+			let start = Instant::now();
 			// we already filtered peers above, so this should always be Some
 			if let Some(entry) = entry.known_by.get_mut(&peer.0) {
 				// A random assignment could have been sent to the peer, so we need to make sure
 				// we send all the other assignments, before we can send the corresponding approval.
-				let (sent_to_peer, notknown_by_peer) = entry.partition_sent_notknown(&assignments);
-				if !notknown_by_peer.is_empty() {
-					let notknown_by_peer = notknown_by_peer
-						.into_iter()
-						.map(|(assignment, bitfield)| (assignment.clone(), bitfield.clone()))
-						.collect_vec();
-					gum::trace!(
-						target: LOG_TARGET,
-						?block_hash,
-						?peer,
-						missing = notknown_by_peer.len(),
-						part1 = sent_to_peer.len(),
-						"Sending missing assignments",
-					);
+				// let (sent_to_peer, notknown_by_peer) =
+				// entry.partition_sent_notknown(&assignments);
+				self.count_partition_list_of_assignments += start.elapsed().as_nanos();
+				// if !notknown_by_peer.is_empty() {
+				// 	let notknown_by_peer = notknown_by_peer
+				// 		.into_iter()
+				// 		.map(|(assignment, bitfield)| (assignment.clone(), bitfield.clone()))
+				// 		.collect_vec();
+				// 	gum::trace!(
+				// 		target: LOG_TARGET,
+				// 		?block_hash,
+				// 		?peer,
+				// 		missing = notknown_by_peer.len(),
+				// 		part1 = sent_to_peer.len(),
+				// 		"Sending missing assignments",
+				// 	);
+				// 	self.count_build_list_of_assignments += start.elapsed().as_nanos();
 
-					entry.mark_sent(&notknown_by_peer);
-					send_assignments_batched(ctx.sender(), notknown_by_peer, &[(peer.0, peer.1)])
-						.await;
-				}
+				// 	entry.mark_sent(&notknown_by_peer);
+				// 	self.count_mark_sent_assignments += start.elapsed().as_nanos();
+				// 	total_assignments = notknown_by_peer.len();
+				// 	send_assignments_batched(ctx.sender(), notknown_by_peer, &[(peer.0, peer.1)])
+				// 		.await;
+				// 	self.count_send_of_assignments += start.elapsed().as_nanos();
+				// }
 
 				entry.sent.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1);
 			}
 		}
+		gum::info!("PEEERS  ===== peers {:} len {:}", peers.len(), total_assignments);
+
+		self.count_build_list += start.elapsed().as_nanos();
 
 		if !peers.is_empty() {
 			let approvals = vec![vote];
@@ -1891,6 +1943,7 @@ impl State {
 			);
 			send_approvals_batched(ctx.sender(), approvals, &peers).await;
 		}
+		self.count_distribute += start.elapsed().as_nanos();
 	}
 
 	/// Retrieve approval signatures from state for the given relay block/indices:
@@ -1985,8 +2038,7 @@ impl State {
 						// randomly sample peers.
 						{
 							let required_routing = approval_entry.routing_info().required_routing;
-							let random_routing =
-								&mut approval_entry.routing_info_mut().random_routing;
+							let random_routing = &mut approval_entry.routing_info_mut();
 							let rng = &mut *rng;
 							let mut peer_filter = move |peer_id| {
 								let in_topology = topology.as_ref().map_or(false, |t| {
@@ -2001,9 +2053,11 @@ impl State {
 										return false
 									}
 
-									let route_random = random_routing.sample(total_peers, rng);
+									let route_random =
+										random_routing.random_routing.sample(total_peers, rng);
 									if route_random {
-										random_routing.inc_sent();
+										random_routing.random_routing.inc_sent();
+										random_routing.random_peers.push(*peer_id);
 									}
 
 									route_random
@@ -2595,6 +2649,25 @@ impl ApprovalDistribution {
 					.await;
 			},
 			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
+				gum::info!(
+					target: LOG_TARGET,
+					count_approved_allowed = state.count_approved_allowed / 1000 / 1000,
+					count_approved_accepted = state.count_approved_accepted / 1000 / 1000,
+					count_note_approval = state.count_note_approval/ 1000 / 1000,
+					count_assignments_for_approval = state.count_assignments_for_approval/ 1000 / 1000,
+					count_next = state.count_next/ 1000 / 1000,
+					count_next2 = state.count_next2/ 1000 / 1000,
+					count_partition_list_of_assignments = state.count_partition_list_of_assignments/ 1000 / 1000,
+					count_build_list_of_assignments = state.count_build_list_of_assignments/ 1000 / 1000,
+					count_mark_sent_assignments = state.count_mark_sent_assignments/ 1000 / 1000,
+					count_send_of_assignments = state.count_send_of_assignments/ 1000 / 1000,
+					count_build_list = state.count_build_list / 1000 /1000,
+					count_distribute = state.count_distribute / 1000 / 1000,
+					peer_filter_in_topology = state.peer_filter_in_topology / 1000 / 1000,
+					peer_filter_assignments = state.peer_filter_assignments / 1000 / 1000,
+					count_distribute = state.count_distribute / 1000 / 1000,
+					"Sent distro"
+				);
 				let sigs = state.get_approval_signatures(indices);
 				if let Err(_) = tx.send(sigs) {
 					gum::debug!(
