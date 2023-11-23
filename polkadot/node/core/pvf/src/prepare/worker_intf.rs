@@ -318,7 +318,7 @@ where
 {
 	// Create the tmp file here so that the child doesn't need any file creation rights. This will
 	// be cleared at the end of this function.
-	let tmp_file = worker_dir::prepare_tmp_artifact(&worker_dir.path);
+	let tmp_file = worker_dir::prepare_tmp_artifact(worker_dir.path());
 	if let Err(err) = tokio::fs::File::create(&tmp_file).await {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -333,7 +333,7 @@ where
 		}
 	};
 
-	let worker_dir_path = worker_dir.path.clone();
+	let worker_dir_path = worker_dir.path().to_owned();
 	let outcome = f(tmp_file, stream, worker_dir).await;
 
 	// Try to clear the worker dir.
