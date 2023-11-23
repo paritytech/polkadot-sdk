@@ -35,7 +35,7 @@ COPY ./artifacts/polkadot-prepare-worker /usr/local/bin/
 # add polkadot-parachain binary to the docker image
 COPY ./artifacts/polkadot-parachain /usr/local/bin
 # copy substrate-relay to the docker image
-COPY --from=relay /home/user/substrate-relay /usr/local/bin/
+COPY --from=relay-builder /home/user/substrate-relay /usr/local/bin/
 # finally - we need bridges zombienet runner and tests
 RUN	mkdir -p /home/nonroot/bridges
 COPY ./artifacts/bridges /home/nonroot/bridges
