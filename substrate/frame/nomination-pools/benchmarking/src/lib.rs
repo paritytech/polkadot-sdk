@@ -723,7 +723,7 @@ frame_benchmarking::benchmarks! {
 					min_delay: 0u32.into()
 			}),
 			throttle_from: Some(1u32.into()),
-			claim_permission: CommissionClaimPermission::Account(depositor),
+			claim_permission: Some(CommissionClaimPermission::Account(depositor)),
 		});
 	}
 
@@ -764,10 +764,9 @@ frame_benchmarking::benchmarks! {
   }
 
 	set_commission_claim_permission {
-		let claimer = account("claimer", USER_SEED + 4, 0);
 		// Create a pool.
 		let (depositor, pool_account) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
-	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), CommissionClaimPermission::Account(claimer.clone()))
+	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), CommissionClaimPermission::Account(depositor.clone()))
 	verify {
 		assert_eq!(
 			BondedPools::<T>::get(1).unwrap().commission, Commission {
@@ -775,7 +774,7 @@ frame_benchmarking::benchmarks! {
 			max: None,
 			change_rate: None,
 			throttle_from: None,
-			claim_permission: CommissionClaimPermission::Account(claimer),
+			claim_permission: CommissionClaimPermission::Account(depositor).clone(),
 		});
 	}
 
