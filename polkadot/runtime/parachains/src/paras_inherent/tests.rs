@@ -688,6 +688,11 @@ mod enter {
 				Pallet::<Test>::on_chain_votes().unwrap().session,
 				2
 			);
+
+			assert_ok!(Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				limit_inherent_data,
+			));
 		});
 	}
 
