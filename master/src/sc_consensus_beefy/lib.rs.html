@@ -603,7 +603,7 @@
 <span class="kw">use </span>sc_consensus::BlockImport;
 <span class="kw">use </span>sc_network::{NetworkRequest, ProtocolName};
 <span class="kw">use </span>sc_network_gossip::{GossipEngine, Network <span class="kw">as </span>GossipNetwork, Syncing <span class="kw">as </span>GossipSyncing};
-<span class="kw">use </span>sp_api::{HeaderT, NumberFor, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_blockchain::{
 	Backend <span class="kw">as </span>BlockchainBackend, Error <span class="kw">as </span>ClientError, HeaderBackend, <span class="prelude-ty">Result </span><span class="kw">as </span>ClientResult,
 };
@@ -614,7 +614,7 @@
 };
 <span class="kw">use </span>sp_keystore::KeystorePtr;
 <span class="kw">use </span>sp_mmr_primitives::MmrApi;
-<span class="kw">use </span>sp_runtime::traits::{Block, Zero};
+<span class="kw">use </span>sp_runtime::traits::{Block, Header <span class="kw">as </span>HeaderT, NumberFor, Zero};
 <span class="kw">use </span>std::{
 	collections::{BTreeMap, VecDeque},
 	marker::PhantomData,

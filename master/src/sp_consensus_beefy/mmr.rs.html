@@ -256,6 +256,7 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -408,8 +409,9 @@
 </span><span class="kw">mod </span>mmr_root_provider {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{known_payloads, payload::PayloadProvider, Payload};
-	<span class="kw">use </span>sp_api::{NumberFor, ProvideRuntimeApi};
+	<span class="kw">use </span>sp_api::ProvideRuntimeApi;
 	<span class="kw">use </span>sp_mmr_primitives::MmrApi;
+	<span class="kw">use </span>sp_runtime::traits::NumberFor;
 	<span class="kw">use </span>sp_std::{marker::PhantomData, sync::Arc};
 
 	<span class="doccomment">/// A [`crate::Payload`] provider where payload is Merkle Mountain Range root hash.

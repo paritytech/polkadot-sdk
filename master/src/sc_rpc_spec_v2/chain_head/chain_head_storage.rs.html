@@ -399,8 +399,8 @@
 
 <span class="kw">use </span>sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedSender;
-<span class="kw">use </span>sp_api::BlockT;
 <span class="kw">use </span>sp_core::storage::well_known_keys;
+<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span><span class="kw">crate</span>::chain_head::event::OperationStorageItems;
 

@@ -356,14 +356,14 @@
 <span class="doccomment">/// Generates the access to the `sc_client` crate.
 </span><span class="kw">pub fn </span>generate_crate_access() -&gt; TokenStream {
 	<span class="kw">match </span>crate_name(<span class="string">&quot;sp-api&quot;</span>) {
-		<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; <span class="macro">quote!</span>(sp_api),
+		<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; <span class="macro">quote!</span>(sp_api::__private),
 		<span class="prelude-val">Ok</span>(FoundCrate::Name(renamed_name)) =&gt; {
 			<span class="kw">let </span>renamed_name = Ident::new(<span class="kw-2">&amp;</span>renamed_name, Span::call_site());
-			<span class="macro">quote!</span>(#renamed_name)
+			<span class="macro">quote!</span>(#renamed_name::__private)
 		},
 		<span class="prelude-val">Err</span>(e) =&gt;
 			<span class="kw">if let </span><span class="prelude-val">Ok</span>(FoundCrate::Name(name)) = crate_name(<span class="kw-2">&amp;</span><span class="string">&quot;frame&quot;</span>) {
-				<span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">&quot;{}::deps::{}&quot;</span>, name, <span class="string">&quot;sp_api&quot;</span>);
+				<span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">&quot;{}::deps::sp_api::__private&quot;</span>, name);
 				<span class="kw">let </span>path = syn::parse_str::&lt;syn::Path&gt;(<span class="kw-2">&amp;</span>path).expect(<span class="string">&quot;is a valid path; qed&quot;</span>);
 				<span class="macro">quote!</span>( #path )
 			} <span class="kw">else </span>{

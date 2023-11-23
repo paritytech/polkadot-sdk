@@ -178,6 +178,10 @@
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -205,9 +209,13 @@
 <span class="kw">use </span>sc_client_api::{
 	Backend <span class="kw">as </span>ClientBackend, BlockBackend, HeaderBackend, StorageProvider, UsageProvider,
 };
-<span class="kw">use </span>sp_api::{ApiExt, Core, HeaderT, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::{ApiExt, Core, ProvideRuntimeApi};
 <span class="kw">use </span>sp_blockchain::Error::RuntimeApiError;
-<span class="kw">use </span>sp_runtime::{generic::BlockId, traits::Block <span class="kw">as </span>BlockT, DigestItem, OpaqueExtrinsic};
+<span class="kw">use </span>sp_runtime::{
+	generic::BlockId,
+	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT},
+	DigestItem, OpaqueExtrinsic,
+};
 <span class="kw">use </span>sp_storage::StorageKey;
 
 <span class="kw">use </span>clap::Args;

@@ -1681,7 +1681,6 @@
 <a href="#1681" id="1681">1681</a>
 <a href="#1682" id="1682">1682</a>
 <a href="#1683" id="1683">1683</a>
-<a href="#1684" id="1684">1684</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1720,7 +1719,7 @@
 <span class="kw">use </span>sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 <span class="kw">use </span>sc_network_gossip::GossipEngine;
 <span class="kw">use </span>sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
-<span class="kw">use </span>sp_api::{BlockId, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 <span class="kw">use </span>sp_consensus::SyncOracle;
 <span class="kw">use </span>sp_consensus_beefy::{
@@ -1730,7 +1729,7 @@
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 <span class="kw">use </span>sp_runtime::{
-	generic::OpaqueDigestItemId,
+	generic::{BlockId, OpaqueDigestItemId},
 	traits::{Block, Header, NumberFor, Zero},
 	SaturatedConversion,
 };
@@ -2758,13 +2757,12 @@
 	<span class="kw">use </span>sc_client_api::{Backend <span class="kw">as </span>BackendT, HeaderBackend};
 	<span class="kw">use </span>sc_network_sync::SyncingService;
 	<span class="kw">use </span>sc_network_test::TestNetFactory;
-	<span class="kw">use </span>sp_api::HeaderT;
 	<span class="kw">use </span>sp_blockchain::Backend <span class="kw">as </span>BlockchainBackendT;
 	<span class="kw">use </span>sp_consensus_beefy::{
 		generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
 	};
-	<span class="kw">use </span>sp_runtime::traits::One;
+	<span class="kw">use </span>sp_runtime::traits::{Header <span class="kw">as </span>HeaderT, One};
 	<span class="kw">use </span>substrate_test_runtime_client::{
 		runtime::{Block, Digest, DigestItem, Header},
 		Backend,

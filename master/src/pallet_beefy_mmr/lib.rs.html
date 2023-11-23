@@ -235,6 +235,7 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -273,6 +274,7 @@
 </span><span class="kw">use </span>sp_runtime::traits::{Convert, Member};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
+<span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
 <span class="kw">use </span>sp_consensus_beefy::{
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
@@ -463,7 +465,7 @@
 	<span class="doccomment">/// API useful for BEEFY light clients.
 	</span><span class="kw">pub trait </span>BeefyMmrApi&lt;H&gt;
 	<span class="kw">where
-		</span>BeefyAuthoritySet&lt;H&gt;: sp_api::Decode,
+		</span>BeefyAuthoritySet&lt;H&gt;: Decode,
 	{
 		<span class="doccomment">/// Return the currently active BEEFY authority set proof.
 		</span><span class="kw">fn </span>authority_set_proof() -&gt; BeefyAuthoritySet&lt;H&gt;;

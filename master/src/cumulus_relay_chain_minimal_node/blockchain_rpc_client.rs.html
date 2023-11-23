@@ -485,6 +485,7 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -515,8 +516,9 @@
 };
 <span class="kw">use </span>sc_authority_discovery::{AuthorityDiscovery, Error <span class="kw">as </span>AuthorityDiscoveryError};
 <span class="kw">use </span>sc_client_api::AuxStore;
-<span class="kw">use </span>sp_api::{ApiError, BlockT, HeaderT, NumberFor, RuntimeApiInfo};
+<span class="kw">use </span>sp_api::{ApiError, RuntimeApiInfo};
 <span class="kw">use </span>sp_blockchain::Info;
+<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor};
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>BlockChainRpcClient {

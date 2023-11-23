@@ -263,10 +263,10 @@
 </span><span class="kw">use </span>sc_cli::Result;
 <span class="kw">use </span>sc_client_api::{Backend <span class="kw">as </span>ClientBackend, StorageProvider, UsageProvider};
 <span class="kw">use </span>sc_client_db::{DbHash, DbState, DbStateBuilder};
-<span class="kw">use </span>sp_api::StateBackend;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_database::{ColumnId, Transaction};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, HashingFor, Header <span class="kw">as </span>HeaderT};
+<span class="kw">use </span>sp_state_machine::Backend <span class="kw">as </span>StateBackend;
 <span class="kw">use </span>sp_trie::PrefixedMemoryDB;
 
 <span class="kw">use </span>log::{info, trace};

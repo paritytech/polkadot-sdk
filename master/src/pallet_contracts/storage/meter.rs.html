@@ -920,7 +920,6 @@
 <a href="#920" id="920">920</a>
 <a href="#921" id="921">921</a>
 <a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -956,9 +955,8 @@
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
-<span class="kw">use </span>sp_api::HashT;
 <span class="kw">use </span>sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::{Hash <span class="kw">as </span>HashT, Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};

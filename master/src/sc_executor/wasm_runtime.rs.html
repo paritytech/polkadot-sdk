@@ -555,6 +555,7 @@
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -998,6 +999,7 @@
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_api::{Core, RuntimeApiInfo};
 	<span class="kw">use </span>sp_runtime::RuntimeString;
+	<span class="kw">use </span>sp_version::{create_apis_vec, RuntimeVersion};
 	<span class="kw">use </span>sp_wasm_interface::HostFunctions;
 	<span class="kw">use </span>substrate_test_runtime::Block;
 
@@ -1027,7 +1029,7 @@
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
-			apis: <span class="macro">sp_api::create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">1</span>)]),
+			apis: <span class="macro">create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">1</span>)]),
 		};
 
 		<span class="kw">let </span>version = decode_version(<span class="kw-2">&amp;</span>old_runtime_version.encode()).unwrap();
@@ -1043,7 +1045,7 @@
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
-			apis: <span class="macro">sp_api::create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">3</span>)]),
+			apis: <span class="macro">create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">3</span>)]),
 		};
 
 		decode_version(<span class="kw-2">&amp;</span>old_runtime_version.encode()).unwrap_err();
@@ -1051,13 +1053,13 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>new_runtime_version_decodes() {
-		<span class="kw">let </span>old_runtime_version = sp_api::RuntimeVersion {
+		<span class="kw">let </span>old_runtime_version = RuntimeVersion {
 			spec_name: <span class="string">&quot;test&quot;</span>.into(),
 			impl_name: <span class="string">&quot;test&quot;</span>.into(),
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
-			apis: <span class="macro">sp_api::create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">3</span>)]),
+			apis: <span class="macro">create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">3</span>)]),
 			transaction_version: <span class="number">3</span>,
 			state_version: <span class="number">4</span>,
 		};
@@ -1066,13 +1068,13 @@
 		<span class="macro">assert_eq!</span>(<span class="number">3</span>, version.transaction_version);
 		<span class="macro">assert_eq!</span>(<span class="number">0</span>, version.state_version);
 
-		<span class="kw">let </span>old_runtime_version = sp_api::RuntimeVersion {
+		<span class="kw">let </span>old_runtime_version = RuntimeVersion {
 			spec_name: <span class="string">&quot;test&quot;</span>.into(),
 			impl_name: <span class="string">&quot;test&quot;</span>.into(),
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
-			apis: <span class="macro">sp_api::create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">4</span>)]),
+			apis: <span class="macro">create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">4</span>)]),
 			transaction_version: <span class="number">3</span>,
 			state_version: <span class="number">4</span>,
 		};
@@ -1095,7 +1097,7 @@
 			authoring_version: <span class="number">100</span>,
 			spec_version: <span class="number">100</span>,
 			impl_version: <span class="number">100</span>,
-			apis: <span class="macro">sp_api::create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">4</span>)]),
+			apis: <span class="macro">create_apis_vec!</span>([(&lt;<span class="kw">dyn </span>Core::&lt;Block&gt;&gt;::ID, <span class="number">4</span>)]),
 			transaction_version: <span class="number">100</span>,
 			state_version: <span class="number">1</span>,
 		};

@@ -328,6 +328,7 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -355,6 +356,7 @@
 	time::Instant,
 };
 
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>tracing::{
 	dispatcher,
@@ -364,7 +366,7 @@
 
 <span class="kw">use crate</span>::{SpanDatum, TraceEvent, Values};
 <span class="kw">use </span>sc_client_api::BlockBackend;
-<span class="kw">use </span>sp_api::{Core, Encode, Metadata, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::{Core, Metadata, ProvideRuntimeApi};
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
 <span class="kw">use </span>sp_rpc::tracing::{BlockTrace, Span, TraceBlockResponse};

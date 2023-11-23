@@ -77,7 +77,7 @@
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>sp_api::vec::Vec;
+<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="kw">pub trait </span>NftsApi&lt;AccountId, CollectionId, ItemId&gt;

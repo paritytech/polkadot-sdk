@@ -116,12 +116,12 @@
 </span><span class="kw">use </span>sc_executor::{RuntimeVersion, RuntimeVersionOf};
 <span class="kw">use </span>sp_core::traits::CallContext;
 <span class="kw">use </span>sp_externalities::Extensions;
-<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
+<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, HashingFor};
 <span class="kw">use </span>sp_state_machine::{OverlayedChanges, StorageProof};
 <span class="kw">use </span>std::cell::RefCell;
 
 <span class="kw">use </span><span class="kw">crate</span>::execution_extensions::ExecutionExtensions;
-<span class="kw">use </span>sp_api::{HashingFor, ProofRecorder};
+<span class="kw">use </span>sp_api::ProofRecorder;
 
 <span class="doccomment">/// Executor Provider
 </span><span class="kw">pub trait </span>ExecutorProvider&lt;Block: BlockT&gt; {

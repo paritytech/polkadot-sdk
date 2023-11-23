@@ -736,10 +736,10 @@
 <span class="kw">use </span>sc_client_api::StorageData;
 <span class="kw">use </span>sc_rpc_api::{state::ReadProof, system::Health};
 <span class="kw">use </span>sc_service::TaskManager;
-<span class="kw">use </span>sp_api::RuntimeVersion;
 <span class="kw">use </span>sp_consensus_babe::Epoch;
 <span class="kw">use </span>sp_core::sp_std::collections::btree_map::BTreeMap;
 <span class="kw">use </span>sp_storage::StorageKey;
+<span class="kw">use </span>sp_version::RuntimeVersion;
 
 <span class="kw">use crate</span>::{
 	light_client_worker::{build_smoldot_client, LightClientRpcWorker},

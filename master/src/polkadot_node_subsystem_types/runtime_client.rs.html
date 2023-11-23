@@ -575,6 +575,7 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -602,10 +603,11 @@
 };
 <span class="kw">use </span>sc_client_api::HeaderBackend;
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
-<span class="kw">use </span>sp_api::{ApiError, ApiExt, HeaderT, NumberFor, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
 <span class="kw">use </span>sp_authority_discovery::AuthorityDiscoveryApi;
 <span class="kw">use </span>sp_blockchain::Info;
 <span class="kw">use </span>sp_consensus_babe::{BabeApi, Epoch};
+<span class="kw">use </span>sp_runtime::traits::{Header <span class="kw">as </span>HeaderT, NumberFor};
 <span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="doccomment">/// Offers header utilities.

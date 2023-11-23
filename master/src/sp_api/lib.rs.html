@@ -819,6 +819,16 @@
 <a href="#819" id="819">819</a>
 <a href="#820" id="820">820</a>
 <a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -891,48 +901,58 @@
 </span><span class="comment">// Make doc tests happy
 </span><span class="kw">extern crate </span><span class="self">self </span><span class="kw">as </span>sp_api;
 
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>codec::{<span class="self">self</span>, Decode, DecodeLimit, Encode};
-<span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span>hash_db::Hasher;
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>scale_info;
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>sp_core::offchain;
-<span class="attr">#[doc(hidden)]
-#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">pub use </span>sp_core::to_substrate_wasm_fn_return_value;
-<span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="doccomment">/// Private exports used by the macros.
+///
+/// This is seen as internal API and can change at any point.
+</span><span class="attr">#[doc(hidden)]
+</span><span class="kw">pub mod </span>__private {
+	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="kw">mod </span>std_imports {
+		<span class="kw">pub use </span>hash_db::Hasher;
+		<span class="kw">pub use </span>sp_core::traits::CallContext;
+		<span class="kw">pub use </span>sp_externalities::{Extension, Extensions};
+		<span class="kw">pub use </span>sp_runtime::StateVersion;
+		<span class="kw">pub use </span>sp_state_machine::{
+			Backend <span class="kw">as </span>StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
+			TrieBackendBuilder,
+		};
+	}
+	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="kw">pub use </span>std_imports::<span class="kw-2">*</span>;
+
+	<span class="kw">pub use crate</span>::<span class="kw-2">*</span>;
+	<span class="kw">pub use </span>codec::{<span class="self">self</span>, Decode, DecodeLimit, Encode};
+	<span class="kw">pub use </span>scale_info;
+	<span class="kw">pub use </span>sp_core::offchain;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	</span><span class="kw">pub use </span>sp_core::to_substrate_wasm_fn_return_value;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;frame-metadata&quot;</span>)]
+	</span><span class="kw">pub use </span>sp_metadata_ir::{<span class="self">self </span><span class="kw">as </span>metadata_ir, frame_metadata <span class="kw">as </span>metadata};
+	<span class="kw">pub use </span>sp_runtime::{
+		generic::BlockId,
+		traits::{Block <span class="kw">as </span>BlockT, Hash <span class="kw">as </span>HashT, HashingFor, Header <span class="kw">as </span>HeaderT, NumberFor},
+		transaction_validity::TransactionValidity,
+		RuntimeString, TransactionOutcome,
+	};
+	<span class="kw">pub use </span>sp_std::{mem, slice, vec};
+	<span class="kw">pub use </span>sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub use </span>sp_core::traits::CallContext;
 <span class="kw">use </span>sp_core::OpaqueMetadata;
-<span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span>sp_externalities::{Extension, Extensions};
-<span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;frame-metadata&quot;</span>)]
-</span><span class="kw">pub use </span>sp_metadata_ir::{<span class="self">self </span><span class="kw">as </span>metadata_ir, frame_metadata <span class="kw">as </span>metadata};
-<span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span>sp_runtime::StateVersion;
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>sp_runtime::{
-	generic::BlockId,
-	traits::{Block <span class="kw">as </span>BlockT, Hash <span class="kw">as </span>HashT, HashingFor, Header <span class="kw">as </span>HeaderT, NumberFor},
-	transaction_validity::TransactionValidity,
-	RuntimeString, TransactionOutcome,
-};
-<span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span>sp_state_machine::{
-	backend::AsTrieBackend, Backend <span class="kw">as </span>StateBackend, InMemoryBackend, OverlayedChanges,
-	StorageProof, TrieBackend, TrieBackendBuilder,
-};
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>sp_std::{mem, slice, vec};
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">use </span>sp_externalities::{Extension, Extensions};
+<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">use </span>sp_runtime::traits::HashingFor;
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">pub use </span>sp_runtime::TransactionOutcome;
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">pub use </span>sp_state_machine::StorageProof;
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">use </span>sp_state_machine::{backend::AsTrieBackend, Backend <span class="kw">as </span>StateBackend, OverlayedChanges};
+<span class="kw">use </span>sp_version::RuntimeVersion;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>std::cell::RefCell;
 

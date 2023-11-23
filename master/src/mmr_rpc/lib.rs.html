@@ -385,14 +385,14 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">use </span>sp_api::{ApiExt, NumberFor, ProvideRuntimeApi};
+<span class="kw">use </span>sp_api::{ApiExt, ProvideRuntimeApi};
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
 <span class="kw">use </span>sp_mmr_primitives::{Error <span class="kw">as </span>MmrError, Proof};
-<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
+<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="kw">pub use </span>sp_mmr_primitives::MmrApi <span class="kw">as </span>MmrRuntimeApi;
 

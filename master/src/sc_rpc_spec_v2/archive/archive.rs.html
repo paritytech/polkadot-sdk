@@ -217,13 +217,13 @@
 <span class="kw">use </span>sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, StorageProvider,
 };
-<span class="kw">use </span>sp_api::{CallApiAt, CallContext, NumberFor};
+<span class="kw">use </span>sp_api::{CallApiAt, CallContext};
 <span class="kw">use </span>sp_blockchain::{
 	Backend <span class="kw">as </span>BlockChainBackend, Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata,
 };
 <span class="kw">use </span>sp_core::Bytes;
 <span class="kw">use </span>sp_runtime::{
-	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT},
+	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor},
 	SaturatedConversion,
 };
 <span class="kw">use </span>std::{collections::HashSet, marker::PhantomData, sync::Arc};
