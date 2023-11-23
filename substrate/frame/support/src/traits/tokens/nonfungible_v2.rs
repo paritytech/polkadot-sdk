@@ -120,14 +120,16 @@ pub trait InspectEnumerable<AccountId>: Inspect<AccountId> {
 
 /// Trait for providing an interface for NFT-like items which may be minted, burned and/or have
 /// attributes and metadata set on them.
-pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
+pub trait Mutate<AccountId>: Inspect<AccountId> {
+	type ItemConfig;
+
 	/// Mint some `item` to be owned by `who`.
 	///
 	/// By default, this is not a supported operation.
 	fn mint_into(
 		_item: &Self::ItemId,
 		_who: &AccountId,
-		_config: &ItemConfig,
+		_config: &Self::ItemConfig,
 		_deposit_collection_owner: bool,
 	) -> DispatchResult {
 		Err(TokenError::Unsupported.into())
@@ -270,19 +272,21 @@ impl<
 }
 
 impl<
-		F: nonfungibles::Mutate<AccountId, ItemConfig>,
+		F: nonfungibles::Mutate<AccountId, ItemConfig = ItemConfig>,
 		A: Get<<F as nonfungibles::Inspect<AccountId>>::CollectionId>,
 		AccountId,
 		ItemConfig,
-	> Mutate<AccountId, ItemConfig> for ItemOf<F, A, AccountId>
+	> Mutate<AccountId> for ItemOf<F, A, AccountId>
 {
+	type ItemConfig = ItemConfig;
+
 	fn mint_into(
 		item: &Self::ItemId,
 		who: &AccountId,
-		config: &ItemConfig,
+		config: &Self::ItemConfig,
 		deposit_collection_owner: bool,
 	) -> DispatchResult {
-		<F as nonfungibles::Mutate<AccountId, ItemConfig>>::mint_into(
+		<F as nonfungibles::Mutate<AccountId>>::mint_into(
 			&A::get(),
 			item,
 			who,
@@ -291,37 +295,23 @@ impl<
 		)
 	}
 	fn burn(item: &Self::ItemId, maybe_check_owner: Option<&AccountId>) -> DispatchResult {
-		<F as nonfungibles::Mutate<AccountId, ItemConfig>>::burn(&A::get(), item, maybe_check_owner)
+		<F as nonfungibles::Mutate<AccountId>>::burn(&A::get(), item, maybe_check_owner)
 	}
 	fn set_attribute(item: &Self::ItemId, key: &[u8], value: &[u8]) -> DispatchResult {
-		<F as nonfungibles::Mutate<AccountId, ItemConfig>>::set_attribute(
-			&A::get(),
-			item,
-			key,
-			value,
-		)
+		<F as nonfungibles::Mutate<AccountId>>::set_attribute(&A::get(), item, key, value)
 	}
 	fn set_typed_attribute<K: Encode, V: Encode>(
 		item: &Self::ItemId,
 		key: &K,
 		value: &V,
 	) -> DispatchResult {
-		<F as nonfungibles::Mutate<AccountId, ItemConfig>>::set_typed_attribute(
-			&A::get(),
-			item,
-			key,
-			value,
-		)
+		<F as nonfungibles::Mutate<AccountId>>::set_typed_attribute(&A::get(), item, key, value)
 	}
 	fn clear_attribute(item: &Self::ItemId, key: &[u8]) -> DispatchResult {
-		<F as nonfungibles::Mutate<AccountId, ItemConfig>>::clear_attribute(&A::get(), item, key)
+		<F as nonfungibles::Mutate<AccountId>>::clear_attribute(&A::get(), item, key)
 	}
 	fn clear_typed_attribute<K: Encode>(item: &Self::ItemId, key: &K) -> DispatchResult {
-		<F as nonfungibles::Mutate<AccountId, ItemConfig>>::clear_typed_attribute(
-			&A::get(),
-			item,
-			key,
-		)
+		<F as nonfungibles::Mutate<AccountId>>::clear_typed_attribute(&A::get(), item, key)
 	}
 }
 
