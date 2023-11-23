@@ -1098,9 +1098,7 @@ impl<T: Config> BondedPool<T> {
 			self.is_root(who)
 		}
 	}
-
-	// TODO: add `set_commission_claim_permission` to set the permission for claiming commission.
-
+	
 	fn is_destroying(&self) -> bool {
 		matches!(self.state, PoolState::Destroying)
 	}
