@@ -179,33 +179,34 @@ fn reap_identity() {
 	// 6. assert on Parachain
 	PeopleRococo::execute_with(|| {
 		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+		let free_bal =
+			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
+		let reserved_bal = <PeopleRococo as PeopleRococoPallet>::Balances::reserved_balance(
+			PeopleRococoSender::get(),
+		);
+		let id_deposit = id_deposit_parachain(&identity_parachain);
+		let subs_deposit = SubAccountDepositParachain::get();
+		let total_deposit = subs_deposit + id_deposit;
+
 		assert_expected_events!(
 			PeopleRococo,
 			vec![
 				RuntimeEvent::Balances(pallet_balances::Event::Deposit { ..}) => {},
 				RuntimeEvent::Balances(pallet_balances::Event::Endowed {  ..}) => {},
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { ..}) => {},
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { ..}) => {},
+				RuntimeEvent::Balances(pallet_balances::Event::Reserved { who, amount }) => {
+					who: *who == PeopleRococoSender::get(),
+					amount: *amount == id_deposit,
+				},
+				RuntimeEvent::Balances(pallet_balances::Event::Reserved { who, amount }) => {
+					who: *who == PeopleRococoSender::get(),
+					amount: *amount == subs_deposit,
+				},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
 			]
 		);
 
-		let free_bal =
-			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
-
-		//Prior to reaping free balance was zero. If Free balance is > 0, then assets were
-		// teleported
-		assert!(free_bal > 0);
-
-		let reserved_bal = <PeopleRococo as PeopleRococoPallet>::Balances::reserved_balance(
-			PeopleRococoSender::get(),
-		);
-
-		let total_deposit_parachain =
-			id_deposit_parachain(&identity_parachain) + SubAccountDepositParachain::get();
-
 		// reserved balance should be equal to total deposit calculated on the Parachain
-		assert_eq!(reserved_bal, total_deposit_parachain);
+		assert_eq!(reserved_bal, total_deposit);
 
 		let free_bal =
 			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
