@@ -937,6 +937,14 @@ pub mod migrations {
 
 	pub type V1_05_00 = ();
 
+	/// New migrations should be added here in the `Unreleased` tuple.
+	/// During the release process for release `x.y.z``, the `Unreleased` migrations
+	/// will be moved to a new tuple named `Vx_y_z` and added to the migration
+	/// to execute. The `Unreleased` tuple will then be cleared.
+	/// This allows keeping track of the migrations that have been applied to the
+	/// runtime *per version*.
+	// Do not remove `#[rustfmt::skip]` or the empty tuple, even if it appears
+	// to be *temporarily* not needed. Keep a single migration per line.
 	#[rustfmt::skip]
 	pub type Unreleased = (
 		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
