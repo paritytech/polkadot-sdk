@@ -10,3 +10,5 @@ include:
   - .gitlab/pipeline/zombienet/cumulus.yml
   # polkadot tests
   - .gitlab/pipeline/zombienet/polkadot.yml
+  # bridges tests
+  - .gitlab/pipeline/zombienet/bridges.yml
