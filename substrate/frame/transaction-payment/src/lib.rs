@@ -829,13 +829,16 @@ where
 		BalanceOf<T>,
 		// who paid the fee - this is an option to allow for a Default impl.
 		T::AccountId,
+	);
+	type Pre = (
+		// tip
+		BalanceOf<T>,
+		// who paid the fee - this is an option to allow for a Default impl.
+		T::AccountId,
 		// imbalance resulting from withdrawing the fee
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	);
-	type Pre = Self::Val;
 	type Implicit = ();
-
-	impl_tx_ext_default!(T::RuntimeCall; implicit);
 
 	fn validate(
 		&self,
@@ -851,14 +854,14 @@ where
 	> {
 		let who = frame_system::ensure_signed(origin.clone())
 			.map_err(|_| InvalidTransaction::BadSigner)?;
-		let (final_fee, imbalance) = self.withdraw_fee(&who, call, info, len)?;
+		let (final_fee, _imbalance) = self.withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
 		Ok((
 			ValidTransaction {
 				priority: Self::get_priority(info, len, tip, final_fee),
 				..Default::default()
 			},
-			(self.0, who.clone(), imbalance),
+			(self.0, who),
 			origin,
 		))
 	}
@@ -867,11 +870,14 @@ where
 		self,
 		val: Self::Val,
 		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		_call: &T::RuntimeCall,
-		_info: &DispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(val)
+		let (tip, who) = val;
+		// Mutating call to `withdraw_fee` to actually charge for the transaction.
+		let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, len)?;
+		Ok((tip, who, imbalance))
 	}
 
 	fn post_dispatch(
@@ -888,6 +894,7 @@ where
 		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
 		Ok(())
 	}
+	impl_tx_ext_default!(T::RuntimeCall; implicit);
 }
 
 impl<T: Config, AnyCall: GetDispatchInfo + Encode> EstimateCallFee<AnyCall, BalanceOf<T>>
