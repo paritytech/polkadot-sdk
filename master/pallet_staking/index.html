@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Staking Pallet"><title>pallet_staking - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../pallet_staking/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../pallet_staking/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Crate pallet_staking</a></h2><div class="sidebar-elems"><ul class="block"><li class="version">Version 4.0.0-dev</li><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_staking</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_staking/lib.rs.html#18-1231">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="staking-pallet"><a href="#staking-pallet">Staking Pallet</a></h2>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Staking Pallet"><title>pallet_staking - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../pallet_staking/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../pallet_staking/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Crate pallet_staking</a></h2><div class="sidebar-elems"><ul class="block"><li class="version">Version 4.0.0-dev</li><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_staking</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_staking/lib.rs.html#18-1224">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="staking-pallet"><a href="#staking-pallet">Staking Pallet</a></h2>
 <p>The Staking pallet is used to manage funds at stake by network maintainers.</p>
 <ul>
 <li><a href="trait.Config.html" title="trait pallet_staking::Config"><code>Config</code></a></li>
@@ -20,7 +20,7 @@ producing blocks or guaranteeing finality of the chain.</li>
 <li>Nominating: The process of placing staked funds behind one or more validators in order to
 share in any reward, and punishment, they take.</li>
 <li>Stash account: The account holding an owner’s funds used for staking.</li>
-<li>Controller account: The account that controls an owner’s funds for staking.</li>
+<li>Controller account (being deprecated): The account that controls an owner’s funds for staking.</li>
 <li>Era: A (whole) number of sessions, which is the period that the validator set (and each
 validator’s active nominator set) is recalculated and where rewards are paid out.</li>
 <li>Slash: The punishment of a staker by reducing its funds.</li>
@@ -35,17 +35,17 @@ validator’s active nominator set) is recalculated and where rewards are paid o
 <h4 id="scenarios"><a href="#scenarios">Scenarios</a></h4><h5 id="staking"><a href="#staking">Staking</a></h5>
 <p>Almost any interaction with the Staking pallet requires a process of <em><strong>bonding</strong></em> (also known
 as being a <em>staker</em>). To become <em>bonded</em>, a fund-holding register known as the <em>stash account</em>,
-which holds some or all of the funds that become frozen in place as part of the staking process,
-is paired with an active <strong>controller</strong> account, which issues instructions on how they shall be
-used.</p>
-<p>An account pair can become bonded using the <a href="enum.Call.html#variant.bond" title="variant pallet_staking::Call::bond"><code>bond</code></a> call.</p>
-<p>Stash accounts can update their associated controller back to the stash account using the
+which holds some or all of the funds that become frozen in place as part of the staking process.
+The controller account, which this pallet now assigns the stash account to, issues instructions
+on how funds shall be used.</p>
+<p>An account can become a bonded stash account using the <a href="enum.Call.html#variant.bond" title="variant pallet_staking::Call::bond"><code>bond</code></a> call.</p>
+<p>In the event stash accounts registered a unique controller account before the controller account
+deprecation, they can update their associated controller back to the stash account using the
 <a href="enum.Call.html#variant.set_controller" title="variant pallet_staking::Call::set_controller"><code>set_controller</code></a> call.</p>
 <p>There are three possible roles that any staked account pair can be in: <code>Validator</code>, <code>Nominator</code>
-and <code>Idle</code> (defined in <a href="enum.StakerStatus.html" title="enum pallet_staking::StakerStatus"><code>StakerStatus</code></a>). There are three
-corresponding instructions to change between roles, namely:
-<a href="enum.Call.html#variant.validate" title="variant pallet_staking::Call::validate"><code>validate</code></a>,
-<a href="enum.Call.html#variant.nominate" title="variant pallet_staking::Call::nominate"><code>nominate</code></a>, and <a href="enum.Call.html#variant.chill" title="variant pallet_staking::Call::chill"><code>chill</code></a>.</p>
+and <code>Idle</code> (defined in <a href="enum.StakerStatus.html" title="enum pallet_staking::StakerStatus"><code>StakerStatus</code></a>). There are three corresponding instructions to change
+between roles, namely: <a href="enum.Call.html#variant.validate" title="variant pallet_staking::Call::validate"><code>validate</code></a>, <a href="enum.Call.html#variant.nominate" title="variant pallet_staking::Call::nominate"><code>nominate</code></a>, and
+<a href="enum.Call.html#variant.chill" title="variant pallet_staking::Call::chill"><code>chill</code></a>.</p>
 <h5 id="validating"><a href="#validating">Validating</a></h5>
 <p>A <strong>validator</strong> takes the role of either validating blocks or ensuring their finality,
 maintaining the veracity of the network. A validator should avoid both any sort of malicious
@@ -53,12 +53,11 @@ misbehavior and going offline. Bonded accounts that state interest in being a va
 get immediately chosen as a validator. Instead, they are declared as a <em>candidate</em> and they
 <em>might</em> get elected at the <em>next era</em> as a validator. The result of the election is determined
 by nominators and their votes.</p>
-<p>An account can become a validator candidate via the
-<a href="enum.Call.html#variant.validate" title="variant pallet_staking::Call::validate"><code>validate</code></a> call.</p>
+<p>An account can become a validator candidate via the <a href="enum.Call.html#variant.validate" title="variant pallet_staking::Call::validate"><code>validate</code></a> call.</p>
 <h5 id="nomination"><a href="#nomination">Nomination</a></h5>
 <p>A <strong>nominator</strong> does not take any <em>direct</em> role in maintaining the network, instead, it votes on
-a set of validators to be elected. Once interest in nomination is stated by an account, it
-takes effect at the next election round. The funds in the nominator’s stash account indicate the
+a set of validators to be elected. Once interest in nomination is stated by an account, it takes
+effect at the next election round. The funds in the nominator’s stash account indicate the
 <em>weight</em> of its vote. Both the rewards and any punishment that a validator earns are shared
 between the validator and its nominators. This rule incentivizes the nominators to NOT vote for
 the misbehaving/offline validators as much as possible, simply because the nominators will also
@@ -67,8 +66,8 @@ lose funds if they vote poorly.</p>
 <h5 id="voting"><a href="#voting">Voting</a></h5>
 <p>Staking is closely related to elections; actual validators are chosen from among all potential
 validators via election by the potential validators and nominators. To reduce use of the phrase
-“potential validators and nominators”, we often use the term <strong>voters</strong>, who are simply
-the union of potential validators and nominators.</p>
+“potential validators and nominators”, we often use the term <strong>voters</strong>, who are simply the
+union of potential validators and nominators.</p>
 <h5 id="rewards-and-slash"><a href="#rewards-and-slash">Rewards and Slash</a></h5>
 <p>The <strong>reward and slashing</strong> procedure is the core of the Staking pallet, attempting to <em>embrace
 valid behavior</em> while <em>punishing any misbehavior or lack of availability</em>.</p>
@@ -77,10 +76,9 @@ valid behavior</em> while <em>punishing any misbehavior or lack of availability<
 <code>payout_stakers</code>, which pays the reward to the validator as well as its nominators. Only
 <a href="trait.Config.html#associatedtype.MaxExposurePageSize" title="associated type pallet_staking::Config::MaxExposurePageSize"><code>Config::MaxExposurePageSize</code></a> nominator rewards can be claimed in a single call. When the
 number of nominators exceeds <a href="trait.Config.html#associatedtype.MaxExposurePageSize" title="associated type pallet_staking::Config::MaxExposurePageSize"><code>Config::MaxExposurePageSize</code></a>, then the exposed nominators are
-stored in multiple pages, with each page containing up to
-<a href="trait.Config.html#associatedtype.MaxExposurePageSize" title="associated type pallet_staking::Config::MaxExposurePageSize"><code>Config::MaxExposurePageSize</code></a> nominators. To pay out all nominators, <code>payout_stakers</code> must be
-called once for each available page. Paging exists to limit the i/o cost to mutate storage for
-each nominator’s account.</p>
+stored in multiple pages, with each page containing up to <a href="trait.Config.html#associatedtype.MaxExposurePageSize" title="associated type pallet_staking::Config::MaxExposurePageSize"><code>Config::MaxExposurePageSize</code></a>
+nominators. To pay out all nominators, <code>payout_stakers</code> must be called once for each available
+page. Paging exists to limit the i/o cost to mutate storage for each nominator’s account.</p>
 <p>Slashing can occur at any point in time, once misbehavior is reported. Once slashing is
 determined, a value is deducted from the balance of the validator and all the nominators who
 voted for this validator (values are deducted from the <em>stash</em> account of the slashed entity).</p>
@@ -106,18 +104,18 @@ and change their role, alongside some helper functions to get/set the metadata o
 
 <span class="attr">#[frame_support::pallet(dev_mode)]
 </span><span class="kw">pub mod </span>pallet {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+  <span class="kw">use super</span>::<span class="kw-2">*</span>;
+  <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+  <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
-	<span class="attr">#[pallet::pallet]
-	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+  <span class="attr">#[pallet::pallet]
+  </span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config: frame_system::Config + staking::Config {}
+  <span class="attr">#[pallet::config]
+  </span><span class="kw">pub trait </span>Config: frame_system::Config + staking::Config {}
 
-	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+  <span class="attr">#[pallet::call]
+  </span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
         <span class="doccomment">/// Reward a validator.
         </span><span class="attr">#[pallet::weight(<span class="number">0</span>)]
         </span><span class="kw">pub fn </span>reward_myself(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
@@ -128,15 +126,14 @@ and change their role, alongside some helper functions to get/set the metadata o
     }
 }</code></pre></div>
 <h3 id="implementation-details"><a href="#implementation-details">Implementation Details</a></h3><h4 id="era-payout"><a href="#era-payout">Era payout</a></h4>
-<p>The era payout is computed using yearly inflation curve defined at
-<a href="trait.Config.html#associatedtype.EraPayout" title="associated type pallet_staking::Config::EraPayout"><code>Config::EraPayout</code></a> as such:</p>
+<p>The era payout is computed using yearly inflation curve defined at <a href="trait.Config.html#associatedtype.EraPayout" title="associated type pallet_staking::Config::EraPayout"><code>Config::EraPayout</code></a> as
+such:</p>
 <div class="example-wrap"><pre class="language-nocompile"><code>staker_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
 </code></pre></div>
 <p>This payout is used to reward stakers as defined in next section</p>
 <div class="example-wrap"><pre class="language-nocompile"><code>remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 </code></pre></div>
-<p>The remaining reward is send to the configurable end-point
-<a href="trait.Config.html#associatedtype.RewardRemainder" title="associated type pallet_staking::Config::RewardRemainder"><code>Config::RewardRemainder</code></a>.</p>
+<p>The remaining reward is send to the configurable end-point <a href="trait.Config.html#associatedtype.RewardRemainder" title="associated type pallet_staking::Config::RewardRemainder"><code>Config::RewardRemainder</code></a>.</p>
 <h4 id="reward-calculation"><a href="#reward-calculation">Reward Calculation</a></h4>
 <p>Validators and nominators are rewarded at the end of each era. The total reward of an era is
 calculated using the era duration and the staking rate (the total amount of tokens staked by
@@ -146,9 +143,8 @@ defined staking rate. The full specification can be found
 <p>Total reward is split among validators and their nominators depending on the number of points
 they received during the era. Points are added to a validator using
 <a href="struct.Pallet.html#method.reward_by_ids" title="associated function pallet_staking::Pallet::reward_by_ids"><code>reward_by_ids</code></a>.</p>
-<p><a href="struct.Pallet.html" title="struct pallet_staking::Pallet"><code>Pallet</code></a> implements
-[<code>pallet_authorship::EventHandler</code>] to add reward
-points to block producer and block producer of referenced uncles.</p>
+<p><a href="struct.Pallet.html" title="struct pallet_staking::Pallet"><code>Pallet</code></a> implements [<code>pallet_authorship::EventHandler</code>] to add reward points to block producer
+and block producer of referenced uncles.</p>
 <p>The validator and its nominator split their reward as following:</p>
 <p>The validator can declare an amount, named <a href="struct.ValidatorPrefs.html#structfield.commission" title="field pallet_staking::ValidatorPrefs::commission"><code>commission</code></a>, that does
 not get shared with the nominators at each reward payout through its <a href="struct.ValidatorPrefs.html" title="struct pallet_staking::ValidatorPrefs"><code>ValidatorPrefs</code></a>. This
@@ -157,12 +153,11 @@ remaining portion is split pro rata among the validator and the nominators that 
 validator, proportional to the value staked behind the validator (<em>i.e.</em> dividing the
 <a href="struct.Exposure.html#structfield.own" title="field pallet_staking::Exposure::own"><code>own</code></a> or <a href="struct.Exposure.html#structfield.others" title="field pallet_staking::Exposure::others"><code>others</code></a> by <a href="struct.Exposure.html#structfield.total" title="field pallet_staking::Exposure::total"><code>total</code></a> in
 <a href="struct.Exposure.html" title="struct pallet_staking::Exposure"><code>Exposure</code></a>). Note that payouts are made in pages with each page capped at
-<a href="trait.Config.html#associatedtype.MaxExposurePageSize" title="associated type pallet_staking::Config::MaxExposurePageSize"><code>Config::MaxExposurePageSize</code></a> nominators. The distribution of nominators across
-pages may be unsorted. The total commission is paid out proportionally across pages based on the
-total stake of the page.</p>
+<a href="trait.Config.html#associatedtype.MaxExposurePageSize" title="associated type pallet_staking::Config::MaxExposurePageSize"><code>Config::MaxExposurePageSize</code></a> nominators. The distribution of nominators across pages may be
+unsorted. The total commission is paid out proportionally across pages based on the total stake
+of the page.</p>
 <p>All entities who receive a reward have the option to choose their reward destination through the
-<a href="type.Payee.html" title="type pallet_staking::Payee"><code>Payee</code></a> storage item (see
-<a href="enum.Call.html#variant.set_payee" title="variant pallet_staking::Call::set_payee"><code>set_payee</code></a>), to be one of the following:</p>
+<a href="type.Payee.html" title="type pallet_staking::Payee"><code>Payee</code></a> storage item (see <a href="enum.Call.html#variant.set_payee" title="variant pallet_staking::Call::set_payee"><code>set_payee</code></a>), to be one of the following:</p>
 <ul>
 <li>Stash account, not increasing the staked value.</li>
 <li>Stash account, also increasing the staked value.</li>
@@ -171,12 +166,10 @@ total stake of the page.</p>
 <h4 id="additional-fund-management-operations"><a href="#additional-fund-management-operations">Additional Fund Management Operations</a></h4>
 <p>Any funds already placed into stash can be the target of the following operations:</p>
 <p>The controller account can free a portion (or all) of the funds using the
-<a href="enum.Call.html#variant.unbond" title="variant pallet_staking::Call::unbond"><code>unbond</code></a> call. Note that the funds are not immediately
-accessible. Instead, a duration denoted by
-<a href="trait.Config.html#associatedtype.BondingDuration" title="associated type pallet_staking::Config::BondingDuration"><code>Config::BondingDuration</code></a> (in number of eras) must
-pass until the funds can actually be removed. Once the <code>BondingDuration</code> is over, the
-<a href="enum.Call.html#variant.withdraw_unbonded" title="variant pallet_staking::Call::withdraw_unbonded"><code>withdraw_unbonded</code></a> call can be used to actually
-withdraw the funds.</p>
+<a href="enum.Call.html#variant.unbond" title="variant pallet_staking::Call::unbond"><code>unbond</code></a> call. Note that the funds are not immediately accessible. Instead, a
+duration denoted by <a href="trait.Config.html#associatedtype.BondingDuration" title="associated type pallet_staking::Config::BondingDuration"><code>Config::BondingDuration</code></a> (in number of eras) must pass until the funds
+can actually be removed. Once the <code>BondingDuration</code> is over, the
+<a href="enum.Call.html#variant.withdraw_unbonded" title="variant pallet_staking::Call::withdraw_unbonded"><code>withdraw_unbonded</code></a> call can be used to actually withdraw the funds.</p>
 <p>Note that there is a limitation to the number of fund-chunks that can be scheduled to be
 unlocked in the future via <a href="enum.Call.html#variant.unbond" title="variant pallet_staking::Call::unbond"><code>unbond</code></a>. In case this maximum
 (<code>MAX_UNLOCKING_CHUNKS</code>) is reached, the bonded account <em>must</em> first wait until a successful
@@ -190,8 +183,8 @@ an optional post-processing can be applied that iteratively normalizes the nomin
 values until the total difference among votes of a particular nominator are less than a
 threshold.</p>
 <h3 id="genesisconfig"><a href="#genesisconfig">GenesisConfig</a></h3>
-<p>The Staking pallet depends on the <a href="struct.GenesisConfig.html" title="struct pallet_staking::GenesisConfig"><code>GenesisConfig</code></a>. The
-<code>GenesisConfig</code> is optional and allow to set some initial stakers.</p>
+<p>The Staking pallet depends on the <a href="struct.GenesisConfig.html" title="struct pallet_staking::GenesisConfig"><code>GenesisConfig</code></a>. The <code>GenesisConfig</code> is optional and allow
+to set some initial stakers.</p>
 <h3 id="related-modules"><a href="#related-modules">Related Modules</a></h3>
 <ul>
 <li><a href="../pallet_balances/index.html">Balances</a>: Used to manage values at stake.</li>

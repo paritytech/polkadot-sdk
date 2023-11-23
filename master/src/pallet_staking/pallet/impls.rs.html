@@ -2373,7 +2373,7 @@
 			<span class="attr">#[allow(deprecated)]
 			</span>RewardDestination::Controller =&gt; <span class="self">Self</span>::bonded(stash)
 					.map(|controller| {
-						<span class="macro">defensive!</span>(<span class="string">&quot;Paying out controller as reward destination which is deprecated and should be migrated&quot;</span>);
+						<span class="macro">defensive!</span>(<span class="string">&quot;Paying out controller as reward destination which is deprecated and should be migrated.&quot;</span>);
 						<span class="comment">// This should never happen once payees with a `Controller` variant have been migrated.
 						// But if it does, just pay the controller account.
 						</span>T::Currency::deposit_creating(<span class="kw-2">&amp;</span>controller, amount)
