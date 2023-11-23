@@ -30,8 +30,7 @@ variables:
   RUSTY_CACHIER_COMPRESSION_METHOD: zstd
   NEXTEST_FAILURE_OUTPUT: immediate-final
   NEXTEST_SUCCESS_OUTPUT: final
-  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.79"
-  DOCKER_IMAGES_VERSION: "${CI_COMMIT_SHA}"
+  DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 default:
   retry:
@@ -198,9 +197,6 @@ default:
     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/ # i.e. v1.0, v2.1rc1
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
-
-.zombienet-refs:
-  extends: .build-refs
 
 include:
   # check jobs

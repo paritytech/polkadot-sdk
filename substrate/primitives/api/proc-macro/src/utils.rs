@@ -28,14 +28,14 @@ use syn::{
 /// Generates the access to the `sc_client` crate.
 pub fn generate_crate_access() -> TokenStream {
 	match crate_name("sp-api") {
-		Ok(FoundCrate::Itself) => quote!(sp_api),
+		Ok(FoundCrate::Itself) => quote!(sp_api::__private),
 		Ok(FoundCrate::Name(renamed_name)) => {
 			let renamed_name = Ident::new(&renamed_name, Span::call_site());
-			quote!(#renamed_name)
+			quote!(#renamed_name::__private)
 		},
 		Err(e) =>
 			if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
-				let path = format!("{}::deps::{}", name, "sp_api");
+				let path = format!("{}::deps::sp_api::__private", name);
 				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
 				quote!( #path )
 			} else {

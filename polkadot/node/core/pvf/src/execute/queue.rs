@@ -22,7 +22,7 @@ use crate::{
 	host::ResultSender,
 	metrics::Metrics,
 	worker_intf::{IdleWorker, WorkerHandle},
-	InvalidCandidate, ValidationError, LOG_TARGET,
+	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
 	channel::mpsc,
@@ -342,27 +342,27 @@ fn handle_job_finish(
 		},
 		Outcome::InvalidCandidate { err, idle_worker } => (
 			Some(idle_worker),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedInvalid(err))),
+			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			None,
 		),
-		Outcome::InternalError { err } => (None, Err(ValidationError::InternalError(err)), None),
+		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Outcome::HardTimeout =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), None),
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
 		Outcome::WorkerIntfErr => (
 			None,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			None,
 		),
 		Outcome::JobDied { err } => (
 			None,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			None,
 		),
 		Outcome::JobError { err } =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::JobError(err))), None),
+			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), None),
 	};
 
 	queue.metrics.execute_finished();
