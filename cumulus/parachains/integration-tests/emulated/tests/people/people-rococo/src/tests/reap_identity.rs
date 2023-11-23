@@ -179,8 +179,6 @@ fn reap_identity() {
 	// 6. assert on Parachain
 	PeopleRococo::execute_with(|| {
 		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-		let free_bal =
-			<PeopleRococo as PeopleRococoPallet>::Balances::free_balance(PeopleRococoSender::get());
 		let reserved_bal = <PeopleRococo as PeopleRococoPallet>::Balances::reserved_balance(
 			PeopleRococoSender::get(),
 		);

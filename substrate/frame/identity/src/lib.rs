@@ -162,7 +162,7 @@ pub mod pallet {
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	#[pallet::storage]
 	#[pallet::getter(fn identity)]
-	pub type IdentityOf<T: Config> = StorageMap<
+	pub(super) type IdentityOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -174,7 +174,7 @@ pub mod pallet {
 	/// context. If the account is not some other account's sub-identity, then just `None`.
 	#[pallet::storage]
 	#[pallet::getter(fn super_of)]
-	pub type SuperOf<T: Config> =
+	pub(super) type SuperOf<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, (T::AccountId, Data), OptionQuery>;
 
 	/// Alternative "sub" identities of this account.
@@ -184,7 +184,7 @@ pub mod pallet {
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	#[pallet::storage]
 	#[pallet::getter(fn subs_of)]
-	pub type SubsOf<T: Config> = StorageMap<
+	pub(super) type SubsOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -554,7 +554,7 @@ pub mod pallet {
 			let fee = if let Judgement::FeePaid(fee) = id.judgements.remove(pos).1 {
 				fee
 			} else {
-				return Err(Error::<T>::JudgementGiven.into());
+				return Err(Error::<T>::JudgementGiven.into())
 			};
 
 			let err_amount = T::Currency::unreserve(&sender, fee);
@@ -700,7 +700,7 @@ pub mod pallet {
 			let mut id = <IdentityOf<T>>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
 
 			if T::Hashing::hash_of(&id.info) != identity {
-				return Err(Error::<T>::JudgementForDifferentIdentity.into());
+				return Err(Error::<T>::JudgementForDifferentIdentity.into())
 			}
 
 			let item = (reg_index, judgement);
