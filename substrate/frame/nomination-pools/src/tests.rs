@@ -5761,7 +5761,13 @@ mod commission {
 			// Then:
 			assert_eq!(
 				BondedPool::<Runtime>::get(1).unwrap().commission,
-				Commission { current: None, max: None, change_rate: None, throttle_from: Some(1) }
+				Commission {
+					current: None,
+					max: None,
+					change_rate: None,
+					throttle_from: Some(1),
+					claim_permission: None,
+				}
 			);
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -5956,6 +5962,7 @@ mod commission {
 						min_delay: 2_u64
 					}),
 					throttle_from: Some(1_u64),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6007,6 +6014,7 @@ mod commission {
 						min_delay: 2_u64
 					}),
 					throttle_from: Some(3_u64),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6082,7 +6090,8 @@ mod commission {
 						max_increase: Perbill::from_percent(1),
 						min_delay: 2
 					}),
-					throttle_from: Some(7)
+					throttle_from: Some(7),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6183,6 +6192,7 @@ mod commission {
 					max: Some(Perbill::from_percent(50)),
 					change_rate: None,
 					throttle_from: Some(1),
+					claim_permission: None,
 				}
 			);
 
@@ -6409,6 +6419,7 @@ mod commission {
 						min_delay: 10_u64
 					}),
 					throttle_from: Some(11),
+					claim_permission: None,
 				}
 			);
 
@@ -6502,7 +6513,8 @@ mod commission {
 						max_increase: Perbill::from_percent(1),
 						min_delay: 0
 					}),
-					throttle_from: Some(1)
+					throttle_from: Some(1),
+					claim_permission: None,
 				}
 			);
 

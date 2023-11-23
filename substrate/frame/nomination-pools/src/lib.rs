@@ -676,6 +676,13 @@ pub struct PoolRoles<AccountId> {
 	pub bouncer: Option<AccountId>,
 }
 
+// A pool's possible commission claiming permissions.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum CommissionClaimPermission<AccountId> {
+	Permissionless,
+	Account(AccountId),
+}
+
 /// Pool commission.
 ///
 /// The pool `root` can set commission configuration after pool creation. By default, all commission
@@ -705,6 +712,9 @@ pub struct Commission<T: Config> {
 	/// The block from where throttling should be checked from. This value will be updated on all
 	/// commission updates and when setting an initial `change_rate`.
 	pub throttle_from: Option<BlockNumberFor<T>>,
+	// Whether commission can be claimed permissionlessly, or whether an account can claim
+	// commission. Claimer defaults to the `Root` role of the pool if `None`.
+	pub claim_permission: Option<CommissionClaimPermission<T::AccountId>>,
 }
 
 impl<T: Config> Commission<T> {
@@ -3111,7 +3121,7 @@ impl<T: Config> Pallet<T> {
 		let mut reward_pool = RewardPools::<T>::get(pool_id)
 			.defensive_ok_or::<Error<T>>(DefensiveError::RewardPoolNotFound.into())?;
 
-		// IMPORTANT: make sure that any newly pending commission not yet processed is added to
+		// IMPORTANT: ensure newly pending commission not yet processed is added to
 		// `total_commission_pending`.
 		reward_pool.update_records(
 			pool_id,
