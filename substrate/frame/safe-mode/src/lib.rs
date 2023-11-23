@@ -32,16 +32,17 @@
 //!
 //! Safe mode is entered via two paths (deposit or forced) until a set block number.
 //! The mode is exited when the block number is reached or a call to one of the exit extrinsics is
-//! made. A `WhitelistedCalls` configuration contains all calls that can be executed while in
+//! made. A `WhitelistedCalls` configuration item contains all calls that can be executed while in
 //! safe mode.
 //!
 //! ### Primary Features
 //!
-//! - Entering safe mode can be permissionless with deposit, origin based, or some combination of
-//!   those.
-//! - Separate origin configuration for entering and exiting safe mode.
-//! - Safe mode must always be configured to exit at a specific block number.
-//! - Safe mode exit block number may be extended by additional calls.
+//! - Entering safe mode can be with a privileged origin or anyone placing a deposit.
+//! - Deposit method or privileged origin may be separately disabled.
+//! - Separate privileged origin configuration items for entering and exiting safe mode.
+//! - Configuration item to set a safe mode block count duration, after which the system will exit
+//!   safe mode.
+//! - Safe mode may be extended beyond the configured exit by additional calls.
 //!
 //! ### Example
 //!
@@ -58,10 +59,10 @@
 //! Entering safe mode with deposit:
 #![doc = docify::embed!("src/tests.rs", can_activate)]
 //!
-//! Entering safe mode with force:
+//! Entering safe mode via privileged origin:
 #![doc = docify::embed!("src/tests.rs", can_force_activate_with_config_origin)]
 //!
-//! Exiting safe mode with force:
+//! Exiting safe mode via privileged origin:
 #![doc = docify::embed!("src/tests.rs", can_force_deactivate_with_config_origin)]
 //!
 //! ## Low Level / Implementation Details

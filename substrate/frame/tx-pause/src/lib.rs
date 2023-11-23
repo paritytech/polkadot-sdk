@@ -26,7 +26,7 @@
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
-//! including its configuration trait, dispatchables, storage items, events and errors.
+//! including its configuration trait, dispatchables, storage items, events, and errors.
 //!
 //! ## Overview
 //!
@@ -38,10 +38,10 @@
 //! ### Primary Features
 //!
 //! - Calls that should never be paused can be added to a whitelist.
-//! - Separate origin configuration for pausing and pausing.
+//! - Separate origins are configurable for pausing and pausing.
 //! - Pausing is triggered using the string representation of the call.
 //! - Pauses can target a single extrinsic or an entire pallet.
-//! - Pauses can target future extrinsics or pallets
+//! - Pauses can target future extrinsics or pallets.
 //!
 //! ### Example
 //!
@@ -61,7 +61,7 @@
 //! Unpause specific all:
 #![doc = docify::embed!("src/tests.rs", can_unpause_specific_call)]
 //!
-//! Pause all in a pallet:
+//! Pause all calls in a pallet:
 #![doc = docify::embed!("src/tests.rs", can_pause_all_calls_in_pallet_except_on_whitelist)]
 //!
 //! ## Low Level / Implementation Details
