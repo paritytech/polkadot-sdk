@@ -6960,8 +6960,8 @@ mod commission {
 				]
 			);
 
-			// The pool commission's claim_permission field is updated to `Permissionless` by the root
-			// member, which means anyone can now claim commission for the pool.
+			// The pool commission's claim_permission field is updated to `Permissionless` by the
+			// root member, which means anyone can now claim commission for the pool.
 
 			// Given
 			// Some random non-pool member to claim commission.
@@ -6993,9 +6993,9 @@ mod commission {
 				]
 			);
 
-			// The pool commission's claim_permission is updated to an adhoc account by the root member,
-			// which means now only that account (in addition to the root role) can claim commission for
-			// the pool.
+			// The pool commission's claim_permission is updated to an adhoc account by the root
+			// member, which means now only that account (in addition to the root role) can claim
+			// commission for the pool.
 
 			// Given:
 			// The account designated to claim commission.
@@ -7053,8 +7053,8 @@ mod commission {
 				]
 			);
 
-			// The root role updates commission's claim_permission back to `None`, which results in only
-			// the root member being able to claim commission for the pool.
+			// The root role updates commission's claim_permission back to `None`, which results in
+			// only the root member being able to claim commission for the pool.
 
 			// Given:
 			deposit_rewards_and_claim_payout(10, 100);
@@ -7084,6 +7084,42 @@ mod commission {
 					Event::PoolCommissionClaimPermissionUpdated { pool_id: 1, permission: None },
 					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
 				]
+			);
+		})
+	}
+
+	#[test]
+	fn set_commission_claim_permission_handles_errors() {
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = 1;
+
+			let _ = Currency::set_balance(&900, 5);
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id },
+					Event::Bonded { member: 10, pool_id, bonded: 10, joined: true },
+				]
+			);
+
+			// Cannot operate on a non-existing pool.
+			assert_noop!(
+				Pools::set_commission_claim_permission(
+					RuntimeOrigin::signed(10),
+					90,
+					Some(CommissionClaimPermission::Permissionless)
+				),
+				Error::<Runtime>::PoolNotFound
+			);
+
+			// Only the root role can change the commission claim permission.
+			assert_noop!(
+				Pools::set_commission_claim_permission(
+					RuntimeOrigin::signed(10),
+					pool_id,
+					Some(CommissionClaimPermission::Permissionless)
+				),
+				Error::<Runtime>::DoesNotHavePermission
 			);
 		})
 	}
