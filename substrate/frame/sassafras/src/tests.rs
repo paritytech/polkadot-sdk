@@ -39,7 +39,7 @@ fn genesis_values_assumptions_check() {
 }
 
 #[test]
-fn randomness_progression_check() {
+fn post_genesis_randomness_initialization() {
 	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
 	let pair = &pairs[0];
 
@@ -52,13 +52,15 @@ fn randomness_progression_check() {
 		let _ = initialize_block(1, 123.into(), [0x00; 32].into(), pair);
 
 		assert_eq!(Sassafras::randomness(), [0; 32]);
+		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
 			Sassafras::next_randomness(),
-			h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+			h2b("b9497550deeeb4adc134555930de61968a0558f8947041eb515b2f5fa68ffaf7")
 		);
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("89eb0d6a8a691dae2cd15ed0369931ce0a949ecafa5c3f93f8121833646e15c3")
+			h2b("febcc7fe9539fe17ed29f525831394edfb30b301755dc9bd91584a1f065faf87")
 		);
 		let (id1, _) = make_ticket_bodies(1, Some(pair))[0];
 
@@ -70,13 +72,37 @@ fn randomness_progression_check() {
 		let _ = initialize_block(1, 123.into(), [0xff; 32].into(), pair);
 
 		assert_eq!(Sassafras::randomness(), [0; 32]);
+		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
 			Sassafras::next_randomness(),
-			h2b("fac8fc12590eef22a45ffeadf96014e4cc0b8d3086456d6e25eab0910941f66a")
+			h2b("51c1e3b3a73d2043b3cabae98ff27bdd4aad8967c21ecda7b9465afaa0e70f37")
 		);
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("e2021160500f01190b8b9f36f9d0d1dacf8e91ae70deed6ddda43ed414585ed4")
+			h2b("466bf3007f2e17bffee0b3c42c90f33d654f5ff61eff28b0cc650825960abd52")
+		);
+		let (id2, _) = make_ticket_bodies(1, Some(pair))[0];
+
+		// Ticket ids should be different when next epoch randomness is different
+		assert_ne!(id1, id2);
+
+		// Reset what is relevant
+		NextRandomness::<Test>::set([0; 32]);
+		RandomnessAccumulator::<Test>::set([0; 32]);
+
+		// Test the values with a non-zero genesis block hash
+		let _ = initialize_block(1, 321.into(), [0x00; 32].into(), pair);
+
+		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
+		assert_eq!(
+			Sassafras::next_randomness(),
+			h2b("d85d84a54f79453000eb62e8a17b30149bd728d3232bc2787a89d51dc9a36008")
+		);
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
+		assert_eq!(
+			Sassafras::randomness_accumulator(),
+			h2b("8a035eed02b5b8642b1515ed19752df8df156627aea45c4ef6e3efa88be9a74d")
 		);
 		let (id2, _) = make_ticket_bodies(1, Some(pair))[0];
 
@@ -226,9 +252,10 @@ fn on_first_block_after_genesis() {
 			assert_eq!(Sassafras::current_epoch_start(), start_slot);
 			assert_eq!(Sassafras::current_slot_index(), 0);
 			assert_eq!(Sassafras::randomness(), [0; 32]);
+			println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 			assert_eq!(
 				Sassafras::next_randomness(),
-				h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+				h2b("a49592ef190b96f3eb87bde4c8355e33df28c75006156e8c81998158de2ed49e")
 			);
 		};
 
@@ -236,9 +263,10 @@ fn on_first_block_after_genesis() {
 
 		assert!(ClaimTemporaryData::<Test>::exists());
 		common_assertions();
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("89eb0d6a8a691dae2cd15ed0369931ce0a949ecafa5c3f93f8121833646e15c3")
+			h2b("f0d42f6b7c0d157ecbd788be44847b80a96c290c04b5dfa5d1d40c98aa0c04ed")
 		);
 
 		let header = finalize_block(start_block);
@@ -247,10 +275,10 @@ fn on_first_block_after_genesis() {
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
 		common_assertions();
-		println!("{}", b2h(Sassafras::randomness_accumulator()));
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("702a4f2ee3ee6b96ca41b6abe49488884a0d7226d759974f10c5676f67a1af7a"),
+			h2b("9f2b9fd19a772c34d437dcd8b84a927e73a5cb43d3d1cd00093223d60d2b4843"),
 		);
 
 		// Header data check
@@ -295,9 +323,10 @@ fn on_normal_block() {
 			assert_eq!(Sassafras::current_epoch_start(), start_slot);
 			assert_eq!(Sassafras::current_slot_index(), 1);
 			assert_eq!(Sassafras::randomness(), [0; 32]);
+			println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 			assert_eq!(
 				Sassafras::next_randomness(),
-				h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+				h2b("a49592ef190b96f3eb87bde4c8355e33df28c75006156e8c81998158de2ed49e")
 			);
 		};
 
@@ -305,9 +334,10 @@ fn on_normal_block() {
 
 		assert!(ClaimTemporaryData::<Test>::exists());
 		common_assertions();
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("702a4f2ee3ee6b96ca41b6abe49488884a0d7226d759974f10c5676f67a1af7a"),
+			h2b("9f2b9fd19a772c34d437dcd8b84a927e73a5cb43d3d1cd00093223d60d2b4843"),
 		);
 
 		let header = finalize_block(end_block);
@@ -318,7 +348,7 @@ fn on_normal_block() {
 		common_assertions();
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("486c94eb248ad8b6df2c40d81212e131789d17361d2a05de5827f7a6c86c1e8d"),
+			h2b("be9261adb9686dfd3f23f8a276b7acc7f4beb3137070beb64c282ac22d84cbf0"),
 		);
 
 		// Header data check
@@ -350,9 +380,10 @@ fn produce_epoch_change_digest_no_config() {
 			assert_eq!(Sassafras::epoch_index(), 1);
 			assert_eq!(Sassafras::current_epoch_start(), start_slot + epoch_length);
 			assert_eq!(Sassafras::current_slot_index(), 0);
+			println!("[DEBUG] {}", b2h(Sassafras::randomness()));
 			assert_eq!(
 				Sassafras::randomness(),
-				h2b("6a69ad707c643b9ede3f687758773365e93f77186fa1e4d63c5e393d4dca82b3")
+				h2b("a49592ef190b96f3eb87bde4c8355e33df28c75006156e8c81998158de2ed49e")
 			);
 		};
 
@@ -360,13 +391,15 @@ fn produce_epoch_change_digest_no_config() {
 
 		assert!(ClaimTemporaryData::<Test>::exists());
 		common_assertions();
+		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
 			Sassafras::next_randomness(),
-			h2b("acbfe70cfe39eda61b56ef73ed6dcdd1b385f6e5eacd394be60420d3a3901c46"),
+			h2b("d3a18b857af6ecc7b52f047107e684fff0058b5722d540a296d727e37eaa55b3"),
 		);
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("949ff79675daea2c5173669ee0b740bde545fbbe67e77d6d69e48c09c34b68c3"),
+			h2b("bf0f1228f4ff953c8c1bda2cceb668bf86ea05d7ae93e26d021c9690995d5279"),
 		);
 
 		let header = finalize_block(end_block);
@@ -375,13 +408,15 @@ fn produce_epoch_change_digest_no_config() {
 
 		assert!(!ClaimTemporaryData::<Test>::exists());
 		common_assertions();
+		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
 			Sassafras::next_randomness(),
-			h2b("acbfe70cfe39eda61b56ef73ed6dcdd1b385f6e5eacd394be60420d3a3901c46"),
+			h2b("d3a18b857af6ecc7b52f047107e684fff0058b5722d540a296d727e37eaa55b3"),
 		);
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("0fdd337a09da828e4b41c27680929e95773c50465ad92fc117383efb3be696e2"),
+			h2b("8a1ceb346036c386d021264b10912c8b656799668004c4a487222462b394cd89"),
 		);
 
 		// Header data check
@@ -794,9 +829,9 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Check state after submission
 		assert_eq!(
 			TicketsMeta::<Test>::get(),
-			TicketsMetadata { unsorted_tickets_count: 11, tickets_count: [0, 0] },
+			TicketsMetadata { unsorted_tickets_count: 14, tickets_count: [0, 0] },
 		);
-		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 11);
+		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 14);
 		assert_eq!(UnsortedSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);
@@ -804,7 +839,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 }
 
 #[test]
-#[ignore = "test tickets generator"]
+#[ignore = "test tickets data generator"]
 fn make_tickets_data() {
 	use super::*;
 	use sp_core::crypto::Pair;

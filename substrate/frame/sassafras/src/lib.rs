@@ -745,11 +745,14 @@ impl<T: Config> Pallet<T> {
 		// Keep track of the actual first slot used (may not be zero based).
 		GenesisSlot::<T>::put(slot);
 
-		// Properly initialize accumulator and randomness using the genesis hash.
-		// This is important to guarantee that the tickets of two different chains using the
-		// same ring parameters are not interchangeable.
+		// Properly initialize randomness using genesis hash and current slot.
+		// This is important to guarantee that a different set of tickets are produced for:
+		// - different chains which share the same ring parameters and
+		// - same chain started with a different slot base.
 		let genesis_hash = frame_system::Pallet::<T>::parent_hash();
-		let randomness = hashing::blake2_256(genesis_hash.as_ref());
+		let mut buf = genesis_hash.as_ref().to_vec();
+		buf.extend_from_slice(&slot.to_le_bytes());
+		let randomness = hashing::blake2_256(buf.as_slice());
 		RandomnessAccumulator::<T>::put(randomness);
 		let next_randoness = Self::update_epoch_randomness(1);
 
