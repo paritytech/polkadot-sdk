@@ -766,7 +766,7 @@ frame_benchmarking::benchmarks! {
 	set_commission_claim_permission {
 		// Create a pool.
 		let (depositor, pool_account) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
-	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), CommissionClaimPermission::Account(depositor.clone()))
+	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), Some(CommissionClaimPermission::Account(depositor.clone())))
 	verify {
 		assert_eq!(
 			BondedPools::<T>::get(1).unwrap().commission, Commission {
@@ -774,7 +774,7 @@ frame_benchmarking::benchmarks! {
 			max: None,
 			change_rate: None,
 			throttle_from: None,
-			claim_permission: CommissionClaimPermission::Account(depositor).clone(),
+			claim_permission: Some(CommissionClaimPermission::Account(depositor).clone()),
 		});
 	}
 
