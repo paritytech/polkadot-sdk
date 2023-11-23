@@ -31,7 +31,6 @@ const SECURE_MODE_ANNOUNCEMENT: &'static str =
 pub async fn check_security_status(config: &Config) -> SecurityStatus {
 	let Config { prepare_worker_program_path, cache_path, .. } = config;
 
-	// TODO: add check that syslog is available and that seccomp violations are logged?
 	let (landlock, seccomp, change_root) = join!(
 		check_landlock(prepare_worker_program_path),
 		check_seccomp(prepare_worker_program_path),
