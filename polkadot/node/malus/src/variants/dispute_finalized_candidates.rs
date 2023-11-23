@@ -76,7 +76,7 @@ where
 				finalized_hash,
 				finalized_height,
 			)) => {
-				gum::info!(
+				gum::debug!(
 					target: MALUS,
 					"😈 Block Finalization Interception! Block: {:?}", finalized_hash,
 				);
@@ -105,14 +105,14 @@ where
 							.await;
 						let disputable_hash = match rx.await {
 							Ok(Ok(Some(hash))) => {
-								gum::info!(
+								gum::debug!(
 									target: MALUS,
 									"😈 Time to search {:?}`th ancestor! Block: {:?}", dispute_offset, hash,
 								);
 								hash
 							},
 							_ => {
-								gum::info!(
+								gum::debug!(
 									target: MALUS,
 									"😈 Seems the target is not yet finalized! Nothing to dispute."
 								);
