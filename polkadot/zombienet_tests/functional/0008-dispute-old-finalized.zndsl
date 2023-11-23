@@ -1,5 +1,5 @@
 Description: Test if disputes triggered on finalized blocks out of scope never get to be confirmed and concluded.
-Network: ./0007-dispute-old-finalized.toml
+Network: ./0008-dispute-old-finalized.toml
 Creds: config
 
 # Check authority status and peers.

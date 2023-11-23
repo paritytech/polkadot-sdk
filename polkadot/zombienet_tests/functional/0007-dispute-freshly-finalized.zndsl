@@ -1,5 +1,5 @@
 Description: Test if disputes triggered on finalized blocks within scope always end as valid.
-Network: ./0006-dispute-freshly-finalized.toml
+Network: ./0007-dispute-freshly-finalized.toml
 Creds: config
 
 # Check authority status and peers.
