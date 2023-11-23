@@ -107,6 +107,8 @@ pub mod __private {
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 }
 
+use core::marker::PhantomData;
+
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
 use sp_core::OpaqueMetadata;
@@ -120,10 +122,8 @@ pub use sp_runtime::TransactionOutcome;
 #[cfg(feature = "std")]
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
-use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+use sp_state_machine::{Backend as StateBackend, OverlayedChanges};
 use sp_version::RuntimeVersion;
-#[cfg(feature = "std")]
-use std::cell::RefCell;
 
 /// Maximum nesting level for extrinsics.
 pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
@@ -511,6 +511,8 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 /// ```
 pub use sp_api_proc_macro::mock_impl_runtime_apis;
 
+use crate::runtime_decl_for_metadata::runtime_decl_for_core::private::Sealed;
+
 /// A type that records all accessed trie nodes and generates a proof out of it.
 #[cfg(feature = "std")]
 pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
@@ -848,22 +850,22 @@ impl<C, B: BlockT> RuntimeInstanceBuilder<C, B> {
 		Self { call_api_at, block }
 	}
 
-	pub fn on_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecorder> {
+	pub fn on_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording<B>> {
 		RuntimeInstanceBuilderStage2 {
 			call_api_at: self.call_api_at,
 			block: self.block,
 			call_context: CallContext::Onchain,
-			with_recorder: DisableProofRecorder,
+			with_recorder: DisableProofRecording::default(),
 			extensions: Default::default(),
 		}
 	}
 
-	pub fn off_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecorder> {
+	pub fn off_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording<B>> {
 		RuntimeInstanceBuilderStage2 {
 			call_api_at: self.call_api_at,
 			block: self.block,
 			call_context: CallContext::Offchain,
-			with_recorder: DisableProofRecorder,
+			with_recorder: DisableProofRecording::default(),
 			extensions: Default::default(),
 		}
 	}
@@ -880,9 +882,9 @@ pub struct RuntimeInstanceBuilderStage2<C, B: BlockT, ProofRecorder> {
 
 #[cfg(feature = "std")]
 impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecorder> {
-	pub fn with_recorder(self) -> RuntimeInstanceBuilderStage2<C, B, EnableProofRecorder<B>> {
+	pub fn with_recorder(self) -> RuntimeInstanceBuilderStage2<C, B, EnableProofRecording<B>> {
 		RuntimeInstanceBuilderStage2 {
-			with_recorder: EnableProofRecorder { recorder: Default::default() },
+			with_recorder: EnableProofRecording { recorder: Default::default() },
 			call_api_at: self.call_api_at,
 			block: self.block,
 			call_context: self.call_context,
@@ -919,30 +921,51 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 }
 
 #[cfg(feature = "std")]
-pub struct EnableProofRecorder<Block: BlockT> {
+pub struct EnableProofRecording<Block: BlockT> {
 	recorder: ProofRecorder<Block>,
 }
 
 #[cfg(feature = "std")]
-pub struct DisableProofRecorder;
+pub struct DisableProofRecording<Block>(PhantomData<Block>);
 
-#[cfg(feature = "std")]
-pub trait GetProofRecorder<Block: BlockT> {
-	fn get(&self) -> Option<&ProofRecorder<Block>>;
+impl<Block> Default for DisableProofRecording<Block> {
+	fn default() -> Self {
+		Self(PhantomData)
+	}
 }
 
 #[cfg(feature = "std")]
-impl<Block: BlockT> GetProofRecorder<Block> for EnableProofRecorder<Block> {
-	fn get(&self) -> Option<&ProofRecorder<Block>> {
+pub trait ProofRecording: private::Sealed {
+	type Block: BlockT;
+
+	fn get_recorder(&self) -> Option<&ProofRecorder<Self::Block>>;
+}
+
+#[cfg(feature = "std")]
+impl<Block: BlockT> ProofRecording for EnableProofRecording<Block> {
+	fn get_recorder(&self) -> Option<&ProofRecorder<Self::Block>> {
 		Some(&self.recorder)
 	}
 }
 
 #[cfg(feature = "std")]
-impl<Block: BlockT> GetProofRecorder<Block> for DisableProofRecorder {
-	fn get(&self) -> Option<&ProofRecorder<Block>> {
+impl<Block: BlockT> ProofRecording for DisableProofRecording<Block> {
+	type Block = Block;
+
+	fn get_recorder(&self) -> Option<&ProofRecorder<Self::Block>> {
 		None
 	}
+}
+
+#[cfg(feature = "std")]
+mod private {
+	use super::*;
+
+	pub trait Sealed {}
+
+	impl<Block> Sealed for DisableProofRecording<Block> {}
+
+	impl<Block: BlockT> Sealed for EnableProofRecording<Block> {}
 }
 
 #[cfg(feature = "std")]
@@ -957,14 +980,14 @@ pub struct RuntimeInstance<C, Block: BlockT, ProofRecorder> {
 }
 
 #[cfg(feature = "std")]
-impl<C, B: BlockT> RuntimeInstance<C, B, DisableProofRecorder> {
+impl<C, B: BlockT> RuntimeInstance<C, B, DisableProofRecording<B>> {
 	pub fn builder(call_api_at: C, at: B::Hash) -> RuntimeInstanceBuilder<C, B> {
 		RuntimeInstanceBuilder { call_api_at, block: at }
 	}
 }
 
 #[cfg(feature = "std")]
-impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
+impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: ProofRecording<Block = B>>
 	RuntimeInstance<C, B, ProofRecorder>
 {
 	pub fn __runtime_api_internal_call_api_at(
@@ -987,7 +1010,7 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 				arguments: params,
 				overlayed_changes: &mut self.overlayed_changes,
 				call_context: self.call_context,
-				recorder: self.recorder.get(),
+				recorder: self.recorder.get_recorder(),
 				extensions: &mut self.extensions,
 			};
 
@@ -1028,10 +1051,6 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 		res.into_inner()
 	}
 
-	pub fn extract_proof(&self) -> Option<StorageProof> {
-		self.recorder.get().map(|r| r.to_storage_proof())
-	}
-
 	pub fn into_storage_changes(mut self) -> Result<StorageChanges<B>, ApiError> {
 		let state_version = self.call_api_at.runtime_version_at(self.block)?;
 
@@ -1051,7 +1070,7 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 					transactions; qed";
 
 		let res = if commit {
-			let res = if let Some(recorder) = self.recorder.get() {
+			let res = if let Some(recorder) = self.recorder.get_recorder() {
 				recorder.commit_transaction()
 			} else {
 				Ok(())
@@ -1063,7 +1082,7 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 			// on the recorder and the changes together.
 			res.and(res2.map_err(drop))
 		} else {
-			let res = if let Some(recorder) = &self.recorder.get() {
+			let res = if let Some(recorder) = &self.recorder.get_recorder() {
 				recorder.rollback_transaction()
 			} else {
 				Ok(())
@@ -1081,16 +1100,20 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 
 	fn start_transaction(&mut self) {
 		self.overlayed_changes.start_transaction();
-		if let Some(recorder) = self.recorder.get() {
+		if let Some(recorder) = self.recorder.get_recorder() {
 			recorder.start_transaction();
 		}
 	}
 }
 
 #[cfg(feature = "std")]
-impl<C: CallApiAt<B>, B: BlockT> RuntimeInstance<C, B, EnableProofRecorder<B>> {
+impl<C: CallApiAt<B>, B: BlockT> RuntimeInstance<C, B, EnableProofRecording<B>> {
 	pub fn recorder(&self) -> ProofRecorder<B> {
 		self.recorder.recorder.clone()
+	}
+
+	pub fn extract_proof(&self) -> StorageProof {
+		self.recorder().to_storage_proof()
 	}
 }
 

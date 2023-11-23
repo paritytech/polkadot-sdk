@@ -28,7 +28,7 @@
 
 use codec::Encode;
 use sp_api::{
-	CallApiAt, Core, DisableProofRecorder, EnableProofRecorder, GetProofRecorder,
+	CallApiAt, Core, DisableProofRecording, EnableProofRecording, ProofRecording,
 	RuntimeInstance, RuntimeInstanceBuilderStage2, StorageChanges, StorageProof,
 	TransactionOutcome,
 };
@@ -126,18 +126,18 @@ where
 ///
 /// This type can not be instantiated directly. To get an instance of it
 /// [`BlockBuilderBuilder::new`] needs to be used.
-pub struct BlockBuilderBuilderStage2<B: BlockT, C, ProofRecorder = DisableProofRecorder> {
+pub struct BlockBuilderBuilderStage2<B: BlockT, C, ProofRecorder = DisableProofRecording> {
 	runtime_instance_builder: RuntimeInstanceBuilderStage2<C, B, ProofRecorder>,
 	inherent_digests: Digest,
 	parent_block: B::Hash,
 	parent_number: NumberFor<B>,
 }
 
-impl<B: BlockT, C, ProofRecorder: GetProofRecorder<B>>
+impl<B: BlockT, C, ProofRecorder: ProofRecording<B>>
 	BlockBuilderBuilderStage2<B, C, ProofRecorder>
 {
 	/// Enable proof recording for the block builder.
-	pub fn enable_proof_recording(self) -> BlockBuilderBuilderStage2<B, C, EnableProofRecorder<B>> {
+	pub fn enable_proof_recording(self) -> BlockBuilderBuilderStage2<B, C, EnableProofRecording<B>> {
 		BlockBuilderBuilderStage2 {
 			runtime_instance_builder: self.runtime_instance_builder.with_recorder(),
 			inherent_digests: self.inherent_digests,
@@ -202,7 +202,7 @@ impl<Block, C, ProofRecorder> BlockBuilder<Block, C, ProofRecorder>
 where
 	Block: BlockT,
 	C: sp_api::CallApiAt<Block>,
-	ProofRecorder: sp_api::GetProofRecorder<Block>,
+	ProofRecorder: sp_api::ProofRecording<Block>,
 {
 	/// Create a new instance of builder based on the given `parent_hash` and `parent_number`.
 	///
@@ -245,7 +245,7 @@ impl<Block, CallApiAt, ProofRecorder> BlockBuilder<Block, CallApiAt, ProofRecord
 where
 	Block: BlockT,
 	CallApiAt: sp_api::CallApiAt<Block>,
-	ProofRecorder: sp_api::GetProofRecorder<Block>,
+	ProofRecorder: sp_api::ProofRecording<Block>,
 {
 	/// Push onto the block's list of extrinsics.
 	///

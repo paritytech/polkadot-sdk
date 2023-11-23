@@ -452,7 +452,7 @@ impl<'a> ToClientSideDeclV2<'a> {
 			parse_quote!( __RuntimeInstanceCallApiAt__: #crate_::CallApiAt<__RuntimeInstanceBlock__> ),
 		);
 		generics.params.push(parse_quote!( __RuntimeInstanceBlock__: #crate_::BlockT ));
-		generics.params.push(parse_quote!( __RuntimeInstanceProofRecorder__: #crate_::GetProofRecorder<__RuntimeInstanceBlock__> ));
+		generics.params.push(parse_quote!( __RuntimeInstanceProofRecorder__: #crate_::ProofRecording<__RuntimeInstanceBlock__> ));
 
 		let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
