@@ -31,7 +31,6 @@ use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 /// A verifier that just checks the inherents.
-
 pub struct Verifier<Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
