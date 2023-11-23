@@ -19,7 +19,6 @@ use std::{marker::PhantomData, sync::Arc};
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
 
 use sc_consensus::{
-	block_import::ForkChoiceStrategy,
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams,
 };
@@ -56,7 +55,9 @@ where
 		&mut self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
-		block_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		block_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
+			block_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
+		));
 
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
