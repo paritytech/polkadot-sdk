@@ -18,8 +18,10 @@
 
 use frame_support::traits::{
 	fungible::{Balanced, Credit},
+	tokens::imbalance::ResolveTo,
 	Imbalance, OnUnbalanced,
 };
+use pallet_treasury::TreasuryAccountId;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
 use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
@@ -45,8 +47,7 @@ where
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
-	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
-	pallet_treasury::Pallet<R>: OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>>,
+	R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
 	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
 {
@@ -60,8 +61,7 @@ where
 				// for tips, if any, 100% to author
 				tips.merge_into(&mut split.1);
 			}
-			use pallet_treasury::Pallet as Treasury;
-			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+			ResolveTo::<TreasuryAccountId<R>, pallet_balances::Pallet<R>>::on_unbalanced(split.0);
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
 		}
 	}
@@ -345,8 +345,14 @@ mod tests {
 	#[test]
 	fn test_fees_and_tip_split() {
 		new_test_ext().execute_with(|| {
-			let fee = Balances::issue(10);
-			let tip = Balances::issue(20);
+			let fee =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(10);
+			let tip =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(20);
 
 			assert_eq!(Balances::free_balance(Treasury::account_id()), 0);
 			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
