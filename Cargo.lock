@@ -10766,6 +10766,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-delegate"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "pallet-staking-reward-curve"
 version = "4.0.0-dev"
 dependencies = [

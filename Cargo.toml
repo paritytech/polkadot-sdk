@@ -359,6 +359,7 @@ members = [
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
 	"substrate/frame/staking/runtime-api",
+	"substrate/frame/staking-delegate",
 	"substrate/frame/state-trie-migration",
 	"substrate/frame/statement",
 	"substrate/frame/sudo",
