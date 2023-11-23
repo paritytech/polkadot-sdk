@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 fn main() {
-    if let Ok(profile) = std::env::var("PROFILE") {
-        println!("cargo:rustc-cfg=build_type=\"{}\"", profile);
-    }
+	if let Ok(profile) = std::env::var("PROFILE") {
+		println!("cargo:rustc-cfg=build_type=\"{}\"", profile);
+	}
 }
