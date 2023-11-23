@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Warp sync support.
+//! Warp syncing strategy. Bootstraps chain by downloading warp proofs and state.
 
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
@@ -191,7 +191,7 @@ impl<Block: BlockT> WarpSyncParams<Block> {
 	}
 }
 
-/// Warp sync phase.
+/// Warp sync phase used by warp sync state machine.
 enum Phase<B: BlockT, Client> {
 	/// Waiting for enough peers to connect.
 	WaitingForPeers { warp_sync_provider: Arc<dyn WarpSyncProvider<B>> },
@@ -247,6 +247,7 @@ struct Peer<B: BlockT> {
 	state: PeerState,
 }
 
+/// Action that should be performed on [`WarpSync`]'s behalf.
 pub enum WarpSyncAction<B: BlockT> {
 	/// Send warp proof request to peer.
 	SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest<B> },
@@ -326,16 +327,19 @@ where
 		self.phase = Phase::TargetBlock(header);
 	}
 
+	/// Notify that a new peer has connected.
 	pub fn new_peer(&mut self, peer_id: PeerId, _best_hash: B::Hash, best_number: NumberFor<B>) {
 		self.peers.insert(peer_id, Peer { best_number, state: PeerState::Available });
 
 		self.try_to_start_warp_sync();
 	}
 
+	/// Notify that a peer has disconnected.
 	pub fn peer_disconnected(&mut self, peer_id: &PeerId) {
 		self.peers.remove(peer_id);
 	}
 
+	/// Start warp sync as soon as we have enough peers.
 	fn try_to_start_warp_sync(&mut self) {
 		let Phase::WaitingForPeers { warp_sync_provider } = &self.phase else { return };
 
@@ -354,7 +358,7 @@ where
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
 
-	///  Process warp proof response.
+	/// Process warp proof response.
 	pub fn on_warp_proof_response(&mut self, peer_id: &PeerId, response: EncodedProof) {
 		if let Some(peer) = self.peers.get_mut(peer_id) {
 			peer.state = PeerState::Available;
@@ -604,7 +608,7 @@ where
 		}
 	}
 
-	/// Produce next warp proof request.
+	/// Produce warp proof request.
 	fn warp_proof_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
 		let Phase::WarpProof { last_hash, .. } = &self.phase else { return None };
 
@@ -630,7 +634,7 @@ where
 		Some((*peer_id, WarpProofRequest { begin }))
 	}
 
-	/// Produce next target block request.
+	/// Produce target block request.
 	fn target_block_request(&mut self) -> Option<(PeerId, BlockRequest<B>)> {
 		let Phase::TargetBlock(target_header) = &self.phase else { return None };
 
@@ -676,7 +680,7 @@ where
 		))
 	}
 
-	/// Produce next state request.
+	/// Produce state request.
 	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
 		let Phase::State(state_sync) = &self.phase else { return None };
 

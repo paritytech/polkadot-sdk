@@ -77,6 +77,7 @@ where
 		+ Sync
 		+ 'static,
 {
+	/// Notify that a new peer has connected.
 	pub fn new_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
 		match self {
 			SyncingStrategy::WarpSyncStrategy(strategy) =>
@@ -86,6 +87,7 @@ where
 		}
 	}
 
+	/// Notify that a peer has disconnected.
 	pub fn peer_disconnected(&mut self, peer_id: &PeerId) {
 		match self {
 			SyncingStrategy::WarpSyncStrategy(strategy) => strategy.peer_disconnected(peer_id),
