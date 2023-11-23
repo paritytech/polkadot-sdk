@@ -17,14 +17,12 @@
 
 use crate::{Config, RawOrigin};
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchInfo, traits::OriginTrait, DefaultNoBound};
+use frame_support::{traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension, TransactionExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	traits::{DispatchInfoOf, TransactionExtension},
+	transaction_validity::InvalidTransaction,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -46,47 +44,9 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckNonZeroSender<T> {
 }
 
 impl<T: Config + Send + Sync> CheckNonZeroSender<T> {
-	/// Create new `SignedExtension` to check runtime version.
+	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
 		Self(sp_std::marker::PhantomData)
-	}
-}
-
-impl<T: Config + Send + Sync> SignedExtension for CheckNonZeroSender<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-{
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
-	const IDENTIFIER: &'static str = "CheckNonZeroSender";
-
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		<Self as SignedExtension>::validate(&self, who, call, info, len).map(|_| ())
-	}
-
-	fn validate(
-		&self,
-		who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> TransactionValidity {
-		if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
-		}
-		Ok(ValidTransaction::default())
 	}
 }
 
@@ -118,8 +78,8 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZ
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
-	use frame_support::assert_ok;
-	use sp_runtime::traits::DispatchTransaction;
+	use frame_support::{assert_ok, dispatch::DispatchInfo};
+	use sp_runtime::{traits::DispatchTransaction, TransactionValidityError};
 
 	#[test]
 	fn zero_account_ban_works() {

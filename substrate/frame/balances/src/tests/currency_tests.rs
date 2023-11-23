@@ -240,17 +240,17 @@ fn lock_should_work_reserve() {
 				TokenError::Frozen
 			);
 			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
 				ChargeTransactionPayment::from(1),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
 			)
 			.is_err());
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
 				ChargeTransactionPayment::from(0),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
@@ -271,17 +271,17 @@ fn lock_should_work_tx_fee() {
 				TokenError::Frozen
 			);
 			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
 				ChargeTransactionPayment::from(1),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
 			)
 			.is_err());
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(<ChargeTransactionPayment<Test> as TransactionExtension>::prepare(
 				ChargeTransactionPayment::from(0),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,

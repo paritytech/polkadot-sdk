@@ -1506,7 +1506,7 @@ pub trait AsSystemOriginSigner<AccountId> {
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
-//#[deprecated = "Use `TransactionExtension` instead."]
+#[deprecated = "Use `TransactionExtension` instead."]
 pub trait SignedExtension:
 	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
@@ -1633,112 +1633,6 @@ pub trait SignedExtension:
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
 		Ok(())
-	}
-}
-
-#[impl_for_tuples(1, 12)]
-impl<AccountId, Call: Dispatchable> SignedExtension for Tuple {
-	for_tuples!( where #( Tuple: SignedExtension<AccountId=AccountId, Call=Call,> )* );
-	type AccountId = AccountId;
-	type Call = Call;
-	const IDENTIFIER: &'static str = "You should call `identifier()`!";
-	for_tuples!( type AdditionalSigned = ( #( Tuple::AdditionalSigned ),* ); );
-	for_tuples!( type Pre = ( #( Tuple::Pre ),* ); );
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(for_tuples!( ( #( Tuple.additional_signed()? ),* ) ))
-	}
-
-	fn validate(
-		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> TransactionValidity {
-		let valid = ValidTransaction::default();
-		for_tuples!( #( let valid = valid.combine_with(Tuple.validate(who, call, info, len)?); )* );
-		Ok(valid)
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(for_tuples!( ( #( Tuple.pre_dispatch(who, call, info, len)? ),* ) ))
-	}
-
-	fn validate_unsigned(
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> TransactionValidity {
-		let valid = ValidTransaction::default();
-		#[allow(deprecated)]
-		for_tuples!( #(
-			#[allow(deprecated)]
-			let valid = valid.combine_with(Tuple::validate_unsigned(call, info, len)?);
-		)* );
-		Ok(valid)
-	}
-
-	fn pre_dispatch_unsigned(
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<(), TransactionValidityError> {
-		for_tuples!( #(
-			#[allow(deprecated)]
-			Tuple::pre_dispatch_unsigned(call, info, len)?;
-		)* );
-		Ok(())
-	}
-
-	fn post_dispatch(
-		pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
-		len: usize,
-		result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		match pre {
-			Some(x) => {
-				for_tuples!( #( Tuple::post_dispatch(Some(x.Tuple), info, post_info, len, result)?; )* );
-			},
-			None => {
-				for_tuples!( #( Tuple::post_dispatch(None, info, post_info, len, result)?; )* );
-			},
-		}
-		Ok(())
-	}
-
-	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		let mut ids = Vec::new();
-		for_tuples!( #( ids.extend(Tuple::metadata()); )* );
-		ids
-	}
-}
-
-impl SignedExtension for () {
-	type AccountId = u64;
-	type AdditionalSigned = ();
-	type Call = ();
-	type Pre = ();
-	const IDENTIFIER: &'static str = "UnitSignedExtension";
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		SignedExtension::validate(&self, who, call, info, len).map(|_| ())
 	}
 }
 

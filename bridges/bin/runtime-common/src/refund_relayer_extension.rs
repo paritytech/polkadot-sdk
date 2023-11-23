@@ -49,10 +49,7 @@ use pallet_utility::{Call as UtilityCall, Config as UtilityConfig, Pallet as Uti
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, SignedExtension,
-		TransactionExtension, Zero,
-	},
+	traits::{DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, TransactionExtension, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
 		ValidTransactionBuilder,
@@ -231,8 +228,8 @@ pub enum RelayerAccountAction<AccountId, Reward> {
 	Slash(AccountId, RewardsAccountParams),
 }
 
-/// Everything common among our refund signed extensions.
-pub trait RefundSignedExtension:
+/// Everything common among our refund transaction extensions.
+pub trait RefundTransactionExtension:
 	'static + Clone + Codec + sp_std::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
 where
 	<Self::Runtime as GrandpaConfig<Self::GrandpaInstance>>::BridgedChain:
@@ -448,8 +445,8 @@ where
 	}
 }
 
-/// Adapter that allow implementing `sp_runtime::traits::SignedExtension` for any
-/// `RefundSignedExtension`.
+/// Adapter that allow implementing `sp_runtime::traits::TransactionExtension` for any
+/// `RefundTransactionExtension`.
 #[derive(
 	DefaultNoBound,
 	CloneNoBound,
@@ -460,135 +457,13 @@ where
 	RuntimeDebugNoBound,
 	TypeInfo,
 )]
-pub struct RefundSignedExtensionAdapter<T: RefundSignedExtension>(T)
+pub struct RefundTransactionExtensionAdapter<T: RefundTransactionExtension>(T)
 where
 	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
 		Chain<BlockNumber = RelayBlockNumber>;
 
-impl<T: RefundSignedExtension> SignedExtension for RefundSignedExtensionAdapter<T>
-where
-	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
-		Chain<BlockNumber = RelayBlockNumber>,
-	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
-		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
-		+ GrandpaCallSubType<T::Runtime, T::GrandpaInstance>
-		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
-{
-	const IDENTIFIER: &'static str = T::Id::STR;
-	type AccountId = AccountIdOf<T::Runtime>;
-	type Call = CallOf<T::Runtime>;
-	type AdditionalSigned = ();
-	type Pre = Option<PreDispatchData<AccountIdOf<T::Runtime>>>;
-
-	fn additional_signed(&self) -> Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn validate(
-		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> TransactionValidity {
-		// this is the only relevant line of code for the `pre_dispatch`
-		//
-		// we're not calling `validate` from `pre_dispatch` directly because of performance
-		// reasons, so if you're adding some code that may fail here, please check if it needs
-		// to be added to the `pre_dispatch` as well
-		let parsed_call = T::parse_and_check_for_obsolete_call(call)?;
-
-		// the following code just plays with transaction priority and never returns an error
-
-		// we only boost priority of presumably correct message delivery transactions
-		let bundled_messages = match T::bundled_messages_for_priority_boost(parsed_call.as_ref()) {
-			Some(bundled_messages) => bundled_messages,
-			None => return Ok(Default::default()),
-		};
-
-		// we only boost priority if relayer has staked required balance
-		if !RelayersPallet::<T::Runtime>::is_registration_active(who) {
-			return Ok(Default::default())
-		}
-
-		// compute priority boost
-		let priority_boost =
-			crate::priority_calculator::compute_priority_boost::<T::Priority>(bundled_messages);
-		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
-
-		log::trace!(
-			target: "runtime::bridge",
-			"{} via {:?} has boosted priority of message delivery transaction \
-			of relayer {:?}: {} messages -> {} priority",
-			<Self as SignedExtension>::IDENTIFIER,
-			<T::Msgs as RefundableMessagesLaneId>::Id::get(),
-			who,
-			bundled_messages,
-			priority_boost,
-		);
-
-		valid_transaction.build()
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		// this is a relevant piece of `validate` that we need here (in `pre_dispatch`)
-		let parsed_call = T::parse_and_check_for_obsolete_call(call)?;
-
-		Ok(parsed_call.map(|call_info| {
-			log::trace!(
-				target: "runtime::bridge",
-				"{} via {:?} parsed bridge transaction in pre-dispatch: {:?}",
-				<Self as SignedExtension>::IDENTIFIER,
-				<T::Msgs as RefundableMessagesLaneId>::Id::get(),
-				call_info,
-			);
-			PreDispatchData { relayer: who.clone(), call_info }
-		}))
-	}
-
-	fn post_dispatch(
-		pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
-		len: usize,
-		result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		let call_result = T::analyze_call_result(pre, info, post_info, len, result);
-
-		match call_result {
-			RelayerAccountAction::None => (),
-			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
-				RelayersPallet::<T::Runtime>::register_relayer_reward(
-					reward_account,
-					&relayer,
-					reward,
-				);
-
-				log::trace!(
-					target: "runtime::bridge",
-					"{} via {:?} has registered reward: {:?} for {:?}",
-					<Self as SignedExtension>::IDENTIFIER,
-					<T::Msgs as RefundableMessagesLaneId>::Id::get(),
-					reward,
-					relayer,
-				);
-			},
-			RelayerAccountAction::Slash(relayer, slash_account) =>
-				RelayersPallet::<T::Runtime>::slash_and_deregister(&relayer, slash_account),
-		}
-
-		Ok(())
-	}
-}
-
-impl<T: RefundSignedExtension> TransactionExtension<CallOf<T::Runtime>>
-	for RefundSignedExtensionAdapter<T>
+impl<T: RefundTransactionExtension> TransactionExtension<CallOf<T::Runtime>>
+	for RefundTransactionExtensionAdapter<T>
 where
 	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
 		Chain<BlockNumber = RelayBlockNumber>,
@@ -649,7 +524,7 @@ where
 			target: "runtime::bridge",
 			"{} via {:?} has boosted priority of message delivery transaction \
 			of relayer {:?}: {} messages -> {} priority",
-			<Self as SignedExtension>::IDENTIFIER,
+			Self::IDENTIFIER,
 			<T::Msgs as RefundableMessagesLaneId>::Id::get(),
 			who,
 			bundled_messages,
@@ -674,7 +549,7 @@ where
 			log::trace!(
 				target: "runtime::bridge",
 				"{} via {:?} parsed bridge transaction in pre-dispatch: {:?}",
-				<Self as SignedExtension>::IDENTIFIER,
+				Self::IDENTIFIER,
 				<T::Msgs as RefundableMessagesLaneId>::Id::get(),
 				call_info,
 			);
@@ -703,7 +578,7 @@ where
 				log::trace!(
 					target: "runtime::bridge",
 					"{} via {:?} has registered reward: {:?} for {:?}",
-					<Self as SignedExtension>::IDENTIFIER,
+					Self::IDENTIFIER,
 					<T::Msgs as RefundableMessagesLaneId>::Id::get(),
 					reward,
 					relayer,
@@ -718,7 +593,7 @@ where
 	impl_tx_ext_default!(CallOf<T::Runtime>; implicit);
 }
 
-/// Signed extension that refunds a relayer for new messages coming from a parachain.
+/// Transaction extension that refunds a relayer for new messages coming from a parachain.
 ///
 /// Also refunds relayer for successful finality delivery if it comes in batch (`utility.batchAll`)
 /// with message delivery transaction. Batch may deliver either both relay chain header and
@@ -759,7 +634,7 @@ pub struct RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Priority,
 	)>,
 );
 
-impl<Runtime, Para, Msgs, Refund, Priority, Id> RefundSignedExtension
+impl<Runtime, Para, Msgs, Refund, Priority, Id> RefundTransactionExtension
 	for RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Priority, Id>
 where
 	Self: 'static + Send + Sync,
@@ -853,13 +728,13 @@ where
 	}
 }
 
-/// Signed extension that refunds a relayer for new messages coming from a standalone (GRANDPA)
+/// Transaction extension that refunds a relayer for new messages coming from a standalone (GRANDPA)
 /// chain.
 ///
 /// Also refunds relayer for successful finality delivery if it comes in batch (`utility.batchAll`)
 /// with message delivery transaction. Batch may deliver either both relay chain header and
-/// parachain head, or just parachain head. Corresponding headers must be used in messages
-/// proof verification.
+/// parachain head, or just parachain head. Corresponding headers must be used in messages proof
+/// verification.
 ///
 /// Extension does not refund transaction tip due to security reasons.
 #[derive(
@@ -894,7 +769,7 @@ pub struct RefundBridgedGrandpaMessages<Runtime, GrandpaInstance, Msgs, Refund, 
 	)>,
 );
 
-impl<Runtime, GrandpaInstance, Msgs, Refund, Priority, Id> RefundSignedExtension
+impl<Runtime, GrandpaInstance, Msgs, Refund, Priority, Id> RefundTransactionExtension
 	for RefundBridgedGrandpaMessages<Runtime, GrandpaInstance, Msgs, Refund, Priority, Id>
 where
 	Self: 'static + Send + Sync,
@@ -1022,7 +897,7 @@ mod tests {
 		ConstU64<1>,
 		StrTestExtension,
 	>;
-	type TestGrandpaExtension = RefundSignedExtensionAdapter<TestGrandpaExtensionProvider>;
+	type TestGrandpaExtension = RefundTransactionExtensionAdapter<TestGrandpaExtensionProvider>;
 	type TestExtensionProvider = RefundBridgedParachainMessages<
 		TestRuntime,
 		DefaultRefundableParachainId<(), TestParachain>,
@@ -1031,7 +906,7 @@ mod tests {
 		ConstU64<1>,
 		StrTestExtension,
 	>;
-	type TestExtension = RefundSignedExtensionAdapter<TestExtensionProvider>;
+	type TestExtension = RefundTransactionExtensionAdapter<TestExtensionProvider>;
 
 	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
 		let test_stake: ThisChainBalance = TestStake::get();
@@ -1429,7 +1304,7 @@ mod tests {
 
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestExtension =
-			RefundSignedExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
+			RefundTransactionExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
 		extension
 			.validate_only(
 				Some(relayer_account_at_this_chain()).into(),
@@ -1442,7 +1317,7 @@ mod tests {
 
 	fn run_grandpa_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestGrandpaExtension =
-			RefundSignedExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
+			RefundTransactionExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
 		extension
 			.validate_only(
 				Some(relayer_account_at_this_chain()).into(),
@@ -1464,7 +1339,7 @@ mod tests {
 		call: RuntimeCall,
 	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
 		let extension: TestExtension =
-			RefundSignedExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
+			RefundTransactionExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
 		extension
 			.validate_and_prepare(
 				Some(relayer_account_at_this_chain()).into(),
@@ -1479,7 +1354,7 @@ mod tests {
 		call: RuntimeCall,
 	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
 		let extension: TestGrandpaExtension =
-			RefundSignedExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
+			RefundTransactionExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
 		extension
 			.validate_and_prepare(
 				Some(relayer_account_at_this_chain()).into(),

@@ -31,7 +31,7 @@
 
 //! This pallet wraps FRAME's transaction payment pallet and functions as a replacement. This means
 //! you should include both pallets in your `construct_runtime` macro, but only include this
-//! pallet's [`SignedExtension`] ([`ChargeAssetTxPayment`]).
+//! pallet's [`TransactionExtension`] ([`ChargeAssetTxPayment`]).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -53,13 +53,8 @@ use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, TransactionExtension,
-		Zero,
-	},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension, Zero},
+	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
 #[cfg(test)]
@@ -209,110 +204,6 @@ impl<T: Config> sp_std::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-impl<T: Config> SignedExtension for ChargeAssetTxPayment<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	AssetBalanceOf<T>: Send + Sync,
-	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync,
-	Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
-{
-	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		Self::AccountId,
-		// imbalance resulting from withdrawing the fee
-		InitialPayment<T>,
-		// asset_id for the transaction payment
-		Option<ChargeAssetIdOf<T>>,
-	);
-
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn validate(
-		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> TransactionValidity {
-		use pallet_transaction_payment::ChargeTransactionPayment;
-		let (fee, _) = self.withdraw_fee(who, call, info, len)?;
-		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
-		Ok(ValidTransaction { priority, ..Default::default() })
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		let (_fee, initial_payment) = self.withdraw_fee(who, call, info, len)?;
-		Ok((self.tip, who.clone(), initial_payment, self.asset_id))
-	}
-
-	fn post_dispatch(
-		pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
-		len: usize,
-		result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		if let Some((tip, who, initial_payment, asset_id)) = pre {
-			match initial_payment {
-				InitialPayment::Native(already_withdrawn) => {
-					<pallet_transaction_payment::ChargeTransactionPayment::<T> as SignedExtension>::post_dispatch(
-						Some((tip, who, already_withdrawn)),
-						info,
-						post_info,
-						len,
-						result,
-					)?;
-				},
-				InitialPayment::Asset(already_withdrawn) => {
-					let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
-						len as u32, info, post_info, tip,
-					);
-
-					let (converted_fee, converted_tip) =
-						T::OnChargeAssetTransaction::correct_and_deposit_fee(
-							&who,
-							info,
-							post_info,
-							actual_fee.into(),
-							tip.into(),
-							already_withdrawn.into(),
-						)?;
-					Pallet::<T>::deposit_event(Event::<T>::AssetTxFeePaid {
-						who,
-						actual_fee: converted_fee,
-						tip: converted_tip,
-						asset_id,
-					});
-				},
-				InitialPayment::Nothing => {
-					// `actual_fee` should be zero here for any signed extrinsic. It would be
-					// non-zero here in case of unsigned extrinsics as they don't pay fees but
-					// `compute_actual_fee` is not aware of them. In both cases it's fine to just
-					// move ahead without adjusting the fee, though, so we do nothing.
-					debug_assert!(tip.is_zero(), "tip should be zero if initial fee was zero.");
-				},
-			}
-		}
-
 		Ok(())
 	}
 }

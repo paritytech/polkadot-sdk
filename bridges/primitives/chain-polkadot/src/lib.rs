@@ -56,8 +56,8 @@ impl ChainWithGrandpa for Polkadot {
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
 }
 
-/// The SignedExtension used by Polkadot.
-pub type SignedExtension = SuffixedCommonSignedExtension<PrevalidateAttests>;
+/// The TransactionExtension used by Polkadot.
+pub type TransactionExtension = SuffixedCommonTransactionExtension<PrevalidateAttests>;
 
 /// Name of the parachains pallet in the Polkadot runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";
