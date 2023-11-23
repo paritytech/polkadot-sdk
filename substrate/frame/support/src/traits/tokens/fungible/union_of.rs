@@ -37,7 +37,9 @@ use sp_std::cmp::Ordering;
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
-#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq)]
+/// 
+/// #[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq)]
+#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum NativeOrWithId<AssetId>
 where
 	AssetId: Ord,
@@ -55,26 +57,44 @@ impl<AssetId: Ord> From<AssetId> for NativeOrWithId<AssetId> {
 		Self::WithId(asset)
 	}
 }
-impl<AssetId: Ord> Ord for NativeOrWithId<AssetId> {
-	fn cmp(&self, other: &Self) -> Ordering {
-		match (self, other) {
-			(Self::Native, Self::Native) => Ordering::Equal,
-			(Self::Native, Self::WithId(_)) => Ordering::Less,
-			(Self::WithId(_), Self::Native) => Ordering::Greater,
-			(Self::WithId(id1), Self::WithId(id2)) => <AssetId as Ord>::cmp(id1, id2),
-		}
-	}
+
+type Id = NativeOrWithId<u32>;
+
+#[test]
+fn test_id() {
+	let native = Id::Native;
+	let native2 = Id::Native;
+	let a10 = Id::WithId(10);
+	let a10_2 = Id::WithId(10);
+	let a1 = Id::WithId(1);
+	assert!(native == native2);
+	assert!(a10 == a10_2);
+	assert!(a10 > a1);
+	assert!(a1 < a10);
+	assert!(a1 > native);
+	assert!(native < a1);
 }
-impl<AssetId: Ord> PartialOrd for NativeOrWithId<AssetId> {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(<Self as Ord>::cmp(self, other))
-	}
-}
-impl<AssetId: Ord> PartialEq for NativeOrWithId<AssetId> {
-	fn eq(&self, other: &Self) -> bool {
-		self.cmp(other) == Ordering::Equal
-	}
-}
+
+// impl<AssetId: Ord> Ord for NativeOrWithId<AssetId> {
+// 	fn cmp(&self, other: &Self) -> Ordering {
+// 		match (self, other) {
+// 			(Self::Native, Self::Native) => Ordering::Equal,
+// 			(Self::Native, Self::WithId(_)) => Ordering::Less,
+// 			(Self::WithId(_), Self::Native) => Ordering::Greater,
+// 			(Self::WithId(id1), Self::WithId(id2)) => <AssetId as Ord>::cmp(id1, id2),
+// 		}
+// 	}
+// }
+// impl<AssetId: Ord> PartialOrd for NativeOrWithId<AssetId> {
+// 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+// 		Some(<Self as Ord>::cmp(self, other))
+// 	}
+// }
+// impl<AssetId: Ord> PartialEq for NativeOrWithId<AssetId> {
+// 	fn eq(&self, other: &Self) -> bool {
+// 		self.cmp(other) == Ordering::Equal
+// 	}
+// }
 
 /// Criterion for [`UnionOf`] where a set for [`NativeOrWithId::Native`] asset located from the left
 /// and for [`NativeOrWithId::WithId`] from the right.
