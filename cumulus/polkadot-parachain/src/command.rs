@@ -890,7 +890,7 @@ chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 						chain_spec::people::PeopleRuntimeType::Rococo |
 						chain_spec::people::PeopleRuntimeType::RococoLocal =>
 							crate::service::start_generic_aura_node::<
-								chain_spec::people::rococo::RuntimeApi,
+								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
@@ -898,7 +898,7 @@ chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 						chain_spec::people::PeopleRuntimeType::Westend |
 						chain_spec::people::PeopleRuntimeType::WestendLocal =>
 							crate::service::start_generic_aura_node::<
-								chain_spec::people::westend::RuntimeApi,
+								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
