@@ -72,7 +72,7 @@ impl Keyring {
 	}
 
 	pub fn public(self) -> Public {
-		Public::from_raw(self.into())
+		Public::from(self)
 	}
 
 	pub fn to_seed(self) -> String {
