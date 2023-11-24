@@ -134,7 +134,7 @@ function init_ro_wnd() {
     ensure_relayer
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        ~/local_bridge_testing/bin/substrate-relay init-bridge rococo-to-bridge-hub-westend \
+        /usr/local/bin/substrate-relay init-bridge rococo-to-bridge-hub-westend \
 	--source-host localhost \
 	--source-port 9942 \
 	--source-version-mode Auto \
@@ -148,7 +148,7 @@ function init_wnd_ro() {
     ensure_relayer
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        ~/local_bridge_testing/bin/substrate-relay init-bridge westend-to-bridge-hub-rococo \
+        /usr/local/bin/substrate-relay init-bridge westend-to-bridge-hub-rococo \
         --source-host localhost \
         --source-port 9945 \
         --source-version-mode Auto \
@@ -162,7 +162,7 @@ function run_relay() {
     ensure_relayer
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        ~/local_bridge_testing/bin/substrate-relay relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
+        /usr/local/bin/substrate-relay relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
         --rococo-host localhost \
         --rococo-port 9942 \
         --rococo-version-mode Auto \

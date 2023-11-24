@@ -16,8 +16,8 @@ function ensure_binaries() {
 }
 
 function ensure_relayer() {
-    if [[ ! -f ~/local_bridge_testing/bin/substrate-relay ]]; then
-        echo "  Required substrate-relay binary '~/local_bridge_testing/bin/substrate-relay' does not exist!"
+    if [[ ! -f /usr/local/bin/substrate-relay ]]; then
+        echo "  Required substrate-relay binary '/usr/local/bin/substrate-relay' does not exist!"
         echo "  You need to build it and copy to this location!"
         echo "  Please, check ./parachains/runtimes/bridge-hubs/README.md (Prepare/Build/Deploy)"
         exit 1
