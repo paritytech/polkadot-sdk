@@ -28,29 +28,15 @@ use crate::{
 	Config, *,
 };
 use frame_support::{derive_impl, pallet_prelude::*, parameter_types};
-use sp_runtime::{
-	generic::{Header, UncheckedExtrinsic},
-	traits::IdentifyAccount,
-	BuildStorage,
-};
+use sp_runtime::{BuildStorage, Perbill};
 
 frame_support::construct_runtime!(
 	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		MultiPhase: epm,
-		//VerifierPallet: verifier_pallet,
+		VerifierPallet: verifier_pallet,
 	}
-);
-
-frame_election_provider_support::generate_solution_type!(
-	#[compact]
-	pub struct TestNposSolution::<
-		VoterIndex = VoterIndex,
-		TargetIndex = TargetIndex,
-		Accuracy = sp_runtime::PerU16,
-		MaxVoters = ConstU32::<2_000>
-	>(16)
 );
 
 pub type AccountId = u64;
@@ -61,10 +47,41 @@ pub type TargetIndex = u16;
 pub type T = Runtime;
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 
+frame_election_provider_support::generate_solution_type!(
+	#[compact]
+	pub struct TestNposSolution::<
+		VoterIndex = VoterIndex,
+		TargetIndex = TargetIndex,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = frame_support::traits::ConstU32::<2_000>
+	>(16)
+);
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+}
+
+parameter_types! {
+	pub const ExistentialDeposit: Balance = 1;
+}
+
+impl pallet_balances::Config for Runtime {
+	type Balance = Balance;
+	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 parameter_types! {
@@ -92,30 +109,37 @@ impl Config for Runtime {
 }
 
 parameter_types! {
-	//pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
-	pub static MaxVotesPerVoter: u32 = 16;
+	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
+	pub static MaxWinnersPerPage: u32 = 10;
+	pub static MaxBackersPerWinner: u32 = (staking::Targets::get().len() as u32).min(staking::DesiredTargets::get());
+}
 
+impl crate::verifier::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type SolutionImprovementThreshold = SolutionImprovementThreshold;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type SolutionDataProvider = (); // TODO(gpestana): replace with crate::signed pallet
+	type WeightInfo = ();
+}
+
+// TODO(gpestana): just to compile tests for now, remove. should be the signed pallet
+impl verifier::SolutionDataProvider for () {
+	type Solution = TestNposSolution;
+	fn get_score() -> Option<sp_npos_elections::ElectionScore> {
+		todo!();
+	}
+	fn report_result(_result: verifier::VerificationResult) {
+		todo!()
+	}
+	fn get_paged_solution(_page: PageIndex) -> Option<Self::Solution> {
+		todo!()
+	}
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = 1;
-}
-
-impl pallet_balances::Config for Runtime {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
-	type AccountStore = System;
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
-	type RuntimeFreezeReason = ();
+	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
 }
 
 #[derive(Default)]

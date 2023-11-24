@@ -24,6 +24,12 @@ use frame_support::traits::Get;
 use sp_npos_elections::{ElectionScore, ExtendedBalance};
 use sp_runtime::RuntimeDebug;
 
+// public re-exports.
+pub use impls::pallet::{
+	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check, tt_default_parts,
+	tt_error_token,
+};
+
 use crate::{PageIndex, SupportsOf};
 
 /// Errors related to the solution feasibility checks.
@@ -131,8 +137,6 @@ pub trait Verifier {
 	fn queued_score() -> Option<ElectionScore>;
 
 	/// Check if a claimed score improves the current queued score.
-	///
-	/// It always returns `true` if there is no score queued.
 	fn ensure_score_improves(claimed_score: ElectionScore) -> bool;
 
 	/// Clears all the storage items related to the verifier pallet.
@@ -165,27 +169,6 @@ pub trait AsyncVerifier: Verifier {
 	fn status() -> Status;
 
 	/// Start a verification process.
-	///
-	/// From the coming block onwards, the verifier will start and fetch the relevant information
-	/// and solution pages from [`SolutionDataProvider`]. It is expected that the
-	/// [`SolutionDataProvider`] is ready before calling [`start`].
-	///
-	/// Pages of the solution are fetched sequentially and in order from [`SolutionDataProvider`],
-	/// from `msp` to `lsp`.
-	///
-	/// This ends in either of the two:
-	///
-	/// 1. All pages, including the final checks (like score and other facts that can only be
-	///    derived from a full solution) are valid and the solution is verified. The solution is
-	///    queued and is ready for further export.
-	/// 2. The solution checks verification at one of the steps. Nothing is stored inside the
-	///    verifier pallet and all intermediary data is removed.
-	///
-	/// In both cases, the [`SolutionDataProvider`] is informed via
-	/// [`SolutionDataProvider::report_result`]. It is sensible for the data provide to call `start`
-	/// again if the verification has failed, and nothing otherwise. Indeed, the
-	/// [`SolutionDataProvider`] must adjust its internal state such that it returns a new candidate
-	/// solution after each failure.
 	fn start() -> Result<(), &'static str>; // new error type?
 
 	/// Stop the verification.

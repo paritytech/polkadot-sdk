@@ -20,7 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_election_provider_support::{
-	BoundedSupportsOf, ElectionDataProvider, ElectionProvider, NposSolution, PageIndex,
+	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
+	NposSolution, PageIndex,
 };
 use frame_support::{
 	traits::{Defensive, Get},
@@ -278,8 +279,16 @@ impl<T: Config> Snapshot<T> {
 		PagedTargetSnapshot::<T>::get(page_index)
 	}
 
+	fn set_targets(page: PageIndex, targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
+		PagedTargetSnapshot::<T>::insert(page, targets);
+	}
+
 	fn voters(page_index: PageIndex) -> Option<VoterPageOf<T>> {
 		PagedVoterSnapshot::<T>::get(page_index)
+	}
+
+	fn set_desired_targets(targets: u32) {
+		DesiredTargets::<T>::put(targets);
 	}
 
 	fn desired_targets() -> Option<u32> {
@@ -312,8 +321,29 @@ impl<T: Config> Pallet<T> {
 		T::Pages::get().checked_sub(1).defensive_unwrap_or_default()
 	}
 
-	fn create_targets_snapshot(_remaining_pages: u32) -> Result<u32, ElectionError> {
-		todo!()
+	/// Creates the target snapshot.
+	fn create_targets_snapshot(remaining_pages: u32) -> Result<u32, ElectionError> {
+		Snapshot::<T>::set_desired_targets(
+			T::DataProvider::desired_targets().map_err(|e| ElectionError::DataProvider)?,
+		);
+
+		let bounds = ElectionBoundsBuilder::default()
+			.targets_count(T::TargetSnapshotPerBlock::get().into())
+			.build()
+			.targets;
+
+		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
+			T::DataProvider::electable_targets(bounds, remaining_pages)
+				.and_then(|t| t.try_into())
+				.map_err(|_| ElectionError::DataProviderBoundariesExceeded)
+				.map_err(|e| ElectionError::DataProvider)?;
+
+		Snapshot::<T>::set_targets(remaining_pages, targets);
+
+		let count = targets.len() as u32;
+		log!(debug, "created target snapshot with {} targets.", count);
+
+		Ok(count)
 	}
 
 	fn create_voters_snapshot(_remaining_pages: u32) -> Result<u32, ElectionError> {
@@ -325,8 +355,8 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = ElectionError;
-	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage; // TODO(gpestana): add verifier associated type
-	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner; // TODO(gpestana): add verifier associated type
+	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
+	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type Pages = T::Pages;
 	type DataProvider = T::DataProvider;
 
@@ -337,8 +367,10 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 #[cfg(test)]
 mod phase_transition {
-	use super::{Event, *};
+	use super::*;
 	use crate::mock::*;
+
+	use frame_support::assert_ok;
 
 	//TODO(gpestana): add snapshot verification once it's ready.
 
@@ -400,8 +432,7 @@ mod phase_transition {
                 // elect() will be called at any time after `next_election`.
                 roll_to(next_election + 5);
                 assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
-
-                MultiPhase::elect(0);
+                assert_ok!(MultiPhase::elect(0));
 		})
 	}
 
@@ -415,9 +446,12 @@ mod phase_transition {
 
 #[cfg(test)]
 mod snapshot {
-	use super::*;
-	use crate::mock::*;
+	//use super::*;
+	//use crate::mock::*;
 
+	#[test]
 	fn targets_snapshot_works() {}
+
+	#[test]
 	fn voters_snapshot_works() {}
 }

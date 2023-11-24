@@ -117,11 +117,6 @@ pub fn voter_index_fn_usize<T: Config>(
 }
 
 /// Create a function to get the stake of a voter.
-///
-/// ## Warning
-///
-/// The cache need must be derived from the same snapshot. Zero is returned if a voter is
-/// non-existent.
 pub fn stake_of_fn<'a, T: Config, AnyBound: Get<u32>>(
 	snapshot: &'a BoundedVec<VoterOf<T>, AnyBound>,
 	cache: &'a BTreeMap<T::AccountId, usize>,

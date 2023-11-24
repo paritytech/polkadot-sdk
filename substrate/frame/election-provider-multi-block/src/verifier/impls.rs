@@ -85,10 +85,6 @@ pub(crate) mod pallet {
 	}
 
 	/// A wrapper type of the storage items related to the queued solution.
-	///
-	/// NOTE: All storage reads and mutations to the queued solution must be performed through this
-	/// type to ensure data integrity.
-	/// TODO(gpestana): finish type docs
 	pub struct QueuedSolution<T: Config>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> QueuedSolution<T> {
@@ -163,9 +159,6 @@ pub(crate) mod pallet {
 		}
 
 		/// Write a single page directly into the valid variant.
-		///
-		/// This *SHOULD* only be used in a single-page flow, likely the result of a synchronous
-		/// backup mechanism.
 		pub(crate) fn force_set_single_page_valid(
 			page: PageIndex,
 			supports: SupportsOf<Pallet<T>>,
@@ -501,10 +494,9 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
 				match (final_score == claimed_score, winner_count == desired_targets) {
 					(true, true) => {
-						Self::deposit_event(Event::<T>::Queued(
-							final_score,
-							QueuedSolution::<T>::queued_score(),
-						));
+						Self::deposit_event(
+							Event::<T>::Queued(final_score, QueuedSolution::<T>::queued_score())
+						);
 						QueuedSolution::<T>::finalize_solution(final_score);
 						Ok(())
 					},
@@ -537,11 +529,6 @@ impl<T: impls::pallet::Config> Pallet<T> {
 	}
 
 	/// Do the full feasibility check:
-	///
-	/// - check all edges.
-	/// - checks `MaxBackersPerWinner` to be respected IN THIS PAGE.
-	/// - checks the number of winners to be less than or equal to `DesiredTargets` IN THIS PAGE
-	///   ONLY.
 	pub(super) fn feasibility_check(
 		partial_solution: SolutionOf<T>,
 		page: PageIndex,

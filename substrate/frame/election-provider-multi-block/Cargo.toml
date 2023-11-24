@@ -29,7 +29,7 @@ sp-std = { path = "../../primitives/std", default-features = false}
 sp-core = { path = "../../primitives/core", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
 
-frame-election-provider-support = { version = "4.0.0-dev", default-features = false, path = "../election-provider-support" }
+frame-election-provider-support = { default-features = false, path = "../election-provider-support" }
 sp-npos-elections = { default-features = false, path = "../../primitives/npos-elections" }
 
 [dev-dependencies]

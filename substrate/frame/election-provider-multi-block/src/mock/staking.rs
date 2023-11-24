@@ -15,16 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_core::parameter_types;
 use sp_runtime::bounded_vec;
 
 use crate::VoterOf;
 use frame_election_provider_support::{
-	bounds::{CountBound, SizeBound},
-	data_provider, DataProviderBounds, ElectionDataProvider, PageIndex, VoterOf as VoterOfProvider,
+	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, PageIndex,
+	VoterOf as VoterOfProvider,
 };
-
-use pallet_staking::election_size_tracker::StaticTracker;
 
 use super::{AccountId, BlockNumber, MaxVotesPerVoter, T};
 
@@ -84,9 +81,9 @@ impl ElectionDataProvider for MockStaking {
 		// update the last iterater target index accordingly.
 		if remaining > 0 {
 			let last = targets.last().cloned().unwrap();
-			LastIteratedTargetIndex::set(Some(
-				Targets::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap(),
-			));
+			LastIteratedTargetIndex::set(
+				Some(Targets::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap())
+			);
 		} else {
 			LastIteratedTargetIndex::set(None);
 		}
@@ -94,49 +91,31 @@ impl ElectionDataProvider for MockStaking {
 		Ok(targets)
 	}
 
+	/// Note: electing voters bounds are only constrained by the count of voters.
 	fn electing_voters(
 		bounds: DataProviderBounds,
 		remaining: PageIndex,
 	) -> data_provider::Result<Vec<VoterOfProvider<Self>>> {
-		// drop previously processed voters.
-		let to_process = if let Some(last_index) = LastIteratedVoterIndex::get() {
-			Voters::get().iter().skip(last_index).cloned().collect::<Vec<_>>()
-		} else {
-			Voters::get()
-		};
+		let mut voters = Voters::get();
 
-		let final_predicted_len = bounds
-			.count
-			.unwrap_or((to_process.len() as u32).into())
-			.min((to_process.len() as u32).into())
-			.0;
-
-		let mut voters_size_tracker: StaticTracker<MockStaking> = StaticTracker::default();
-		let mut voters = vec![];
-
-		let mut to_process = to_process.iter();
-
-		while (voters.len() as u32) < final_predicted_len {
-			let voter = match to_process.next() {
-				// if voter exhausts the bounds, return.
-				Some(voter) => {
-					if voters_size_tracker.try_register_voter(&voter, &bounds).is_err() {
-						break
-					}
-					voter
-				},
-				None => break,
-			};
-
-			voters.push(voter.clone());
+		// skip the already iterated voters in previous pages.
+		if let Some(index) = LastIteratedVoterIndex::get() {
+			voters = voters.iter().skip(index).cloned().collect::<Vec<_>>();
 		}
 
-		// update the last iterated voter index accordingly.
+		// take as many voters as permitted by the bounds.
+		if let Some(max_len) = bounds.count {
+			voters.truncate(max_len.0 as usize);
+		}
+
+		assert!(!bounds.exhausted(None, CountBound(voters.len() as u32).into()));
+
+		// update the last iterater voter index accordingly.
 		if remaining > 0 {
 			let last = voters.last().cloned().unwrap();
-			LastIteratedVoterIndex::set(Some(
-				Voters::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap(),
-			));
+			LastIteratedVoterIndex::set(
+				Some(Voters::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap())
+			);
 		} else {
 			LastIteratedVoterIndex::set(None);
 		}
@@ -157,8 +136,6 @@ impl ElectionDataProvider for MockStaking {
 mod test {
 	use super::*;
 	use crate::mock::{ExtBuilder, Pages};
-
-	use codec::{Decode, Encode};
 
 	#[test]
 	fn multi_page_targets() {

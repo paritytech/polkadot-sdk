@@ -41,7 +41,13 @@ pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex
 pub type SolutionOf<T> = <T as crate::Config>::Solution;
 
 #[derive(DebugNoBound)]
-pub enum ElectionError {}
+pub enum ElectionError {
+	/// Error returned by the election data provider.
+	DataProvider,
+	/// The data provider returned data that exceeded the boundaries defined in the contract with
+	/// the election provider.
+	DataProviderBoundariesExceeded,
+}
 
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum Phase<Bn> {
