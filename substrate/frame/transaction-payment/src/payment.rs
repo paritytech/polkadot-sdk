@@ -146,7 +146,9 @@ where
 ///
 /// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: `fee` and
 /// then `tip`.
-#[deprecated(note = "Please use the fungible trait and FungibleAdapter instead where possible.")]
+#[deprecated(
+	note = "Please use the fungible trait and FungibleAdapter. This struct will be removed some time after March 2024."
+)]
 pub struct CurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
 
 /// Default implementation for a Currency and an OnUnbalanced handler.
