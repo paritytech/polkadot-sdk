@@ -440,7 +440,7 @@ impl Notifications {
 			})
 			.unzip();
 
-		protocol_handles.iter_mut().for_each(|handle| {
+		protocol_handles.iter_mut().skip(1).for_each(|handle| {
 			handle.delegate_to_peerset(true);
 		});
 
