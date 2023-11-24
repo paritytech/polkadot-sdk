@@ -171,7 +171,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config {}
+		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config
+	{
+	}
 
 	/// Scheduled assignment sets.
 	///
@@ -413,7 +415,10 @@ impl<T: Config> Pallet<T> {
 
 		// There should be at least one assignment and at most 100
 		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
-		ensure!(assignments.len() <= MAX_ASSIGNMENTS_PER_SCHEDULE as usize, Error::<T>::TooManyAssignments);
+		ensure!(
+			assignments.len() <= MAX_ASSIGNMENTS_PER_SCHEDULE as usize,
+			Error::<T>::TooManyAssignments
+		);
 
 		// Checking for sort and unique manually, since we don't have access to iterator tools.
 		// This way of checking uniqueness only works since we also check sortedness.

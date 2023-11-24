@@ -19,9 +19,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet, *};
+use assigner_bulk::MAX_ASSIGNMENTS_PER_SCHEDULE;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use assigner_bulk::MAX_ASSIGNMENTS_PER_SCHEDULE;
 //use xcm::latest::prelude::*;
 
 #[benchmarks]
@@ -32,9 +32,10 @@ mod benchmarks {
 		// Setup
 		let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
 		// TODO: Construct a proper Xcm broker parachain message origin
-		// let broker_id: u32 = 1004; 
-		// let broker_origin = <T as Config>::XcmPallet::Origin::Xcm(MultiLocation { parents: 0, interior: X1(Parachain(broker_id)) });
-		
+		// let broker_id: u32 = 1004;
+		// let broker_origin = <T as Config>::XcmPallet::Origin::Xcm(MultiLocation { parents: 0,
+		// interior: X1(Parachain(broker_id)) });
+
 		// Use valid assignment set with maximum number of assignments to maximize work
 		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; s as usize]
 			.into_iter()
@@ -43,7 +44,13 @@ mod benchmarks {
 			.collect();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.into()), CoreIndex(0), BlockNumberFor::<T>::from(5u32), assignments, Some(BlockNumberFor::<T>::from(20u32)))
+		_(
+			RawOrigin::Signed(caller.into()),
+			CoreIndex(0),
+			BlockNumberFor::<T>::from(5u32),
+			assignments,
+			Some(BlockNumberFor::<T>::from(20u32)),
+		)
 	}
 
 	impl_benchmark_test_suite!(
