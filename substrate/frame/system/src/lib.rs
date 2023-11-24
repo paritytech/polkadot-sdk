@@ -1370,11 +1370,13 @@ impl<T: Config> Pallet<T> {
 	/// This will update storage entries that correspond to the specified topics.
 	/// It is expected that light-clients could subscribe to this topics.
 	///
-	/// NOTE: Events not registered at the genesis block and quietly omitted.
+	/// NOTE: Events not registered at the genesis block and `not(feature = "std")` and quietly
+	/// omitted. But, in testing (`feature = "std"`) events are deposited normally.
 	pub fn deposit_event_indexed(topics: &[T::Hash], event: T::RuntimeEvent) {
 		let block_number = Self::block_number();
 
-		// Don't populate events on genesis.
+		// Don't populate events on "real" genesis
+		#[cfg(not(feature = "std"))]
 		if block_number.is_zero() {
 			return
 		}

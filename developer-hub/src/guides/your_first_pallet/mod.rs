@@ -715,10 +715,6 @@ pub mod pallet_v2 {
 		#[test]
 		fn transfer_works() {
 			StateBuilder::default().build_and_execute(|| {
-				// skip the genesis block, as events are not deposited there and we need them for
-				// the final assertion.
-				System::set_block_number(1);
-
 				// given the the initial state, when:
 				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(1), 2, 50));
 
