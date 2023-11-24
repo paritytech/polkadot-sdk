@@ -1005,10 +1005,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 pub mod env {
 
 	/// Set the value at the given key in the contract storage.
-	///
-	/// Equivalent to the newer [`seal1`][`super::api_doc::Version1::set_storage`] version with the
-	/// exception of the return type. Still a valid thing to call when not interested in the return
-	/// value.
+	/// See [`pallet_contracts_uapi::Api::set_storage`]
 	#[prefixed_alias]
 	fn set_storage(
 		ctx: _,
@@ -1021,9 +1018,7 @@ pub mod env {
 	}
 
 	/// Set the value at the given key in the contract storage.
-	///
-	/// This version is to be used with a fixed sized storage key. For runtimes supporting
-	/// transparent hashing, please use the newer version of this function.
+	/// See [`pallet_contracts_uapi::Api::set_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn set_storage(
@@ -1037,7 +1032,7 @@ pub mod env {
 	}
 
 	/// Set the value at the given key in the contract storage.
-	/// See [`pallet_contracts_uapi::Api::set_storage`]
+	/// See [`pallet_contracts_uapi::Api::set_storage_v2`]
 	#[version(2)]
 	#[prefixed_alias]
 	fn set_storage(
@@ -1052,17 +1047,14 @@ pub mod env {
 	}
 
 	/// Clear the value at the given key in the contract storage.
-	///
-	/// Equivalent to the newer [`seal1`][`super::api_doc::Version1::clear_storage`] version with
-	/// the exception of the return type. Still a valid thing to call when not interested in the
-	/// return value.
+	/// See [`pallet_contracts_uapi::Api::clear_storage`]
 	#[prefixed_alias]
 	fn clear_storage(ctx: _, memory: _, key_ptr: u32) -> Result<(), TrapReason> {
 		ctx.clear_storage(memory, KeyType::Fix, key_ptr).map(|_| ())
 	}
 
 	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_contracts_uapi::Api::clear_storage`]
+	/// See [`pallet_contracts_uapi::Api::clear_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn clear_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
@@ -1070,9 +1062,7 @@ pub mod env {
 	}
 
 	/// Retrieve the value under the given key from storage.
-	///
-	/// This version is to be used with a fixed sized storage key. For runtimes supporting
-	/// transparent hashing, please use the newer version of this function.
+	/// See [`pallet_contracts_uapi::Api::get_storage`]
 	#[prefixed_alias]
 	fn get_storage(
 		ctx: _,
@@ -1085,7 +1075,7 @@ pub mod env {
 	}
 
 	/// Retrieve the value under the given key from storage.
-	/// See [`pallet_contracts_uapi::Api::get_storage`]
+	/// See [`pallet_contracts_uapi::Api::get_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn get_storage(
@@ -1100,16 +1090,14 @@ pub mod env {
 	}
 
 	/// Checks whether there is a value stored under the given key.
-	///
-	/// This version is to be used with a fixed sized storage key. For runtimes supporting
-	/// transparent hashing, please use the newer version of this function.
+	/// See [`pallet_contracts_uapi::Api::contains_storage`]
 	#[prefixed_alias]
 	fn contains_storage(ctx: _, memory: _, key_ptr: u32) -> Result<u32, TrapReason> {
 		ctx.contains_storage(memory, KeyType::Fix, key_ptr)
 	}
 
 	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_contracts_uapi::Api::storage_contains`]
+	/// See [`pallet_contracts_uapi::Api::contains_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn contains_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
@@ -1173,18 +1161,7 @@ pub mod env {
 	}
 
 	/// Make a call to another contract.
-	///
-	/// # New version available
-	///
-	/// This is equivalent to calling the newer version of this function with
-	/// `flags` set to `ALLOW_REENTRY`. See the newer version for documentation.
-	///
-	/// # Note
-	///
-	/// The values `_callee_len` and `_value_len` are ignored because the encoded sizes
-	/// of those types are fixed through
-	/// [`codec::MaxEncodedLen`]. The fields exist
-	/// for backwards compatibility. Consider switching to the newest version of this function.
+	/// See [`pallet_contracts_uapi::Api::call`].
 	#[prefixed_alias]
 	fn call(
 		ctx: _,
@@ -1216,10 +1193,7 @@ pub mod env {
 	}
 
 	/// Make a call to another contract.
-	///
-	/// Equivalent to the newer [`seal2`][`super::api_doc::Version2::call`] version but works with
-	/// *ref_time* Weight only. It is recommended to switch to the latest version, once it's
-	/// stabilized.
+	/// See [`pallet_contracts_uapi::Api::call_v1`].
 	#[version(1)]
 	#[prefixed_alias]
 	fn call(
@@ -1251,7 +1225,7 @@ pub mod env {
 	}
 
 	/// Make a call to another contract.
-	/// See [`pallet_contracts_uapi::Api::call`].
+	/// See [`pallet_contracts_uapi::Api::call_v2`].
 	#[version(2)]
 	#[unstable]
 	fn call(
@@ -1309,17 +1283,7 @@ pub mod env {
 	}
 
 	/// Instantiate a contract with the specified code hash.
-	///
-	/// # New version available
-	///
-	/// This is equivalent to calling the newer version of this function. The newer version
-	/// drops the now unnecessary length fields.
-	///
-	/// # Note
-	///
-	/// The values `_code_hash_len` and `_value_len` are ignored because the encoded sizes
-	/// of those types are fixed through [`codec::MaxEncodedLen`]. The fields exist
-	/// for backwards compatibility. Consider switching to the newest version of this function.
+	/// See [`pallet_contracts_uapi::Api::instantiate`].
 	#[prefixed_alias]
 	fn instantiate(
 		ctx: _,
@@ -1356,10 +1320,7 @@ pub mod env {
 	}
 
 	/// Instantiate a contract with the specified code hash.
-	///
-	/// Equivalent to the newer [`seal2`][`super::api_doc::Version2::instantiate`] version but works
-	/// with *ref_time* Weight only. It is recommended to switch to the latest version, once it's
-	/// stabilized.
+	/// See [`pallet_contracts_uapi::Api::instantiate_v1`].
 	#[version(1)]
 	#[prefixed_alias]
 	fn instantiate(
@@ -1395,7 +1356,7 @@ pub mod env {
 	}
 
 	/// Instantiate a contract with the specified code hash.
-	/// See [`pallet_contracts_uapi::Api::instantiate`].
+	/// See [`pallet_contracts_uapi::Api::instantiate_v2`].
 	#[version(2)]
 	#[unstable]
 	fn instantiate(
@@ -1433,11 +1394,7 @@ pub mod env {
 	}
 
 	/// Remove the calling account and transfer remaining balance.
-	///
-	/// # New version available
-	///
-	/// This is equivalent to calling the newer version of this function. The newer version
-	/// drops the now unnecessary length fields.
+	/// See [`pallet_contracts_uapi::Api::terminate`].
 	///
 	/// # Note
 	///
@@ -1455,7 +1412,7 @@ pub mod env {
 	}
 
 	/// Remove the calling account and transfer remaining **free** balance.
-	/// See [`pallet_contracts_uapi::Api::terminate`].
+	/// See [`pallet_contracts_uapi::Api::terminate_v1`].
 	#[version(1)]
 	#[prefixed_alias]
 	fn terminate(ctx: _, memory: _, beneficiary_ptr: u32) -> Result<(), TrapReason> {
@@ -1574,14 +1531,7 @@ pub mod env {
 	}
 
 	/// Checks whether the caller of the current contract is root.
-	///
-	/// Note that only the origin of the call stack can be root. Hence this function returning
-	/// `true` implies that the contract is being called by the origin.
-	///
-	/// A return value of `true` indicates that this contract is being called by a root origin,
-	/// and `false` indicates that the caller is a signed origin.
-	///
-	/// Returned value is a `u32`-encoded boolean: (`0 = false`, `1 = true`).
+	/// See [`pallet_contracts_uapi::Api::caller_is_root`].
 	#[unstable]
 	fn caller_is_root(ctx: _, _memory: _) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::CallerIsRoot)?;
@@ -1604,10 +1554,7 @@ pub mod env {
 	}
 
 	/// Stores the price for the specified amount of gas into the supplied buffer.
-	///
-	/// Equivalent to the newer [`seal1`][`super::api_doc::Version2::weight_to_fee`] version but
-	/// works with *ref_time* Weight only. It is recommended to switch to the latest version, once
-	/// it's stabilized.
+	/// See [`pallet_contracts_uapi::Api::weight_to_fee`].
 	#[prefixed_alias]
 	fn weight_to_fee(
 		ctx: _,
@@ -1629,7 +1576,7 @@ pub mod env {
 	}
 
 	/// Stores the price for the specified amount of weight into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::weight_to_fee`].
+	/// See [`pallet_contracts_uapi::Api::weight_to_fee_v1`].
 	#[version(1)]
 	#[unstable]
 	fn weight_to_fee(
@@ -1653,10 +1600,7 @@ pub mod env {
 	}
 
 	/// Stores the weight left into the supplied buffer.
-	///
-	/// Equivalent to the newer [`seal1`][`super::api_doc::Version2::gas_left`] version but
-	/// works with *ref_time* Weight only. It is recommended to switch to the latest version, once
-	/// it's stabilized.
+	/// See [`pallet_contracts_uapi::Api::gas_left`].
 	#[prefixed_alias]
 	fn gas_left(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::GasLeft)?;
@@ -1672,7 +1616,7 @@ pub mod env {
 	}
 
 	/// Stores the amount of weight left into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::gas_left`].
+	/// See [`pallet_contracts_uapi::Api::gas_left_v1`].
 	#[version(1)]
 	#[unstable]
 	fn gas_left(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
@@ -2166,21 +2110,7 @@ pub mod env {
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
-	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
-	/// the function is called directly instead of being dispatched.
-	///
-	/// # Parameters
-	///
-	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::prelude::VersionedXcm`] is
-	///   placed.
-	/// - `msg_len`: the length of the message in bytes.
-	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::prelude::Outcome`]
-	///   message id is placed.
-	///
-	/// # Return Value
-	///
-	/// Returns `ReturnCode::Success` when the XCM was successfully executed. When the XCM
-	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned.
+	/// See [`pallet_contracts_uapi::Api::execute_xcm`].
 	#[unstable]
 	fn xcm_execute(
 		ctx: _,
@@ -2219,23 +2149,7 @@ pub mod env {
 	}
 
 	/// Send an XCM program from the contract to the specified destination.
-	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
-	/// the function is called directly instead of being dispatched.
-	///
-	/// # Parameters
-	///
-	/// - `dest_ptr`: the pointer into the linear memory where the
-	///   [`xcm::prelude::VersionedMultiLocation`] is placed.
-	/// - `msg_ptr`: the pointer into the linear memory where the [`xcm::prelude::VersionedXcm`] is
-	///   placed.
-	/// - `msg_len`: the length of the message in bytes.
-	/// - `output_ptr`: the pointer into the linear memory where the [`xcm::v3::XcmHash`] message id
-	///   is placed.
-	///
-	/// # Return Value
-	///
-	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
-	/// execution fails, `ReturnCode::CallRuntimeFailed` is returned.
+	/// See [`pallet_contracts_uapi::Api::send_xcm`].
 	#[unstable]
 	fn xcm_send(
 		ctx: _,
@@ -2371,10 +2285,7 @@ pub mod env {
 
 	/// Returns the number of times the currently executing contract exists on the call stack in
 	/// addition to the calling instance.
-	///
-	/// # Return Value
-	///
-	/// Returns `0` when there is no reentrancy.
+	/// See [`pallet_contracts_uapi::Api::reentrance_count`].
 	#[unstable]
 	fn reentrance_count(ctx: _, memory: _) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::ReentrantCount)?;
@@ -2383,14 +2294,7 @@ pub mod env {
 
 	/// Returns the number of times specified contract exists on the call stack. Delegated calls are
 	/// not counted as separate calls.
-	///
-	/// # Parameters
-	///
-	/// - `account_ptr`: a pointer to the contract address.
-	///
-	/// # Return Value
-	///
-	/// Returns `0` when the contract does not exist on the call stack.
+	/// See [`pallet_contracts_uapi::Api::account_reentrance_count`].
 	#[unstable]
 	fn account_reentrance_count(ctx: _, memory: _, account_ptr: u32) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::AccountEntranceCount)?;
@@ -2400,19 +2304,14 @@ pub mod env {
 	}
 
 	/// Returns a nonce that is unique per contract instantiation.
-	///
-	/// The nonce is incremented for each successful contract instantiation. This is a
-	/// sensible default salt for contract instantiations.
+	/// See [`pallet_contracts_uapi::Api::instantiation_nonce`].
 	fn instantiation_nonce(ctx: _, _memory: _) -> Result<u64, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::InstantationNonce)?;
 		Ok(ctx.ext.nonce())
 	}
 
 	/// Adds a new delegate dependency to the contract.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash_ptr`: A pointer to the code hash of the dependency.
+	/// See [`pallet_contracts_uapi::Api::add_delegate_dependency`].
 	#[unstable]
 	fn add_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::AddDelegateDependency)?;
@@ -2422,10 +2321,7 @@ pub mod env {
 	}
 
 	/// Removes the delegate dependency from the contract.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash_ptr`: A pointer to the code hash of the dependency.
+	/// see [`pallet_contracts_uapi::Api::remove_delegate_dependency`].
 	#[unstable]
 	fn remove_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::RemoveDelegateDependency)?;

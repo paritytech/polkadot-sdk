@@ -15,6 +15,7 @@
 // TODO:
 // - Add missing unstable methods
 
+pub mod unstable;
 use crate::{CallFlags, Result, ReturnFlags};
 use paste::paste;
 
@@ -34,44 +35,83 @@ macro_rules! hash_fn {
 	};
 }
 
+/// Defines all the user apis implemented by both wasm and RISC-V vms.
 pub trait Api {
-	/// Instantiate a contract with the specified code hash.
-	///
-	/// This function creates an account and executes the constructor defined in the code specified
-	/// by the code hash.
+	/// Returns the number of times specified contract exists on the call stack. Delegated calls are
+	/// not counted as separate calls.
 	///
 	/// # Parameters
 	///
-	/// - `code_hash`: The hash of the code to be instantiated.
-	/// - `gas_limit`: How much gas to devote for the execution.
-	/// - `endowment`: The value to transfer into the contract.
-	/// - `input`: The input data buffer.
-	/// - `out_address`: A reference to the address buffer to write the address of the contract. If
-	///   `None` is provided then the output buffer is not copied.
-	/// - `out_return_value`: A reference to the return value buffer to write the constructor output
-	///   buffer. If `None` is provided then the output buffer is not copied.
-	/// - `salt`: The salt bytes to use for this instantiation.
+	/// - `account`: The contract address. Should be decodable as an `T::AccountId`. Traps otherwise.
 	///
-	/// # Errors
+	/// # Return
 	///
-	/// Please consult the [`ReturnErrorCode`] enum declaration for more information on those
-	/// errors. Here we only note things specific to this function.
+	///  Returns the number of times specified contract exists on the call stack.
+	#[deprecated(note = "Unstable")]
+	fn account_reentrance_count(account: &[u8]) -> u32;
+
+	/// Stores the address of the current contract into the supplied buffer.
 	///
-	/// An error means that the account wasn't created and no address or output buffer
-	/// is returned unless stated otherwise.
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
-	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
-	/// - [`ReturnErrorCode::CalleeTrapped`]
-	/// - [`ReturnErrorCode::TransferFailed`]
-	/// - [`ReturnErrorCode::CodeNotFound`]
-	fn instantiate(
-		code_hash: &[u8],
-		gas_limit: u64,
-		endowment: &[u8],
-		input: &[u8],
-		out_address: Option<&mut [u8]>,
-		out_return_value: Option<&mut [u8]>,
-		salt: &[u8],
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the address.
+	fn address(output: &mut &mut [u8]);
+
+	/// Adds a new delegate dependency to the contract.
+	///
+	/// Traps if the maximum number of delegate_dependencies is reached or if
+	/// the delegate dependency already exists.
+	///
+	/// # Parameters
+	///
+	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps otherwise.
+	#[deprecated(note = "Unstable")]
+	fn add_delegate_dependency(code_hash: &[u8]);
+
+	/// Stores the *free* balance of the current account into the supplied buffer.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the balance.
+	fn balance(output: &mut &mut [u8]);
+
+	/// Stores the current block number of the current contract into the supplied buffer.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the block number.
+	fn block_number(output: &mut &mut [u8]);
+
+	/// Make a call to another contract.
+	///
+	/// This is equivalent to calling the newer version of this function with
+	/// `flags` set to `ALLOW_REENTRY`. See the newer version for documentation.
+	#[deprecated(note = "Deprecated, use newer version instead")]
+	fn call(
+		callee: &[u8],
+		gas: u64,
+		value: &[u8],
+		input_data: &[u8],
+		output: Option<&mut [u8]>,
+	) -> Result;
+
+	/// Make a call to another contract.
+	///
+	/// Equivalent to the newer [`seal2`][`Api::call_v2`] version but works with
+	/// *ref_time* Weight only
+	fn call_v1(
+		flags: CallFlags,
+		callee: &[u8],
+		gas: u64,
+		value: &[u8],
+		input_data: &[u8],
+		output: Option<&mut [u8]>,
 	) -> Result;
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
@@ -81,7 +121,9 @@ pub trait Api {
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `callee`: The address of the callee. Should be decodable as an `T::AccountId`. Traps
 	///   otherwise.
-	/// - `gas_limit`: How much gas to devote for the execution.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
+	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for the call, which implies storage usage up to the limit of the parent call.
 	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
 	///   Traps otherwise.
 	/// - `input`: The input data buffer used to call the contract.
@@ -97,146 +139,17 @@ pub trait Api {
 	/// - [`ReturnErrorCode::CalleeTrapped`]
 	/// - [`ReturnErrorCode::TransferFailed`]
 	/// - [`ReturnErrorCode::NotCallable`]
-	fn call(
+	#[deprecated(note = "Unstable, use `call_v1` instead")]
+	fn call_v2(
 		flags: CallFlags,
 		callee: &[u8],
-		gas_limit: u64,
+		ref_time_limit: u64,
+		proof_time_limit: u64,
+		deposit: Option<&[u8]>,
 		value: &[u8],
-		input: &[u8],
+		input_data: &[u8],
 		output: Option<&mut [u8]>,
 	) -> Result;
-
-	/// Execute code in the context (storage, caller, value) of the current contract.
-	///
-	/// Reentrancy protection is always disabled since the callee is allowed
-	/// to modify the callers storage. This makes going through a reentrancy attack
-	/// unnecessary for the callee when it wants to exploit the caller.
-	///
-	/// # Parameters
-	///
-	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
-	/// - `code_hash`: The hash of the code to be executed.
-	/// - `input`: The input data buffer used to call the contract.
-	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
-	///   is provided then the output buffer is not copied.
-	///
-	/// # Errors
-	///
-	/// An error means that the call wasn't successful and no output buffer is returned unless
-	/// stated otherwise.
-	///
-	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
-	/// - [`ReturnErrorCode::CalleeTrapped`]
-	/// - [`ReturnErrorCode::CodeNotFound`]
-	fn delegate_call(
-		flags: CallFlags,
-		code_hash: &[u8],
-		input: &[u8],
-		output: Option<&mut [u8]>,
-	) -> Result;
-
-	/// Transfer some amount of funds into the specified account.
-	///
-	/// # Parameters
-	///
-	/// - `account_id`: The address of the account to transfer funds to. Should be decodable as an
-	///   `T::AccountId`. Traps otherwise.
-	/// - `value`: The value to transfer. Should be decodable as a `T::Balance`. Traps otherwise.
-	///
-	/// # Errors
-	///
-	/// - [`ReturnErrorCode::TransferFailed`]
-	fn transfer(account_id: &[u8], value: &[u8]) -> Result;
-
-	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
-	/// on the maximum number of topics specified by `event_topics`.
-	///
-	/// There should not be any duplicates in `topics`.
-	///
-	/// # Parameters
-	///
-	/// - `topics`: The topics list encoded as `Vec<T::Hash>`. It can't contain duplicates.
-	fn deposit_event(topics: &[u8], data: &[u8]);
-
-	/// Set the value at the given key in the contract storage.
-	///
-	/// The key and value lengths must not exceed the maximums defined by the contracts module
-	/// parameters.
-	///
-	/// # Parameters
-	///
-	/// - `key`: The storage key.
-	/// - `encoded_value`: The storage value.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	fn set_storage(key: &[u8], value: &[u8]) -> Option<u32>;
-
-	/// Clear the value at the given key in the contract storage.
-	///
-	/// # Parameters
-	///
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	fn clear_storage(key: &[u8]) -> Option<u32>;
-
-	/// Retrieve the value under the given key from storage.
-	///
-	/// The key length must not exceed the maximum defined by the contracts module parameter.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	/// - `output`: A reference to the output data buffer to write the storage entry.
-	///
-	/// # Errors
-	///
-	/// [`ReturnErrorCode::KeyNotFound`]
-	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
-
-	/// Retrieve and remove the value under the given key from storage.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	/// - `output`: A reference to the output data buffer to write the storage entry.
-	///
-	/// # Errors
-	///
-	/// [`ReturnErrorCode::KeyNotFound`]
-	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
-
-	/// Checks whether there is a value stored under the given key.
-	///
-	/// The key length must not exceed the maximum defined by the contracts module parameter.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	fn storage_contains(key: &[u8]) -> Option<u32>;
-
-	/// Remove the calling account and transfer remaining **free** balance.
-	///
-	/// This function never returns. Either the termination was successful and the
-	/// execution of the destroyed contract is halted. Or it failed during the termination
-	/// which is considered fatal and results in a trap + rollback.
-	///
-	/// # Parameters
-	///
-	/// - `beneficiary`: The address of the beneficiary account, Should be decodable as an
-	/// `T::AccountId`.
-	///
-	/// # Traps
-	///
-	/// - The contract is live i.e is already on the call stack.
-	/// - Failed to send the balance to the beneficiary.
-	/// - The deletion queue is full.
-	fn terminate(beneficiary: &[u8]) -> !;
 
 	/// Call into the chain extension provided by the chain if any.
 	///
@@ -260,37 +173,6 @@ pub trait Api {
 	///
 	/// The chain extension returned value, if executed successfully.
 	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32;
-
-	/// Stores the input passed by the caller into the supplied buffer.
-	///
-	/// # Note
-	///
-	/// This function traps if:
-	/// - the input is larger than the available space.
-	/// - the input was previously forwarded by a [`call()`][`Self::call()`].
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the input data.
-	fn input(output: &mut &mut [u8]);
-
-	/// Cease contract execution and save a data buffer as a result of the execution.
-	///
-	/// This function never returns as it stops execution of the caller.
-	/// This is the only way to return a data buffer to the caller. Returning from
-	/// execution without calling this function is equivalent to calling:
-	/// ```nocompile
-	/// return_value(ReturnFlags::empty(), &[])
-	/// ```
-	///
-	/// Using an unnamed non empty `ReturnFlags` triggers a trap.
-	///
-	/// # Parameters
-	///
-	/// - `flags`: Flag used to signal special return conditions to the supervisor. See
-	///   [`ReturnFlags`] for a documentation of the supported flags.
-	/// - `return_value`: The return value buffer.
-	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> !;
 
 	/// Call some dispatchable of the runtime.
 	///
@@ -334,87 +216,116 @@ pub trait Api {
 	/// - `output`: A reference to the output data buffer to write the caller address.
 	fn caller(output: &mut &mut [u8]);
 
-	/// Stores the current block number of the current contract into the supplied buffer.
+	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract
+	/// is being called by a contract or a plain account. The reason is that it performs better
+	/// since it does not need to do any storage lookups.
+	///
+	/// # Return
+	///
+	/// A return value of `true` indicates that this contract is being called by a plain account
+	/// and `false` indicates that the caller is another contract.
+	fn caller_is_origin() -> bool;
+
+	/// Checks whether the caller of the current contract is root.
+	///
+	/// Note that only the origin of the call stack can be root. Hence this function returning
+	/// `true` implies that the contract is being called by the origin.
+	///
+	/// A return value of `true` indicates that this contract is being called by a root origin,
+	/// and `false` indicates that the caller is a signed origin.
+	#[deprecated(note = "Unstable")]
+	fn caller_is_root() -> u32;
+
+	/// Clear the value at the given key in the contract storage.
+	///
+	/// Equivalent to the newer [`Self::clear_storage_v1`] version with
+	/// the exception of the return type. Still a valid thing to call when not interested in the
+	/// return value.
+	fn clear_storage(key: &[u8]);
+
+	/// Clear the value at the given key in the contract storage.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the block number.
-	fn block_number(output: &mut &mut [u8]);
-
-	/// Stores the address of the current contract into the supplied buffer.
+	/// - `key`: The storage key.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn clear_storage_v1(key: &[u8]) -> Option<u32>;
+
+	/// Retrieve the code hash for a specified contract address.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the address.
-	fn address(output: &mut &mut [u8]);
-
-	/// Stores the *free* balance of the current account into the supplied buffer.
+	/// - `account_id`: The address of the contract.Should be decodable as an `T::AccountId`. Traps
+	///   otherwise.
+	/// - `output`: A reference to the output data buffer to write the code hash.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// # Errors
+	///
+	/// - [`ReturnErrorCode::CodeNotFound`]
+	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result;
+
+	/// Checks whether there is a value stored under the given key.
+	///
+	/// This version is to be used with a fixed sized storage key. For runtimes supporting
+	/// transparent hashing, please use the newer version of this function.
+	fn contains_storage(key: &[u8]) -> Option<u32>;
+
+	/// Checks whether there is a value stored under the given key.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn contains_storage_v1(key: &[u8]) -> Option<u32>;
+
+	/// Execute code in the context (storage, caller, value) of the current contract.
+	///
+	/// Reentrancy protection is always disabled since the callee is allowed
+	/// to modify the callers storage. This makes going through a reentrancy attack
+	/// unnecessary for the callee when it wants to exploit the caller.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the balance.
-	fn balance(output: &mut &mut [u8]);
-
-	/// Stores the amount of weight left into the supplied buffer.
-	/// The data is encoded as Weight.
+	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
+	/// - `code_hash`: The hash of the code to be executed.
+	/// - `input`: The input data buffer used to call the contract.
+	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
+	///   is provided then the output buffer is not copied.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	/// # Errors
+	///
+	/// An error means that the call wasn't successful and no output buffer is returned unless
+	/// stated otherwise.
+	///
+	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
+	/// - [`ReturnErrorCode::CalleeTrapped`]
+	/// - [`ReturnErrorCode::CodeNotFound`]
+	fn delegate_call(
+		flags: CallFlags,
+		code_hash: &[u8],
+		input_data: &[u8],
+		output: Option<&mut [u8]>,
+	) -> Result;
+
+	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
+	/// on the maximum number of topics specified by `event_topics`.
+	///
+	/// There should not be any duplicates in `topics`.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the weight left.
-	fn gas_left(output: &mut &mut [u8]);
-
-	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
-	/// The data is encoded as `T::Balance`.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the transferred value.
-	fn value_transferred(output: &mut &mut [u8]);
-
-	/// Load the latest block timestamp into the supplied buffer
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the timestamp.
-	fn now(output: &mut &mut [u8]);
-
-	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	/// The data is encoded as `T::Balance`.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the minimum balance.
-	fn minimum_balance(output: &mut &mut [u8]);
-
-	/// Stores the price for the specified amount of gas into the supplied buffer.
-	/// The data is encoded as `T::Balance`.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
-	/// # Parameters
-	///
-	/// - `gas`: The amount of gas to query the price for.
-	/// - `output`: A reference to the output data buffer to write the price.
-	fn weight_to_fee(gas: u64, output: &mut &mut [u8]);
-
-	hash_fn!(sha2_256, 32);
-	hash_fn!(keccak_256, 32);
-	hash_fn!(blake2_256, 32);
-	hash_fn!(blake2_128, 16);
+	/// - `topics`: The topics list encoded as `Vec<T::Hash>`. It can't contain duplicates.
+	fn deposit_event(topics: &[u8], data: &[u8]);
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	///
@@ -449,17 +360,135 @@ pub trait Api {
 	/// - [`ReturnErrorCode::EcdsaRecoveryFailed`]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
 
-	/// Verify a sr25519 signature
+	/// Stores the weight left into the supplied buffer.
+	///
+	/// Equivalent to the newer [`Self::gas_left_v1`] version but
+	/// works with *ref_time* Weight only.
+	fn gas_left(out: &mut &mut [u8]);
+
+	/// Stores the amount of weight left into the supplied buffer.
+	/// The data is encoded as Weight.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
-	/// - `signature`: The signature bytes.
-	/// - `message`: The message bytes.
+	/// - `output`: A reference to the output data buffer to write the weight left.
+	#[deprecated(note = "Unstable, use `gas_left` instead")]
+	fn gas_left_v1(output: &mut &mut [u8]);
+
+	/// Retrieve the value under the given key from storage.
+	///
+	/// This version is to be used with a fixed sized storage key. For runtimes supporting
+	/// transparent hashing, please use the newer version of this function.
+	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
+
+	/// Retrieve the value under the given key from storage.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	/// - `output`: A reference to the output data buffer to write the storage entry.
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::Sr25519VerifyFailed`]
-	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
+	/// [`ReturnErrorCode::KeyNotFound`]
+	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result;
+
+	hash_fn!(sha2_256, 32);
+	hash_fn!(keccak_256, 32);
+	hash_fn!(blake2_256, 32);
+	hash_fn!(blake2_128, 16);
+
+	/// Stores the input passed by the caller into the supplied buffer.
+	///
+	/// # Note
+	///
+	/// This function traps if:
+	/// - the input is larger than the available space.
+	/// - the input was previously forwarded by a [`call()`][`Self::call()`].
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the input data.
+	fn input(output: &mut &mut [u8]);
+
+	/// Instantiate a contract with the specified code hash.
+	#[deprecated(note = "Deprecated, use newer version instead")]
+	fn instantiate(
+		code_hash: &[u8],
+		gas: u64,
+		value: &[u8],
+		input: &[u8],
+		address: Option<&mut [u8]>,
+		output: Option<&mut [u8]>,
+		salt: &[u8],
+	) -> Result;
+
+	/// Instantiate a contract with the specified code hash.
+	///
+	/// Equivalent to the newer [`Self::instantiate_v2`] version but works
+	/// with *ref_time* Weight only.
+	fn instantiate_v1(
+		code_hash: &[u8],
+		gas: u64,
+		value: &[u8],
+		input: &[u8],
+		address: Option<&mut [u8]>,
+		output: Option<&mut [u8]>,
+		salt: &[u8],
+	) -> Result;
+
+	/// Instantiate a contract with the specified code hash.
+	///
+	/// This function creates an account and executes the constructor defined in the code specified
+	/// by the code hash.
+	///
+	/// # Parameters
+	///
+	/// - `code_hash`: The hash of the code to be instantiated.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
+	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for the call, which implies storage usage up to the limit of the parent call.
+	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`. Traps otherwise.
+	/// - `input`: The input data buffer.
+	/// - `address`: A reference to the address buffer to write the address of the contract. If
+	///   `None` is provided then the output buffer is not copied.
+	/// - `output`: A reference to the return value buffer to write the constructor output
+	///   buffer. If `None` is provided then the output buffer is not copied.
+	/// - `salt`: The salt bytes to use for this instantiation.
+	///
+	/// # Errors
+	///
+	/// Please consult the [`ReturnErrorCode`] enum declaration for more information on those
+	/// errors. Here we only note things specific to this function.
+	///
+	/// An error means that the account wasn't created and no address or output buffer
+	/// is returned unless stated otherwise.
+	///
+	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
+	/// - [`ReturnErrorCode::CalleeTrapped`]
+	/// - [`ReturnErrorCode::TransferFailed`]
+	/// - [`ReturnErrorCode::CodeNotFound`]
+	#[deprecated(note = "Unstable, use `instantiate_v1` instead")]
+	fn instantiate_v2(
+		code_hash: &[u8],
+		ref_time_limit: u64,
+		proof_size_limit: u64,
+		deposit: Option<&[u8]>,
+		value: &[u8],
+		input: &[u8],
+		address: Option<&mut [u8]>,
+		output: Option<&mut [u8]>,
+		salt: &[u8],
+	) -> Result;
+
+	/// Returns a nonce that is unique per contract instantiation.
+	///
+	/// The nonce is incremented for each successful contract instantiation. This is a
+	/// sensible default salt for contract instantiations.
+	fn instantiation_nonce() -> u64;
 
 	/// Checks whether a specified address belongs to a contract.
 	///
@@ -473,17 +502,68 @@ pub trait Api {
 	/// Returns `true` if the address belongs to a contract.
 	fn is_contract(account_id: &[u8]) -> bool;
 
-	/// Checks whether the caller of the current contract is the origin of the whole call stack.
+	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
+	/// The data is encoded as `T::Balance`.
 	///
-	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract
-	/// is being called by a contract or a plain account. The reason is that it performs better
-	/// since it does not need to do any storage lookups.
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the minimum balance.
+	fn minimum_balance(output: &mut &mut [u8]);
+
+	/// Retrieve the code hash of the currently executing contract.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the code hash.
+	fn own_code_hash(output: &mut [u8]);
+
+	/// Load the latest block timestamp into the supplied buffer
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the timestamp.
+	fn now(output: &mut &mut [u8]);
+
+	/// Returns the number of times the currently executing contract exists on the call stack in
+	/// addition to the calling instance.
 	///
 	/// # Return
 	///
-	/// A return value of `true` indicates that this contract is being called by a plain account
-	/// and `false` indicates that the caller is another contract.
-	fn caller_is_origin() -> bool;
+	/// Returns `0` when there is no reentrancy.
+	#[deprecated(note = "Unstable")]
+	fn reentrance_count() -> u32;
+
+	/// Removes the delegate dependency from the contract.
+	///
+	/// Traps if the delegate dependency does not exist.
+	///
+	/// # Parameters
+	///
+	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps otherwise.
+	#[deprecated(note = "Unstable")]
+	fn remove_delegate_dependency(code_hash: &[u8]);
+
+	/// Cease contract execution and save a data buffer as a result of the execution.
+	///
+	/// This function never returns as it stops execution of the caller.
+	/// This is the only way to return a data buffer to the caller. Returning from
+	/// execution without calling this function is equivalent to calling:
+	/// ```nocompile
+	/// return_value(ReturnFlags::empty(), &[])
+	/// ```
+	///
+	/// Using an unnamed non empty `ReturnFlags` triggers a trap.
+	///
+	/// # Parameters
+	///
+	/// - `flags`: Flag used to signal special return conditions to the supervisor. See
+	///   [`ReturnFlags`] for a documentation of the supported flags.
+	/// - `return_value`: The return value buffer.
+	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> !;
 
 	/// Replace the contract code at the specified address with new code.
 	///
@@ -507,31 +587,161 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `code_hash`: The hash of the new code.
+	/// - `code_hash`: The hash of the new code. Should be decodable as an `T::Hash`. Traps otherwise.
 	///
 	/// # Errors
 	///
 	/// - [`ReturnErrorCode::CodeNotFound`]
 	fn set_code_hash(code_hash: &[u8]) -> Result;
 
-	/// Retrieve the code hash for a specified contract address.
+	/// Set the value at the given key in the contract storage.
+	///
+	/// Equivalent to [`Self::set_storage_1`] version with the
+	/// exception of the return type. Still a valid thing to call  for fixed sized storage key, when not interested in the return
+	/// value.
+	fn set_storage(key: &[u8], value: &[u8]);
+
+	/// Set the value at the given key in the contract storage.
+	///
+	/// This version is to be used with a fixed sized storage key. For runtimes supporting
+	/// transparent hashing, please use the newer version of this function.
+	fn set_storage_v1(key: &[u8], value: &[u8]) -> Option<u32>;
+
+	/// Set the value at the given key in the contract storage.
+	///
+	/// The key and value lengths must not exceed the maximums defined by the contracts module
+	/// parameters.
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the contract.Should be decodable as an `T::AccountId`. Traps
-	///   otherwise.
-	/// - `output`: A reference to the output data buffer to write the code hash.
+	/// - `key`: The storage key.
+	/// - `encoded_value`: The storage value.
 	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn set_storage_v2(key: &[u8], value: &[u8]) -> Option<u32>;
+
+	/// Verify a sr25519 signature
+	///
+	/// # Parameters
+	///
+	/// - `signature`: The signature bytes.
+	/// - `message`: The message bytes.
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::CodeNotFound`]
-	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result;
+	/// - [`ReturnErrorCode::Sr25519VerifyFailed`]
+	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 
-	/// Retrieve the code hash of the currently executing contract.
+	/// Retrieve and remove the value under the given key from storage.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	/// - `output`: A reference to the output data buffer to write the storage entry.
+	///
+	/// # Errors
+	///
+	/// [`ReturnErrorCode::KeyNotFound`]
+	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
+
+	/// Transfer some amount of funds into the specified account.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the code hash.
-	fn own_code_hash(output: &mut [u8]);
+	/// - `account_id`: The address of the account to transfer funds to. Should be decodable as an
+	///   `T::AccountId`. Traps otherwise.
+	/// - `value`: The value to transfer. Should be decodable as a `T::Balance`. Traps otherwise.
+	///
+	/// # Errors
+	///
+	/// - [`ReturnErrorCode::TransferFailed`]
+	fn transfer(account_id: &[u8], value: &[u8]) -> Result;
+
+	/// Remove the calling account and transfer remaining balance.
+	///
+	/// This is equivalent to calling the newer version of this function
+	#[deprecated(note = "Deprecated, use newer version instead")]
+	fn terminate(beneficiary: &[u8]) -> !;
+
+	/// Remove the calling account and transfer remaining **free** balance.
+	///
+	/// This function never returns. Either the termination was successful and the
+	/// execution of the destroyed contract is halted. Or it failed during the termination
+	/// which is considered fatal and results in a trap + rollback.
+	///
+	/// # Parameters
+	///
+	/// - `beneficiary`: The address of the beneficiary account, Should be decodable as an
+	/// `T::AccountId`.
+	///
+	/// # Traps
+	///
+	/// - The contract is live i.e is already on the call stack.
+	/// - Failed to send the balance to the beneficiary.
+	/// - The deletion queue is full.
+	fn terminate_v1(beneficiary: &[u8]) -> !;
+
+	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
+	/// The data is encoded as `T::Balance`.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the transferred value.
+	fn value_transferred(output: &mut &mut [u8]);
+
+	/// Stores the price for the specified amount of gas into the supplied buffer.
+	///
+	/// Equivalent to the newer [`Self::weight_to_fee_v1`] version but
+	/// works with *ref_time* Weight only. It is recommended to switch to the latest version, once
+	/// it's stabilized.
+	fn weight_to_fee(gas: u64, output: &mut &mut [u8]);
+
+	/// Stores the price for the specified amount of gas into the supplied buffer.
+	/// The data is encoded as `T::Balance`.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	///
+	/// # Parameters
+	///
+	/// - `ref_time_limit`: The *ref_time* Weight limit to query the price for.
+	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
+	/// - `output`: A reference to the output data buffer to write the price.
+	#[deprecated(note = "Unstable, use `weight_to_fee` instead")]
+	fn weight_to_fee_v1( ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]);
+
+	/// Execute an XCM program locally, using the contract's address as the origin.
+	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
+	/// the function is called directly instead of being dispatched.
+	///
+	/// # Parameters
+	///
+	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps otherwise.
+	/// - `output`: A reference to the output data buffer to write the [`xcm::prelude::Outcome`]
+	///
+	/// # Return
+	///
+	/// Returns `Error::Success` when the XCM execution attempt is successful. When the XCM
+	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned
+	#[deprecated(note = "Unstable")]
+	fn xcm_execute( msg: &[u8], output: &mut &mut [u8]) -> Result;
+
+	/// Send an XCM program from the contract to the specified destination.
+	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
+	/// the function is called directly instead of being dispatched.
+	///
+	/// # Parameters
+	///
+	/// - `dest`: The XCM destination, should be decodable as [`xcm::prelude::VersionedMultiLocation`], traps otherwise.
+	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps otherwise.
+	/// - `output`: A reference to the output data buffer to write the [`xcm::v3::XcmHash`]
+	///
+	/// # Return
+	///
+	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
+	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
+	#[deprecated(note = "Unstable")]
+	fn xcm_send( dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result;
 }

@@ -811,7 +811,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 ///
 /// Only following return types are allowed for the host functions defined with the macro:
 /// - `Result<(), TrapReason>`,
-/// - `Result<ReturnCode, TrapReason>`,
+/// - `Result<ReturnErrorCode, TrapReason>`,
 /// - `Result<u32, TrapReason>`.
 ///
 /// The macro expands to `pub struct Env` declaration, with the following traits implementations:
