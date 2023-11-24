@@ -134,7 +134,7 @@ fn default_post_info() -> PostDispatchInfo {
 type Ext = ChargeTransactionPayment<Runtime>;
 
 #[test]
-fn signed_extension_transaction_payment_work() {
+fn transaction_extension_transaction_payment_work() {
 	ExtBuilder::default()
 		.balance_factor(10)
 		.base_weight(Weight::from_parts(5, 0))
@@ -169,7 +169,7 @@ fn signed_extension_transaction_payment_work() {
 }
 
 #[test]
-fn signed_extension_transaction_payment_multiplied_refund_works() {
+fn transaction_extension_transaction_payment_multiplied_refund_works() {
 	ExtBuilder::default()
 		.balance_factor(10)
 		.base_weight(Weight::from_parts(5, 0))
@@ -195,7 +195,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
 }
 
 #[test]
-fn signed_extension_transaction_payment_is_bounded() {
+fn transaction_extension_transaction_payment_is_bounded() {
 	ExtBuilder::default().balance_factor(1000).byte_fee(0).build().execute_with(|| {
 		// maximum weight possible
 		let info = info_from_weight(Weight::MAX);
@@ -210,7 +210,7 @@ fn signed_extension_transaction_payment_is_bounded() {
 }
 
 #[test]
-fn signed_extension_allows_free_transactions() {
+fn transaction_extension_allows_free_transactions() {
 	ExtBuilder::default()
 		.base_weight(Weight::from_parts(100, 0))
 		.balance_factor(0)
@@ -243,7 +243,7 @@ fn signed_extension_allows_free_transactions() {
 }
 
 #[test]
-fn signed_ext_length_fee_is_also_updated_per_congestion() {
+fn transaction_ext_length_fee_is_also_updated_per_congestion() {
 	ExtBuilder::default()
 		.base_weight(Weight::from_parts(5, 0))
 		.balance_factor(10)

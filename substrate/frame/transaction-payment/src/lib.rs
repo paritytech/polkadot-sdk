@@ -732,6 +732,22 @@ where
 		.map(|i| (fee, i))
 	}
 
+	fn can_withdraw_fee(
+		&self,
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<BalanceOf<T>, TransactionValidityError> {
+		let tip = self.0;
+		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+
+		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
+			who, call, info, fee, tip,
+		)?;
+		Ok(fee)
+	}
+
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
 	/// and user-included tip.
 	///
@@ -861,7 +877,7 @@ where
 	> {
 		let who = frame_system::ensure_signed(origin.clone())
 			.map_err(|_| InvalidTransaction::BadSigner)?;
-		let (final_fee, _imbalance) = self.withdraw_fee(&who, call, info, len)?;
+		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
 		Ok((
 			ValidTransaction {
