@@ -108,20 +108,18 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 	try_restrict()
 }
 
-/// Runs a check for seccomp and returns a single bool indicating whether seccomp with our rules is
-/// fully enabled on the current Linux environment.
-pub fn check_is_fully_enabled() -> bool {
-	let status_from_thread: Result<()> = match std::thread::spawn(|| try_restrict()).join() {
+/// Runs a check for seccomp in its own thread, and returns an error indicating whether seccomp with
+/// our rules is fully enabled on the current Linux environment.
+pub fn check_is_fully_enabled() -> Result<()> {
+	match std::thread::spawn(|| try_restrict()).join() {
 		Ok(Ok(())) => Ok(()),
-		Ok(Err(err)) => Err(err.into()),
+		Ok(Err(err)) => Err(err),
 		Err(err) => Err(Error::Panic(stringify_panic_payload(err))),
-	};
-
-	matches!(status_from_thread, Ok(()))
+	}
 }
 
 /// Applies a `seccomp` filter to disable networking for the PVF threads.
-pub fn try_restrict() -> Result<()> {
+fn try_restrict() -> Result<()> {
 	// Build a `seccomp` filter which by default allows all syscalls except those blocked in the
 	// blacklist.
 	let mut blacklisted_rules = BTreeMap::default();

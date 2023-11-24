@@ -71,12 +71,11 @@ pub async fn spawn_with_program_path(
 	let extra_args: Vec<String> = extra_args.iter().map(|arg| arg.to_string()).collect();
 	// Hack the borrow-checker.
 	let program_path_clone = program_path.clone();
-	let worker_dir_clone = worker_dir.path.clone();
+	let worker_dir_clone = worker_dir.path().to_owned();
 	let extra_args_clone = extra_args.clone();
 
 	with_transient_socket_path(debug_id, |socket_path| {
 		let socket_path = socket_path.to_owned();
-		let worker_dir_path = worker_dir.path().to_owned();
 
 		async move {
 			let listener = match UnixListener::bind(&socket_path) {
@@ -85,7 +84,7 @@ pub async fn spawn_with_program_path(
 			};
 
 			let handle =
-				WorkerHandle::spawn(&program_path, &extra_args, &socket_path, &worker_dir.path)
+				WorkerHandle::spawn(&program_path, &extra_args, &socket_path, &worker_dir.path())
 					.map_err(|err| SpawnErr::ProcessSpawn { program_path, err: err.to_string() })?;
 
 			futures::select! {
@@ -116,6 +115,8 @@ pub async fn spawn_with_program_path(
 	})
 }
 
+/// A temporary, random, free path that is necessary only to establish socket communications.
+/// Removed on drop.
 async fn with_transient_socket_path<T, F, Fut>(debug_id: &'static str, f: F) -> Result<T, SpawnErr>
 where
 	F: FnOnce(&Path) -> Fut,

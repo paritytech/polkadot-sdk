@@ -78,14 +78,26 @@ macro_rules! decl_worker_main {
 
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
-					let status = if security::landlock::check_is_fully_enabled() { 0 } else { -1 };
+					let status = if let Err(err) = security::landlock::check_is_fully_enabled() {
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("{}", err);
+						-1
+					} else {
+						0
+					};
 					#[cfg(not(target_os = "linux"))]
 					let status = -1;
 					std::process::exit(status)
 				},
 				"--check-can-enable-seccomp" => {
 					#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-					let status = if security::seccomp::check_is_fully_enabled() { 0 } else { -1 };
+					let status = if let Err(err) = security::seccomp::check_is_fully_enabled() {
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("{}", err);
+						-1
+					} else {
+						0
+					};
 					#[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
 					let status = -1;
 					std::process::exit(status)
@@ -94,11 +106,9 @@ macro_rules! decl_worker_main {
 					#[cfg(target_os = "linux")]
 					let cache_path_tempdir = std::path::Path::new(&args[2]);
 					#[cfg(target_os = "linux")]
-					let status = if let Err(err) = security::unshare_user_namespace_and_change_root(
-						$crate::worker::WorkerKind::CheckPivotRoot,
-						worker_pid,
-						&cache_path_tempdir,
-					) {
+					let status = if let Err(err) =
+						security::change_root::check_is_fully_enabled(&cache_path_tempdir)
+					{
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -200,7 +210,7 @@ pub struct WorkerInfo {
 // and not the version that this crate was compiled with.
 //
 // NOTE: This must not spawn any threads due to safety requirements in `event_loop` and to avoid
-// errors in [`security::unshare_user_namespace_and_change_root`].
+// errors in [`security::change_root::try_restrict`].
 //
 /// Initializes the worker process, then runs the given event loop, which spawns a new job process
 /// to securely handle each incoming request.
@@ -286,7 +296,7 @@ pub fn run_worker<F>(
 		//       > CLONE_NEWUSER requires that the calling process is not threaded.
 		#[cfg(target_os = "linux")]
 		if security_status.can_unshare_user_namespace_and_change_root {
-			if let Err(err) = security::unshare_user_namespace_and_change_root(&worker_info) {
+			if let Err(err) = security::change_root::enable_for_worker(&worker_info) {
 				// The filesystem may be in an inconsistent state, always bail out.
 				let err = format!("Could not change root to be the worker cache path: {}", err);
 				worker_shutdown_error(worker_info, &err);
@@ -296,11 +306,10 @@ pub fn run_worker<F>(
 
 		#[cfg(target_os = "linux")]
 		if security_status.can_enable_landlock {
-			let landlock_status = security::landlock::enable_for_worker(&worker_info);
-			if !matches!(landlock_status, Ok(landlock::RulesetStatus::FullyEnforced)) {
+			if let Err(err) = security::landlock::enable_for_worker(&worker_info) {
 				// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
-				let err = format!("could not fully enable landlock: {:?}", landlock_status);
+				let err = format!("could not fully enable landlock: {:?}", err);
 				gum::error!(
 					target: LOG_TARGET,
 					?worker_info,
@@ -317,11 +326,10 @@ pub fn run_worker<F>(
 		//       job to catch regressions. See <https://github.com/paritytech/ci_cd/issues/609>.
 		#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 		if security_status.can_enable_seccomp {
-			let seccomp_status = security::seccomp::enable_for_worker(&worker_info);
-			if !matches!(seccomp_status, Ok(())) {
+			if let Err(err) = security::seccomp::enable_for_worker(&worker_info) {
 				// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
-				let err = format!("could not fully enable seccomp: {:?}", seccomp_status);
+				let err = format!("could not fully enable seccomp: {:?}", err);
 				gum::error!(
 					target: LOG_TARGET,
 					?worker_info,

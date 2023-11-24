@@ -74,6 +74,8 @@ pub const LANDLOCK_ABI: ABI = ABI::V1;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+	#[error("Could not fully enable: {0:?}")]
+	NotFullyEnabled(RulesetStatus),
 	#[error("Invalid exception path: {0:?}")]
 	InvalidExceptionPath(PathBuf),
 	#[error(transparent)]
@@ -85,7 +87,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Try to enable landlock for the given kind of worker.
-pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<RulesetStatus> {
+pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 	let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_info.kind {
 		WorkerKind::Prepare => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
@@ -108,18 +110,14 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<RulesetStatus> {
 }
 
 // TODO: <https://github.com/landlock-lsm/rust-landlock/issues/36>
-/// Runs a check for landlock and returns a single bool indicating whether the given landlock
-/// ABI is fully enabled on the current Linux environment.
-pub fn check_is_fully_enabled() -> bool {
-	let status_from_thread: Result<RulesetStatus> =
-		match std::thread::spawn(|| try_restrict(std::iter::empty::<(PathBuf, AccessFs)>())).join()
-		{
-			Ok(Ok(status)) => Ok(status),
-			Ok(Err(ruleset_err)) => Err(ruleset_err.into()),
-			Err(err) => Err(Error::Panic(stringify_panic_payload(err))),
-		};
-
-	matches!(status_from_thread, Ok(RulesetStatus::FullyEnforced))
+/// Runs a check for landlock in its own thread, and returns an error indicating whether the given
+/// landlock ABI is fully enabled on the current Linux environment.
+pub fn check_is_fully_enabled() -> Result<()> {
+	match std::thread::spawn(|| try_restrict(std::iter::empty::<(PathBuf, AccessFs)>())).join() {
+		Ok(Ok(())) => Ok(()),
+		Ok(Err(err)) => Err(err),
+		Err(err) => Err(Error::Panic(stringify_panic_payload(err))),
+	}
 }
 
 /// Tries to restrict the current thread (should only be called in a process' main thread) with
@@ -133,7 +131,7 @@ pub fn check_is_fully_enabled() -> bool {
 /// # Returns
 ///
 /// The status of the restriction (whether it was fully, partially, or not-at-all enforced).
-fn try_restrict<I, P, A>(fs_exceptions: I) -> Result<RulesetStatus>
+fn try_restrict<I, P, A>(fs_exceptions: I) -> Result<()>
 where
 	I: IntoIterator<Item = (P, A)>,
 	P: AsRef<Path>,
@@ -150,8 +148,13 @@ where
 		}
 		ruleset = ruleset.add_rules(rules)?;
 	}
+
 	let status = ruleset.restrict_self()?;
-	Ok(status.ruleset)
+	if !matches!(status.ruleset, RulesetStatus::FullyEnforced) {
+		return Err(Error::NotFullyEnabled(status.ruleset))
+	}
+
+	Ok(())
 }
 
 #[cfg(test)]
