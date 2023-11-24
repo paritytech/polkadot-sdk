@@ -136,8 +136,7 @@ pub mod pallet {
 		/// -`begin`: The starting blockheight of the instruction.
 		/// -`assignment`: How the blockspace should be utilised.
 		/// -`end_hint`: An optional hint as to when this particular set of instructions will end.
-		// TODO: Weights!
-		//#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
+		// TODO: Real weights!
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
 		pub fn assign_core(

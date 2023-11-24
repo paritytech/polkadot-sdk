@@ -22,9 +22,6 @@ use super::{Pallet, *};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use xcm::latest::prelude::*;
-// TODO: Find a more future proof way to provide this
-const BROKER_ID: u32 = 1004;
-const BROKER_LOCATION: MultiLocation = MultiLocation { parents: 0, interior: X1(Parachain(BROKER_ID)) };
 
 #[benchmarks]
 mod benchmarks {
@@ -32,6 +29,11 @@ mod benchmarks {
 	#[benchmark]
 	fn assign_core() {
 		// Setup
+		
+		// TODO: Construct a proper Xcm broker parachain message origin
+		// let broker_id: u32 = 1004; 
+		// let broker_origin = <T as Config>::XcmPallet::Origin::Xcm(MultiLocation { parents: 0, interior: X1(Parachain(broker_id)) });
+		
 		// Use valid assignment set with maximum number of assignments to maximize work
 		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; 100]
 			.into_iter()
