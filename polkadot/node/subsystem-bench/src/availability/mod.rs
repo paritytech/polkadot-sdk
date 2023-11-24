@@ -129,7 +129,7 @@ pub struct TestEnvironment {
 	// for the whole duration of the test.
 	instance: AvailabilityRecoverySubsystemInstance,
 	// The test intial state. The current state is owned by `env_task`.
-	state: TestState,
+	config: TestConfiguration,
 	// A handle to the network emulator.
 	network: NetworkEmulator,
 	// Configuration/env metrics
@@ -140,6 +140,7 @@ impl TestEnvironment {
 	// Create a new test environment with specified initial state and prometheus registry.
 	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
 	pub fn new(runtime: tokio::runtime::Handle, state: TestState, registry: Registry) -> Self {
+		let config = state.config().clone();
 		let task_manager: TaskManager = TaskManager::new(runtime.clone(), Some(&registry)).unwrap();
 		let (instance, virtual_overseer) = AvailabilityRecoverySubsystemInstance::new(
 			&registry,
@@ -153,9 +154,9 @@ impl TestEnvironment {
 		let metrics =
 			TestEnvironmentMetrics::new(&registry).expect("Metrics need to be registered");
 		let mut network = NetworkEmulator::new(
-			state.config().n_validators,
+			config.n_validators,
 			state.validator_authority_id.clone(),
-			state.config().peer_bandwidth,
+			config.peer_bandwidth,
 			task_manager.spawn_handle(),
 			&registry,
 		);
@@ -168,7 +169,7 @@ impl TestEnvironment {
 		let spawn_handle = task_manager.spawn_handle();
 
 		// Our node rate limiting
-		let mut rx_limiter = RateLimit::new(10, state.config.bandwidth);
+		let mut rx_limiter = RateLimit::new(10, config.bandwidth);
 		let (ingress_tx, mut ingress_rx) = tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
 		let our_network_stats = network.peer_stats(0);
 
@@ -204,11 +205,11 @@ impl TestEnvironment {
 				.unwrap();
 			});
 
-		TestEnvironment { task_manager, registry, to_subsystem, instance, state, network, metrics }
+		TestEnvironment { task_manager, registry, to_subsystem, instance, config, network, metrics }
 	}
 
 	pub fn config(&self) -> &TestConfiguration {
-		self.state.config()
+		&self.config
 	}
 
 	pub fn network(&mut self) -> &mut NetworkEmulator {
@@ -457,8 +458,6 @@ impl TestEnvironment {
 	}
 }
 
-/// Implementation for chunks only
-/// TODO: all recovery methods.
 impl AvailabilityRecoverySubsystemInstance {
 	pub fn new(
 		registry: &Registry,
@@ -732,7 +731,7 @@ fn derive_erasure_chunks_with_proofs_and_root(
 	(erasure_chunks, root)
 }
 
-pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
+pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestState) {
 	let config = env.config().clone();
 
 	env.send_signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
@@ -754,8 +753,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment) {
 
 		let block_start_ts = Instant::now();
 		for candidate_num in 0..config.n_cores as u64 {
-			let candidate = env
-				.state
+			let candidate = state
 				.next_candidate()
 				.expect("We always send up to n_cores*num_blocks; qed");
 			let (tx, rx) = oneshot::channel();

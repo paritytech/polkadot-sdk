@@ -126,9 +126,9 @@ impl BenchCli {
 					let mut state = TestState::new(test_config);
 					state.generate_candidates(candidate_count);
 					let mut env =
-						TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
+						TestEnvironment::new(runtime.handle().clone(), state.clone(), Registry::new());
 
-					runtime.block_on(availability::bench_chunk_recovery(&mut env));
+					runtime.block_on(availability::bench_chunk_recovery(&mut env, state));
 				}
 				return Ok(())
 			},
@@ -189,9 +189,9 @@ impl BenchCli {
 
 		let mut state = TestState::new(test_config);
 		state.generate_candidates(candidate_count);
-		let mut env = TestEnvironment::new(runtime.handle().clone(), state, Registry::new());
+		let mut env = TestEnvironment::new(runtime.handle().clone(), state.clone(), Registry::new());
 
-		runtime.block_on(availability::bench_chunk_recovery(&mut env));
+		runtime.block_on(availability::bench_chunk_recovery(&mut env, state));
 
 		Ok(())
 	}
