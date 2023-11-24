@@ -16,7 +16,7 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
   name = "honest"
-  count = 5
+  count = 6
   args = ["-lparachain=debug"]
 
   [[relaychain.nodes]]
