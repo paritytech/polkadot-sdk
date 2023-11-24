@@ -37,11 +37,9 @@
 //!
 //! ### Primary Features
 //!
-//! - Entering safe mode can be with a privileged origin or anyone placing a deposit.
-//! - Deposit method or privileged origin may be separately disabled.
-//! - Separate privileged origin configuration items for entering and exiting safe mode.
-//! - Configuration item to set a safe mode block count duration, after which the system will exit
-//!   safe mode.
+//! - Entering safe mode can be via privileged origin or anyone who places a deposit.
+//! - Origin configuration items are separated for privileged entering and exiting safe mode.
+//! - A configurable duration sets the number of blocks after which the system will exit safe mode.
 //! - Safe mode may be extended beyond the configured exit by additional calls.
 //!
 //! ### Example
