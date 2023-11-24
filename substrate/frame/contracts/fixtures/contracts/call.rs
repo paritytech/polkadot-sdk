@@ -37,7 +37,7 @@ pub fn call() {
 	api::input(&mut &mut buffer[..]);
 
 	// Call the callee
-	api::call(
+	api::call_v1(
 		CallFlags::empty(),
 		&buffer[callee_addr],
 		0u64, // How much gas to devote for the execution. 0 = all.
