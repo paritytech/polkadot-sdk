@@ -48,12 +48,12 @@ where
 /// `construct_runtime` of the Relay chain.
 #[derive(Encode, Decode)]
 enum BrokerRuntimePallets<
-	CoreIndex: Encode,
-	BlockNumber: Encode,
-	AccountId: Encode,
-	Balance: Encode,
-	CoreAssignment: Encode,
-	PartsOf57600: Encode,
+	CoreIndex: Encode + Decode,
+	BlockNumber: Encode + Decode,
+	AccountId: Encode + Decode,
+	Balance: Encode + Decode,
+	CoreAssignment: Encode + Decode,
+	PartsOf57600: Encode + Decode,
 > {
 	#[codec(index = 74)]
 	Broker(
@@ -71,12 +71,12 @@ enum BrokerRuntimePallets<
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
 enum CoretimeProviderCalls<
-	CoreIndex: Encode,
-	BlockNumber: Encode,
-	AccountId: Encode,
-	Balance: Encode,
-	CoreAssignment: Encode,
-	PartsOf57600: Encode,
+	CoreIndex: Encode + Decode,
+	BlockNumber: Encode + Decode,
+	AccountId: Encode + Decode,
+	Balance: Encode + Decode,
+	CoreAssignment: Encode + Decode,
+	PartsOf57600: Encode + Decode,
 > {
 	#[codec(index = 1)]
 	RequestCoreCount(CoreIndex),
@@ -127,7 +127,7 @@ impl CoretimeInterface for CoretimeAllocator {
 				check_origin: None,
 			},
 			Instruction::Transact {
-				origin_kind: OriginKind::Xcm,
+				origin_kind: OriginKind::Native,
 				require_weight_at_most: Weight::from_parts(1, 1),
 				call: request_core_count_call.encode().into(),
 			},
@@ -163,7 +163,7 @@ impl CoretimeInterface for CoretimeAllocator {
 				check_origin: None,
 			},
 			Instruction::Transact {
-				origin_kind: OriginKind::Xcm,
+				origin_kind: OriginKind::Native,
 				require_weight_at_most: Weight::from_parts(1, 1),
 				call: request_revenue_info_at_call.encode().into(),
 			},
@@ -199,7 +199,7 @@ impl CoretimeInterface for CoretimeAllocator {
 				check_origin: None,
 			},
 			Instruction::Transact {
-				origin_kind: OriginKind::Xcm,
+				origin_kind: OriginKind::Native,
 				require_weight_at_most: Weight::from_parts(1, 1),
 				call: credit_account_call.encode().into(),
 			},
@@ -240,7 +240,7 @@ impl CoretimeInterface for CoretimeAllocator {
 				check_origin: None,
 			},
 			Instruction::Transact {
-				origin_kind: OriginKind::Xcm,
+				origin_kind: OriginKind::Native,
 				require_weight_at_most: Weight::from_parts(1, 1),
 				call: assign_core_call.encode().into(),
 			},
