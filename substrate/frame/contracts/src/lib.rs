@@ -92,6 +92,8 @@ mod benchmarking;
 mod exec;
 mod gas;
 mod primitives;
+pub use primitives::*;
+
 mod schedule;
 mod storage;
 mod wasm;
@@ -108,11 +110,6 @@ use crate::{
 		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
 	},
 	gas::GasMeter,
-	primitives::{
-		Code, CodeUploadResult, CodeUploadReturnValue, ContractAccessError, ContractExecResult,
-		ContractInstantiateResult, ContractResult, ExecReturnValue, GetStorageResult,
-		InstantiateReturnValue, StorageDeposit,
-	},
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
 };
