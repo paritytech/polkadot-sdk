@@ -108,7 +108,7 @@ asset-test-utils = { path = "../test-utils" }
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 # When enabled the `state_version` is set to `1`.
 # This means that the chain will start using the new state format. The migration is lazy, so
 # it requires to write a storage value to use the new state format. To migrate all the other
@@ -116,7 +116,7 @@ default = ["std"]
 # This pallet will migrate the entire state, controlled through some account.
 #
 # This feature should be removed when the main-net will be migrated.
-state-trie-version-1 = ["pallet-state-trie-migration"]
+state-trie-version-1 = [ "pallet-state-trie-migration" ]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -257,9 +257,9 @@ std = [
 	"xcm/std",
 ]
 
-experimental = ["pallet-aura/experimental"]
+experimental = [ "pallet-aura/experimental" ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = [ "sp-api/disable-logging" ]
