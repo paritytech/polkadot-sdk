@@ -24,8 +24,8 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{DispatchInfoOf, Dispatchable, TransactionExtension, TransactionExtensionBase},
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionValidityError,
-		UnknownTransaction, ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
+		ValidTransaction,
 	},
 };
 use sp_std::{fmt, marker::PhantomData};
