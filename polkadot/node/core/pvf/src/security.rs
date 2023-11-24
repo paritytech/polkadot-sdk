@@ -35,27 +35,22 @@ use tokio::{
 /// configuration.
 pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, String> {
 	let Config { prepare_worker_program_path, secure_validator_mode, cache_path, .. } = config;
-	// TODO: add check that syslog is available and that seccomp violations are logged?
+
 	let (landlock, seccomp, change_root) = join!(
 		check_landlock(prepare_worker_program_path),
 		check_seccomp(prepare_worker_program_path),
 		check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path, cache_path)
 	);
 
-	let security_status = SecurityStatus {
-		secure_validator_mode: *secure_validator_mode,
-		can_enable_landlock: landlock.is_ok(),
-		can_enable_seccomp: seccomp.is_ok(),
-		can_unshare_user_namespace_and_change_root: change_root.is_ok(),
-	};
+	let full_security_status =
+		FullSecurityStatus::new(*secure_validator_mode, landlock, seccomp, change_root);
+	let security_status = full_security_status.as_partial();
 
-	let errs: Vec<SecureModeError> = [landlock, seccomp, change_root]
-		.into_iter()
-		.filter_map(|result| result.err())
-		.collect();
-	let err_occurred = print_secure_mode_message(&security_status, errs);
-	if err_occurred {
-		return Err("could not enable Secure Validator Mode; check logs".into())
+	if full_security_status.err_occurred() {
+		print_secure_mode_error_or_warning(&full_security_status);
+		if !full_security_status.all_errs_allowed() {
+			return Err("could not enable Secure Validator Mode; check logs".into())
+		}
 	}
 
 	if security_status.secure_validator_mode {
@@ -68,6 +63,60 @@ pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, St
 	}
 
 	Ok(security_status)
+}
+
+/// Contains the full security status including error states.
+struct FullSecurityStatus {
+	partial: SecurityStatus,
+	errs: Vec<SecureModeError>,
+}
+
+impl FullSecurityStatus {
+	fn new(
+		secure_validator_mode: bool,
+		landlock: SecureModeResult,
+		seccomp: SecureModeResult,
+		change_root: SecureModeResult,
+	) -> Self {
+		Self {
+			partial: SecurityStatus {
+				secure_validator_mode,
+				can_enable_landlock: landlock.is_ok(),
+				can_enable_seccomp: seccomp.is_ok(),
+				can_unshare_user_namespace_and_change_root: change_root.is_ok(),
+			},
+			errs: [landlock, seccomp, change_root]
+				.into_iter()
+				.filter_map(|result| result.err())
+				.collect(),
+		}
+	}
+
+	fn as_partial(&self) -> SecurityStatus {
+		self.partial.clone()
+	}
+
+	fn err_occurred(&self) -> bool {
+		!self.errs.is_empty()
+	}
+
+	fn all_errs_allowed(&self) -> bool {
+		!self.partial.secure_validator_mode ||
+			self.errs.iter().all(|err| err.is_allowed_in_secure_mode(&self.partial))
+	}
+
+	fn errs_string(&self) -> String {
+		self.errs
+			.iter()
+			.map(|err| {
+				format!(
+					"\n  - {}{}",
+					if err.is_allowed_in_secure_mode(&self.partial) { "Optional: " } else { "" },
+					err
+				)
+			})
+			.collect()
+	}
 }
 
 type SecureModeResult = std::result::Result<(), SecureModeError>;
@@ -108,12 +157,8 @@ impl fmt::Display for SecureModeError {
 	}
 }
 
-/// Errors if Secure Validator Mode and some mandatory errors occurred, warn otherwise.
-///
-/// # Returns
-///
-/// `true` if an error was printed, `false` otherwise.
-fn print_secure_mode_message(security_status: &SecurityStatus, errs: Vec<SecureModeError>) -> bool {
+/// Print an error if Secure Validator Mode and some mandatory errors occurred, warn otherwise.
+fn print_secure_mode_error_or_warning(security_status: &FullSecurityStatus) {
 	// Trying to run securely and some mandatory errors occurred.
 	const SECURE_MODE_ERROR: &'static str = "🚨 Your system cannot securely run a validator. \
 		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
@@ -127,31 +172,16 @@ fn print_secure_mode_message(security_status: &SecurityStatus, errs: Vec<SecureM
 		 command line argument if you understand and accept the risks of running insecurely. \
 		 \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode";
 
-	if errs.is_empty() {
-		return false
-	}
+	let all_errs_allowed = security_status.all_errs_allowed();
+	let errs_string = security_status.errs_string();
 
-	let errs_allowed = !security_status.secure_validator_mode ||
-		errs.iter().all(|err| err.is_allowed_in_secure_mode(security_status));
-	let errs_string: String = errs
-		.iter()
-		.map(|err| {
-			format!(
-				"\n  - {}{}",
-				if err.is_allowed_in_secure_mode(security_status) { "Optional: " } else { "" },
-				err
-			)
-		})
-		.collect();
-
-	if errs_allowed {
+	if all_errs_allowed {
 		gum::warn!(
 			target: LOG_TARGET,
 			"{}{}",
 			SECURE_MODE_WARNING,
 			errs_string,
 		);
-		false
 	} else {
 		gum::error!(
 			target: LOG_TARGET,
@@ -160,7 +190,6 @@ fn print_secure_mode_message(security_status: &SecurityStatus, errs: Vec<SecureM
 			errs_string,
 			IGNORE_SECURE_MODE_TIP
 		);
-		true
 	}
 }
 
