@@ -17,7 +17,7 @@
 
 //! A set of well-known keys used for testing.
 
-use array_bytes::hex2array_unchecked as hex2arr;
+use crate::hex2array as hex2arr;
 pub use sp_core::bandersnatch;
 use sp_core::{
 	bandersnatch::{Pair, Public, Signature},

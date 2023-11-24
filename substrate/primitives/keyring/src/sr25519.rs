@@ -17,7 +17,7 @@
 
 //! Support code for the runtime. A set of test accounts.
 
-use array_bytes::hex2array_unchecked as hex2arr;
+use crate::hex2array as hex2arr;
 pub use sp_core::sr25519;
 use sp_core::{
 	sr25519::{Pair, Public, Signature},
