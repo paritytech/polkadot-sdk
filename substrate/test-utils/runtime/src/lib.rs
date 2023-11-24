@@ -1178,7 +1178,7 @@ mod tests {
 			assert_eq!(
 				CheckSubstrateCall {}
 					.validate_only(
-						Some(x.clone()).into(),
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
 						len,
@@ -1192,7 +1192,7 @@ mod tests {
 			assert_eq!(
 				CheckSubstrateCall {}
 					.validate_only(
-						Some(x.clone()).into(),
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
 						len,
