@@ -4,7 +4,7 @@ usage() {
     echo Usage:
     echo "$1 <srtool compressed runtime path>"
     echo "$2 <para_id>"
-    echo "e.g.: ./scripts/create_coretime_rococo_spec.sh ./target/release/wbuild/coretime-rococo-runtime/coretime_rococo_runtime.compact.compressed.wasm 1005"
+    echo "e.g.: ./cumulus/scripts/create_coretime_rococo_spec.sh ./target/release/wbuild/coretime-rococo-runtime/coretime_rococo_runtime.compact.compressed.wasm 1005"
     exit 1
 }
 
@@ -33,7 +33,7 @@ cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
 
 # replace the runtime in the spec with the given runtime and set some values to production
 # Related issue for bootNodes, invulnerables, and session keys: https://github.com/paritytech/devops/issues/2725
-cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.system.code = ("0x" + $code)' \
+cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesis.code = ("0x" + $code)' \
     | jq '.name = "Rococo Coretime"' \
     | jq '.id = "coretime-rococo"' \
     | jq '.chainType = "Live"' \
@@ -43,12 +43,13 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.syste
         ]' \
     | jq '.relay_chain = "rococo"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
-    | jq --argjson para_id $para_id '.genesis.runtime.parachainInfo.parachainId = $para_id' \
-    | jq '.genesis.runtime.collatorSelection.invulnerables = [
+    | jq --argjson para_id $para_id '.genesis.runtimeGenesis.patch.parachainInfo.parachainId = $para_id' \
+    | jq '.genesis.runtimeGenesis.patch.balances.balances = []' \
+    | jq '.genesis.runtimeGenesis.patch.collatorSelection.invulnerables = [
           "5G6Zua7Sowmt6ziddwUyueQs7HXDUVvDLaqqJDXXFyKvQ6Y6",
           "5C8aSedh7ShpWEPW8aTNEErbKkMbiibdwP8cRzVRNqLmzAWF"
         ]' \
-    | jq '.genesis.runtime.session.keys = [
+    | jq '.genesis.runtimeGenesis.patch.session.keys = [
           [
             "5G6Zua7Sowmt6ziddwUyueQs7HXDUVvDLaqqJDXXFyKvQ6Y6",
             "5G6Zua7Sowmt6ziddwUyueQs7HXDUVvDLaqqJDXXFyKvQ6Y6",
