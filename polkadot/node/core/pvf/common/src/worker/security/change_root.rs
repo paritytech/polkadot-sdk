@@ -18,7 +18,7 @@
 //! changing the root.
 
 use crate::{
-	worker::{stringify_panic_payload, WorkerInfo, WorkerKind},
+	worker::{WorkerInfo, WorkerKind},
 	LOG_TARGET,
 };
 use std::{env, ffi::CString, io, os::unix::ffi::OsStrExt, path::Path, ptr};
@@ -31,8 +31,6 @@ pub enum Error {
 	Io(#[from] io::Error),
 	#[error("assertion failed: {0}")]
 	AssertionFailed(String),
-	#[error("A panic occurred in try_restrict: {0}")]
-	Panic(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -59,20 +57,12 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 #[cfg(target_os = "linux")]
 pub fn check_is_fully_enabled(tempdir: &Path) -> Result<()> {
 	let worker_dir_path = tempdir.to_owned();
-	match std::thread::spawn(|| {
-		try_restrict(&WorkerInfo {
-			pid: std::process::id(),
-			kind: WorkerKind::CheckPivotRoot,
-			version: None,
-			worker_dir_path,
-		})
+	try_restrict(&WorkerInfo {
+		pid: std::process::id(),
+		kind: WorkerKind::CheckPivotRoot,
+		version: None,
+		worker_dir_path,
 	})
-	.join()
-	{
-		Ok(Ok(())) => Ok(()),
-		Ok(Err(err)) => Err(err),
-		Err(err) => Err(Error::Panic(stringify_panic_payload(err))),
-	}
 }
 
 /// Unshare the user namespace and change root to be the worker directory.
