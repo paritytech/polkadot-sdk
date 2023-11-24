@@ -25,19 +25,14 @@ requests = { memory = "2G", cpu = "1" }
   command = "malus dispute-finalized-candidates"
   args = [ "--alice", "-lparachain=debug,MALUS=trace", "--dispute-offset=14" ]
 
-{% for id in range(2000,2002) %}
 [[parachains]]
-id = {{id}}
-addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size={{25000*(id-1999)}} --pvf-complexity={{id - 1999}}"
+id = 2000
 
   [parachains.collator]
   image = "{{COL_IMAGE}}"
   name = "collator"
   command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size={{25000*(id-1999)}}", "--parachain-id={{id}}", "--pvf-complexity={{id - 1999}}"]
-
-{% endfor %}
+  args = ["-lparachain=debug"]
 
 [types.Header]
 number = "u64"

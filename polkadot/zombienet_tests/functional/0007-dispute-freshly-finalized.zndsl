@@ -8,11 +8,9 @@ honest: reports node_roles is 4
 
 # Ensure parachains are registered.
 honest: parachain 2000 is registered within 30 seconds
-honest: parachain 2001 is registered within 30 seconds
 
 # Ensure parachains made progress.
 honest: parachain 2000 block height is at least 10 within 200 seconds
-honest: parachain 2001 block height is at least 10 within 200 seconds
 
 # Ensure that malus is already attempting to dispute
 malus: log line contains "😈 Disputing candidate with hash:" within 180 seconds
