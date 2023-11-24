@@ -1027,11 +1027,6 @@ impl<T: Config> Pallet<T> {
 			T::VoterList::count()
 		);
 
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
-
 		outcome
 	}
 
