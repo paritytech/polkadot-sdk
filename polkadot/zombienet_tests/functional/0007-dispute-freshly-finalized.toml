@@ -1,9 +1,9 @@
 [settings]
 timeout = 1000
 
-[relaychain.genesis.runtime.configuration.config]
-  max_validators_per_core = 2
-  needed_approvals = 3
+[relaychain.genesis.runtimeGenesis.patch.configuration.config]
+  max_validators_per_core = 1
+  needed_approvals = 1
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
@@ -16,7 +16,7 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
   name = "honest"
-  count = 12
+  count = 6
   args = ["-lparachain=debug"]
 
   [[relaychain.nodes]]
@@ -25,7 +25,7 @@ requests = { memory = "2G", cpu = "1" }
   command = "malus dispute-finalized-candidates"
   args = [ "--alice", "-lparachain=debug,MALUS=trace", "--dispute-offset=3" ]
 
-{% for id in range(2000,2004) %}
+{% for id in range(2000,2002) %}
 [[parachains]]
 id = {{id}}
 addToGenesis = true
