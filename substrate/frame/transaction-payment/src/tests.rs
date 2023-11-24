@@ -740,7 +740,7 @@ fn post_info_can_change_pays_fee() {
 			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
 
 			let post_info = ChargeTransactionPayment::<Runtime>::from(tip)
-				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info.clone()))
+				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 
