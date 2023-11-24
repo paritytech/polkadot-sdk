@@ -281,12 +281,12 @@ construct_runtime! {
 #[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DisallowSigned;
 
-impl sp_runtime::traits::TransactionExtensionBase for DisallowSigned {
+impl TransactionExtensionBase for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
 	type Implicit = ();
 }
 
-impl<C> sp_runtime::traits::TransactionExtension<RuntimeCall, C> for DisallowSigned {
+impl<C> TransactionExtension<RuntimeCall, C> for DisallowSigned {
 	type Val = ();
 	type Pre = ();
 	fn validate(
