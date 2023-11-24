@@ -19,8 +19,8 @@
 
 use crate::*;
 use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU64};
-use sp_runtime::BuildStorage;
 use frame_system::EnsureRoot;
+use sp_runtime::BuildStorage;
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_example_kitchensink;
 
@@ -90,7 +90,7 @@ impl pallet_parameters::Config for Test {
 	type WeightInfo = ();
 }
 
-use frame_support::{dynamic_params, dynamic_pallet_params};
+use frame_support::{dynamic_pallet_params, dynamic_params};
 
 // Here we define some dynamic parameters that can be changed at runtime.
 #[dynamic_params(RuntimeParameters)]

@@ -164,11 +164,11 @@ pub mod pallet {
 			key_value: T::AggregratedKeyValue,
 		) -> DispatchResult {
 			let (key, value) = key_value.clone().into_parts();
-			
+
 			T::AdminOrigin::ensure_origin(origin, &key)?;
 
 			Parameters::<T>::mutate(key, |v| *v = value);
-			
+
 			Self::deposit_event(Event::Updated { key_value });
 
 			Ok(())
