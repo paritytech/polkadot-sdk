@@ -574,18 +574,19 @@ where
 		trace!(target: LOG_TARGET, "Warp sync: imported {imported} of {count}.");
 
 		let mut complete = false;
+		let mut success = false;
 
 		for (result, hash) in results {
 			if hash == state_sync.target() {
-				match result {
-					Ok(_) => {
-						complete = true;
-					},
+				complete = true;
+				success |= match result {
+					Ok(_) => true,
 					Err(e) => {
 						error!(
 							target: LOG_TARGET,
-							"Warp sync failed. Failed to import target block with state: {e:?}."
+							"Failed to import target block with state: {e:?}."
 						);
+						false
 					},
 				}
 			} else {
@@ -598,10 +599,18 @@ where
 
 		if complete {
 			let total_mib = (self.total_proof_bytes + self.total_state_bytes) / (1024 * 1024);
-			info!(
-				target: LOG_TARGET,
-				"Warp sync is complete ({total_mib} MiB), continuing with block sync.",
-			);
+
+			if success {
+				info!(
+					target: LOG_TARGET,
+					"Warp sync is complete ({total_mib} MiB), continuing with block sync.",
+				);
+			} else {
+				error!(
+					target: LOG_TARGET,
+					"Warp sync failed. Falling back to full sync.",
+				);
+			}
 
 			self.phase = Phase::Complete;
 			self.actions.push(WarpSyncAction::Finished);
