@@ -156,7 +156,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The following are being injected by [`derive_impl`](`frame_support::derive_impl`) from
-	/// [`SoloChainDefaultConfig`](`frame_system::config_preludes::SolochainDefaultConfig`),
+	/// [`SoloChainDefaultConfig`](`struct@frame_system::config_preludes::SolochainDefaultConfig`),
 	/// but can be overridden if needed.
 	///
 	/// The ubiquitous event type.

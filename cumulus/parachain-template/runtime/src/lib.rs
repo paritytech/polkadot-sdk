@@ -279,7 +279,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The following are being injected by [`derive_impl`](`frame_support::derive_impl`) from
-	/// [`ParaChainDefaultConfig`](`frame_system::config_preludes::ParaChainDefaultConfig`),
+	/// [`ParaChainDefaultConfig`](`struct@frame_system::config_preludes::ParaChainDefaultConfig`),
 	/// but can be overridden if needed.
 	///
 	/// The aggregated dispatch type that is available for extrinsics.
