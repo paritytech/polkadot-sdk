@@ -12860,6 +12860,7 @@ dependencies = [
  "sp-authority-discovery",
  "sp-blockchain",
  "sp-consensus-babe",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -21503,6 +21504,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
+ "pallet-transaction-payment",
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-test-client",

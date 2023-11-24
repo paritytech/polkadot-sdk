@@ -359,7 +359,7 @@ impl<T: Config> Pallet<T> {
 			#[allow(deprecated)]
 			RewardDestination::Controller => Self::bonded(stash)
 					.map(|controller| {
-						defensive!("Paying out controller as reward destination which is deprecated and should be migrated");
+						defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
 						// This should never happen once payees with a `Controller` variant have been migrated.
 						// But if it does, just pay the controller account.
 						T::Currency::deposit_creating(&controller, amount)
