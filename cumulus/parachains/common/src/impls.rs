@@ -17,8 +17,8 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
-	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Defensive, Get,
-	Imbalance, OnUnbalanced,
+	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
+	Get, Imbalance, OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
@@ -27,7 +27,12 @@ use sp_std::marker::PhantomData;
 use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
 
 /// Type alias to conveniently refer to `frame_system`'s `Config::AccountId`.
-pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+/// Type alias to conveniently refer to the `Currency::NegativeImbalance` associated type.
+pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 /// Implementation of `OnUnbalanced` that deposits the fees into a staking pot for later payout.
 #[deprecated(
@@ -35,22 +40,21 @@ pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 )]
 pub struct ToStakingPot<R>(PhantomData<R>);
 #[allow(deprecated)]
-impl<R> OnUnbalanced<fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToStakingPot<R>
+impl<R> OnUnbalanced<NegativeImbalance<R>> for ToStakingPot<R>
 where
 	R: pallet_balances::Config + pallet_collator_selection::Config,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
-	fn on_nonzero_unbalanced(amount: fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>) {
-		use frame_support::traits::fungible::Balanced;
+	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
 		let staking_pot = <pallet_collator_selection::Pallet<R>>::account_id();
 		// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
-		let _ = <pallet_balances::Pallet<R>>::resolve(&staking_pot, amount).defensive();
+		<pallet_balances::Pallet<R>>::resolve_creating(&staking_pot, amount);
 	}
 }
 
-/// Implementation of `OnUnbalanced` that deals with the fees by combining tip and fee and passing
-/// the result on to `ToStakingPot`.
+/// Fungible implementation of `OnUnbalanced` that deals with the fees by combining tip and fee and
+/// passing the result on to `ToStakingPot`.
 pub struct DealWithFees<R>(PhantomData<R>);
 impl<R> OnUnbalanced<fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
