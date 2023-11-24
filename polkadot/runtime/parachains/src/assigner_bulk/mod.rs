@@ -45,6 +45,8 @@ use sp_std::prelude::*;
 
 pub use pallet::*;
 
+pub const MAX_ASSIGNMENTS_PER_SCHEDULE: u32 = 100;
+
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 pub type PartsOf57600 = u16;
 
@@ -411,7 +413,7 @@ impl<T: Config> Pallet<T> {
 
 		// There should be at least one assignment and at most 100
 		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
-		ensure!(assignments.len() <= 100usize, Error::<T>::TooManyAssignments);
+		ensure!(assignments.len() <= MAX_ASSIGNMENTS_PER_SCHEDULE as usize, Error::<T>::TooManyAssignments);
 
 		// Checking for sort and unique manually, since we don't have access to iterator tools.
 		// This way of checking uniqueness only works since we also check sortedness.

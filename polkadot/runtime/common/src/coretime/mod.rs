@@ -36,7 +36,7 @@ pub trait WeightInfo {
 	fn request_core_count() -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn credit_account() -> Weight;
-	fn assign_core() -> Weight;
+	fn assign_core(s: u32) -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -52,7 +52,7 @@ impl WeightInfo for TestWeightInfo {
 	fn credit_account() -> Weight {
 		Weight::MAX
 	}
-	fn assign_core() -> Weight {
+	fn assign_core(_s: u32) -> Weight {
 		Weight::MAX
 	}
 }
@@ -136,7 +136,7 @@ pub mod pallet {
 		/// -`end_hint`: An optional hint as to when this particular set of instructions will end.
 		// TODO: Weights!
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
+		#[pallet::weight(<T as Config>::WeightInfo::assign_core(assignment.len() as u32))]
 		pub fn assign_core(
 			origin: OriginFor<T>,
 			core: CoreIndex,

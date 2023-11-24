@@ -21,21 +21,22 @@
 use super::{Pallet, *};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use xcm::latest::prelude::*;
+use assigner_bulk::MAX_ASSIGNMENTS_PER_SCHEDULE;
+//use xcm::latest::prelude::*;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 	#[benchmark]
-	fn assign_core() {
+	fn assign_core(s: Linear<0, MAX_ASSIGNMENTS_PER_SCHEDULE>) {
 		// Setup
-		
+		let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
 		// TODO: Construct a proper Xcm broker parachain message origin
 		// let broker_id: u32 = 1004; 
 		// let broker_origin = <T as Config>::XcmPallet::Origin::Xcm(MultiLocation { parents: 0, interior: X1(Parachain(broker_id)) });
 		
 		// Use valid assignment set with maximum number of assignments to maximize work
-		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; 100]
+		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; s as usize]
 			.into_iter()
 			.enumerate()
 			.map(|(index, parts)| (CoreAssignment::Task(index as u32), parts))
