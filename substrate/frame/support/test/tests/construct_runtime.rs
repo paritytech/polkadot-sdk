@@ -27,13 +27,13 @@ use frame_support::{
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 use scale_info::TypeInfo;
-use sp_api::RuntimeVersion;
 use sp_core::{sr25519, ConstU64};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Verify},
 	DispatchError, ModuleError,
 };
+use sp_version::RuntimeVersion;
 
 parameter_types! {
 	pub static IntegrityTestExec: u32 = 0;
