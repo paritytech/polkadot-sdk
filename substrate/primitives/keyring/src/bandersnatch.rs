@@ -17,10 +17,10 @@
 
 //! A set of well-known keys used for testing.
 
-use crate::hex2array as hex2arr;
 pub use sp_core::bandersnatch;
 use sp_core::{
 	bandersnatch::{Pair, Public, Signature},
+	const_hex2array::hex2array as hex2arr,
 	crypto::UncheckedFrom,
 	ByteArray, Pair as PairT,
 };

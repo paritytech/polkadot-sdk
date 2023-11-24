@@ -17,9 +17,9 @@
 
 //! Support code for the runtime. A set of test accounts.
 
-use crate::hex2array as hex2arr;
 pub use sp_core::ed25519;
 use sp_core::{
+	const_hex2array::hex2array as hex2arr,
 	ed25519::{Pair, Public, Signature},
 	ByteArray, Pair as PairT, H256,
 };
