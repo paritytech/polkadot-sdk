@@ -220,7 +220,6 @@ benchmarks! {
 	#[pov_mode = Measured]
 	on_initialize_per_trie_key {
 		let k in 0..1024;
-		println!("here");
 		let instance = Contract::<T>::with_storage(WasmModule::dummy(), k, T::Schedule::get().limits.payload_len)?;
 		instance.info()?.queue_trie_for_deletion();
 	}: {

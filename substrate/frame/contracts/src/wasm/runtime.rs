@@ -1162,6 +1162,12 @@ pub mod env {
 
 	/// Make a call to another contract.
 	/// See [`pallet_contracts_uapi::Api::call`].
+	///
+	/// # Note
+	///
+	/// The values `_callee_len` and `_value_len` are ignored because the encoded sizes of those
+	/// types are fixed through [`codec::MaxEncodedLen`]. The fields exist for backwards
+	/// compatibility. Consider switching to the newest version of this function.
 	#[prefixed_alias]
 	fn call(
 		ctx: _,
@@ -1284,6 +1290,12 @@ pub mod env {
 
 	/// Instantiate a contract with the specified code hash.
 	/// See [`pallet_contracts_uapi::Api::instantiate`].
+	///
+	/// # Note
+	///
+	/// The values `_code_hash_len` and `_value_len` are ignored because the encoded sizes
+	/// of those types are fixed through [`codec::MaxEncodedLen`]. The fields exist
+	/// for backwards compatibility. Consider switching to the newest version of this function.
 	#[prefixed_alias]
 	fn instantiate(
 		ctx: _,
