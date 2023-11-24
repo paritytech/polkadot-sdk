@@ -440,6 +440,15 @@
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -467,7 +476,11 @@
 	traits::{Block <span class="kw">as </span>BlockT, NumberFor},
 	Justifications,
 };
-<span class="kw">use </span>std::{collections::HashSet, fmt, sync::Arc};
+<span class="kw">use </span>std::{
+	collections::HashSet,
+	fmt::{<span class="self">self</span>, Debug},
+	sync::Arc,
+};
 
 <span class="kw">use crate</span>::{blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary};
 
@@ -713,11 +726,16 @@
 }
 
 <span class="doccomment">/// Sends a message to the pinning-worker once dropped to unpin a block in the backend.
-</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>UnpinHandleInner&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// Hash of the block pinned by this handle
 	</span>hash: Block::Hash,
 	unpin_worker_sender: TracingUnboundedSender&lt;Block::Hash&gt;,
+}
+
+<span class="kw">impl</span>&lt;Block: BlockT&gt; Debug <span class="kw">for </span>UnpinHandleInner&lt;Block&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+		f.debug_struct(<span class="string">&quot;UnpinHandleInner&quot;</span>).field(<span class="string">&quot;pinned_block&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hash).finish()
+	}
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; UnpinHandleInner&lt;Block&gt; {
