@@ -291,7 +291,7 @@ pub fn worker_entrypoint(
 
 								handle_child_process(
 									pvf,
-									pipe_writer,
+									&mut pipe_writer,
 									preparation_timeout,
 									prepare_job_kind,
 									executor_params,
