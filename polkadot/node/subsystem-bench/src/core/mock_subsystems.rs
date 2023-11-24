@@ -31,7 +31,10 @@ macro_rules! mock {
 							count_total_msg  +=1;
 						}
 						_ = sleep(Duration::from_secs(6)).fuse() => {
-							gum::info!(target: "mock-subsystems", "Subsystem {} processed {}", stringify!($subsystem_name), count_total_msg);
+                            if count_total_msg > 0 {
+							    gum::info!(target: "mock-subsystems", "Subsystem {} processed {} messages since last time", stringify!($subsystem_name), count_total_msg);
+                            }
+                            count_total_msg = 0;
 						}
 						}
 					}
