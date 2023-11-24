@@ -550,7 +550,7 @@ fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 		/// consumed by humans through rustdoc.
 		#[cfg(doc)]
 		pub mod api_doc {
-			use super::{TrapReason, ReturnCode};
+			use super::{TrapReason, ReturnErrorCode};
 			#docs
 		}
 	}
@@ -767,7 +767,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 /// #[define_env]
 /// pub mod some_env {
 /// 	#[version(2)]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnCode, TrapReason> {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnErrorCode, TrapReason> {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///
@@ -793,7 +793,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 /// pub mod some_env {
 /// 	#[version(1)]
 /// 	#[prefixed_alias]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnCode, TrapReason> {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnErrorCode, TrapReason> {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///

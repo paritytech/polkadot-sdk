@@ -716,7 +716,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		Ok(())
 	}
 
-	/// Fallible conversion of `DispatchError` to `ReturnCode`.
+	/// Fallible conversion of `DispatchError` to `ReturnErrorCode`.
 	fn err_into_return_code(from: DispatchError) -> Result<ReturnErrorCode, DispatchError> {
 		use ReturnErrorCode::*;
 
@@ -732,7 +732,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		}
 	}
 
-	/// Fallible conversion of a `ExecResult` to `ReturnCode`.
+	/// Fallible conversion of a `ExecResult` to `ReturnErrorCode`.
 	fn exec_into_return_code(from: ExecResult) -> Result<ReturnErrorCode, DispatchError> {
 		use crate::exec::ErrorOrigin::Callee;
 
