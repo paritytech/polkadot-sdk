@@ -167,6 +167,6 @@ fn ptr_and_len_from_slice(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
 fn ptr_from_slice(data: &Option<&[u8]>) -> *const u8 {
 	match data {
 		Some(ref data) => data.as_ptr(),
-		None => SENTINEL as _
+		None => SENTINEL as _,
 	}
 }

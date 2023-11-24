@@ -11,9 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(unused_variables)]
+// #![allow(unused_variables)]
 use super::{
-	extract_from_slice, ptr_from_slice, ptr_and_len_from_slice, Api, CallFlags, Result, ReturnCode, ReturnFlags,
+	extract_from_slice, ptr_and_len_from_slice, ptr_from_slice, Api, CallFlags, Result, ReturnCode,
+	ReturnFlags,
 };
 
 mod sys {
@@ -21,17 +22,16 @@ mod sys {
 
 	#[link(wasm_import_module = "seal0")]
 	extern "C" {
-					pub fn terminate(beneficiary_ptr: *const u8) -> !;
+		pub fn account_reentrance_count(account_ptr: *const u8) -> u32;
 
-			pub fn get_storage(
-				key_ptr: *const u8,
-				key_len: u32,
-				out_ptr: *mut u8,
-				out_len_ptr: *mut u32,
-			) -> ReturnCode;
-						pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn add_delegate_dependency(code_hash_ptr: *const u8);
 
-		pub fn clear_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn address(output_ptr: *mut u8, output_len_ptr: *mut u32);
+
+		pub fn balance(output_ptr: *mut u8, output_len_ptr: *mut u32);
+
+		pub fn block_number(output_ptr: *mut u8, output_len_ptr: *mut u32);
+
 		pub fn call(
 			callee_ptr: *const u8,
 			gas: u64,
@@ -42,12 +42,74 @@ mod sys {
 			output_len_ptr: *mut u32,
 		) -> ReturnCode;
 
-		pub fn set_storage(
+		pub fn call_chain_extension(
+			func_id: u32,
+			input_ptr: *const u8,
+			input_len: u32,
+			output_ptr: *mut u8,
+			output_len_ptr: *mut u32,
+		) -> ReturnCode;
+
+		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
+
+		pub fn caller(output_ptr: *mut u8, output_len_ptr: *mut u32);
+
+		pub fn caller_is_origin() -> ReturnCode;
+
+		pub fn caller_is_root() -> ReturnCode;
+
+		pub fn clear_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+
+		pub fn code_hash(
+			account_id_ptr: *const u8,
+			output_ptr: *mut u8,
+			output_len_ptr: *mut u32,
+		) -> ReturnCode;
+
+		pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+
+		pub fn delegate_call(
+			flags: u32,
+			code_hash_ptr: *const u8,
+			input_data_ptr: *const u8,
+			input_data_len: u32,
+			output_ptr: *mut u8,
+			output_len_ptr: *mut u32,
+		) -> ReturnCode;
+
+		pub fn deposit_event(
+			topics_ptr: *const u8,
+			topics_len: u32,
+			data_ptr: *const u8,
+			data_len: u32,
+		);
+
+		pub fn ecdsa_recover(
+			signature_ptr: *const u8,
+			message_hash_ptr: *const u8,
+			output_ptr: *mut u8,
+		) -> ReturnCode;
+
+		pub fn ecdsa_to_eth_address(public_key_ptr: *const u8, output_ptr: *mut u8) -> ReturnCode;
+
+		pub fn gas_left(output_ptr: *mut u8, output_len_ptr: *mut u32);
+
+		pub fn get_storage(
 			key_ptr: *const u8,
 			key_len: u32,
-			value_ptr: *const u8,
-			value_len: u32,
+			out_ptr: *mut u8,
+			out_len_ptr: *mut u32,
 		) -> ReturnCode;
+
+		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
+
+		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
+
+		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
+
+		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
+
+		pub fn input(buf_ptr: *mut u8, buf_len_ptr: *mut u32);
 
 		pub fn instantiate(
 			code_hash_ptr: *const u8,
@@ -63,80 +125,31 @@ mod sys {
 			salt_len: u32,
 		) -> ReturnCode;
 
-		pub fn transfer(
-			account_id_ptr: *const u8,
-			account_id_len: u32,
-			transferred_value_ptr: *const u8,
-			transferred_value_len: u32,
-		) -> ReturnCode;
-
-		pub fn deposit_event(
-			topics_ptr: *const u8,
-			topics_len: u32,
-			data_ptr: *const u8,
-			data_len: u32,
-		);
-
-		pub fn caller_is_root() -> ReturnCode;
-
-		pub fn call_chain_extension(
-			func_id: u32,
-			input_ptr: *const u8,
-			input_len: u32,
-			output_ptr: *mut u8,
-			output_len_ptr: *mut u32,
-		) -> ReturnCode;
-
-		pub fn input(buf_ptr: *mut u8, buf_len_ptr: *mut u32);
-		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32) -> !;
-
-		pub fn caller(output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn block_number(output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn address(output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn balance(output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn weight_to_fee(gas: u64, output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn gas_left(output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn value_transferred(output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn now(output_ptr: *mut u8, output_len_ptr: *mut u32);
-		pub fn minimum_balance(output_ptr: *mut u8, output_len_ptr: *mut u32);
-
-		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
-		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
-		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
-		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
+		pub fn instantiation_nonce() -> u64;
 
 		pub fn is_contract(account_id_ptr: *const u8) -> ReturnCode;
 
-		pub fn caller_is_origin() -> ReturnCode;
+		pub fn minimum_balance(output_ptr: *mut u8, output_len_ptr: *mut u32);
 
-		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
-
-		pub fn code_hash(
-			account_id_ptr: *const u8,
-			output_ptr: *mut u8,
-			output_len_ptr: *mut u32,
-		) -> ReturnCode;
+		pub fn now(output_ptr: *mut u8, output_len_ptr: *mut u32);
 
 		pub fn own_code_hash(output_ptr: *mut u8, output_len_ptr: *mut u32);
 
-		pub fn delegate_call(
-			flags: u32,
-			code_hash_ptr: *const u8,
-			input_data_ptr: *const u8,
-			input_data_len: u32,
-			output_ptr: *mut u8,
-			output_len_ptr: *mut u32,
+		pub fn reentrance_count() -> u32;
+
+		pub fn remove_delegate_dependency(code_hash_ptr: *const u8);
+
+		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32) -> !;
+
+		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
+
+		pub fn set_storage(
+			key_ptr: *const u8,
+			key_len: u32,
+			value_ptr: *const u8,
+			value_len: u32,
 		) -> ReturnCode;
 
-		pub fn ecdsa_recover(
-			signature_ptr: *const u8,
-			message_hash_ptr: *const u8,
-			output_ptr: *mut u8,
-		) -> ReturnCode;
-
-		pub fn ecdsa_to_eth_address(public_key_ptr: *const u8, output_ptr: *mut u8) -> ReturnCode;
-
-		/// which is unsafe and normally is not available on production chains.
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
 			public_key_ptr: *const u8,
@@ -151,7 +164,27 @@ mod sys {
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
 
-		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
+		pub fn terminate(beneficiary_ptr: *const u8) -> !;
+
+		pub fn transfer(
+			account_id_ptr: *const u8,
+			account_id_len: u32,
+			transferred_value_ptr: *const u8,
+			transferred_value_len: u32,
+		) -> ReturnCode;
+
+		pub fn value_transferred(output_ptr: *mut u8, output_len_ptr: *mut u32);
+
+		pub fn weight_to_fee(gas: u64, output_ptr: *mut u8, output_len_ptr: *mut u32);
+
+		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32, output_ptr: *mut u8) -> ReturnCode;
+
+		pub fn xcm_send(
+			dest_ptr: *const u8,
+			msg_ptr: *const u8,
+			msg_len: u32,
+			output_ptr: *mut u8,
+		) -> ReturnCode;
 	}
 
 	pub mod v1 {
@@ -159,7 +192,29 @@ mod sys {
 
 		#[link(wasm_import_module = "seal1")]
 		extern "C" {
-					pub fn gas_left(output_ptr: *mut u8, output_len_ptr: *mut u32);
+			pub fn call(
+				flags: u32,
+				callee_ptr: *const u8,
+				gas: u64,
+				transferred_value_ptr: *const u8,
+				input_data_ptr: *const u8,
+				input_data_len: u32,
+				output_ptr: *mut u8,
+				output_len_ptr: *mut u32,
+			) -> ReturnCode;
+
+			pub fn clear_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+
+			pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+
+			pub fn gas_left(output_ptr: *mut u8, output_len_ptr: *mut u32);
+
+			pub fn get_storage(
+				key_ptr: *const u8,
+				key_len: u32,
+				out_ptr: *mut u8,
+				out_len_ptr: *mut u32,
+			) -> ReturnCode;
 
 			pub fn instantiate(
 				code_hash_ptr: *const u8,
@@ -184,27 +239,12 @@ mod sys {
 
 			pub fn terminate(beneficiary_ptr: *const u8) -> !;
 
-			pub fn call(
-				flags: u32,
-				callee_ptr: *const u8,
-				gas: u64,
-				transferred_value_ptr: *const u8,
-				input_data_ptr: *const u8,
-				input_data_len: u32,
+			pub fn weight_to_fee(
+				ref_time_limit: u64,
+				proof_time_limit: u64,
 				output_ptr: *mut u8,
 				output_len_ptr: *mut u32,
-			) -> ReturnCode;
-
-			pub fn clear_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
-
-			pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
-
-			pub fn get_storage(
-				key_ptr: *const u8,
-				key_len: u32,
-				out_ptr: *mut u8,
-				out_len_ptr: *mut u32,
-			) -> ReturnCode;
+			);
 		}
 	}
 
@@ -295,48 +335,48 @@ macro_rules! impl_hash_fn {
 }
 
 macro_rules! impl_legacy_instantiate {
-    ($fn_name:ident, $sys_fn:path) => {
+	($fn_name:ident, $sys_fn:path) => {
 		#[inline(always)]
-        fn $fn_name(
-            code_hash: &[u8],
-            gas: u64,
-            value: &[u8],
-            input: &[u8],
-            mut address: Option<&mut [u8]>,
-            mut output: Option<&mut [u8]>,
-            salt: &[u8],
+		fn $fn_name(
+			code_hash: &[u8],
+			gas: u64,
+			value: &[u8],
+			input: &[u8],
+			mut address: Option<&mut [u8]>,
+			mut output: Option<&mut [u8]>,
+			salt: &[u8],
 		) -> Result {
-            let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
-            let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
-            let ret_code = unsafe {
-                $sys_fn(
-                    code_hash.as_ptr(),
-                    gas,
-                    value.as_ptr(),
-                    input.as_ptr(),
-                    input.len() as u32,
-                    address_ptr,
-                    &mut address_len,
-                    output_ptr,
-                    &mut output_len,
-                    salt.as_ptr(),
-                    salt.len() as u32,
-                )
-            };
+			let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
+			let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+			let ret_code = unsafe {
+				$sys_fn(
+					code_hash.as_ptr(),
+					gas,
+					value.as_ptr(),
+					input.as_ptr(),
+					input.len() as u32,
+					address_ptr,
+					&mut address_len,
+					output_ptr,
+					&mut output_len,
+					salt.as_ptr(),
+					salt.len() as u32,
+				)
+			};
 
-            if let Some(ref mut address) = address {
-                extract_from_slice(address, address_len as usize);
-            }
-            if let Some(ref mut output) = output {
-                extract_from_slice(output, output_len as usize);
-            }
-            ret_code.into()
-        }
-    };
+			if let Some(ref mut address) = address {
+				extract_from_slice(address, address_len as usize);
+			}
+			if let Some(ref mut output) = output {
+				extract_from_slice(output, output_len as usize);
+			}
+			ret_code.into()
+		}
+	};
 }
 
 macro_rules! impl_get_storage {
-    ($fn_name:ident, $sys_get_storage:path) => {
+	($fn_name:ident, $sys_get_storage:path) => {
 		#[inline(always)]
 		fn $fn_name(key: &[u8], output: &mut &mut [u8]) -> Result {
 			let mut output_len = output.len() as u32;
@@ -353,16 +393,13 @@ macro_rules! impl_get_storage {
 			extract_from_slice(output, output_len as usize);
 			ret_code.into()
 		}
-	}
+	};
 }
-
 
 pub enum ApiImpl {}
 
 impl Api for ApiImpl {
-
 	impl_legacy_instantiate!(instantiate, sys::instantiate);
-
 	impl_legacy_instantiate!(instantiate_v1, sys::v1::instantiate);
 
 	#[inline(always)]
@@ -411,7 +448,6 @@ impl Api for ApiImpl {
 
 		ret_code.into()
 	}
-
 
 	fn call(
 		callee: &[u8],
@@ -508,7 +544,7 @@ impl Api for ApiImpl {
 		}
 
 		ret_code.into()
-		}
+	}
 
 	fn caller_is_root() -> u32 {
 		unsafe { sys::caller_is_root() }.into_u32()
@@ -567,12 +603,7 @@ impl Api for ApiImpl {
 
 	fn set_storage(key: &[u8], value: &[u8]) {
 		unsafe {
-			sys::set_storage(
-				key.as_ptr(),
-				key.len() as u32,
-				value.as_ptr(),
-				value.len() as u32,
-			)
+			sys::set_storage(key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32)
 		};
 	}
 
@@ -599,7 +630,6 @@ impl Api for ApiImpl {
 		};
 		ret_code.into()
 	}
-
 
 	fn clear_storage(key: &[u8]) {
 		unsafe { sys::clear_storage(key.as_ptr(), key.len() as u32) };
@@ -699,10 +729,20 @@ impl Api for ApiImpl {
 		extract_from_slice(output, output_len as usize);
 	}
 
-	fn weight_to_fee_v1( ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]) {
-		todo!()
-    }
-
+	fn weight_to_fee_v1(ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		{
+			unsafe {
+				sys::v1::weight_to_fee(
+					ref_time_limit,
+					proof_size_limit,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			};
+		}
+		extract_from_slice(output, output_len as usize);
+	}
 
 	impl_hash_fn!(sha2_256, 32);
 	impl_hash_fn!(keccak_256, 32);
@@ -765,29 +805,35 @@ impl Api for ApiImpl {
 	}
 
 	fn account_reentrance_count(account: &[u8]) -> u32 {
-		todo!()
+		unsafe { sys::account_reentrance_count(account.as_ptr()) }
 	}
 
 	fn add_delegate_dependency(code_hash: &[u8]) {
-		todo!()
+		unsafe { sys::add_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	fn remove_delegate_dependency(code_hash: &[u8]) {
-		todo!()
+		unsafe { sys::remove_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	fn instantiation_nonce() -> u64 {
-		todo!()
+		unsafe { sys::instantiation_nonce() }
 	}
 
-	fn reentrance_count() -> u32 { todo!() }
-
-	fn xcm_execute( msg: &[u8], output: &mut &mut [u8]) -> Result {
-		todo!()
+	fn reentrance_count() -> u32 {
+		unsafe { sys::reentrance_count() }
 	}
 
-	fn xcm_send( dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result {
-		todo!()
+	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result {
+		let ret_code =
+			unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _, output.as_mut_ptr()) };
+		ret_code.into()
 	}
 
+	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result {
+		let ret_code = unsafe {
+			sys::xcm_send(dest.as_ptr(), msg.as_ptr(), msg.len() as _, output.as_mut_ptr())
+		};
+		ret_code.into()
+	}
 }

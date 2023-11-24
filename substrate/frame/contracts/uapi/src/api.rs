@@ -42,7 +42,8 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `account`: The contract address. Should be decodable as an `T::AccountId`. Traps otherwise.
+	/// - `account`: The contract address. Should be decodable as an `T::AccountId`. Traps
+	///   otherwise.
 	///
 	/// # Return
 	///
@@ -66,7 +67,8 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps otherwise.
+	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
+	///   otherwise.
 	#[deprecated(note = "Unstable")]
 	fn add_delegate_dependency(code_hash: &[u8]);
 
@@ -123,7 +125,9 @@ pub trait Api {
 	///   otherwise.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for the call, which implies storage usage up to the limit of the parent call.
+	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
+	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
+	///   the call, which implies storage usage up to the limit of the parent call.
 	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
 	///   Traps otherwise.
 	/// - `input`: The input data buffer used to call the contract.
@@ -450,13 +454,16 @@ pub trait Api {
 	/// - `code_hash`: The hash of the code to be instantiated.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for the call, which implies storage usage up to the limit of the parent call.
-	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`. Traps otherwise.
+	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
+	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
+	///   the call, which implies storage usage up to the limit of the parent call.
+	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
+	///   Traps otherwise.
 	/// - `input`: The input data buffer.
 	/// - `address`: A reference to the address buffer to write the address of the contract. If
 	///   `None` is provided then the output buffer is not copied.
-	/// - `output`: A reference to the return value buffer to write the constructor output
-	///   buffer. If `None` is provided then the output buffer is not copied.
+	/// - `output`: A reference to the return value buffer to write the constructor output buffer.
+	///   If `None` is provided then the output buffer is not copied.
 	/// - `salt`: The salt bytes to use for this instantiation.
 	///
 	/// # Errors
@@ -543,7 +550,8 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps otherwise.
+	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
+	///   otherwise.
 	#[deprecated(note = "Unstable")]
 	fn remove_delegate_dependency(code_hash: &[u8]);
 
@@ -587,7 +595,8 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `code_hash`: The hash of the new code. Should be decodable as an `T::Hash`. Traps otherwise.
+	/// - `code_hash`: The hash of the new code. Should be decodable as an `T::Hash`. Traps
+	///   otherwise.
 	///
 	/// # Errors
 	///
@@ -597,8 +606,8 @@ pub trait Api {
 	/// Set the value at the given key in the contract storage.
 	///
 	/// Equivalent to [`Self::set_storage_1`] version with the
-	/// exception of the return type. Still a valid thing to call  for fixed sized storage key, when not interested in the return
-	/// value.
+	/// exception of the return type. Still a valid thing to call  for fixed sized storage key, when
+	/// not interested in the return value.
 	fn set_storage(key: &[u8], value: &[u8]);
 
 	/// Set the value at the given key in the contract storage.
@@ -710,7 +719,7 @@ pub trait Api {
 	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
 	/// - `output`: A reference to the output data buffer to write the price.
 	#[deprecated(note = "Unstable, use `weight_to_fee` instead")]
-	fn weight_to_fee_v1( ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]);
+	fn weight_to_fee_v1(ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]);
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
 	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
@@ -718,7 +727,8 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps otherwise.
+	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps
+	///   otherwise.
 	/// - `output`: A reference to the output data buffer to write the [`xcm::prelude::Outcome`]
 	///
 	/// # Return
@@ -726,7 +736,7 @@ pub trait Api {
 	/// Returns `Error::Success` when the XCM execution attempt is successful. When the XCM
 	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned
 	#[deprecated(note = "Unstable")]
-	fn xcm_execute( msg: &[u8], output: &mut &mut [u8]) -> Result;
+	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Send an XCM program from the contract to the specified destination.
 	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
@@ -734,8 +744,10 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `dest`: The XCM destination, should be decodable as [`xcm::prelude::VersionedMultiLocation`], traps otherwise.
-	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps otherwise.
+	/// - `dest`: The XCM destination, should be decodable as
+	///   [`xcm::prelude::VersionedMultiLocation`], traps otherwise.
+	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps
+	///   otherwise.
 	/// - `output`: A reference to the output data buffer to write the [`xcm::v3::XcmHash`]
 	///
 	/// # Return
@@ -743,5 +755,5 @@ pub trait Api {
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
 	#[deprecated(note = "Unstable")]
-	fn xcm_send( dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result;
+	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result;
 }
