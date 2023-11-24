@@ -632,7 +632,7 @@ mod test {
 		statement.sign_ecdsa_private(&secp256k1_kp);
 		assert_eq!(
 			statement.verify_signature(),
-			SignatureVerificationResult::Valid(sp_core::hashing::blake2_256(
+			SignatureVerificationResult::Valid(sp_crypto_hashing::blake2_256(
 				&secp256k1_kp.public().0
 			))
 		);
