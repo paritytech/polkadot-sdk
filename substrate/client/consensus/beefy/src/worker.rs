@@ -36,7 +36,7 @@ use log::{debug, error, info, log_enabled, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_network_gossip::GossipEngine;
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
-use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
@@ -46,7 +46,7 @@ use sp_consensus_beefy::{
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
-	generic::OpaqueDigestItemId,
+	generic::{BlockId, OpaqueDigestItemId},
 	traits::{Block, Header, NumberFor, Zero},
 	SaturatedConversion,
 };
@@ -1074,13 +1074,12 @@ pub(crate) mod tests {
 	use sc_client_api::{Backend as BackendT, HeaderBackend};
 	use sc_network_sync::SyncingService;
 	use sc_network_test::TestNetFactory;
-	use sp_api::HeaderT;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
 		generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
 	};
-	use sp_runtime::traits::One;
+	use sp_runtime::traits::{Header as HeaderT, One};
 	use substrate_test_runtime_client::{
 		runtime::{Block, Digest, DigestItem, Header},
 		Backend,
