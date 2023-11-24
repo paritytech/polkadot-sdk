@@ -37,6 +37,9 @@ use nix::{
 	},
 	unistd::{ForkResult, Pid},
 };
+
+#[cfg(target_os = "linux")]
+use nix::sched::CloneFlags;
 use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
@@ -218,7 +221,7 @@ pub fn worker_entrypoint(
 				let prepare_job_kind = pvf.prep_kind();
 				let executor_params = pvf.executor_params();
 
-				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
+				let (pipe_reader, mut pipe_writer) = os_pipe::pipe()?;
 
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
@@ -229,50 +232,97 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				// SAFETY: new process is spawned within a single threaded process. This invariant
-				// is enforced by tests.
-				let result = match unsafe { nix::unistd::fork() } {
-					Err(errno) => Err(error_from_errno("fork", errno)),
-					Ok(ForkResult::Child) => {
-						// Dropping the stream closes the underlying socket. We want to make sure
-						// that the sandboxed child can't get any kind of information from the
-						// outside world. The only IPC it should be able to do is sending its
-						// response over the pipe.
-						drop(stream);
-						// Drop the read end so we don't have too many FDs open.
-						drop(pipe_reader);
+				cfg_if::cfg_if! {
+					if #[cfg(any(target_os = "linux"))
+					] {
+						let stack = 1024 * 1024;
+						let mut stack: Vec<u8> = vec![0u8; stack];
+						let flags = CloneFlags::CLONE_NEWCGROUP
+						| CloneFlags::CLONE_NEWIPC
+						| CloneFlags::CLONE_NEWNET
+						| CloneFlags::CLONE_NEWNS
+						| CloneFlags::CLONE_NEWPID
+						| CloneFlags::CLONE_NEWUSER
+						| CloneFlags::CLONE_NEWUTS
+						| CloneFlags::from_bits_retain(libc::SIGCHLD);
 
-						handle_child_process(
-							pvf,
-							pipe_writer,
-							preparation_timeout,
-							prepare_job_kind,
-							executor_params,
-						)
-					},
-					Ok(ForkResult::Parent { child }) => {
-						// the read end will wait until all write ends have been closed,
-						// this drop is necessary to avoid deadlock
-						drop(pipe_writer);
+						// SAFETY: new process is spawned within a single threaded process. This invariant
+						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
+						let result = match unsafe { nix::sched::clone(
+							Box::new(|| {
+								handle_child_process(
+									pvf.clone(),
+									&mut pipe_writer,
+									preparation_timeout,
+									prepare_job_kind,
+									Arc::clone(&executor_params),
+								); }), stack.as_mut_slice(), flags, None)
+						} {
+							Err(errno) => Err(error_from_errno("clone", errno)),
+							Ok(child) => {
+								// the read end will wait until all write ends have been closed,
+								// this drop is necessary to avoid deadlock
+								drop(pipe_writer);
+								handle_parent_process(
+									pipe_reader,
+									child,
+									temp_artifact_dest.clone(),
+									worker_pid,
+									usage_before,
+									preparation_timeout,
+								)
+							},
+						};
+						send_response(&mut stream, result)?;
+					} else {
+						// SAFETY: new process is spawned within a single threaded process. This invariant
+						// is enforced by tests.
+						let result = match unsafe { nix::unistd::fork() } {
+							Err(errno) => Err(error_from_errno("fork", errno)),
+							Ok(ForkResult::Child) => {
+								// Dropping the stream closes the underlying socket. We want to make sure
+								// that the sandboxed child can't get any kind of information from the
+								// outside world. The only IPC it should be able to do is sending its
+								// response over the pipe.
+								drop(stream);
 
-						handle_parent_process(
-							pipe_reader,
-							child,
-							temp_artifact_dest.clone(),
-							worker_pid,
-							usage_before,
-							preparation_timeout,
-						)
-					},
-				};
+								// Drop the read end so we don't have too many FDs open.
+								drop(pipe_reader);
 
-				gum::trace!(
-					target: LOG_TARGET,
-					%worker_pid,
-					"worker: sending result to host: {:?}",
-					result
-				);
-				send_response(&mut stream, result)?;
+								handle_child_process(
+									pvf,
+									pipe_writer,
+									preparation_timeout,
+									prepare_job_kind,
+									executor_params,
+								)
+							},
+							Ok(ForkResult::Parent { child }) => {
+								// the read end will wait until all write ends have been closed,
+								// this drop is necessary to avoid deadlock
+								drop(pipe_writer);
+
+								handle_parent_process(
+									pipe_reader,
+									child,
+									temp_artifact_dest.clone(),
+									worker_pid,
+									usage_before,
+									preparation_timeout,
+								)
+							},
+						};
+
+
+						gum::trace!(
+							target: LOG_TARGET,
+							%worker_pid,
+							"worker: sending result to host: {:?}",
+							result
+						);
+						send_response(&mut stream, result)?;
+					}
+				}
 			}
 		},
 	);
@@ -331,7 +381,7 @@ struct JobResponse {
 /// - If success, pipe back `JobResponse`.
 fn handle_child_process(
 	pvf: PvfPrepData,
-	mut pipe_write: PipeWriter,
+	pipe_write: &mut PipeWriter,
 	preparation_timeout: Duration,
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
@@ -380,7 +430,7 @@ fn handle_child_process(
 		WaitOutcome::TimedOut,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		send_child_response(pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	let prepare_thread = spawn_worker_thread(
@@ -410,7 +460,7 @@ fn handle_child_process(
 		WaitOutcome::Finished,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		send_child_response(pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	let outcome = thread::wait_for_threads(condvar);
@@ -432,7 +482,7 @@ fn handle_child_process(
 
 			match prepare_thread.join().unwrap_or_else(|err| {
 				send_child_response(
-					&mut pipe_write,
+					pipe_write,
 					Err(PrepareError::JobError(stringify_panic_payload(err))),
 				)
 			}) {
@@ -477,7 +527,7 @@ fn handle_child_process(
 			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
 	};
 
-	send_child_response(&mut pipe_write, result);
+	send_child_response(pipe_write, result);
 }
 
 /// Waits for child process to finish and handle child response from pipe.
