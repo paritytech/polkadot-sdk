@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced, TryCollect,
-		UnixTime,
+		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len,
+		OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 		// `consolidate_unlocked` strictly subtracts balance.
 		if new_total < old_total {
 			// Already checked that this won't overflow by entry condition.
-			let value = old_total - new_total;
+			let value = old_total.defensive_saturating_sub(new_total);
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: value });
 		}
 
@@ -262,7 +262,8 @@ impl<T: Config> Pallet<T> {
 		// total commission validator takes across all nominator pages
 		let validator_total_commission_payout = validator_commission * validator_total_payout;
 
-		let validator_leftover_payout = validator_total_payout - validator_total_commission_payout;
+		let validator_leftover_payout =
+			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
 		// Now let's calculate how this is split to the validator.
 		let validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
 		let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
@@ -475,7 +476,7 @@ impl<T: Config> Pallet<T> {
 			bonded.push((active_era, start_session));
 
 			if active_era > bonding_duration {
-				let first_kept = active_era - bonding_duration;
+				let first_kept = active_era.defensive_saturating_sub(bonding_duration);
 
 				// Prune out everything that's from before the first-kept index.
 				let n_to_prune =
@@ -501,7 +502,8 @@ impl<T: Config> Pallet<T> {
 		if let Some(active_era_start) = active_era.start {
 			let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
 
-			let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
+			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
+				.saturated_into::<u64>();
 			let staked = Self::eras_total_stake(&active_era.index);
 			let issuance = T::Currency::total_issuance();
 			let (validator_payout, remainder) =

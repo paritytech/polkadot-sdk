@@ -530,12 +530,12 @@ impl<T: Config> StakingLedger<T> {
 		let mut unlocking_balance = BalanceOf::<T>::zero();
 
 		while let Some(last) = self.unlocking.last_mut() {
-			if unlocking_balance + last.value <= value {
+			if unlocking_balance.defensive_saturating_add(last.value) <= value {
 				unlocking_balance += last.value;
 				self.active += last.value;
 				self.unlocking.pop();
 			} else {
-				let diff = value - unlocking_balance;
+				let diff = value.defensive_saturating_sub(unlocking_balance);
 
 				unlocking_balance += diff;
 				self.active += diff;
@@ -589,7 +589,7 @@ impl<T: Config> StakingLedger<T> {
 
 		// for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
 		// (assuming 28 is the bonding duration) onwards should be slashed.
-		let slashable_chunks_start = slash_era + T::BondingDuration::get();
+		let slashable_chunks_start = slash_era.saturating_add(T::BondingDuration::get());
 
 		// `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
 		// slash first the active chunk, and then `slash_chunks_priority`.
@@ -1185,8 +1185,9 @@ impl<T: Config> EraInfo<T> {
 
 		let nominator_count = exposure.others.len();
 		// expected page count is the number of nominators divided by the page size, rounded up.
-		let expected_page_count =
-			nominator_count.defensive_saturating_add(page_size as usize - 1) / page_size as usize;
+		let expected_page_count = nominator_count
+			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
+			.saturating_div(page_size as usize);
 
 		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
