@@ -161,7 +161,7 @@ mod tests {
 	#[test]
 	fn sandboxed_thread_cannot_use_sockets() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if !check_is_fully_enabled() {
+		if check_is_fully_enabled().is_err() {
 			return
 		}
 

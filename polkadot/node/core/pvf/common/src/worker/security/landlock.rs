@@ -165,7 +165,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_read_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if !check_is_fully_enabled() {
+		if check_is_fully_enabled().is_err() {
 			return
 		}
 
@@ -188,7 +188,7 @@ mod tests {
 
 			// Apply Landlock with a read exception for only one of the files.
 			let status = try_restrict(vec![(path1, AccessFs::ReadFile)]);
-			if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
+			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
 					status
@@ -209,7 +209,7 @@ mod tests {
 
 			// Apply Landlock for all files.
 			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
-			if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
+			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
 					status
@@ -230,7 +230,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_write_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if !check_is_fully_enabled() {
+		if check_is_fully_enabled().is_err() {
 			return
 		}
 
@@ -249,7 +249,7 @@ mod tests {
 
 			// Apply Landlock with a write exception for only one of the files.
 			let status = try_restrict(vec![(path1, AccessFs::WriteFile)]);
-			if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
+			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
 					status
@@ -267,7 +267,7 @@ mod tests {
 
 			// Apply Landlock for all files.
 			let status = try_restrict(std::iter::empty::<(PathBuf, AccessFs)>());
-			if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
+			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
 					status
@@ -289,7 +289,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_can_truncate_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if !check_is_fully_enabled() {
+		if check_is_fully_enabled().is_err() {
 			return
 		}
 
@@ -305,7 +305,7 @@ mod tests {
 
 			// Apply Landlock with all exceptions under the current ABI.
 			let status = try_restrict(vec![(path, AccessFs::from_all(LANDLOCK_ABI))]);
-			if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
+			if !matches!(status, Ok(())) {
 				panic!(
 					"Ruleset should be enforced since we checked if landlock is enabled: {:?}",
 					status

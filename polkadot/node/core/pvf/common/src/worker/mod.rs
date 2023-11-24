@@ -116,11 +116,7 @@ macro_rules! decl_worker_main {
 						0
 					};
 					#[cfg(not(target_os = "linux"))]
-					let status = {
-						// Write the error to stderr, log it on the host-side.
-						eprintln!("not available on macos");
-						-1
-					};
+					let status = -1;
 					std::process::exit(status)
 				},
 
