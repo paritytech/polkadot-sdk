@@ -48,7 +48,7 @@ The Polkadot-SDK has two release channels: `mainline` and `nightly`. Production 
 
 ### Nightly
 
-`nightly` released are released every night with possibly breaking changes and offer **no SemVer** guarantee between each other. They are tagged as pre-releases in the format `polkadot-major.0.0-nightlyYYMMDD`.
+`nightly` releases are released every night with possibly breaking changes and offer **no SemVer** guarantee between each other. They have pre-releases version numbers in the format `major.0.0-nightlyYYMMDD`.
 
 ## Upstream Dependencies
 
