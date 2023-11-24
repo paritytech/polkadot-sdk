@@ -11794,7 +11794,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
@@ -11809,7 +11809,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-integration-tests"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "assert_matches",
  "asset-test-utils",
