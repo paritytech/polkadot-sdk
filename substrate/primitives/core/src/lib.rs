@@ -52,7 +52,7 @@ pub use impl_serde::serialize as bytes;
 	since = "21.0.0",
 	note = "hashing re-export is scheduled for removal, please use `sp-crypto-hashing` instead"
 )]
-pub use sp_crypto_hashing as hashing;
+pub use sp_crypto_hashing::{self as hashing, *};
 
 pub mod crypto;
 pub mod hexdisplay;
