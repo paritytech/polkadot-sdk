@@ -40,19 +40,6 @@ fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	);
 }
 
-fn relay_to_para_receiver_assertions<Test>(_: Test) {
-	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	assert_expected_events!(
-		PenpalA,
-		vec![
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
-			RuntimeEvent::MessageQueue(
-				pallet_message_queue::Event::Processed { success: true, .. }
-			) => {},
-		]
-	);
-}
-
 fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
@@ -78,7 +65,7 @@ fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	);
 }
 
-fn system_para_to_para_receiver_assertions<Test>(_: Test) {
+fn para_receiver_assertions<Test>(_: Test) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	assert_expected_events!(
 		PenpalA,
@@ -297,7 +284,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<Rococo>(relay_to_para_sender_assertions);
-	test.set_assertion::<PenpalA>(relay_to_para_receiver_assertions);
+	test.set_assertion::<PenpalA>(para_receiver_assertions);
 	test.set_dispatchable::<Rococo>(relay_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
@@ -337,7 +324,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_sender_assertions);
-	test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
+	test.set_assertion::<PenpalA>(para_receiver_assertions);
 	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
