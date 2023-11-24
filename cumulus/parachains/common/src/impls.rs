@@ -17,8 +17,8 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
-	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
-	Get, Imbalance, OnUnbalanced,
+	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Defensive, Get,
+	Imbalance, OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
@@ -42,6 +42,7 @@ where
 	<R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
 	fn on_nonzero_unbalanced(amount: fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>) {
+		use frame_support::traits::fungible::Balanced;
 		let staking_pot = <pallet_collator_selection::Pallet<R>>::account_id();
 		// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
 		let _ = <pallet_balances::Pallet<R>>::resolve(&staking_pot, amount).defensive();
@@ -81,6 +82,7 @@ where
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
 	fn handle_credit(credit: fungibles::Credit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
+		use frame_support::traits::fungibles::Balanced;
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
 			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit).defensive();
