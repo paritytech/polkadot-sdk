@@ -987,7 +987,6 @@ pub mod pallet {
 }
 
 /// TypedGet implementaion to get the AccountId of the StakingPot.
-/// QUESTION: is there a better way to do this?
 pub struct StakingPotAccountId<R>(PhantomData<R>);
 impl<R> TypedGet for StakingPotAccountId<R>
 where
