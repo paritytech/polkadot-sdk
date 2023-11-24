@@ -35,8 +35,6 @@ use tokio::{
 /// configuration.
 pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, String> {
 	let Config { prepare_worker_program_path, secure_validator_mode, cache_path, .. } = config;
-	let secure_validator_mode = *secure_validator_mode;
-
 	// TODO: add check that syslog is available and that seccomp violations are logged?
 	let (landlock, seccomp, change_root) = join!(
 		check_landlock(prepare_worker_program_path),
@@ -45,7 +43,7 @@ pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, St
 	);
 
 	let security_status = SecurityStatus {
-		secure_validator_mode,
+		secure_validator_mode: *secure_validator_mode,
 		can_enable_landlock: landlock.is_ok(),
 		can_enable_seccomp: seccomp.is_ok(),
 		can_unshare_user_namespace_and_change_root: change_root.is_ok(),
@@ -55,12 +53,12 @@ pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, St
 		.into_iter()
 		.filter_map(|result| result.err())
 		.collect();
-	let err_occurred = print_secure_mode_message(secure_validator_mode, errs);
+	let err_occurred = print_secure_mode_message(&security_status, errs);
 	if err_occurred {
 		return Err("could not enable Secure Validator Mode; check logs".into())
 	}
 
-	if secure_validator_mode {
+	if security_status.secure_validator_mode {
 		gum::info!(
 			target: LOG_TARGET,
 			"👮‍♀️ Running in Secure Validator Mode. \
@@ -84,12 +82,17 @@ enum SecureModeError {
 
 impl SecureModeError {
 	/// Whether this error is allowed with Secure Validator Mode enabled.
-	fn is_allowed_in_secure_mode(&self) -> bool {
+	fn is_allowed_in_secure_mode(&self, security_status: &SecurityStatus) -> bool {
 		use SecureModeError::*;
 		match self {
-			CannotEnableLandlock(_) => true,
+			// Landlock is present on relatively recent Linuxes. This is optional if the unshare
+			// capability is present, providing FS sandboxing a different way.
+			CannotEnableLandlock(_) => security_status.can_unshare_user_namespace_and_change_root,
+			// seccomp should be present on all modern Linuxes unless it's been disabled.
 			CannotEnableSeccomp(_) => false,
-			CannotUnshareUserNamespaceAndChangeRoot(_) => false,
+			// Should always be present on modern Linuxes. If not, Landlock also provides FS
+			// sandboxing, so don't enforce this.
+			CannotUnshareUserNamespaceAndChangeRoot(_) => security_status.can_enable_landlock,
 		}
 	}
 }
@@ -110,7 +113,7 @@ impl fmt::Display for SecureModeError {
 /// # Returns
 ///
 /// `true` if an error was printed, `false` otherwise.
-fn print_secure_mode_message(secure_validator_mode: bool, errs: Vec<SecureModeError>) -> bool {
+fn print_secure_mode_message(security_status: &SecurityStatus, errs: Vec<SecureModeError>) -> bool {
 	// Trying to run securely and some mandatory errors occurred.
 	const SECURE_MODE_ERROR: &'static str = "🚨 Your system cannot securely run a validator. \
 		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
@@ -128,14 +131,14 @@ fn print_secure_mode_message(secure_validator_mode: bool, errs: Vec<SecureModeEr
 		return false
 	}
 
-	let errs_allowed =
-		!secure_validator_mode || errs.iter().all(|err| err.is_allowed_in_secure_mode());
+	let errs_allowed = !security_status.secure_validator_mode ||
+		errs.iter().all(|err| err.is_allowed_in_secure_mode(security_status));
 	let errs_string: String = errs
 		.iter()
 		.map(|err| {
 			format!(
 				"\n  - {}{}",
-				if err.is_allowed_in_secure_mode() { "Optional: " } else { "" },
+				if err.is_allowed_in_secure_mode(security_status) { "Optional: " } else { "" },
 				err
 			)
 		})
@@ -424,6 +427,51 @@ fn parse_audit_log_for_seccomp_event(event: &str, audit_event_pid_field: &str) -
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn test_secure_mode_error_optionality() {
+		let err = SecureModeError::CannotEnableLandlock(String::new());
+		assert!(err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: true,
+			can_enable_landlock: false,
+			can_enable_seccomp: false,
+			can_unshare_user_namespace_and_change_root: true
+		}));
+		assert!(!err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: true,
+			can_enable_landlock: false,
+			can_enable_seccomp: true,
+			can_unshare_user_namespace_and_change_root: false
+		}));
+
+		let err = SecureModeError::CannotEnableSeccomp(String::new());
+		assert!(!err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: true,
+			can_enable_landlock: false,
+			can_enable_seccomp: false,
+			can_unshare_user_namespace_and_change_root: true
+		}));
+		assert!(!err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: true,
+			can_enable_landlock: false,
+			can_enable_seccomp: true,
+			can_unshare_user_namespace_and_change_root: false
+		}));
+
+		let err = SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(String::new());
+		assert!(err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: true,
+			can_enable_landlock: true,
+			can_enable_seccomp: false,
+			can_unshare_user_namespace_and_change_root: false
+		}));
+		assert!(!err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: true,
+			can_enable_landlock: false,
+			can_enable_seccomp: true,
+			can_unshare_user_namespace_and_change_root: false
+		}));
+	}
 
 	#[test]
 	fn test_parse_audit_log_for_seccomp_event() {

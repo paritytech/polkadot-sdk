@@ -27,10 +27,7 @@
 //! - Restrict networking by blocking socket creation and io_uring.
 //! - Remove env vars
 
-use crate::{
-	worker::{WorkerInfo, WorkerKind},
-	LOG_TARGET,
-};
+use crate::{worker::WorkerInfo, LOG_TARGET};
 
 #[cfg(target_os = "linux")]
 pub mod landlock;
@@ -44,6 +41,7 @@ pub mod seccomp;
 ///       "CLONE_NEWUSER requires that the calling process is not threaded."
 #[cfg(target_os = "linux")]
 pub fn unshare_user_namespace_and_change_root(worker_info: &WorkerInfo) -> Result<(), String> {
+	use crate::worker::WorkerKind;
 	use std::{env, ffi::CString, os::unix::ffi::OsStrExt, path::Path, ptr};
 
 	// TODO: Remove this once this is stable: https://github.com/rust-lang/rust/issues/105723
