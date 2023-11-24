@@ -16,8 +16,8 @@
 //!
 //! ## Getting Started
 //!
-//! The primary way to get started with the Polkadot SDK is to start writing a Substrate-based
-//! runtime using FRAME. See:
+//! The primary way to get started with the Polkadot SDK is to start writing a FRAME-based runtime.
+//! See:
 //!
 //! * [`polkadot`], to understand what is Polkadot as a development platform.
 //! * [`substrate`], for an overview of what Substrate as the main blockchain framework of Polkadot

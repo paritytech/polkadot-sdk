@@ -2,12 +2,13 @@
 //!
 //! Implementation of the Polkadot node/host in Rust.
 //!
-//! ## Getting Involved
+//! ## Learn More and Get Involved
 //!
 //! - [Polkadot Forum](https://forum.polkadot.network/)
 //! - [Polkadot Parachains](https://parachains.info/)
 //! - [Polkadot (multi-chain) Explorer](https://subscan.io/)
 //! - Polkadot Fellowship
+//!     - [Manifesto](https://github.com/polkadot-fellows/manifesto)
 //!     - [Runtimes](https://github.com/polkadot-fellows/runtimes)
 //!     - [RFCs](https://github.com/polkadot-fellows/rfcs)
 //! - [Polkadot Specs](spec.polkadot.network)

@@ -40,8 +40,8 @@
 //! - [Config](frame::pallet_macros::config), allowing a pallet to make itself configurable and
 //!   generic over types, values and such.
 //! - [Storage](frame::pallet_macros::storage), allowing a pallet to define onchain storage.
-//! - [Dispatchable function aka. Extrinsics](frame::pallet_macros::call), allowing a pallet to
-//!   define extrinsics that are callable by end users, from the outer world.
+//! - [Dispatchable function](frame::pallet_macros::call), allowing a pallet to define extrinsics
+//!   that are callable by end users, from the outer world.
 //! - [Events](frame::pallet_macros::event), allowing a pallet to emit events.
 //! - [Errors](frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
 //!
