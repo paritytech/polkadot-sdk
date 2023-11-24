@@ -46,6 +46,7 @@ pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -
 			));
 		}
 	}
+	let hold_reason_variants_count = hold_reason_variants.len() as u32;
 
 	quote! {
 		/// A reason for placing a hold on funds.
@@ -57,6 +58,10 @@ pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -
 		)]
 		pub enum RuntimeHoldReason {
 			#( #hold_reason_variants )*
+		}
+
+		impl #scrate::traits::VariantCount for RuntimeHoldReason {
+			const VARIANT_COUNT: u32 = #hold_reason_variants_count;
 		}
 
 		#( #conversion_fns )*

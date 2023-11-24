@@ -65,13 +65,6 @@ impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 			return true
 		}
 
-		// TODO: https://github.com/paritytech/polkadot-sdk/pull/1556 - once this PR is merged, we may
-		// remove the following code.
-		// TODO: the following restriction is arguable, we may live without that, assuming that
-		// There can't be more than some `N` messages queued at the bridge queue (at the source BH)
-		// AND before accepting next (or next-after-next) delivery transaction, we'll receive the
-		// suspension signal from the target parachain and stop accepting delivery transactions.
-
 		// It takes some time for target parachain to suspend inbound channel with the target BH and
 		// during that we will keep accepting new message delivery transactions. Let's also reject
 		// new deliveries if there are too many "pages" (concatenated XCM messages) in the target BH

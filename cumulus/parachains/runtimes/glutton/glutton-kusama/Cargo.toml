@@ -4,6 +4,7 @@ version = "1.0.0"
 description = "Glutton parachain runtime."
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -27,6 +28,7 @@ sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
 sp-session = { path = "../../../../../substrate/primitives/session", default-features = false}
@@ -47,7 +49,7 @@ cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = fals
 cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-timestamp = { path = "../../../../primitives/timestamp", default-features = false }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 
 [build-dependencies]
@@ -57,12 +59,14 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" 
 default = [ "std" ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
-	"pallet-sudo?/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -86,6 +90,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-aura/std",
 	"pallet-glutton/std",
+	"pallet-message-queue/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"parachain-info/std",
@@ -118,6 +123,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-glutton/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",
@@ -125,3 +131,8 @@ try-runtime = [
 ]
 
 experimental = [ "pallet-aura/experimental" ]
+
+# A feature that should be enabled when the runtime should be built for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller like logging for example.
+on-chain-release-build = [ "sp-api/disable-logging" ]

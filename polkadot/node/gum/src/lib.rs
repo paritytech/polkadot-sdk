@@ -105,8 +105,23 @@
 
 pub use tracing::{enabled, event, Level};
 
-#[doc(hidden)]
-pub use jaeger::hash_to_trace_identifier;
+// jaeger dependency
+
+/// Alias for the 16 byte unique identifier used with jaeger.
+pub(crate) type TraceIdentifier = u128;
+
+/// A helper to convert the hash to the fixed size representation
+/// needed for jaeger.
+#[inline]
+pub fn hash_to_trace_identifier(hash: Hash) -> TraceIdentifier {
+	let mut buf = [0u8; 16];
+	buf.copy_from_slice(&hash.as_ref()[0..16]);
+	// The slice bytes are copied in reading order, so if interpreted
+	// in string form by a human, that means lower indices have higher
+	// values and hence corresponds to BIG endian ordering of the individual
+	// bytes.
+	u128::from_be_bytes(buf) as TraceIdentifier
+}
 
 #[doc(hidden)]
 pub use polkadot_primitives::{CandidateHash, Hash};

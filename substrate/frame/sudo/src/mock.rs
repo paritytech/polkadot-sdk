@@ -19,8 +19,8 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::traits::{ConstU32, ConstU64, Contains};
-use sp_core::H256;
+use frame_support::traits::{ConstU32, Contains};
+use sp_core::{ConstU64, H256};
 use sp_io;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -156,7 +156,9 @@ pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
 	sudo::GenesisConfig::<Test> { key: Some(root_key) }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
 
 #[cfg(feature = "runtime-benchmarks")]
