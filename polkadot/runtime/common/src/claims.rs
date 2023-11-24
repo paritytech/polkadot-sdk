@@ -31,8 +31,8 @@ use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		CheckedSub, DispatchInfoOf, Dispatchable, TransactionExtension, TransactionExtensionBase,
-		Zero,
+		AsSystemOriginSigner, CheckedSub, DispatchInfoOf, Dispatchable, TransactionExtension,
+		TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -636,6 +636,8 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 	for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+		AsSystemOriginSigner<T::AccountId> + Clone,
 {
 	type Pre = ();
 	type Val = ();
@@ -656,8 +658,7 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let who = frame_system::ensure_signed(origin.clone())
-			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		if let Some(local_call) = call.is_sub_type() {
 			if let Call::attest { statement: attested_statement } = local_call {
 				let signer = Preclaims::<T>::get(who)

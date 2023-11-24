@@ -18,11 +18,13 @@
 use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchInfo, ensure};
-use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, TransactionExtension, TransactionExtensionBase},
+	traits::{
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension,
+		TransactionExtensionBase,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
@@ -75,6 +77,8 @@ impl<T: Config + Send + Sync, Context>
 	TransactionExtension<<T as frame_system::Config>::RuntimeCall, Context> for CheckOnlySudoAccount<T>
 where
 	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+		AsSystemOriginSigner<T::AccountId> + Clone,
 {
 	type Pre = ();
 	type Val = ();
@@ -96,9 +100,9 @@ where
 		),
 		TransactionValidityError,
 	> {
-		let who = ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		let sudo_key: T::AccountId = <Pallet<T>>::key().ok_or(UnknownTransaction::CannotLookup)?;
-		ensure!(who == sudo_key, InvalidTransaction::BadSigner);
+		ensure!(*who == sudo_key, InvalidTransaction::BadSigner);
 
 		Ok((
 			ValidTransaction {

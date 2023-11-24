@@ -49,8 +49,8 @@ use pallet_utility::{Call as UtilityCall, Config as UtilityConfig, Pallet as Uti
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, Zero,
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Get, PostDispatchInfoOf,
+		TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransactionBuilder,
@@ -486,6 +486,8 @@ where
 		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
 		+ GrandpaCallSubType<T::Runtime, T::GrandpaInstance>
 		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
+	<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin:
+		AsSystemOriginSigner<AccountIdOf<T::Runtime>> + Clone,
 {
 	type Pre = Option<PreDispatchData<AccountIdOf<T::Runtime>>>;
 	type Val = Option<CallInfo>;
@@ -507,8 +509,7 @@ where
 		),
 		sp_runtime::transaction_validity::TransactionValidityError,
 	> {
-		let who = frame_system::ensure_signed(origin.clone())
-			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		// this is the only relevant line of code for the `pre_dispatch`
 		//
 		// we're not calling `validate` from `pre_dispatch` directly because of performance
@@ -525,7 +526,7 @@ where
 		};
 
 		// we only boost priority if relayer has staked required balance
-		if !RelayersPallet::<T::Runtime>::is_registration_active(&who) {
+		if !RelayersPallet::<T::Runtime>::is_registration_active(who) {
 			return Ok((Default::default(), parsed_call, origin))
 		}
 
@@ -558,8 +559,7 @@ where
 		_len: usize,
 		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let who = frame_system::ensure_signed(origin.clone())
-			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		Ok(val.map(|call_info| {
 			log::trace!(
 				target: "runtime::bridge",
@@ -568,7 +568,7 @@ where
 				<T::Msgs as RefundableMessagesLaneId>::Id::get(),
 				call_info,
 			);
-			PreDispatchData { relayer: who, call_info }
+			PreDispatchData { relayer: who.clone(), call_info }
 		}))
 	}
 

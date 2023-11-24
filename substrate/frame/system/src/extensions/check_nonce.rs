@@ -21,7 +21,8 @@ use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, Dispatchable, One, TransactionExtension, TransactionExtensionBase, Zero,
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, TransactionExtension,
+		TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
@@ -67,6 +68,7 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 	for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
 	type Val = (T::AccountId, AccountInfo<T::Nonce, T::AccountData>);
 	type Pre = ();
@@ -84,9 +86,8 @@ where
 		(sp_runtime::transaction_validity::ValidTransaction, Self::Val, T::RuntimeOrigin),
 		sp_runtime::transaction_validity::TransactionValidityError,
 	> {
-		let who =
-			crate::ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::BadSigner)?;
-		let account = crate::Account::<T>::get(who.clone());
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+		let account = crate::Account::<T>::get(who);
 		if account.providers.is_zero() && account.sufficients.is_zero() {
 			// Nonce storage not paid for
 			return Err(InvalidTransaction::Payment.into())
@@ -109,7 +110,7 @@ where
 			longevity: TransactionLongevity::max_value(),
 			propagate: true,
 		};
-		Ok((validity, (who, account), origin))
+		Ok((validity, (who.clone(), account), origin))
 	}
 
 	fn prepare(

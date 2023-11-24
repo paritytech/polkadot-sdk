@@ -57,8 +57,8 @@ use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, Zero,
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf,
+		TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -254,6 +254,7 @@ where
 		+ Into<ChargeAssetLiquidityOf<T>>
 		+ From<ChargeAssetLiquidityOf<T>>,
 	ChargeAssetIdOf<T>: Send + Sync,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
 	type Val = (
 		// tip
@@ -285,13 +286,12 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let who = frame_system::ensure_signed(origin.clone())
-			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
-		let val = (self.tip, who);
+		let val = (self.tip, who.clone());
 		Ok((validity, val, origin))
 	}
 
