@@ -244,7 +244,7 @@ pub fn worker_entrypoint(
 						| CloneFlags::CLONE_NEWPID
 						| CloneFlags::CLONE_NEWUSER
 						| CloneFlags::CLONE_NEWUTS
-						| CloneFlags::fr&mut om_bits_retain(libc::SIGCHLD);
+						| CloneFlags::from_bits_retain(libc::SIGCHLD);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -265,9 +265,9 @@ pub fn worker_entrypoint(
 								drop(pipe_writer);
 								handle_parent_process(
 									pipe_reader,
+									worker_pid,
 									child,
 									temp_artifact_dest.clone(),
-									worker_pid,
 									usage_before,
 									preparation_timeout,
 								)
