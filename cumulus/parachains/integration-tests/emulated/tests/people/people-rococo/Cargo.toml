@@ -26,6 +26,7 @@ pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-fe
 xcm-executor = { package = "staging-xcm-executor",  path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false}
 rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives" }
+polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common"}
 
 # Cumulus
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }

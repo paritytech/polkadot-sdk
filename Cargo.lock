@@ -11826,6 +11826,7 @@ dependencies = [
  "penpal-runtime",
  "people-rococo-runtime",
  "polkadot-primitives",
+ "polkadot-runtime-common",
  "rococo-runtime",
  "rococo-system-emulated-network",
  "sp-runtime",

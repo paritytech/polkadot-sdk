@@ -199,6 +199,14 @@ fn reap_identity() {
 					who: *who == PeopleRococoSender::get(),
 					amount: *amount == subs_deposit,
 				},
+				RuntimeEvent::IdentityMigrator(
+					polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
+						who, identity, subs
+					}) => {
+					who: *who == PeopleRococoSender::get(),
+					identity: *identity == id_deposit,
+					subs: *subs == subs_deposit,
+				},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
 			]
 		);
