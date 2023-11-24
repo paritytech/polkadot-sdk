@@ -18,7 +18,7 @@
 use crate::{
 	parachain::{self, Runtime},
 	parachain_account_sovereign_account_id,
-	primitives::{AccountId, Code, CENTS},
+	primitives::{AccountId, CENTS},
 	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
 use assert_matches::assert_matches;
@@ -29,7 +29,7 @@ use frame_support::{
 	traits::{fungibles::Mutate, Currency},
 };
 use pallet_balances::{BalanceLock, Reasons};
-use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
+use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_fixtures::compile_module;
 use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_simulator::TestExt;
