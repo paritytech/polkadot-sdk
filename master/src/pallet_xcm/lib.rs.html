@@ -2745,6 +2745,24 @@
 <a href="#2745" id="2745">2745</a>
 <a href="#2746" id="2746">2746</a>
 <a href="#2747" id="2747">2747</a>
+<a href="#2748" id="2748">2748</a>
+<a href="#2749" id="2749">2749</a>
+<a href="#2750" id="2750">2750</a>
+<a href="#2751" id="2751">2751</a>
+<a href="#2752" id="2752">2752</a>
+<a href="#2753" id="2753">2753</a>
+<a href="#2754" id="2754">2754</a>
+<a href="#2755" id="2755">2755</a>
+<a href="#2756" id="2756">2756</a>
+<a href="#2757" id="2757">2757</a>
+<a href="#2758" id="2758">2758</a>
+<a href="#2759" id="2759">2759</a>
+<a href="#2760" id="2760">2760</a>
+<a href="#2761" id="2761">2761</a>
+<a href="#2762" id="2762">2762</a>
+<a href="#2763" id="2763">2763</a>
+<a href="#2764" id="2764">2764</a>
+<a href="#2765" id="2765">2765</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3294,7 +3312,7 @@
 		</span>InvalidAssetUnsupportedReserve,
 		<span class="doccomment">/// Too many assets with different reserve locations have been attempted for transfer.
 		</span>TooManyReserves,
-		<span class="doccomment">/// Local XCM execution of asset transfer incomplete.
+		<span class="doccomment">/// Local XCM execution incomplete.
 		</span>LocalExecutionIncomplete,
 	}
 
@@ -3756,8 +3774,14 @@
 			message: Box&lt;VersionedXcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;&gt;,
 			max_weight: Weight,
 		) -&gt; DispatchResultWithPostInfo {
+			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;message {:?}, max_weight {:?}&quot;</span>, message, max_weight);
 			<span class="kw">let </span>outcome = &lt;<span class="self">Self </span><span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::execute(origin, message, max_weight)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into())
+			<span class="kw">let </span>weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error);
+				Error::&lt;T&gt;::LocalExecutionIncomplete
+			})<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
 		<span class="doccomment">/// Extoll that a particular destination can be communicated with through a particular
@@ -4242,13 +4266,25 @@
 		<span class="kw">let </span>outcome =
 			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
 		<span class="self">Self</span>::deposit_event(Event::Attempted { outcome: outcome.clone() });
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(remote_xcm) = remote_xcm {
-			outcome.ensure_complete().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::LocalExecutionIncomplete)<span class="question-mark">?</span>;
+		outcome.ensure_complete().map_err(|error| {
+			<span class="macro">log::error!</span>(
+				target: <span class="string">&quot;xcm::pallet_xcm::build_and_execute_xcm_transfer_type&quot;</span>,
+				<span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error
+			);
+			Error::&lt;T&gt;::LocalExecutionIncomplete
+		})<span class="question-mark">?</span>;
 
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(remote_xcm) = remote_xcm {
 			<span class="kw">let </span>(ticket, price) = validate_send::&lt;T::XcmRouter&gt;(dest, remote_xcm.clone())
 				.map_err(Error::&lt;T&gt;::from)<span class="question-mark">?</span>;
 			<span class="kw">if </span>origin != Here.into_location() {
-				<span class="self">Self</span>::charge_fees(origin, price).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::FeesNotMet)<span class="question-mark">?</span>;
+				<span class="self">Self</span>::charge_fees(origin, price).map_err(|error| {
+					<span class="macro">log::error!</span>(
+						target: <span class="string">&quot;xcm::pallet_xcm::build_and_execute_xcm_transfer_type&quot;</span>,
+						<span class="string">&quot;Unable to charge fee with error {:?}&quot;</span>, error
+					);
+					Error::&lt;T&gt;::FeesNotMet
+				})<span class="question-mark">?</span>;
 			}
 			<span class="kw">let </span>message_id = T::XcmRouter::deliver(ticket).map_err(Error::&lt;T&gt;::from)<span class="question-mark">?</span>;
 

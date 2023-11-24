@@ -1726,7 +1726,7 @@
 				hash,
 				RuntimeHelper::&lt;Runtime&gt;::xcm_max_weight(XcmReceivedFrom::Parent),
 			);
-			<span class="macro">assert_eq!</span>(outcome.ensure_complete(), <span class="prelude-val">Ok</span>(()));
+			<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 
 			<span class="comment">// check Balances after
 			</span><span class="macro">assert_ne!</span>(&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>target_account), <span class="number">0</span>.into());
@@ -2073,7 +2073,7 @@
 				hash,
 				RuntimeHelper::&lt;Runtime&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
 			);
-			<span class="macro">assert_eq!</span>(outcome.ensure_complete(), <span class="prelude-val">Ok</span>(()));
+			<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 
 			<span class="comment">// checks target_account after
 			</span><span class="macro">assert_eq!</span>(
@@ -2785,7 +2785,7 @@
 				hash,
 				RuntimeHelper::&lt;Runtime&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
 			);
-			<span class="macro">assert_eq!</span>(outcome.ensure_complete(), <span class="prelude-val">Ok</span>(()));
+			<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 
 			<span class="comment">// check events
 			</span><span class="kw">let </span><span class="kw-2">mut </span>events = &lt;frame_system::Pallet&lt;Runtime&gt;&gt;::events()
@@ -2893,7 +2893,7 @@
 				hash,
 				RuntimeHelper::&lt;Runtime&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
 			);
-			<span class="macro">assert_eq!</span>(outcome.ensure_complete(), <span class="prelude-val">Ok</span>(()));
+			<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 
 			additional_checks_after();
 		})

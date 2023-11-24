@@ -1081,7 +1081,7 @@
 					XcmReceivedFrom::Sibling,
 				),
 			);
-			<span class="macro">assert_eq!</span>(outcome.ensure_complete(), <span class="prelude-val">Ok</span>(()));
+			<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 
 			<span class="comment">// author actual balance after (received fees from Trader for ForeignAssets)
 			</span><span class="kw">let </span>author_received_fees =
@@ -1186,7 +1186,7 @@
 					hash,
 					RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
 				);
-				<span class="macro">assert_eq!</span>(outcome.ensure_complete(), <span class="prelude-val">Ok</span>(()));
+				<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 				<span class="macro">assert_eq!</span>(is_congested, pallet_xcm_bridge_hub_router::Pallet::&lt;Runtime, XcmBridgeHubRouterInstance&gt;::bridge().is_congested);
 			};
 

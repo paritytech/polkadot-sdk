@@ -279,6 +279,50 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -357,33 +401,59 @@
 	sp_tracing::try_init_simple();
 	<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::new().build();
 
-	<span class="kw">let </span><span class="kw-2">mut </span>msg = Xcm(<span class="macro">vec!</span>[ClearOrigin]);
-	<span class="kw">let </span>max_weight = &lt;XcmConfig <span class="kw">as </span>xcm_executor::Config&gt;::Weigher::weight(<span class="kw-2">&amp;mut </span>msg).unwrap();
-	<span class="kw">let </span><span class="kw-2">mut </span>call = polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-		message: Box::new(VersionedXcm::from(msg)),
-		max_weight,
-	});
-
-	<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">11 </span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>msg = Xcm(<span class="macro">vec!</span>[
-			WithdrawAsset((Parent, <span class="number">1_000</span>).into()),
-			BuyExecution { fees: (Parent, <span class="number">1</span>).into(), weight_limit: Unlimited },
+	<span class="kw">let </span>base_xcm = |call: polkadot_test_runtime::RuntimeCall| {
+		Xcm(<span class="macro">vec!</span>[
+			WithdrawAsset((Here, <span class="number">1_000</span>).into()),
+			BuyExecution { fees: (Here, <span class="number">1</span>).into(), weight_limit: Unlimited },
 			Transact {
 				origin_kind: OriginKind::Native,
 				require_weight_at_most: call.get_dispatch_info().weight,
 				call: call.encode().into(),
 			},
-		]);
+		])
+	};
+	<span class="kw">let </span><span class="kw-2">mut </span>call: <span class="prelude-ty">Option</span>&lt;polkadot_test_runtime::RuntimeCall&gt; = <span class="prelude-val">None</span>;
+	<span class="comment">// set up transacts with recursive depth of 11
+	</span><span class="kw">for </span>depth <span class="kw">in </span>(<span class="number">1</span>..<span class="number">12</span>).rev() {
+		<span class="kw">let </span><span class="kw-2">mut </span>msg;
+		<span class="kw">match </span>depth {
+			<span class="comment">// this one should fail with `XcmError::ExceedsStackLimit`
+			</span><span class="number">11 </span>=&gt; {
+				msg = Xcm(<span class="macro">vec!</span>[ClearOrigin]);
+			},
+			<span class="comment">// this one checks that the inner one (depth 11) fails as expected,
+			// itself should not fail =&gt; should have outcome == Complete
+			</span><span class="number">10 </span>=&gt; {
+				<span class="kw">let </span>inner_call = call.take().unwrap();
+				<span class="kw">let </span>expected_transact_status =
+					sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
+						index: <span class="number">27</span>,
+						error: [<span class="number">24</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+						message: <span class="prelude-val">Some</span>(<span class="string">&quot;LocalExecutionIncomplete&quot;</span>),
+					})
+					.encode()
+					.into();
+				msg = base_xcm(inner_call);
+				msg.inner_mut().push(ExpectTransactStatus(expected_transact_status));
+			},
+			<span class="comment">// these are the outer 9 calls that expect `ExpectTransactStatus(Success)`
+			</span>d <span class="kw">if </span>d &gt;= <span class="number">1 </span>&amp;&amp; d &lt;= <span class="number">9 </span>=&gt; {
+				<span class="kw">let </span>inner_call = call.take().unwrap();
+				msg = base_xcm(inner_call);
+				msg.inner_mut().push(ExpectTransactStatus(MaybeErrorCode::Success));
+			},
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+		}
 		<span class="kw">let </span>max_weight = &lt;XcmConfig <span class="kw">as </span>xcm_executor::Config&gt;::Weigher::weight(<span class="kw-2">&amp;mut </span>msg).unwrap();
-		call = polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-			message: Box::new(VersionedXcm::from(msg)),
+		call = <span class="prelude-val">Some</span>(polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
+			message: Box::new(VersionedXcm::from(msg.clone())),
 			max_weight,
-		});
+		}));
 	}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>block_builder = client.init_polkadot_block_builder();
 
-	<span class="kw">let </span>execute = construct_extrinsic(<span class="kw-2">&amp;</span>client, call, sp_keyring::Sr25519Keyring::Alice, <span class="number">0</span>);
+	<span class="kw">let </span>execute = construct_extrinsic(<span class="kw-2">&amp;</span>client, call.unwrap(), sp_keyring::Sr25519Keyring::Alice, <span class="number">0</span>);
 
 	block_builder.push_polkadot_extrinsic(execute).expect(<span class="string">&quot;pushes extrinsic&quot;</span>);
 
@@ -394,11 +464,29 @@
 		.expect(<span class="string">&quot;imports the block&quot;</span>);
 
 	client.state_at(block_hash).expect(<span class="string">&quot;state should exist&quot;</span>).inspect_state(|| {
-		<span class="macro">assert!</span>(polkadot_test_runtime::System::events().iter().any(|r| <span class="macro">matches!</span>(
-			r.event,
-			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-				outcome: Outcome::Incomplete(<span class="kw">_</span>, XcmError::ExceedsStackLimit)
-			}),
+		<span class="kw">let </span>events = polkadot_test_runtime::System::events();
+		<span class="comment">// verify 10 pallet_xcm calls were successful
+		</span><span class="macro">assert_eq!</span>(
+			polkadot_test_runtime::System::events()
+				.iter()
+				.filter(|r| <span class="macro">matches!</span>(
+					r.event,
+					polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
+						outcome: Outcome::Complete(<span class="kw">_</span>)
+					}),
+				))
+				.count(),
+			<span class="number">10
+		</span>);
+		<span class="comment">// verify transaction fees have been paid
+		</span><span class="macro">assert!</span>(events.iter().any(|r| <span class="macro">matches!</span>(
+			<span class="kw-2">&amp;</span>r.event,
+			polkadot_test_runtime::RuntimeEvent::TransactionPayment(
+				pallet_transaction_payment::Event::TransactionFeePaid {
+					who: payer,
+					..
+				}
+			) <span class="kw">if </span><span class="kw-2">*</span>payer == sp_keyring::Sr25519Keyring::Alice.into(),
 		)));
 	});
 }
