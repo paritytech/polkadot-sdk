@@ -16,13 +16,12 @@
 
 use std::{
 	collections::{HashMap, HashSet},
+	pin::Pin,
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
-pub const LOG_TARGET: &str = "bench::approval";
-
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{channel::oneshot, select, Future, FutureExt};
 use itertools::Itertools;
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
@@ -55,6 +54,7 @@ use polkadot_node_subsystem_test_helpers::{
 	TestSubsystemContextHandle,
 };
 
+use polkadot_node_core_approval_voting::{criteria, Config as ApprovalVotingConfig};
 use polkadot_node_subsystem_types::{
 	messages::{
 		network_bridge_event::NewGossipTopology, ApprovalDistributionMessage,
@@ -63,6 +63,10 @@ use polkadot_node_subsystem_types::{
 	},
 	ActiveLeavesUpdate, OverseerSignal,
 };
+
+use rand::{seq::SliceRandom, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+
 use polkadot_primitives::{
 	vstaging::ApprovalVoteMultipleCandidates, ApprovalVote, Block, BlockNumber, CandidateEvent,
 	CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash,
@@ -83,23 +87,45 @@ use sp_core::{crypto::VrfSecret, hexdisplay::AsBytesRef, Pair};
 use sp_keystore::Keystore;
 use sp_runtime::{Digest, DigestItem};
 
-pub mod test_constants {
-	use polkadot_node_core_approval_voting::Config;
-	const DATA_COL: u32 = 0;
+pub const LOG_TARGET: &str = "bench::approval";
 
-	pub(crate) const NUM_COLUMNS: u32 = 1;
+const DATA_COL: u32 = 0;
 
-	pub(crate) const SLOT_DURATION_MILLIS: u64 = 6000;
-	pub(crate) const TEST_CONFIG: Config =
-		Config { col_approval_data: DATA_COL, slot_duration_millis: SLOT_DURATION_MILLIS };
-}
+pub(crate) const NUM_COLUMNS: u32 = 1;
+pub(crate) const SLOT_DURATION_MILLIS: u64 = 6000;
+pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
+	col_approval_data: DATA_COL,
+	slot_duration_millis: SLOT_DURATION_MILLIS,
+};
 
+use sp_keyring::sr25519::Keyring as Sr25519Keyring;
+use sp_timestamp::Timestamp;
+
+use crate::core::{
+	keyring::{self, Keyring},
+	mock_subsystems::{
+		MockAvailabilityDistribution, MockAvailabilityRecovery, MockAvailabilityStore,
+		MockBitfieldDistribution, MockBitfieldSigning, MockCandidateBacking,
+		MockCandidateValidation, MockCollationGeneration, MockCollatorProtocol,
+		MockDisputeCoordinator, MockDisputeDistribution, MockGossipSupport, MockNetworkBridgeRx,
+		MockNetworkBridgeTx, MockProspectiveParachains, MockProvisioner, MockPvfChecker,
+		MockStatementDistribution,
+	},
+};
+
+// Test parameters
 const NUM_CORES: u32 = 100;
 const NUM_CANDIDATES_PER_BLOCK: u32 = 70;
-const NUM_HEADS: u8 = 1;
+const NUM_HEADS: u8 = 10;
 const NUM_VALIDATORS: u32 = 500;
-const BUFFER_FOR_GENERATION_MILLIS: u64 = 40_000 * NUM_HEADS as u64;
 const LAST_CONSIDERED_TRANCHE: u32 = 89;
+const MIN_COALESCE: usize = 1;
+const MAX_COALESCE: usize = 6;
+
+const BUFFER_FOR_GENERATION_MILLIS: u64 = 40_000 * NUM_HEADS as u64;
+
+use polkadot_node_subsystem::SubsystemError;
+use tokio::time::sleep;
 
 #[derive(Clone, Debug)]
 struct BlockTestData {
@@ -116,8 +142,6 @@ pub struct TestState {
 	identities: Vec<(Keyring, PeerId)>,
 	babe_epoch: BabeEpoch,
 	session_info: SessionInfo,
-	last_processing: HashMap<(Hash, ValidatorIndex, CandidateBitfield), (Slot, u64)>,
-	first_approvals: HashMap<(Hash, ValidatorIndex, CandidateBitfield), (Slot, u64)>,
 }
 
 impl TestState {
@@ -138,11 +162,23 @@ impl TestState {
 	}
 }
 
+pub enum MsgPurpose {
+	Approval,
+	Assignment,
+	Setup,
+	SampleResponse(&'static str, oneshot::Receiver<Instant>),
+}
+
+struct TestMessage {
+	msg: ApprovalDistributionMessage,
+	purpose: MsgPurpose,
+}
+
 pub struct ApprovalSubsystemInstance {
 	test_state: TestState,
 	mock_overseer_handle: OverseerHandle,
 	mock_overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
-	distribution_messages: HashMap<Hash, Vec<ApprovalDistributionMessage>>,
+	distribution_messages: HashMap<Hash, Vec<TestMessage>>,
 }
 
 struct AlwaysSupportsParachains {}
@@ -168,68 +204,48 @@ impl SyncOracle for TestSyncOracle {
 
 impl ApprovalSubsystemInstance {
 	pub fn new(spawn_task_handle: SpawnTaskHandle) -> Self {
-		let (approval_voting_context, approval_voting_overseer) =
-			make_buffered_subsystem_context::<ApprovalVotingMessage, SpawnTaskHandle>(
-				spawn_task_handle.clone(),
-				20000,
-				"approval-voting-subsystem",
-			);
-
-		let db = kvdb_memorydb::create(test_constants::NUM_COLUMNS);
-		let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<
-			kvdb_memorydb::InMemory,
-		> = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
-
-		let keystore = LocalKeystore::in_memory();
-		let approval_voting = ApprovalVotingSubsystem::with_config(
-			test_constants::TEST_CONFIG,
-			Arc::new(db),
-			Arc::new(keystore),
-			Box::new(TestSyncOracle {}),
-			Metrics::default(),
-		);
-
-		let db = kvdb_memorydb::create(test_constants::NUM_COLUMNS);
+		// Create approval voting subsystem.
+		let db = kvdb_memorydb::create(NUM_COLUMNS);
 		let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<
 			kvdb_memorydb::InMemory,
 		> = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 		let keystore = LocalKeystore::in_memory();
 		let approval_voting = ApprovalVotingSubsystem::with_config(
-			test_constants::TEST_CONFIG,
+			TEST_CONFIG,
 			Arc::new(db),
 			Arc::new(keystore),
 			Box::new(TestSyncOracle {}),
 			Metrics::default(),
 		);
-
-		let spawner_glue = SpawnGlue(spawn_task_handle.clone());
 
 		let approval_distribution = ApprovalDistribution::new(Default::default());
-		let overseer_connector = OverseerConnector::with_event_capacity(64000);
-		let delta_for_generation = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
-		let mut current_slot = Slot::from_timestamp(
-			Timestamp::current() + delta_for_generation,
-			SlotDuration::from_millis(test_constants::SLOT_DURATION_MILLIS),
-		);
-		let identities = generate_ids();
-		let mut last_processing = HashMap::new();
-		let mut first_approvals = HashMap::new();
 
+		// We pre-generate all messages, so we need to pick some slot into the future, that is not
+		// too far in the future but is not close enough to start before we finish generating the
+		// messages.
+		let delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
+		let mut slot_under_test = Slot::from_timestamp(
+			Timestamp::current() + delta_to_first_slot_under_test,
+			SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+		);
+
+		let peer_identities = generate_node_identities();
 		let mut generated_messages = HashMap::new();
-		let mut peer_connected_messages = generate_peer_connected(identities.clone());
-		let mut per_slot_heads = Vec::<BlockTestData>::new();
-		let babe_epoch = generate_babe_epoch(current_slot, identities.clone());
-		let session_info = dummy_session_info2(&identities);
+		let mut peer_connected_messages = generate_peer_connected(peer_identities.clone());
+		let mut per_slot_test_data = Vec::<BlockTestData>::new();
+		let babe_epoch = generate_babe_epoch(slot_under_test, peer_identities.clone());
+		let session_info = test_session_for_peers(&peer_identities);
 
 		for i in 1..NUM_HEADS + 1 {
 			let block_hash = Hash::repeat_byte(i);
 			let parent_hash =
-				per_slot_heads.last().map(|val| val.hash).unwrap_or(Hash::repeat_byte(0xde));
+				per_slot_test_data.last().map(|val| val.hash).unwrap_or(Hash::repeat_byte(0xde));
+
 			let block_info = BlockTestData {
-				slot: current_slot,
+				slot: slot_under_test,
 				block_number: i as BlockNumber,
 				hash: block_hash,
-				header: make_header(parent_hash, current_slot, i as u32),
+				header: make_header(parent_hash, slot_under_test, i as u32),
 				candidates: make_candidates(
 					block_hash,
 					i as BlockNumber,
@@ -238,24 +254,30 @@ impl ApprovalSubsystemInstance {
 				),
 			};
 
+			// Generate messages for block
 			let mut per_block_messages = peer_connected_messages.drain(..).collect_vec();
-			per_block_messages.extend(generate_peer_view_change(block_hash, identities.clone()));
-			per_block_messages.extend(generate_new_session_topology(identities.clone()));
+			per_block_messages
+				.extend(generate_peer_view_change(block_hash, peer_identities.clone()));
+			per_block_messages.extend(generate_new_session_topology(peer_identities.clone()));
+
 			gum::info!(
-				"Generating assignments for {:} with candidates {:}",
+				"Generating assignments for {:} with num_candidates {:}",
 				i,
 				block_info.candidates.len()
 			);
+
 			let start = Instant::now();
-			let mut assignments = generate_many_assignments(
+
+			let mut assignments = generate_assignments(
 				&block_info,
-				identities.clone(),
+				peer_identities.clone(),
 				&babe_epoch,
 				&session_info,
 				true,
 			);
+
 			gum::info!(
-				"Generating approvals for {:} assignments generated {:} took {:} seconds",
+				"Generating approvals for {:} num_assignments generated {:} took {:} seconds",
 				i,
 				assignments.len(),
 				start.elapsed().as_secs()
@@ -264,37 +286,42 @@ impl ApprovalSubsystemInstance {
 			let approvals = issue_approvals(
 				&assignments,
 				block_hash,
-				identities.clone(),
+				peer_identities.clone(),
 				block_info.candidates.clone(),
 			);
-			let first_approval = key_from_message(approvals.first().unwrap());
+
+			assignments
+				.push(generate_snapshot_message(&spawn_task_handle, "assignments-processed"));
 
 			assignments.extend(approvals);
-
 			per_block_messages.extend(assignments);
+
+			per_block_messages
+				.push(generate_snapshot_message(&spawn_task_handle, "approvals-processed"));
+
 			gum::info!(
-				"Finished generating messages for {:} took {:} seconds total_msg {:}",
+				"Finished generating messages for {:}  num_msg {:} took {:}",
 				i,
-				start.elapsed().as_secs(),
 				per_block_messages.len(),
+				start.elapsed().as_secs(),
 			);
-			let last_message = key_from_message(per_block_messages.last().unwrap());
-			last_processing.insert(last_message, (current_slot, per_block_messages.len() as u64));
-			first_approvals.insert(first_approval, (current_slot, per_block_messages.len() as u64));
 
 			generated_messages.insert(block_hash, per_block_messages);
-			per_slot_heads.push(block_info);
-			current_slot = current_slot + 1;
+			per_slot_test_data.push(block_info);
+			slot_under_test = slot_under_test + 1;
 		}
+
 		let state = TestState {
-			per_slot_heads,
-			identities,
+			per_slot_heads: per_slot_test_data,
+			identities: peer_identities,
 			babe_epoch,
 			session_info,
-			last_processing,
-			first_approvals,
 		};
 
+		// Initialize a mock overseer.
+		// All subsystem except approval_voting and approval_distribution are mock subsystems.
+		let spawner_glue = SpawnGlue(spawn_task_handle.clone());
+		let overseer_connector = OverseerConnector::with_event_capacity(64000);
 		let builder = Overseer::builder()
 			.approval_voting(approval_voting)
 			.approval_distribution(approval_distribution)
@@ -304,7 +331,7 @@ impl ApprovalSubsystemInstance {
 			.chain_selection(MockChainSelection {})
 			.dispute_coordinator(MockDisputeCoordinator {})
 			.runtime_api(MockRuntimeApi { state: state.clone() })
-			.network_bridge_tx(MockNetworkBridgeTx { state: state.clone() })
+			.network_bridge_tx(MockNetworkBridgeTx {})
 			.availability_distribution(MockAvailabilityDistribution {})
 			.availability_store(MockAvailabilityStore {})
 			.pvf_checker(MockPvfChecker {})
@@ -325,6 +352,7 @@ impl ApprovalSubsystemInstance {
 			.metrics(Default::default())
 			.supports_parachains(AlwaysSupportsParachains {})
 			.spawner(spawner_glue);
+
 		let (mock_overseer, mock_overseer_handle) =
 			builder.build_with_connector(overseer_connector).expect("Should not fail");
 
@@ -339,79 +367,109 @@ impl ApprovalSubsystemInstance {
 	pub async fn run_benchmark(mut self) {
 		loop {
 			for block in &self.test_state.per_slot_heads {
+				// Start sending all the messages at the beginning of the slot under test.
 				loop {
 					sleep(Duration::from_millis(50)).await;
 					let mut current_slot = Slot::from_timestamp(
 						Timestamp::current(),
-						SlotDuration::from_millis(test_constants::SLOT_DURATION_MILLIS),
+						SlotDuration::from_millis(SLOT_DURATION_MILLIS),
 					);
 					if block.slot <= current_slot {
 						break
 					}
 				}
+
+				let slot_drift_millis =
+					Timestamp::current().as_millis() - (*block.slot * SLOT_DURATION_MILLIS);
+				let slot_begin = Instant::now();
 				let block_hash = block.hash;
 				let active_leaves = OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
 					new_leaf(block_hash, 1),
 				));
-				gum::info!(target: LOG_TARGET, "Sending active leaves ===========");
+				gum::info!(
+					target: LOG_TARGET,
+					?block.hash,
+					"Start sending messages for block"
+				);
 
-				self.mock_overseer.broadcast_signal(active_leaves).await;
-				gum::info!(target: LOG_TARGET, "Broadcasted active leaves ===========");
+				self.mock_overseer.broadcast_signal(active_leaves).await.unwrap();
 
+				// We have to wait a bit here, for the active_leaves in approval-voting to actually
+				// trigger a NewBlocks in approval distribution
+				// TODO: We could probably generate the NewBlocks ourselves.
 				sleep(Duration::from_millis(100)).await;
-				gum::info!(target: LOG_TARGET, "Sending messages");
 
 				let distribution_messages =
 					self.distribution_messages.get_mut(&block_hash).unwrap().drain(..);
 
+				let mut sampled_checkpoints = Vec::new();
+
 				for msg in distribution_messages {
 					self.mock_overseer
-						.route_message(AllMessages::ApprovalDistribution(msg), "mock-test")
-						.await;
+						.route_message(AllMessages::ApprovalDistribution(msg.msg), "mock-test")
+						.await
+						.unwrap();
+
+					if let MsgPurpose::SampleResponse(reason, receiver) = msg.purpose {
+						sampled_checkpoints.push((reason, receiver))
+					}
 				}
+				let block_hash = block.hash;
+				let block_number = block.block_number;
+				let future = async move {
+					let current = Timestamp::current();
+
+					let mut to_print = String::new();
+					for (reason, timestamp) in sampled_checkpoints {
+						let timestamp = timestamp.await.unwrap();
+						to_print = format!(
+							"{} {} in {} ms drift {} ms",
+							to_print,
+							reason,
+							timestamp
+								.checked_duration_since(slot_begin)
+								.map(|duration| duration.as_millis())
+								.unwrap_or(999999) + slot_drift_millis as u128,
+							slot_drift_millis,
+						);
+					}
+
+					gum::info!(
+						target: LOG_TARGET,
+						"Measured times since begining of block_number {}, block_hash {} {}",
+						block_number,
+						block_hash,
+						to_print
+					);
+				};
+
+				self.mock_overseer
+					.spawner()
+					.0
+					.spawn_blocking("measure", Some("measure"), future);
 
 				gum::info!(
 					target: LOG_TARGET,
-					"approval_voting:  ======================    Sent messages==================="
+					?block.hash,
+					"Finished sending messages for block"
 				);
 			}
 
 			gum::info!(
 				target: LOG_TARGET,
-				"approval_voting:  ======================    Sleep a bit ==================="
-			);
-			sleep(Duration::from_secs(30)).await;
-			let (tx, rx) = oneshot::channel();
-			let target = self.test_state.per_slot_heads.last().unwrap().hash;
-			let msg = ApprovalVotingMessage::ApprovedAncestor(target, 0, tx);
-			gum::info!(
-				target: LOG_TARGET,
-				"approval_voting:  ======================    Approval request ancestor request  =================== {:?} ", target
+				"Wait for things to settle"
 			);
 
-			self.mock_overseer
-				.route_message(AllMessages::ApprovalVoting(msg), "mock-test")
-				.await;
-			let result = rx.await;
+			sleep(Duration::from_secs(100)).await;
+
 			gum::info!(
 				target: LOG_TARGET,
-				"approval_voting:  ======================    Approval get ancestor =================== {:?} {:?}", target, result
+				"Exiting benchmark"
 			);
-			let (tx, rx) = oneshot::channel();
-			let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
-			self.mock_overseer
-				.route_message(AllMessages::ApprovalDistribution(msg), "mock-test")
-				.await;
-			sleep(Duration::from_secs(100)).await;
-			panic!("Exiting hard")
+			break
 		}
 	}
 }
-
-use sp_keyring::sr25519::Keyring as Sr25519Keyring;
-use sp_timestamp::Timestamp;
-
-use crate::core::keyring::{self, Keyring};
 
 pub(crate) fn garbage_vrf_signature() -> VrfSignature {
 	let transcript = VrfTranscript::new(b"test-garbage", &[]);
@@ -438,7 +496,7 @@ fn make_header(parent_hash: Hash, slot: Slot, number: u32) -> Header {
 	}
 }
 
-fn generate_ids() -> Vec<(Keyring, PeerId)> {
+fn generate_node_identities() -> Vec<(Keyring, PeerId)> {
 	(0..NUM_VALIDATORS)
 		.map(|peer_index| {
 			(Keyring::new(format!("ApprovalNode{}", peer_index).into()), PeerId::random())
@@ -446,11 +504,7 @@ fn generate_ids() -> Vec<(Keyring, PeerId)> {
 		.collect::<Vec<_>>()
 }
 
-fn dummy_session_info(identities: Vec<(Keyring, PeerId)>) -> SessionInfo {
-	dummy_session_info2(&identities)
-}
-
-fn dummy_session_info2(keys: &[(Keyring, PeerId)]) -> SessionInfo {
+fn test_session_for_peers(keys: &[(Keyring, PeerId)]) -> SessionInfo {
 	SessionInfo {
 		validators: keys.iter().map(|v| v.0.clone().public().into()).collect(),
 		discovery_keys: keys.iter().map(|v| v.0.clone().public().into()).collect(),
@@ -472,114 +526,134 @@ fn dummy_session_info2(keys: &[(Keyring, PeerId)]) -> SessionInfo {
 	}
 }
 
+fn coalesce_approvals_len() -> usize {
+	let seed = [7u8; 32];
+	let mut rand_chacha = ChaCha20Rng::from_seed(seed);
+	let mut sampling: Vec<usize> = (MIN_COALESCE..MAX_COALESCE + 1).collect_vec();
+	*(sampling.partial_shuffle(&mut rand_chacha, 1).0.first().unwrap())
+}
+
 fn issue_approvals(
-	assignments: &Vec<ApprovalDistributionMessage>,
+	assignments: &Vec<TestMessage>,
 	block_hash: Hash,
 	keyrings: Vec<(Keyring, PeerId)>,
 	candidates: Vec<CandidateEvent>,
-) -> Vec<ApprovalDistributionMessage> {
-	let mut to_sign: Vec<(CandidateHash, CandidateIndex, Hash, ValidatorIndex)> = Vec::new();
+) -> Vec<TestMessage> {
+	let mut to_sign: Vec<TestCandidateInfo> = Vec::new();
 	let last_index = assignments.len() - 1;
-	let seed = [7u8; 32];
-	let mut rand_chacha = ChaCha20Rng::from_seed(seed);
 
 	let mut result = assignments
 		.iter()
 		.enumerate()
-		.map(|(index, message)| match message {
+		.map(|(index, message)| match &message.msg {
 			ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				_,
-				Versioned::VStaging(msg),
-			)) =>
-				if let protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments) =
-					msg
+				Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Assignments(
+					assignments,
+				)),
+			)) => {
+				let mut messages = Vec::new();
+
+				let current_validator_index =
+					to_sign.first().map(|val| val.validator_index).unwrap_or(ValidatorIndex(999));
+
+				let assignment = assignments.first().unwrap();
+
+				if to_sign.len() >= coalesce_approvals_len() as usize ||
+					(!to_sign.is_empty() && current_validator_index != assignment.0.validator)
 				{
-					let mut messages = Vec::new();
-					let current_validator_index =
-						to_sign.first().map(|val| val.3).unwrap_or(ValidatorIndex(999));
-					let assignment = assignments.first().unwrap();
+					messages.push(sign_candidates(&mut to_sign, &keyrings, block_hash))
+				}
 
-					if to_sign.len() >= (1 + rand_chacha.next_u32() % 6) as usize ||
-						(!to_sign.is_empty() &&
-							current_validator_index != assignment.0.validator)
-					{
+				for candidate_index in assignment.1.iter_ones() {
+					let candidate = candidates.get(candidate_index).unwrap();
+					if let CandidateEvent::CandidateIncluded(candidate, _, _, _) = candidate {
 						let keyring =
-							keyrings.get(current_validator_index.0 as usize).unwrap().clone();
-						let to_sign = to_sign
-							.drain(..)
-							.sorted_by(|val1, val2| val1.1.cmp(&val2.1))
-							.collect_vec();
-						let hashes = to_sign.iter().map(|val| val.0).collect_vec();
-						let candidate_indices = to_sign.iter().map(|val| val.1).collect_vec();
+							keyrings.get(assignment.0.validator.0 as usize).unwrap().clone();
 
-						let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
-
-						let validator_key: ValidatorPair = keyring.0.pair().into();
-						let signature = validator_key.sign(&payload[..]);
-						let indirect = IndirectSignedApprovalVoteV2 {
-							block_hash,
-							candidate_indices: candidate_indices.try_into().unwrap(),
-							validator: current_validator_index,
-							signature,
-						};
-						let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![
-							indirect,
-						]);
-						messages.push(ApprovalDistributionMessage::NetworkBridgeUpdate(
-							NetworkBridgeEvent::PeerMessage(keyring.1, Versioned::VStaging(msg)),
-						))
+						to_sign.push(TestCandidateInfo {
+							candidate_hash: candidate.hash(),
+							candidate_index: candidate_index as CandidateIndex,
+							validator_index: assignment.0.validator,
+						});
+					} else {
+						panic!("Should not happend see make_candidates");
 					}
-
-					for candidate_index in assignment.1.iter_ones() {
-						let candidate = candidates.get(candidate_index).unwrap();
-						if let CandidateEvent::CandidateIncluded(candidate, _, _, _) = candidate {
-							let keyring =
-								keyrings.get(assignment.0.validator.0 as usize).unwrap().clone();
-
-							to_sign.push((
-								candidate.hash(),
-								candidate_index as CandidateIndex,
-								block_hash,
-								assignment.0.validator,
-							));
-						} else {
-							panic!("Should not happend");
-						}
-					}
-					messages
-				} else {
-					panic!("Should not happen");
-				},
+				}
+				messages
+			},
 			_ => {
-				panic!("Should happen");
+				panic!("Should not happen see generate_assignments");
 			},
 		})
 		.collect_vec();
 	let mut result = result.into_iter().flatten().collect_vec();
 
 	if !to_sign.is_empty() {
-		let current_validator_index = to_sign.first().map(|val| val.3).unwrap();
-		let keyring = keyrings.get(current_validator_index.0 as usize).unwrap().clone();
-		let to_sign = to_sign.drain(..).sorted_by(|val1, val2| val1.1.cmp(&val2.1)).collect_vec();
-		let hashes = to_sign.iter().map(|val| val.0).collect_vec();
-		let candidate_indices = to_sign.iter().map(|val| val.1).collect_vec();
-
-		let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
-
-		let validator_key: ValidatorPair = keyring.0.pair().into();
-		let signature = validator_key.sign(&payload[..]);
-		let indirect = IndirectSignedApprovalVoteV2 {
-			block_hash,
-			candidate_indices: candidate_indices.try_into().unwrap(),
-			validator: current_validator_index,
-			signature,
-		};
-		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![indirect]);
-		result.push(ApprovalDistributionMessage::NetworkBridgeUpdate(
-			NetworkBridgeEvent::PeerMessage(keyring.1, Versioned::VStaging(msg)),
-		))
+		result.push(sign_candidates(&mut to_sign, &keyrings, block_hash));
 	}
 	result
+}
+
+struct TestCandidateInfo {
+	candidate_hash: CandidateHash,
+	candidate_index: CandidateIndex,
+	validator_index: ValidatorIndex,
+}
+
+fn sign_candidates(
+	to_sign: &mut Vec<TestCandidateInfo>,
+	keyrings: &Vec<(Keyring, PeerId)>,
+	block_hash: Hash,
+) -> TestMessage {
+	let current_validator_index = to_sign.first().map(|val| val.validator_index).unwrap();
+	let keyring = keyrings.get(current_validator_index.0 as usize).unwrap().clone();
+	let to_sign = to_sign
+		.drain(..)
+		.sorted_by(|val1, val2| val1.candidate_index.cmp(&val2.candidate_index))
+		.collect_vec();
+	let hashes = to_sign.iter().map(|val| val.candidate_hash).collect_vec();
+	let candidate_indices = to_sign.iter().map(|val| val.candidate_index).collect_vec();
+
+	let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
+
+	let validator_key: ValidatorPair = keyring.0.pair().into();
+	let signature = validator_key.sign(&payload[..]);
+	let indirect = IndirectSignedApprovalVoteV2 {
+		block_hash,
+		candidate_indices: candidate_indices.try_into().unwrap(),
+		validator: current_validator_index,
+		signature,
+	};
+	let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![indirect]);
+	TestMessage {
+		msg: ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+			keyring.1,
+			Versioned::VStaging(msg),
+		)),
+		purpose: MsgPurpose::Approval,
+	}
+}
+
+// Generates an empty dummy message, that we send to approval distribution and
+// we record the timestamp when it answered, this way we can measure how long it takes
+// for the approval-distribution to process certain messages.
+fn generate_snapshot_message(
+	spawn_task_handle: &SpawnTaskHandle,
+	label: &'static str,
+) -> TestMessage {
+	let (tx, rx) = oneshot::channel();
+	let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
+
+	let (sampling_tx, sampling_rx) = oneshot::channel();
+	let future = async move {
+		rx.await.unwrap();
+		sampling_tx.send(Instant::now()).unwrap();
+	};
+
+	spawn_task_handle.spawn_blocking(label, label, future);
+
+	TestMessage { msg, purpose: MsgPurpose::SampleResponse(label, sampling_rx) }
 }
 
 fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
@@ -587,9 +661,6 @@ fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
 	r.descriptor.para_id = para_id;
 	r
 }
-
-use rand::{seq::SliceRandom, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
 
 fn make_candidates(
 	block_hash: Hash,
@@ -623,15 +694,14 @@ fn make_candidates(
 		.collect_vec()
 }
 
-fn generate_many_assignments(
+fn generate_assignments(
 	block_info: &BlockTestData,
 	keyrings: Vec<(Keyring, PeerId)>,
 	babe_epoch: &BabeEpoch,
 	session_info: &SessionInfo,
 	generate_v1: bool,
-) -> Vec<ApprovalDistributionMessage> {
+) -> Vec<TestMessage> {
 	let config = Config::from(session_info);
-	let mut count_tranches = vec![0u32; 200];
 	let leaving_cores = block_info
 		.candidates
 		.clone()
@@ -642,7 +712,7 @@ fn generate_many_assignments(
 			{
 				(candidate.hash(), core_index, group_index)
 			} else {
-				panic!("SHOULD NOT HAPPEN")
+				panic!("Should not happen see make_candidates")
 			}
 		})
 		.collect_vec();
@@ -663,7 +733,7 @@ fn generate_many_assignments(
 				Some(keyrings[i as usize].0.seed().as_str()),
 			)
 			.expect("should not fail");
-		// let mut assignments = HashMap::new();
+
 		let leaving_cores = leaving_cores
 			.clone()
 			.into_iter()
@@ -690,7 +760,6 @@ fn generate_many_assignments(
 			if assignment.tranche() > LAST_CONSIDERED_TRANCHE {
 				continue
 			}
-			count_tranches.get_mut(assignment.tranche() as usize).map(|val| *val = *val + 1);
 			let bitfiled: CoreBitfield = assigned_cores.clone().try_into().unwrap();
 			if no_duplicates.insert(bitfiled) {
 				indirect.push((
@@ -718,22 +787,21 @@ fn generate_many_assignments(
 			}
 		}
 	}
-	let mut sum = 0;
-	for (tranche, count) in count_tranches.iter().enumerate() {
-		sum += count;
-		if *count > 0 {
-			gum::info!("Generated at tranche {} num_assignments {} ", tranche, sum);
-		}
-	}
+
 	indirect
 		.into_iter()
 		.map(|indirect| {
 			let validator_index = indirect.0.validator.0;
 			let msg = protocol_vstaging::ApprovalDistributionMessage::Assignments(vec![indirect]);
-			ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
-				keyrings[validator_index as usize].1,
-				Versioned::VStaging(msg),
-			))
+			TestMessage {
+				msg: ApprovalDistributionMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::PeerMessage(
+						keyrings[validator_index as usize].1,
+						Versioned::VStaging(msg),
+					),
+				),
+				purpose: MsgPurpose::Assignment,
+			}
 		})
 		.collect_vec()
 }
@@ -741,18 +809,21 @@ fn generate_many_assignments(
 fn generate_peer_view_change(
 	block_hash: Hash,
 	keyrings: Vec<(Keyring, PeerId)>,
-) -> Vec<ApprovalDistributionMessage> {
+) -> Vec<TestMessage> {
 	keyrings
 		.into_iter()
 		.map(|(_, peer_id)| {
 			let network =
 				NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash].into_iter(), 0));
-			ApprovalDistributionMessage::NetworkBridgeUpdate(network)
+			TestMessage {
+				msg: ApprovalDistributionMessage::NetworkBridgeUpdate(network),
+				purpose: MsgPurpose::Setup,
+			}
 		})
 		.collect_vec()
 }
 
-fn generate_peer_connected(keyrings: Vec<(Keyring, PeerId)>) -> Vec<ApprovalDistributionMessage> {
+fn generate_peer_connected(keyrings: Vec<(Keyring, PeerId)>) -> Vec<TestMessage> {
 	keyrings
 		.into_iter()
 		.map(|(_, peer_id)| {
@@ -762,14 +833,15 @@ fn generate_peer_connected(keyrings: Vec<(Keyring, PeerId)>) -> Vec<ApprovalDist
 				ProtocolVersion::from(ValidationVersion::VStaging),
 				None,
 			);
-			ApprovalDistributionMessage::NetworkBridgeUpdate(network)
+			TestMessage {
+				msg: ApprovalDistributionMessage::NetworkBridgeUpdate(network),
+				purpose: MsgPurpose::Setup,
+			}
 		})
 		.collect_vec()
 }
 
-fn generate_new_session_topology(
-	keyrings: Vec<(Keyring, PeerId)>,
-) -> Vec<ApprovalDistributionMessage> {
+fn generate_new_session_topology(keyrings: Vec<(Keyring, PeerId)>) -> Vec<TestMessage> {
 	let topology = keyrings
 		.clone()
 		.into_iter()
@@ -789,7 +861,10 @@ fn generate_new_session_topology(
 		topology,
 		local_index: Some(ValidatorIndex(0)), // TODO
 	});
-	vec![ApprovalDistributionMessage::NetworkBridgeUpdate(event)]
+	vec![TestMessage {
+		msg: ApprovalDistributionMessage::NetworkBridgeUpdate(event),
+		purpose: MsgPurpose::Setup,
+	}]
 }
 
 fn generate_babe_epoch(current_slot: Slot, keyrings: Vec<(Keyring, PeerId)>) -> BabeEpoch {
@@ -808,56 +883,13 @@ fn generate_babe_epoch(current_slot: Slot, keyrings: Vec<(Keyring, PeerId)>) -> 
 	}
 }
 
-pub struct MockAvailabilityRecovery {}
-use polkadot_node_subsystem::SubsystemError;
-
-#[overseer::subsystem(AvailabilityRecovery, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockAvailabilityRecovery {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "availability-recover-subsystem", future }
-	}
-}
-use tokio::time::sleep;
-
-use self::test_constants::SLOT_DURATION_MILLIS;
-#[overseer::contextbounds(AvailabilityRecovery, prefix = self::overseer)]
-impl MockAvailabilityRecovery {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-/// TODO: Make this a macro
-pub struct MockCandidateValidation {}
-#[overseer::subsystem(CandidateValidation, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockCandidateValidation {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(CandidateValidation, prefix = self::overseer)]
-impl MockCandidateValidation {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
 pub struct MockChainSelection {}
 #[overseer::subsystem(ChainSelection, error=SubsystemError, prefix=self::overseer)]
 impl<Context> MockChainSelection {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
+		SpawnedSubsystem { name: "mock-chain-subsystem", future }
 	}
 }
 
@@ -879,135 +911,6 @@ impl MockChainSelection {
 	}
 }
 
-pub struct MockDisputeCoordinator {}
-#[overseer::subsystem(DisputeCoordinator, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockDisputeCoordinator {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
-impl MockDisputeCoordinator {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockNetworkBridgeTx {
-	state: TestState,
-}
-#[overseer::subsystem(NetworkBridgeTx, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockNetworkBridgeTx {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(NetworkBridgeTx, prefix = self::overseer)]
-impl MockNetworkBridgeTx {
-	async fn run<Context>(self, mut ctx: Context) {
-		let mut count_total_processed_msg = 0;
-		let mut first_approval = Instant::now();
-		loop {
-			let msg = ctx.recv().await.expect("Should not fail");
-			match msg {
-				orchestra::FromOrchestra::Signal(_) => {},
-				orchestra::FromOrchestra::Communication { msg } => {
-					count_total_processed_msg += 1;
-					let message_key = match msg {
-						NetworkBridgeTxMessage::SendValidationMessage(val, msg) => match msg {
-							Versioned::VStaging(msg) => match msg {
-								protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-									protocol_vstaging::ApprovalDistributionMessage::Approvals(
-										approvals,
-									),
-								) => {
-									let approval = approvals.last().unwrap();
-									(
-										approval.block_hash,
-										approval.validator,
-										approval.candidate_indices.clone(),
-									)
-								},
-								_ => (Hash::repeat_byte(0xfe), ValidatorIndex(9999), 1.into()),
-							},
-							_ => (Hash::repeat_byte(0xfe), ValidatorIndex(9999), 1.into()),
-						},
-						_ => (Hash::repeat_byte(0xfe), ValidatorIndex(9999), 1.into()),
-					};
-
-					if let Some((slot, num_messages)) = self.state.last_processing.get(&message_key)
-					{
-						let slot: u64 = **slot;
-						let timestamp_millis = slot * SLOT_DURATION_MILLIS;
-						let current = Timestamp::current();
-						gum::info!(
-							target: LOG_TARGET,
-							"Last message processed diff {:?} num {:?} bridge_tx num {:?} since slot begin ms {:?} from_first approval {:?}",
-							message_key,
-							num_messages,
-							count_total_processed_msg,
-							current.as_millis() - timestamp_millis,
-							first_approval.elapsed().as_millis(),
-						);
-					}
-
-					if let Some((slot, num_messages)) = self.state.first_approvals.get(&message_key)
-					{
-						first_approval = Instant::now();
-					}
-				},
-			}
-			// sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockAvailabilityDistribution {}
-#[overseer::subsystem(AvailabilityDistribution, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockAvailabilityDistribution {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
-impl MockAvailabilityDistribution {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockAvailabilityStore {}
-#[overseer::subsystem(AvailabilityStore, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockAvailabilityStore {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(AvailabilityStore, prefix = self::overseer)]
-impl MockAvailabilityStore {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
 pub struct MockChainApi {
 	state: TestState,
 }
@@ -1016,7 +919,7 @@ impl<Context> MockChainApi {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
+		SpawnedSubsystem { name: "chain-api-subsystem", future }
 	}
 }
 
@@ -1029,20 +932,22 @@ impl MockChainApi {
 				orchestra::FromOrchestra::Signal(_) => {},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					ChainApiMessage::FinalizedBlockNumber(val) => {
-						val.send(Ok(0));
+						val.send(Ok(0)).unwrap();
 					},
 					ChainApiMessage::BlockHeader(requested_hash, sender) => {
 						let info = self.state.get_info_by_hash(requested_hash);
-						sender.send(Ok(Some(info.header.clone())));
+						sender.send(Ok(Some(info.header.clone()))).unwrap();
 					},
 					ChainApiMessage::FinalizedBlockHash(requested_number, sender) => {
 						let hash = self.state.get_info_by_number(requested_number).hash;
-						sender.send(Ok(Some(hash)));
+						sender.send(Ok(Some(hash))).unwrap();
 					},
 					ChainApiMessage::BlockNumber(requested_hash, sender) => {
-						sender.send(Ok(Some(
-							self.state.get_info_by_hash(requested_hash).block_number,
-						)));
+						sender
+							.send(Ok(Some(
+								self.state.get_info_by_hash(requested_hash).block_number,
+							)))
+							.unwrap();
 					},
 					ChainApiMessage::Ancestors { hash, k, response_channel } => {
 						let position = self
@@ -1054,7 +959,7 @@ impl MockChainApi {
 						let (ancestors, _) = self.state.per_slot_heads.split_at(position.0);
 
 						let ancestors = ancestors.iter().rev().map(|val| val.hash).collect_vec();
-						response_channel.send(Ok(ancestors));
+						response_channel.send(Ok(ancestors)).unwrap();
 					},
 					_ => {},
 				},
@@ -1071,7 +976,7 @@ impl<Context> MockRuntimeApi {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
+		SpawnedSubsystem { name: "runtime-api-subsystem", future }
 	}
 }
 
@@ -1090,285 +995,35 @@ impl MockRuntimeApi {
 					) => {
 						let candidate_events =
 							self.state.get_info_by_hash(request).candidates.clone();
-						sender.send(Ok(candidate_events));
+						let _ = sender.send(Ok(candidate_events));
 					},
 					RuntimeApiMessage::Request(
 						request,
 						RuntimeApiRequest::SessionIndexForChild(sender),
 					) => {
-						sender.send(Ok(1));
+						let _ = sender.send(Ok(1));
 					},
 					RuntimeApiMessage::Request(
 						request,
 						RuntimeApiRequest::SessionInfo(session_index, sender),
 					) => {
-						gum::info!(target: LOG_TARGET, "Request session info");
-						sender.send(Ok(Some(self.state.session_info.clone())));
-						gum::info!(target: LOG_TARGET, "Send session info");
+						let _ = sender.send(Ok(Some(self.state.session_info.clone())));
 					},
 					RuntimeApiMessage::Request(
 						request,
 						RuntimeApiRequest::SessionExecutorParams(session_index, sender),
 					) => {
-						sender.send(Ok(Some(ExecutorParams::default())));
+						let _ = sender.send(Ok(Some(ExecutorParams::default())));
 					},
 					RuntimeApiMessage::Request(
 						request,
 						RuntimeApiRequest::CurrentBabeEpoch(sender),
 					) => {
-						sender.send(Ok(self.state.babe_epoch.clone()));
+						let _ = sender.send(Ok(self.state.babe_epoch.clone()));
 					},
 					_ => {},
 				},
 			}
 		}
-	}
-}
-
-pub struct MockPvfChecker {}
-#[overseer::subsystem(PvfChecker, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockPvfChecker {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(PvfChecker, prefix = self::overseer)]
-impl MockPvfChecker {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockCandidateBacking {}
-#[overseer::subsystem(CandidateBacking, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockCandidateBacking {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
-impl MockCandidateBacking {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockStatementDistribution {}
-#[overseer::subsystem(StatementDistribution, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockStatementDistribution {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(StatementDistribution, prefix = self::overseer)]
-impl MockStatementDistribution {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockBitfieldSigning {}
-#[overseer::subsystem(BitfieldSigning, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockBitfieldSigning {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(BitfieldSigning, prefix = self::overseer)]
-impl MockBitfieldSigning {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockBitfieldDistribution {}
-#[overseer::subsystem(BitfieldDistribution, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockBitfieldDistribution {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(BitfieldDistribution, prefix = self::overseer)]
-impl MockBitfieldDistribution {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockProvisioner {}
-#[overseer::subsystem(Provisioner, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockProvisioner {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(Provisioner, prefix = self::overseer)]
-impl MockProvisioner {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockNetworkBridgeRx {}
-#[overseer::subsystem(NetworkBridgeRx, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockNetworkBridgeRx {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(NetworkBridgeRx, prefix = self::overseer)]
-impl MockNetworkBridgeRx {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockCollationGeneration {}
-#[overseer::subsystem(CollationGeneration, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockCollationGeneration {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(CollationGeneration, prefix = self::overseer)]
-impl MockCollationGeneration {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockCollatorProtocol {}
-#[overseer::subsystem(CollatorProtocol, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockCollatorProtocol {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-impl MockCollatorProtocol {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockGossipSupport {}
-#[overseer::subsystem(GossipSupport, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockGossipSupport {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(GossipSupport, prefix = self::overseer)]
-impl MockGossipSupport {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockDisputeDistribution {}
-#[overseer::subsystem(DisputeDistribution, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockDisputeDistribution {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(DisputeDistribution, prefix = self::overseer)]
-impl MockDisputeDistribution {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-pub struct MockProspectiveParachains {}
-#[overseer::subsystem(ProspectiveParachains, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockProspectiveParachains {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = self.run(ctx).map(|_| Ok(())).boxed();
-
-		SpawnedSubsystem { name: "candidate-validation-subsystem", future }
-	}
-}
-
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-impl MockProspectiveParachains {
-	async fn run<Context>(self, mut ctx: Context) {
-		loop {
-			sleep(Duration::from_secs(3)).await;
-		}
-	}
-}
-
-fn key_from_message(
-	msg: &ApprovalDistributionMessage,
-) -> (Hash, ValidatorIndex, CandidateBitfield) {
-	match msg {
-		ApprovalDistributionMessage::NetworkBridgeUpdate(msg) => match msg {
-			NetworkBridgeEvent::PeerMessage(peer, msg) => match msg {
-				Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Approvals(
-					approvals,
-				)) => {
-					let approval = approvals.last().unwrap();
-					(approval.block_hash, approval.validator, approval.candidate_indices.clone())
-				},
-				_ => panic!("Should not happen"),
-			},
-			_ => panic!("Should not happen"),
-		},
-		_ => panic!("Should not happen"),
 	}
 }

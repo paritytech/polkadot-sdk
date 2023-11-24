@@ -13430,6 +13430,7 @@ dependencies = [
  "log",
  "orchestra",
  "parity-scale-codec",
+ "paste",
  "polkadot-approval-distribution",
  "polkadot-availability-recovery",
  "polkadot-erasure-coding",
