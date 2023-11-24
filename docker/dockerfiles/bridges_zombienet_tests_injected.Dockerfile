@@ -13,7 +13,7 @@ FROM ${SUBSTRATE_RELAY_IMAGE} as relay-builder
 
 # the base image is the zombienet image - we are planning to run zombienet tests using native
 # provider here
-FROM ${ZOMBIENET_IMAGE}
+FROM docker.io/paritytech/zombienet:v1.3.79
 
 LABEL io.parity.image.authors="devops-team@parity.io" \
 	io.parity.image.vendor="Parity Technologies" \
