@@ -38,7 +38,7 @@
 //!
 //! Refers to operations conducted outside the blockchain's consensus mechanism. They are essential
 //! for enhancing scalability and efficiency, enabling activities like data fetching and computation
-//! without bloating the blockchain.
+//! without bloating the blockchain state.
 //!
 //! #### Host Functions:
 //!
@@ -71,10 +71,10 @@
 //! Similar to software modules in traditional programming, [FRAME](frame) pallets in Substrate are
 //! modular components that encapsulate distinct functionalities or business logic. Just as
 //! libraries or modules are used to build and extend the capabilities of a software application,
-//! pallets are the foundational building blocks for constructing a blockchain's runtime. They
-//! enable the creation of customizable and upgradeable networks, offering a composable framework
-//! for a Substrate-based blockchain. Each pallet can be thought of as a plug-and-play module,
-//! enhancing the blockchain's functionality in a cohesive and integrated manner.
+//! pallets are the foundational building blocks for constructing a blockchain's runtime with frame.
+//! They enable the creation of customizable and upgradeable networks, offering a composable
+//! framework for a Substrate-based blockchain. Each pallet can be thought of as a plug-and-play
+//! module, enhancing the blockchain's functionality in a cohesive and integrated manner.
 //!
 //! #### Full Node
 //!
