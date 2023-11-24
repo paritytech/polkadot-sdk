@@ -42,9 +42,9 @@ fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 }
 
 fn para_receiver_assertions<Test>(_: Test) {
-	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 	assert_expected_events!(
-		PenpalA,
+		PenpalB,
 		vec![
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::MessageQueue(
@@ -163,14 +163,14 @@ fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 #[test]
 fn reserve_transfer_native_asset_from_system_para_to_para() {
 	// Init values for System Parachain
-	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-	let beneficiary_id = PenpalAReceiver::get();
+	let destination = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+	let beneficiary_id = PenpalBReceiver::get();
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
 	let assets = (Parent, amount_to_send).into();
 
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
-		receiver: PenpalAReceiver::get(),
+		receiver: PenpalBReceiver::get(),
 		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
 	};
 
@@ -180,7 +180,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
-	test.set_assertion::<PenpalA>(para_receiver_assertions);
+	test.set_assertion::<PenpalB>(para_receiver_assertions);
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
 	test.assert();
 
@@ -217,8 +217,8 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 	);
 
 	// Init values for System Parachain
-	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-	let beneficiary_id = PenpalAReceiver::get();
+	let destination = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+	let beneficiary_id = PenpalBReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
 	let assets =
 		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
@@ -226,7 +226,7 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 
 	let system_para_test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
-		receiver: PenpalAReceiver::get(),
+		receiver: PenpalBReceiver::get(),
 		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
 	};
 
