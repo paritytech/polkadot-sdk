@@ -656,7 +656,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// are mutually exclusive with the cores for disputes. So
 	/// `backed_and_concluding_cores.len() + dispute_sessions.len()` must be less than the max
 	/// number of cores.
-	#[cfg(not(test))]
 	pub(crate) fn build(self) -> Bench<T> {
 		// Make sure relevant storage is cleared. This is just to get the asserts to work when
 		// running tests because it seems the storage is not cleared in between.
@@ -707,80 +706,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
 				let assignment =
 					T::AssignmentProvider::pop_assignment_for_core(CoreIndex(i)).unwrap();
-				CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
-			})
-			.collect();
-		scheduler::AvailabilityCores::<T>::set(cores);
-
-		Bench::<T> {
-			data: ParachainsInherentData {
-				bitfields,
-				backed_candidates,
-				disputes,
-				parent_header: Self::header(builder.block_number),
-			},
-			_session: target_session,
-			_block_number: builder.block_number,
-		}
-	}
-	
-	/// A version of build for use with the mock runtime. The MockAssigner must be loaded with
-	/// assignments in build in order for test scenarios to work. But outside of tests the mock
-	/// assigner is not used and cannot be referenced.
-	#[cfg(test)]
-	pub(crate) fn build(self) -> Bench<T> {
-		// Make sure relevant storage is cleared. This is just to get the asserts to work when
-		// running tests because it seems the storage is not cleared in between.
-		#[allow(deprecated)]
-		inclusion::PendingAvailabilityCommitments::<T>::remove_all(None);
-		#[allow(deprecated)]
-		inclusion::PendingAvailability::<T>::remove_all(None);
-
-		// We don't allow a core to have both disputes and be marked fully available at this block.
-		let max_cores = self.max_cores();
-		let used_cores =
-			(self.dispute_sessions.len() + self.backed_and_concluding_cores.len()) as u32;
-		assert!(used_cores <= max_cores);
-
-		// NOTE: there is an n+2 session delay for these actions to take effect.
-		// We are currently in Session 0, so these changes will take effect in Session 2.
-		Self::setup_para_ids(used_cores);
-
-		let validator_ids = Self::generate_validator_pairs(self.max_validators());
-		let target_session = SessionIndex::from(self.target_session);
-		let builder = self.setup_session(target_session, validator_ids, used_cores);
-
-		let bitfields =
-			builder.create_availability_bitfields(&builder.backed_and_concluding_cores, used_cores);
-		let backed_candidates = builder
-			.create_backed_candidates(&builder.backed_and_concluding_cores, builder.code_upgrade);
-
-		let disputes = builder.create_disputes(
-			builder.backed_and_concluding_cores.len() as u32,
-			used_cores,
-			builder.dispute_sessions.as_slice(),
-		);
-
-		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			used_cores as usize,
-		);
-		assert_eq!(inclusion::PendingAvailability::<T>::iter().count(), used_cores as usize,);
-
-		// Mark all the used cores as occupied. We expect that there are
-		// `backed_and_concluding_cores` that are pending availability and that there are
-		// `used_cores - backed_and_concluding_cores ` which are about to be disputed.
-		let now = <frame_system::Pallet<T>>::block_number() + One::one();
-		let cores = (0..used_cores)
-			.into_iter()
-			.map(|i| {
-				let AssignmentProviderConfig { ttl, .. } =
-					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
-				// Load an assignment into provider so that one is present to pop
-				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
-					CoreIndex(i),
-					ParaId::from(i),
-				);
 				CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
 			})
 			.collect();
