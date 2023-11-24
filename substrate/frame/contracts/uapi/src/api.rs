@@ -93,7 +93,7 @@ pub trait Api {
 	/// Make a call to another contract.
 	///
 	/// This is equivalent to calling the newer version of this function with
-	/// `flags` set to `ALLOW_REENTRY`. See the newer version for documentation.
+	/// `flags` set to [`CallFlags::ALLOW_REENTRY`]. See the newer version for documentation.
 	#[deprecated(note = "Deprecated, use newer version instead")]
 	fn call(
 		callee: &[u8],
@@ -105,7 +105,7 @@ pub trait Api {
 
 	/// Make a call to another contract.
 	///
-	/// Equivalent to the newer [`seal2`][`Api::call_v2`] version but works with
+	/// Equivalent to the newer [`Self::call_v2`] version but works with
 	/// *ref_time* Weight only
 	fn call_v1(
 		flags: CallFlags,
