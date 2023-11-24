@@ -182,9 +182,6 @@ pub struct RuntimeVersion {
 	/// between Wasm and native.
 	///
 	/// This number should never decrease.
-	///
-	/// This number is formatted as `u32` in a semver looking manner. For instance, `1.2.3` would
-	/// be encoded as `001_002_003`.
 	pub spec_version: u32,
 
 	/// Version of the implementation of the specification.
