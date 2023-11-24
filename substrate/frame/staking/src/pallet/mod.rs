@@ -47,10 +47,10 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf, NegativeImbalanceOf,
-	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -270,6 +270,9 @@ pub mod pallet {
 		///
 		/// WARNING: this only reports slashing events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+
+		// `DisablingStragegy` controlls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -1871,10 +1874,4 @@ pub mod pallet {
 /// Check that list is sorted and has no duplicates.
 fn is_sorted_and_unique(list: &[u32]) -> bool {
 	list.windows(2).all(|w| w[0] < w[1])
-}
-
-/// Disabling limit calculated from the total number of validators in the active set. When reached
-/// no more validators will be disabled.
-pub fn disabling_limit(validators_len: usize) -> usize {
-	validators_len.saturating_sub(1) / 3
 }

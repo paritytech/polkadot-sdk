@@ -144,6 +144,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToByzantineThresholdDisablingStrategy;
 }
 
 pub struct BalanceToU256;

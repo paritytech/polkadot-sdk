@@ -678,6 +678,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
+	type DisablingStrategy = pallet_staking::UpToByzantineThresholdDisablingStrategy;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

@@ -3424,7 +3424,12 @@ fn offence_threshold_doesnt_trigger_new_era() {
 			mock::start_active_era(1);
 			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
 
-			assert_eq!(crate::disabling_limit(Session::validators().len()), 1);
+			assert_eq!(
+				UpToByzantineThresholdDisablingStrategy::byzantine_threshold(
+					Session::validators().len()
+				),
+				1
+			);
 
 			// we have 4 validators and an offending validator threshold of 1/3,
 			// even if the third validator commits an offence a new era should not be forced

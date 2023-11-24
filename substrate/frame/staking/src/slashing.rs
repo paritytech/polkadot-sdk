@@ -50,7 +50,7 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	pallet::disabling_limit, BalanceOf, Config, DisabledValidators, Error, Exposure,
+	BalanceOf, Config, DisabledValidators, DisablingDecision, DisablingStrategy, Error, Exposure,
 	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
 	UnappliedSlash, ValidatorSlashInEra,
 };
@@ -323,7 +323,7 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 /// If after adding the validator `OffendingValidatorsThreshold` is reached
 /// a new era will be forced.
 fn add_offending_validator<T: Config>(stash: &T::AccountId) {
-	DisabledValidators::<T>::mutate(|offending| {
+	DisabledValidators::<T>::mutate(|disabled| {
 		let validators = T::SessionInterface::validators();
 		let validator_index = match validators.iter().position(|i| i == stash) {
 			Some(index) => index,
@@ -332,17 +332,20 @@ fn add_offending_validator<T: Config>(stash: &T::AccountId) {
 
 		let validator_index_u32 = validator_index as u32;
 
-		if let Err(index) = offending.binary_search_by_key(&validator_index_u32, |index| *index) {
-			// this is a new offending validator
+		let DisablingDecision { disable_offenders } = T::DisablingStrategy::make_disabling_decision(
+			validator_index as u32,
+			&disabled,
+			&validators,
+		);
 
-			// we don't want to disable too many validators otherwise we will break consensus
-			if offending.len() >= disabling_limit(validators.len()) as usize {
-				return
+		for offender in disable_offenders {
+			// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
+			// already disabled.
+			if let Err(index) = disabled.binary_search_by_key(&validator_index_u32, |index| *index)
+			{
+				disabled.insert(index, offender);
+				T::SessionInterface::disable_validator(offender);
 			}
-
-			// Add the validator to `DisabledValidators` and disable it
-			offending.insert(index, validator_index_u32);
-			T::SessionInterface::disable_validator(validator_index_u32);
 		}
 	});
 }

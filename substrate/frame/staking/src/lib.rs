@@ -329,7 +329,7 @@ pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
-pub use pallet::{disabling_limit, pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
+pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
@@ -1226,4 +1226,51 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
+}
+
+/// A result from a disabling decision made by [`DisablingStrategy`].
+pub struct DisablingDecision {
+	/// List of validator indices that should be disabled.
+	disable_offenders: Vec<u32>,
+}
+
+/// Controls validator disabling
+pub trait DisablingStrategy<T: Config> {
+	/// Make a decision if an offender should be disabled or not. The result is an instance of
+	/// `[DisablingDecision]`
+	fn make_disabling_decision(
+		offender_idx: u32,
+		currently_disabled: &Vec<u32>,
+		active_set: &Vec<T::AccountId>,
+	) -> DisablingDecision;
+}
+
+/// Implementation of [`DisablingStrategy`] which disables no more than 1/3 of the validators in the
+/// active set.
+pub struct UpToByzantineThresholdDisablingStrategy;
+
+impl UpToByzantineThresholdDisablingStrategy {
+	/// Disabling limit calculated from the total number of validators in the active set. When
+	/// reached no more validators will be disabled.
+	pub fn byzantine_threshold(validators_len: usize) -> usize {
+		validators_len.saturating_sub(1) / 3
+	}
+}
+
+impl<T: Config> DisablingStrategy<T> for UpToByzantineThresholdDisablingStrategy {
+	fn make_disabling_decision(
+		offender_idx: u32,
+		currently_disabled: &Vec<u32>,
+		active_set: &Vec<T::AccountId>,
+	) -> DisablingDecision {
+		// we don't want to disable more offenders than the byzantine threshold
+		let disable_offenders =
+			if currently_disabled.len() >= Self::byzantine_threshold(active_set.len()) as usize {
+				vec![]
+			} else {
+				vec![offender_idx]
+			};
+
+		DisablingDecision { disable_offenders }
+	}
 }

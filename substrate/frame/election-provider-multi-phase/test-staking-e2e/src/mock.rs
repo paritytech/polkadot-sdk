@@ -278,6 +278,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type DisablingStrategy = pallet_staking::UpToByzantineThresholdDisablingStrategy;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
@@ -815,7 +816,10 @@ pub(crate) fn add_slash(who: &AccountId) {
 // Slashes enough validators to cross the `Staking::OffendingValidatorsThreshold`.
 pub(crate) fn slash_through_offending_threshold() {
 	let validators = Session::validators();
-	let mut remaining_slashes = pallet_staking::disabling_limit(validators.len());
+	let mut remaining_slashes =
+		pallet_staking::UpToByzantineThresholdDisablingStrategy::byzantine_threshold(
+			validators.len(),
+		);
 
 	for v in validators.into_iter() {
 		if remaining_slashes != 0 {
