@@ -95,7 +95,7 @@ where
 
 				let dispute_offset = self.dispute_offset;
 				let mut sender = subsystem_sender.clone();
-				self.spawner.spawn_blocking(
+				self.spawner.spawn(
 					"malus-dispute-finalized-block",
 					Some("malus"),
 					Box::pin(async move {
