@@ -45,7 +45,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{Everything, KeyOwnerProofSystem, WithdrawReasons},
+	traits::{KeyOwnerProofSystem, WithdrawReasons},
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_session::historical as session_historical;
