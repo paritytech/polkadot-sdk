@@ -61,8 +61,16 @@ pub mod v8 {
 	use super::*;
 
 	#[derive(Decode)]
+	pub struct OldCommission<T: Config> {
+		pub current: Option<(Perbill, T::AccountId)>,
+		pub max: Option<Perbill>,
+		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
+		pub throttle_from: Option<BlockNumberFor<T>>,
+	}
+
+	#[derive(Decode)]
 	pub struct OldBondedPoolInner<T: Config> {
-		pub commission: Commission<T>,
+		pub commission: OldCommission<T>,
 		pub member_counter: u32,
 		pub points: BalanceOf<T>,
 		pub roles: PoolRoles<T::AccountId>,
