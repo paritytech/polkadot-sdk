@@ -14,7 +14,7 @@
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${BRIDGES_ZOMBIENET_TESTS_IMAGE}":${BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG}
     - echo "${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   stage: zombienet
-  image: "${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+  image: "${BRIDGES_ZOMBIENET_TESTS_IMAGE}:${BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG}"
   needs:
     - job: build-push-image-bridges-zombienet-tests
       artifacts: true
