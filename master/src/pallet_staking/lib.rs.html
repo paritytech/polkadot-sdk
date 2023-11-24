@@ -1222,6 +1222,7 @@
 <a href="#1222" id="1222">1222</a>
 <a href="#1223" id="1223">1223</a>
 <a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1754,12 +1755,12 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>unlocking_balance = BalanceOf::&lt;T&gt;::zero();
 
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(last) = <span class="self">self</span>.unlocking.last_mut() {
-			<span class="kw">if </span>unlocking_balance + last.value &lt;= value {
+			<span class="kw">if </span>unlocking_balance.defensive_saturating_add(last.value) &lt;= value {
 				unlocking_balance += last.value;
 				<span class="self">self</span>.active += last.value;
 				<span class="self">self</span>.unlocking.pop();
 			} <span class="kw">else </span>{
-				<span class="kw">let </span>diff = value - unlocking_balance;
+				<span class="kw">let </span>diff = value.defensive_saturating_sub(unlocking_balance);
 
 				unlocking_balance += diff;
 				<span class="self">self</span>.active += diff;
@@ -1813,7 +1814,7 @@
 
 		<span class="comment">// for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
 		// (assuming 28 is the bonding duration) onwards should be slashed.
-		</span><span class="kw">let </span>slashable_chunks_start = slash_era + T::BondingDuration::get();
+		</span><span class="kw">let </span>slashable_chunks_start = slash_era.saturating_add(T::BondingDuration::get());
 
 		<span class="comment">// `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
 		// slash first the active chunk, and then `slash_chunks_priority`.
@@ -2409,8 +2410,9 @@
 
 		<span class="kw">let </span>nominator_count = exposure.others.len();
 		<span class="comment">// expected page count is the number of nominators divided by the page size, rounded up.
-		</span><span class="kw">let </span>expected_page_count =
-			nominator_count.defensive_saturating_add(page_size <span class="kw">as </span>usize - <span class="number">1</span>) / page_size <span class="kw">as </span>usize;
+		</span><span class="kw">let </span>expected_page_count = nominator_count
+			.defensive_saturating_add((page_size <span class="kw">as </span>usize).defensive_saturating_sub(<span class="number">1</span>))
+			.saturating_div(page_size <span class="kw">as </span>usize);
 
 		<span class="kw">let </span>(exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
 		<span class="macro">defensive_assert!</span>(exposure_pages.len() == expected_page_count, <span class="string">&quot;unexpected page count&quot;</span>);

@@ -1920,6 +1920,8 @@
 <a href="#1920" id="1920">1920</a>
 <a href="#1921" id="1921">1921</a>
 <a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2990,7 +2992,9 @@
 				</span><span class="macro">ensure!</span>(ledger.active &gt;= min_active_bond, Error::&lt;T&gt;::InsufficientBond);
 
 				<span class="comment">// Note: in case there is no current era it is fine to bond one era more.
-				</span><span class="kw">let </span>era = <span class="self">Self</span>::current_era().unwrap_or(<span class="number">0</span>) + T::BondingDuration::get();
+				</span><span class="kw">let </span>era = <span class="self">Self</span>::current_era()
+					.unwrap_or(<span class="number">0</span>)
+					.defensive_saturating_add(T::BondingDuration::get());
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					<span class="comment">// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will

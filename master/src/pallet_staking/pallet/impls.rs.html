@@ -2012,6 +2012,8 @@
 <a href="#2012" id="2012">2012</a>
 <a href="#2013" id="2013">2013</a>
 <a href="#2014" id="2014">2014</a>
+<a href="#2015" id="2015">2015</a>
+<a href="#2016" id="2016">2016</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2041,8 +2043,8 @@
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
-		Currency, Defensive, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced, TryCollect,
-		UnixTime,
+		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len,
+		OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -2162,7 +2164,7 @@
 		// `consolidate_unlocked` strictly subtracts balance.
 		</span><span class="kw">if </span>new_total &lt; old_total {
 			<span class="comment">// Already checked that this won&#39;t overflow by entry condition.
-			</span><span class="kw">let </span>value = old_total - new_total;
+			</span><span class="kw">let </span>value = old_total.defensive_saturating_sub(new_total);
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Withdrawn { stash, amount: value });
 		}
 
@@ -2276,7 +2278,8 @@
 		<span class="comment">// total commission validator takes across all nominator pages
 		</span><span class="kw">let </span>validator_total_commission_payout = validator_commission * validator_total_payout;
 
-		<span class="kw">let </span>validator_leftover_payout = validator_total_payout - validator_total_commission_payout;
+		<span class="kw">let </span>validator_leftover_payout =
+			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
 		<span class="comment">// Now let&#39;s calculate how this is split to the validator.
 		</span><span class="kw">let </span>validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
 		<span class="kw">let </span>validator_staking_payout = validator_exposure_part * validator_leftover_payout;
@@ -2489,7 +2492,7 @@
 			bonded.push((active_era, start_session));
 
 			<span class="kw">if </span>active_era &gt; bonding_duration {
-				<span class="kw">let </span>first_kept = active_era - bonding_duration;
+				<span class="kw">let </span>first_kept = active_era.defensive_saturating_sub(bonding_duration);
 
 				<span class="comment">// Prune out everything that&#39;s from before the first-kept index.
 				</span><span class="kw">let </span>n_to_prune =
@@ -2515,7 +2518,8 @@
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(active_era_start) = active_era.start {
 			<span class="kw">let </span>now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::&lt;u64&gt;();
 
-			<span class="kw">let </span>era_duration = (now_as_millis_u64 - active_era_start).saturated_into::&lt;u64&gt;();
+			<span class="kw">let </span>era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
+				.saturated_into::&lt;u64&gt;();
 			<span class="kw">let </span>staked = <span class="self">Self</span>::eras_total_stake(<span class="kw-2">&amp;</span>active_era.index);
 			<span class="kw">let </span>issuance = T::Currency::total_issuance();
 			<span class="kw">let </span>(validator_payout, remainder) =

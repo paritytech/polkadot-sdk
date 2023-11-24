@@ -856,6 +856,11 @@
 <a href="#856" id="856">856</a>
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -915,7 +920,7 @@
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
 	ensure,
-	traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
+	traits::{Currency, Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
@@ -943,7 +948,7 @@
 
 <span class="kw">impl </span>SlashingSpan {
 	<span class="kw">fn </span>contains_era(<span class="kw-2">&amp;</span><span class="self">self</span>, era: EraIndex) -&gt; bool {
-		<span class="self">self</span>.start &lt;= era &amp;&amp; <span class="self">self</span>.length.map_or(<span class="bool-val">true</span>, |l| <span class="self">self</span>.start + l &gt; era)
+		<span class="self">self</span>.start &lt;= era &amp;&amp; <span class="self">self</span>.length.map_or(<span class="bool-val">true</span>, |l| <span class="self">self</span>.start.saturating_add(l) &gt; era)
 	}
 }
 
@@ -981,15 +986,15 @@
 	// returns `true` if a new span was started, `false` otherwise. `false` indicates
 	// that internal state is unchanged.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>end_span(<span class="kw-2">&amp;mut </span><span class="self">self</span>, now: EraIndex) -&gt; bool {
-		<span class="kw">let </span>next_start = now + <span class="number">1</span>;
+		<span class="kw">let </span>next_start = now.defensive_saturating_add(<span class="number">1</span>);
 		<span class="kw">if </span>next_start &lt;= <span class="self">self</span>.last_start {
 			<span class="kw">return </span><span class="bool-val">false
 		</span>}
 
-		<span class="kw">let </span>last_length = next_start - <span class="self">self</span>.last_start;
+		<span class="kw">let </span>last_length = next_start.defensive_saturating_sub(<span class="self">self</span>.last_start);
 		<span class="self">self</span>.prior.insert(<span class="number">0</span>, last_length);
 		<span class="self">self</span>.last_start = next_start;
-		<span class="self">self</span>.span_index += <span class="number">1</span>;
+		<span class="self">self</span>.span_index.defensive_saturating_accrue(<span class="number">1</span>);
 		<span class="bool-val">true
 	</span>}
 
@@ -999,9 +1004,9 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>index = <span class="self">self</span>.span_index;
 		<span class="kw">let </span>last = SlashingSpan { index, start: last_start, length: <span class="prelude-val">None </span>};
 		<span class="kw">let </span>prior = <span class="self">self</span>.prior.iter().cloned().map(<span class="kw">move </span>|length| {
-			<span class="kw">let </span>start = last_start - length;
+			<span class="kw">let </span>start = last_start.defensive_saturating_sub(length);
 			last_start = start;
-			index -= <span class="number">1</span>;
+			index.defensive_saturating_reduce(<span class="number">1</span>);
 
 			SlashingSpan { index, start, length: <span class="prelude-val">Some</span>(length) }
 		});
@@ -1022,13 +1027,18 @@
 		<span class="kw">let </span>old_idx = <span class="self">self
 			</span>.iter()
 			.skip(<span class="number">1</span>) <span class="comment">// skip ongoing span.
-			</span>.position(|span| span.length.map_or(<span class="bool-val">false</span>, |len| span.start + len &lt;= window_start));
+			</span>.position(|span| {
+				span.length
+					.map_or(<span class="bool-val">false</span>, |len| span.start.defensive_saturating_add(len) &lt;= window_start)
+			});
 
-		<span class="kw">let </span>earliest_span_index = <span class="self">self</span>.span_index - <span class="self">self</span>.prior.len() <span class="kw">as </span>SpanIndex;
+		<span class="kw">let </span>earliest_span_index =
+			<span class="self">self</span>.span_index.defensive_saturating_sub(<span class="self">self</span>.prior.len() <span class="kw">as </span>SpanIndex);
 		<span class="kw">let </span>pruned = <span class="kw">match </span>old_idx {
 			<span class="prelude-val">Some</span>(o) =&gt; {
 				<span class="self">self</span>.prior.truncate(o);
-				<span class="kw">let </span>new_earliest = <span class="self">self</span>.span_index - <span class="self">self</span>.prior.len() <span class="kw">as </span>SpanIndex;
+				<span class="kw">let </span>new_earliest =
+					<span class="self">self</span>.span_index.defensive_saturating_sub(<span class="self">self</span>.prior.len() <span class="kw">as </span>SpanIndex);
 				<span class="prelude-val">Some</span>((earliest_span_index, new_earliest))
 			},
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
@@ -1358,7 +1368,7 @@
 
 		<span class="kw">let </span>reward = <span class="kw">if </span>span_record.slashed &lt; slash {
 			<span class="comment">// new maximum span slash. apply the difference.
-			</span><span class="kw">let </span>difference = slash - span_record.slashed;
+			</span><span class="kw">let </span>difference = slash.defensive_saturating_sub(span_record.slashed);
 			span_record.slashed = slash;
 
 			<span class="comment">// compute reward.
