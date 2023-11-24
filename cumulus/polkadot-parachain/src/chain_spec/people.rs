@@ -108,7 +108,6 @@ pub mod rococo {
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type PeopleChainSpec =
 		sc_service::GenericChainSpec<people_rococo_runtime::RuntimeGenesisConfig, Extensions>;
-	pub type RuntimeApi = people_rococo_runtime::RuntimeApi;
 
 	pub fn local_config(
 		id: &str,
@@ -221,7 +220,6 @@ pub mod westend {
 	/// Specialized `ChainSpec` for the normal parachain runtime.
 	pub type PeopleChainSpec =
 		sc_service::GenericChainSpec<people_westend_runtime::RuntimeGenesisConfig, Extensions>;
-	pub type RuntimeApi = people_westend_runtime::RuntimeApi;
 
 	pub fn local_config(
 		id: &str,
