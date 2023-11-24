@@ -206,6 +206,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
+		use frame_support::derive_impl;
 
 		/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -258,10 +259,8 @@ pub mod pallet {
 		///   if you use `pallet-balances` or similar.
 		/// * Make sure to overwrite [`DefaultConfig::Version`].
 		/// * 2s block time, and a default 5mb block size is used.
-		#[cfg(feature = "experimental")]
 		pub struct SolochainDefaultConfig;
 
-		#[cfg(feature = "experimental")]
 		#[frame_support::register_default_impl(SolochainDefaultConfig)]
 		impl DefaultConfig for SolochainDefaultConfig {
 			type Nonce = u32;
@@ -291,6 +290,22 @@ pub mod pallet {
 			type BlockHashCount = frame_support::traits::ConstU32<256>;
 			type OnSetCode = ();
 		}
+
+		/// Default configurations of this pallet in a relay-chain environment.
+		pub struct RelayChainDefaultConfig;
+
+		/// It currently uses the same configuration as `SolochainDefaultConfig`.
+		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
+		#[frame_support::register_default_impl(RelayChainDefaultConfig)]
+		impl DefaultConfig for RelayChainDefaultConfig {}
+
+		/// Default configurations of this pallet in a parachain environment.
+		pub struct ParaChainDefaultConfig;
+
+		/// It currently uses the same configuration as `SolochainDefaultConfig`.
+		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
+		#[frame_support::register_default_impl(ParaChainDefaultConfig)]
+		impl DefaultConfig for ParaChainDefaultConfig {}
 	}
 
 	/// System configuration trait. Implemented by runtime.

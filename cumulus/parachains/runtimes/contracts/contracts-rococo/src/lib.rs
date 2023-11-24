@@ -46,7 +46,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
@@ -169,25 +169,17 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = AccountId;
-	type RuntimeCall = RuntimeCall;
-	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Nonce = Nonce;
 	type Hash = Hash;
-	type Hashing = BlakeTwo256;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
 	type BlockHashCount = BlockHashCount;
 	type DbWeight = RocksDbWeight;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	type SS58Prefix = ConstU16<42>;
