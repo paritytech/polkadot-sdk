@@ -470,6 +470,10 @@ members = [
 	"substrate/utils/frame/try-runtime/cli",
 	"substrate/utils/prometheus",
 	"substrate/utils/wasm-builder",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal",
+	"cumulus/parachains/testnets-common",
+	"polkadot/node/tracking-allocator",
+	"substrate/frame/examples/frame-crate",
 ]
 default-members = [ "polkadot", "substrate/bin/node/cli" ]
 
