@@ -83,13 +83,14 @@ pub fn relay_test_args(amount: Balance) -> TestArgs {
 	}
 }
 
-/// Returns a `TestArgs` instance to be used for the System Parachain across integration tests
-pub fn system_para_test_args(
+/// Returns a `TestArgs` instance to be used by parachains across integration tests
+pub fn para_test_args(
 	dest: MultiLocation,
 	beneficiary_id: AccountId32,
 	amount: Balance,
 	assets: MultiAssets,
 	asset_id: Option<u32>,
+	fee_asset_item: u32,
 ) -> TestArgs {
 	TestArgs {
 		dest,
@@ -97,7 +98,7 @@ pub fn system_para_test_args(
 		amount,
 		assets,
 		asset_id,
-		fee_asset_item: 0,
+		fee_asset_item,
 		weight_limit: WeightLimit::Unlimited,
 	}
 }

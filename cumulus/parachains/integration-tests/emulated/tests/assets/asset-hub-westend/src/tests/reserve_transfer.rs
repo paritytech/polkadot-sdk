@@ -54,7 +54,7 @@ fn para_receiver_assertions<Test>(_: Test) {
 	);
 }
 
-fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
+fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
@@ -76,6 +76,20 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
+		]
+	);
+}
+
+fn system_para_to_para_assets_receiver_assertions<Test>(_: Test) {
+	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+	assert_expected_events!(
+		PenpalB,
+		vec![
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::Assets(pallet_assets::Event::Issued { .. }) => {},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
 		]
 	);
 }
@@ -171,7 +185,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToParaTest::new(test_args);
@@ -203,38 +217,101 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	assert!(receiver_balance_after > receiver_balance_before);
 }
 
-/// Reserve Transfers of a local asset from System Parachain to Parachain should work
+/// Reserve Transfers of a local asset and native asset from System Parachain to Parachain should
+/// work
 #[test]
-fn reserve_transfer_asset_from_system_para_to_para() {
-	// Force create asset from Relay Chain and mint assets for System Parachain's sender account
+fn reserve_transfer_assets_from_system_para_to_para() {
+	// Force create asset on AssetHubWestend and PenpalB from Relay Chain
 	AssetHubWestend::force_create_and_mint_asset(
 		ASSET_ID,
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
 		Some(Weight::from_parts(1_019_445_000, 200_000)),
-		ASSET_MIN_BALANCE * 1000000,
+		ASSET_MIN_BALANCE * 1_000_000,
+	);
+	PenpalB::force_create_and_mint_asset(
+		ASSET_ID,
+		ASSET_MIN_BALANCE,
+		false,
+		PenpalBSender::get(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
+		0,
 	);
 
 	// Init values for System Parachain
 	let destination = AssetHubWestend::sibling_location_of(PenpalB::para_id());
 	let beneficiary_id = PenpalBReceiver::get();
-	let amount_to_send = ASSET_MIN_BALANCE * 1000;
-	let assets =
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
-			.into();
+	let fee_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
+	let asset_amount_to_send = ASSET_MIN_BALANCE * 1000;
+	let assets: MultiAssets = vec![
+		(Parent, fee_amount_to_send).into(),
+		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), asset_amount_to_send)
+			.into(),
+	]
+	.into();
+	let fee_asset_index = assets
+		.inner()
+		.iter()
+		.position(|r| r == &(Parent, fee_amount_to_send).into())
+		.unwrap() as u32;
 
-	let system_para_test_args = TestContext {
+	let para_test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(
+			destination,
+			beneficiary_id,
+			asset_amount_to_send,
+			assets,
+			None,
+			fee_asset_index,
+		),
 	};
 
-	let mut system_para_test = SystemParaToParaTest::new(system_para_test_args);
+	let mut test = SystemParaToParaTest::new(para_test_args);
 
-	system_para_test.set_assertion::<AssetHubWestend>(system_para_to_para_assets_assertions);
-	// TODO: Add assertions when Penpal is able to manage assets
-	system_para_test
-		.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
-	system_para_test.assert();
+	// Create SA-of-Penpal-on-AHW with ED.
+	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+	let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(penpal_location);
+	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ahw.into(), WESTEND_ED)]);
+
+	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
+
+	let sender_assets_before = AssetHubWestend::execute_with(|| {
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
+		<Assets as Inspect<_>>::balance(ASSET_ID, &AssetHubWestendSender::get())
+	});
+	let receiver_assets_before = PenpalB::execute_with(|| {
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(ASSET_ID, &PenpalBReceiver::get())
+	});
+
+	test.set_assertion::<AssetHubWestend>(system_para_to_para_assets_sender_assertions);
+	test.set_assertion::<PenpalB>(system_para_to_para_assets_receiver_assertions);
+	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
+	test.assert();
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
+
+	// Sender's balance is reduced
+	assert!(sender_balance_after < sender_balance_before);
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
+
+	let sender_assets_after = AssetHubWestend::execute_with(|| {
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
+		<Assets as Inspect<_>>::balance(ASSET_ID, &AssetHubWestendSender::get())
+	});
+	let receiver_assets_after = PenpalB::execute_with(|| {
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(ASSET_ID, &PenpalBReceiver::get())
+	});
+
+	// Sender's balance is reduced
+	assert_eq!(sender_assets_before - asset_amount_to_send, sender_assets_after);
+	// Receiver's balance is increased
+	assert!(receiver_assets_after > receiver_assets_before);
 }
