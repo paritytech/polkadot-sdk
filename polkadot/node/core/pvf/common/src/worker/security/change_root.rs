@@ -49,8 +49,8 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 	try_restrict(worker_info)
 }
 
-/// Runs a check for unshare-and-change-root and returns a single bool indicating whether it can be
-/// fully enabled on the current Linux environment.
+/// Runs a check for unshare-and-change-root and returns an error indicating whether it can be fully
+/// enabled on the current Linux environment.
 ///
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
 ///       "CLONE_NEWUSER requires that the calling process is not threaded."

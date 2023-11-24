@@ -115,8 +115,8 @@ pub async fn spawn_with_program_path(
 	})
 }
 
-/// A temporary, random, free path that is necessary only to establish socket communications.
-/// Removed on drop.
+/// A temporary, random, free path that is necessary only to establish socket communications. If a
+/// directory exists at the path at the end of this function, it is removed then.
 async fn with_transient_socket_path<T, F, Fut>(debug_id: &'static str, f: F) -> Result<T, SpawnErr>
 where
 	F: FnOnce(&Path) -> Fut,
