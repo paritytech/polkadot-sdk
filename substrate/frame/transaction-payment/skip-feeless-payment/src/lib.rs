@@ -40,7 +40,7 @@ use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
 	traits::{IsType, OriginTrait},
 };
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::TransactionValidityError,
@@ -75,11 +75,18 @@ pub mod pallet {
 }
 
 /// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct SkipCheckIfFeeless<T: Config, S: SignedExtension>(pub S, sp_std::marker::PhantomData<T>);
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+pub struct SkipCheckIfFeeless<T, S>(pub S, sp_std::marker::PhantomData<T>);
 
-impl<T: Config, S: SignedExtension> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
+// Make this extension "invisible" from the outside (ie metadata type information)
+impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
+	type Identity = S;
+	fn type_info() -> scale_info::Type {
+		S::type_info()
+	}
+}
+
+impl<T, S: Encode> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		write!(f, "SkipCheckIfFeeless<{:?}>", self.0.encode())
@@ -90,9 +97,8 @@ impl<T: Config, S: SignedExtension> sp_std::fmt::Debug for SkipCheckIfFeeless<T,
 	}
 }
 
-impl<T: Config + Send + Sync, S: SignedExtension> SkipCheckIfFeeless<T, S> {
-	/// utility constructor. Used only in client/factory code.
-	pub fn from(s: S) -> Self {
+impl<T, S> From<S> for SkipCheckIfFeeless<T, S> {
+	fn from(s: S) -> Self {
 		Self(s, sp_std::marker::PhantomData)
 	}
 }
@@ -106,7 +112,11 @@ where
 	type Call = S::Call;
 	type AdditionalSigned = S::AdditionalSigned;
 	type Pre = (Self::AccountId, Option<<S as SignedExtension>::Pre>);
-	const IDENTIFIER: &'static str = "SkipCheckIfFeeless";
+	// From the outside this extension should be "invisible", because it just extends the wrapped
+	// extension with an extra check in `pre_dispatch` and `post_dispatch`. Thus, we should forward
+	// the identifier of the wrapped extension to let wallets see this extension as it would only be
+	// the wrapped extension itself.
+	const IDENTIFIER: &'static str = S::IDENTIFIER;
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		self.0.additional_signed()

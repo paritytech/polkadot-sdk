@@ -40,7 +40,7 @@ use sp_core::Pair;
 
 use jsonrpsee::RpcModule;
 
-use crate::rpc;
+use crate::{fake_runtime_api::aura::RuntimeApi, rpc};
 pub use parachains_common::{AccountId, Balance, Block, BlockNumber, Hash, Header, Nonce};
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -590,6 +590,7 @@ where
 		CollatorPair,
 		OverseerHandle,
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+		Arc<ParachainBackend>,
 	) -> Result<(), sc_service::Error>,
 {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -723,6 +724,7 @@ where
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)?;
 	}
 
@@ -915,8 +917,8 @@ where
 
 /// Build the import queue for the rococo parachain runtime.
 pub fn rococo_parachain_build_import_queue(
-	client: Arc<ParachainClient<rococo_parachain_runtime::RuntimeApi>>,
-	block_import: ParachainBlockImport<rococo_parachain_runtime::RuntimeApi>,
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
@@ -958,11 +960,8 @@ pub async fn start_rococo_parachain_node(
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<ParachainClient<rococo_parachain_runtime::RuntimeApi>>,
-)> {
-	start_node_impl::<rococo_parachain_runtime::RuntimeApi, _, _, _>(
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)> {
+	start_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -983,7 +982,8 @@ pub async fn start_rococo_parachain_node(
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -1002,11 +1002,15 @@ pub async fn start_rococo_parachain_node(
 				client.clone(),
 			);
 
-			let params = BasicAuraParams {
+			let params = AuraParams {
 				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 				block_import,
-				para_client: client,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
 				sync_oracle,
 				keystore,
 				collator_key,
@@ -1016,14 +1020,14 @@ pub async fn start_rococo_parachain_node(
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
-				// Very limited proposal time.
-				authoring_duration: Duration::from_millis(500),
-				collation_request_receiver: None,
+				authoring_duration: Duration::from_millis(1500),
 			};
 
-			let fut = basic_aura::run::<
+			let fut = aura::run::<
 				Block,
 				sp_consensus_aura::sr25519::AuthorityPair,
+				_,
+				_,
 				_,
 				_,
 				_,
@@ -1376,7 +1380,8 @@ where
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -1471,7 +1476,8 @@ where
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let relay_chain_interface2 = relay_chain_interface.clone();
 
 			let collator_service = CollatorService::new(
@@ -1642,7 +1648,7 @@ where
 				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
 				code_hash_provider: move |block_hash| {
-					client.code_at(block_hash).ok().map(ValidationCode).map(|c| c.hash())
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				sync_oracle,
 				keystore,
@@ -1713,6 +1719,7 @@ where
 		CollatorPair,
 		OverseerHandle,
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+		Arc<ParachainBackend>,
 	) -> Result<(), sc_service::Error>,
 {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -1845,6 +1852,7 @@ where
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)?;
 	}
 
@@ -1855,8 +1863,8 @@ where
 
 #[allow(clippy::type_complexity)]
 pub fn contracts_rococo_build_import_queue(
-	client: Arc<ParachainClient<contracts_rococo_runtime::RuntimeApi>>,
-	block_import: ParachainBlockImport<contracts_rococo_runtime::RuntimeApi>,
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
@@ -1898,11 +1906,8 @@ pub async fn start_contracts_rococo_node(
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<ParachainClient<contracts_rococo_runtime::RuntimeApi>>,
-)> {
-	start_contracts_rococo_node_impl::<contracts_rococo_runtime::RuntimeApi, _, _, _>(
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)> {
+	start_contracts_rococo_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -1923,7 +1928,8 @@ pub async fn start_contracts_rococo_node(
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
