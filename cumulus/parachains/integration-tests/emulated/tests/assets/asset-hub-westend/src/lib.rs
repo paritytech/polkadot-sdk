@@ -63,18 +63,20 @@ pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
+pub type RelayToParaTest = Test<Westend, PenpalB>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
+pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
-pub fn relay_test_args(amount: Balance) -> TestArgs {
+pub fn relay_test_args(
+	dest: MultiLocation,
+	beneficiary_id: AccountId32,
+	amount: Balance,
+) -> TestArgs {
 	TestArgs {
-		dest: Westend::child_location_of(AssetHubWestend::para_id()),
-		beneficiary: AccountId32Junction {
-			network: None,
-			id: AssetHubWestendReceiver::get().into(),
-		}
-		.into(),
+		dest,
+		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
 		amount,
 		assets: (Here, amount).into(),
 		asset_id: None,

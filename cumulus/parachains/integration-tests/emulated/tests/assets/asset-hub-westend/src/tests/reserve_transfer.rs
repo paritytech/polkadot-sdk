@@ -14,7 +14,31 @@
 // limitations under the License.
 
 use crate::*;
-use asset_hub_westend_runtime::xcm_config::XcmConfig;
+use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
+use penpal_runtime::xcm_config::XcmConfig as PenpalWestendXcmConfig;
+use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
+
+fn relay_to_para_sender_assertions(t: RelayToParaTest) {
+	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
+
+	Westend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8_799)));
+
+	assert_expected_events!(
+		Westend,
+		vec![
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
+			RuntimeEvent::Balances(
+				pallet_balances::Event::Transfer { from, to, amount }
+			) => {
+				from: *from == t.sender.account_id,
+				to: *to == Westend::sovereign_account_id_of(
+					t.args.dest
+				),
+				amount: *amount == t.args.amount,
+			},
+		]
+	);
+}
 
 fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -46,6 +70,50 @@ fn para_receiver_assertions<Test>(_: Test) {
 	assert_expected_events!(
 		PenpalB,
 		vec![
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
+		]
+	);
+}
+
+fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
+	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+	PenpalB::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8_799)));
+
+	assert_expected_events!(
+		PenpalB,
+		vec![
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
+			RuntimeEvent::Balances(
+				pallet_balances::Event::Withdraw { who, amount }
+			) => {
+				who: *who == t.sender.account_id,
+				amount: *amount == t.args.amount,
+			},
+		]
+	);
+}
+
+fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
+	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+	let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
+	);
+
+	assert_expected_events!(
+		AssetHubWestend,
+		vec![
+			// Amount to reserve transfer is transferred to Parachain's Sovereign account
+			RuntimeEvent::Balances(
+				pallet_balances::Event::Withdraw { who, amount }
+			) => {
+				who: *who == sov_penpal_on_ahw.clone().into(),
+				amount: *amount == t.args.amount,
+			},
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
@@ -94,8 +162,30 @@ fn system_para_to_para_assets_receiver_assertions<Test>(_: Test) {
 	);
 }
 
+fn relay_to_para_limited_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
+	<Westend as WestendPallet>::XcmPallet::limited_reserve_transfer_assets(
+		t.signed_origin,
+		bx!(t.args.dest.into()),
+		bx!(t.args.beneficiary.into()),
+		bx!(t.args.assets.into()),
+		t.args.fee_asset_item,
+		t.args.weight_limit,
+	)
+}
+
 fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		t.signed_origin,
+		bx!(t.args.dest.into()),
+		bx!(t.args.beneficiary.into()),
+		bx!(t.args.assets.into()),
+		t.args.fee_asset_item,
+		t.args.weight_limit,
+	)
+}
+
+fn para_to_system_para_limited_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
+	<PenpalB as PenpalBPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
@@ -173,6 +263,45 @@ fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	});
 }
 
+/// Reserve Transfers of native asset from Relay to Parachain should work
+#[test]
+fn reserve_transfer_native_asset_from_relay_to_para() {
+	// Init values for Relay
+	let destination = Westend::child_location_of(PenpalB::para_id());
+	let beneficiary_id = PenpalBReceiver::get();
+	let amount_to_send: Balance = WESTEND_ED * 1000;
+
+	let test_args = TestContext {
+		sender: WestendSender::get(),
+		receiver: PenpalBReceiver::get(),
+		args: relay_test_args(destination, beneficiary_id, amount_to_send),
+	};
+
+	let mut test = RelayToParaTest::new(test_args);
+
+	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
+
+	test.set_assertion::<Westend>(relay_to_para_sender_assertions);
+	test.set_assertion::<PenpalB>(para_receiver_assertions);
+	test.set_dispatchable::<Westend>(relay_to_para_limited_reserve_transfer_assets);
+	test.assert();
+
+	let delivery_fees = Westend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
+
+	// Sender's balance is reduced
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
+}
+
 /// Reserve Transfers of native asset from System Parachain to Parachain should work
 #[test]
 fn reserve_transfer_native_asset_from_system_para_to_para() {
@@ -202,13 +331,56 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	// Sender's balance is reduced
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
+}
+
+/// Reserve Transfers of native asset from Parachain to System Parachain should work
+#[test]
+fn reserve_transfer_native_asset_from_para_to_system_para() {
+	// Init values for Penpal Parachain
+	let destination = PenpalB::sibling_location_of(AssetHubWestend::para_id());
+	let beneficiary_id = AssetHubWestendReceiver::get();
+	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
+	let assets = (Parent, amount_to_send).into();
+
+	let test_args = TestContext {
+		sender: PenpalBSender::get(),
+		receiver: AssetHubWestendReceiver::get(),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+	};
+
+	let mut test = ParaToSystemParaTest::new(test_args);
+
+	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
+
+	let penpal_location_as_seen_by_ahw = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+	let sov_penpal_on_ahw =
+		AssetHubWestend::sovereign_account_id_of(penpal_location_as_seen_by_ahw);
+
+	// fund the Penpal's SA on AHW with the native tokens held in reserve
+	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ahw.into(), amount_to_send * 2)]);
+
+	test.set_assertion::<PenpalB>(para_to_system_para_sender_assertions);
+	test.set_assertion::<AssetHubWestend>(para_to_system_para_receiver_assertions);
+	test.set_dispatchable::<PenpalB>(para_to_system_para_limited_reserve_transfer_assets);
+	test.assert();
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
+
+	let delivery_fees = PenpalB::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<PenpalWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
 	// Sender's balance is reduced
