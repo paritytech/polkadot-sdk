@@ -101,7 +101,7 @@ pub mod v8 {
 				onchain
 			);
 
-			if onchain == 8 {
+			if onchain == 7 {
 				let mut translated = 0u64;
 				BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
 					translated.saturating_inc();
