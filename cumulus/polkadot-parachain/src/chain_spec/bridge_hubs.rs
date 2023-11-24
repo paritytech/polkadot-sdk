@@ -171,8 +171,6 @@ pub mod rococo {
 	const BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
 		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-	pub type RuntimeApi = bridge_hub_rococo_runtime::RuntimeApi;
-
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
 		chain_name: &str,
@@ -290,8 +288,6 @@ pub mod kusama {
 	const BRIDGE_HUB_KUSAMA_ED: BridgeHubBalance =
 		parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
-	pub type RuntimeApi = bridge_hub_kusama_runtime::RuntimeApi;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
@@ -396,8 +392,6 @@ pub mod westend {
 	pub(crate) const BRIDGE_HUB_WESTEND_DEVELOPMENT: &str = "bridge-hub-westend-dev";
 	const BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
 		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
-
-	pub type RuntimeApi = bridge_hub_westend_runtime::RuntimeApi;
 
 	pub fn local_config(
 		id: &str,
@@ -511,8 +505,6 @@ pub mod polkadot {
 	pub(crate) const BRIDGE_HUB_POLKADOT_DEVELOPMENT: &str = "bridge-hub-polkadot-dev";
 	const BRIDGE_HUB_POLKADOT_ED: BridgeHubBalance =
 		parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
-
-	pub type RuntimeApi = bridge_hub_polkadot_runtime::RuntimeApi;
 
 	pub fn local_config(
 		id: &str,
