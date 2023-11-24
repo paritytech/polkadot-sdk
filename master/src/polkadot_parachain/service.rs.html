@@ -1999,12 +1999,6 @@
 <a href="#1999" id="1999">1999</a>
 <a href="#2000" id="2000">2000</a>
 <a href="#2001" id="2001">2001</a>
-<a href="#2002" id="2002">2002</a>
-<a href="#2003" id="2003">2003</a>
-<a href="#2004" id="2004">2004</a>
-<a href="#2005" id="2005">2005</a>
-<a href="#2006" id="2006">2006</a>
-<a href="#2007" id="2007">2007</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2047,7 +2041,7 @@
 
 <span class="kw">use </span>jsonrpsee::RpcModule;
 
-<span class="kw">use </span><span class="kw">crate</span>::rpc;
+<span class="kw">use crate</span>::{fake_runtime_api::aura::RuntimeApi, rpc};
 <span class="kw">pub use </span>parachains_common::{AccountId, Balance, Block, BlockNumber, Hash, Header, Nonce};
 
 <span class="kw">use </span>cumulus_client_consensus_relay_chain::Verifier <span class="kw">as </span>RelayChainVerifier;
@@ -2924,8 +2918,8 @@
 
 <span class="doccomment">/// Build the import queue for the rococo parachain runtime.
 </span><span class="kw">pub fn </span>rococo_parachain_build_import_queue(
-	client: Arc&lt;ParachainClient&lt;rococo_parachain_runtime::RuntimeApi&gt;&gt;,
-	block_import: ParachainBlockImport&lt;rococo_parachain_runtime::RuntimeApi&gt;,
+	client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
+	block_import: ParachainBlockImport&lt;RuntimeApi&gt;,
 	config: <span class="kw-2">&amp;</span>Configuration,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	task_manager: <span class="kw-2">&amp;</span>TaskManager,
@@ -2967,11 +2961,8 @@
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
-) -&gt; sc_service::error::Result&lt;(
-	TaskManager,
-	Arc&lt;ParachainClient&lt;rococo_parachain_runtime::RuntimeApi&gt;&gt;,
-)&gt; {
-	start_node_impl::&lt;rococo_parachain_runtime::RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;)&gt; {
+	start_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -3873,8 +3864,8 @@
 
 <span class="attr">#[allow(clippy::type_complexity)]
 </span><span class="kw">pub fn </span>contracts_rococo_build_import_queue(
-	client: Arc&lt;ParachainClient&lt;contracts_rococo_runtime::RuntimeApi&gt;&gt;,
-	block_import: ParachainBlockImport&lt;contracts_rococo_runtime::RuntimeApi&gt;,
+	client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
+	block_import: ParachainBlockImport&lt;RuntimeApi&gt;,
 	config: <span class="kw-2">&amp;</span>Configuration,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	task_manager: <span class="kw-2">&amp;</span>TaskManager,
@@ -3916,11 +3907,8 @@
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
-) -&gt; sc_service::error::Result&lt;(
-	TaskManager,
-	Arc&lt;ParachainClient&lt;contracts_rococo_runtime::RuntimeApi&gt;&gt;,
-)&gt; {
-	start_contracts_rococo_node_impl::&lt;contracts_rococo_runtime::RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;)&gt; {
+	start_contracts_rococo_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
