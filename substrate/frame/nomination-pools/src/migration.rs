@@ -65,8 +65,8 @@ pub mod v8 {
 		pub commission: Commission<T>,
 		pub member_counter: u32,
 		pub points: BalanceOf<T>,
-		pub state: PoolState,
 		pub roles: PoolRoles<T::AccountId>,
+		pub state: PoolState,
 	}
 
 	impl<T: Config> OldBondedPoolInner<T> {
@@ -82,8 +82,8 @@ pub mod v8 {
 				},
 				member_counter: self.member_counter,
 				points: self.points,
-				state: self.state,
 				roles: self.roles,
+				state: self.state,
 			}
 		}
 	}
