@@ -40,8 +40,13 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf},
-	transaction_validity::{TransactionSource, TransactionValidity},
+	traits::{
+		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, OriginOf,
+		TransactionExtension, TransactionExtensionBase, ValidateResult,
+	},
+	transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+	},
 	ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
@@ -276,51 +281,6 @@ construct_runtime! {
 #[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DisallowSigned;
 
-impl sp_runtime::traits::TransactionExtension for DisallowSigned {
-	const IDENTIFIER: &'static str = "DisallowSigned";
-	type Call = RuntimeCall;
-	type Pre = ();
-	type Val = ();
-	type Implicit = ();
-
-	fn implicit(
-		&self,
-	) -> sp_std::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
-		Ok(())
-	}
-
-	fn validate(
-		&self,
-		_origin: <Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		_len: usize,
-		_implicit: &[u8],
-	) -> Result<
-		(
-			sp_runtime::transaction_validity::ValidTransaction,
-			Self::Val,
-			<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		),
-		sp_runtime::transaction_validity::TransactionValidityError,
-	> {
-		let i = sp_runtime::transaction_validity::InvalidTransaction::BadProof;
-		Err(sp_runtime::transaction_validity::TransactionValidityError::Invalid(i))
-	}
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &<Self::Call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-		_call: &Self::Call,
-		_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-		let i = sp_runtime::transaction_validity::InvalidTransaction::BadProof;
-		Err(sp_runtime::transaction_validity::TransactionValidityError::Invalid(i))
-	}
-}
-
 impl sp_runtime::traits::TransactionExtensionBase for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
 	type Implicit = ();
@@ -331,26 +291,26 @@ impl<C> sp_runtime::traits::TransactionExtension<RuntimeCall, C> for DisallowSig
 	type Pre = ();
 	fn validate(
 		&self,
-		_origin: sp_runtime::traits::OriginOf<RuntimeCall>,
+		_origin: OriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
-		_info: &sp_runtime::traits::DispatchInfoOf<RuntimeCall>,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
 		_context: &mut C,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
-	) -> sp_runtime::traits::ValidateResult<Self::Val, RuntimeCall> {
-		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
+	) -> ValidateResult<Self::Val, RuntimeCall> {
+		Err(InvalidTransaction::BadProof.into())
 	}
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &sp_runtime::traits::OriginOf<RuntimeCall>,
+		_origin: &OriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
 		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		Err(sp_runtime::transaction_validity::InvalidTransaction::BadProof.into())
+		Err(InvalidTransaction::BadProof.into())
 	}
 }
 
