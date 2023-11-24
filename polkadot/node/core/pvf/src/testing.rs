@@ -71,8 +71,9 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 			"--bin=polkadot-execute-worker",
 		];
 
-		#[cfg(build_type = "release")]
-		build_args.push("--release");
+		if cfg!(build_type = "release") {
+			build_args.push("--release");
+		}
 
 		let mut cargo = std::process::Command::new("cargo");
 		let cmd = cargo
