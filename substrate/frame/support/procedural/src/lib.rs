@@ -18,6 +18,7 @@
 //! Proc macro of Support code for the runtime.
 
 #![recursion_limit = "512"]
+#![deny(broken_intra_doc_links)]
 
 mod benchmark;
 mod construct_runtime;
@@ -1627,6 +1628,8 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	.into()
 }
 
+/// Internally used by [`dynamic_params`].
+#[doc(hidden)]
 #[proc_macro_attribute]
 pub fn dynamic_aggregated_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	dynamic_params::dynamic_aggregated_params(attrs.into(), input.into())
@@ -1634,6 +1637,9 @@ pub fn dynamic_aggregated_params(attrs: TokenStream, input: TokenStream) -> Toke
 		.into()
 }
 
+/// Define a module inside a [`dynamic_params`] module that contains dynamic parameters.
+///
+/// See the [`pallet_parameters`] for a full example.
 #[proc_macro_attribute]
 pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	dynamic_params::dynamic_pallet_params(attrs.into(), input.into())
@@ -1641,6 +1647,9 @@ pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStr
 		.into()
 }
 
+/// Mark a module that contains dynamic parameters.
+///
+/// See the [`pallet_parameters`] for a full example.
 #[proc_macro_attribute]
 pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	dynamic_params::dynamic_params(attrs.into(), input.into())

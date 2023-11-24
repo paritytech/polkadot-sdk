@@ -388,9 +388,6 @@ pub fn dynamic_aggregated_params(_attr: TokenStream, item: TokenStream) -> Resul
 		)*
 	};
 
-	// use proc_utils::*;
-	// res.pretty_print();
-
 	Ok(res)
 }
 

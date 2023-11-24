@@ -35,7 +35,7 @@
 //! ### Inbound
 //!
 //! This solely consists of the `set_parameter` extrinsic, which allows to update a parameter. Each
-//! parameter can have their own admin.
+//! parameter can have their own admin origin.
 //!
 //! ### Outbound
 //!
@@ -124,7 +124,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The key value type for parameters. Usually created by
-		/// [`crate::define_aggregrated_parameters`].
+		/// [`frame_support::dynamic_aggregated_params`].
 		type AggregratedKeyValue: AggregratedKeyValue;
 
 		/// The origin which may update the parameter.
@@ -145,8 +145,6 @@ pub mod pallet {
 	}
 
 	/// Stored parameters.
-	///
-	/// map KeyOf<T> => Option<ValueOf<T>>
 	#[pallet::storage]
 	pub type Parameters<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyOf<T>, ValueOf<T>, OptionQuery>;
@@ -157,6 +155,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set the value of a parameter.
+		///
+		/// The dispatch origin of this call must be `AdminOrigin` for the given `key`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_parameter())]
 		pub fn set_parameter(
@@ -164,11 +164,11 @@ pub mod pallet {
 			key_value: T::AggregratedKeyValue,
 		) -> DispatchResult {
 			let (key, value) = key_value.clone().into_parts();
-
+			
 			T::AdminOrigin::ensure_origin(origin, &key)?;
 
 			Parameters::<T>::mutate(key, |v| *v = value);
-
+			
 			Self::deposit_event(Event::Updated { key_value });
 
 			Ok(())
