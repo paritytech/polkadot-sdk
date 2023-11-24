@@ -139,10 +139,10 @@ pub trait Api {
 	/// An error means that the call wasn't successful output buffer is returned unless
 	/// stated otherwise.
 	///
-	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
-	/// - [`ReturnErrorCode::CalleeTrapped`]
-	/// - [`ReturnErrorCode::TransferFailed`]
-	/// - [`ReturnErrorCode::NotCallable`]
+	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
+	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
+	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
+	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
 	#[deprecated(note = "Unstable, use `call_v1` instead")]
 	fn call_v2(
 		flags: CallFlags,
@@ -271,7 +271,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::CodeNotFound`]
+	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result;
 
 	/// Checks whether there is a value stored under the given key.
@@ -311,9 +311,9 @@ pub trait Api {
 	/// An error means that the call wasn't successful and no output buffer is returned unless
 	/// stated otherwise.
 	///
-	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
-	/// - [`ReturnErrorCode::CalleeTrapped`]
-	/// - [`ReturnErrorCode::CodeNotFound`]
+	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
+	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
+	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn delegate_call(
 		flags: CallFlags,
 		code_hash: &[u8],
@@ -344,7 +344,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::EcdsaRecoveryFailed`]
+	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	fn ecdsa_recover(
 		signature: &[u8; 65],
 		message_hash: &[u8; 32],
@@ -361,7 +361,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::EcdsaRecoveryFailed`]
+	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
 
 	/// Stores the weight left into the supplied buffer.
@@ -397,7 +397,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// [`ReturnErrorCode::KeyNotFound`]
+	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	hash_fn!(sha2_256, 32);
@@ -468,16 +468,16 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// Please consult the [`ReturnErrorCode`] enum declaration for more information on those
-	/// errors. Here we only note things specific to this function.
+	/// Please consult the [ReturnErrorCode][`crate::ReturnErrorCode`] enum declaration for more
+	/// information on those errors. Here we only note things specific to this function.
 	///
 	/// An error means that the account wasn't created and no address or output buffer
 	/// is returned unless stated otherwise.
 	///
-	/// - [`ReturnErrorCode::CalleeReverted`]: Output buffer is returned.
-	/// - [`ReturnErrorCode::CalleeTrapped`]
-	/// - [`ReturnErrorCode::TransferFailed`]
-	/// - [`ReturnErrorCode::CodeNotFound`]
+	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
+	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
+	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
+	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	#[deprecated(note = "Unstable, use `instantiate_v1` instead")]
 	fn instantiate_v2(
 		code_hash: &[u8],
@@ -600,12 +600,12 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::CodeNotFound`]
+	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn set_code_hash(code_hash: &[u8]) -> Result;
 
 	/// Set the value at the given key in the contract storage.
 	///
-	/// Equivalent to [`Self::set_storage_1`] version with the
+	/// Equivalent to [`Self::set_storage_v1`] version with the
 	/// exception of the return type. Still a valid thing to call  for fixed sized storage key, when
 	/// not interested in the return value.
 	fn set_storage(key: &[u8], value: &[u8]);
@@ -640,7 +640,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::Sr25519VerifyFailed`]
+	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 
 	/// Retrieve and remove the value under the given key from storage.
@@ -651,7 +651,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// [`ReturnErrorCode::KeyNotFound`]
+	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Transfer some amount of funds into the specified account.
@@ -664,7 +664,7 @@ pub trait Api {
 	///
 	/// # Errors
 	///
-	/// - [`ReturnErrorCode::TransferFailed`]
+	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	fn transfer(account_id: &[u8], value: &[u8]) -> Result;
 
 	/// Remove the calling account and transfer remaining balance.
@@ -727,9 +727,9 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps
-	///   otherwise.
-	/// - `output`: A reference to the output data buffer to write the [`xcm::prelude::Outcome`]
+	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
+	///   traps otherwise.
+	/// - `output`: A reference to the output data buffer to write the [Outcome](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/enum.Outcome.html)
 	///
 	/// # Return
 	///
@@ -744,11 +744,11 @@ pub trait Api {
 	///
 	/// # Parameters
 	///
-	/// - `dest`: The XCM destination, should be decodable as
-	///   [`xcm::prelude::VersionedMultiLocation`], traps otherwise.
-	/// - `msg`: The message, should be decodable as a [`xcm::prelude::VersionedXcm`], traps
-	///   otherwise.
-	/// - `output`: A reference to the output data buffer to write the [`xcm::v3::XcmHash`]
+	/// - `dest`: The XCM destination, should be decodable as [VersionedMultiLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedMultiLocation.html),
+	///   traps otherwise.
+	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
+	///   traps otherwise.
+	/// - `output`: A reference to the output data buffer to write the [XcmHash](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/type.XcmHash.html)
 	///
 	/// # Return
 	///
