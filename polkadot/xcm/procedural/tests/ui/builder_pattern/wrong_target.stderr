@@ -1,0 +1,5 @@
+error: Expected the `Instruction` enum
+  --> tests/ui/builder_pattern/wrong_target.rs:23:1
+   |
+23 | struct SomeStruct;
+   | ^^^^^^^^^^^^^^^^^^

@@ -547,7 +547,7 @@ pub mod pallet {
 		InvalidAssetUnsupportedReserve,
 		/// Too many assets with different reserve locations have been attempted for transfer.
 		TooManyReserves,
-		/// Local XCM execution of asset transfer incomplete.
+		/// Local XCM execution incomplete.
 		LocalExecutionIncomplete,
 	}
 
@@ -1009,8 +1009,14 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
+			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
 			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
-			Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into())
+			let weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
+				Error::<T>::LocalExecutionIncomplete
+			})?;
+			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
@@ -1495,13 +1501,25 @@ impl<T: Config> Pallet<T> {
 		let outcome =
 			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
-		if let Some(remote_xcm) = remote_xcm {
-			outcome.ensure_complete().map_err(|_| Error::<T>::LocalExecutionIncomplete)?;
+		outcome.ensure_complete().map_err(|error| {
+			log::error!(
+				target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
+				"XCM execution failed with error {:?}", error
+			);
+			Error::<T>::LocalExecutionIncomplete
+		})?;
 
+		if let Some(remote_xcm) = remote_xcm {
 			let (ticket, price) = validate_send::<T::XcmRouter>(dest, remote_xcm.clone())
 				.map_err(Error::<T>::from)?;
 			if origin != Here.into_location() {
-				Self::charge_fees(origin, price).map_err(|_| Error::<T>::FeesNotMet)?;
+				Self::charge_fees(origin, price).map_err(|error| {
+					log::error!(
+						target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
+						"Unable to charge fee with error {:?}", error
+					);
+					Error::<T>::FeesNotMet
+				})?;
 			}
 			let message_id = T::XcmRouter::deliver(ticket).map_err(Error::<T>::from)?;
 

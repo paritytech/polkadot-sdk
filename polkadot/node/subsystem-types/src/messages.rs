@@ -47,7 +47,7 @@ use polkadot_primitives::{
 	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
@@ -150,8 +150,8 @@ pub enum CandidateValidationMessage {
 		pov: Arc<PoV>,
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
-		/// Execution timeout kind (backing/approvals)
-		exec_timeout_kind: PvfExecTimeoutKind,
+		/// Execution kind, used for timeouts and retries (backing/approvals)
+		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
@@ -175,8 +175,8 @@ pub enum CandidateValidationMessage {
 		pov: Arc<PoV>,
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
-		/// Execution timeout kind (backing/approvals)
-		exec_timeout_kind: PvfExecTimeoutKind,
+		/// Execution kind, used for timeouts and retries (backing/approvals)
+		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
