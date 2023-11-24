@@ -1602,7 +1602,7 @@ pub trait SignedExtension:
 		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
-			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
+			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
 		}]
 	}
 
