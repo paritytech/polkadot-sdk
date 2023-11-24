@@ -45,8 +45,4 @@ run-zombienet-bridges-tests:
   extends:
     - .zombienet-bridges-common
   script:
-    - ls -la /home
-    - ls -la /home/nonroot
-    - ls -la /home/nonroot/bridges
-    - ls -la /home/nonroot/bridges/zombienet
-    - /home/nonroot/bridges/zombienet/run-tests.sh
+    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh

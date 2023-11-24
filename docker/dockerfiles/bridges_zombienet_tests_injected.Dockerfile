@@ -37,8 +37,8 @@ COPY ./artifacts/polkadot-parachain /usr/local/bin
 # copy substrate-relay to the docker image
 COPY --from=relay-builder /home/user/substrate-relay /usr/local/bin/
 # finally - we need bridges zombienet runner and tests
-RUN	mkdir -p /home/nonroot/bridges
-COPY ./artifacts/bridges /home/nonroot/bridges
+RUN	mkdir -p /home/nonroot/bridges-polkadot-sdk
+COPY ./artifacts/bridges-polkadot-sdk /home/nonroot/bridges-polkadot-sdk
 
 # check if executable works in this container
 USER nonroot
@@ -49,4 +49,4 @@ RUN /usr/local/bin/substrate-relay --version
 # https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:{PORT}#/explorer
 EXPOSE 9942 9910 8943 9945 9010 8945
 
-ENTRYPOINT ["/bin/bash", "-c", "/home/nonroot/bridges/zombienet/run-tests.sh"]
+ENTRYPOINT ["/bin/bash", "-c", "/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh"]

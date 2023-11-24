@@ -6,8 +6,8 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
-export POLKADOT_SDK_FOLDER=/home/nonroot/bridges
-export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_FOLDER/bridges/zombienet/tests
+export POLKADOT_SDK_FOLDER=`realpath $(dirname "$0")/../..`
+export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_FOLDER/zombienet/tests
 export POLKADOT_BINARY_PATH=/usr/local/bin/polkadot
 export POLKADOT_PARACHAIN_BINARY_PATH=/usr/local/bin/polkadot-parachain
 export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/usr/local/bin/polkadot-parachain
