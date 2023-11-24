@@ -134,12 +134,18 @@ codegen-units = 1
 
 /// Invoke `cargo build` to compile the contracts.
 fn invoke_build(current_dir: &Path) -> Result<()> {
+	let encoded_rustflags = [
+		"-Clink-arg=-zstack-size=65536",
+		"-Clink-arg=--import-memory",
+		"-Clinker-plugin-lto",
+		"-Ctarget-cpu=mvp",
+		"-Dwarnings",
+	]
+	.join("\x1f");
+
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
-		.env(
-			"CARGO_ENCODED_RUSTFLAGS",
-			"-C\x1flink-arg=-zstack-size=65536\x1f-C\x1flink-arg=--import-memory\x1f-Clinker-plugin-lto\x1f-C\x1ftarget-cpu=mvp",
-		)
+		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.arg("build")
 		.arg("--release")
 		.arg("--target=wasm32-unknown-unknown") // TODO pass risc-v target here as well

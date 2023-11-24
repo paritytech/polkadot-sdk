@@ -44,5 +44,5 @@ pub fn call() {
 		&buffer[value],
 		&buffer[callee_input],
 		None,
-	);
+	).unwrap();
 }
