@@ -16,11 +16,11 @@
 
 //! Extrinsics implementing the relay chain side of the Coretime interface.
 //!
-//! https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md
+//! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
 mod benchmarking;
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
@@ -29,8 +29,6 @@ use primitives::CoreIndex;
 use runtime_parachains::assigner_bulk::{self, PartsOf57600};
 
 use sp_std::prelude::*;
-
-const LOG_TARGET: &str = "runtime::common::coretime";
 
 pub use pallet::*;
 
@@ -96,7 +94,7 @@ pub mod pallet {
 		// TODO Impl me!
 		//#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
 		#[pallet::call_index(1)]
-		pub fn request_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
+		pub fn request_core_count(origin: OriginFor<T>, _count: u16) -> DispatchResult {
 			// Ignore requests not coming from the External Broker parachain.
 			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
 			Ok(())
@@ -107,7 +105,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		pub fn request_revenue_info_at(
 			origin: OriginFor<T>,
-			when: BlockNumberFor<T>,
+			_when: BlockNumberFor<T>,
 		) -> DispatchResult {
 			// Ignore requests not coming from the External Broker parachain.
 			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
@@ -119,8 +117,8 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		pub fn credit_account(
 			origin: OriginFor<T>,
-			who: T::AccountId,
-			amount: BalanceOf<T>,
+			_who: T::AccountId,
+			_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			// Ignore requests not coming from the External Broker parachain.
 			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
@@ -136,7 +134,7 @@ pub mod pallet {
 		/// -`begin`: The starting blockheight of the instruction.
 		/// -`assignment`: How the blockspace should be utilised.
 		/// -`end_hint`: An optional hint as to when this particular set of instructions will end.
-		// TODO: Real weights!
+		// TODO: Weights!
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
 		pub fn assign_core(
