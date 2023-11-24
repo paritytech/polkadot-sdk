@@ -421,7 +421,8 @@ pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 		#[#scrate::dynamic_aggregated_params]
 		pub enum #name {
 			#(
-				#aggregate_names(#mod_names::Parameters),
+				// @gupnik: `Basic` should be the second param of `dynamic_pallet_params` instead.
+				#aggregate_names(#mod_names::Basic),
 			)*
 		}
 	};

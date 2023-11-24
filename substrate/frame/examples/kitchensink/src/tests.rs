@@ -103,6 +103,8 @@ pub mod dynamic_params {
 		pub static MagicNumber: u64 = 42;
 	}
 }
+// FAIL-CI remove this
+use dynamic_params::*;
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
