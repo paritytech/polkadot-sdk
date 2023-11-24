@@ -41,7 +41,7 @@
 //! - Nominating: The process of placing staked funds behind one or more validators in order to
 //!   share in any reward, and punishment, they take.
 //! - Stash account: The account holding an owner's funds used for staking.
-//! - Controller account: The account that controls an owner's funds for staking.
+//! - Controller account (being deprecated): The account that controls an owner's funds for staking.
 //! - Era: A (whole) number of sessions, which is the period that the validator set (and each
 //!   validator's active nominator set) is recalculated and where rewards are paid out.
 //! - Slash: The punishment of a staker by reducing its funds.
@@ -61,20 +61,20 @@
 //!
 //! Almost any interaction with the Staking pallet requires a process of _**bonding**_ (also known
 //! as being a _staker_). To become *bonded*, a fund-holding register known as the _stash account_,
-//! which holds some or all of the funds that become frozen in place as part of the staking process,
-//! is paired with an active **controller** account, which issues instructions on how they shall be
-//! used.
+//! which holds some or all of the funds that become frozen in place as part of the staking process.
+//! The controller account, which this pallet now assigns the stash account to, issues instructions
+//! on how funds shall be used.
 //!
-//! An account pair can become bonded using the [`bond`](Call::bond) call.
+//! An account can become a bonded stash account using the [`bond`](Call::bond) call.
 //!
-//! Stash accounts can update their associated controller back to the stash account using the
+//! In the event stash accounts registered a unique controller account before the controller account
+//! deprecation, they can update their associated controller back to the stash account using the
 //! [`set_controller`](Call::set_controller) call.
 //!
 //! There are three possible roles that any staked account pair can be in: `Validator`, `Nominator`
-//! and `Idle` (defined in [`StakerStatus`]). There are three
-//! corresponding instructions to change between roles, namely:
-//! [`validate`](Call::validate),
-//! [`nominate`](Call::nominate), and [`chill`](Call::chill).
+//! and `Idle` (defined in [`StakerStatus`]). There are three corresponding instructions to change
+//! between roles, namely: [`validate`](Call::validate), [`nominate`](Call::nominate), and
+//! [`chill`](Call::chill).
 //!
 //! #### Validating
 //!
@@ -85,14 +85,13 @@
 //! _might_ get elected at the _next era_ as a validator. The result of the election is determined
 //! by nominators and their votes.
 //!
-//! An account can become a validator candidate via the
-//! [`validate`](Call::validate) call.
+//! An account can become a validator candidate via the [`validate`](Call::validate) call.
 //!
 //! #### Nomination
 //!
 //! A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on
-//! a set of validators to be elected. Once interest in nomination is stated by an account, it
-//! takes effect at the next election round. The funds in the nominator's stash account indicate the
+//! a set of validators to be elected. Once interest in nomination is stated by an account, it takes
+//! effect at the next election round. The funds in the nominator's stash account indicate the
 //! _weight_ of its vote. Both the rewards and any punishment that a validator earns are shared
 //! between the validator and its nominators. This rule incentivizes the nominators to NOT vote for
 //! the misbehaving/offline validators as much as possible, simply because the nominators will also
@@ -104,8 +103,8 @@
 //!
 //! Staking is closely related to elections; actual validators are chosen from among all potential
 //! validators via election by the potential validators and nominators. To reduce use of the phrase
-//! "potential validators and nominators", we often use the term **voters**, who are simply
-//! the union of potential validators and nominators.
+//! "potential validators and nominators", we often use the term **voters**, who are simply the
+//! union of potential validators and nominators.
 //!
 //! #### Rewards and Slash
 //!
@@ -117,10 +116,9 @@
 //! `payout_stakers`, which pays the reward to the validator as well as its nominators. Only
 //! [`Config::MaxExposurePageSize`] nominator rewards can be claimed in a single call. When the
 //! number of nominators exceeds [`Config::MaxExposurePageSize`], then the exposed nominators are
-//! stored in multiple pages, with each page containing up to
-//! [`Config::MaxExposurePageSize`] nominators. To pay out all nominators, `payout_stakers` must be
-//! called once for each available page. Paging exists to limit the i/o cost to mutate storage for
-//! each nominator's account.
+//! stored in multiple pages, with each page containing up to [`Config::MaxExposurePageSize`]
+//! nominators. To pay out all nominators, `payout_stakers` must be called once for each available
+//! page. Paging exists to limit the i/o cost to mutate storage for each nominator's account.
 //!
 //! Slashing can occur at any point in time, once misbehavior is reported. Once slashing is
 //! determined, a value is deducted from the balance of the validator and all the nominators who
@@ -165,18 +163,18 @@
 //!
 //! #[frame_support::pallet(dev_mode)]
 //! pub mod pallet {
-//! 	use super::*;
-//! 	use frame_support::pallet_prelude::*;
-//! 	use frame_system::pallet_prelude::*;
+//!   use super::*;
+//!   use frame_support::pallet_prelude::*;
+//!   use frame_system::pallet_prelude::*;
 //!
-//! 	#[pallet::pallet]
-//! 	pub struct Pallet<T>(_);
+//!   #[pallet::pallet]
+//!   pub struct Pallet<T>(_);
 //!
-//! 	#[pallet::config]
-//! 	pub trait Config: frame_system::Config + staking::Config {}
+//!   #[pallet::config]
+//!   pub trait Config: frame_system::Config + staking::Config {}
 //!
-//! 	#[pallet::call]
-//! 	impl<T: Config> Pallet<T> {
+//!   #[pallet::call]
+//!   impl<T: Config> Pallet<T> {
 //!         /// Reward a validator.
 //!         #[pallet::weight(0)]
 //!         pub fn reward_myself(origin: OriginFor<T>) -> DispatchResult {
@@ -193,8 +191,8 @@
 //!
 //! ### Era payout
 //!
-//! The era payout is computed using yearly inflation curve defined at
-//! [`Config::EraPayout`] as such:
+//! The era payout is computed using yearly inflation curve defined at [`Config::EraPayout`] as
+//! such:
 //!
 //! ```nocompile
 //! staker_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
@@ -204,8 +202,7 @@
 //! ```nocompile
 //! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 //! ```
-//! The remaining reward is send to the configurable end-point
-//! [`Config::RewardRemainder`].
+//! The remaining reward is send to the configurable end-point [`Config::RewardRemainder`].
 //!
 //! ### Reward Calculation
 //!
@@ -219,9 +216,8 @@
 //! they received during the era. Points are added to a validator using
 //! [`reward_by_ids`](Pallet::reward_by_ids).
 //!
-//! [`Pallet`] implements
-//! [`pallet_authorship::EventHandler`] to add reward
-//! points to block producer and block producer of referenced uncles.
+//! [`Pallet`] implements [`pallet_authorship::EventHandler`] to add reward points to block producer
+//! and block producer of referenced uncles.
 //!
 //! The validator and its nominator split their reward as following:
 //!
@@ -232,13 +228,12 @@
 //! validator, proportional to the value staked behind the validator (_i.e._ dividing the
 //! [`own`](Exposure::own) or [`others`](Exposure::others) by [`total`](Exposure::total) in
 //! [`Exposure`]). Note that payouts are made in pages with each page capped at
-//! [`Config::MaxExposurePageSize`] nominators. The distribution of nominators across
-//! pages may be unsorted. The total commission is paid out proportionally across pages based on the
-//! total stake of the page.
+//! [`Config::MaxExposurePageSize`] nominators. The distribution of nominators across pages may be
+//! unsorted. The total commission is paid out proportionally across pages based on the total stake
+//! of the page.
 //!
 //! All entities who receive a reward have the option to choose their reward destination through the
-//! [`Payee`] storage item (see
-//! [`set_payee`](Call::set_payee)), to be one of the following:
+//! [`Payee`] storage item (see [`set_payee`](Call::set_payee)), to be one of the following:
 //!
 //! - Stash account, not increasing the staked value.
 //! - Stash account, also increasing the staked value.
@@ -249,12 +244,10 @@
 //! Any funds already placed into stash can be the target of the following operations:
 //!
 //! The controller account can free a portion (or all) of the funds using the
-//! [`unbond`](Call::unbond) call. Note that the funds are not immediately
-//! accessible. Instead, a duration denoted by
-//! [`Config::BondingDuration`] (in number of eras) must
-//! pass until the funds can actually be removed. Once the `BondingDuration` is over, the
-//! [`withdraw_unbonded`](Call::withdraw_unbonded) call can be used to actually
-//! withdraw the funds.
+//! [`unbond`](Call::unbond) call. Note that the funds are not immediately accessible. Instead, a
+//! duration denoted by [`Config::BondingDuration`] (in number of eras) must pass until the funds
+//! can actually be removed. Once the `BondingDuration` is over, the
+//! [`withdraw_unbonded`](Call::withdraw_unbonded) call can be used to actually withdraw the funds.
 //!
 //! Note that there is a limitation to the number of fund-chunks that can be scheduled to be
 //! unlocked in the future via [`unbond`](Call::unbond). In case this maximum
@@ -274,8 +267,8 @@
 //!
 //! ## GenesisConfig
 //!
-//! The Staking pallet depends on the [`GenesisConfig`]. The
-//! `GenesisConfig` is optional and allow to set some initial stakers.
+//! The Staking pallet depends on the [`GenesisConfig`]. The `GenesisConfig` is optional and allow
+//! to set some initial stakers.
 //!
 //! ## Related Modules
 //!
@@ -405,7 +398,7 @@ pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, not increasing the amount at stake.
 	Stash,
 	#[deprecated(
-		note = "`Controller` will be removed after January 2024. Use `Account(controller)` instead. This variant now behaves the same as `Stash` variant."
+		note = "`Controller` will be removed after January 2024. Use `Account(controller)` instead."
 	)]
 	Controller,
 	/// Pay into a specified account.
