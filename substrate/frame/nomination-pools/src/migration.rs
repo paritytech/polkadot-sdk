@@ -27,6 +27,16 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 
+	/// Migration V7 to V8 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
+	/// the migration is only performed when on-chain version is 7.
+	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
+		7,
+		8,
+		v8::VersionUncheckedMigrateV7ToV8<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
 	/// the migration is only performed when on-chain version is 6.
 	pub type V6ToV7<T> = frame_support::migrations::VersionedMigration<
@@ -45,6 +55,93 @@ pub mod versioned {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+pub mod v8 {
+	use super::*;
+
+	#[derive(Decode)]
+	pub struct OldBondedPoolInner<T: Config> {
+		pub commission: Commission<T>,
+		pub member_counter: u32,
+		pub points: BalanceOf<T>,
+		pub state: PoolState,
+		pub roles: PoolRoles<T::AccountId>,
+	}
+
+	impl<T: Config> OldBondedPoolInner<T> {
+		fn migrate_to_v8(self) -> BondedPoolInner<T> {
+			BondedPoolInner {
+				commission: Commission {
+					current: self.commission.current,
+					max: self.commission.max,
+					change_rate: self.commission.change_rate,
+					throttle_from: self.commission.throttle_from,
+					// `claim_permission` is a new field.
+					claim_permission: None,
+				},
+				member_counter: self.member_counter,
+				points: self.points,
+				state: self.state,
+				roles: self.roles,
+			}
+		}
+	}
+
+	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let current = Pallet::<T>::current_storage_version();
+			let onchain = Pallet::<T>::on_chain_storage_version();
+
+			log!(
+				info,
+				"Running migration with current storage version {:?} / onchain {:?}",
+				current,
+				onchain
+			);
+
+			if onchain == 8 {
+				let mut translated = 0u64;
+				BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
+					translated.saturating_inc();
+					Some(old_value.migrate_to_v8())
+				});
+
+				StorageVersion::new(8).put::<Pallet<T>>();
+				log!(info, "Upgraded {} pools, storage to version {:?}", translated, current);
+
+				// reads: translated + onchain version.
+				// writes: translated + current.put.
+				T::DbWeight::get().reads_writes(translated + 1, translated + 1)
+			} else {
+				log!(info, "Migration did not execute. This probably should be removed");
+				T::DbWeight::get().reads(1)
+			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// ensure all BondedPools items now contain an `inner.commission.claim_permission:
+			// Option<CommissionClaimPermission<T::AccountId>>` field.
+			ensure!(
+				BondedPools::<T>::iter().all(|(_, inner)|
+					// Check new `claim_permission` field.
+					inner.commission.claim_permission.is_none()),
+				"claim_permission value has not been set correctly"
+			);
+			ensure!(
+				Pallet::<T>::on_chain_storage_version() >= 8,
+				"nomination-pools::migration::v8: wrong storage version"
+			);
+			Ok(())
+		}
+	}
 }
 
 /// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
