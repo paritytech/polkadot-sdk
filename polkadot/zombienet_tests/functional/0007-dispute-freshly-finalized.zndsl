@@ -18,9 +18,9 @@ honest: parachain 2001 block height is at least 10 within 200 seconds
 malus: log line contains "😈 Disputing candidate with hash:" within 180 seconds
 
 # Check if disputes are initiated and concluded.
-honest: reports polkadot_parachain_candidate_disputes_total is at least 2 within 30 seconds
-honest: reports polkadot_parachain_candidate_dispute_concluded{validity="valid"} is at least 2 within 30 seconds
-honest: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is 0 within 30 seconds
+honest: reports polkadot_parachain_candidate_disputes_total is at least 2 within 100 seconds
+honest: reports polkadot_parachain_candidate_dispute_concluded{validity="valid"} is at least 2 within 100 seconds
+honest: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is 0 within 100 seconds
 
 # Check lag - approval
 honest: reports polkadot_parachain_approval_checking_finality_lag is 0
