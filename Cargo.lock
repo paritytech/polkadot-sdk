@@ -11744,6 +11744,7 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
+ "westend-emulated-chain",
 ]
 
 [[package]]
