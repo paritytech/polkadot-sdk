@@ -15,6 +15,7 @@ assert_matches = "1.5.0"
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false}
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false}
 pallet-broker = { path = "../../../../../../../substrate/frame/broker" }
+pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false}
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false}

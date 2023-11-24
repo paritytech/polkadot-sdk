@@ -39,7 +39,6 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: coretime_rococo_runtime::PolkadotXcm,
 			Balances: coretime_rococo_runtime::Balances,
-			CoretimeProvider: coretime_rococo_runtime::CoretimeProvider,
 			Broker: coretime_rococo_runtime::Broker,
 		}
 	},

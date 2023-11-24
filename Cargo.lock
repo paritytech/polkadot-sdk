@@ -3277,6 +3277,7 @@ dependencies = [
  "coretime-rococo-runtime",
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-balances",
  "pallet-broker",
  "pallet-xcm",
  "parachains-common",
