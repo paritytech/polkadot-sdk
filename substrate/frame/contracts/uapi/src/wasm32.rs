@@ -292,6 +292,7 @@ mod sys {
 	}
 }
 
+/// A macro to implement all Api functions with a signature of `fn(&mut &mut [u8])`.
 macro_rules! impl_wrapper_for {
     (@impl_fn $( $mod:ident )::*, $suffix:literal, $name:ident) => {
         paste::paste! {
@@ -318,6 +319,7 @@ macro_rules! impl_wrapper_for {
     };
 }
 
+/// A macro to implement all the hash functions Apis.
 macro_rules! impl_hash_fn {
 	( $name:ident, $bytes_result:literal ) => {
 		paste::item! {
@@ -334,6 +336,7 @@ macro_rules! impl_hash_fn {
 	};
 }
 
+/// A macro to implement the legacy instantiate functions.
 macro_rules! impl_legacy_instantiate {
 	($fn_name:ident, $sys_fn:path) => {
 		#[inline(always)]
@@ -375,6 +378,7 @@ macro_rules! impl_legacy_instantiate {
 	};
 }
 
+/// A macro to implement the get_storage functions.
 macro_rules! impl_get_storage {
 	($fn_name:ident, $sys_get_storage:path) => {
 		#[inline(always)]
@@ -641,7 +645,6 @@ impl Api for ApiImpl {
 	}
 
 	impl_get_storage!(get_storage, sys::get_storage);
-
 	impl_get_storage!(get_storage_v1, sys::v1::get_storage);
 
 	#[inline(always)]

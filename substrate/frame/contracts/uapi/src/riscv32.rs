@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// TODO: bring up to date with wasm32.rs
 
 use super::{extract_from_slice, Result, ReturnCode};
 use crate::{engine::on_chain::EncodeScope, ReturnFlags};
