@@ -22,6 +22,10 @@
 //! Some extra quirks which generally should be insignificant:
 //! - The malus node will not dispute at session boundaries
 //! - The malus node will not dispute blocks it backed itself
+//! - Be cautious about the size of the network to make sure disputes are not auto-confirmed
+//! (7 validators is the smallest network size as it needs [(7-1)//3]+1 = 3 votes to get
+//! confirmed but it only gets 1 from backing and 1 from malus so 2 in total)
+//!
 //!
 //! Attention: For usage with `zombienet` only!
 
