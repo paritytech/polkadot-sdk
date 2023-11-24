@@ -39,6 +39,7 @@ std = [
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
