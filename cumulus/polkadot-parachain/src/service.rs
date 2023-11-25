@@ -40,7 +40,7 @@ use sp_core::Pair;
 
 use jsonrpsee::RpcModule;
 
-use crate::rpc;
+use crate::{fake_runtime_api::aura::RuntimeApi, rpc};
 pub use parachains_common::{AccountId, Balance, Block, BlockNumber, Hash, Header, Nonce};
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -917,8 +917,8 @@ where
 
 /// Build the import queue for the rococo parachain runtime.
 pub fn rococo_parachain_build_import_queue(
-	client: Arc<ParachainClient<rococo_parachain_runtime::RuntimeApi>>,
-	block_import: ParachainBlockImport<rococo_parachain_runtime::RuntimeApi>,
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
@@ -960,11 +960,8 @@ pub async fn start_rococo_parachain_node(
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<ParachainClient<rococo_parachain_runtime::RuntimeApi>>,
-)> {
-	start_node_impl::<rococo_parachain_runtime::RuntimeApi, _, _, _>(
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)> {
+	start_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -1866,8 +1863,8 @@ where
 
 #[allow(clippy::type_complexity)]
 pub fn contracts_rococo_build_import_queue(
-	client: Arc<ParachainClient<contracts_rococo_runtime::RuntimeApi>>,
-	block_import: ParachainBlockImport<contracts_rococo_runtime::RuntimeApi>,
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
@@ -1909,11 +1906,8 @@ pub async fn start_contracts_rococo_node(
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<ParachainClient<contracts_rococo_runtime::RuntimeApi>>,
-)> {
-	start_contracts_rococo_node_impl::<contracts_rococo_runtime::RuntimeApi, _, _, _>(
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)> {
+	start_contracts_rococo_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
