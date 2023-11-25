@@ -21,8 +21,9 @@
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
+		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
 		tokens::{Fortitude, Precision, Preservation},
+		ExistenceRequirement,
 	},
 };
 use frame_system::pallet_prelude::*;
@@ -49,7 +50,8 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunMutate<Self::AccountId>;
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
@@ -72,6 +74,8 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Not an existing delegatee account.
 		NotDelegatee,
+		/// Some corruption in internal state.
+		BadState,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -181,8 +185,20 @@ impl<T: Config> Delegatee for Pallet<T> {
 		todo!()
 	}
 
-	fn update_bond(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
-		todo!()
+	fn update_bond(who: &Self::AccountId) -> sp_runtime::DispatchResult {
+		let delegatee = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
+		let delegated_balance = delegatee.effective_balance();
+
+		match T::Staking::stake(who) {
+			Ok(stake) => {
+				let unstaked_delegated_balance = delegated_balance.saturating_sub(stake.total);
+				T::Staking::bond_extra(who, unstaked_delegated_balance)
+			},
+			Err(_) => {
+				// If stake not found, it means this is the first bond
+				T::Staking::bond(who, delegated_balance, &delegatee.payee)
+			},
+		}
 	}
 
 	fn apply_slash(
@@ -194,18 +210,51 @@ impl<T: Config> Delegatee for Pallet<T> {
 		todo!()
 	}
 
+	/// Transfers funds from current staked account to `proxy_delegator`. Current staked account
+	/// becomes a delegatee with `proxy_delegator` delegating stakes to it.
 	fn delegatee_migrate(
 		new_delegatee: &Self::AccountId,
 		proxy_delegator: &Self::AccountId,
 		payee: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
-		todo!()
+		ensure!(new_delegatee != proxy_delegator, Error::<T>::InvalidDelegation);
+
+		// ensure proxy delegator has at least minimum balance to keep the account alive.
+		ensure!(
+			T::Currency::reducible_balance(
+				proxy_delegator,
+				Preservation::Expendable,
+				Fortitude::Polite
+			) > Zero::zero(),
+			Error::<T>::NotEnoughFunds
+		);
+
+		// ensure staker is a nominator
+		let status = T::Staking::status(new_delegatee)?;
+		match status {
+			StakerStatus::Nominator(_) => (),
+			_ => return Err(Error::<T>::InvalidDelegation.into()),
+		}
+
+		let stake = T::Staking::stake(new_delegatee)?;
+
+		// unlock funds from staker
+		T::Staking::force_unlock(new_delegatee)?;
+
+		// try transferring the staked amount. This should never fail but if it does, it indicates
+		// bad state and we abort.
+		T::Currency::transfer(new_delegatee, proxy_delegator, stake.total, Preservation::Expendable)
+			.map_err(|_| Error::<T>::BadState)?;
+
+		// delegate from new delegator to staker.
+		Self::accept_delegations(new_delegatee, payee)?;
+		Self::delegate(proxy_delegator, new_delegatee, stake.total)
 	}
 }
 
 impl<T: Config> Delegator for Pallet<T> {
-	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
 
 	fn delegate(
 		delegator: &Self::AccountId,
@@ -306,131 +355,5 @@ impl<T: Config> Delegator for Pallet<T> {
 		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		todo!()
-	}
-}
-
-impl<T: Config> StakingInterface for Pallet<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
-	type CurrencyToVote = <T::Staking as StakingInterface>::CurrencyToVote;
-
-	fn minimum_nominator_bond() -> Self::Balance {
-		T::Staking::minimum_nominator_bond()
-	}
-
-	fn minimum_validator_bond() -> Self::Balance {
-		T::Staking::minimum_validator_bond()
-	}
-
-	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
-		T::Staking::stash_by_ctrl(controller)
-	}
-
-	fn bonding_duration() -> EraIndex {
-		T::Staking::bonding_duration()
-	}
-
-	fn current_era() -> EraIndex {
-		T::Staking::current_era()
-	}
-
-	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError> {
-		T::Staking::stake(who)
-	}
-
-	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
-		T::Staking::total_stake(who)
-	}
-
-	fn active_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
-		T::Staking::active_stake(who)
-	}
-
-	fn is_unbonding(who: &Self::AccountId) -> Result<bool, DispatchError> {
-		T::Staking::is_unbonding(who)
-	}
-
-	fn fully_unbond(who: &Self::AccountId) -> sp_runtime::DispatchResult {
-		T::Staking::fully_unbond(who)
-	}
-
-	fn bond(
-		who: &Self::AccountId,
-		value: Self::Balance,
-		payee: &Self::AccountId,
-	) -> sp_runtime::DispatchResult {
-		T::Staking::bond(who, value, payee)
-	}
-
-	fn nominate(
-		who: &Self::AccountId,
-		validators: Vec<Self::AccountId>,
-	) -> sp_runtime::DispatchResult {
-		T::Staking::nominate(who, validators)
-	}
-
-	fn chill(who: &Self::AccountId) -> sp_runtime::DispatchResult {
-		T::Staking::chill(who)
-	}
-
-	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> sp_runtime::DispatchResult {
-		T::Staking::bond_extra(who, extra)
-	}
-
-	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
-		T::Staking::unbond(stash, value)
-	}
-
-	fn withdraw_unbonded(
-		stash: Self::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		T::Staking::withdraw_unbonded(stash, num_slashing_spans)
-	}
-
-	fn desired_validator_count() -> u32 {
-		T::Staking::desired_validator_count()
-	}
-
-	fn election_ongoing() -> bool {
-		T::Staking::election_ongoing()
-	}
-
-	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
-		T::Staking::force_unstake(who)
-	}
-
-	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
-		T::Staking::is_exposed_in_era(who, era)
-	}
-
-	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
-		T::Staking::status(who)
-	}
-
-	fn is_validator(who: &Self::AccountId) -> bool {
-		T::Staking::is_validator(who)
-	}
-
-	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
-		T::Staking::nominations(who)
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn max_exposure_page_size() -> sp_staking::Page {
-		T::Staking::max_exposure_page_size()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn add_era_stakers(
-		current_era: &EraIndex,
-		stash: &Self::AccountId,
-		exposures: Vec<(Self::AccountId, Self::Balance)>,
-	) {
-		T::Staking::add_era_stakers(current_era, stash, exposures)
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex) {
-		T::Staking::set_current_era(era)
 	}
 }

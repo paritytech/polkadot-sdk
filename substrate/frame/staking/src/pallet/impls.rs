@@ -1815,6 +1815,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			T::MaxExposurePageSize::get()
 		}
 	}
+
+	fn force_unlock(who: &Self::AccountId) -> sp_runtime::DispatchResult {
+		T::Currency::remove_lock(crate::STAKING_ID, who);
+		Ok(())
+	}
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
