@@ -39,7 +39,7 @@ pub trait StakeDelegatee {
 	type AccountId: Clone + sp_std::fmt::Debug;
 
 	/// Total delegated balance to this account.
-	fn balance(who: Self::AccountId) -> Self::Balance;
+	fn delegate_balance(who: Self::AccountId) -> Self::Balance;
 
 	/// Set intention to accept delegations.
 	fn accept_delegations(delegatee: &Self::AccountId, payee: &Self::AccountId) -> DispatchResult;

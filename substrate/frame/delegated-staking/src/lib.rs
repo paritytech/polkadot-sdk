@@ -20,8 +20,9 @@
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
+	traits::{fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect}, tokens::Precision},
 };
+use frame_support::traits::tokens::{Fortitude, Preservation};
 use frame_system::pallet_prelude::*;
 use sp_std::{convert::TryInto, prelude::*};
 use pallet::*;
@@ -63,6 +64,8 @@ pub mod pallet {
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
+		/// Not an existing delegatee account.
+		NotDelegatee,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -100,19 +103,44 @@ pub mod pallet {
 }
 
 impl<T: Config> StakeDelegatee for Pallet<T> {
-	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
 
-	fn balance(who: Self::AccountId) -> Self::Balance {
-		todo!()
+	fn delegate_balance(who: Self::AccountId) -> Self::Balance {
+		<Delegatees<T>>::get(who)
+			.map_or_else(|| 0u32.into(), |register| register.effective_balance())
 	}
 
 	fn accept_delegations(delegatee: &Self::AccountId, payee: &Self::AccountId) -> sp_runtime::DispatchResult {
-		todo!()
+		// fail if already delegatee
+		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotAllowed);
+		// a delegator cannot be delegatee
+		ensure!(!<Delegators<T>>::contains_key(delegatee), Error::<T>::NotAllowed);
+		// payee account cannot be same as delegatee
+		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
+
+		<Delegatees<T>>::insert(
+			delegatee,
+			DelegationRegister {
+				payee: payee.clone(),
+				balance: Zero::zero(),
+				pending_slash: Zero::zero(),
+				blocked: false,
+			},
+		);
+
+		Ok(())
 	}
 
 	fn block_delegations(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
-		todo!()
+		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
+			if let Some(register) = maybe_register {
+				register.blocked = true;
+				Ok(())
+			} else {
+				Err(Error::<T>::NotDelegatee.into())
+			}
+		})
 	}
 
 	fn kill_delegatee(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
@@ -141,7 +169,35 @@ impl<T: Config> StakeDelegator for Pallet<T> {
 	type Balance = BalanceOf<T>;
 
 	fn delegate(delegator: &Self::AccountId, delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
-		todo!()
+		let delegator_balance = T::Currency::reducible_balance(&delegator, Preservation::Expendable, Fortitude::Polite);
+		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+		ensure!(delegator_balance >= value, Error::<T>::NotEnoughFunds);
+		ensure!(delegatee != delegator, Error::<T>::InvalidDelegation);
+		ensure!(<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
+
+		// cannot delegate to another delegatee.
+		if <Delegatees<T>>::contains_key(delegator) {
+			return Err(Error::<T>::InvalidDelegation.into())
+		}
+
+		let new_delegation_amount =
+			if let Some((current_delegatee, current_delegation)) = <Delegators<T>>::get(delegator) {
+				ensure!(&current_delegatee == delegatee, Error::<T>::InvalidDelegation);
+				value.saturating_add(current_delegation)
+			} else {
+				value
+			};
+
+		<Delegators<T>>::insert(delegator, (delegatee, new_delegation_amount));
+		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
+			if let Some(register) = maybe_register {
+				register.balance.saturating_accrue(value);
+			}
+		});
+
+		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
+
+		Ok(())
 	}
 
 	fn request_undelegate(delegator: &Self::AccountId, delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
@@ -149,7 +205,45 @@ impl<T: Config> StakeDelegator for Pallet<T> {
 	}
 
 	fn withdraw(delegator: &Self::AccountId, delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
-		todo!()
+		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
+			Some((current_delegatee, delegate_balance)) => {
+				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::InvalidDelegation);
+				ensure!(*delegate_balance >= value, Error::<T>::InvalidDelegation);
+
+				delegate_balance.saturating_reduce(value);
+
+				if *delegate_balance == BalanceOf::<T>::zero() {
+					*maybe_delegate = None;
+				}
+				Ok(())
+			},
+			None => {
+				// this should never happen
+				return Err(Error::<T>::InvalidDelegation)
+			},
+		})?;
+
+		<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
+			Some(ledger) => {
+				ledger.balance.saturating_reduce(value);
+				Ok(())
+			},
+			None => {
+				// this should never happen
+				return Err(Error::<T>::InvalidDelegation)
+			},
+		})?;
+
+		let released = T::Currency::release(
+			&HoldReason::Delegating.into(),
+			&delegator,
+			value,
+			Precision::BestEffort,
+		)?;
+
+		defensive_assert!(released == value, "hold should have been released fully");
+
+		Ok(())
 	}
 }
 

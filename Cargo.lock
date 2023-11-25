@@ -9677,6 +9677,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-delegated-staking"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
 dependencies = [
@@ -10763,21 +10778,6 @@ dependencies = [
  "sp-std 8.0.0",
  "sp-tracing 10.0.0",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-staking-delegate"
-version = "4.0.0-dev"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std 8.0.0",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-staking-delegate"
+name = "pallet-delegated-staking"
 version = "4.0.0-dev"
 authors.workspace = true
 edition.workspace = true
