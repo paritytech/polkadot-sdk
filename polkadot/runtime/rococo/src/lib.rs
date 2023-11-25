@@ -1629,8 +1629,20 @@ sp_api::impl_runtime_apis! {
 			VERSION
 		}
 
+		#[cfg(not(feature = "try-runtime"))]
 		fn execute_block(block: Block) {
 			Executive::execute_block(block);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn execute_block(block: Block) {
+			match Executive::try_execute_block(block.clone(), true, true, frame_try_runtime::TryStateSelect::All) {
+				Ok(_) => {},
+				Err(e) => {
+					log::error!("Error while executing `try_execute_block`: {:?}. Falling back to `execute_block`.", e);
+					Executive::execute_block(block);
+				}
+			}
 		}
 
 		fn initialize_block(header: &<Block as BlockT>::Header) {
