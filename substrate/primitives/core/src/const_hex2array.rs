@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides const function allowing converting hex string to `u8` array at compile time if used in proper context.
+//! Provides const function allowing converting hex string to `u8` array at compile time if used in
+//! proper context.
 
 /// Util that generates array from (static) string literal
 pub const fn hex2array<const N: usize>(hex: &str) -> [u8; N] {
