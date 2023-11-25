@@ -50,6 +50,9 @@ impl Extensions {
 	}
 }
 
+/// Generic chain spec for all polkadot-parachain runtimes
+pub type GenericChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
