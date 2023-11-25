@@ -20,17 +20,22 @@
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect}, tokens::Precision},
+	traits::{
+		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
+		tokens::{Fortitude, Precision, Preservation},
+	},
 };
-use frame_support::traits::tokens::{Fortitude, Preservation};
 use frame_system::pallet_prelude::*;
-use sp_std::{convert::TryInto, prelude::*};
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchError, RuntimeDebug, Saturating};
-use sp_staking::delegation::{StakeDelegatee, StakeDelegator};
-use sp_staking::{EraIndex, Stake, StakerStatus, StakingInterface};
+use sp_staking::{
+	delegation::{Delegatee, Delegator},
+	EraIndex, Stake, StakerStatus, StakingInterface,
+};
+use sp_std::{convert::TryInto, prelude::*};
 
-pub type BalanceOf<T> = <<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> =
+	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -44,10 +49,7 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type Currency: FunHoldMutate<
-			Self::AccountId,
-			Reason = Self::RuntimeHoldReason
-		>;
+		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
@@ -93,17 +95,12 @@ pub mod pallet {
 	/// want to restrict delegators to delegate only to one account.
 	#[pallet::storage]
 	pub(crate) type Delegators<T: Config> =
-	CountedStorageMap<_, Twox64Concat, T::AccountId, (T::AccountId, BalanceOf<T>), OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, (T::AccountId, BalanceOf<T>), OptionQuery>;
 
 	/// Map of Delegatee to their Ledger.
 	#[pallet::storage]
-	pub(crate) type Delegatees<T: Config> = CountedStorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		DelegationRegister<T>,
-		OptionQuery,
-	>;
+	pub(crate) type Delegatees<T: Config> =
+		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationRegister<T>, OptionQuery>;
 }
 
 /// Register of all delegations to a `Delegatee`.
@@ -132,7 +129,7 @@ impl<T: Config> DelegationRegister<T> {
 	}
 }
 
-impl<T: Config> StakeDelegatee for Pallet<T> {
+impl<T: Config> Delegatee for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -141,23 +138,30 @@ impl<T: Config> StakeDelegatee for Pallet<T> {
 			.map_or_else(|| 0u32.into(), |register| register.effective_balance())
 	}
 
-	fn accept_delegations(delegatee: &Self::AccountId, payee: &Self::AccountId) -> sp_runtime::DispatchResult {
-		// fail if already delegatee
-		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotAllowed);
-		// a delegator cannot be delegatee
-		ensure!(!<Delegators<T>>::contains_key(delegatee), Error::<T>::NotAllowed);
-		// payee account cannot be same as delegatee
-		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
+	fn accept_delegations(
+		who: &Self::AccountId,
+		payee: &Self::AccountId,
+	) -> sp_runtime::DispatchResult {
+		// Existing delegatee cannot accept delegation
+		ensure!(!<Delegatees<T>>::contains_key(who), Error::<T>::NotAllowed);
 
-		<Delegatees<T>>::insert(
-			delegatee,
-			DelegationRegister {
-				payee: payee.clone(),
-				balance: Zero::zero(),
-				pending_slash: Zero::zero(),
-				blocked: false,
-			},
-		);
+		// payee account cannot be same as delegatee
+		ensure!(payee != who, Error::<T>::InvalidDelegation);
+
+		// if already a delegator, unblock and return success
+		<Delegatees<T>>::mutate(who, |maybe_register| {
+			if let Some(register) = maybe_register {
+				register.blocked = false;
+				register.payee = payee.clone();
+			} else {
+				*maybe_register = Some(DelegationRegister {
+					payee: payee.clone(),
+					balance: Zero::zero(),
+					pending_slash: Zero::zero(),
+					blocked: false,
+				});
+			}
+		});
 
 		Ok(())
 	}
@@ -181,25 +185,35 @@ impl<T: Config> StakeDelegatee for Pallet<T> {
 		todo!()
 	}
 
-	fn apply_slash(delegatee: &Self::AccountId, delegator: &Self::AccountId, value: Self::Balance, reporter: Option<Self::AccountId>) -> sp_runtime::DispatchResult {
+	fn apply_slash(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
 		todo!()
 	}
 
-	fn delegatee_migrate(new_delegatee: &Self::AccountId, proxy_delegator: &Self::AccountId, payee: &Self::AccountId) -> sp_runtime::DispatchResult {
-		todo!()
-	}
-
-	fn delegator_migrate(delegator_from: &Self::AccountId, delegator_to: &Self::AccountId, delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
+	fn delegatee_migrate(
+		new_delegatee: &Self::AccountId,
+		proxy_delegator: &Self::AccountId,
+		payee: &Self::AccountId,
+	) -> sp_runtime::DispatchResult {
 		todo!()
 	}
 }
 
-impl<T: Config> StakeDelegator for Pallet<T> {
+impl<T: Config> Delegator for Pallet<T> {
 	type AccountId = T::AccountId;
 	type Balance = BalanceOf<T>;
 
-	fn delegate(delegator: &Self::AccountId, delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
-		let delegator_balance = T::Currency::reducible_balance(&delegator, Preservation::Expendable, Fortitude::Polite);
+	fn delegate(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		let delegator_balance =
+			T::Currency::reducible_balance(&delegator, Preservation::Expendable, Fortitude::Polite);
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 		ensure!(delegator_balance >= value, Error::<T>::NotEnoughFunds);
 		ensure!(delegatee != delegator, Error::<T>::InvalidDelegation);
@@ -210,13 +224,14 @@ impl<T: Config> StakeDelegator for Pallet<T> {
 			return Err(Error::<T>::InvalidDelegation.into())
 		}
 
-		let new_delegation_amount =
-			if let Some((current_delegatee, current_delegation)) = <Delegators<T>>::get(delegator) {
-				ensure!(&current_delegatee == delegatee, Error::<T>::InvalidDelegation);
-				value.saturating_add(current_delegation)
-			} else {
-				value
-			};
+		let new_delegation_amount = if let Some((current_delegatee, current_delegation)) =
+			<Delegators<T>>::get(delegator)
+		{
+			ensure!(&current_delegatee == delegatee, Error::<T>::InvalidDelegation);
+			value.saturating_add(current_delegation)
+		} else {
+			value
+		};
 
 		<Delegators<T>>::insert(delegator, (delegatee, new_delegation_amount));
 		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
@@ -230,11 +245,19 @@ impl<T: Config> StakeDelegator for Pallet<T> {
 		Ok(())
 	}
 
-	fn request_undelegate(delegator: &Self::AccountId, delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
+	fn request_undelegate(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
 		todo!()
 	}
 
-	fn withdraw(delegator: &Self::AccountId, delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
+	fn withdraw(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
 		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
 			Some((current_delegatee, delegate_balance)) => {
 				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::InvalidDelegation);
@@ -274,6 +297,15 @@ impl<T: Config> StakeDelegator for Pallet<T> {
 		defensive_assert!(released == value, "hold should have been released fully");
 
 		Ok(())
+	}
+
+	fn delegator_migrate(
+		delegator_from: &Self::AccountId,
+		delegator_to: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		todo!()
 	}
 }
 
@@ -322,11 +354,18 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::Staking::fully_unbond(who)
 	}
 
-	fn bond(who: &Self::AccountId, value: Self::Balance, payee: &Self::AccountId) -> sp_runtime::DispatchResult {
+	fn bond(
+		who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> sp_runtime::DispatchResult {
 		T::Staking::bond(who, value, payee)
 	}
 
-	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> sp_runtime::DispatchResult {
+	fn nominate(
+		who: &Self::AccountId,
+		validators: Vec<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
 		T::Staking::nominate(who, validators)
 	}
 
@@ -342,7 +381,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::Staking::unbond(stash, value)
 	}
 
-	fn withdraw_unbonded(stash: Self::AccountId, num_slashing_spans: u32) -> Result<bool, DispatchError> {
+	fn withdraw_unbonded(
+		stash: Self::AccountId,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError> {
 		T::Staking::withdraw_unbonded(stash, num_slashing_spans)
 	}
 
@@ -380,7 +422,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn add_era_stakers(current_era: &EraIndex, stash: &Self::AccountId, exposures: Vec<(Self::AccountId, Self::Balance)>) {
+	fn add_era_stakers(
+		current_era: &EraIndex,
+		stash: &Self::AccountId,
+		exposures: Vec<(Self::AccountId, Self::Balance)>,
+	) {
 		T::Staking::add_era_stakers(current_era, stash, exposures)
 	}
 	#[cfg(feature = "runtime-benchmarks")]

@@ -23,7 +23,7 @@ use sp_runtime::{
 use sp_std::{ops::Sub};
 
 /// Allows an account to accept stake delegations and manage its operations.
-pub trait StakeDelegatee {
+pub trait Delegatee {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
 	+ Ord
@@ -84,24 +84,10 @@ pub trait StakeDelegatee {
 		payee: &Self::AccountId,
 	) -> DispatchResult;
 
-	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
-	/// the same.
-	///
-	/// This is useful for migrating old pool accounts using direct staking to lazily move
-	/// delegators to the new delegated pool account.
-	///
-	/// Note: Potentially unsafe and should be only called by trusted runtime code.
-	fn delegator_migrate(
-		delegator_from: &Self::AccountId,
-		delegator_to: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult;
-
 }
 
 /// Allows an account to delegate their stakes to a delegatee.
-pub trait StakeDelegator {
+pub trait Delegator {
 	type Balance: Sub<Output = Self::Balance>
 	+ Ord
 	+ PartialEq
@@ -132,6 +118,20 @@ pub trait StakeDelegator {
 	/// Request removal of delegated stake.
 	fn withdraw (
 		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> DispatchResult;
+
+	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
+	/// the same.
+	///
+	/// This is useful for migrating old pool accounts using direct staking to lazily move
+	/// delegators to the new delegated pool account.
+	///
+	/// Note: Potentially unsafe and should be only called by trusted runtime code.
+	fn delegator_migrate(
+		delegator_from: &Self::AccountId,
+		delegator_to: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
