@@ -157,10 +157,6 @@
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -177,7 +173,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, Extensions};
+</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, Extensions, GenericChainSpec};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachains_common::AuraId;
 <span class="kw">use </span>sc_service::ChainType;
@@ -185,12 +181,8 @@
 
 <span class="kw">use </span><span class="kw">super</span>::get_collator_keys_from_seed;
 
-<span class="doccomment">/// Specialized `ChainSpec` for the Glutton parachain runtime.
-</span><span class="kw">pub type </span>GluttonChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-<span class="kw">pub type </span>GluttonWestendChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-
-<span class="kw">pub fn </span>glutton_development_config(para_id: ParaId) -&gt; GluttonChainSpec {
-	GluttonChainSpec::builder(
+<span class="kw">pub fn </span>glutton_development_config(para_id: ParaId) -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		glutton_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;kusama-dev&quot;</span>.into(), para_id: para_id.into() },
 	)
@@ -204,8 +196,8 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>glutton_local_config(para_id: ParaId) -&gt; GluttonChainSpec {
-	GluttonChainSpec::builder(
+<span class="kw">pub fn </span>glutton_local_config(para_id: ParaId) -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		glutton_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;kusama-local&quot;</span>.into(), para_id: para_id.into() },
 	)
@@ -222,11 +214,11 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>glutton_config(para_id: ParaId) -&gt; GluttonChainSpec {
+<span class="kw">pub fn </span>glutton_config(para_id: ParaId) -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">2</span>.into());
 
-	GluttonChainSpec::builder(
+	GenericChainSpec::builder(
 		glutton_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;kusama&quot;</span>.into(), para_id: para_id.into() },
 	)
@@ -257,8 +249,8 @@
 	})
 }
 
-<span class="kw">pub fn </span>glutton_westend_development_config(para_id: ParaId) -&gt; GluttonWestendChainSpec {
-	GluttonWestendChainSpec::builder(
+<span class="kw">pub fn </span>glutton_westend_development_config(para_id: ParaId) -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend-dev&quot;</span>.into(), para_id: para_id.into() },
 	)
@@ -272,8 +264,8 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>glutton_westend_local_config(para_id: ParaId) -&gt; GluttonWestendChainSpec {
-	GluttonWestendChainSpec::builder(
+<span class="kw">pub fn </span>glutton_westend_local_config(para_id: ParaId) -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend-local&quot;</span>.into(), para_id: para_id.into() },
 	)
@@ -290,11 +282,11 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>glutton_westend_config(para_id: ParaId) -&gt; GluttonWestendChainSpec {
+<span class="kw">pub fn </span>glutton_westend_config(para_id: ParaId) -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 
-	GluttonChainSpec::builder(
+	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: para_id.into() },
 	)

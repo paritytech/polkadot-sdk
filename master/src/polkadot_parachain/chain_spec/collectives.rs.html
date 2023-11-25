@@ -289,8 +289,6 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -308,15 +306,13 @@
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+	SAFE_XCM_VERSION,
 };
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachains_common::{AccountId, AuraId, Balance <span class="kw">as </span>CollectivesBalance};
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>sp_core::sr25519;
-
-<span class="kw">pub type </span>CollectivesPolkadotChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-<span class="kw">pub type </span>CollectivesWestendChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="kw">const </span>COLLECTIVES_POLKADOT_ED: CollectivesBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
@@ -332,13 +328,13 @@
 	collectives_polkadot_runtime::SessionKeys { aura: keys }
 }
 
-<span class="kw">pub fn </span>collectives_polkadot_development_config() -&gt; CollectivesPolkadotChainSpec {
+<span class="kw">pub fn </span>collectives_polkadot_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">0</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;DOT&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">10</span>.into());
 
-	CollectivesPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_polkadot_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;polkadot-dev&quot;</span>.into(), para_id: <span class="number">1002 </span>},
@@ -368,13 +364,13 @@
 }
 
 <span class="doccomment">/// Collectives Polkadot Local Config.
-</span><span class="kw">pub fn </span>collectives_polkadot_local_config() -&gt; CollectivesPolkadotChainSpec {
+</span><span class="kw">pub fn </span>collectives_polkadot_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">0</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;DOT&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">10</span>.into());
 
-	CollectivesPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_polkadot_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;polkadot-local&quot;</span>.into(), para_id: <span class="number">1002 </span>},
@@ -462,13 +458,13 @@
 	collectives_westend_runtime::SessionKeys { aura: keys }
 }
 
-<span class="kw">pub fn </span>collectives_westend_development_config() -&gt; CollectivesWestendChainSpec {
+<span class="kw">pub fn </span>collectives_westend_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	CollectivesWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend-dev&quot;</span>.into(), para_id: <span class="number">1002 </span>},
@@ -498,13 +494,13 @@
 }
 
 <span class="doccomment">/// Collectives Westend Local Config.
-</span><span class="kw">pub fn </span>collectives_westend_local_config() -&gt; CollectivesWestendChainSpec {
+</span><span class="kw">pub fn </span>collectives_westend_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	CollectivesWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend-local&quot;</span>.into(), para_id: <span class="number">1002 </span>},

@@ -73,6 +73,9 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -124,6 +127,9 @@
 		sc_chain_spec::get_extension(chain_spec.extensions())
 	}
 }
+
+<span class="doccomment">/// Generic chain spec for all polkadot-parachain runtimes
+</span><span class="kw">pub type </span>GenericChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed
 </span><span class="kw">pub fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {

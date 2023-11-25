@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["glutton_config","glutton_development_config","glutton_genesis","glutton_local_config","glutton_westend_config","glutton_westend_development_config","glutton_westend_genesis","glutton_westend_local_config"],"type":["GluttonChainSpec","GluttonWestendChainSpec"]};
+window.SIDEBAR_ITEMS = {"fn":["glutton_config","glutton_development_config","glutton_genesis","glutton_local_config","glutton_westend_config","glutton_westend_development_config","glutton_westend_genesis","glutton_westend_local_config"]};

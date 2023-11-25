@@ -595,42 +595,6 @@
 <a href="#595" id="595">595</a>
 <a href="#596" id="596">596</a>
 <a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -647,12 +611,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
+</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachains_common::Balance <span class="kw">as </span>BridgeHubBalance;
 <span class="kw">use </span>sc_chain_spec::ChainSpec;
 <span class="kw">use </span>sp_core::sr25519;
-<span class="kw">use </span>std::{path::PathBuf, str::FromStr};
+<span class="kw">use </span>std::str::FromStr;
 
 <span class="doccomment">/// Collects all supported BridgeHub configurations
 </span><span class="attr">#[derive(Debug, PartialEq)]
@@ -704,33 +668,11 @@
 <span class="kw">impl </span>BridgeHubRuntimeType {
 	<span class="kw">pub const </span>ID_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;bridge-hub&quot;</span>;
 
-	<span class="kw">pub fn </span>chain_spec_from_json_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
-		<span class="kw">match </span><span class="self">self </span>{
-			BridgeHubRuntimeType::Polkadot |
-			BridgeHubRuntimeType::PolkadotLocal |
-			BridgeHubRuntimeType::PolkadotDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(polkadot::BridgeHubChainSpec::from_json_file(path)<span class="question-mark">?</span>)),
-			BridgeHubRuntimeType::Kusama |
-			BridgeHubRuntimeType::KusamaLocal |
-			BridgeHubRuntimeType::KusamaDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(kusama::BridgeHubChainSpec::from_json_file(path)<span class="question-mark">?</span>)),
-			BridgeHubRuntimeType::Westend |
-			BridgeHubRuntimeType::WestendLocal |
-			BridgeHubRuntimeType::WestendDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(westend::BridgeHubChainSpec::from_json_file(path)<span class="question-mark">?</span>)),
-			BridgeHubRuntimeType::Rococo |
-			BridgeHubRuntimeType::RococoLocal |
-			BridgeHubRuntimeType::RococoDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(rococo::BridgeHubChainSpec::from_json_file(path)<span class="question-mark">?</span>)),
-		}
-	}
-
 	<span class="kw">pub fn </span>load_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
-			BridgeHubRuntimeType::Polkadot =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(polkadot::BridgeHubChainSpec::from_json_bytes(
-					<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-polkadot.json&quot;</span>)[..],
-				)<span class="question-mark">?</span>)),
+			BridgeHubRuntimeType::Polkadot =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-polkadot.json&quot;</span>)[..],
+			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::PolkadotLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(polkadot::local_config(
 				polkadot::BRIDGE_HUB_POLKADOT_LOCAL,
 				<span class="string">&quot;Polkadot BridgeHub Local&quot;</span>,
@@ -743,10 +685,9 @@
 				<span class="string">&quot;polkadot-dev&quot;</span>,
 				ParaId::new(<span class="number">1002</span>),
 			))),
-			BridgeHubRuntimeType::Kusama =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(kusama::BridgeHubChainSpec::from_json_bytes(
-					<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-kusama.json&quot;</span>)[..],
-				)<span class="question-mark">?</span>)),
+			BridgeHubRuntimeType::Kusama =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-kusama.json&quot;</span>)[..],
+			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::KusamaLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(kusama::local_config(
 				kusama::BRIDGE_HUB_KUSAMA_LOCAL,
 				<span class="string">&quot;Kusama BridgeHub Local&quot;</span>,
@@ -759,10 +700,9 @@
 				<span class="string">&quot;kusama-dev&quot;</span>,
 				ParaId::new(<span class="number">1003</span>),
 			))),
-			BridgeHubRuntimeType::Westend =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(westend::BridgeHubChainSpec::from_json_bytes(
-					<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-westend.json&quot;</span>)[..],
-				)<span class="question-mark">?</span>)),
+			BridgeHubRuntimeType::Westend =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-westend.json&quot;</span>)[..],
+			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::WestendLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(westend::local_config(
 				westend::BRIDGE_HUB_WESTEND_LOCAL,
 				<span class="string">&quot;Westend BridgeHub Local&quot;</span>,
@@ -777,10 +717,9 @@
 				ParaId::new(<span class="number">1002</span>),
 				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
 			))),
-			BridgeHubRuntimeType::Rococo =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(rococo::BridgeHubChainSpec::from_json_bytes(
-					<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-rococo.json&quot;</span>)[..],
-				)<span class="question-mark">?</span>)),
+			BridgeHubRuntimeType::Rococo =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-rococo.json&quot;</span>)[..],
+			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::RococoLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(rococo::local_config(
 				rococo::BRIDGE_HUB_ROCOCO_LOCAL,
 				<span class="string">&quot;Rococo BridgeHub Local&quot;</span>,
@@ -817,7 +756,7 @@
 <span class="doccomment">/// Sub-module for Rococo setup
 </span><span class="kw">pub mod </span>rococo {
 	<span class="kw">use super</span>::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId};
 	<span class="kw">use </span>sc_chain_spec::ChainType;
 
@@ -829,9 +768,6 @@
 	<span class="kw">const </span>BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
 		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-	<span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-	</span><span class="kw">pub type </span>BridgeHubChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-
 	<span class="kw">pub fn </span>local_config&lt;ModifyProperties: Fn(<span class="kw-2">&amp;mut </span>sc_chain_spec::Properties)&gt;(
 		id: <span class="kw-2">&amp;</span>str,
 		chain_name: <span class="kw-2">&amp;</span>str,
@@ -839,7 +775,7 @@
 		para_id: ParaId,
 		bridges_pallet_owner_seed: <span class="prelude-ty">Option</span>&lt;String&gt;,
 		modify_props: ModifyProperties,
-	) -&gt; BridgeHubChainSpec {
+	) -&gt; GenericChainSpec {
 		<span class="comment">// Rococo defaults
 		</span><span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
@@ -847,7 +783,7 @@
 		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 		modify_props(<span class="kw-2">&amp;mut </span>properties);
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
 				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -936,7 +872,8 @@
 </span><span class="kw">pub mod </span>kusama {
 	<span class="kw">use super</span>::{BridgeHubBalance, ParaId};
 	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId};
 	<span class="kw">use </span>sc_chain_spec::ChainType;
@@ -948,21 +885,18 @@
 	<span class="kw">const </span>BRIDGE_HUB_KUSAMA_ED: BridgeHubBalance =
 		parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
-	<span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-	</span><span class="kw">pub type </span>BridgeHubChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-
 	<span class="kw">pub fn </span>local_config(
 		id: <span class="kw-2">&amp;</span>str,
 		chain_name: <span class="kw-2">&amp;</span>str,
 		relay_chain: <span class="kw-2">&amp;</span>str,
 		para_id: ParaId,
-	) -&gt; BridgeHubChainSpec {
+	) -&gt; GenericChainSpec {
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">2</span>.into());
 		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;KSM&quot;</span>.into());
 		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_kusama_runtime::WASM_BINARY
 				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -1044,7 +978,7 @@
 <span class="doccomment">/// Sub-module for Westend setup.
 </span><span class="kw">pub mod </span>westend {
 	<span class="kw">use super</span>::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId};
 	<span class="kw">use </span>sc_chain_spec::ChainType;
 
@@ -1056,22 +990,18 @@
 	<span class="kw">const </span>BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
 		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
-	<span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-	</span><span class="kw">pub type </span>BridgeHubChainSpec =
-		sc_service::GenericChainSpec&lt;bridge_hub_westend_runtime::RuntimeGenesisConfig, Extensions&gt;;
-
 	<span class="kw">pub fn </span>local_config(
 		id: <span class="kw-2">&amp;</span>str,
 		chain_name: <span class="kw-2">&amp;</span>str,
 		relay_chain: <span class="kw-2">&amp;</span>str,
 		para_id: ParaId,
 		bridges_pallet_owner_seed: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	) -&gt; BridgeHubChainSpec {
+	) -&gt; GenericChainSpec {
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
 		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
 				.expect(<span class="string">&quot;WASM binary was not build, please build it!&quot;</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -1160,7 +1090,8 @@
 </span><span class="kw">pub mod </span>polkadot {
 	<span class="kw">use super</span>::{BridgeHubBalance, ParaId};
 	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId};
 	<span class="kw">use </span>sc_chain_spec::ChainType;
@@ -1172,21 +1103,18 @@
 	<span class="kw">const </span>BRIDGE_HUB_POLKADOT_ED: BridgeHubBalance =
 		parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
-	<span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-	</span><span class="kw">pub type </span>BridgeHubChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-
 	<span class="kw">pub fn </span>local_config(
 		id: <span class="kw-2">&amp;</span>str,
 		chain_name: <span class="kw-2">&amp;</span>str,
 		relay_chain: <span class="kw-2">&amp;</span>str,
 		para_id: ParaId,
-	) -&gt; BridgeHubChainSpec {
+	) -&gt; GenericChainSpec {
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">0</span>.into());
 		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;DOT&quot;</span>.into());
 		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">10</span>.into());
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_polkadot_runtime::WASM_BINARY
 				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },

@@ -52,9 +52,6 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -71,7 +68,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, Extensions};
+</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, Extensions, GenericChainSpec};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachains_common::{AccountId, AuraId};
 <span class="kw">use </span>sc_service::ChainType;
@@ -79,11 +76,8 @@
 
 <span class="kw">use </span><span class="kw">super</span>::get_collator_keys_from_seed;
 
-<span class="doccomment">/// Specialized `ChainSpec` for the seedling parachain runtime.
-</span><span class="kw">pub type </span>SeedlingChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-
-<span class="kw">pub fn </span>get_seedling_chain_spec() -&gt; SeedlingChainSpec {
-	SeedlingChainSpec::builder(
+<span class="kw">pub fn </span>get_seedling_chain_spec() -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		seedling_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: <span class="number">2000 </span>},
 	)

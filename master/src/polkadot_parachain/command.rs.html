@@ -1065,52 +1065,6 @@
 <a href="#1065" id="1065">1065</a>
 <a href="#1066" id="1066">1066</a>
 <a href="#1067" id="1067">1067</a>
-<a href="#1068" id="1068">1068</a>
-<a href="#1069" id="1069">1069</a>
-<a href="#1070" id="1070">1070</a>
-<a href="#1071" id="1071">1071</a>
-<a href="#1072" id="1072">1072</a>
-<a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
-<a href="#1075" id="1075">1075</a>
-<a href="#1076" id="1076">1076</a>
-<a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1129,6 +1083,7 @@
 
 </span><span class="kw">use crate</span>::{
 	chain_spec,
+	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	fake_runtime_api::{
 		asset_hub_polkadot_aura::RuntimeApi <span class="kw">as </span>AssetHubPolkadotRuntimeApi, aura::RuntimeApi,
@@ -1241,18 +1196,15 @@
 		<span class="comment">// - Defaul-like
 		</span><span class="string">&quot;staging&quot; </span>=&gt;
 			Box::new(chain_spec::rococo_parachain::staging_rococo_parachain_local_config()),
-		<span class="string">&quot;tick&quot; </span>=&gt;
-			Box::new(chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/tick.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
-		<span class="string">&quot;trick&quot; </span>=&gt;
-			Box::new(chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/trick.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
-		<span class="string">&quot;track&quot; </span>=&gt;
-			Box::new(chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/track.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		<span class="string">&quot;tick&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/tick.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
+		<span class="string">&quot;trick&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/trick.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
+		<span class="string">&quot;track&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/track.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Starters
 		</span><span class="string">&quot;shell&quot; </span>=&gt; Box::new(chain_spec::shell::get_shell_chain_spec()),
@@ -1267,10 +1219,9 @@
 		</span><span class="string">&quot;asset-hub-polkadot-genesis&quot; </span>| <span class="string">&quot;statemint-genesis&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_polkadot_config()),
 		<span class="comment">// the shell-based chain spec as used for syncing
-		</span><span class="string">&quot;asset-hub-polkadot&quot; </span>| <span class="string">&quot;statemint&quot; </span>=&gt;
-			Box::new(chain_spec::asset_hubs::AssetHubPolkadotChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-polkadot.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		</span><span class="string">&quot;asset-hub-polkadot&quot; </span>| <span class="string">&quot;statemint&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-polkadot.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Asset Hub Kusama
 		</span><span class="string">&quot;asset-hub-kusama-dev&quot; </span>| <span class="string">&quot;statemine-dev&quot; </span>=&gt;
@@ -1281,10 +1232,9 @@
 		</span><span class="string">&quot;asset-hub-kusama-genesis&quot; </span>| <span class="string">&quot;statemine-genesis&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_kusama_config()),
 		<span class="comment">// the shell-based chain spec as used for syncing
-		</span><span class="string">&quot;asset-hub-kusama&quot; </span>| <span class="string">&quot;statemine&quot; </span>=&gt;
-			Box::new(chain_spec::asset_hubs::AssetHubKusamaChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-kusama.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		</span><span class="string">&quot;asset-hub-kusama&quot; </span>| <span class="string">&quot;statemine&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-kusama.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Asset Hub Rococo
 		</span><span class="string">&quot;asset-hub-rococo-dev&quot; </span>=&gt;
@@ -1294,10 +1244,9 @@
 		<span class="comment">// the chain spec as used for generating the upgrade genesis values
 		</span><span class="string">&quot;asset-hub-rococo-genesis&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_genesis_config()),
-		<span class="string">&quot;asset-hub-rococo&quot; </span>=&gt;
-			Box::new(chain_spec::asset_hubs::AssetHubRococoChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-rococo.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		<span class="string">&quot;asset-hub-rococo&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-rococo.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Asset Hub Westend
 		</span><span class="string">&quot;asset-hub-westend-dev&quot; </span>| <span class="string">&quot;westmint-dev&quot; </span>=&gt;
@@ -1308,28 +1257,25 @@
 		</span><span class="string">&quot;asset-hub-westend-genesis&quot; </span>| <span class="string">&quot;westmint-genesis&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_westend_config()),
 		<span class="comment">// the shell-based chain spec as used for syncing
-		</span><span class="string">&quot;asset-hub-westend&quot; </span>| <span class="string">&quot;westmint&quot; </span>=&gt;
-			Box::new(chain_spec::asset_hubs::AssetHubWestendChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-westend.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		</span><span class="string">&quot;asset-hub-westend&quot; </span>| <span class="string">&quot;westmint&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-westend.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Polkadot Collectives
 		</span><span class="string">&quot;collectives-polkadot-dev&quot; </span>=&gt;
 			Box::new(chain_spec::collectives::collectives_polkadot_development_config()),
 		<span class="string">&quot;collectives-polkadot-local&quot; </span>=&gt;
 			Box::new(chain_spec::collectives::collectives_polkadot_local_config()),
-		<span class="string">&quot;collectives-polkadot&quot; </span>=&gt;
-			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-polkadot.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		<span class="string">&quot;collectives-polkadot&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-polkadot.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 		<span class="string">&quot;collectives-westend-dev&quot; </span>=&gt;
 			Box::new(chain_spec::collectives::collectives_westend_development_config()),
 		<span class="string">&quot;collectives-westend-local&quot; </span>=&gt;
 			Box::new(chain_spec::collectives::collectives_westend_local_config()),
-		<span class="string">&quot;collectives-westend&quot; </span>=&gt;
-			Box::new(chain_spec::collectives::CollectivesWestendChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-westend.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		<span class="string">&quot;collectives-westend&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-westend.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Contracts on Rococo
 		</span><span class="string">&quot;contracts-rococo-dev&quot; </span>=&gt;
@@ -1337,10 +1283,9 @@
 		<span class="string">&quot;contracts-rococo-local&quot; </span>=&gt;
 			Box::new(chain_spec::contracts::contracts_rococo_local_config()),
 		<span class="string">&quot;contracts-rococo-genesis&quot; </span>=&gt; Box::new(chain_spec::contracts::contracts_rococo_config()),
-		<span class="string">&quot;contracts-rococo&quot; </span>=&gt;
-			Box::new(chain_spec::contracts::ContractsRococoChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/contracts-rococo.json&quot;</span>)[..],
-			)<span class="question-mark">?</span>),
+		<span class="string">&quot;contracts-rococo&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/contracts-rococo.json&quot;</span>)[..],
+		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- BridgeHub
 		</span>bridge_like_id
@@ -1392,44 +1337,7 @@
 		},
 
 		<span class="comment">// -- Loading a specific spec from disk
-		</span>path =&gt; {
-			<span class="kw">let </span>path: PathBuf = path.into();
-			<span class="kw">match </span>path.runtime() {
-				Runtime::AssetHubPolkadot =&gt; Box::new(
-					chain_spec::asset_hubs::AssetHubPolkadotChainSpec::from_json_file(path)<span class="question-mark">?</span>,
-				),
-				Runtime::AssetHubKusama =&gt;
-					Box::new(chain_spec::asset_hubs::AssetHubKusamaChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::AssetHubRococo =&gt;
-					Box::new(chain_spec::asset_hubs::AssetHubRococoChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::AssetHubWestend =&gt; Box::new(
-					chain_spec::asset_hubs::AssetHubWestendChainSpec::from_json_file(path)<span class="question-mark">?</span>,
-				),
-				Runtime::CollectivesPolkadot =&gt; Box::new(
-					chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_file(path)<span class="question-mark">?</span>,
-				),
-				Runtime::CollectivesWestend =&gt; Box::new(
-					chain_spec::collectives::CollectivesWestendChainSpec::from_json_file(path)<span class="question-mark">?</span>,
-				),
-				Runtime::Shell =&gt;
-					Box::new(chain_spec::shell::ShellChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::Seedling =&gt;
-					Box::new(chain_spec::seedling::SeedlingChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::ContractsRococo =&gt;
-					Box::new(chain_spec::contracts::ContractsRococoChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::BridgeHub(bridge_hub_runtime_type) =&gt;
-					bridge_hub_runtime_type.chain_spec_from_json_file(path)<span class="question-mark">?</span>,
-				Runtime::Penpal(_para_id) =&gt;
-					Box::new(chain_spec::penpal::PenpalChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::GluttonWestend =&gt;
-					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::Glutton =&gt;
-					Box::new(chain_spec::glutton::GluttonChainSpec::from_json_file(path)<span class="question-mark">?</span>),
-				Runtime::Default =&gt; Box::new(
-					chain_spec::rococo_parachain::RococoParachainChainSpec::from_json_file(path)<span class="question-mark">?</span>,
-				),
-			}
-		},
+		</span>path =&gt; Box::new(GenericChainSpec::from_json_file(path.into())<span class="question-mark">?</span>),
 	})
 }
 

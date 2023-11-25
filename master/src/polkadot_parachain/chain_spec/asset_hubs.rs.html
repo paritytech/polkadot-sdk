@@ -753,15 +753,6 @@
 <a href="#753" id="753">753</a>
 <a href="#754" id="754">754</a>
 <a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -779,23 +770,14 @@
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+	SAFE_XCM_VERSION,
 };
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>hex_literal::hex;
 <span class="kw">use </span>parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance <span class="kw">as </span>AssetHubBalance};
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>sp_core::{crypto::UncheckedInto, sr25519};
-
-<span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-</span><span class="kw">pub type </span>AssetHubPolkadotChainSpec =
-	sc_service::GenericChainSpec&lt;asset_hub_polkadot_runtime::RuntimeGenesisConfig, Extensions&gt;;
-<span class="kw">pub type </span>AssetHubKusamaChainSpec =
-	sc_service::GenericChainSpec&lt;asset_hub_kusama_runtime::RuntimeGenesisConfig, Extensions&gt;;
-<span class="kw">pub type </span>AssetHubWestendChainSpec =
-	sc_service::GenericChainSpec&lt;asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions&gt;;
-<span class="kw">pub type </span>AssetHubRococoChainSpec =
-	sc_service::GenericChainSpec&lt;asset_hub_rococo_runtime::RuntimeGenesisConfig, Extensions&gt;;
 
 <span class="kw">const </span>ASSET_HUB_POLKADOT_ED: AssetHubBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
@@ -836,13 +818,13 @@
 	asset_hub_westend_runtime::SessionKeys { aura: keys }
 }
 
-<span class="kw">pub fn </span>asset_hub_polkadot_development_config() -&gt; AssetHubPolkadotChainSpec {
+<span class="kw">pub fn </span>asset_hub_polkadot_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">0</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;DOT&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">10</span>.into());
 
-	AssetHubPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;polkadot-dev&quot;</span>.into(), para_id: <span class="number">1000 </span>},
@@ -868,13 +850,13 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>asset_hub_polkadot_local_config() -&gt; AssetHubPolkadotChainSpec {
+<span class="kw">pub fn </span>asset_hub_polkadot_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">0</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;DOT&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">10</span>.into());
 
-	AssetHubPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;polkadot-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
@@ -916,13 +898,13 @@
 }
 
 <span class="comment">// Not used for syncing, but just to determine the genesis values set for the upgrade from shell.
-</span><span class="kw">pub fn </span>asset_hub_polkadot_config() -&gt; AssetHubPolkadotChainSpec {
+</span><span class="kw">pub fn </span>asset_hub_polkadot_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">0</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;DOT&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">10</span>.into());
 
-	AssetHubPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;polkadot&quot;</span>.into(), para_id: <span class="number">1000 </span>},
@@ -1013,13 +995,13 @@
 	})
 }
 
-<span class="kw">pub fn </span>asset_hub_kusama_development_config() -&gt; AssetHubKusamaChainSpec {
+<span class="kw">pub fn </span>asset_hub_kusama_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">2</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;KSM&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	AssetHubKusamaChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_kusama_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;kusama-dev&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)
@@ -1044,13 +1026,13 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>asset_hub_kusama_local_config() -&gt; AssetHubKusamaChainSpec {
+<span class="kw">pub fn </span>asset_hub_kusama_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">2</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;KSM&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	AssetHubKusamaChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_kusama_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;kusama-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)
@@ -1089,13 +1071,13 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>asset_hub_kusama_config() -&gt; AssetHubKusamaChainSpec {
+<span class="kw">pub fn </span>asset_hub_kusama_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">2</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;KSM&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	AssetHubKusamaChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_kusama_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;kusama&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)
@@ -1171,12 +1153,12 @@
 	})
 }
 
-<span class="kw">pub fn </span>asset_hub_westend_development_config() -&gt; AssetHubWestendChainSpec {
+<span class="kw">pub fn </span>asset_hub_westend_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	AssetHubWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: <span class="number">1000 </span>},
@@ -1203,12 +1185,12 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>asset_hub_westend_local_config() -&gt; AssetHubWestendChainSpec {
+<span class="kw">pub fn </span>asset_hub_westend_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	AssetHubWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
@@ -1249,12 +1231,12 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>asset_hub_westend_config() -&gt; AssetHubWestendChainSpec {
+<span class="kw">pub fn </span>asset_hub_westend_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-	AssetHubWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: <span class="number">1000 </span>},
@@ -1333,7 +1315,7 @@
 	})
 }
 
-<span class="kw">pub fn </span>asset_hub_rococo_development_config() -&gt; AssetHubRococoChainSpec {
+<span class="kw">pub fn </span>asset_hub_rococo_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
@@ -1351,8 +1333,8 @@
 	name: <span class="kw-2">&amp;</span>str,
 	chain_id: <span class="kw-2">&amp;</span>str,
 	para_id: u32,
-) -&gt; AssetHubRococoChainSpec {
-	AssetHubRococoChainSpec::builder(
+) -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;rococo-dev&quot;</span>.into(), para_id },
 	)
@@ -1378,7 +1360,7 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>asset_hub_rococo_local_config() -&gt; AssetHubRococoChainSpec {
+<span class="kw">pub fn </span>asset_hub_rococo_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
@@ -1396,8 +1378,8 @@
 	name: <span class="kw-2">&amp;</span>str,
 	chain_id: <span class="kw-2">&amp;</span>str,
 	para_id: u32,
-) -&gt; AssetHubRococoChainSpec {
-	AssetHubRococoChainSpec::builder(
+) -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), para_id },
 	)
@@ -1437,12 +1419,12 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>asset_hub_rococo_genesis_config() -&gt; AssetHubRococoChainSpec {
+<span class="kw">pub fn </span>asset_hub_rococo_genesis_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 	<span class="kw">let </span>para_id = <span class="number">1000</span>;
-	AssetHubRococoChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;rococo&quot;</span>.into(), para_id },
 	)

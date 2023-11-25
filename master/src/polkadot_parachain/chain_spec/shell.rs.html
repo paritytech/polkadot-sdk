@@ -43,9 +43,6 @@
 <a href="#43" id="43">43</a>
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
-<a href="#46" id="46">46</a>
-<a href="#47" id="47">47</a>
-<a href="#48" id="48">48</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -62,18 +59,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::Extensions;
+</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{Extensions, GenericChainSpec};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachains_common::AuraId;
 <span class="kw">use </span>sc_service::ChainType;
 
 <span class="kw">use </span><span class="kw">super</span>::get_collator_keys_from_seed;
 
-<span class="doccomment">/// Specialized `ChainSpec` for the shell parachain runtime.
-</span><span class="kw">pub type </span>ShellChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-
-<span class="kw">pub fn </span>get_shell_chain_spec() -&gt; ShellChainSpec {
-	ShellChainSpec::builder(
+<span class="kw">pub fn </span>get_shell_chain_spec() -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		shell_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)

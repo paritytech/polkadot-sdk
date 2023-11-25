@@ -100,8 +100,6 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -120,7 +118,7 @@
 
 </span><span class="doccomment">//! ChainSpecs dedicated to Rococo parachain setups (for testing and example purposes)
 
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_from_seed, Extensions, SAFE_XCM_VERSION};
+</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_from_seed, Extensions, GenericChainSpec, SAFE_XCM_VERSION};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>hex_literal::hex;
 <span class="kw">use </span>parachains_common::AccountId;
@@ -129,10 +127,8 @@
 <span class="kw">use </span>sc_chain_spec::ChainType;
 <span class="kw">use </span>sp_core::{crypto::UncheckedInto, sr25519};
 
-<span class="kw">pub type </span>RococoParachainChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
-
-<span class="kw">pub fn </span>rococo_parachain_local_config() -&gt; RococoParachainChainSpec {
-	RococoParachainChainSpec::builder(
+<span class="kw">pub fn </span>rococo_parachain_local_config() -&gt; GenericChainSpec {
+	GenericChainSpec::builder(
 		rococo_parachain_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)
@@ -161,9 +157,9 @@
 	.build()
 }
 
-<span class="kw">pub fn </span>staging_rococo_parachain_local_config() -&gt; RococoParachainChainSpec {
+<span class="kw">pub fn </span>staging_rococo_parachain_local_config() -&gt; GenericChainSpec {
 	<span class="attr">#[allow(deprecated)]
-	</span>RococoParachainChainSpec::builder(
+	</span>GenericChainSpec::builder(
 		rococo_parachain_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions { relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
 	)

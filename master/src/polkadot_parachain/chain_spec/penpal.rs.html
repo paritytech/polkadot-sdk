@@ -118,7 +118,6 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -136,23 +135,22 @@
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+	SAFE_XCM_VERSION,
 };
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachains_common::{AccountId, AuraId};
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>sp_core::sr25519;
-<span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-</span><span class="kw">pub type </span>PenpalChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
 
-<span class="kw">pub fn </span>get_penpal_chain_spec(id: ParaId, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; PenpalChainSpec {
+<span class="kw">pub fn </span>get_penpal_chain_spec(id: ParaId, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
 	<span class="comment">// Give your base currency a unit name and decimal places
 	</span><span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;UNIT&quot;</span>.into());
 	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12u32</span>.into());
 	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42u32</span>.into());
 
-	PenpalChainSpec::builder(
+	GenericChainSpec::builder(
 		penpal_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
 		Extensions {
 			relay_chain: relay_chain.into(), <span class="comment">// You MUST set this to the correct network!
