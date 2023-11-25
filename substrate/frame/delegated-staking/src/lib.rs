@@ -23,15 +23,13 @@ use frame_support::{
 	traits::{
 		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
 		tokens::{Fortitude, Precision, Preservation},
-		ExistenceRequirement,
 	},
 };
-use frame_system::pallet_prelude::*;
 use pallet::*;
-use sp_runtime::{traits::Zero, DispatchError, RuntimeDebug, Saturating};
+use sp_runtime::{traits::Zero, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{Delegatee, Delegator},
-	EraIndex, Stake, StakerStatus, StakingInterface,
+	StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
