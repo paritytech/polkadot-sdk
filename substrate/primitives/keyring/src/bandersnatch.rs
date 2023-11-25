@@ -20,7 +20,6 @@
 pub use sp_core::bandersnatch;
 use sp_core::{
 	bandersnatch::{Pair, Public, Signature},
-	const_hex2array::hex2array as hex2arr,
 	crypto::UncheckedFrom,
 	ByteArray, Pair as PairT,
 };
@@ -139,25 +138,34 @@ impl From<Keyring> for Pair {
 	}
 }
 
+mod keys {
+	use sp_core::const_hex2array::hex2array as hex2arr;
+	macro_rules! pubkey {
+		($n:ident,$v:tt) => {
+			pub const $n: [u8; crate::bandersnatch::PUBLIC_RAW_LEN] = hex2arr($v);
+		};
+	}
+	pubkey!(ALICE, "9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180");
+	pubkey!(BOB, "1abfbb76dc8374a1a6d93d59a5c81f07c18835f4681a6258aa0f514d363bff4780");
+	pubkey!(CHARLIE, "0f4a9990aca3d39a7cd8bf187e2e81a9ea6f9cedb2db405f2fffff384c5dd02680");
+	pubkey!(DAVE, "bd7a87d4dfa89926a408b5acbed554ae3b053fa3532531053295cbabf07d337000");
+	pubkey!(EVE, "f992d5b8eac8fc004d521bee6edc1174cfa7fae3a1baec8262511ee351f9f85e00");
+	pubkey!(FERDIE, "1ce2613e89bc5c8e358aad884099cfb576a61176f2f9968cd0d486a04457245180");
+	pubkey!(ONE, "a29e03ac273e521274d8e501a6242abd2ab393d7e197221a9113bdf8e2e5b34d00");
+	pubkey!(TWO, "f968d47e819ddb18a9d0f2ebd16501680b1a3f07ee375c6f81310e5f99a04f4d00");
+}
+
 impl From<Keyring> for [u8; PUBLIC_RAW_LEN] {
 	fn from(k: Keyring) -> Self {
 		match k {
-			Keyring::Alice =>
-				hex2arr("9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180"),
-			Keyring::Bob =>
-				hex2arr("1abfbb76dc8374a1a6d93d59a5c81f07c18835f4681a6258aa0f514d363bff4780"),
-			Keyring::Charlie =>
-				hex2arr("0f4a9990aca3d39a7cd8bf187e2e81a9ea6f9cedb2db405f2fffff384c5dd02680"),
-			Keyring::Dave =>
-				hex2arr("bd7a87d4dfa89926a408b5acbed554ae3b053fa3532531053295cbabf07d337000"),
-			Keyring::Eve =>
-				hex2arr("f992d5b8eac8fc004d521bee6edc1174cfa7fae3a1baec8262511ee351f9f85e00"),
-			Keyring::Ferdie =>
-				hex2arr("1ce2613e89bc5c8e358aad884099cfb576a61176f2f9968cd0d486a04457245180"),
-			Keyring::One =>
-				hex2arr("a29e03ac273e521274d8e501a6242abd2ab393d7e197221a9113bdf8e2e5b34d00"),
-			Keyring::Two =>
-				hex2arr("f968d47e819ddb18a9d0f2ebd16501680b1a3f07ee375c6f81310e5f99a04f4d00"),
+			Keyring::Alice => keys::ALICE,
+			Keyring::Bob => keys::BOB,
+			Keyring::Charlie => keys::CHARLIE,
+			Keyring::Dave => keys::DAVE,
+			Keyring::Eve => keys::EVE,
+			Keyring::Ferdie => keys::FERDIE,
+			Keyring::One => keys::ONE,
+			Keyring::Two => keys::TWO,
 		}
 	}
 }
@@ -189,12 +197,5 @@ mod tests {
 	fn verify_static_public_keys() {
 		assert!(Keyring::iter()
 			.all(|k| { k.pair().public().as_ref() == <[u8; PUBLIC_RAW_LEN]>::from(k) }));
-		// little helper to print out public keys hex string
-		// use array_bytes::Hex;
-		// Keyring::iter().map(|i| (i, i.pair())).for_each(|(name, pair)| {
-		// 	let public = pair.public();
-		// 	let bytes: &[u8; PUBLIC_RAW_LEN] = public.as_ref();
-		// 	println!("Keyring::{} => hex2arr({:?}),", name, bytes.hex(""));
-		// });
 	}
 }
