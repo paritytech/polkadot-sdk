@@ -23,6 +23,13 @@ sp-staking = { path = "../../primitives/staking", default-features = false }
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io" }
+substrate-test-utils = { path = "../../test-utils" }
+sp-tracing = { path = "../../primitives/tracing" }
+pallet-staking = { path = "../staking" }
+pallet-balances = { path = "../balances" }
+pallet-timestamp = { path = "../timestamp" }
+pallet-staking-reward-curve = { path = "../staking/reward-curve" }
+frame-election-provider-support = { path = "../election-provider-support", default-features = false}
 
 [features]
 default = [ "std" ]
@@ -36,15 +43,27 @@ std = [
     "sp-std/std",
     "sp-runtime/std",
     "sp-staking/std",
+    "pallet-balances/std",
+    "pallet-staking/std",
+    "pallet-timestamp/std",
+    "frame-election-provider-support/std",
 ]
 runtime-benchmarks = [
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
     "sp-staking/runtime-benchmarks",
+    "pallet-balances/runtime-benchmarks",
+    "pallet-staking/runtime-benchmarks",
+    "pallet-timestamp/runtime-benchmarks",
+    "frame-election-provider-support/runtime-benchmarks",
 ]
 try-runtime = [
     "frame-support/try-runtime",
     "frame-system/try-runtime",
     "sp-runtime/try-runtime",
+    "pallet-balances/try-runtime",
+    "pallet-staking/try-runtime",
+    "pallet-timestamp/try-runtime",
+    "frame-election-provider-support/try-runtime",
 ]
