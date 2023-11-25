@@ -19,6 +19,7 @@
 
 pub use sp_core::sr25519;
 use sp_core::{
+	const_hex2array::hex2array as hex2arr,
 	sr25519::{Pair, Public, Signature},
 	ByteArray, Pair as PairT, H256,
 };
@@ -181,46 +182,44 @@ impl From<Keyring> for Pair {
 	}
 }
 
-mod keys {
-	use sp_core::const_hex2array::hex2array as hex2arr;
-	macro_rules! pubkey {
-		($n:ident,$v:tt) => {
-			pub const $n: [u8; 32] = hex2arr($v);
-		};
-	}
-	pubkey!(ALICE, "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d");
-	pubkey!(BOB, "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48");
-	pubkey!(CHARLIE, "90b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22");
-	pubkey!(DAVE, "306721211d5404bd9da88e0204360a1a9ab8b87c66c1bc2fcdd37f3c2222cc20");
-	pubkey!(EVE, "e659a7a1628cdd93febc04a4e0646ea20e9f5f0ce097d9a05290d4a9e054df4e");
-	pubkey!(FERDIE, "1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c");
-	pubkey!(ALICESTASH, "be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25f");
-	pubkey!(BOBSTASH, "fe65717dad0447d715f660a0a58411de509b42e6efb8375f562f58a554d5860e");
-	pubkey!(CHARLIESTASH, "1e07379407fecc4b89eb7dbd287c2c781cfb1907a96947a3eb18e4f8e7198625");
-	pubkey!(DAVESTASH, "e860f1b1c7227f7c22602f53f15af80747814dffd839719731ee3bba6edc126c");
-	pubkey!(EVESTASH, "8ac59e11963af19174d0b94d5d78041c233f55d2e19324665bafdfb62925af2d");
-	pubkey!(FERDIESTASH, "101191192fc877c24d725b337120fa3edc63d227bbc92705db1e2cb65f56981a");
-	pubkey!(ONE, "ac859f8a216eeb1b320b4c76d118da3d7407fa523484d0a980126d3b4d0d220a");
-	pubkey!(TWO, "1254f7017f0b8347ce7ab14f96d818802e7e9e0c0d1b7c9acb3c726b080e7a03");
+macro_rules! hex2arr {
+	($input:expr) => {{
+		const PUBLIC_BYTES: [u8; 32] = hex2arr($input);
+		PUBLIC_BYTES
+	}};
 }
 
 impl From<Keyring> for [u8; 32] {
 	fn from(k: Keyring) -> Self {
 		match k {
-			Keyring::Alice => keys::ALICE,
-			Keyring::Bob => keys::BOB,
-			Keyring::Charlie => keys::CHARLIE,
-			Keyring::Dave => keys::DAVE,
-			Keyring::Eve => keys::EVE,
-			Keyring::Ferdie => keys::FERDIE,
-			Keyring::AliceStash => keys::ALICESTASH,
-			Keyring::BobStash => keys::BOBSTASH,
-			Keyring::CharlieStash => keys::CHARLIESTASH,
-			Keyring::DaveStash => keys::DAVESTASH,
-			Keyring::EveStash => keys::EVESTASH,
-			Keyring::FerdieStash => keys::FERDIESTASH,
-			Keyring::One => keys::ONE,
-			Keyring::Two => keys::TWO,
+			Keyring::Alice =>
+				hex2arr!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"),
+			Keyring::Bob =>
+				hex2arr!("8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"),
+			Keyring::Charlie =>
+				hex2arr!("90b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22"),
+			Keyring::Dave =>
+				hex2arr!("306721211d5404bd9da88e0204360a1a9ab8b87c66c1bc2fcdd37f3c2222cc20"),
+			Keyring::Eve =>
+				hex2arr!("e659a7a1628cdd93febc04a4e0646ea20e9f5f0ce097d9a05290d4a9e054df4e"),
+			Keyring::Ferdie =>
+				hex2arr!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c"),
+			Keyring::AliceStash =>
+				hex2arr!("be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25f"),
+			Keyring::BobStash =>
+				hex2arr!("fe65717dad0447d715f660a0a58411de509b42e6efb8375f562f58a554d5860e"),
+			Keyring::CharlieStash =>
+				hex2arr!("1e07379407fecc4b89eb7dbd287c2c781cfb1907a96947a3eb18e4f8e7198625"),
+			Keyring::DaveStash =>
+				hex2arr!("e860f1b1c7227f7c22602f53f15af80747814dffd839719731ee3bba6edc126c"),
+			Keyring::EveStash =>
+				hex2arr!("8ac59e11963af19174d0b94d5d78041c233f55d2e19324665bafdfb62925af2d"),
+			Keyring::FerdieStash =>
+				hex2arr!("101191192fc877c24d725b337120fa3edc63d227bbc92705db1e2cb65f56981a"),
+			Keyring::One =>
+				hex2arr!("ac859f8a216eeb1b320b4c76d118da3d7407fa523484d0a980126d3b4d0d220a"),
+			Keyring::Two =>
+				hex2arr!("1254f7017f0b8347ce7ab14f96d818802e7e9e0c0d1b7c9acb3c726b080e7a03"),
 		}
 	}
 }
@@ -257,5 +256,12 @@ mod tests {
 	#[test]
 	fn verify_static_public_keys() {
 		assert!(Keyring::iter().all(|k| { k.pair().public().as_ref() == <[u8; 32]>::from(k) }));
+		// little helper to print out public keys hex string
+		// use array_bytes::Hex;
+		// Keyring::iter().map(|i| (i, i.pair())).for_each(|(name, pair)| {
+		// 	let public = pair.public();
+		// 	let bytes: &[u8; 32] = public.as_ref();
+		// 	println!("Keyring::{}: {:?}", name, bytes.hex(""));
+		// });
 	}
 }
