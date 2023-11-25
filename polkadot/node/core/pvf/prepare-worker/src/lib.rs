@@ -29,13 +29,15 @@ use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use libc;
+#[cfg(not(target_os = "linux"))]
+use nix::unistd::ForkResult;
 use nix::{
 	errno::Errno,
 	sys::{
 		resource::{Usage, UsageWho},
 		wait::WaitStatus,
 	},
-	unistd::{ForkResult, Pid},
+	unistd::Pid,
 };
 
 #[cfg(target_os = "linux")]
@@ -233,8 +235,7 @@ pub fn worker_entrypoint(
 				};
 
 				cfg_if::cfg_if! {
-					if #[cfg(any(target_os = "linux"))
-					] {
+					if #[cfg(any(target_os = "linux"))] {
 						let stack = 1024 * 1024;
 						let mut stack: Vec<u8> = vec![0u8; stack];
 						let flags = CloneFlags::CLONE_NEWCGROUP
