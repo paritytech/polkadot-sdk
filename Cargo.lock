@@ -10775,6 +10775,8 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-staking",
  "sp-std 8.0.0",
 ]
 

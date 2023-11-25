@@ -32,7 +32,7 @@ use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 pub mod offence;
 
 pub mod currency_to_vote;
-mod delegation;
+pub mod delegation;
 
 /// Simple index type with which we can count sessions.
 pub type SessionIndex = u32;
