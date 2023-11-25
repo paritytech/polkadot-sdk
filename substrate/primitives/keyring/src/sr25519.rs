@@ -256,12 +256,5 @@ mod tests {
 	#[test]
 	fn verify_static_public_keys() {
 		assert!(Keyring::iter().all(|k| { k.pair().public().as_ref() == <[u8; 32]>::from(k) }));
-		// little helper to print out public keys hex string
-		// use array_bytes::Hex;
-		// Keyring::iter().map(|i| (i, i.pair())).for_each(|(name, pair)| {
-		// 	let public = pair.public();
-		// 	let bytes: &[u8; 32] = public.as_ref();
-		// 	println!("Keyring::{}: {:?}", name, bytes.hex(""));
-		// });
 	}
 }
