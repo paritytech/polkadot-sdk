@@ -201,6 +201,52 @@ impl<T: Config> Delegatee for Pallet<T> {
 		}
 	}
 
+	fn withdraw(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
+			Some((current_delegatee, delegate_balance)) => {
+				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::NotDelegatee);
+				ensure!(*delegate_balance >= value, Error::<T>::NotAllowed);
+
+				delegate_balance.saturating_reduce(value);
+
+				if *delegate_balance == BalanceOf::<T>::zero() {
+					*maybe_delegate = None;
+				}
+				Ok(())
+			},
+			None => {
+				// delegator does not exist
+				return Err(Error::<T>::NotAllowed)
+			},
+		})?;
+
+		<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
+			Some(ledger) => {
+				ledger.balance.saturating_reduce(value);
+				Ok(())
+			},
+			None => {
+				// Delegatee not found
+				return Err(Error::<T>::NotDelegatee)
+			},
+		})?;
+
+		let released = T::Currency::release(
+			&HoldReason::Delegating.into(),
+			&delegator,
+			value,
+			Precision::BestEffort,
+		)?;
+
+		defensive_assert!(released == value, "hold should have been released fully");
+
+		Ok(())
+	}
+
 	fn apply_slash(
 		delegatee: &Self::AccountId,
 		delegator: &Self::AccountId,
@@ -243,8 +289,13 @@ impl<T: Config> Delegatee for Pallet<T> {
 
 		// try transferring the staked amount. This should never fail but if it does, it indicates
 		// bad state and we abort.
-		T::Currency::transfer(new_delegatee, proxy_delegator, stake.total, Preservation::Expendable)
-			.map_err(|_| Error::<T>::BadState)?;
+		T::Currency::transfer(
+			new_delegatee,
+			proxy_delegator,
+			stake.total,
+			Preservation::Expendable,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
 
 		// delegate from new delegator to staker.
 		Self::accept_delegations(new_delegatee, payee)?;
@@ -302,58 +353,27 @@ impl<T: Config> Delegator for Pallet<T> {
 		todo!()
 	}
 
-	fn withdraw(
-		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> sp_runtime::DispatchResult {
-		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
-			Some((current_delegatee, delegate_balance)) => {
-				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::InvalidDelegation);
-				ensure!(*delegate_balance >= value, Error::<T>::InvalidDelegation);
-
-				delegate_balance.saturating_reduce(value);
-
-				if *delegate_balance == BalanceOf::<T>::zero() {
-					*maybe_delegate = None;
-				}
-				Ok(())
-			},
-			None => {
-				// this should never happen
-				return Err(Error::<T>::InvalidDelegation)
-			},
-		})?;
-
-		<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
-			Some(ledger) => {
-				ledger.balance.saturating_reduce(value);
-				Ok(())
-			},
-			None => {
-				// this should never happen
-				return Err(Error::<T>::InvalidDelegation)
-			},
-		})?;
-
-		let released = T::Currency::release(
-			&HoldReason::Delegating.into(),
-			&delegator,
-			value,
-			Precision::BestEffort,
-		)?;
-
-		defensive_assert!(released == value, "hold should have been released fully");
-
-		Ok(())
-	}
-
+	/// Move funds from proxy delegator to actual delegator.
+	// TODO: Keep track of proxy delegator and only allow movement from proxy -> new delegator
 	fn delegator_migrate(
-		delegator_from: &Self::AccountId,
-		delegator_to: &Self::AccountId,
+		existing_delegator: &Self::AccountId,
+		new_delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
-		todo!()
+		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+
+		// ensure delegatee exists.
+		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
+
+		// remove delegation of `value` from `existing_delegator`.
+		Self::withdraw(existing_delegator, delegatee, value)?;
+
+		// transfer the withdrawn value to `new_delegator`.
+		T::Currency::transfer(existing_delegator, new_delegator, value, Preservation::Expendable)
+			.map_err(|_| Error::<T>::BadState)?;
+
+		// add the above removed delegation to `new_delegator`.
+		Self::delegate(new_delegator, delegatee, value)
 	}
 }

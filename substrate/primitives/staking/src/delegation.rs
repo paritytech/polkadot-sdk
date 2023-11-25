@@ -17,23 +17,21 @@
 
 use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	DispatchResult, Saturating,
-};
-use sp_std::{ops::Sub};
+use sp_runtime::{DispatchResult, Saturating};
+use sp_std::ops::Sub;
 
 /// Allows an account to accept stake delegations and manage its operations.
 pub trait Delegatee {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
-	+ Ord
-	+ PartialEq
-	+ Default
-	+ Copy
-	+ MaxEncodedLen
-	+ FullCodec
-	+ TypeInfo
-	+ Saturating;
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
 
 	/// AccountId type used by the staking system.
 	type AccountId: Clone + sp_std::fmt::Debug;
@@ -45,9 +43,6 @@ pub trait Delegatee {
 	fn accept_delegations(delegatee: &Self::AccountId, payee: &Self::AccountId) -> DispatchResult;
 
 	/// Stop accepting new delegations on this account.
-	///
-	/// The account would continue to be a delegatee until all delegations to this account has been
-	/// withdrawn.
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult;
 
 	/// Remove oneself as Delegatee.
@@ -57,6 +52,13 @@ pub trait Delegatee {
 
 	/// Update bond whenever there is a new delegate funds that are not staked.
 	fn update_bond(delegatee: &Self::AccountId) -> DispatchResult;
+
+	/// Request removal of delegated stake.
+	fn withdraw(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+	) -> DispatchResult;
 
 	/// Applies a pending slash on delegatee by passing a delegator account who should be slashed
 	/// and the value to be slashed. Optionally also takes a reporter account who will be rewarded
@@ -83,20 +85,19 @@ pub trait Delegatee {
 		proxy_delegator: &Self::AccountId,
 		payee: &Self::AccountId,
 	) -> DispatchResult;
-
 }
 
 /// Allows an account to delegate their stakes to a delegatee.
 pub trait Delegator {
 	type Balance: Sub<Output = Self::Balance>
-	+ Ord
-	+ PartialEq
-	+ Default
-	+ Copy
-	+ MaxEncodedLen
-	+ FullCodec
-	+ TypeInfo
-	+ Saturating;
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
 
 	/// AccountId type used by the staking system.
 	type AccountId: Clone + sp_std::fmt::Debug;
@@ -110,13 +111,6 @@ pub trait Delegator {
 
 	/// Request removal of delegated stake.
 	fn request_undelegate(
-		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult;
-
-	/// Request removal of delegated stake.
-	fn withdraw (
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
