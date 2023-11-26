@@ -18,7 +18,6 @@
 
 use crate::{
 	artifacts::ArtifactPathId,
-	security,
 	worker_intf::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
 		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
@@ -33,7 +32,7 @@ use polkadot_node_core_pvf_common::{
 	execute::{Handshake, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
-use polkadot_parachain_primitives::primitives::{ValidationCodeHash, ValidationResult};
+use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
 use std::{path::Path, time::Duration};
 use tokio::{io, net::UnixStream};
@@ -132,10 +131,7 @@ pub async fn start_work(
 		artifact.path.display(),
 	);
 
-	let artifact_path = artifact.path.clone();
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		let audit_log_file = security::AuditLogFile::try_open_and_seek_to_end().await;
-
 		if let Err(error) = send_request(&mut stream, &validation_params, execution_timeout).await {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -160,10 +156,7 @@ pub async fn start_work(
 						handle_response(
 							response,
 							pid,
-							&artifact.id.code_hash,
-							&artifact_path,
 							execution_timeout,
-							audit_log_file
 						)
 							.await,
 					Err(error) => {
@@ -217,10 +210,7 @@ pub async fn start_work(
 async fn handle_response(
 	response: WorkerResponse,
 	worker_pid: u32,
-	validation_code_hash: &ValidationCodeHash,
-	artifact_path: &Path,
 	execution_timeout: Duration,
-	audit_log_file: Option<security::AuditLogFile>,
 ) -> WorkerResponse {
 	if let WorkerResponse::Ok { duration, .. } = response {
 		if duration > execution_timeout {
@@ -235,25 +225,6 @@ async fn handle_response(
 
 			// Return a timeout error.
 			return WorkerResponse::JobTimedOut
-		}
-	}
-
-	if let WorkerResponse::JobDied { err: _, job_pid } = response {
-		// The job died. Check if it was due to a seccomp violation.
-		//
-		// NOTE: Log, but don't change the outcome. Not all validators may have
-		// auditing enabled, so we don't want attackers to abuse a non-deterministic
-		// outcome.
-		for syscall in security::check_seccomp_violations_for_job(audit_log_file, job_pid).await {
-			gum::error!(
-				target: LOG_TARGET,
-				%worker_pid,
-				%job_pid,
-				%syscall,
-				?validation_code_hash,
-				?artifact_path,
-				"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-			);
 		}
 	}
 

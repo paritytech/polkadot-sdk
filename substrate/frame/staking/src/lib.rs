@@ -724,7 +724,7 @@ pub struct Nominations<T: Config> {
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
-struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
+pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
 	exposure_page: ExposurePage<AccountId, Balance>,
 }
@@ -1017,7 +1017,7 @@ where
 /// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
-pub(crate) struct EraInfo<T>(sp_std::marker::PhantomData<T>);
+pub struct EraInfo<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> EraInfo<T> {
 	/// Temporary function which looks at both (1) passed param `T::StakingLedger` for legacy
 	/// non-paged rewards, and (2) `T::ClaimedRewards` for paged rewards. This function can be
@@ -1047,7 +1047,7 @@ impl<T: Config> EraInfo<T> {
 	///
 	/// This builds a paged exposure from `PagedExposureMetadata` and `ExposurePage` of the
 	/// validator. For older non-paged exposure, it returns the clipped exposure directly.
-	pub(crate) fn get_paged_exposure(
+	pub fn get_paged_exposure(
 		era: EraIndex,
 		validator: &T::AccountId,
 		page: Page,
@@ -1082,7 +1082,7 @@ impl<T: Config> EraInfo<T> {
 	}
 
 	/// Get full exposure of the validator at a given era.
-	pub(crate) fn get_full_exposure(
+	pub fn get_full_exposure(
 		era: EraIndex,
 		validator: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
@@ -1176,7 +1176,7 @@ impl<T: Config> EraInfo<T> {
 	}
 
 	/// Store exposure for elected validators at start of an era.
-	pub(crate) fn set_exposure(
+	pub fn set_exposure(
 		era: EraIndex,
 		validator: &T::AccountId,
 		exposure: Exposure<T::AccountId, BalanceOf<T>>,
