@@ -417,19 +417,26 @@ async fn prepare_can_run_serially() {
 #[tokio::test]
 async fn all_security_features_work() {
 	// Landlock is only available starting Linux 5.13, and we may be testing on an old kernel.
-	let sysinfo = sc_sysinfo::gather_sysinfo();
-	// The version will look something like "5.15.0-87-generic".
-	let version = sysinfo.linux_kernel.unwrap();
-	let version_split: Vec<&str> = version.split(".").collect();
-	let major: u32 = version_split[0].parse().unwrap();
-	let minor: u32 = version_split[1].parse().unwrap();
-	let can_enable_landlock = if major >= 6 { true } else { minor >= 13 };
+	let can_enable_landlock = {
+		let sysinfo = sc_sysinfo::gather_sysinfo();
+		// The version will look something like "5.15.0-87-generic".
+		let version = sysinfo.linux_kernel.unwrap();
+		let version_split: Vec<&str> = version.split(".").collect();
+		let major: u32 = version_split[0].parse().unwrap();
+		let minor: u32 = version_split[1].parse().unwrap();
+		if major >= 6 {
+			true
+		} else {
+			minor >= 13
+		}
+	};
 
 	let host = TestHost::new().await;
 
 	assert_eq!(
 		host.security_status().await,
 		SecurityStatus {
+			secure_validator_mode: false,
 			can_enable_landlock,
 			can_enable_seccomp: true,
 			can_unshare_user_namespace_and_change_root: true,
