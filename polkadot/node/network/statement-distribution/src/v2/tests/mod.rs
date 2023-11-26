@@ -21,7 +21,8 @@ use crate::*;
 use polkadot_node_network_protocol::{
 	grid_topology::TopologyPeerInfo,
 	request_response::{outgoing::Recipient, ReqProtocolNames},
-	view, ObservedRole,
+	v2::{BackedCandidateAcknowledgement, BackedCandidateManifest},
+	view, ObservedRole, ReputationChange,
 };
 use polkadot_node_primitives::Statement;
 use polkadot_node_subsystem::messages::{
@@ -636,6 +637,64 @@ async fn answer_expected_hypothetical_depth_request(
 			tx.send(responses).unwrap();
 		}
 	)
+}
+
+async fn assert_peer_reported(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: PeerId,
+	rep_change: impl Into<ReputationChange>,
+) {
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+			if p == peer_id && r == rep_change.into()
+	);
+}
+
+async fn share_statement(
+	virtual_overseer: &mut VirtualOverseer,
+	relay_parent: Hash,
+	statement: SignedFullStatementWithPVD,
+) {
+	virtual_overseer
+		.send(FromOrchestra::Communication {
+			msg: StatementDistributionMessage::Share(relay_parent, statement),
+		})
+		.await;
+}
+
+async fn back_candidate(virtual_overseer: &mut VirtualOverseer, candidate_hash: CandidateHash) {
+	virtual_overseer
+		.send(FromOrchestra::Communication {
+			msg: StatementDistributionMessage::Backed(candidate_hash),
+		})
+		.await;
+}
+
+async fn send_manifest_from_peer(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: PeerId,
+	manifest: BackedCandidateManifest,
+) {
+	send_peer_message(
+		virtual_overseer,
+		peer_id,
+		protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+	)
+	.await;
+}
+
+async fn send_ack_from_peer(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: PeerId,
+	ack: BackedCandidateAcknowledgement,
+) {
+	send_peer_message(
+		virtual_overseer,
+		peer_id,
+		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+	)
+	.await;
 }
 
 fn validator_pubkeys(val_ids: &[ValidatorPair]) -> IndexedVec<ValidatorIndex, ValidatorId> {
