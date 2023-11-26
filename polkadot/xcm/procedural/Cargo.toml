@@ -18,3 +18,4 @@ Inflector = "0.11.4"
 
 [dev-dependencies]
 trybuild = { version = "1.0.74", features = ["diff"] }
+xcm = { package = "staging-xcm", path = ".." }
