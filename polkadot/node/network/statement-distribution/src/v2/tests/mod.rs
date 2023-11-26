@@ -651,7 +651,7 @@ async fn assert_peer_reported(
 	);
 }
 
-async fn share_statement(
+async fn send_share_message(
 	virtual_overseer: &mut VirtualOverseer,
 	relay_parent: Hash,
 	statement: SignedFullStatementWithPVD,
@@ -663,7 +663,10 @@ async fn share_statement(
 		.await;
 }
 
-async fn back_candidate(virtual_overseer: &mut VirtualOverseer, candidate_hash: CandidateHash) {
+async fn send_backed_message(
+	virtual_overseer: &mut VirtualOverseer,
+	candidate_hash: CandidateHash,
+) {
 	virtual_overseer
 		.send(FromOrchestra::Communication {
 			msg: StatementDistributionMessage::Backed(candidate_hash),

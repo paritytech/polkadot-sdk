@@ -794,7 +794,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 				)
 				.clone();
 
-			share_statement(&mut overseer, relay_parent, statement).await;
+			send_share_message(&mut overseer, relay_parent, statement).await;
 
 			assert_matches!(
 				overseer.recv().await,
@@ -836,8 +836,9 @@ fn received_acknowledgements_for_locally_confirmed() {
 
 		// Send Backed notification.
 		{
-			back_candidate(&mut overseer, candidate_hash).await;
+			send_backed_message(&mut overseer, candidate_hash).await;
 
+			// We should send out a manifest.
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages:: NetworkBridgeTx(
@@ -877,6 +878,9 @@ fn received_acknowledgements_for_locally_confirmed() {
 		// Receive an acknowledgement from peer C.
 		//
 		// It's OK, we know they know it because we sent them a manifest.
+		send_ack_from_peer(&mut overseer, peer_c, ack.clone()).await;
+
+		// What happens if we get another valid ack?
 		send_ack_from_peer(&mut overseer, peer_c, ack.clone()).await;
 
 		overseer
