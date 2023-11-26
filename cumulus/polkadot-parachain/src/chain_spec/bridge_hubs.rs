@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
+use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use sc_chain_spec::ChainSpec;
 use sp_core::sr25519;
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 
 /// Collects all supported BridgeHub configurations
 #[derive(Debug, PartialEq)]
@@ -71,33 +71,11 @@ impl FromStr for BridgeHubRuntimeType {
 impl BridgeHubRuntimeType {
 	pub const ID_PREFIX: &'static str = "bridge-hub";
 
-	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
-		match self {
-			BridgeHubRuntimeType::Polkadot |
-			BridgeHubRuntimeType::PolkadotLocal |
-			BridgeHubRuntimeType::PolkadotDevelopment =>
-				Ok(Box::new(polkadot::BridgeHubChainSpec::from_json_file(path)?)),
-			BridgeHubRuntimeType::Kusama |
-			BridgeHubRuntimeType::KusamaLocal |
-			BridgeHubRuntimeType::KusamaDevelopment =>
-				Ok(Box::new(kusama::BridgeHubChainSpec::from_json_file(path)?)),
-			BridgeHubRuntimeType::Westend |
-			BridgeHubRuntimeType::WestendLocal |
-			BridgeHubRuntimeType::WestendDevelopment =>
-				Ok(Box::new(westend::BridgeHubChainSpec::from_json_file(path)?)),
-			BridgeHubRuntimeType::Rococo |
-			BridgeHubRuntimeType::RococoLocal |
-			BridgeHubRuntimeType::RococoDevelopment =>
-				Ok(Box::new(rococo::BridgeHubChainSpec::from_json_file(path)?)),
-		}
-	}
-
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			BridgeHubRuntimeType::Polkadot =>
-				Ok(Box::new(polkadot::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../chain-specs/bridge-hub-polkadot.json")[..],
-				)?)),
+			BridgeHubRuntimeType::Polkadot => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/bridge-hub-polkadot.json")[..],
+			)?)),
 			BridgeHubRuntimeType::PolkadotLocal => Ok(Box::new(polkadot::local_config(
 				polkadot::BRIDGE_HUB_POLKADOT_LOCAL,
 				"Polkadot BridgeHub Local",
@@ -110,10 +88,9 @@ impl BridgeHubRuntimeType {
 				"polkadot-dev",
 				ParaId::new(1002),
 			))),
-			BridgeHubRuntimeType::Kusama =>
-				Ok(Box::new(kusama::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../chain-specs/bridge-hub-kusama.json")[..],
-				)?)),
+			BridgeHubRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/bridge-hub-kusama.json")[..],
+			)?)),
 			BridgeHubRuntimeType::KusamaLocal => Ok(Box::new(kusama::local_config(
 				kusama::BRIDGE_HUB_KUSAMA_LOCAL,
 				"Kusama BridgeHub Local",
@@ -126,10 +103,9 @@ impl BridgeHubRuntimeType {
 				"kusama-dev",
 				ParaId::new(1003),
 			))),
-			BridgeHubRuntimeType::Westend =>
-				Ok(Box::new(westend::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../chain-specs/bridge-hub-westend.json")[..],
-				)?)),
+			BridgeHubRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/bridge-hub-westend.json")[..],
+			)?)),
 			BridgeHubRuntimeType::WestendLocal => Ok(Box::new(westend::local_config(
 				westend::BRIDGE_HUB_WESTEND_LOCAL,
 				"Westend BridgeHub Local",
@@ -144,10 +120,9 @@ impl BridgeHubRuntimeType {
 				ParaId::new(1002),
 				Some("Bob".to_string()),
 			))),
-			BridgeHubRuntimeType::Rococo =>
-				Ok(Box::new(rococo::BridgeHubChainSpec::from_json_bytes(
-					&include_bytes!("../../chain-specs/bridge-hub-rococo.json")[..],
-				)?)),
+			BridgeHubRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/bridge-hub-rococo.json")[..],
+			)?)),
 			BridgeHubRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
 				rococo::BRIDGE_HUB_ROCOCO_LOCAL,
 				"Rococo BridgeHub Local",
@@ -184,7 +159,7 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 /// Sub-module for Rococo setup
 pub mod rococo {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	use crate::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 
@@ -196,11 +171,6 @@ pub mod rococo {
 	const BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
 		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-
-	pub type RuntimeApi = bridge_hub_rococo_runtime::RuntimeApi;
-
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
 		chain_name: &str,
@@ -208,7 +178,7 @@ pub mod rococo {
 		para_id: ParaId,
 		bridges_pallet_owner_seed: Option<String>,
 		modify_props: ModifyProperties,
-	) -> BridgeHubChainSpec {
+	) -> GenericChainSpec {
 		// Rococo defaults
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
@@ -216,7 +186,7 @@ pub mod rococo {
 		properties.insert("tokenDecimals".into(), 12.into());
 		modify_props(&mut properties);
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -305,7 +275,8 @@ pub mod rococo {
 pub mod kusama {
 	use super::{BridgeHubBalance, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
@@ -317,22 +288,18 @@ pub mod kusama {
 	const BRIDGE_HUB_KUSAMA_ED: BridgeHubBalance =
 		parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 
-	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-	pub type RuntimeApi = bridge_hub_kusama_runtime::RuntimeApi;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
-	) -> BridgeHubChainSpec {
+	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 2.into());
 		properties.insert("tokenSymbol".into(), "KSM".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_kusama_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -414,7 +381,7 @@ pub mod kusama {
 /// Sub-module for Westend setup.
 pub mod westend {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, SAFE_XCM_VERSION};
+	use crate::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
 
@@ -426,23 +393,18 @@ pub mod westend {
 	const BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
 		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
-	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec =
-		sc_service::GenericChainSpec<bridge_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
-	pub type RuntimeApi = bridge_hub_westend_runtime::RuntimeApi;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
 		bridges_pallet_owner_seed: Option<String>,
-	) -> BridgeHubChainSpec {
+	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("tokenSymbol".into(), "WND".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -531,7 +493,8 @@ pub mod westend {
 pub mod polkadot {
 	use super::{BridgeHubBalance, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use sc_chain_spec::ChainType;
@@ -543,22 +506,18 @@ pub mod polkadot {
 	const BRIDGE_HUB_POLKADOT_ED: BridgeHubBalance =
 		parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 
-	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type BridgeHubChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-	pub type RuntimeApi = bridge_hub_polkadot_runtime::RuntimeApi;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
-	) -> BridgeHubChainSpec {
+	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 0.into());
 		properties.insert("tokenSymbol".into(), "DOT".into());
 		properties.insert("tokenDecimals".into(), 10.into());
 
-		BridgeHubChainSpec::builder(
+		GenericChainSpec::builder(
 			bridge_hub_polkadot_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
