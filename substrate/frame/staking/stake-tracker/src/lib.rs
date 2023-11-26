@@ -305,7 +305,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	// Note: it is assumed that who's staking state is updated *before* this method is called.
 	fn on_stake_update(who: &T::AccountId, prev_stake: Option<Stake<BalanceOf<T>>>) {
-
 		// closure to calculate the stake imbalance of a staker.
 		let stake_imbalance_of = |prev_stake: Option<Stake<BalanceOf<T>>>,
 		                          voter_weight: ExtendedBalance| {
@@ -408,7 +407,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	// Note: it is assumed that who's staking state is updated *before* calling this method.
 	fn on_validator_add(who: &T::AccountId) {
-
 		// target may exist in the list in case of re-enabling a chilled validator;
 		if !T::TargetList::contains(who) {
 			let _ = T::TargetList::on_insert(who.clone(), Self::active_vote_of(who))
@@ -527,7 +525,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		let stake_imbalance = StakeImbalance::Negative(Self::to_vote_extended(slashed_total));
 
 		match T::Staking::status(stash).defensive_proof("called on_slash on a unbonded stash") {
-			Ok(StakerStatus::Idle) | Ok(StakerStatus::Validator) => Self::update_score::<T::TargetList>(stash, stake_imbalance),
+			Ok(StakerStatus::Idle) | Ok(StakerStatus::Validator) =>
+				Self::update_score::<T::TargetList>(stash, stake_imbalance),
 			// score of target impacted by nominators will be updated through ledger.update.
 			Ok(StakerStatus::Nominator(_)) => (),
 			Err(_) => (), // nothing to see here.

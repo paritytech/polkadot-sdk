@@ -883,7 +883,9 @@ pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
 
 	assert_eq!(
 		Nominators::<Test>::count() + Validators::<Test>::count(),
-		VoterBagsList::iter().filter(|v| Staking::status(&v) != Ok(StakerStatus::Idle)).count() as u32,
+		VoterBagsList::iter()
+			.filter(|v| Staking::status(&v) != Ok(StakerStatus::Idle))
+			.count() as u32,
 	);
 
 	// recalculate the target's stake based on voter's nominations and compare with the score in the

@@ -834,8 +834,8 @@ impl<T: Config> Pallet<T> {
 		let mut min_active_stake = u64::MAX;
 
 		// voter list also contains chilled/idle voters, filter those.
-		let mut sorted_voters = T::VoterList::iter()
-			.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle));
+		let mut sorted_voters =
+			T::VoterList::iter().filter(|v| Self::status(&v) != Ok(StakerStatus::Idle));
 		while all_voters.len() < final_predicted_len as usize &&
 			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -944,8 +944,8 @@ impl<T: Config> Pallet<T> {
 		let mut targets_seen = 0;
 
 		// target list also contains chilled/idle validators, filter those.
-		let mut targets_iter = T::TargetList::iter()
-			.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle));
+		let mut targets_iter =
+			T::TargetList::iter().filter(|t| Self::status(&t) != Ok(StakerStatus::Idle));
 		while all_targets.len() < final_predicted_len as usize &&
 			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -985,7 +985,6 @@ impl<T: Config> Pallet<T> {
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
-
 		match (Nominators::<T>::contains_key(who), T::VoterList::contains(who)) {
 			(false, false) => {
 				// new nomination
@@ -1005,12 +1004,14 @@ impl<T: Config> Pallet<T> {
 			},
 			(true, false) => {
 				defensive!("unexpected state.");
-			}
+			},
 		};
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::iter().filter(|v| Self::status(&v) != Ok(StakerStatus::Idle)).count() as u32,
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
 	}
 
@@ -1063,16 +1064,20 @@ impl<T: Config> Pallet<T> {
 				true
 			},
 			(true, false) => {
-				defensive!("inconsistent state: staker is in nominators list but not in voter list");
+				defensive!(
+					"inconsistent state: staker is in nominators list but not in voter list"
+				);
 				false
-			}
+			},
 			// nominator has been already removed.
 			(false, false) => false,
 		};
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::iter().filter(|v| Self::status(&v) != Ok(StakerStatus::Idle)).count() as u32,
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
 
 		outcome
@@ -1097,7 +1102,9 @@ impl<T: Config> Pallet<T> {
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::iter().filter(|v| Self::status(&v) != Ok(StakerStatus::Idle)).count() as u32,
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
 	}
 
@@ -1135,9 +1142,11 @@ impl<T: Config> Pallet<T> {
 					who,
 				);
 				true
-			}
+			},
 			(true, false) => {
-				defensive!("inconsistent state: staker is in validators list but not in targets list");
+				defensive!(
+					"inconsistent state: staker is in validators list but not in targets list"
+				);
 				false
 			},
 			// validator has been already removed.
@@ -1146,7 +1155,9 @@ impl<T: Config> Pallet<T> {
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::iter().filter(|v| Self::status(&v) != Ok(StakerStatus::Idle)).count() as u32,
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32,
 		);
 
 		outcome
@@ -1897,8 +1908,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		ensure!(
-			T::VoterList::iter()
-				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x) || Self::status(&x) == Ok(StakerStatus::Idle)),
+			T::VoterList::iter().all(|x| <Nominators<T>>::contains_key(&x) ||
+				<Validators<T>>::contains_key(&x) ||
+				Self::status(&x) == Ok(StakerStatus::Idle)),
 			"VoterList contains non-staker"
 		);
 
@@ -1910,12 +1922,15 @@ impl<T: Config> Pallet<T> {
 
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
-			<T as Config>::VoterList::iter().filter(|v| Self::status(&v) != Ok(StakerStatus::Idle)).count() as u32 ==
-				Nominators::<T>::count() + Validators::<T>::count(),
+			<T as Config>::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32 == Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
-			<T as Config>::TargetList::iter().filter(|t| Self::status(&t) != Ok(StakerStatus::Idle)).count() as u32 == Validators::<T>::count(),
+			<T as Config>::TargetList::iter()
+				.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle))
+				.count() as u32 == Validators::<T>::count(),
 			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(

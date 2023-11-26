@@ -19,7 +19,7 @@
 
 use crate::{mock::*, StakeImbalance};
 
-use frame_election_provider_support::{SortedListProvider, ScoreProvider};
+use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::assert_ok;
 use sp_staking::{OnStakingUpdate, Stake, StakingInterface};
 

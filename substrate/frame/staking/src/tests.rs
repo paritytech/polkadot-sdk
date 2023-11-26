@@ -7568,7 +7568,10 @@ mod stake_tracker {
 
 			// the target list has been updated accordingly and an indirect rebag of 21 happened.
 			// 11, althoug chilled, is still part of the target list.
-			assert_eq!(voters_and_targets().1, [(11, score_11_after), (21, score_21_after), (31, 500)]);
+			assert_eq!(
+				voters_and_targets().1,
+				[(11, score_11_after), (21, score_21_after), (31, 500)]
+			);
 			assert_eq!(
 				target_bags_events(),
 				[
@@ -7584,7 +7587,9 @@ mod stake_tracker {
 
 			// fetching targets sorted and filtered by status works.
 			assert_eq!(
-				TargetBagsList::iter().filter(|t| Staking::status(&t).unwrap() != StakerStatus::Idle).collect::<Vec<_>>(),
+				TargetBagsList::iter()
+					.filter(|t| Staking::status(&t).unwrap() != StakerStatus::Idle)
+					.collect::<Vec<_>>(),
 				[21, 31],
 			);
 		})
