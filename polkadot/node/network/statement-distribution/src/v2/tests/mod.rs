@@ -437,12 +437,7 @@ async fn setup_test_and_connect_peers(
 		};
 		validators.push(v);
 
-		connect_peer(
-			overseer,
-			peer.clone(),
-			Some(vec![state.discovery_id(v)].into_iter().collect()),
-		)
-		.await;
+		connect_peer(overseer, peer, Some(vec![state.discovery_id(v)].into_iter().collect())).await;
 
 		if peer_to_connect.relay_parent_in_view {
 			send_peer_view_change(overseer, peer.clone(), view![relay_parent]).await;

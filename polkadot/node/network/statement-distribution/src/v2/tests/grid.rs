@@ -430,19 +430,33 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 		async_backing_params: None,
 	};
 
-	let relay_parent = Hash::repeat_byte(1);
-	let peer_c = PeerId::random();
-	let peer_d = PeerId::random();
-	let peer_e = PeerId::random();
-
 	test_harness(config, |state, mut overseer| async move {
-		let local_validator = state.local.clone().unwrap();
-		let local_group_index = local_validator.group_index.unwrap();
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+		];
 
-		let other_group = next_group_index(local_group_index, validator_count, group_size);
-		let other_para = ParaId::from(other_group.0);
-
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		let TestSetupInfo {
+			other_group,
+			other_para,
+			relay_parent,
+			test_leaf,
+			peers,
+			validators,
+			..
+		} = setup_test_and_connect_peers(
+			&state,
+			&mut overseer,
+			validator_count,
+			group_size,
+			&peers_to_connect,
+		)
+		.await;
+		let [_, _, peer_c, peer_d, _] = peers[..] else { panic!() };
+		let [_, _, v_c, v_d, v_e] = validators[..] else { panic!() };
 
 		let (candidate, pvd) = make_candidate(
 			relay_parent,
@@ -453,52 +467,6 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			Hash::repeat_byte(42).into(),
 		);
 		let candidate_hash = candidate.hash();
-
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
-
-		// Connect C, D, E
-		{
-			connect_peer(
-				&mut overseer,
-				peer_c.clone(),
-				Some(vec![state.discovery_id(v_c)].into_iter().collect()),
-			)
-			.await;
-
-			connect_peer(
-				&mut overseer,
-				peer_d.clone(),
-				Some(vec![state.discovery_id(v_d)].into_iter().collect()),
-			)
-			.await;
-
-			connect_peer(
-				&mut overseer,
-				peer_e.clone(),
-				Some(vec![state.discovery_id(v_e)].into_iter().collect()),
-			)
-			.await;
-
-			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
-			send_peer_view_change(&mut overseer, peer_d.clone(), view![relay_parent]).await;
-			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
-		}
-
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
-		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
 			relay_parent,
@@ -531,14 +499,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 
 		// Receive an advertisement from C.
 		{
-			send_peer_message(
-				&mut overseer,
-				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
-					manifest.clone(),
-				),
-			)
-			.await;
+			send_manifest_from_peer(&mut overseer, peer_c, manifest.clone()).await;
 
 			// Should send a request to C.
 			let statements = vec![
@@ -564,37 +525,16 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			)
 			.await;
 
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
-			);
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
-			);
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
-			);
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
-			);
+			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
+			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
+			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
+			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE).await;
 
 			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
 		}
 
 		// Receive Backed message.
-		overseer
-			.send(FromOrchestra::Communication {
-				msg: StatementDistributionMessage::Backed(candidate_hash),
-			})
-			.await;
+		send_backed_message(&mut overseer, candidate_hash).await;
 
 		// Should send an acknowledgement back to C.
 		{
@@ -626,14 +566,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 
 		// Receive a manifest about the same candidate from peer D.
 		{
-			send_peer_message(
-				&mut overseer,
-				peer_d.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
-					manifest.clone(),
-				),
-			)
-			.await;
+			send_manifest_from_peer(&mut overseer, peer_d, manifest.clone()).await;
 
 			let expected_ack = BackedCandidateAcknowledgement {
 				candidate_hash,
