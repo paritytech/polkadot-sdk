@@ -602,7 +602,7 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number())
+			let _ = Staking::do_try_state(System::block_number())
 				.map_err(|err| println!(" 🕵️‍♂️  try_state failure: {:?}", err))
 				.unwrap();
 		});
@@ -881,7 +881,10 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
 	use sp_staking::StakingInterface;
 
-	assert_eq!(Nominators::<Test>::count() + Validators::<Test>::count(), VoterBagsList::count());
+	assert_eq!(
+		Nominators::<Test>::count() + Validators::<Test>::count(),
+		VoterBagsList::iter().filter(|v| Staking::status(&v) != Ok(StakerStatus::Idle)).count() as u32,
+	);
 
 	// recalculate the target's stake based on voter's nominations and compare with the score in the
 	// target list.
