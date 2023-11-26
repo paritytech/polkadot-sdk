@@ -16,8 +16,8 @@
 
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as PeopleBalance;
-use sc_chain_spec::ChainSpec;
-use std::{path::PathBuf, str::FromStr};
+use sc_chain_spec::{ChainSpec, GenericChainSpec};
+use std::str::FromStr;
 
 /// Collects all supported People configurations.
 #[derive(Debug, PartialEq)]
@@ -45,34 +45,25 @@ impl FromStr for PeopleRuntimeType {
 impl PeopleRuntimeType {
 	pub const ID_PREFIX: &'static str = "people";
 
-	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
-		match self {
-			PeopleRuntimeType::Rococo | PeopleRuntimeType::RococoLocal =>
-				Ok(Box::new(rococo::PeopleChainSpec::from_json_file(path)?)),
-			PeopleRuntimeType::Westend | PeopleRuntimeType::WestendLocal =>
-				Ok(Box::new(westend::PeopleChainSpec::from_json_file(path)?)),
-		}
-	}
-
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			PeopleRuntimeType::Rococo => Ok(Box::new(rococo::PeopleChainSpec::from_json_bytes(
-				&include_bytes!("../../../parachains/chain-specs/people-rococo.json")[..],
+			PeopleRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-rococo.json")[..],
 			)?)),
 			PeopleRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
 				rococo::PEOPLE_ROCOCO_LOCAL,
 				"Rococo People Local",
 				"rococo-local",
-				ParaId::new(1010),
+				ParaId::new(1004),
 			))),
-			PeopleRuntimeType::Westend => Ok(Box::new(westend::PeopleChainSpec::from_json_bytes(
-				&include_bytes!("../../../parachains/chain-specs/people-westend.json")[..],
+			PeopleRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-westend.json")[..],
 			)?)),
 			PeopleRuntimeType::WestendLocal => Ok(Box::new(westend::local_config(
 				westend::PEOPLE_WESTEND_LOCAL,
 				"Westend People Local",
 				"westend-local",
-				ParaId::new(1010),
+				ParaId::new(1004),
 			))),
 		}
 	}
@@ -95,7 +86,8 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 pub mod rococo {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	use parachains_common::{rococo::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
 	use sc_chain_spec::ChainType;
@@ -105,22 +97,18 @@ pub mod rococo {
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
 	const PEOPLE_ROCOCO_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
 
-	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type PeopleChainSpec =
-		sc_service::GenericChainSpec<people_rococo_runtime::RuntimeGenesisConfig, Extensions>;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
-	) -> PeopleChainSpec {
+	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
 		properties.insert("tokenSymbol".into(), "ROC".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		PeopleChainSpec::builder(
+		GenericChainSpec::builder(
 			people_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -207,7 +195,8 @@ pub mod rococo {
 pub mod westend {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+		SAFE_XCM_VERSION,
 	};
 	use parachains_common::{westend::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
 	use sc_chain_spec::ChainType;
@@ -217,22 +206,18 @@ pub mod westend {
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
 	const PEOPLE_WESTEND_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
 
-	/// Specialized `ChainSpec` for the normal parachain runtime.
-	pub type PeopleChainSpec =
-		sc_service::GenericChainSpec<people_westend_runtime::RuntimeGenesisConfig, Extensions>;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
-	) -> PeopleChainSpec {
+	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
 		properties.insert("tokenSymbol".into(), "WND".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		PeopleChainSpec::builder(
+		GenericChainSpec::builder(
 			people_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
