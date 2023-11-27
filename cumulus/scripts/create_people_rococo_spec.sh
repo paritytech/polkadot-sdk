@@ -26,7 +26,7 @@ echo "Generating chain spec for runtime: $rt_path and para_id: $para_id"
 binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
-$binary build-spec --chain people-rococo-dev > chain-spec-plain.json
+$binary build-spec --chain people-rococo > chain-spec-plain.json
 
 # convert runtime to hex
 cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt

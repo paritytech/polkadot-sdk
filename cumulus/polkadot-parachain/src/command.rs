@@ -232,7 +232,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 				.expect("invalid value")
 				.load_config()?,
 
-		// -- Penpall
+		// -- Penpal
 		"penpal-kusama" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
 			para_id.expect("Must specify parachain id"),
 			"kusama-local",
