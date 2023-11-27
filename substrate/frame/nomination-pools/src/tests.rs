@@ -6963,7 +6963,7 @@ mod commission {
 			// The pool commission's claim_permission field is updated to `Permissionless` by the
 			// root member, which means anyone can now claim commission for the pool.
 
-			// Given
+			// Given:
 			// Some random non-pool member to claim commission.
 			let non_pool_member = 1001;
 			let _ = Currency::set_balance(&non_pool_member, 5);

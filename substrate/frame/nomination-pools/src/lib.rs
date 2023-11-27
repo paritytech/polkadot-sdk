@@ -713,7 +713,7 @@ pub struct Commission<T: Config> {
 	/// commission updates and when setting an initial `change_rate`.
 	pub throttle_from: Option<BlockNumberFor<T>>,
 	// Whether commission can be claimed permissionlessly, or whether an account can claim
-	// commission. Claimer defaults to the `Root` role of the pool if `None`.
+	// commission. root can always claim.
 	pub claim_permission: Option<CommissionClaimPermission<T::AccountId>>,
 }
 
