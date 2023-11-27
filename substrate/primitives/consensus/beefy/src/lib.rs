@@ -160,7 +160,7 @@ pub mod bls_crypto {
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// `w3f-bls` library uses IETF hashing standard and as such does not expose
-			// a choice of hash to field function.
+			// a choice of hash-to-field function.
 			// We are directly calling into the library to avoid introducing new host call.
 			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
 

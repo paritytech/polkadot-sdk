@@ -48,7 +48,8 @@ pub enum Keyring {
 	One,
 	Two,
 }
-/// Trait representing BEEFY specific generating and signing behavoir of authority id
+
+/// Trait representing BEEFY specific generation and signing behavior of authority id
 ///
 /// Accepts custom hashing fn for the message and custom convertor fn for the signer.
 pub trait BeefySignerAuthority<MsgHash: Hash>: AppPair {

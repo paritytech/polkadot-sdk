@@ -78,7 +78,7 @@ pub mod ecdsa_bls377 {
 
 	#[cfg(feature = "full_crypto")]
 	impl Pair {
-		/// hashes the `message` with the specified `MsgHasher` and then signs it using ECDSA
+		/// Hashes the `message` with the specified `MsgHasher` and then signs it using ECDSA
 		/// algorithm. It does not affect the behavoir of BLS12-377 component. It generates
 		/// BLS12-377 Signature according to IETF standard and disregards the hasher for the
 		/// BLS12-377 component
