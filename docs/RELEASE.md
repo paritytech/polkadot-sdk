@@ -6,7 +6,7 @@ The following processes are necessary to actualize our releases. Each process ha
 
 Cadence: every two weeks. Responsible: Release Team.
 
-This process aims to release the `release` branch as a *Mainline* release every two weeks. It needs to start three days before the proposed release deadline to allow leeway for unexpected issues. This process should eventually be automated.
+This process aims to release the `release` branch as a *Mainline* release every two weeks. It should eventually be automated.
 
 ### Steps
 
