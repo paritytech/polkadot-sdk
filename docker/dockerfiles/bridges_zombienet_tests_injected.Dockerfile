@@ -29,7 +29,7 @@ ENV RUST_BACKTRACE 1
 USER root
 
 # for native provider to work (TODO: fix in zn docker?)
-RUN apt-get update && apt-get install procps
+RUN apt-get update && apt-get install -y procps
 
 # add polkadot binary to the docker image
 COPY ./artifacts/polkadot /usr/local/bin/
