@@ -91,8 +91,9 @@
 //!
 //! #### Validator
 //!
-//! A validator is a node that participates in the consensus mechanism, validating transactions and
-//! blocks, and maintaining the integrity and security of the network.
+//! A validator is a node that participates in the consensus mechanism of the network.
+//! Its role includes block production, transaction validation, network integrity and security
+//! maintenance.
 //!
 //! #### Collator
 //!
