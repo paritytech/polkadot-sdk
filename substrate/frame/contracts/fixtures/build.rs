@@ -100,6 +100,7 @@ fn create_cargo_toml<'a>(
 [package]
 name = 'contracts'
 version = '0.1.0'
+edition = '2021'
 
 # Binary targets are injected below.
 [[bin]]

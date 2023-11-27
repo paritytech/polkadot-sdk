@@ -20,7 +20,6 @@
 #![no_main]
 
 extern crate common;
-extern crate uapi;
 use uapi::{Api, ApiImpl as api, CallFlags};
 
 #[no_mangle]
