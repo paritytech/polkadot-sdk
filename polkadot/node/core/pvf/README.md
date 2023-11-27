@@ -3,71 +3,43 @@
 This is the PVF host, responsible for responding to requests from Candidate
 Validation and spawning worker tasks to fulfill those requests.
 
-See [the Implementer's
-Guide](https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html#summary)
-for more information and the
-[Glossary](https://paritytech.github.io/polkadot-sdk/book/glossary.html) for an
-explanation of the terminology.
+See also:
+
+- for more information: [the Implementer's Guide][impl-guide]
+- for an explanation of terminology: [the Glossary][glossary]
 
 ## Running basic tests
 
-Running `cargo test` in the `pvf/` directory will run integration tests. Note
-that some tests run only under Linux.
+Running `cargo test` in the `pvf/` directory will run unit and integration
+tests.
 
-## Observing Logs
+**Note:** some tests run only under Linux and/or with the `ci-only-tests`
+feature enabled.
 
-To verify expected behavior it's often useful to observe logs. To avoid too many
-logs at once, run one test at a time:
-
-1. Add `sp_tracing::try_init_simple();` to the beginning of a test
-2. Specify `RUST_LOG=parachain::pvf=trace` before the cargo command.
-
-For example:
-
-```sh
-RUST_LOG=parachain::pvf=trace cargo test execute_can_run_serially
-```
-
-For more info on how our logs work, check [the
-docs](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/node/gum/src/lib.rs).
+See the general [Testing][testing] instructions for more information on
+**running tests** and **observing logs**.
 
 ## Running a test-network with zombienet
 
-For major changes it is highly recommended to run a test-network. Zombienet
-allows you to run a mini test-network locally on your own machine.
+Since this crate is consensus-critical, for major changes it is highly
+recommended to run a test-network. See the "Behavior tests" section of the
+[Testing][testing] docs for full instructions.
 
-First, make sure you have [zombienet](https://github.com/paritytech/zombienet)
-installed.
-
-Now, all the required binaries must be installed in your $PATH. You must run the
-following (not `zombienet setup`!) from the `polkadot/` directory in order to
-test your changes.
-
-```sh
-cargo install --path . --locked
-```
-
-You will also need to install `undying-collator`. From `polkadot/`, run:
-
-```sh
-cargo install --path ./parachain/test-parachains/undying/collator --locked
-```
-
-Finally, run the zombienet test from the `polkadot` directory:
+To run the PVF-specific zombienet test:
 
 ```sh
 RUST_LOG=parachain::pvf=trace zombienet --provider=native spawn zombienet_tests/functional/0001-parachains-pvf.toml
 ```
 
-You can pick a validator node like `alice` from the output and view its logs
-(`tail -f <log_file>`) or metrics. Make sure there is nothing funny in the logs
-(try `grep WARN <log_file>`).
-
 ## Testing on Linux
 
 Much of the PVF functionality, especially related to security, is Linux-only. If
 you touch anything security-related, make sure to test on Linux! If you're on a
-Mac, you can either run a VM or you can hire a VPS and use
-[EternalTerminal](https://github.com/MisterTea/EternalTerminal) to ssh into it.
-(ET preserves your session across disconnects, and unlike mosh it allows
-scrollback.)
+Mac, you can either run a VM or you can hire a VPS and use [EternalTerminal][et]
+to ssh into it. (ET preserves your session across disconnects, and unlike mosh
+it allows scrollback.)
+
+[impl-guide]: https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html#summary
+[glossary]: https://paritytech.github.io/polkadot-sdk/book/glossary.html
+[testing]: https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/doc/testing.md
+[et]: https://github.com/MisterTea/EternalTerminal
