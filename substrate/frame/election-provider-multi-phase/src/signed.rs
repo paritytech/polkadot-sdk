@@ -26,8 +26,8 @@ use crate::{
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
-use frame_support::{
-	traits::{defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency},
+use frame_support::traits::{
+	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::traits::SaturatedConversion;

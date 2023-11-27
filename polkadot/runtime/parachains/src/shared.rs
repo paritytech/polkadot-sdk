@@ -100,7 +100,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 
 		if let Some(prev) = prev {
 			if prev > number {
-				return None;
+				return None
 			}
 		}
 

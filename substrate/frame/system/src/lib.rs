@@ -1312,7 +1312,7 @@ impl<T: Config> Pallet<T> {
 		let block_number = Self::block_number();
 		// Don't populate events on genesis.
 		if block_number.is_zero() {
-			return;
+			return
 		}
 
 		let phase = ExecutionPhase::<T>::get().unwrap_or_default();

@@ -2335,9 +2335,7 @@ mod remote_tests {
 
 mod clean_state_migration {
 	use super::Runtime;
-	use frame_support::{
-		pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade,
-	};
+	use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 	use pallet_state_trie_migration::MigrationLimits;
 
 	#[cfg(not(feature = "std"))]

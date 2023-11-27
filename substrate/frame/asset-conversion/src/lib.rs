@@ -792,9 +792,8 @@ pub mod pallet {
 			keep_alive: bool,
 		) -> Result<T::AssetBalance, DispatchError> {
 			let result = match T::MultiAssetIdConverter::try_convert(asset_id) {
-				MultiAssetIdConversionResult::Converted(asset_id) => {
-					T::Assets::transfer(asset_id, from, to, amount, Expendable)
-				},
+				MultiAssetIdConversionResult::Converted(asset_id) =>
+					T::Assets::transfer(asset_id, from, to, amount, Expendable),
 				MultiAssetIdConversionResult::Native => {
 					let preservation = match keep_alive {
 						true => Preserve,
@@ -808,9 +807,8 @@ pub mod pallet {
 						preservation,
 					)?)?)
 				},
-				MultiAssetIdConversionResult::Unsupported(_) => {
-					Err(Error::<T>::UnsupportedAsset.into())
-				},
+				MultiAssetIdConversionResult::Unsupported(_) =>
+					Err(Error::<T>::UnsupportedAsset.into()),
 			};
 
 			if result.is_ok() {
@@ -903,7 +901,7 @@ pub mod pallet {
 					amount_out: *amounts.last().expect("Always has more than 1 element"),
 				});
 			} else {
-				return Err(Error::<T>::InvalidPath.into());
+				return Err(Error::<T>::InvalidPath.into())
 			}
 			Ok(())
 		}
@@ -929,14 +927,12 @@ pub mod pallet {
 				MultiAssetIdConversionResult::Converted(asset_id) => Ok(
 					<<T as Config>::Assets>::reducible_balance(asset_id, owner, Expendable, Polite),
 				),
-				MultiAssetIdConversionResult::Native => {
+				MultiAssetIdConversionResult::Native =>
 					Self::convert_native_balance_to_asset_balance(
 						<<T as Config>::Currency>::reducible_balance(owner, Expendable, Polite),
-					)
-				},
-				MultiAssetIdConversionResult::Unsupported(_) => {
-					Err(Error::<T>::UnsupportedAsset.into())
-				},
+					),
+				MultiAssetIdConversionResult::Unsupported(_) =>
+					Err(Error::<T>::UnsupportedAsset.into()),
 			}
 		}
 
@@ -1127,7 +1123,7 @@ pub mod pallet {
 			let reserve_out = T::HigherPrecisionBalance::from(*reserve_out);
 
 			if reserve_in.is_zero() || reserve_out.is_zero() {
-				return Err(Error::<T>::ZeroLiquidity.into());
+				return Err(Error::<T>::ZeroLiquidity.into())
 			}
 
 			let amount_in_with_fee = amount_in
@@ -1227,7 +1223,7 @@ pub mod pallet {
 					let new_element =
 						pools.try_insert(pool_id).map_err(|_| Error::<T>::Overflow)?;
 					if !new_element {
-						return Err(Error::<T>::NonUniquePath.into());
+						return Err(Error::<T>::NonUniquePath.into())
 					}
 				}
 			}
