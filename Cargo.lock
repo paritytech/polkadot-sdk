@@ -7217,7 +7217,6 @@ dependencies = [
  "pallet-child-bounties",
  "pallet-collective",
  "pallet-contracts",
- "pallet-contracts-uapi",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
  "pallet-democracy",
