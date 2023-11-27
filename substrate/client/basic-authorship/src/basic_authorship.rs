@@ -31,12 +31,13 @@ use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-use sp_api::{ApiExt, CallApiAt, ExtrinsicInclusionMode, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
 use sp_runtime::{
+	ExtrinsicInclusionMode,
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
 	Digest, Percent, SaturatedConversion,
 };

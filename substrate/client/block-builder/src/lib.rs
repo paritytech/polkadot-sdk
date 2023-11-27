@@ -29,13 +29,13 @@
 use codec::Encode;
 
 use sp_api::{
-	ApiExt, ApiRef, CallApiAt, Core, ExtrinsicInclusionMode, ProvideRuntimeApi, StorageChanges,
+	ApiExt, ApiRef, CallApiAt, Core, ProvideRuntimeApi, StorageChanges,
 	StorageProof, TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;
 use sp_runtime::{
-	legacy,
+	legacy, ExtrinsicInclusionMode,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
 	Digest,
 };

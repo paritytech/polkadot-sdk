@@ -113,6 +113,7 @@ use sp_core::OpaqueMetadata;
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
 use sp_runtime::traits::Block as BlockT;
+use sp_runtime::ExtrinsicInclusionMode;
 #[cfg(feature = "std")]
 use sp_runtime::traits::HashingFor;
 #[cfg(feature = "std")]
