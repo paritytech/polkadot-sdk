@@ -13,9 +13,10 @@
 // limitations under the License.
 // #![allow(unused_variables)]
 use super::{
-	extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel, Api, CallFlags, Result, ReturnCode,
-	ReturnFlags,
+	 Api, CallFlags, Result,
+	 common::{extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel}
 };
+use crate::{ReturnCode, ReturnFlags,};
 
 mod sys {
 	use super::ReturnCode;
@@ -112,22 +113,6 @@ mod sys {
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
 
 		pub fn input(buf_ptr: *mut u8, buf_len_ptr: *mut u32);
-
-		pub fn instantiate(
-			code_hash_ptr: *const u8,
-			code_hash_len: u32,
-			gas: u64,
-			value_ptr: *const u8,
-			value_len: u32,
-			input_ptr: *const u8,
-			input_len: u32,
-			address_ptr: *mut u8,
-			address_len_ptr: *mut u32,
-			output_ptr: *mut u8,
-			output_len_ptr: *mut u32,
-			salt_ptr: *const u8,
-			salt_len: u32,
-		) -> ReturnCode;
 
 		pub fn instantiation_nonce() -> u64;
 

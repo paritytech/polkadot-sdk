@@ -11,9 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-use crate::{CallFlags, Result, ReturnFlags};
+use crate::{ CallFlags, Result, ReturnFlags};
 use paste::paste;
+
+cfg_if::cfg_if! {
+	if #[cfg(target_arch = "wasm32")] {
+		mod common;
+		mod wasm32;
+		pub use wasm32::ApiImpl;
+	} else if #[cfg(target_arch = "riscv32")] {
+		mod common;
+		mod riscv32;
+		pub use riscv32::ApiImpl;
+	}
+}
 
 macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {
@@ -30,6 +41,7 @@ macro_rules! hash_fn {
 		}
 	};
 }
+
 
 /// Defines all the user apis implemented by both wasm and RISC-V vms.
 pub trait Api {

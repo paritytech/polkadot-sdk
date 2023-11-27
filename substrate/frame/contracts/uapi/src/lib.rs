@@ -22,17 +22,7 @@ mod flags;
 pub use flags::*;
 
 mod api;
-pub use api::Api;
-
-cfg_if::cfg_if! {
-	if #[cfg(target_arch = "wasm32")] {
-		mod wasm32;
-		pub use wasm32::ApiImpl;
-	} else if #[cfg(target_arch = "riscv32")] {
-		mod riscv32;
-		pub use riscv32::ApiImpl;
-	}
-}
+pub use api::*;
 
 macro_rules! define_error_codes {
     (
@@ -145,25 +135,3 @@ impl ReturnCode {
 
 type Result = core::result::Result<(), ReturnErrorCode>;
 
-#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
-fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
-	debug_assert!(new_len <= output.len());
-	let tmp = core::mem::take(output);
-	*output = &mut tmp[..new_len];
-}
-
-#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
-fn ptr_len_or_sentinel(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
-	match data {
-		Some(ref mut data) => (data.as_mut_ptr(), data.len() as _),
-		None => (SENTINEL as _, 0),
-	}
-}
-
-#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
-fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
-	match data {
-		Some(ref data) => data.as_ptr(),
-		None => SENTINEL as _,
-	}
-}
