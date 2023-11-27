@@ -30,7 +30,7 @@ use rand::{
 };
 use sc_service::{SpawnTaskHandle, TaskManager};
 use std::net::{Ipv4Addr, SocketAddr};
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::Handle;
 
 const MIB: f64 = 1024.0 * 1024.0;
 
@@ -175,15 +175,10 @@ const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 /// ### CLI
 /// A subset of the Prometheus metrics are printed at the end of the test.
 pub struct TestEnvironment {
-	// A task manager that tracks task poll durations allows us to measure
-	// per task CPU usage as we do in the Polkadot node.
-	task_manager: TaskManager,
-	// Our runtime
-	runtime: tokio::runtime::Runtime,
+	// Test dependencies
+	dependencies: TestEnvironmentDependencies,
 	// A runtime handle
 	runtime_handle: tokio::runtime::Handle,
-	// The Prometheus metrics registry
-	registry: Registry,
 	// A handle to the lovely overseer
 	overseer_handle: OverseerHandle,
 	// The test intial state. The current state is owned by `env_task`.
@@ -198,37 +193,35 @@ impl TestEnvironment {
 	// Create a new test environment with specified initial state and prometheus registry.
 	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
 	pub fn new(
-		task_manager: TaskManager,
+		dependencies: TestEnvironmentDependencies,
 		config: TestConfiguration,
-		registry: Registry,
-		runtime: Runtime,
 		network: NetworkEmulator,
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
 	) -> Self {
-		let metrics =
-			TestEnvironmentMetrics::new(&registry).expect("Metrics need to be registered");
+		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
+			.expect("Metrics need to be registered");
 
-		let spawn_handle = task_manager.spawn_handle();
+		let spawn_handle = dependencies.task_manager.spawn_handle();
 		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run());
 
-		let registry_clone = registry.clone();
-		task_manager
-			.spawn_handle()
-			.spawn_blocking("prometheus", "test-environment", async move {
+		let registry_clone = dependencies.registry.clone();
+		dependencies.task_manager.spawn_handle().spawn_blocking(
+			"prometheus",
+			"test-environment",
+			async move {
 				prometheus_endpoint::init_prometheus(
 					SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
 					registry_clone,
 				)
 				.await
 				.unwrap();
-			});
+			},
+		);
 
 		TestEnvironment {
-			task_manager,
-			runtime_handle: runtime.handle().clone(),
-			runtime,
-			registry,
+			runtime_handle: dependencies.runtime.handle().clone(),
+			dependencies,
 			overseer_handle,
 			config,
 			network,
@@ -245,7 +238,7 @@ impl TestEnvironment {
 	}
 
 	pub fn registry(&self) -> &Registry {
-		&self.registry
+		&self.dependencies.registry
 	}
 
 	/// Produce a randomized duration between `min` and `max`.

@@ -175,18 +175,7 @@ fn prepare_test_inner(
 		subsystem,
 	);
 
-	(
-		TestEnvironment::new(
-			dependencies.task_manager,
-			config,
-			dependencies.registry,
-			dependencies.runtime,
-			network,
-			overseer,
-			overseer_handle,
-		),
-		req_cfg,
-	)
+	(TestEnvironment::new(dependencies, config, network, overseer, overseer_handle), req_cfg)
 }
 
 #[derive(Clone)]
