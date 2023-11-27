@@ -110,6 +110,7 @@ pub struct TestAuthorities {
 }
 
 impl TestConfiguration {
+	#[allow(unused)]
 	pub fn write_to_disk(&self) {
 		// Serialize a slice of configurations
 		let yaml = serde_yaml::to_string(&TestSequence { test_configurations: vec![self.clone()] })

@@ -97,6 +97,7 @@ pub fn prepare_test(
 }
 
 /// Takes a test configuration and uses it to creates the `TestEnvironment`.
+#[allow(unused)]
 pub fn prepare_test_with_dependencies(
 	config: TestConfiguration,
 	state: &mut TestState,
@@ -210,10 +211,6 @@ impl TestState {
 		let candidate_hash = candidate.as_ref().unwrap().hash();
 		gum::trace!(target: LOG_TARGET, "Next candidate selected {:?}", candidate_hash);
 		candidate
-	}
-
-	pub fn authorities(&self) -> &TestAuthorities {
-		&self.test_authorities
 	}
 
 	/// Generate candidates to be used in the test.

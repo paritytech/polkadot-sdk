@@ -334,6 +334,7 @@ impl NetworkEmulator {
 	}
 
 	// Increment bytes received by our node (the node that contains the subsystem under test)
+	#[allow(unused)]
 	pub fn inc_received(&self, bytes: u64) {
 		// Our node always is peer 0.
 		self.metrics.on_peer_received(0, bytes);

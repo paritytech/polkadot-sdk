@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	core::{configuration::PeerLatency, mock::AlwaysSupportsParachains, network::NetworkEmulator},
+	core::{mock::AlwaysSupportsParachains, network::NetworkEmulator},
 	TestConfiguration,
 };
 use core::time::Duration;
@@ -23,10 +23,6 @@ use polkadot_node_subsystem::{Event, Overseer, OverseerHandle, SpawnGlue, Timeou
 use polkadot_node_subsystem_types::Hash;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
-};
-use rand::{
-	distributions::{Distribution, Uniform},
-	thread_rng,
 };
 use sc_service::{SpawnTaskHandle, TaskManager};
 use std::net::{Ipv4Addr, SocketAddr};
@@ -181,7 +177,7 @@ pub struct TestEnvironment {
 	runtime_handle: tokio::runtime::Handle,
 	// A handle to the lovely overseer
 	overseer_handle: OverseerHandle,
-	// The test intial state. The current state is owned by `env_task`.
+	// The test configuration.
 	config: TestConfiguration,
 	// A handle to the network emulator.
 	network: NetworkEmulator,
@@ -239,18 +235,6 @@ impl TestEnvironment {
 
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
-	}
-
-	/// Produce a randomized duration between `min` and `max`.
-	fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> Option<Duration> {
-		if let Some(peer_latency) = maybe_peer_latency {
-			Some(
-				Uniform::from(peer_latency.min_latency..=peer_latency.max_latency)
-					.sample(&mut thread_rng()),
-			)
-		} else {
-			None
-		}
 	}
 
 	pub fn metrics(&self) -> &TestEnvironmentMetrics {
