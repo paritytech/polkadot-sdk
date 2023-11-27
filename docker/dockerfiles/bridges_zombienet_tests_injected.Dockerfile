@@ -13,7 +13,7 @@ FROM ${SUBSTRATE_RELAY_IMAGE} as relay-builder
 
 # the base image is the zombienet image - we are planning to run zombienet tests using native
 # provider here
-FROM docker.io/paritytech/zombienet:v1.3.79
+FROM ${ZOMBIENET_IMAGE}
 
 LABEL io.parity.image.authors="devops-team@parity.io" \
 	io.parity.image.vendor="Parity Technologies" \
@@ -30,6 +30,7 @@ USER root
 
 # for native provider to work (TODO: fix in zn docker?)
 RUN apt-get update && apt-get install -y procps
+RUN yarn global add @polkadot/api-cli
 
 # add polkadot binary to the docker image
 COPY ./artifacts/polkadot /usr/local/bin/
