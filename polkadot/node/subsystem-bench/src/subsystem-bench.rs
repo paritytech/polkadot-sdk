@@ -179,6 +179,8 @@ fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	let _ = env_logger::builder()
 		.filter(Some("hyper"), log::LevelFilter::Info)
+		// Avoid `Terminating due to subsystem exit subsystem` warnings
+		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
 		// .filter(None, log::LevelFilter::Trace)
 		.try_init()
 		.unwrap();

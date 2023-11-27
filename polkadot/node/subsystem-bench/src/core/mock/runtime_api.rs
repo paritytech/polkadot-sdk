@@ -16,23 +16,21 @@
 //!
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use polkadot_primitives::{
-	AuthorityDiscoveryId, GroupIndex, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex,
-};
+use polkadot_primitives::{GroupIndex, IndexedVec, SessionInfo, ValidatorIndex};
 
 use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
 	overseer, SpawnedSubsystem, SubsystemError,
 };
+use polkadot_node_subsystem_types::OverseerSignal;
 
-use crate::core::configuration::TestConfiguration;
+use crate::core::configuration::{TestAuthorities, TestConfiguration};
 use futures::FutureExt;
 
 const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 
 pub struct RuntimeApiState {
-	validator_public: Vec<ValidatorId>,
-	validator_authority_id: Vec<AuthorityDiscoveryId>,
+	authorities: TestAuthorities,
 }
 
 pub struct MockRuntimeApi {
@@ -41,12 +39,8 @@ pub struct MockRuntimeApi {
 }
 
 impl MockRuntimeApi {
-	pub fn new(
-		config: TestConfiguration,
-		validator_public: Vec<ValidatorId>,
-		validator_authority_id: Vec<AuthorityDiscoveryId>,
-	) -> MockRuntimeApi {
-		Self { state: RuntimeApiState { validator_public, validator_authority_id }, config }
+	pub fn new(config: TestConfiguration, authorities: TestAuthorities) -> MockRuntimeApi {
+		Self { state: RuntimeApiState { authorities }, config }
 	}
 
 	fn session_info(&self) -> SessionInfo {
@@ -57,8 +51,8 @@ impl MockRuntimeApi {
 		let validator_groups = all_validators.chunks(5).map(|x| Vec::from(x)).collect::<Vec<_>>();
 
 		SessionInfo {
-			validators: self.state.validator_public.clone().into(),
-			discovery_keys: self.state.validator_authority_id.clone(),
+			validators: self.state.authorities.validator_public.clone().into(),
+			discovery_keys: self.state.authorities.validator_authority_id.clone(),
 			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(validator_groups),
 			assignment_keys: vec![],
 			n_cores: self.config.n_cores as u32,
@@ -79,7 +73,7 @@ impl<Context> MockRuntimeApi {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-		SpawnedSubsystem { name: "runtime-api-mock-subsystem", future }
+		SpawnedSubsystem { name: "test-environment", future }
 	}
 }
 
@@ -90,7 +84,10 @@ impl MockRuntimeApi {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(_) => {},
+				orchestra::FromOrchestra::Signal(signal) => match signal {
+					OverseerSignal::Conclude => return,
+					_ => {},
+				},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
 

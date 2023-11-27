@@ -23,7 +23,9 @@ use std::{
 };
 
 use crate::TestEnvironment;
-use polkadot_node_subsystem::{Event, Overseer, OverseerConnector, OverseerHandle, SpawnGlue};
+use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
+use polkadot_overseer::Handle as OverseerHandle;
+
 use sc_network::request_responses::ProtocolConfig;
 
 use colored::Colorize;
@@ -41,7 +43,6 @@ use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::{AllMessages, AvailabilityRecoveryMessage};
 
 use crate::core::{
-	configuration::TestAuthorities,
 	environment::TestEnvironmentDependencies,
 	mock::{
 		av_store,
@@ -57,7 +58,7 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
-use polkadot_node_subsystem_test_helpers::mock::new_block_import_event;
+use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, PersistedValidationData,
 	ValidatorIndex,
@@ -85,7 +86,10 @@ fn build_overseer(
 		.replace_network_bridge_tx(|_| network_bridge)
 		.replace_availability_recovery(|_| availability_recovery);
 
-	builder.build_with_connector(overseer_connector).expect("Should not fail")
+	let (overseer, raw_handle) =
+		builder.build_with_connector(overseer_connector).expect("Should not fail");
+
+	(overseer, OverseerHandle::new(raw_handle))
 }
 
 /// Takes a test configuration and uses it to creates the `TestEnvironment`.
@@ -119,11 +123,7 @@ fn prepare_test_inner(
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
 
-	let runtime_api = runtime_api::MockRuntimeApi::new(
-		config.clone(),
-		test_authorities.validator_public.clone(),
-		test_authorities.validator_authority_id.clone(),
-	);
+	let runtime_api = runtime_api::MockRuntimeApi::new(config.clone(), test_authorities.clone());
 
 	let av_store =
 		av_store::MockAvailabilityStore::new(state.chunks.clone(), state.candidate_hashes.clone());
@@ -136,7 +136,7 @@ fn prepare_test_inner(
 
 	let network = NetworkEmulator::new(
 		config.n_validators.clone(),
-		test_authorities.validator_authority_id.clone(),
+		test_authorities.validator_authority_id,
 		config.peer_bandwidth,
 		dependencies.task_manager.spawn_handle(),
 		&dependencies.registry,
@@ -183,18 +183,14 @@ fn prepare_test_inner(
 pub struct TestState {
 	// Full test configuration
 	config: TestConfiguration,
-	// State starts here.
-	test_authorities: TestAuthorities,
 	pov_sizes: Cycle<std::vec::IntoIter<usize>>,
 	// Generated candidate receipts to be used in the test
 	candidates: Cycle<std::vec::IntoIter<CandidateReceipt>>,
-	candidates_generated: usize,
 	// Map from pov size to candidate index
 	pov_size_to_candidate: HashMap<usize, usize>,
 	// Map from generated candidate hashes to candidate index in `available_data`
 	// and `chunks`.
 	candidate_hashes: HashMap<CandidateHash, usize>,
-	persisted_validation_data: PersistedValidationData,
 
 	candidate_receipts: Vec<CandidateReceipt>,
 	available_data: Vec<AvailableData>,
@@ -243,7 +239,6 @@ impl TestState {
 
 	pub fn new(config: &TestConfiguration) -> Self {
 		let config = config.clone();
-		let test_authorities = config.generate_authorities();
 
 		let mut chunks = Vec::new();
 		let mut available_data = Vec::new();
@@ -289,14 +284,11 @@ impl TestState {
 
 		Self {
 			config,
-			test_authorities,
-			persisted_validation_data,
 			available_data,
 			candidate_receipts,
 			chunks,
 			pov_size_to_candidate,
 			pov_sizes,
-			candidates_generated: 0,
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 		}
@@ -333,7 +325,7 @@ fn derive_erasure_chunks_with_proofs_and_root(
 pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestState) {
 	let config = env.config().clone();
 
-	env.send_message(new_block_import_event(Hash::repeat_byte(1), 1)).await;
+	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
 
 	let start_marker = Instant::now();
 	let mut batch = FuturesUnordered::new();
@@ -353,19 +345,16 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestStat
 			let (tx, rx) = oneshot::channel();
 			batch.push(rx);
 
-			let message = Event::MsgToSubsystem {
-				msg: AllMessages::AvailabilityRecovery(
-					AvailabilityRecoveryMessage::RecoverAvailableData(
-						candidate.clone(),
-						1,
-						Some(GroupIndex(
-							candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
-						)),
-						tx,
-					),
+			let message = AllMessages::AvailabilityRecovery(
+				AvailabilityRecoveryMessage::RecoverAvailableData(
+					candidate.clone(),
+					1,
+					Some(GroupIndex(
+						candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
+					)),
+					tx,
 				),
-				origin: LOG_TARGET,
-			};
+			);
 			env.send_message(message).await;
 		}
 
@@ -386,7 +375,8 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestStat
 		tokio::time::sleep(block_time_delta).await;
 	}
 
-	env.send_message(Event::Stop).await;
+	env.stop().await;
+
 	let duration: u128 = start_marker.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
 	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
@@ -416,7 +406,7 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestStat
 
 	let test_metrics = super::core::display::parse_metrics(&env.registry());
 	let subsystem_cpu_metrics =
-		test_metrics.subset_with_label_value("task_group", "availability-recovery-subsystem");
+		test_metrics.subset_with_label_value("task_group", "availability-recovery");
 	let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 	gum::info!(target: LOG_TARGET, "Total subsystem CPU usage {}", format!("{:.2}s", total_cpu).bright_purple());
 	gum::info!(target: LOG_TARGET, "CPU usage per block {}", format!("{:.2}s", total_cpu/env.config().num_blocks as f64).bright_purple());

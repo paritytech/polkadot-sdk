@@ -33,7 +33,8 @@ macro_rules! mock {
 				fn start(self, ctx: Context) -> SpawnedSubsystem {
 					let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-					SpawnedSubsystem { name: stringify!($subsystem_name), future }
+                    // The name will appear in substrate CPU task metrics as `task_group`.`
+					SpawnedSubsystem { name: "test-environment", future }
 				}
 			}
 
@@ -45,7 +46,12 @@ macro_rules! mock {
 						futures::select!{
                             msg = ctx.recv().fuse() => {
                                 match msg.unwrap() {
-                                    orchestra::FromOrchestra::Signal(_) => {},
+                                    orchestra::FromOrchestra::Signal(signal) => {
+                                        match signal {
+                                            polkadot_node_subsystem_types::OverseerSignal::Conclude => {return},
+                                            _ => {}
+                                        }
+                                    },
                                     orchestra::FromOrchestra::Communication { msg } => {
                                         gum::debug!(target: LOG_TARGET, msg = ?msg, "mocked subsystem received message");
                                     }

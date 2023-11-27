@@ -29,6 +29,8 @@ use polkadot_node_subsystem::{
 	messages::AvailabilityStoreMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 
+use polkadot_node_subsystem_types::OverseerSignal;
+
 pub struct AvailabilityStoreState {
 	candidate_hashes: HashMap<CandidateHash, usize>,
 	chunks: Vec<Vec<ErasureChunk>>,
@@ -82,7 +84,7 @@ impl<Context> MockAvailabilityStore {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-		SpawnedSubsystem { name: "av-store-mock-subsystem", future }
+		SpawnedSubsystem { name: "test-environment", future }
 	}
 }
 
@@ -94,7 +96,10 @@ impl MockAvailabilityStore {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(_) => {},
+				orchestra::FromOrchestra::Signal(signal) => match signal {
+					OverseerSignal::Conclude => return,
+					_ => {},
+				},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx) => {
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");

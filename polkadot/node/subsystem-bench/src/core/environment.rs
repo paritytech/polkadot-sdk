@@ -19,11 +19,15 @@ use crate::{
 	TestConfiguration,
 };
 use core::time::Duration;
-use polkadot_node_subsystem::{Event, Overseer, OverseerHandle, SpawnGlue, TimeoutExt};
+use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
+
+use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
 use polkadot_node_subsystem_types::Hash;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
+
+use sc_network::peer_store::LOG_TARGET;
 use sc_service::{SpawnTaskHandle, TaskManager};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
@@ -199,8 +203,8 @@ impl TestEnvironment {
 			.expect("Metrics need to be registered");
 
 		let spawn_handle = dependencies.task_manager.spawn_handle();
-		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run());
 
+		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run());
 		let registry_clone = dependencies.registry.clone();
 		dependencies.task_manager.spawn_handle().spawn_blocking(
 			"prometheus",
@@ -246,14 +250,29 @@ impl TestEnvironment {
 	}
 
 	// Send a message to the subsystem under test environment.
-	pub async fn send_message(&mut self, msg: Event) {
+	pub async fn send_message(&mut self, msg: AllMessages) {
 		self.overseer_handle
-			.send(msg)
+			.send_msg(msg, LOG_TARGET)
 			.timeout(MAX_TIME_OF_FLIGHT)
 			.await
 			.unwrap_or_else(|| {
 				panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
-			})
-			.expect("send never fails");
+			});
+	}
+
+	// Send a signal to the subsystem under test environment.
+	pub async fn import_block(&mut self, block: BlockInfo) {
+		self.overseer_handle
+			.block_imported(block)
+			.timeout(MAX_TIME_OF_FLIGHT)
+			.await
+			.unwrap_or_else(|| {
+				panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
+			});
+	}
+
+	// Stop overseer and subsystems.
+	pub async fn stop(&mut self) {
+		self.overseer_handle.stop().await;
 	}
 }

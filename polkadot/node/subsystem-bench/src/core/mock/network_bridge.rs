@@ -17,6 +17,7 @@
 //! A generic av store subsystem mockup suitable to be used in benchmarks.
 
 use parity_scale_codec::Encode;
+use polkadot_node_subsystem_types::OverseerSignal;
 
 use std::collections::HashMap;
 
@@ -191,7 +192,7 @@ impl<Context> MockNetworkBridgeTx {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-		SpawnedSubsystem { name: "network-bridge-tx-mock-subsystem", future }
+		SpawnedSubsystem { name: "test-environment", future }
 	}
 }
 
@@ -230,7 +231,10 @@ impl MockNetworkBridgeTx {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(_) => {},
+				orchestra::FromOrchestra::Signal(signal) => match signal {
+					OverseerSignal::Conclude => return,
+					_ => {},
+				},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
