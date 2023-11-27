@@ -1299,7 +1299,7 @@ pub mod pallet {
 
 			let _ = ledger
 				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+				.defensive_proof("ledger was retrieved from storage, thus its bonded.")?;
 
 			Ok(())
 		}
@@ -1327,7 +1327,7 @@ pub mod pallet {
 			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
-                    .defensive_proof("ledger was fetched using StakingLedger, so controller field must exist; qed.")
+                    .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
                     .ok_or(Error::<T>::NotController)?;
 
 				if controller == stash {
@@ -1771,7 +1771,7 @@ pub mod pallet {
 			let controller = ledger
 				.controller()
 				.defensive_proof(
-					"Ledger's controller field didn't exist. The ledger should fetched using StakingLedger.",
+					"Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.",
 				)
 				.ok_or(Error::<T>::NotController)?;
 
