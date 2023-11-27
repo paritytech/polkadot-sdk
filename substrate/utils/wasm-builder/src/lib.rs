@@ -290,7 +290,7 @@ impl CargoCommand {
 
 	/// Returns whether this version of the toolchain supports nightly features.
 	fn supports_nightly_features(&self) -> bool {
-		self.version.map(|version| version.is_nightly).unwrap_or(false) ||
+		self.version.map_or(false, |version| version.is_nightly) ||
 			env::var("RUSTC_BOOTSTRAP").is_ok()
 	}
 
