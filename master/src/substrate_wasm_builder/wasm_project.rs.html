@@ -1001,6 +1001,26 @@
 <a href="#1001" id="1001">1001</a>
 <a href="#1002" id="1002">1002</a>
 <a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1753,6 +1773,25 @@
 		build_cmd.arg(<span class="string">&quot;--offline&quot;</span>);
 	}
 
+	<span class="comment">// Our executor currently only supports the WASM MVP feature set, however nowadays
+	// when compiling WASM the Rust compiler has more features enabled by default.
+	//
+	// We do set the `-C target-cpu=mvp` flag to make sure that *our* code gets compiled
+	// in a way that is compatible with our executor, however this doesn&#39;t affect Rust&#39;s
+	// standard library crates (`std`, `core` and `alloc`) which are by default precompiled
+	// and still can make use of these extra features.
+	//
+	// So here we force the compiler to also compile the standard library crates for us
+	// to make sure that they also only use the MVP features.
+	</span><span class="kw">if </span><span class="kw">crate</span>::build_std_required() {
+		<span class="comment">// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
+		// so it&#39;s unlikely to break without a replacement.
+		</span>build_cmd.arg(<span class="string">&quot;-Z&quot;</span>).arg(<span class="string">&quot;build-std&quot;</span>);
+		<span class="kw">if </span>!cargo_cmd.supports_nightly_features() {
+			build_cmd.env(<span class="string">&quot;RUSTC_BOOTSTRAP&quot;</span>, <span class="string">&quot;1&quot;</span>);
+		}
+	}
+
 	<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, colorize_info_message(<span class="string">&quot;Information that should be included in a bug report.&quot;</span>));
 	<span class="macro">println!</span>(<span class="string">&quot;{} {:?}&quot;</span>, colorize_info_message(<span class="string">&quot;Executing build command:&quot;</span>), build_cmd);
 	<span class="macro">println!</span>(<span class="string">&quot;{} {}&quot;</span>, colorize_info_message(<span class="string">&quot;Using rustc version:&quot;</span>), cargo_cmd.rustc_version());
@@ -1955,6 +1994,7 @@
 	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_BUILD_RUSTFLAGS_ENV);
 	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_TARGET_DIRECTORY);
 	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_BUILD_TOOLCHAIN);
+	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_BUILD_STD);
 }
 
 <span class="doccomment">/// Track files and paths related to the given package to rerun `build.rs` on any relevant change.
