@@ -197,7 +197,11 @@ where
 						);
 						None
 					},
-					Err(e) => Some(Err(Error::RuntimeApi(e))),
+					Err(e) => {
+						debug!(target: LOG_TARGET,
+							   "🥩 Failed to generate key ownership proof for {:?}: {:?}", id, e);
+						None
+					},
 				}
 			})
 			.collect::<Result<_, _>>()?;
