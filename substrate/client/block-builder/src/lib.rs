@@ -29,15 +29,15 @@
 use codec::Encode;
 
 use sp_api::{
-	ApiExt, ApiRef, CallApiAt, Core, ProvideRuntimeApi, StorageChanges,
-	StorageProof, TransactionOutcome,
+	ApiExt, ApiRef, CallApiAt, Core, ProvideRuntimeApi, StorageChanges, StorageProof,
+	TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;
 use sp_runtime::{
-	legacy, ExtrinsicInclusionMode,
+	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
-	Digest,
+	Digest, ExtrinsicInclusionMode,
 };
 use std::marker::PhantomData;
 
