@@ -75,7 +75,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetworkId = BridgedNetworkId;
 	type Bridges = NetworkExportTable<BridgeTable>;
-	type VersionWrapper = FailsForLocationVersionWrapper<Equals<FailingWrapVersionLocation>>;
+	type VersionWrapper = LatestOrFailForLocationVersionWrapper<Equals<FailingWrapVersionLocation>>;
 
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
@@ -85,8 +85,10 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type FeeAsset = BridgeFeeAsset;
 }
 
-pub struct FailsForLocationVersionWrapper<Location>(sp_std::marker::PhantomData<Location>);
-impl<Location: Contains<MultiLocation>> WrapVersion for FailsForLocationVersionWrapper<Location> {
+pub struct LatestOrFailForLocationVersionWrapper<Location>(sp_std::marker::PhantomData<Location>);
+impl<Location: Contains<MultiLocation>> WrapVersion
+	for LatestOrFailForLocationVersionWrapper<Location>
+{
 	fn wrap_version<RuntimeCall>(
 		dest: &MultiLocation,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
