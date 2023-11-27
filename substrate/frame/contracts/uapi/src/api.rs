@@ -416,18 +416,6 @@ pub trait Api {
 	fn input(output: &mut &mut [u8]);
 
 	/// Instantiate a contract with the specified code hash.
-	#[deprecated(note = "Deprecated, use newer version instead")]
-	fn instantiate(
-		code_hash: &[u8],
-		gas: u64,
-		value: &[u8],
-		input: &[u8],
-		address: Option<&mut [u8]>,
-		output: Option<&mut [u8]>,
-		salt: &[u8],
-	) -> Result;
-
-	/// Instantiate a contract with the specified code hash.
 	///
 	/// Equivalent to the newer [`Self::instantiate_v2`] version but works
 	/// with *ref_time* Weight only.

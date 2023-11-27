@@ -1161,7 +1161,6 @@ pub mod env {
 	}
 
 	/// Make a call to another contract.
-	/// See [`pallet_contracts_uapi::Api::call`].
 	///
 	/// # Note
 	///

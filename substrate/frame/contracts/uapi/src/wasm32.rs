@@ -363,43 +363,6 @@ macro_rules! impl_get_storage {
 pub enum ApiImpl {}
 
 impl Api for ApiImpl {
-	fn instantiate(
-		code_hash: &[u8],
-		gas: u64,
-		value: &[u8],
-		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
-		salt: &[u8],
-	) -> Result {
-		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let ret_code = unsafe {
-			sys::instantiate(
-				code_hash.as_ptr(),
-				code_hash.len() as u32,
-				gas,
-				value.as_ptr(),
-				value.len() as u32,
-				input.as_ptr(),
-				input.len() as u32,
-				address_ptr,
-				&mut address_len,
-				output_ptr,
-				&mut output_len,
-				salt.as_ptr(),
-				salt.len() as u32,
-			)
-		};
-
-		if let Some(ref mut address) = address {
-			extract_from_slice(address, address_len as usize);
-		}
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
-		ret_code.into()
-	}
 
 	fn instantiate_v1(
 		code_hash: &[u8],
