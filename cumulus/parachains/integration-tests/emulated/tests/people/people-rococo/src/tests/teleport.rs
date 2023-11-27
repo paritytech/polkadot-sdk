@@ -45,7 +45,7 @@ fn relay_dest_assertions(t: SystemParaToRelayTest) {
 	Rococo::assert_ump_queue_processed(
 		true,
 		Some(PeopleRococo::para_id()),
-		Some(Weight::from_parts(307_225_000, 7_186)),
+		Some(Weight::from_parts(304_266_000, 7_186)),
 	);
 
 	assert_expected_events!(
@@ -76,8 +76,8 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 
 	PeopleRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		720_053_000,
-		7_203,
+		600_000_000,
+		7_000,
 	)));
 
 	PeopleRococo::assert_parachain_system_ump_sent();
@@ -194,11 +194,13 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 /// should work when there is enough balance in Relay Chain's `CheckAccount`
 #[test]
 fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
+
 	// Dependency - Relay Chain's `CheckAccount` should have enough balance
 	limited_teleport_native_assets_from_relay_to_system_para_works();
 
-	// Init values for Relay Chain
-	let amount_to_send: Balance = PEOPLE_ROCOCO_ED * 1000;
+	// Init values for Relay Chain, we set this amount because
+	// there are no balances in PeopleRococo created at genesis.
+	let amount_to_send: Balance = ROCOCO_ED * 1000;
 	let destination = PeopleRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let assets = (Parent, amount_to_send).into();
@@ -239,7 +241,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 #[test]
 fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	// Init values for Relay Chain
-	let amount_to_send: Balance = PEOPLE_ROCOCO_ED * 1000;
+	let amount_to_send: Balance = ROCOCO_ED * 1000;
 	let destination = PeopleRococo::parent_location().into();
 	let beneficiary_id = RococoReceiver::get().into();
 	let assets = (Parent, amount_to_send).into();

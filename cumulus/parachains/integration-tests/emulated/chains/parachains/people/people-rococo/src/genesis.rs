@@ -18,7 +18,8 @@ use cumulus_primitives_core::ParaId;
 use sp_core::storage::Storage;
 
 // Cumulus
-use emulated_integration_tests_common::{build_genesis_storage, collators, SAFE_XCM_VERSION};
+use emulated_integration_tests_common::{build_genesis_storage, accounts, collators,
+										SAFE_XCM_VERSION};
 use parachains_common::Balance;
 
 pub const PARA_ID: u32 = 1004;
