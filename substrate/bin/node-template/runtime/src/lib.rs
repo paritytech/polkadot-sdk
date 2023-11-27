@@ -149,8 +149,6 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-/// Configure FRAME pallets to include in runtime.
-///
 /// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
 /// [`SoloChainDefaultConfig`](`struct@frame_system::config_preludes::SolochainDefaultConfig`),
 /// but overridden as needed.
