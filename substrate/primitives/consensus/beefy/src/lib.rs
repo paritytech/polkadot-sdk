@@ -522,35 +522,34 @@ where
 {
 	let ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof } = proof;
 
-	if commitment.block_number > best_block_num {
-		return false;
+	// if commitment is to a block in the future, it's an equivocation as long as it's been signed
+	if commitment.block_number <= best_block_num {
+		if (correct_header, ancestry_proof) == (&None, &None) {
+			// if commitment isn't to a block number in the future, at least a header or ancestry
+			// proof must be provided, otherwise the proof is entirely invalid
+			return false;
+		}
+
+		// if neither the ancestry proof nor the header proof is correct, the proof is invalid
+		// avoid verifying the ancestry proof if a valid header proof has been provided
+		if !check_header_proof(commitment, correct_header, expected_header_hash) &&
+			!check_ancestry_proof::<Header, NodeHash, Hasher>(
+				commitment,
+				ancestry_proof,
+				first_mmr_block_num,
+				expected_root,
+				mmr_size,
+			) {
+			return false;
+		}
 	}
 
-	if (correct_header, ancestry_proof) == (&None, &None) {
-		// if commitment isn't to a block number in the future, at least a header or ancestry
-		// proof must be provided, otherwise the proof is entirely invalid
-		return false;
-	}
-
-	// avoid verifying the ancestry proof if a valid header proof has been provided
-	if check_header_proof(commitment, correct_header, expected_header_hash) ||
-		check_ancestry_proof::<Header, NodeHash, Hasher>(
-			commitment,
-			ancestry_proof,
-			first_mmr_block_num,
-			expected_root,
-			mmr_size,
-		) {
-		// if either proof is valid, check the validator's signatures. The proof is verified if they
-		// are all correct.
-		return signatories.iter().all(|(authority_id, signature)| {
-			// TODO: refactor check_commitment_signature to take a slice of signatories
-			check_commitment_signature(&commitment, authority_id, signature)
-		})
-	}
-
-	// if neither the ancestry proof nor the header proof is correct, the proof is invalid
-	return false;
+	// if commitment is to future block or either proof is valid, check the validator's signatures.
+	// The proof is verified if they are all correct.
+	return signatories.iter().all(|(authority_id, signature)| {
+		// TODO: refactor check_commitment_signature to take a slice of signatories
+		check_commitment_signature(&commitment, authority_id, signature)
+	})
 }
 
 /// New BEEFY validator set notification hook.
