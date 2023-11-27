@@ -71,7 +71,7 @@ This process aims to release the `release` branch as a *Mainline* release every 
 9. [ ] Verify all CI checks.
 10. [ ] Announce the intent to do a *Mainline* release from the resulting commit hash in RelEng.
 11. [ ] <!-- The release team has internal checklists for QA i think, should we mention this? -->
-12. [ ] Release all crates to crates.io using [parity-publish](https://github.com/paritytech/parity-publish).
+12. [ ] Release all crates to crates.io.
 
 ## Nightly Release
 
