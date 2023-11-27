@@ -46,7 +46,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::{traits::Get, StorageValue as _};
+use frame_support::traits::Get;
 use frame_system::{
 	self as system,
 	offchain::{

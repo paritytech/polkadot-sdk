@@ -41,7 +41,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
-	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter, StorageValue as _,
+	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
 };
 use log;
 use sp_consensus_aura::{AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};

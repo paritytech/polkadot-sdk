@@ -22,7 +22,6 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
 	pallet_prelude::ValueQuery, traits::PalletInfoAccess, weights::Weight, Blake2_128Concat,
-	StorageValue as _,
 };
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;

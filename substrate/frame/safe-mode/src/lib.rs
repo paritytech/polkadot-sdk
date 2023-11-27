@@ -35,7 +35,7 @@ use frame_support::{
 		CallMetadata, Contains, Defensive, GetCallMetadata, PalletInfoAccess, SafeModeNotify,
 	},
 	weights::Weight,
-	DefaultNoBound, StorageValue as _,
+	DefaultNoBound,
 };
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::traits::Zero;

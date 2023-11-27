@@ -21,7 +21,7 @@
 //! functioning runtime. Some calls are allowed to be submitted as unsigned extrinsics, however most
 //! of them requires signing. Refer to `pallet::Call` for further details.
 
-use frame_support::{pallet_prelude::*, storage, StorageValue as _};
+use frame_support::{pallet_prelude::*, storage};
 use sp_core::sr25519::Public;
 use sp_runtime::{
 	traits::Hash,

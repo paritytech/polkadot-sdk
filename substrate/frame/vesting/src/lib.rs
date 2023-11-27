@@ -66,7 +66,6 @@ use frame_support::{
 		WithdrawReasons,
 	},
 	weights::Weight,
-	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;

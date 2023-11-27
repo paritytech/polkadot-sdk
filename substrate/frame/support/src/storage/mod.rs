@@ -1616,7 +1616,7 @@ mod test {
 		traits::StorageInstance, Twox128,
 	};
 	use bounded_vec::BoundedVec;
-	use frame_support::{traits::ConstU32, StorageValue as _};
+	use frame_support::traits::ConstU32;
 	// use generator::;
 	use sp_core::hashing::twox_128;
 	use sp_io::TestExternalities;

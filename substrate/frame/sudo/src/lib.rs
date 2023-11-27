@@ -124,7 +124,7 @@
 use sp_runtime::{traits::StaticLookup, DispatchResult};
 use sp_std::prelude::*;
 
-use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable, StorageValue as _};
+use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable};
 
 mod extension;
 #[cfg(test)]

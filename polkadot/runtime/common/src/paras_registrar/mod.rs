@@ -24,7 +24,6 @@ use frame_support::{
 	ensure,
 	pallet_prelude::Weight,
 	traits::{Currency, Get, ReservableCurrency},
-	StorageValue as _,
 };
 use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};

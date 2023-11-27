@@ -95,7 +95,7 @@ mod types;
 pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{pallet_prelude::*, StorageValue as _};
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Dispatchable, Saturating, StaticLookup, Zero},

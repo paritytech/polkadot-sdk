@@ -18,7 +18,7 @@
 //! Tests for the Timestamp module.
 
 use crate::mock::*;
-use frame_support::{assert_ok, StorageValue as _};
+use frame_support::assert_ok;
 
 #[test]
 fn timestamp_works() {

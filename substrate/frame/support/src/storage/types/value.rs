@@ -39,33 +39,6 @@ use sp_std::prelude::*;
 pub struct StorageValue<Prefix, Value, QueryKind = OptionQuery, OnEmpty = GetDefault>(
 	core::marker::PhantomData<(Prefix, Value, QueryKind, OnEmpty)>,
 );
-/*
-impl<Prefix, Value, QueryKind, OnEmpty> crate::storage::generator::StorageValue<Value>
-	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
-where
-	Prefix: StorageInstance,
-	Value: FullCodec,
-	QueryKind: QueryKindTrait<Value, OnEmpty>,
-	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
-{
-	type Query = QueryKind::Query;
-	fn pallet_prefix() -> &'static [u8] {
-		Prefix::pallet_prefix().as_bytes()
-	}
-	fn storage_prefix() -> &'static [u8] {
-		Prefix::STORAGE_PREFIX.as_bytes()
-	}
-	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
-		QueryKind::from_optional_value_to_query(v)
-	}
-	fn from_query_to_optional_value(v: Self::Query) -> Option<Value> {
-		QueryKind::from_query_to_optional_value(v)
-	}
-	fn storage_value_final_key() -> [u8; 32] {
-		Prefix::prefix_hash()
-	}
-}
-*/
 
 impl<Prefix, Value, QueryKind, OnEmpty> StorageValue<Prefix, Value, QueryKind, OnEmpty>
 where
@@ -93,154 +66,6 @@ where
 	pub fn storage_value_final_key() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}
-
-	/* Get the storage key.
-	pub fn hashed_key() -> [u8; 32] {
-		<Self as crate::storage::StorageValue<Value>>::hashed_key()
-	}
-
-	/// Does the value (explicitly) exist in storage?
-	pub fn exists() -> bool {
-		<Self as crate::storage::StorageValue<Value>>::exists()
-	}
-
-	/// Load the value from the provided storage instance.
-	pub fn get() -> QueryKind::Query {
-		<Self as crate::storage::StorageValue<Value>>::get()
-	}
-
-	/// Try to get the underlying value from the provided storage instance; `Ok` if it exists,
-	/// `Err` if not.
-	pub fn try_get() -> Result<Value, ()> {
-		<Self as crate::storage::StorageValue<Value>>::try_get()
-	}
-
-	/// Translate a value from some previous type (`O`) to the current type.
-	///
-	/// `f: F` is the translation function.
-	///
-	/// Returns `Err` if the storage item could not be interpreted as the old type, and Ok, along
-	/// with the new value if it could.
-	///
-	/// NOTE: This operates from and to `Option<_>` types; no effort is made to respect the default
-	/// value of the original type.
-	///
-	/// # Warning
-	///
-	/// This function must be used with care, before being updated the storage still contains the
-	/// old type, thus other calls (such as `get`) will fail at decoding it.
-	///
-	/// # Usage
-	///
-	/// This would typically be called inside the module implementation of on_runtime_upgrade,
-	/// while ensuring **no usage of this storage are made before the call to
-	/// `on_runtime_upgrade`**. (More precisely prior initialized modules doesn't make use of this
-	/// storage).
-	pub fn translate<O: Decode, F: FnOnce(Option<O>) -> Option<Value>>(
-		f: F,
-	) -> Result<Option<Value>, ()> {
-		<Self as crate::storage::StorageValue<Value>>::translate(f)
-	}
-
-	/// Store a value under this key into the provided storage instance.
-	pub fn put<Arg: EncodeLike<Value>>(val: Arg) {
-		<Self as crate::storage::StorageValue<Value>>::put(val)
-	}
-
-	/// Store a value under this key into the provided storage instance.
-	///
-	/// this uses the query type rather than the underlying value.
-	pub fn set(val: QueryKind::Query) {
-		<Self as crate::storage::StorageValue<Value>>::set(val)
-	}
-
-	/// Mutate the value
-	pub fn mutate<R, F: FnOnce(&mut QueryKind::Query) -> R>(f: F) -> R {
-		<Self as crate::storage::StorageValue<Value>>::mutate(f)
-	}
-
-	/// Mutate the value under a key iff it exists. Do nothing and return the default value if not.
-	pub fn mutate_extant<R: Default, F: FnOnce(&mut Value) -> R>(f: F) -> R {
-		<Self as crate::storage::StorageValue<Value>>::mutate_extant(f)
-	}
-
-	/// Mutate the value if closure returns `Ok`
-	pub fn try_mutate<R, E, F: FnOnce(&mut QueryKind::Query) -> Result<R, E>>(
-		f: F,
-	) -> Result<R, E> {
-		<Self as crate::storage::StorageValue<Value>>::try_mutate(f)
-	}
-
-	/// Mutate the value. Deletes the item if mutated to a `None`.
-	pub fn mutate_exists<R, F: FnOnce(&mut Option<Value>) -> R>(f: F) -> R {
-		<Self as crate::storage::StorageValue<Value>>::mutate_exists(f)
-	}
-
-	/// Mutate the value if closure returns `Ok`. Deletes the item if mutated to a `None`.
-	pub fn try_mutate_exists<R, E, F: FnOnce(&mut Option<Value>) -> Result<R, E>>(
-		f: F,
-	) -> Result<R, E> {
-		<Self as crate::storage::StorageValue<Value>>::try_mutate_exists(f)
-	}
-
-	/// Clear the storage value.
-	pub fn kill() {
-		<Self as crate::storage::StorageValue<Value>>::kill()
-	}
-
-	/// Take a value from storage, removing it afterwards.
-	pub fn take() -> QueryKind::Query {
-		<Self as crate::storage::StorageValue<Value>>::take()
-	}
-
-	/// Append the given item to the value in the storage.
-	///
-	/// `Value` is required to implement [`StorageAppend`].
-	///
-	/// # Warning
-	///
-	/// If the storage item is not encoded properly, the storage item will be overwritten
-	/// and set to `[item]`. Any default value set for the storage item will be ignored
-	/// on overwrite.
-	pub fn append<Item, EncodeLikeItem>(item: EncodeLikeItem)
-	where
-		Item: Encode,
-		EncodeLikeItem: EncodeLike<Item>,
-		Value: StorageAppend<Item>,
-	{
-		<Self as crate::storage::StorageValue<Value>>::append(item)
-	}
-
-	/// Read the length of the storage value without decoding the entire value.
-	///
-	/// `Value` is required to implement [`StorageDecodeLength`].
-	///
-	/// If the value does not exists or it fails to decode the length, `None` is returned.
-	/// Otherwise `Some(len)` is returned.
-	///
-	/// # Warning
-	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
-	/// ignored by this function.
-	pub fn decode_len() -> Option<usize>
-	where
-		Value: StorageDecodeLength,
-	{
-		<Self as crate::storage::StorageValue<Value>>::decode_len()
-	}
-
-	/// Try and append the given item to the value in the storage.
-	///
-	/// Is only available if `Value` of the storage implements [`StorageTryAppend`].
-	pub fn try_append<Item, EncodeLikeItem>(item: EncodeLikeItem) -> Result<(), ()>
-	where
-		Item: Encode,
-		EncodeLikeItem: EncodeLike<Item>,
-		Value: StorageTryAppend<Item>,
-	{
-		<Self as crate::storage::TryAppendValue<Value, Item>>::try_append(item)
-	}
-	*/
 }
 
 /// Implement this in the mod instead
@@ -453,10 +278,165 @@ where
 	}
 }
 
+impl<Prefix, Value, QueryKind, OnEmpty> StorageValue<Prefix, Value, QueryKind, OnEmpty>
+where
+	Prefix: StorageInstance,
+	Value: FullCodec,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+{
+	/// Get the storage key.
+	pub fn hashed_key() -> [u8; 32] {
+		<Self as crate::storage::StorageValue<Value>>::hashed_key()
+	}
+
+	/// Does the value (explicitly) exist in storage?
+	pub fn exists() -> bool {
+		<Self as crate::storage::StorageValue<Value>>::exists()
+	}
+
+	/// Load the value from the provided storage instance.
+	pub fn get() -> QueryKind::Query {
+		<Self as crate::storage::StorageValue<Value>>::get()
+	}
+
+	/// Try to get the underlying value from the provided storage instance; `Ok` if it exists,
+	/// `Err` if not.
+	pub fn try_get() -> Result<Value, ()> {
+		<Self as crate::storage::StorageValue<Value>>::try_get()
+	}
+
+	/// Translate a value from some previous type (`O`) to the current type.
+	///
+	/// `f: F` is the translation function.
+	///
+	/// Returns `Err` if the storage item could not be interpreted as the old type, and Ok, along
+	/// with the new value if it could.
+	///
+	/// NOTE: This operates from and to `Option<_>` types; no effort is made to respect the default
+	/// value of the original type.
+	///
+	/// # Warning
+	///
+	/// This function must be used with care, before being updated the storage still contains the
+	/// old type, thus other calls (such as `get`) will fail at decoding it.
+	///
+	/// # Usage
+	///
+	/// This would typically be called inside the module implementation of on_runtime_upgrade,
+	/// while ensuring **no usage of this storage are made before the call to
+	/// `on_runtime_upgrade`**. (More precisely prior initialized modules doesn't make use of this
+	/// storage).
+	pub fn translate<O: Decode, F: FnOnce(Option<O>) -> Option<Value>>(
+		f: F,
+	) -> Result<Option<Value>, ()> {
+		<Self as crate::storage::StorageValue<Value>>::translate(f)
+	}
+
+	/// Store a value under this key into the provided storage instance.
+	pub fn put<Arg: EncodeLike<Value>>(val: Arg) {
+		<Self as crate::storage::StorageValue<Value>>::put(val)
+	}
+
+	/// Store a value under this key into the provided storage instance.
+	///
+	/// this uses the query type rather than the underlying value.
+	pub fn set(val: QueryKind::Query) {
+		<Self as crate::storage::StorageValue<Value>>::set(val)
+	}
+
+	/// Mutate the value
+	pub fn mutate<R, F: FnOnce(&mut QueryKind::Query) -> R>(f: F) -> R {
+		<Self as crate::storage::StorageValue<Value>>::mutate(f)
+	}
+
+	/// Mutate the value under a key iff it exists. Do nothing and return the default value if not.
+	pub fn mutate_extant<R: Default, F: FnOnce(&mut Value) -> R>(f: F) -> R {
+		<Self as crate::storage::StorageValue<Value>>::mutate_extant(f)
+	}
+
+	/// Mutate the value if closure returns `Ok`
+	pub fn try_mutate<R, E, F: FnOnce(&mut QueryKind::Query) -> Result<R, E>>(
+		f: F,
+	) -> Result<R, E> {
+		<Self as crate::storage::StorageValue<Value>>::try_mutate(f)
+	}
+
+	/// Mutate the value. Deletes the item if mutated to a `None`.
+	pub fn mutate_exists<R, F: FnOnce(&mut Option<Value>) -> R>(f: F) -> R {
+		<Self as crate::storage::StorageValue<Value>>::mutate_exists(f)
+	}
+
+	/// Mutate the value if closure returns `Ok`. Deletes the item if mutated to a `None`.
+	pub fn try_mutate_exists<R, E, F: FnOnce(&mut Option<Value>) -> Result<R, E>>(
+		f: F,
+	) -> Result<R, E> {
+		<Self as crate::storage::StorageValue<Value>>::try_mutate_exists(f)
+	}
+
+	/// Clear the storage value.
+	pub fn kill() {
+		<Self as crate::storage::StorageValue<Value>>::kill()
+	}
+
+	/// Take a value from storage, removing it afterwards.
+	pub fn take() -> QueryKind::Query {
+		<Self as crate::storage::StorageValue<Value>>::take()
+	}
+
+	/// Append the given item to the value in the storage.
+	///
+	/// `Value` is required to implement [`StorageAppend`].
+	///
+	/// # Warning
+	///
+	/// If the storage item is not encoded properly, the storage item will be overwritten
+	/// and set to `[item]`. Any default value set for the storage item will be ignored
+	/// on overwrite.
+	pub fn append<Item, EncodeLikeItem>(item: EncodeLikeItem)
+	where
+		Item: Encode,
+		EncodeLikeItem: EncodeLike<Item>,
+		Value: StorageAppend<Item>,
+	{
+		<Self as crate::storage::StorageValue<Value>>::append(item)
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	pub fn decode_len() -> Option<usize>
+	where
+		Value: StorageDecodeLength,
+	{
+		<Self as crate::storage::StorageValue<Value>>::decode_len()
+	}
+
+	/// Try and append the given item to the value in the storage.
+	///
+	/// Is only available if `Value` of the storage implements [`StorageTryAppend`].
+	pub fn try_append<Item, EncodeLikeItem>(item: EncodeLikeItem) -> Result<(), ()>
+	where
+		Item: Encode,
+		EncodeLikeItem: EncodeLike<Item>,
+		Value: StorageTryAppend<Item>,
+	{
+		<Self as crate::storage::TryAppendValue<Value, Item>>::try_append(item)
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::storage::{types::ValueQuery, StorageValue as _};
+	use crate::storage::types::ValueQuery;
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::StorageEntryModifierIR;
 

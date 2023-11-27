@@ -32,7 +32,6 @@ mod value;
 pub use double_map::StorageDoubleMap;
 pub use map::StorageMap;
 pub use nmap::StorageNMap;
-pub use value::StorageValue;
 
 #[cfg(test)]
 mod tests {
@@ -40,10 +39,7 @@ mod tests {
 	use sp_io::TestExternalities;
 	use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 
-	use crate::{
-		assert_noop, assert_ok,
-		storage::{unhashed, StorageValue as _},
-	};
+	use crate::{assert_noop, assert_ok, storage::unhashed};
 
 	#[crate::pallet]
 	pub mod frame_system {

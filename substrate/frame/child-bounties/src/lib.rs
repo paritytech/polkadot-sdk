@@ -69,7 +69,7 @@ use sp_runtime::{
 	DispatchResult, RuntimeDebug,
 };
 
-use frame_support::{pallet_prelude::*, StorageValue as _};
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use pallet_bounties::BountyStatus;
 use scale_info::TypeInfo;

@@ -33,7 +33,6 @@ use frame_support::{
 		tokens::{GetSalary, Pay, PaymentStatus},
 		RankedMembers,
 	},
-	StorageValue as _,
 };
 
 #[cfg(test)]

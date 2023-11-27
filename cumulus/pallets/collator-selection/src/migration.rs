@@ -24,7 +24,7 @@ use log;
 /// This migration ensures that any existing `Invulnerables` storage lists are sorted.
 pub mod v1 {
 	use super::*;
-	use frame_support::{pallet_prelude::*, StorageValue as _};
+	use frame_support::pallet_prelude::*;
 	#[cfg(feature = "try-runtime")]
 	use sp_std::prelude::*;
 

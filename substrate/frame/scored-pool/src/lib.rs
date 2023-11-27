@@ -101,9 +101,8 @@ mod tests;
 use codec::{FullCodec, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	storage::TryAppendValue,
 	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},
-	BoundedVec, StorageValue as _,
+	BoundedVec,
 };
 pub use pallet::*;
 use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};
@@ -454,10 +453,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		<Members<T, I>>::put(&new_members_bounded);
 
 		match notify {
-			ChangeReceiver::MembershipInitialized =>
-				T::MembershipInitialized::initialize_members(&new_members_bounded),
-			ChangeReceiver::MembershipChanged =>
-				T::MembershipChanged::set_members_sorted(&new_members_bounded[..], &old_members[..]),
+			ChangeReceiver::MembershipInitialized => {
+				T::MembershipInitialized::initialize_members(&new_members_bounded)
+			},
+			ChangeReceiver::MembershipChanged => {
+				T::MembershipChanged::set_members_sorted(&new_members_bounded[..], &old_members[..])
+			},
 		}
 	}
 

@@ -34,7 +34,7 @@ use frame_support::{
 		Contains, OriginTrait, Randomness, Time,
 	},
 	weights::Weight,
-	Blake2_128Concat, BoundedVec, StorageHasher, StorageValue as _,
+	Blake2_128Concat, BoundedVec, StorageHasher,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_contracts_primitives::{ExecReturnValue, StorageDeposit};

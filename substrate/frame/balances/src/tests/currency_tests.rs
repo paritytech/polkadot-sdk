@@ -19,15 +19,12 @@
 
 use super::*;
 use crate::NegativeImbalance;
-use frame_support::{
-	traits::{
-		BalanceStatus::{Free, Reserved},
-		Currency,
-		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, LockIdentifier, LockableCurrency, NamedReservableCurrency, ReservableCurrency,
-		WithdrawReasons,
-	},
-	StorageValue as _,
+use frame_support::traits::{
+	BalanceStatus::{Free, Reserved},
+	Currency,
+	ExistenceRequirement::{self, AllowDeath, KeepAlive},
+	Hooks, LockIdentifier, LockableCurrency, NamedReservableCurrency, ReservableCurrency,
+	WithdrawReasons,
 };
 
 const ID_1: LockIdentifier = *b"1       ";

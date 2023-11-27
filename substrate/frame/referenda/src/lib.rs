@@ -76,7 +76,7 @@ use frame_support::{
 		Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
 		ReservableCurrency, StorePreimage, VoteTally,
 	},
-	BoundedVec, StorageValue as _,
+	BoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;

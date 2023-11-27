@@ -26,10 +26,7 @@ impl<K, V, S> StorageDecodeLength for BoundedBTreeMap<K, V, S> {}
 pub mod test {
 	use super::*;
 	use crate::Twox128;
-	use frame_support::{
-		traits::{ConstU32, Get},
-		StorageValue as _,
-	};
+	use frame_support::traits::{ConstU32, Get};
 	use sp_io::TestExternalities;
 	use sp_std::collections::btree_map::BTreeMap;
 
