@@ -13,7 +13,7 @@
 // limitations under the License.
 // #![allow(unused_variables)]
 use super::{
-	extract_from_slice, ptr_and_len_from_slice, ptr_from_slice, Api, CallFlags, Result, ReturnCode,
+	extract_from_slice, ptr_from_slice, ptr_len_or_sentinel, Api, CallFlags, Result, ReturnCode,
 	ReturnFlags,
 };
 
@@ -375,8 +375,8 @@ impl Api for ApiImpl {
 		mut output: Option<&mut [u8]>,
 		salt: &[u8],
 	) -> Result {
-		let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
-		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = unsafe {
 			sys::instantiate(
 				code_hash.as_ptr(),
@@ -414,8 +414,8 @@ impl Api for ApiImpl {
 		mut output: Option<&mut [u8]>,
 		salt: &[u8],
 	) -> Result {
-		let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
-		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = unsafe {
 			sys::v1::instantiate(
 				code_hash.as_ptr(),
@@ -453,8 +453,8 @@ impl Api for ApiImpl {
 		mut output: Option<&mut [u8]>,
 		salt: &[u8],
 	) -> Result {
-		let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
-		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_ptr = ptr_from_slice(&deposit);
 
 		let ret_code = {
@@ -495,7 +495,7 @@ impl Api for ApiImpl {
 		input_data: &[u8],
 		mut output: Option<&mut [u8]>,
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
 			unsafe {
 				sys::call(
@@ -528,7 +528,7 @@ impl Api for ApiImpl {
 		input_data: &[u8],
 		mut output: Option<&mut [u8]>,
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
 			unsafe {
 				sys::v1::call(
@@ -561,7 +561,7 @@ impl Api for ApiImpl {
 		input_data: &[u8],
 		mut output: Option<&mut [u8]>,
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_ptr = ptr_from_slice(&deposit);
 		let ret_code = {
 			unsafe {
@@ -598,7 +598,7 @@ impl Api for ApiImpl {
 		input: &[u8],
 		mut output: Option<&mut [u8]>,
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
 			unsafe {
 				sys::delegate_call(

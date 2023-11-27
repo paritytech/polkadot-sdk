@@ -155,7 +155,7 @@ fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 
 #[inline(always)]
 #[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
-fn ptr_and_len_from_slice(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
+fn ptr_len_or_sentinel(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
 	match data {
 		Some(ref mut data) => (data.as_mut_ptr(), data.len() as _),
 		None => (SENTINEL as _, 0),
