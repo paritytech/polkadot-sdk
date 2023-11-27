@@ -300,6 +300,10 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
+	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
+	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
+	// should be non-zero
+	assert!(receiver_balance_after < receiver_balance_before + amount_to_send);
 }
 
 /// Reserve Transfers of native asset from System Parachain to Parachain should work
@@ -340,6 +344,10 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
+	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
+	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
+	// should be non-zero
+	assert!(receiver_balance_after < receiver_balance_before + amount_to_send);
 }
 
 /// Reserve Transfers of native asset from Parachain to System Parachain should work
@@ -387,6 +395,10 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
+	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
+	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
+	// should be non-zero
+	assert!(receiver_balance_after < receiver_balance_before + amount_to_send);
 }
 
 /// Reserve Transfers of a local asset and native asset from System Parachain to Parachain should
@@ -472,6 +484,10 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	assert!(sender_balance_after < sender_balance_before);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
+	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
+	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
+	// should be non-zero
+	assert!(receiver_balance_after < receiver_balance_before + fee_amount_to_send);
 
 	let sender_assets_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
@@ -482,8 +498,8 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 		<Assets as Inspect<_>>::balance(ASSET_ID, &PenpalBReceiver::get())
 	});
 
-	// Sender's balance is reduced
+	// Sender's balance is reduced by exact amount
 	assert_eq!(sender_assets_before - asset_amount_to_send, sender_assets_after);
-	// Receiver's balance is increased
-	assert!(receiver_assets_after > receiver_assets_before);
+	// Receiver's balance is increased by exact amount
+	assert_eq!(receiver_assets_after, receiver_assets_before + asset_amount_to_send);
 }
