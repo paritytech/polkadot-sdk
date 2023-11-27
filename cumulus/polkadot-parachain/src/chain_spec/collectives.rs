@@ -15,15 +15,13 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+	SAFE_XCM_VERSION,
 };
 use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, AuraId, Balance as CollectivesBalance};
 use sc_service::ChainType;
 use sp_core::sr25519;
-
-pub type CollectivesPolkadotChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-pub type CollectivesWestendChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 const COLLECTIVES_POLKADOT_ED: CollectivesBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
@@ -39,13 +37,13 @@ pub fn collectives_polkadot_session_keys(
 	collectives_polkadot_runtime::SessionKeys { aura: keys }
 }
 
-pub fn collectives_polkadot_development_config() -> CollectivesPolkadotChainSpec {
+pub fn collectives_polkadot_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	CollectivesPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_polkadot_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-dev".into(), para_id: 1002 },
@@ -75,13 +73,13 @@ pub fn collectives_polkadot_development_config() -> CollectivesPolkadotChainSpec
 }
 
 /// Collectives Polkadot Local Config.
-pub fn collectives_polkadot_local_config() -> CollectivesPolkadotChainSpec {
+pub fn collectives_polkadot_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	CollectivesPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_polkadot_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-local".into(), para_id: 1002 },
@@ -169,13 +167,13 @@ pub fn collectives_westend_session_keys(keys: AuraId) -> collectives_westend_run
 	collectives_westend_runtime::SessionKeys { aura: keys }
 }
 
-pub fn collectives_westend_development_config() -> CollectivesWestendChainSpec {
+pub fn collectives_westend_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	CollectivesWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend-dev".into(), para_id: 1002 },
@@ -205,13 +203,13 @@ pub fn collectives_westend_development_config() -> CollectivesWestendChainSpec {
 }
 
 /// Collectives Westend Local Config.
-pub fn collectives_westend_local_config() -> CollectivesWestendChainSpec {
+pub fn collectives_westend_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	CollectivesWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend-local".into(), para_id: 1002 },

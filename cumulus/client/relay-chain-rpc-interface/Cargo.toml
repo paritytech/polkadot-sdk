@@ -20,6 +20,7 @@ sp-authority-discovery = { path = "../../../substrate/primitives/authority-disco
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 sp-storage = { path = "../../../substrate/primitives/storage" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-version = { path = "../../../substrate/primitives/version" }
 sc-client-api = { path = "../../../substrate/client/api" }
 sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
 sc-service = { path = "../../../substrate/client/service" }

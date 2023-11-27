@@ -924,7 +924,6 @@ dependencies = [
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -1029,6 +1028,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
@@ -1493,8 +1493,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.7.3",
- "rand_core 0.5.1",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -2158,7 +2158,6 @@ dependencies = [
  "bridge-hub-test-utils",
  "bridge-runtime-common",
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -4183,6 +4182,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
+ "polkadot-node-core-chain-api",
  "polkadot-node-core-prospective-parachains",
  "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
@@ -4190,16 +4190,19 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-authority-discovery",
+ "sc-client-api",
  "sc-network",
  "sc-network-common",
  "sc-service",
  "sc-tracing",
  "sc-utils",
  "sp-api",
+ "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-runtime",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
@@ -4233,6 +4236,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-storage 13.0.0",
+ "sp-version",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -10419,6 +10423,7 @@ dependencies = [
  "pallet-nfts",
  "parity-scale-codec",
  "sp-api",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
@@ -10791,6 +10796,7 @@ dependencies = [
 name = "pallet-safe-mode"
 version = "4.0.0-dev"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11194,6 +11200,7 @@ dependencies = [
 name = "pallet-tx-pause"
 version = "4.0.0-dev"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11740,6 +11747,7 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -12443,6 +12451,7 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "sc-client-api",
  "sc-consensus-babe",
@@ -12591,6 +12600,7 @@ dependencies = [
  "rand 0.8.5",
  "rococo-runtime",
  "rusty-fork",
+ "sc-sysinfo",
  "slotmap",
  "sp-core",
  "sp-maybe-compressed-blob",
@@ -12850,7 +12860,9 @@ dependencies = [
  "smallvec",
  "sp-api",
  "sp-authority-discovery",
+ "sp-blockchain",
  "sp-consensus-babe",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -12956,6 +12968,9 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-support",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "futures",
  "glutton-runtime",
  "glutton-westend-runtime",
@@ -12963,7 +12978,9 @@ dependencies = [
  "jsonrpsee",
  "log",
  "nix 0.26.2",
+ "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "pallet-transaction-payment-rpc-runtime-api",
  "parachains-common",
  "parity-scale-codec",
  "penpal-runtime",
@@ -12995,14 +13012,18 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
  "sp-io",
  "sp-keystore",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
+ "sp-std 8.0.0",
  "sp-timestamp",
  "sp-tracing 10.0.0",
  "sp-transaction-pool",
+ "sp-version",
  "staging-xcm",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
@@ -16117,6 +16138,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-externalities 0.19.0",
  "sp-maybe-compressed-blob",
  "sp-rpc",
  "sp-runtime",
@@ -16350,6 +16372,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
+ "parity-scale-codec",
  "parking_lot 0.12.1",
  "regex",
  "rustc-hash",
@@ -20004,7 +20027,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -21492,6 +21515,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
+ "pallet-transaction-payment",
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-test-client",

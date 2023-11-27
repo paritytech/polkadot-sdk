@@ -17,10 +17,6 @@
 use crate::{Config, SecurityStatus, LOG_TARGET};
 use futures::join;
 use std::{fmt, path::Path};
-use tokio::{
-	fs::{File, OpenOptions},
-	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
-};
 
 const SECURE_MODE_ANNOUNCEMENT: &'static str =
 	"In the next release this will be a hard error by default.
@@ -28,14 +24,13 @@ const SECURE_MODE_ANNOUNCEMENT: &'static str =
 
 /// Run checks for supported security features.
 ///
-/// # Return
+/// # Returns
 ///
 /// Returns the set of security features that we were able to enable. If an error occurs while
 /// enabling a security feature we set the corresponding status to `false`.
 pub async fn check_security_status(config: &Config) -> SecurityStatus {
 	let Config { prepare_worker_program_path, cache_path, .. } = config;
 
-	// TODO: add check that syslog is available and that seccomp violations are logged?
 	let (landlock, seccomp, change_root) = join!(
 		check_landlock(prepare_worker_program_path),
 		check_seccomp(prepare_worker_program_path),
@@ -158,18 +153,15 @@ async fn check_can_unshare_user_namespace_and_change_root(
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			let cache_dir_tempdir =
-				crate::worker_intf::tmppath_in("check-can-unshare", cache_path)
-				.await
-				.map_err(
-					|err|
-					SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						format!("could not create a temporary directory in {:?}: {}", cache_path, err)
-					)
-				)?;
+			let cache_dir_tempdir = tempfile::Builder::new()
+				.prefix("check-can-unshare-")
+				.tempdir_in(cache_path)
+				.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
+					format!("could not create a temporary directory in {:?}: {}", cache_path, err)
+				))?;
 			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-unshare-user-namespace-and-change-root")
-				.arg(cache_dir_tempdir)
+				.arg(cache_dir_tempdir.path())
 				.output()
 				.await
 			{
@@ -304,149 +296,5 @@ async fn check_seccomp(
 				}
 			}
 		}
-	}
-}
-
-const AUDIT_LOG_PATH: &'static str = "/var/log/audit/audit.log";
-const SYSLOG_PATH: &'static str = "/var/log/syslog";
-
-/// System audit log.
-pub struct AuditLogFile {
-	file: File,
-	path: &'static str,
-}
-
-impl AuditLogFile {
-	/// Looks for an audit log file on the system and opens it, seeking to the end to skip any
-	/// events from before this was called.
-	///
-	/// A bit of a verbose name, but it should clue future refactorers not to move calls closer to
-	/// where the `AuditLogFile` is used.
-	pub async fn try_open_and_seek_to_end() -> Option<Self> {
-		let mut path = AUDIT_LOG_PATH;
-		let mut file = match OpenOptions::new().read(true).open(AUDIT_LOG_PATH).await {
-			Ok(file) => Ok(file),
-			Err(_) => {
-				path = SYSLOG_PATH;
-				OpenOptions::new().read(true).open(SYSLOG_PATH).await
-			},
-		}
-		.ok()?;
-
-		let _pos = file.seek(SeekFrom::End(0)).await;
-
-		Some(Self { file, path })
-	}
-
-	async fn read_new_since_open(mut self) -> String {
-		let mut buf = String::new();
-		let _len = self.file.read_to_string(&mut buf).await;
-		buf
-	}
-}
-
-/// Check if a seccomp violation occurred for the given job process. As the syslog may be in a
-/// different location, or seccomp auditing may be disabled, this function provides a best-effort
-/// attempt only.
-///
-/// The `audit_log_file` must have been obtained before the job started. It only allows reading
-/// entries that were written since it was obtained, so that we do not consider events from previous
-/// processes with the same pid. This can still be racy, but it's unlikely and fine for a
-/// best-effort attempt.
-pub async fn check_seccomp_violations_for_job(
-	audit_log_file: Option<AuditLogFile>,
-	job_pid: i32,
-) -> Vec<u32> {
-	let audit_event_pid_field = format!("pid={job_pid}");
-
-	let audit_log_file = match audit_log_file {
-		Some(file) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				%job_pid,
-				audit_log_path = ?file.path,
-				"checking audit log for seccomp violations",
-			);
-			file
-		},
-		None => {
-			gum::warn!(
-				target: LOG_TARGET,
-				%job_pid,
-				"could not open either {AUDIT_LOG_PATH} or {SYSLOG_PATH} for reading audit logs"
-			);
-			return vec![]
-		},
-	};
-	let events = audit_log_file.read_new_since_open().await;
-
-	let mut violations = vec![];
-	for event in events.lines() {
-		if let Some(syscall) = parse_audit_log_for_seccomp_event(event, &audit_event_pid_field) {
-			violations.push(syscall);
-		}
-	}
-
-	violations
-}
-
-fn parse_audit_log_for_seccomp_event(event: &str, audit_event_pid_field: &str) -> Option<u32> {
-	const SECCOMP_AUDIT_EVENT_TYPE: &'static str = "type=1326";
-
-	// Do a series of simple .contains instead of a regex, because I'm not sure if the fields are
-	// guaranteed to always be in the same order.
-	if !event.contains(SECCOMP_AUDIT_EVENT_TYPE) || !event.contains(&audit_event_pid_field) {
-		return None
-	}
-
-	// Get the syscall. Let's avoid a dependency on regex just for this.
-	for field in event.split(" ") {
-		if let Some(syscall) = field.strip_prefix("syscall=") {
-			return syscall.parse::<u32>().ok()
-		}
-	}
-
-	None
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_parse_audit_log_for_seccomp_event() {
-		let audit_event_pid_field = "pid=2559058";
-
-		assert_eq!(
-			parse_audit_log_for_seccomp_event(
-				r#"Oct 24 13:15:24 build kernel: [5883980.283910] audit: type=1326 audit(1698153324.786:23): auid=0 uid=0 gid=0 ses=2162 subj=unconfined pid=2559058 comm="polkadot-prepar" exe="/root/paritytech/polkadot-sdk-2/target/debug/polkadot-prepare-worker" sig=31 arch=c000003e syscall=53 compat=0 ip=0x7f7542c80d5e code=0x80000000"#,
-				audit_event_pid_field
-			),
-			Some(53)
-		);
-		// pid is wrong
-		assert_eq!(
-			parse_audit_log_for_seccomp_event(
-				r#"Oct 24 13:15:24 build kernel: [5883980.283910] audit: type=1326 audit(1698153324.786:23): auid=0 uid=0 gid=0 ses=2162 subj=unconfined pid=2559057 comm="polkadot-prepar" exe="/root/paritytech/polkadot-sdk-2/target/debug/polkadot-prepare-worker" sig=31 arch=c000003e syscall=53 compat=0 ip=0x7f7542c80d5e code=0x80000000"#,
-				audit_event_pid_field
-			),
-			None
-		);
-		// type is wrong
-		assert_eq!(
-			parse_audit_log_for_seccomp_event(
-				r#"Oct 24 13:15:24 build kernel: [5883980.283910] audit: type=1327 audit(1698153324.786:23): auid=0 uid=0 gid=0 ses=2162 subj=unconfined pid=2559057 comm="polkadot-prepar" exe="/root/paritytech/polkadot-sdk-2/target/debug/polkadot-prepare-worker" sig=31 arch=c000003e syscall=53 compat=0 ip=0x7f7542c80d5e code=0x80000000"#,
-				audit_event_pid_field
-			),
-			None
-		);
-		// no syscall field
-		assert_eq!(
-			parse_audit_log_for_seccomp_event(
-				r#"Oct 24 13:15:24 build kernel: [5883980.283910] audit: type=1327 audit(1698153324.786:23): auid=0 uid=0 gid=0 ses=2162 subj=unconfined pid=2559057 comm="polkadot-prepar" exe="/root/paritytech/polkadot-sdk-2/target/debug/polkadot-prepare-worker" sig=31 arch=c000003e compat=0 ip=0x7f7542c80d5e code=0x80000000"#,
-				audit_event_pid_field
-			),
-			None
-		);
 	}
 }
