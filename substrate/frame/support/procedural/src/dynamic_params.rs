@@ -19,7 +19,7 @@ use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use inflector::Inflector;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse2, Result};
+use syn::{parse2, token, Result, Token};
 
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicPalletParamAttr {
@@ -391,6 +391,28 @@ pub fn dynamic_aggregated_params(_attr: TokenStream, item: TokenStream) -> Resul
 	Ok(res)
 }
 
+mod keyword {
+	syn::custom_keyword!(dynamic_pallet_params);
+}
+
+#[derive(derive_syn_parse::Parse)]
+pub struct DynamicParamModAttrMeta {
+	_keyword: keyword::dynamic_pallet_params,
+	#[paren]
+	_paren: token::Paren,
+	#[inside(_paren)]
+	pallet_param_attr: DynamicPalletParamAttr,
+}
+
+#[derive(derive_syn_parse::Parse)]
+pub struct DynamicParamModAttr {
+	_pound: Token![#],
+	#[bracket]
+	_bracket: token::Bracket,
+	#[inside(_bracket)]
+	meta: DynamicParamModAttrMeta,
+}
+
 pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 	let scrate = generate_access_from_frame_or_crate("frame-support")?;
 	let params_mod = parse2::<syn::ItemMod>(item.clone())?;
@@ -414,6 +436,18 @@ pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 			_ => None,
 		})
 		.collect::<Vec<_>>();
+	let parameter_names = items
+		.iter()
+		.filter_map(|item| match item {
+			syn::Item::Mod(params_mod) => {
+				let attr = params_mod.attrs.first();
+				let Ok(DynamicParamModAttr { meta, .. })=
+					syn::parse2::<DynamicParamModAttr>(quote! { #attr }) else { return None; };
+				Some(meta.pallet_param_attr.parameter_name)
+			},
+			_ => None,
+		})
+		.collect::<Vec<_>>();
 
 	let res = quote! {
 		#item
@@ -421,11 +455,19 @@ pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 		#[#scrate::dynamic_aggregated_params]
 		pub enum #name {
 			#(
-				// @gupnik: `Basic` should be the second param of `dynamic_pallet_params` instead.
-				#aggregate_names(#mod_names::Basic),
+				#aggregate_names(#mod_names::#parameter_names),
 			)*
 		}
 	};
 
 	Ok(res)
+}
+
+#[test]
+fn test_mod_attr_parser() {
+	let attr = quote! {
+		#[dynamic_pallet_params(pallet_parameters::Parameters::<Test>, Basic)]
+	};
+	let attr = syn::parse2::<DynamicParamModAttr>(attr).unwrap();
+	assert_eq!(attr.meta.pallet_param_attr.parameter_name.to_string(), "Basic");
 }
