@@ -46,7 +46,7 @@ macro_rules! define_error_codes {
         #[repr(u32)]
         pub enum ReturnErrorCode {
 			/// API call successful.
-			Success = 0,
+            Success = 0,
             $(
                 $( #[$attr] )*
                 $name = $discr,
