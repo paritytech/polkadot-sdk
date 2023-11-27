@@ -142,12 +142,8 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 # Clone
 git clone https://github.com/paritytech/polkadot-sdk
 
-# Compile Polkadot
-cargo build --release --bin polkadot
-
-# Compile Polkadot's `execute` and `prepare` binaries
-cargo build --release --bin polkadot-prepare
-cargo build --release --bin polkadot-execute
+# Compile Polkadot's required binaries
+cargo build --release -p polkadot
 
 # Generate a raw chain spec
 ./target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local-cfde.json
@@ -162,13 +158,10 @@ cargo build --release --bin polkadot-execute
 #### Launch the Parachain
 
 ```bash
-# Clone
-git clone https://github.com/paritytech/polkadot-sdk
+# Compile
+cargo build --release -p polkadot-parachain-bin
 
-# Compile (under `/polkadot-sdk/cumulus/polkadot-parachain`)
-cargo build --release --bin polkadot-parachain
-
-# Export genesis state (under `/polkadot-sdk/` from now on)
+# Export genesis state
 ./target/release/polkadot-parachain export-genesis-state > genesis-state
 
 # Export genesis wasm
