@@ -1922,6 +1922,11 @@
 <a href="#1922" id="1922">1922</a>
 <a href="#1923" id="1923">1923</a>
 <a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3251,7 +3256,7 @@
 			// (temporary) passive migration.
 			</span><span class="self">Self</span>::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				<span class="kw">let </span>controller = ledger.controller()
-                    .defensive_proof(<span class="string">&quot;ledger was fetched used the StakingInterface, so controller field must exist; qed.&quot;</span>)
+                    .defensive_proof(<span class="string">&quot;Ledger&#39;s controller field didn&#39;t exist. The controller should have been fetched using StakingLedger.&quot;</span>)
                     .ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
 
 				<span class="kw">if </span>controller == stash {
@@ -3688,11 +3693,16 @@
 		/// who do not satisfy these requirements.
 		</span><span class="attr">#[pallet::call_index(<span class="number">23</span>)]
 		#[pallet::weight(T::WeightInfo::chill_other())]
-		</span><span class="kw">pub fn </span>chill_other(origin: OriginFor&lt;T&gt;, controller: T::AccountId) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>chill_other(origin: OriginFor&lt;T&gt;, stash: T::AccountId) -&gt; DispatchResult {
 			<span class="comment">// Anyone can call this function.
 			</span><span class="kw">let </span>caller = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(Controller(controller.clone()))<span class="question-mark">?</span>;
-			<span class="kw">let </span>stash = ledger.stash;
+			<span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(Stash(stash.clone()))<span class="question-mark">?</span>;
+			<span class="kw">let </span>controller = ledger
+				.controller()
+				.defensive_proof(
+					<span class="string">&quot;Ledger&#39;s controller field didn&#39;t exist. The controller should have been fetched using StakingLedger.&quot;</span>,
+				)
+				.ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
 
 			<span class="comment">// In order for one user to chill another user, the following conditions must be met:
 			//
