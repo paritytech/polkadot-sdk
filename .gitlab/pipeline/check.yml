@@ -105,16 +105,13 @@ check-rust-feature-propagation:
       chmod +x ./try-runtime
 
       echo "---------- Building ${PACKAGE} runtime ----------"
-      start=$(date +%s)
-      cargo build --release --locked -p "$PACKAGE" --features try-runtime
-      echo "Execution time: $(( $(date +%s) - start )) seconds"
+      time cargo build --release --locked -p "$PACKAGE" --features try-runtime
 
       echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
-      start=$(date +%s)
-      stdbuf -o0 -e0 ./try-runtime ${COMMAND_EXTRA_ARGS} \
-        --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
-        on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
-      echo "Execution time: $(( $(date +%s) - start )) seconds"
+      time ./try-runtime ${COMMAND_EXTRA_ARGS} \
+          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
+          on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
+      sleep 5
 
 # Check runtime migrations for Parity managed relay chains
 check-runtime-migration-westend:
