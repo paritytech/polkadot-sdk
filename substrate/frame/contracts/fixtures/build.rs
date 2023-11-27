@@ -132,6 +132,24 @@ codegen-units = 1
 	fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
 }
 
+/// Invoke `cargo fmt` to check that fixtures files are formatted.
+fn invoke_fmt(current_dir: &Path, src_dir: &Path) -> Result<()> {
+	let fmt_res = Command::new("rustup")
+		.current_dir(current_dir)
+		.args(&["run", "nightly", "cargo", "fmt", "--check"])
+		.output()
+		.unwrap();
+
+	if fmt_res.status.success() {
+		return Ok(())
+	}
+
+	let stdout = String::from_utf8_lossy(&fmt_res.stdout);
+	eprintln!("{}", stdout);
+	eprintln!("Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt {}/*.rs`", src_dir.display());
+	anyhow::bail!("Fixtures files are not formatted")
+}
+
 /// Invoke `cargo build` to compile the contracts.
 fn invoke_build(current_dir: &Path) -> Result<()> {
 	let encoded_rustflags = [
@@ -146,9 +164,7 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.arg("build")
-		.arg("--release")
-		.arg("--target=wasm32-unknown-unknown") // TODO pass risc-v target here as well
+		.args(&["build", "--release", "--target=wasm32-unknown-unknown"])
 		.output()
 		.unwrap();
 
@@ -188,20 +204,43 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 	Ok(())
 }
 
-fn main() -> Result<()> {
-	let input_dir: PathBuf = ".".into();
-	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
+/// Returns the root path of the wasm workspace.
+fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
+    let mut current_dir = current_dir.to_path_buf();
 
-	let entries = collect_entries(&input_dir.join("contracts").canonicalize()?, &out_dir);
+    while current_dir.parent().is_some() {
+        if current_dir.join("Cargo.toml").exists() {
+            let cargo_toml_contents = std::fs::read_to_string(current_dir.join("Cargo.toml")).ok()?;
+            if cargo_toml_contents.contains("[workspace]") {
+                return Some(current_dir);
+            }
+        }
+
+        current_dir.pop();
+    }
+
+    None
+}
+
+
+fn main() -> Result<()> {
+	let input_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
+	let src_dir = input_dir.join("contracts");
+	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
+	let workspace_root = find_workspace_root(&input_dir).expect("workspace root exists; qed");
+
+	let entries = collect_entries(&src_dir, &out_dir);
 	if entries.is_empty() {
 		return Ok(());
 	}
 
 	let tmp_dir = tempfile::tempdir()?;
+	let tmp_dir_path = tmp_dir.path();
+	fs::copy(workspace_root.join(".rustfmt.toml"), tmp_dir_path.join(".rustfmt.toml"))?;
 	create_cargo_toml(&input_dir, entries.iter(), tmp_dir.path())?;
-	invoke_build(tmp_dir.path())?;
-	write_output(tmp_dir.path(), &out_dir, entries)?;
+	invoke_fmt(tmp_dir_path, &src_dir)?;
+	invoke_build(tmp_dir_path)?;
+	write_output(tmp_dir_path, &out_dir, entries)?;
 
-	println!("cargo:rerun-if-changed=contracts");
 	Ok(())
 }
