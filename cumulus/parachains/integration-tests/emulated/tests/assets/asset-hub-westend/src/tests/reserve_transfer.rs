@@ -407,7 +407,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		false,
 		PenpalBSender::get(),
-		Some(Weight::from_parts(1_019_445_000, 200_000)),
+		None,
 		0,
 	);
 

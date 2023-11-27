@@ -69,5 +69,5 @@ decl_test_parachains! {
 impl_accounts_helpers_for_parachain!(PenpalA);
 impl_assets_helpers_for_parachain!(PenpalA, Rococo);
 impl_assets_helpers_for_parachain!(PenpalB, Westend);
-impl_assert_events_helpers_for_parachain!(PenpalA, true);
-impl_assert_events_helpers_for_parachain!(PenpalB, true);
+impl_assert_events_helpers_for_parachain!(PenpalA);
+impl_assert_events_helpers_for_parachain!(PenpalB);
