@@ -10072,6 +10072,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-parameters",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -10649,6 +10650,25 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-parameters"
+version = "0.5.0-unaudited"
+dependencies = [
+ "docify",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-example-basic",
+ "parity-scale-codec",
+ "paste",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
@@ -14628,6 +14648,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-nis",
  "pallet-offences",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",

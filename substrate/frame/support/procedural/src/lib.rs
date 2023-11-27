@@ -18,12 +18,14 @@
 //! Proc macro of Support code for the runtime.
 
 #![recursion_limit = "512"]
+#![deny(broken_intra_doc_links)]
 
 mod benchmark;
 mod construct_runtime;
 mod crate_version;
 mod derive_impl;
 mod dummy_part_checker;
+mod dynamic_params;
 mod key_prefix;
 mod match_and_insert;
 mod no_bound;
@@ -1654,4 +1656,33 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 		#internal_mod
 	}
 	.into()
+}
+
+/// Internally used by [`dynamic_params`].
+#[doc(hidden)]
+#[proc_macro_attribute]
+pub fn dynamic_aggregated_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_aggregated_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Define a module inside a [`dynamic_params`] module that contains dynamic parameters.
+///
+/// See the [`pallet_parameters`] for a full example.
+#[proc_macro_attribute]
+pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_pallet_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
+}
+
+/// Mark a module that contains dynamic parameters.
+///
+/// See the [`pallet_parameters`] for a full example.
+#[proc_macro_attribute]
+pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_params(attrs.into(), input.into())
+		.unwrap_or_else(|r| r.into_compile_error())
+		.into()
 }
