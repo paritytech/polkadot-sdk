@@ -18,6 +18,7 @@ use crate::{
 	core::{mock::AlwaysSupportsParachains, network::NetworkEmulator},
 	TestConfiguration,
 };
+use colored::Colorize;
 use core::time::Duration;
 use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 
@@ -29,7 +30,10 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 
 use sc_network::peer_store::LOG_TARGET;
 use sc_service::{SpawnTaskHandle, TaskManager};
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+	fmt::Display,
+	net::{Ipv4Addr, SocketAddr},
+};
 use tokio::runtime::Handle;
 
 const MIB: f64 = 1024.0 * 1024.0;
@@ -233,8 +237,8 @@ impl TestEnvironment {
 		&self.config
 	}
 
-	pub fn network(&mut self) -> &mut NetworkEmulator {
-		&mut self.network
+	pub fn network(&self) -> &NetworkEmulator {
+		&self.network
 	}
 
 	pub fn registry(&self) -> &Registry {
@@ -260,7 +264,7 @@ impl TestEnvironment {
 			});
 	}
 
-	// Send a signal to the subsystem under test environment.
+	// Send an `ActiveLeavesUpdate` signal to all subsystems under test.
 	pub async fn import_block(&mut self, block: BlockInfo) {
 		self.overseer_handle
 			.block_imported(block)
@@ -274,5 +278,56 @@ impl TestEnvironment {
 	// Stop overseer and subsystems.
 	pub async fn stop(&mut self) {
 		self.overseer_handle.stop().await;
+	}
+}
+
+impl Display for TestEnvironment {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let stats = self.network().stats();
+
+		writeln!(f, "\n")?;
+		writeln!(
+			f,
+			"Total received from network: {}",
+			format!(
+				"{} MiB",
+				stats
+					.iter()
+					.enumerate()
+					.map(|(_index, stats)| stats.tx_bytes_total as u128)
+					.sum::<u128>() / (1024 * 1024)
+			)
+			.cyan()
+		)?;
+		writeln!(
+			f,
+			"Total sent to network: {}",
+			format!("{} KiB", stats[0].tx_bytes_total / (1024)).cyan()
+		)?;
+
+		let test_metrics = super::display::parse_metrics(self.registry());
+		let subsystem_cpu_metrics =
+			test_metrics.subset_with_label_value("task_group", "availability-recovery");
+		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+		writeln!(f, "Total subsystem CPU usage {}", format!("{:.2}s", total_cpu).bright_purple())?;
+		writeln!(
+			f,
+			"CPU usage per block {}",
+			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+		)?;
+
+		let test_env_cpu_metrics =
+			test_metrics.subset_with_label_value("task_group", "test-environment");
+		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+		writeln!(
+			f,
+			"Total test environment CPU usage {}",
+			format!("{:.2}s", total_cpu).bright_purple()
+		)?;
+		writeln!(
+			f,
+			"CPU usage per block {}",
+			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+		)
 	}
 }

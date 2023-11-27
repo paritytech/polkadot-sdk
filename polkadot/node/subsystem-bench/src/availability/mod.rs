@@ -390,30 +390,5 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestStat
 			.red()
 	);
 
-	let stats = env.network().stats();
-	gum::info!(
-		"Total received from network: {}",
-		format!(
-			"{} MiB",
-			stats
-				.iter()
-				.enumerate()
-				.map(|(_index, stats)| stats.tx_bytes_total as u128)
-				.sum::<u128>() / (1024 * 1024)
-		)
-		.cyan()
-	);
-
-	let test_metrics = super::core::display::parse_metrics(&env.registry());
-	let subsystem_cpu_metrics =
-		test_metrics.subset_with_label_value("task_group", "availability-recovery");
-	let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-	gum::info!(target: LOG_TARGET, "Total subsystem CPU usage {}", format!("{:.2}s", total_cpu).bright_purple());
-	gum::info!(target: LOG_TARGET, "CPU usage per block {}", format!("{:.2}s", total_cpu/env.config().num_blocks as f64).bright_purple());
-
-	let test_env_cpu_metrics =
-		test_metrics.subset_with_label_value("task_group", "test-environment");
-	let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-	gum::info!(target: LOG_TARGET, "Total test environment CPU usage {}", format!("{:.2}s", total_cpu).bright_purple());
-	gum::info!(target: LOG_TARGET, "CPU usage per block {}", format!("{:.2}s", total_cpu/env.config().num_blocks as f64).bright_purple());
+	gum::info!("{}", &env);
 }

@@ -315,7 +315,7 @@ impl NetworkEmulator {
 	}
 
 	// Returns the sent/received stats for all peers.
-	pub fn stats(&mut self) -> Vec<PeerStats> {
+	pub fn stats(&self) -> Vec<PeerStats> {
 		let r = self
 			.stats
 			.iter()

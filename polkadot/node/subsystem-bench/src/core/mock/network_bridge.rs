@@ -80,6 +80,8 @@ impl MockNetworkBridgeTx {
 
 		match request {
 			Requests::ChunkFetchingV1(outgoing_request) => {
+				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
+
 				let validator_index: usize = outgoing_request.payload.index.0 as usize;
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 
