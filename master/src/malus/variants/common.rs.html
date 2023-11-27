@@ -517,7 +517,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! Implements common code for nemesis. Currently, only `FakeValidationResult`
+</span><span class="doccomment">//! Implements common code for nemesis. Currently, only `ReplaceValidationResult`
 //! interceptor is implemented.
 </span><span class="kw">use crate</span>::{
 	interceptor::<span class="kw-2">*</span>,
@@ -691,7 +691,7 @@
 		<span class="kw">let </span>_candidate_descriptor = candidate_descriptor.clone();
 		<span class="kw">let </span><span class="kw-2">mut </span>subsystem_sender = subsystem_sender.clone();
 		<span class="kw">let </span>(sender, receiver) = std::sync::mpsc::channel();
-		<span class="self">self</span>.spawner.spawn_blocking(
+		<span class="self">self</span>.spawner.spawn(
 			<span class="string">&quot;malus-get-validation-data&quot;</span>,
 			<span class="prelude-val">Some</span>(<span class="string">&quot;malus&quot;</span>),
 			Box::pin(<span class="kw">async move </span>{
