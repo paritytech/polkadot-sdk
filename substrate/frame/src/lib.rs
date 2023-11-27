@@ -207,11 +207,7 @@ pub mod runtime {
 	///   `AccountIdLookup` in [`frame_system::Config::Lookup`].
 	pub mod types_common {
 		use frame_system::Config as SysConfig;
-		use sp_runtime::{
-			generic,
-			traits::{self, AsTransactionExtension},
-			OpaqueExtrinsic,
-		};
+		use sp_runtime::{generic, traits, OpaqueExtrinsic};
 
 		/// A signature type compatible capably of handling multiple crypto-schemes.
 		pub type Signature = sp_runtime::MultiSignature;
@@ -237,8 +233,8 @@ pub mod runtime {
 
 		/// The block type, which should be fed into [`frame_system::Config`].
 		///
-		/// Should be parameterized with `T: frame_system::Config` and a tuple of `SignedExtension`.
-		/// When in doubt, use [`SystemSignedExtensionsOf`].
+		/// Should be parameterized with `T: frame_system::Config` and a tuple of
+		/// `TransactionExtension`. When in doubt, use [`SystemTransactionExtensionsOf`].
 		// Note that this cannot be dependent on `T` for block-number because it would lead to a
 		// circular dependency (self-referential generics).
 		pub type BlockOf<T, Extra = ()> = generic::Block<HeaderInner, ExtrinsicInner<T, Extra>>;
@@ -252,7 +248,7 @@ pub mod runtime {
 		/// Default set of signed extensions exposed from the `frame_system`.
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
-		pub type SystemSignedExtensionsOf<T> = (
+		pub type SystemTransactionExtensionsOf<T> = (
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,
@@ -261,12 +257,6 @@ pub mod runtime {
 			frame_system::CheckNonce<T>,
 			frame_system::CheckWeight<T>,
 		);
-
-		/// Default set of signed extensions exposed from the `frame_system`.
-		///
-		/// crucially, this does NOT contain any tx-payment extension.
-		pub type SystemTransactionExtensionsOf<T> =
-			AsTransactionExtension<SystemSignedExtensionsOf<T> /* as SignedExtension */>;
 	}
 
 	/// The main prelude of FRAME for building runtimes, and in the context of testing.

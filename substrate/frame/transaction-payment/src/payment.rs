@@ -19,7 +19,7 @@
 use crate::Config;
 
 use sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero},
+	traits::{CheckedSub, DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero},
 	transaction_validity::InvalidTransaction,
 };
 use sp_std::marker::PhantomData;
@@ -50,6 +50,17 @@ pub trait OnChargeTransaction<T: Config> {
 		fee: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError>;
+
+	/// Check if the predicted fee from the transaction origin can be withdrawn.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<(), TransactionValidityError>;
 
 	/// After the transaction was executed the actual fee can be calculated.
 	/// This function should refund any overpaid fees and optionally deposit
@@ -119,6 +130,33 @@ where
 			Ok(imbalance) => Ok(Some(imbalance)),
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
+	}
+
+	/// Check if the predicted fee from the transaction origin can be withdrawn.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<(), TransactionValidityError> {
+		if fee.is_zero() {
+			return Ok(())
+		}
+
+		let withdraw_reason = if tip.is_zero() {
+			WithdrawReasons::TRANSACTION_PAYMENT
+		} else {
+			WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
+		};
+
+		let new_balance =
+			C::free_balance(who).checked_sub(&fee).ok_or(InvalidTransaction::Payment)?;
+		C::ensure_can_withdraw(who, fee, withdraw_reason, new_balance)
+			.map(|_| ())
+			.map_err(|_| InvalidTransaction::Payment.into())
 	}
 
 	/// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.

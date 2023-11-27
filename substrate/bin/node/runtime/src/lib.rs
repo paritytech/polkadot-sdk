@@ -78,8 +78,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdConversion, AsTransactionExtension, BlakeTwo256, Block as BlockT, Bounded,
-		ConvertInto, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
+		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor,
+		OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
@@ -1402,11 +1402,11 @@ where
 				frame_system::CheckWeight::<Runtime>::new(),
 			)
 				.into(),
-			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(AsTransactionExtension::from(
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
 					tip, None,
 				),
-			)),
+			),
 		);
 
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -2161,13 +2161,13 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The SignedExtension to the basic transaction logic.
+/// The TransactionExtension to the basic transaction logic.
 ///
 /// When you change this, you **MUST** modify [`sign`] in `bin/node/testing/src/keyring.rs`!
 ///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (
-	AsTransactionExtension<(
+	(
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
 		frame_system::CheckTxVersion<Runtime>,
@@ -2175,10 +2175,10 @@ pub type TxExtension = (
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-	)>,
+	),
 	pallet_skip_feeless_payment::SkipCheckIfFeeless<
 		Runtime,
-		AsTransactionExtension<pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>>,
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
 );
 

@@ -29,7 +29,11 @@ use scale_info::TypeInfo;
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
-	traits::{CheckedSub, DispatchInfoOf, SignedExtension, Zero},
+	impl_tx_ext_default,
+	traits::{
+		AsSystemOriginSigner, CheckedSub, DispatchInfoOf, Dispatchable, TransactionExtension,
+		TransactionExtensionBase, Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -402,7 +406,7 @@ pub mod pallet {
 		/// Attest to a statement, needed to finalize the claims process.
 		///
 		/// WARNING: Insecure unless your chain includes `PrevalidateAttests` as a
-		/// `SignedExtension`.
+		/// `TransactionExtension`.
 		///
 		/// Unsigned Validation:
 		/// A call to attest is deemed valid if the sender has a `Preclaim` registered
@@ -614,46 +618,47 @@ impl<T: Config + Send + Sync> PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-	/// Create new `SignedExtension` to check runtime version.
+	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
 		Self(sp_std::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for PrevalidateAttests<T>
+impl<T: Config + Send + Sync> TransactionExtensionBase for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-	type AccountId = T::AccountId;
-	type Call = <T as frame_system::Config>::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
 	const IDENTIFIER: &'static str = "PrevalidateAttests";
+	type Implicit = ();
+}
 
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
-	}
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for PrevalidateAttests<T>
+where
+	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+		AsSystemOriginSigner<T::AccountId> + Clone,
+{
+	type Pre = ();
+	type Val = ();
 
 	// <weight>
 	// The weight of this logic is included in the `attest` dispatchable.
 	// </weight>
 	fn validate(
 		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-	) -> TransactionValidity {
+		_context: &mut Context,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		if let Some(local_call) = call.is_sub_type() {
 			if let Call::attest { statement: attested_statement } = local_call {
 				let signer = Preclaims::<T>::get(who)
@@ -664,8 +669,9 @@ where
 				}
 			}
 		}
-		Ok(ValidTransaction::default())
+		Ok((ValidTransaction::default(), (), origin))
 	}
+	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -717,7 +723,7 @@ mod tests {
 	};
 	use pallet_balances;
 	use sp_runtime::{
-		traits::{BlakeTwo256, Identity, IdentityLookup},
+		traits::{BlakeTwo256, DispatchTransaction, Identity, IdentityLookup},
 		transaction_validity::TransactionLongevity,
 		BuildStorage,
 		DispatchError::BadOrigin,
@@ -1096,8 +1102,8 @@ mod tests {
 			});
 			let di = c.get_dispatch_info();
 			assert_eq!(di.pays_fee, Pays::No);
-			let r = p.validate(&42, &c, &di, 20);
-			assert_eq!(r, TransactionValidity::Ok(ValidTransaction::default()));
+			let r = p.validate_only(Some(42).into(), &c, &di, 20);
+			assert_eq!(r.unwrap().0, ValidTransaction::default());
 		});
 	}
 
@@ -1109,13 +1115,13 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate(&42, &c, &di, 20);
+			let r = p.validate_only(Some(42).into(), &c, &di, 20);
 			assert!(r.is_err());
 			let c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate(&69, &c, &di, 20);
+			let r = p.validate_only(Some(69).into(), &c, &di, 20);
 			assert!(r.is_err());
 		});
 	}

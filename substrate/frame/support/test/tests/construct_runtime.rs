@@ -815,7 +815,7 @@ fn test_metadata() {
 		ty: meta_type::<UncheckedExtrinsic>(),
 		version: 4,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],

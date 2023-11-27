@@ -121,7 +121,7 @@ pub fn expand_outer_inherent(
 				for xt in block.extrinsics() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
-					if #scrate::sp_runtime::traits::Extrinsic::is_bare(xt) {
+					if !(#scrate::sp_runtime::traits::Extrinsic::is_bare(xt)) {
 						break
 					}
 

@@ -59,10 +59,7 @@ pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str, impl_opaque_keys, impl_tx_ext_default,
-	traits::{
-		AsTransactionExtension, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
-		NumberFor, Verify,
-	},
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -149,8 +146,7 @@ pub type Pair = sp_core::sr25519::Pair;
 
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
-pub type TxExtension =
-	(AsTransactionExtension<(CheckNonce<Runtime>, CheckWeight<Runtime>)>, CheckSubstrateCall);
+pub type TxExtension = ((CheckNonce<Runtime>, CheckWeight<Runtime>), CheckSubstrateCall);
 /// The payload being signed in transactions.
 pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
@@ -260,45 +256,6 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 		_origin: Self::RuntimeOrigin,
 	) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
 		panic!("This implementation should not be used for actual dispatch.");
-	}
-}
-
-impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
-	type AccountId = AccountId;
-	type Call = RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
-	const IDENTIFIER: &'static str = "CheckSubstrateCall";
-
-	fn additional_signed(
-		&self,
-	) -> sp_std::result::Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(())
-	}
-
-	fn validate(
-		&self,
-		_who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> TransactionValidity {
-		log::trace!(target: LOG_TARGET, "validate");
-		match call {
-			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call),
-			_ => Ok(Default::default()),
-		}
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(drop)
 	}
 }
 
@@ -1221,7 +1178,7 @@ mod tests {
 			assert_eq!(
 				CheckSubstrateCall {}
 					.validate_only(
-						Some(x.clone()).into(),
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
 						len,
@@ -1235,7 +1192,7 @@ mod tests {
 			assert_eq!(
 				CheckSubstrateCall {}
 					.validate_only(
-						Some(x.clone()).into(),
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
 						len,

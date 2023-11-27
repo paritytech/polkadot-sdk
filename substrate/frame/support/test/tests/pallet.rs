@@ -35,10 +35,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{
-	traits::{
-		AsTransactionExtension, Dispatchable, Extrinsic as ExtrinsicT,
-		SignaturePayload as SignaturePayloadT,
-	},
+	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
 	DispatchError, ModuleError,
 };
 
@@ -736,10 +733,8 @@ impl pallet5::Config for Runtime {
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::testing::TestXt<
-	RuntimeCall,
-	AsTransactionExtension<frame_system::CheckNonZeroSender<Runtime>>,
->;
+pub type UncheckedExtrinsic =
+	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
 
 frame_support::construct_runtime!(
 	pub struct Runtime
@@ -939,10 +934,7 @@ fn inherent_expand() {
 		),
 		vec![UncheckedExtrinsic {
 			call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-			signature: Some((
-				1,
-				AsTransactionExtension::<frame_system::CheckNonZeroSender<Runtime>>::default(),
-			)),
+			signature: Some((1, frame_system::CheckNonZeroSender::<Runtime>::default())),
 		}],
 	);
 

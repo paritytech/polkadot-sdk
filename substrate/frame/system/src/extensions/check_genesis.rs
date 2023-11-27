@@ -20,10 +20,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		transaction_extension::TransactionExtensionBase, DispatchInfoOf, SignedExtension,
-		TransactionExtension, Zero,
-	},
+	traits::{TransactionExtension, TransactionExtensionBase, Zero},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -50,31 +47,9 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckGenesis<T> {
 }
 
 impl<T: Config + Send + Sync> CheckGenesis<T> {
-	/// Creates new `SignedExtension` to check genesis hash.
+	/// Creates new `TransactionExtension` to check genesis hash.
 	pub fn new() -> Self {
 		Self(sp_std::marker::PhantomData)
-	}
-}
-
-impl<T: Config + Send + Sync> SignedExtension for CheckGenesis<T> {
-	type AccountId = T::AccountId;
-	type Call = <T as Config>::RuntimeCall;
-	type AdditionalSigned = T::Hash;
-	type Pre = ();
-	const IDENTIFIER: &'static str = "CheckGenesis";
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		<Self as SignedExtension>::validate(&self, who, call, info, len).map(|_| ())
 	}
 }
 

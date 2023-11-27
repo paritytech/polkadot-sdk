@@ -56,8 +56,8 @@ impl ChainWithGrandpa for Kusama {
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
 }
 
-// The SignedExtension used by Kusama.
-pub use bp_polkadot_core::CommonSignedExtension as SignedExtension;
+// The TransactionExtension used by Kusama.
+pub use bp_polkadot_core::CommonTransactionExtension as TransactionExtension;
 
 /// Name of the parachains pallet in the Kusama runtime.
 pub const PARAS_PALLET_NAME: &str = "Paras";

@@ -20,10 +20,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		transaction_extension::TransactionExtensionBase, DispatchInfoOf, SignedExtension,
-		TransactionExtension,
-	},
+	traits::{transaction_extension::TransactionExtensionBase, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -50,31 +47,9 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckSpecVersion<T> {
 }
 
 impl<T: Config + Send + Sync> CheckSpecVersion<T> {
-	/// Create new `SignedExtension` to check runtime version.
+	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
 		Self(sp_std::marker::PhantomData)
-	}
-}
-
-impl<T: Config + Send + Sync> SignedExtension for CheckSpecVersion<T> {
-	type AccountId = T::AccountId;
-	type Call = <T as Config>::RuntimeCall;
-	type AdditionalSigned = u32;
-	type Pre = ();
-	const IDENTIFIER: &'static str = "CheckSpecVersion";
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(<Pallet<T>>::runtime_version().spec_version)
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		<Self as SignedExtension>::validate(&self, who, call, info, len).map(|_| ())
 	}
 }
 

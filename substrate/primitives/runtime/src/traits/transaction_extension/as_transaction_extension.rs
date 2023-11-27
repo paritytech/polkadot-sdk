@@ -18,13 +18,21 @@
 //! The [AsTransactionExtension] adapter struct for adapting [SignedExtension]s to
 //! [TransactionExtension]s.
 
-use crate::traits::AsSystemOriginSigner;
+#![allow(deprecated)]
+
+use scale_info::TypeInfo;
+use sp_core::RuntimeDebug;
+
+use crate::{
+	traits::{AsSystemOriginSigner, SignedExtension},
+	InvalidTransaction,
+};
 
 use super::*;
 
 /// Adapter to use a `SignedExtension` in the place of a `TransactionExtension`.
 #[derive(TypeInfo, Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-//#[deprecated = "Convert your SignedExtension to a TransactionExtension."]
+#[deprecated = "Convert your SignedExtension to a TransactionExtension."]
 pub struct AsTransactionExtension<SE: SignedExtension>(pub SE);
 
 impl<SE: SignedExtension + Default> Default for AsTransactionExtension<SE> {
@@ -106,7 +114,6 @@ where
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
 	) -> TransactionValidity {
-		#[allow(deprecated)]
 		SE::validate_unsigned(call, info, len)
 	}
 
@@ -115,7 +122,6 @@ where
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
-		#[allow(deprecated)]
 		SE::pre_dispatch_unsigned(call, info, len)
 	}
 

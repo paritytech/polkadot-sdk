@@ -19,9 +19,9 @@
 
 use super::*;
 
-/// Single-function utility trait with a blanket impl over `TransactionExtension` in order to
-/// provide transaction dispatching functionality. We avoid implementing this directly on the
-/// trait since we never want it to be overriden by the trait implementation.
+/// Single-function utility trait with a blanket impl over [TransactionExtension] in order to
+/// provide transaction dispatching functionality. We avoid implementing this directly on the trait
+/// since we never want it to be overriden by the trait implementation.
 pub trait DispatchTransaction<Call: Dispatchable> {
 	/// The origin type of the transaction.
 	type Origin;
@@ -35,8 +35,8 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	type Pre;
 	/// Just validate a transaction.
 	///
-	/// The is basically the same as `validate`, except that there is no need to supply the
-	/// bond data.
+	/// The is basically the same as [validate](TransactionExtension::validate), except that there
+	/// is no need to supply the bond data.
 	fn validate_only(
 		&self,
 		origin: Self::Origin,
@@ -60,9 +60,9 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		info: &Self::Info,
 		len: usize,
 	) -> Self::Result;
-	/// Do everything which would be done in a `dispatch_transaction`, but instead of executing the
-	/// call, execute [substitute] instead. Since this doesn't actually dispatch the call, it
-	/// doesn't need to consume it and so `call` can be passed as a reference.
+	/// Do everything which would be done in a [dispatch_transaction](Self::dispatch_transaction),
+	/// but instead of executing the call, execute `substitute` instead. Since this doesn't actually
+	/// dispatch the call, it doesn't need to consume it and so `call` can be passed as a reference.
 	fn test_run(
 		self,
 		origin: Self::Origin,
