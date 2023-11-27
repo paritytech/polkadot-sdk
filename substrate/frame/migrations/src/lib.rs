@@ -625,8 +625,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let Some(id) = T::Migrations::nth_id(cursor.index) else {
-			// No more migration in the tuple - we are done.
-			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsitent MBMs tuple");
+			// No more migrations in the tuple - we are done.
+			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsistent MBMs tuple");
 			Self::deposit_event(Event::UpgradeCompleted);
 			Cursor::<T>::kill();
 			T::MigrationStatusHandler::completed();
@@ -709,9 +709,8 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::UpgradeFailed);
 
 		match T::FailedMigrationHandler::failed(migration) {
-			Some(KeepStuck) => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
-			Some(ForceUnstuck) => Cursor::<T>::kill(),
-			None => (),
+			KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
+			ForceUnstuck => Cursor::<T>::kill(),
 		}
 	}
 }
