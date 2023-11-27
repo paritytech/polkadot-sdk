@@ -307,6 +307,8 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
+type MaxSwapLength = ConstU32<4>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
@@ -327,7 +329,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type LPFee = ConstU32<3>;
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
-	type MaxSwapPathLength = ConstU32<4>;
+	type MaxSwapPathLength = MaxSwapLength;
 	type MultiAssetId = Box<MultiLocation>;
 	type MultiAssetIdConverter =
 		MultiLocationConverter<WestendLocation, LocalAndForeignAssetsMultiLocationMatcher>;
@@ -1235,14 +1237,15 @@ impl_runtime_apis! {
 		Balance,
 		u128,
 		Box<MultiLocation>,
+		MaxSwapLength
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
-			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
+		fn quote_price_exact_tokens_for_tokens(path: BoundedVec<Box<MultiLocation>, MaxSwapLength>, amount: u128, include_fee: bool) -> Option<Balance> {
+			AssetConversion::quote_price_exact_tokens_for_tokens(path, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
-			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
+		fn quote_price_tokens_for_exact_tokens(path: BoundedVec<Box<MultiLocation>, MaxSwapLength>, amount: u128, include_fee: bool) -> Option<Balance> {
+			AssetConversion::quote_price_tokens_for_exact_tokens(path, amount, include_fee)
 		}
 
 		fn get_reserves(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>) -> Option<(Balance, Balance)> {
