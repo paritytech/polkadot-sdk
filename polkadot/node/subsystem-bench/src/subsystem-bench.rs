@@ -26,10 +26,13 @@ pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
 
-use availability::{prepare_test, NetworkEmulation, TestEnvironment, TestState};
+use availability::{prepare_test, NetworkEmulation, TestState};
 use cli::TestObjective;
 
-use core::configuration::TestConfiguration;
+use core::{
+	configuration::TestConfiguration,
+	environment::{TestEnvironment, GENESIS_HASH},
+};
 
 use clap_num::number_range;
 // const LOG_TARGET: &str = "subsystem-bench";
@@ -105,8 +108,6 @@ impl BenchCli {
 						format!("latency = {:?}", test_config.latency).bright_black(),
 					);
 
-					let candidate_count = test_config.n_cores * test_config.num_blocks;
-
 					let mut state = TestState::new(&test_config);
 					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 					env.runtime().block_on(availability::bench_chunk_recovery(&mut env, state));
@@ -165,11 +166,9 @@ impl BenchCli {
 			test_config.bandwidth = bandwidth * 1024;
 		}
 
-		let candidate_count = test_config.n_cores * test_config.num_blocks;
-		// test_config.write_to_disk();
-
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+		// test_config.write_to_disk();
 		env.runtime().block_on(availability::bench_chunk_recovery(&mut env, state));
 
 		Ok(())

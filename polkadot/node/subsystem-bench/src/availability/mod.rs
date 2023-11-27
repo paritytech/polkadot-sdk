@@ -21,36 +21,24 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use tokio::runtime::{Handle, Runtime};
 
-use polkadot_node_subsystem::{
-	BlockInfo, Event, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-};
+use crate::TestEnvironment;
+use polkadot_node_subsystem::{Event, Overseer, OverseerConnector, OverseerHandle, SpawnGlue};
 use sc_network::request_responses::ProtocolConfig;
 
 use colored::Colorize;
 
-use futures::{channel::oneshot, stream::FuturesUnordered, FutureExt, SinkExt, StreamExt};
+use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 use polkadot_node_metrics::metrics::Metrics;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 
+use crate::GENESIS_HASH;
 use parity_scale_codec::Encode;
-use polkadot_node_network_protocol::request_response::{
-	self as req_res, v1::ChunkResponse, IncomingRequest, ReqProtocolNames, Requests,
-};
-use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
-
-use prometheus::Registry;
-use sc_network::{OutboundFailure, RequestFailure};
-
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
+use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
-use polkadot_node_subsystem::{
-	messages::{AllMessages, AvailabilityRecoveryMessage},
-	ActiveLeavesUpdate, OverseerSignal,
-};
-use std::net::{Ipv4Addr, SocketAddr};
+use polkadot_node_subsystem::messages::{AllMessages, AvailabilityRecoveryMessage};
 
 use crate::core::{
 	configuration::TestAuthorities,
@@ -62,12 +50,7 @@ use crate::core::{
 	},
 };
 
-use super::core::{
-	configuration::{PeerLatency, TestConfiguration},
-	environment::TestEnvironmentMetrics,
-	mock::dummy_builder,
-	network::*,
-};
+use super::core::{configuration::TestConfiguration, mock::dummy_builder, network::*};
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
@@ -75,68 +58,17 @@ use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_event;
-use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, PersistedValidationData,
-	SessionIndex, ValidatorIndex,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
-use sc_service::{SpawnTaskHandle, TaskManager};
+use sc_service::SpawnTaskHandle;
 
 mod cli;
 pub mod configuration;
 pub use cli::{DataAvailabilityReadOptions, NetworkEmulation, NetworkOptions};
 pub use configuration::AvailabilityRecoveryConfiguration;
-
-// A dummy genesis hash
-const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
-
-/// The test environment is the high level wrapper of all things required to test
-/// a certain subsystem.
-///
-/// ## Mockups
-/// The overseer is passed in during construction and it can host an arbitrary number of
-/// real subsystems instances and the corresponding mocked instances such that the real
-/// subsystems can get their messages answered.
-///
-/// As the subsystem's performance depends on network connectivity, the test environment
-/// emulates validator nodes on the network, see `NetworkEmulator`. The network emulation
-/// is configurable in terms of peer bandwidth, latency and connection error rate using
-/// uniform distribution sampling.
-///
-///
-/// ## Usage
-/// `TestEnvironment` is used in tests to send `Overseer` messages or signals to the subsystem
-/// under test.
-///
-/// ## Collecting test metrics
-///
-/// ### Prometheus
-/// A prometheus endpoint is exposed while the test is running. A local Prometheus instance
-/// can scrape it every 1s and a Grafana dashboard is the preferred way of visualizing
-/// the performance characteristics of the subsystem.
-///
-/// ### CLI
-/// A subset of the Prometheus metrics are printed at the end of the test.
-pub struct TestEnvironment {
-	// A task manager that tracks task poll durations allows us to measure
-	// per task CPU usage as we do in the Polkadot node.
-	task_manager: TaskManager,
-	// Our runtime
-	runtime: tokio::runtime::Runtime,
-	// A runtime handle
-	runtime_handle: tokio::runtime::Handle,
-	// The Prometheus metrics registry
-	registry: Registry,
-	// A handle to the lovely overseer
-	overseer_handle: OverseerHandle,
-	// The test intial state. The current state is owned by `env_task`.
-	config: TestConfiguration,
-	// A handle to the network emulator.
-	network: NetworkEmulator,
-	// Configuration/env metrics
-	metrics: TestEnvironmentMetrics,
-}
 
 fn build_overseer(
 	spawn_task_handle: SpawnTaskHandle,
@@ -257,107 +189,12 @@ fn prepare_test_inner(
 	)
 }
 
-impl TestEnvironment {
-	// Create a new test environment with specified initial state and prometheus registry.
-	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
-	pub fn new(
-		task_manager: TaskManager,
-		config: TestConfiguration,
-		registry: Registry,
-		runtime: Runtime,
-		network: NetworkEmulator,
-		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
-		overseer_handle: OverseerHandle,
-	) -> Self {
-		let metrics =
-			TestEnvironmentMetrics::new(&registry).expect("Metrics need to be registered");
-
-		let spawn_handle = task_manager.spawn_handle();
-		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run());
-
-		let registry_clone = registry.clone();
-		task_manager
-			.spawn_handle()
-			.spawn_blocking("prometheus", "test-environment", async move {
-				prometheus_endpoint::init_prometheus(
-					SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
-					registry_clone,
-				)
-				.await
-				.unwrap();
-			});
-
-		TestEnvironment {
-			task_manager,
-			runtime_handle: runtime.handle().clone(),
-			runtime,
-			registry,
-			overseer_handle,
-			config,
-			network,
-			metrics,
-		}
-	}
-
-	pub fn config(&self) -> &TestConfiguration {
-		&self.config
-	}
-
-	pub fn network(&mut self) -> &mut NetworkEmulator {
-		&mut self.network
-	}
-
-	pub fn registry(&self) -> &Registry {
-		&self.registry
-	}
-
-	/// Produce a randomized duration between `min` and `max`.
-	fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> Option<Duration> {
-		if let Some(peer_latency) = maybe_peer_latency {
-			Some(
-				Uniform::from(peer_latency.min_latency..=peer_latency.max_latency)
-					.sample(&mut thread_rng()),
-			)
-		} else {
-			None
-		}
-	}
-
-	pub fn metrics(&self) -> &TestEnvironmentMetrics {
-		&self.metrics
-	}
-
-	pub fn runtime(&self) -> Handle {
-		self.runtime_handle.clone()
-	}
-
-	// Send a message to the subsystem under test environment.
-	pub async fn send_message(&mut self, msg: Event) {
-		self.overseer_handle
-			.send(msg)
-			.timeout(MAX_TIME_OF_FLIGHT)
-			.await
-			.unwrap_or_else(|| {
-				panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
-			})
-			.expect("send never fails");
-	}
-}
-
-// We use this to bail out sending messages to the subsystem if it is overloaded such that
-// the time of flight is breaches 5s.
-// This should eventually be a test parameter.
-const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
-
 #[derive(Clone)]
 pub struct TestState {
 	// Full test configuration
 	config: TestConfiguration,
 	// State starts here.
 	test_authorities: TestAuthorities,
-	// The test node validator index.
-	validator_index: ValidatorIndex,
-	session_index: SessionIndex,
 	pov_sizes: Cycle<std::vec::IntoIter<usize>>,
 	// Generated candidate receipts to be used in the test
 	candidates: Cycle<std::vec::IntoIter<CandidateReceipt>>,
@@ -422,12 +259,10 @@ impl TestState {
 		let config = config.clone();
 		let test_authorities = config.generate_authorities();
 
-		let validator_index = ValidatorIndex(0);
 		let mut chunks = Vec::new();
 		let mut available_data = Vec::new();
 		let mut candidate_receipts = Vec::new();
 		let mut pov_size_to_candidate = HashMap::new();
-		let session_index = 10;
 
 		// we use it for all candidates.
 		let persisted_validation_data = PersistedValidationData {
@@ -469,8 +304,6 @@ impl TestState {
 		Self {
 			config,
 			test_authorities,
-			validator_index,
-			session_index,
 			persisted_validation_data,
 			available_data,
 			candidate_receipts,
