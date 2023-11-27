@@ -28,6 +28,9 @@ LABEL io.parity.image.authors="devops-team@parity.io" \
 ENV RUST_BACKTRACE 1
 USER root
 
+# for native provider to work (TODO: fix in zn docker?)
+RUN apt-get update && apt-get install procps
+
 # add polkadot binary to the docker image
 COPY ./artifacts/polkadot /usr/local/bin/
 COPY ./artifacts/polkadot-execute-worker /usr/local/bin/
