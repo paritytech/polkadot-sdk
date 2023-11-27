@@ -1327,7 +1327,7 @@ pub mod pallet {
 			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
-                    .defensive_proof("ledger was fetched used the StakingInterface, so controller field must exist; qed.")
+                    .defensive_proof("ledger was fetched using StakingLedger, so controller field must exist; qed.")
                     .ok_or(Error::<T>::NotController)?;
 
 				if controller == stash {
@@ -1768,8 +1768,11 @@ pub mod pallet {
 			// Anyone can call this function.
 			let caller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let controller = ledger.controller()
-				.defensive_proof("ledger was fetched used the StakingInterface, so controller field must exist; qed.")
+			let controller = ledger
+				.controller()
+				.defensive_proof(
+					"ledger was fetched using StakingLedger, so controller field must exist; qed.",
+				)
 				.ok_or(Error::<T>::NotController)?;
 
 			// In order for one user to chill another user, the following conditions must be met:
