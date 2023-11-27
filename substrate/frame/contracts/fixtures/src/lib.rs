@@ -33,7 +33,7 @@ fn wat_root_dir() -> PathBuf {
 /// with it's hash.
 ///
 /// The fixture files are located under the `fixtures/` directory.
-pub fn legacy_compile_module<T>(
+fn legacy_compile_module<T>(
 	fixture_name: &str,
 ) -> anyhow::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
 where
