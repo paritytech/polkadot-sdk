@@ -18,7 +18,7 @@
 use crate::{write_file_if_changed, CargoCommandVersioned, OFFLINE};
 
 use build_helper::rerun_if_changed;
-use cargo_metadata::{CargoOpt, Metadata, MetadataCommand};
+use cargo_metadata::{DependencyKind, Metadata, MetadataCommand};
 use parity_wasm::elements::{deserialize_buffer, Module};
 use std::{
 	borrow::ToOwned,
@@ -89,8 +89,7 @@ fn crate_metadata(cargo_manifest: &Path) -> Metadata {
 		cargo_manifest.to_path_buf()
 	};
 
-	let mut crate_metadata_command = create_metadata_command(cargo_manifest);
-	crate_metadata_command.features(CargoOpt::AllFeatures);
+	let crate_metadata_command = create_metadata_command(cargo_manifest);
 
 	let crate_metadata = crate_metadata_command
 		.exec()
@@ -751,6 +750,25 @@ fn build_bloaty_blob(
 		build_cmd.arg("--offline");
 	}
 
+	// Our executor currently only supports the WASM MVP feature set, however nowadays
+	// when compiling WASM the Rust compiler has more features enabled by default.
+	//
+	// We do set the `-C target-cpu=mvp` flag to make sure that *our* code gets compiled
+	// in a way that is compatible with our executor, however this doesn't affect Rust's
+	// standard library crates (`std`, `core` and `alloc`) which are by default precompiled
+	// and still can make use of these extra features.
+	//
+	// So here we force the compiler to also compile the standard library crates for us
+	// to make sure that they also only use the MVP features.
+	if crate::build_std_required() {
+		// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
+		// so it's unlikely to break without a replacement.
+		build_cmd.arg("-Z").arg("build-std");
+		if !cargo_cmd.supports_nightly_features() {
+			build_cmd.env("RUSTC_BOOTSTRAP", "1");
+		}
+	}
+
 	println!("{}", colorize_info_message("Information that should be included in a bug report."));
 	println!("{} {:?}", colorize_info_message("Executing build command:"), build_cmd);
 	println!("{} {}", colorize_info_message("Using rustc version:"), cargo_cmd.rustc_version());
@@ -915,6 +933,11 @@ fn generate_rerun_if_changed_instructions(
 	packages.insert(DeduplicatePackage::from(package));
 
 	while let Some(dependency) = dependencies.pop() {
+		// Ignore all dev dependencies
+		if dependency.kind == DependencyKind::Development {
+			continue;
+		}
+
 		let path_or_git_dep =
 			dependency.source.as_ref().map(|s| s.starts_with("git+")).unwrap_or(true);
 
@@ -948,6 +971,7 @@ fn generate_rerun_if_changed_instructions(
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_RUSTFLAGS_ENV);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_TARGET_DIRECTORY);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_TOOLCHAIN);
+	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 }
 
 /// Track files and paths related to the given package to rerun `build.rs` on any relevant change.
@@ -967,9 +991,7 @@ fn package_rerun_if_changed(package: &DeduplicatePackage) {
 			p.path() == manifest_path || !p.path().is_dir() || !p.path().join("Cargo.toml").exists()
 		})
 		.filter_map(|p| p.ok().map(|p| p.into_path()))
-		.filter(|p| {
-			p.is_dir() || p.extension().map(|e| e == "rs" || e == "toml").unwrap_or_default()
-		})
+		.filter(|p| p.extension().map(|e| e == "rs" || e == "toml").unwrap_or_default())
 		.for_each(rerun_if_changed);
 }
 

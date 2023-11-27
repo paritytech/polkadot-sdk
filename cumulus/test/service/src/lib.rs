@@ -217,7 +217,8 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let block_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let registry = config.prometheus_registry();
 

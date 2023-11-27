@@ -6,13 +6,11 @@ on:
       - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
 
 jobs:
   check-publish:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest"]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
 
@@ -22,7 +20,7 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish --profile dev
+        run: cargo install parity-publish@0.3.0
 
       - name: parity-publish check
         run: parity-publish check --allow-unpublished

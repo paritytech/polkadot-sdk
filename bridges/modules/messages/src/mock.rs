@@ -34,16 +34,11 @@ use bp_messages::{
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode};
 use frame_support::{
-	parameter_types,
-	traits::ConstU64,
+	derive_impl, parameter_types,
 	weights::{constants::RocksDbWeight, Weight},
 };
 use scale_info::TypeInfo;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, ConstU32, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use sp_runtime::BuildStorage;
 use std::{
 	collections::{BTreeMap, VecDeque},
 	ops::RangeInclusive,
@@ -84,56 +79,19 @@ frame_support::construct_runtime! {
 	}
 }
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
-}
-
 pub type DbWeight = RocksDbWeight;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for TestRuntime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type BlockWeights = ();
-	type BlockLength = ();
 	type DbWeight = DbWeight;
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
-	type MaxLocks = ();
-	type Balance = Balance;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
-	type AccountStore = frame_system::Pallet<TestRuntime>;
-	type WeightInfo = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
-	type MaxFreezes = ConstU32<0>;
+	type ReserveIdentifier = [u8; 8];
+	type AccountStore = System;
 }
 
 parameter_types! {
