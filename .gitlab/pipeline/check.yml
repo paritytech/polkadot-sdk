@@ -111,7 +111,7 @@ check-rust-feature-propagation:
 
       echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
       start=$(date +%s)
-      ./try-runtime ${COMMAND_EXTRA_ARGS} \
+      stdbuf -o0 -e0 ./try-runtime ${COMMAND_EXTRA_ARGS} \
         --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
         on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
       echo "Execution time: $(( $(date +%s) - start )) seconds"
