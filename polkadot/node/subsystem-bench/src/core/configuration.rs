@@ -15,8 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use std::path::Path;
 
-use crate::availability::AvailabilityRecoveryConfiguration;
-
 use super::*;
 pub use crate::cli::TestObjective;
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
@@ -81,7 +79,7 @@ pub struct TestSequence {
 }
 
 impl TestSequence {
-	pub fn to_vec(mut self) -> Vec<TestConfiguration> {
+	pub fn to_vec(self) -> Vec<TestConfiguration> {
 		self.test_configurations
 			.into_iter()
 			.map(|mut config| {
@@ -187,4 +185,22 @@ impl TestConfiguration {
 			max_pov_size,
 		}
 	}
+}
+
+/// Produce a randomized duration between `min` and `max`.
+pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> Option<Duration> {
+	if let Some(peer_latency) = maybe_peer_latency {
+		Some(
+			Uniform::from(peer_latency.min_latency..=peer_latency.max_latency)
+				.sample(&mut thread_rng()),
+		)
+	} else {
+		None
+	}
+}
+
+/// Generate a random error based on `probability`.
+/// `probability` should be a number between 0 and 100.
+pub fn random_error(probability: usize) -> bool {
+	Uniform::from(0..=99).sample(&mut thread_rng()) < probability
 }

@@ -26,16 +26,13 @@ pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
 
-use availability::{
-	AvailabilityRecoveryConfiguration, DataAvailabilityReadOptions, NetworkEmulation,
-	TestEnvironment, TestState,
-};
+use availability::{NetworkEmulation, TestEnvironment, TestState};
 use cli::TestObjective;
 
-use core::configuration::{PeerLatency, TestConfiguration, TestSequence};
+use core::configuration::TestConfiguration;
 
 use clap_num::number_range;
-const LOG_TARGET: &str = "subsystem-bench";
+// const LOG_TARGET: &str = "subsystem-bench";
 
 fn le_100(s: &str) -> Result<usize, String> {
 	number_range(s, 0, 100)
@@ -125,14 +122,17 @@ impl BenchCli {
 
 					let mut state = TestState::new(test_config);
 					state.generate_candidates(candidate_count);
-					let mut env =
-						TestEnvironment::new(runtime.handle().clone(), state.clone(), Registry::new());
+					let mut env = TestEnvironment::new(
+						runtime.handle().clone(),
+						state.clone(),
+						Registry::new(),
+					);
 
 					runtime.block_on(availability::bench_chunk_recovery(&mut env, state));
 				}
 				return Ok(())
 			},
-			TestObjective::DataAvailabilityRead(ref options) => match self.network {
+			TestObjective::DataAvailabilityRead(ref _options) => match self.network {
 				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
 					self.objective,
 					configuration.num_blocks,
@@ -189,7 +189,8 @@ impl BenchCli {
 
 		let mut state = TestState::new(test_config);
 		state.generate_candidates(candidate_count);
-		let mut env = TestEnvironment::new(runtime.handle().clone(), state.clone(), Registry::new());
+		let mut env =
+			TestEnvironment::new(runtime.handle().clone(), state.clone(), Registry::new());
 
 		runtime.block_on(availability::bench_chunk_recovery(&mut env, state));
 

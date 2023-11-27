@@ -28,5 +28,5 @@ pub mod configuration;
 pub mod display;
 pub mod environment;
 pub mod keyring;
-pub mod network;
 pub mod mock;
+pub mod network;

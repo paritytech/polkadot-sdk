@@ -753,9 +753,8 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestStat
 
 		let block_start_ts = Instant::now();
 		for candidate_num in 0..config.n_cores as u64 {
-			let candidate = state
-				.next_candidate()
-				.expect("We always send up to n_cores*num_blocks; qed");
+			let candidate =
+				state.next_candidate().expect("We always send up to n_cores*num_blocks; qed");
 			let (tx, rx) = oneshot::channel();
 			batch.push(rx);
 

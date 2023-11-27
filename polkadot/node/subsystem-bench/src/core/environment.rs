@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
-use network::NetworkEmulator;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
