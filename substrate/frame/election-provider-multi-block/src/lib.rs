@@ -19,14 +19,20 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// TODO(gpestana): clean imports
+use codec::MaxEncodedLen;
+use scale_info::TypeInfo;
+
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
-	NposSolution, PageIndex,
+	NposSolution, PageIndex, VoterOf,
 };
 use frame_support::{
-	traits::{Defensive, Get},
+	traits::{Defensive, DefensiveSaturating, Get},
 	BoundedVec,
 };
+use sp_runtime::traits::Zero;
+
 use frame_system::pallet_prelude::BlockNumberFor;
 
 #[macro_use]
@@ -36,19 +42,21 @@ mod mock;
 
 const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
+pub mod signed;
 pub mod types;
+//pub mod unsigned;
 pub mod verifier;
 pub use pallet::*;
 pub use types::*;
 
 pub use crate::verifier::Verifier;
 
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
-		sp_runtime::{traits::Zero, Saturating},
+		sp_runtime::Saturating,
 		Twox64Concat,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
@@ -110,8 +118,21 @@ pub mod pallet {
 			BlockNumber = BlockNumberFor<Self>,
 		>;
 
+		/// Something that implements a fallback election.
+		///
+		/// This provider must run the election in one block, thus it has at most 1 page.
+		type Fallback: ElectionProvider<
+			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
+			DataProvider = Self::DataProvider,
+			MaxWinnersPerPage = <Self::Verifier as Verifier>::MaxWinnersPerPage,
+			MaxBackersPerWinner = <Self::Verifier as Verifier>::MaxBackersPerWinner,
+			Pages = ConstU32<1>,
+		>;
+
 		/// Something that implements an election solution verifier.
-		type Verifier: verifier::Verifier<AccountId = Self::AccountId, Solution = SolutionOf<Self>>; // + verifier::AsynchronousVerifier;
+		type Verifier: verifier::Verifier<AccountId = Self::AccountId, Solution = SolutionOf<Self>>
+			+ verifier::AsyncVerifier;
 	}
 
 	/// Current phase.
@@ -173,7 +194,7 @@ pub mod pallet {
 				.max(now);
 
 			let remaining_blocks = next_election - now;
-			let current_phase = <CurrentPhase<T>>::get();
+			let current_phase = Self::current_phase();
 
 			log!(
 				trace,
@@ -273,18 +294,13 @@ pub mod pallet {
 /// private.
 pub(crate) struct Snapshot<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> Snapshot<T> {
-	fn targets(
-		page_index: PageIndex,
-	) -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
-		PagedTargetSnapshot::<T>::get(page_index)
+	/// Returns the targets of a specific `page` index.
+	fn targets(page: PageIndex) -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
+		PagedTargetSnapshot::<T>::get(page)
 	}
 
 	fn set_targets(page: PageIndex, targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
 		PagedTargetSnapshot::<T>::insert(page, targets);
-	}
-
-	fn voters(page_index: PageIndex) -> Option<VoterPageOf<T>> {
-		PagedVoterSnapshot::<T>::get(page_index)
 	}
 
 	fn set_desired_targets(targets: u32) {
@@ -295,6 +311,27 @@ impl<T: Config> Snapshot<T> {
 		DesiredTargets::<T>::get()
 	}
 
+	/// Returns the voters of a specific `page` index.
+	fn voters(page: PageIndex) -> Option<VoterPageOf<T>> {
+		PagedVoterSnapshot::<T>::get(page)
+	}
+
+	fn set_voters(
+		page: PageIndex,
+		voters: BoundedVec<VoterOf<T::DataProvider>, T::VoterSnapshotPerBlock>,
+	) {
+		PagedVoterSnapshot::<T>::insert(page, voters);
+	}
+
+	/// Clears all data related to a snapshot.
+	fn kill() {
+		DesiredTargets::<T>::kill();
+		let _ = PagedVoterSnapshot::<T>::clear(u32::MAX, None);
+		let _ = PagedTargetSnapshot::<T>::clear(u32::MAX, None);
+
+		debug_assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
+	}
+
 	#[cfg(any(test, debug_assertions))]
 	fn _ensure_snapshot(_must_exist: bool) -> Result<(), &'static str> {
 		// TODO(gpestana): implement debug assertions for the snapshot.
@@ -303,6 +340,14 @@ impl<T: Config> Snapshot<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	pub(crate) fn current_phase() -> Phase<BlockNumberFor<T>> {
+		<CurrentPhase<T>>::get()
+	}
+
+	pub(crate) fn current_round() -> u32 {
+		<Round<T>>::get()
+	}
+
 	/// Phase transition helper.
 	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
 		log!(info, "starting phase {:?}, round {}", to, <Round<T>>::get());
@@ -322,9 +367,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the target snapshot.
-	fn create_targets_snapshot(remaining_pages: u32) -> Result<u32, ElectionError> {
+	fn create_targets_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
+		// set the desired target in the data provider before requesting the electable targets.
+		// TODO(gpestana): check if this is the best pattern here.
 		Snapshot::<T>::set_desired_targets(
-			T::DataProvider::desired_targets().map_err(|e| ElectionError::DataProvider)?,
+			T::DataProvider::desired_targets().map_err(|_| ElectionError::<T>::DataProvider)?,
 		);
 
 		let bounds = ElectionBoundsBuilder::default()
@@ -334,34 +381,87 @@ impl<T: Config> Pallet<T> {
 
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
 			T::DataProvider::electable_targets(bounds, remaining_pages)
-				.and_then(|t| t.try_into())
-				.map_err(|_| ElectionError::DataProviderBoundariesExceeded)
-				.map_err(|e| ElectionError::DataProvider)?;
-
-		Snapshot::<T>::set_targets(remaining_pages, targets);
+				.and_then(
+					|t| t.try_into().map_err(|_| "too many targets returned by the data provider.")
+				)
+				.map_err(|_| ElectionError::<T>::DataProvider)?;
 
 		let count = targets.len() as u32;
 		log!(debug, "created target snapshot with {} targets.", count);
 
+		Snapshot::<T>::set_targets(remaining_pages, targets);
+
 		Ok(count)
 	}
 
-	fn create_voters_snapshot(_remaining_pages: u32) -> Result<u32, ElectionError> {
-		todo!()
+	fn create_voters_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
+		let bounds = ElectionBoundsBuilder::default()
+			.voters_count(T::VoterSnapshotPerBlock::get().into())
+			.build()
+			.voters;
+
+		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
+			T::DataProvider::electing_voters(bounds, remaining_pages)
+				.and_then(
+					|v| v.try_into().map_err(|_| "too many voters returned by the data provider")
+				)
+				.map_err(|_| ElectionError::<T>::DataProvider)?;
+
+		let count = voters.len() as u32;
+		log!(debug, "created voter snapshot with {} voters.", count);
+
+		Snapshot::<T>::set_voters(remaining_pages, voters);
+
+		Ok(count)
+	}
+
+	/// Performs all tasks required after a successful election:
+	///
+	/// 1. Increment round.
+	/// 2. Change phase to [`Phase::Off`].
+	/// 3. Clear all snapshot data.
+	fn rotate_round() {
+		<Round<T>>::mutate(|r| r.defensive_saturating_accrue(1));
+		Self::phase_transition(Phase::Off);
+		Snapshot::<T>::kill();
 	}
 }
 
 impl<T: Config> ElectionProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
-	type Error = ElectionError;
+	type Error = ElectionError<T>;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type Pages = T::Pages;
 	type DataProvider = T::DataProvider;
 
-	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		todo!()
+	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		T::Verifier::get_queued_solution(remaining)
+			.ok_or(ElectionError::<T>::SupportPageNotAvailable(remaining))
+			.or_else(|err| {
+				log!(error, "election provider failed due to {:?}, trying fallback.", err);
+				T::Fallback::elect(0).map_err(|fe| ElectionError::<T>::Fallback(fe))
+			})
+			.map(|supports| {
+				if remaining.is_zero() {
+					log!(info, "last supports page received, rotating round.");
+					Self::rotate_round();
+				} else {
+					Self::phase_transition(Phase::Export);
+				}
+				supports.into()
+			})
+			.map_err(|err| {
+				// election failed, go to emergency phase. TODO(gpestana): rething emergency phase.
+				log!(
+					error,
+					"fetching election page {} and fallback failed. entering emergency mode",
+					remaining
+				);
+				Self::phase_transition(Phase::Emergency);
+				err
+			})
 	}
 }
 

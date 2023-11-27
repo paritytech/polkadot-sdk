@@ -15,15 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod signed;
 mod staking;
-// mod signed;
 // mod unsigned;
-// mod weight_info;
 
+use frame_election_provider_support::{bounds::ElectionBounds, onchain, SequentialPhragmen};
 pub use staking::*;
 
 use crate::{
 	self as epm,
+	signed::{self as signed_pallet},
 	verifier::{self as verifier_pallet},
 	Config, *,
 };
@@ -36,6 +37,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		MultiPhase: epm,
 		VerifierPallet: verifier_pallet,
+		SignedPallet: signed_pallet,
 	}
 );
 
@@ -79,7 +81,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ();
 	type RuntimeFreezeReason = ();
 }
@@ -105,6 +107,7 @@ impl Config for Runtime {
 	type Pages = Pages;
 	type DataProvider = MockStaking;
 	type Solution = TestNposSolution;
+	type Fallback = MockFallback;
 	type Verifier = VerifierPallet;
 }
 
@@ -120,26 +123,71 @@ impl crate::verifier::Config for Runtime {
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
-	type SolutionDataProvider = (); // TODO(gpestana): replace with crate::signed pallet
+	type SolutionDataProvider = SignedPallet;
 	type WeightInfo = ();
 }
 
-// TODO(gpestana): just to compile tests for now, remove. should be the signed pallet
-impl verifier::SolutionDataProvider for () {
-	type Solution = TestNposSolution;
-	fn get_score() -> Option<sp_npos_elections::ElectionScore> {
-		todo!();
-	}
-	fn report_result(_result: verifier::VerificationResult) {
-		todo!()
-	}
-	fn get_paged_solution(_page: PageIndex) -> Option<Self::Solution> {
-		todo!()
+parameter_types! {
+	pub static DepositBase: Balance = 10;
+	pub static DepositPerPage: Balance = 1;
+	pub static Reward: Balance = 10;
+	pub static MaxSubmissions: u32 = 5;
+}
+
+impl crate::signed::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type EstimateCallFee = ConstU32<8>;
+	type OnSlash = (); // burn
+	type DepositBase = ConstDepositBase;
+	type DepositPerPage = DepositPerPage;
+	type Reward = Reward;
+	type MaxSubmissions = MaxSubmissions;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = ();
+}
+
+pub struct ConstDepositBase;
+impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
+	fn convert(_a: usize) -> Balance {
+		DepositBase::get()
 	}
 }
 
 parameter_types! {
-	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
+	pub static OnChainElectionBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+	 pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
+	pub static FallbackEnabled: bool = true;
+}
+
+impl onchain::Config for Runtime {
+	type System = Runtime;
+	type Solver = SequentialPhragmen<AccountId, Perbill, ()>;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type Bounds = OnChainElectionBounds;
+	type DataProvider = MockStaking;
+	type WeightInfo = ();
+}
+
+pub struct MockFallback;
+impl ElectionProvider for MockFallback {
+	type AccountId = AccountId;
+	type BlockNumber = BlockNumberFor<Runtime>;
+	type Error = &'static str;
+	type DataProvider = MockStaking;
+	type Pages = ConstU32<1>;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+
+	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		if FallbackEnabled::get() {
+			onchain::OnChainExecution::<Runtime>::elect(remaining)
+				.map_err(|_| "fallback election failed")
+		} else {
+			Err("fallback election failed (forced in mock)")
+		}
+	}
 }
 
 #[derive(Default)]

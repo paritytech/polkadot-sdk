@@ -23,7 +23,10 @@ use scale_info::TypeInfo;
 
 use crate::Verifier;
 
-use frame_election_provider_support::{NposSolution, PageIndex};
+use frame_election_provider_support::{ElectionProvider, NposSolution, PageIndex};
+
+/// The main account ID type.
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 /// Supports that are returned from a given [`Verifier`].
 pub type SupportsOf<V> = frame_election_provider_support::BoundedSupports<
@@ -41,23 +44,46 @@ pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex
 pub type SolutionOf<T> = <T as crate::Config>::Solution;
 
 #[derive(DebugNoBound)]
-pub enum ElectionError {
+pub enum ElectionError<T: crate::Config> {
 	/// Error returned by the election data provider.
 	DataProvider,
 	/// The data provider returned data that exceeded the boundaries defined in the contract with
 	/// the election provider.
 	DataProviderBoundariesExceeded,
+	/// The support `page_index` was not available at request.
+	SupportPageNotAvailable(PageIndex),
+	/// The fallback election error'ed.
+	Fallback(FallbackErrorOf<T>),
 }
 
+/// Alias for an error of a fallback election provider.
+type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvider>::Error;
+
+/// Alias for a voter, parameterized by this crate's config.
+pub(crate) type VoterOf<T> =
+	frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
+
+/// Alias for a page of voters, parameterized by this crate's config.
+pub(crate) type VoterPageOf<T> =
+	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;
+
+/// Current phase of an election.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum Phase<Bn> {
+	/// Election has halted -- nothing will happen.
 	Halted,
+	/// The election is off.
 	Off,
+	/// Signed phase is open.
 	Signed,
+	/// The signed validations phase
 	SignedValidation(Bn),
 	Unsigned(Bn),
+	/// Preparing the paged target and voter snapshots.
 	Snapshot(PageIndex),
+	/// Exporting a paged election result.
 	Export,
+	/// Emergency phase, something went wrong and the election is halted.
 	Emergency,
 }
 
@@ -67,10 +93,16 @@ impl<Bn> Default for Phase<Bn> {
 	}
 }
 
-/// Alias for a voter, parameterized by this crate's config.
-pub(crate) type VoterOf<T> =
-	frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
+impl<Bn: PartialEq + Eq> Phase<Bn> {
+	pub(crate) fn is_signed(&self) -> bool {
+		matches!(self, Phase::Signed)
+	}
 
-/// Alias for a page of voters, parameterized by this crate's config.
-pub(crate) type VoterPageOf<T> =
-	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;
+	pub(crate) fn is_signed_validation_open_at(&self, at: Bn) -> bool {
+		matches!(self, Phase::SignedValidation(real) if *real == at)
+	}
+
+	pub(crate) fn is_unsigned_open_at(&self, at: Bn) -> bool {
+		matches!(self, Phase::Unsigned(real) if *real == at)
+	}
+}

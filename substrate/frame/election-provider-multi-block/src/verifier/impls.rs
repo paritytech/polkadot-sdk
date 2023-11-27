@@ -28,7 +28,7 @@ use pallet::*;
 
 use crate::{helpers, SolutionOf};
 
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
 	use crate::SupportsOf;
 
@@ -274,7 +274,7 @@ pub(crate) mod pallet {
 
 	/// Current status of the verification process.
 	#[pallet::storage]
-	pub(crate) type ElectionStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
+	pub(crate) type VerificationStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -320,7 +320,7 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 
 	fn kill() {
 		QueuedSolution::<T>::kill();
-		<ElectionStatus<T>>::put(Status::Nothing);
+		<VerificationStatus<T>>::put(Status::Nothing);
 	}
 
 	fn verify_synchronous(
@@ -349,7 +349,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	type SolutionDataProvider = T::SolutionDataProvider;
 
 	fn status() -> Status {
-		ElectionStatus::<T>::get()
+		VerificationStatus::<T>::get()
 	}
 
 	fn start() -> Result<(), &'static str> {
@@ -366,7 +366,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 				// despite the verification failed, this was a successful `start` operation.
 				Ok(())
 			} else {
-				ElectionStatus::<T>::put(Status::Ongoing(crate::Pallet::<T>::msp()));
+				VerificationStatus::<T>::put(Status::Ongoing(crate::Pallet::<T>::msp()));
 				Ok(())
 			}
 		} else {
@@ -383,7 +383,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 
 		// if a verification is ongoing, signal the solution rejection to the solution data
 		// provider and reset the current status.
-		ElectionStatus::<T>::mutate(|status| {
+		VerificationStatus::<T>::mutate(|status| {
 			if matches!(status, Status::Ongoing(_)) {
 				T::SolutionDataProvider::report_result(VerificationResult::Rejected);
 			};
@@ -394,7 +394,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 
 impl<T: impls::pallet::Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
-		if let Status::Ongoing(current_page) = <ElectionStatus<T>>::get() {
+		if let Status::Ongoing(current_page) = <VerificationStatus<T>>::get() {
 			let maybe_page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_paged_solution(current_page);
 
@@ -407,7 +407,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
                 );
 				// reset election data and notify the `T::SolutionDataProvider`.
 				QueuedSolution::<T>::clear_invalid_and_backings();
-				ElectionStatus::<T>::put(Status::Nothing);
+				VerificationStatus::<T>::put(Status::Nothing);
 				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
 
 				Self::deposit_event(Event::<T>::SolutionDataUnavailable(current_page));
@@ -426,7 +426,9 @@ impl<T: impls::pallet::Config> Pallet<T> {
 
 					if current_page > crate::Pallet::<T>::lsp() {
 						// election didn't finish, tick forward.
-						ElectionStatus::<T>::put(Status::Ongoing(current_page.saturating_add(1)));
+						VerificationStatus::<T>::put(Status::Ongoing(
+							current_page.saturating_add(1),
+						));
 					} else {
 						// last page, finalize everything. At this point, the solution data
 						// provider should have a score ready for us. Otherwise, a default score
@@ -435,7 +437,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 							T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
 
 						// reset the election status.
-						ElectionStatus::<T>::put(Status::Nothing);
+						VerificationStatus::<T>::put(Status::Nothing);
 
 						match Self::finalize_async_verification(claimed_score) {
 							Ok(_) =>
@@ -453,7 +455,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				Err(err) => {
 					// the paged solution is invalid.
 					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
-					ElectionStatus::<T>::put(Status::Nothing);
+					VerificationStatus::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected)
 				},

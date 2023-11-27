@@ -17,13 +17,15 @@
 
 use sp_runtime::bounded_vec;
 
-use crate::VoterOf;
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, PageIndex,
 	VoterOf as VoterOfProvider,
 };
 
 use super::{AccountId, BlockNumber, MaxVotesPerVoter, T};
+
+// alias for a voter of EPM-MB.
+type VoterOf<T> = frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
 
 frame_support::parameter_types! {
 	pub static Targets: Vec<AccountId> = vec![10, 20, 30, 40, 50, 60, 70, 80];
