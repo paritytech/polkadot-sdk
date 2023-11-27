@@ -213,6 +213,7 @@ impl<
 		log::trace!(target: "xcm::currency_adapter", "withdraw_asset what: {:?}, who: {:?}", what, who);
 		// Check we handle this asset.
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
+		log::trace!(target: "xcm::currency_adapter", "amount to convert_location with Account Id");
 		let who =
 			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
 		Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath)
