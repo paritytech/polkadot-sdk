@@ -99,33 +99,16 @@ pub mod v8 {
 	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
-			let onchain = Pallet::<T>::on_chain_storage_version();
+			let mut translated = 0u64;
+			BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
+				translated.saturating_inc();
+				Some(old_value.migrate_to_v8())
+			});
 
-			log!(
-				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
-				current,
-				onchain
-			);
+			StorageVersion::new(8).put::<Pallet<T>>();
+			log!(info, "Upgraded {} pools, storage to version 8", translated);
 
-			if onchain == 7 {
-				let mut translated = 0u64;
-				BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
-					translated.saturating_inc();
-					Some(old_value.migrate_to_v8())
-				});
-
-				StorageVersion::new(8).put::<Pallet<T>>();
-				log!(info, "Upgraded {} pools, storage to version {:?}", translated, current);
-
-				// reads: translated + onchain version.
-				// writes: translated + current.put.
-				T::DbWeight::get().reads_writes(translated + 1, translated + 1)
-			} else {
-				log!(info, "Migration did not execute. This probably should be removed");
-				T::DbWeight::get().reads(1)
-			}
+			T::DbWeight::get().reads_writes(translated, translated + 1)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -135,11 +118,9 @@ pub mod v8 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
-			// ensure all BondedPools items now contain an `inner.commission.claim_permission:
-			// Option<CommissionClaimPermission<T::AccountId>>` field.
 			ensure!(
 				BondedPools::<T>::iter().all(|(_, inner)|
-					// Check new `claim_permission` field.
+					// new `claim_permission` field is present.
 					inner.commission.claim_permission.is_none()),
 				"claim_permission value has not been set correctly"
 			);
