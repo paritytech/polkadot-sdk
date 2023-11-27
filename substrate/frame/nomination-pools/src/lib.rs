@@ -544,23 +544,26 @@ impl<T: Config> PoolMember<T> {
 	fn total_balance(&self) -> BalanceOf<T> {
 		let pool = BondedPool::<T>::get(self.pool_id).unwrap();
 		let active_balance = pool.points_to_balance(self.active_points());
+		let unbonding_balance = self.unbonding_balance();
+		active_balance + unbonding_balance
+	}
 
+	/// Unbonding balance of the member. Doesn't mutate state.
+	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
+	fn unbonding_balance(&self) -> BalanceOf<T> {
 		let sub_pools = match SubPoolsStorage::<T>::get(self.pool_id) {
 			Some(sub_pools) => sub_pools,
-			None => return active_balance,
+			None => return BalanceOf::<T>::zero(),
 		};
 
-		let unbonding_balance = self.unbonding_eras.iter().fold(
-			BalanceOf::<T>::zero(),
-			|accumulator, (era, unlocked_points)| {
+		self.unbonding_eras
+			.iter()
+			.fold(BalanceOf::<T>::zero(), |acc, (era, unlocking_points)| {
 				// if the `SubPools::with_era` has already been merged into the
 				// `SubPools::no_era` use this pool instead.
 				let era_pool = sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
-				accumulator + (era_pool.point_to_balance(*unlocked_points))
-			},
-		);
-
-		active_balance + unbonding_balance
+				acc + (era_pool.point_to_balance(*unlocking_points))
+			})
 	}
 
 	/// Total points of this member, both active and unbonding.
@@ -1256,6 +1259,16 @@ impl<T: Config> BondedPool<T> {
 		Ok(points_issued)
 	}
 
+	fn try_unbond_funds(&self, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+		let bonded_account = self.bonded_account();
+		T::Staking::unbond(&bonded_account, amount)?;
+		// unbonding `amount` successes
+		TotalValueUnbonding::<T>::mutate(|tvu| {
+			tvu.saturating_accrue(amount);
+		});
+		Ok(())
+	}
+
 	// Set the state of `self`, and deposit an event if the state changed. State should never be set
 	// directly in in order to ensure a state change event is always correctly deposited.
 	fn set_state(&mut self, state: PoolState) {
@@ -1285,6 +1298,9 @@ impl<T: Config> BondedPool<T> {
 			.defensive_saturating_sub(T::Staking::total_stake(&bonded_account).unwrap_or_default());
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_reduce(diff);
+		});
+		TotalValueUnbonding::<T>::mutate(|tvu| {
+			tvu.saturating_reduce(diff);
 		});
 		outcome
 	}
@@ -1572,7 +1588,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1657,6 +1673,10 @@ pub mod pallet {
 	/// `bonded_account` without adjusting the pallet-internal `UnbondingPool`'s.
 	#[pallet::storage]
 	pub type TotalValueLocked<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// The sum of funds in the process of unbonding across all pools.
+	#[pallet::storage]
+	pub type TotalValueUnbonding<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// Minimum amount to bond to join a pool.
 	#[pallet::storage]
@@ -2124,7 +2144,7 @@ pub mod pallet {
 
 			// Unbond in the actual underlying nominator.
 			let unbonding_balance = bonded_pool.dissolve(unbonding_points);
-			T::Staking::unbond(&bonded_pool.bonded_account(), unbonding_balance)?;
+			bonded_pool.try_unbond_funds(unbonding_balance)?;
 
 			// Note that we lazily create the unbonding pools here if they don't already exist
 			let mut sub_pools = SubPoolsStorage::<T>::get(member.pool_id)
@@ -3299,7 +3319,8 @@ impl<T: Config> Pallet<T> {
 		let mut pools_members = BTreeMap::<PoolId, u32>::new();
 		let mut pools_members_pending_rewards = BTreeMap::<PoolId, BalanceOf<T>>::new();
 		let mut all_members = 0u32;
-		let mut total_balance_members = Default::default();
+		let mut members_balance_total = Default::default();
+		let mut members_balance_unbonding = Default::default();
 		PoolMembers::<T>::iter().try_for_each(|(_, d)| -> Result<(), TryRuntimeError> {
 			let bonded_pool = BondedPools::<T>::get(d.pool_id).unwrap();
 			ensure!(!d.total_points().is_zero(), "No member should have zero points");
@@ -3315,7 +3336,8 @@ impl<T: Config> Pallet<T> {
 				let pending_rewards = d.pending_rewards(current_rc).unwrap();
 				*pools_members_pending_rewards.entry(d.pool_id).or_default() += pending_rewards;
 			} // else this pool has been heavily slashed and cannot have any rewards anymore.
-			total_balance_members += d.total_balance();
+			members_balance_total += d.total_balance();
+			members_balance_unbonding += d.unbonding_balance();
 
 			Ok(())
 		})?;
@@ -3340,6 +3362,8 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let mut expected_tvl: BalanceOf<T> = Default::default();
+		let mut expected_tvu: BalanceOf<T> = Default::default();
+
 		BondedPools::<T>::iter().try_for_each(|(id, inner)| -> Result<(), TryRuntimeError> {
 			let bonded_pool = BondedPool { id, inner };
 			ensure!(
@@ -3361,8 +3385,12 @@ impl<T: Config> Pallet<T> {
 				pool is being destroyed and the depositor is the last member",
 			);
 
-			expected_tvl +=
-				T::Staking::total_stake(&bonded_pool.bonded_account()).unwrap_or_default();
+			let bonded_account = bonded_pool.bonded_account();
+			let stake_total = T::Staking::total_stake(&bonded_account).unwrap_or_default();
+			let stake_active = T::Staking::active_stake(&bonded_account).unwrap_or_default();
+
+			expected_tvl += stake_total;
+			expected_tvu += stake_total - stake_active;
 
 			Ok(())
 		})?;
@@ -3378,8 +3406,18 @@ impl<T: Config> Pallet<T> {
 		);
 
 		ensure!(
-			TotalValueLocked::<T>::get() <= total_balance_members,
+			TotalValueLocked::<T>::get() <= members_balance_total,
 			"TVL must be equal to or less than the total balance of all PoolMembers."
+		);
+
+		ensure!(
+			TotalValueUnbonding::<T>::get() == expected_tvu,
+			"TVU must equal the sum of unbonding funds of all pools."
+		);
+
+		ensure!(
+			TotalValueUnbonding::<T>::get() <= members_balance_unbonding,
+			"TVU cannot surpass the sum of unbonding funds of members across all pools."
 		);
 
 		if level <= 1 {
@@ -3529,6 +3567,9 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 						pool_id,
 						balance: *slashed_balance,
 					});
+					TotalValueUnbonding::<T>::mutate(|tvu| {
+						tvu.defensive_saturating_reduce(*slashed_balance);
+					})
 				}
 			});
 			SubPoolsStorage::<T>::insert(pool_id, sub_pools);
