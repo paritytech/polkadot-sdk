@@ -20001,8 +20001,9 @@ dependencies = [
 
 [[package]]
 name = "tuplex"
-version = "0.1.1"
-source = "git+https://github.com/gavofyork/tuplex.git#771d699446e8fe8cc7186aaccf19537ddcaaeef2"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "676ac81d5454c4dcf37955d34fa8626ede3490f744b86ca14a7b90168d2a08aa"
 
 [[package]]
 name = "turn"
