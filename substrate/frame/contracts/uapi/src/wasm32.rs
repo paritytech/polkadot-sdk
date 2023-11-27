@@ -34,8 +34,10 @@ mod sys {
 
 		pub fn call(
 			callee_ptr: *const u8,
+			callee_len: u32,
 			gas: u64,
-			transferred_value_ptr: *const u8,
+			value_ptr: *const u8,
+			value_len: u32,
 			input_data_ptr: *const u8,
 			input_data_len: u32,
 			output_ptr: *mut u8,
@@ -113,8 +115,10 @@ mod sys {
 
 		pub fn instantiate(
 			code_hash_ptr: *const u8,
+			code_hash_len: u32,
 			gas: u64,
 			value_ptr: *const u8,
+			value_len: u32,
 			input_ptr: *const u8,
 			input_len: u32,
 			address_ptr: *mut u8,
@@ -336,48 +340,6 @@ macro_rules! impl_hash_fn {
 	};
 }
 
-/// A macro to implement the legacy instantiate functions.
-macro_rules! impl_legacy_instantiate {
-	($fn_name:ident, $sys_fn:path) => {
-		#[inline(always)]
-		fn $fn_name(
-			code_hash: &[u8],
-			gas: u64,
-			value: &[u8],
-			input: &[u8],
-			mut address: Option<&mut [u8]>,
-			mut output: Option<&mut [u8]>,
-			salt: &[u8],
-		) -> Result {
-			let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
-			let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
-			let ret_code = unsafe {
-				$sys_fn(
-					code_hash.as_ptr(),
-					gas,
-					value.as_ptr(),
-					input.as_ptr(),
-					input.len() as u32,
-					address_ptr,
-					&mut address_len,
-					output_ptr,
-					&mut output_len,
-					salt.as_ptr(),
-					salt.len() as u32,
-				)
-			};
-
-			if let Some(ref mut address) = address {
-				extract_from_slice(address, address_len as usize);
-			}
-			if let Some(ref mut output) = output {
-				extract_from_slice(output, output_len as usize);
-			}
-			ret_code.into()
-		}
-	};
-}
-
 /// A macro to implement the get_storage functions.
 macro_rules! impl_get_storage {
 	($fn_name:ident, $sys_get_storage:path) => {
@@ -403,8 +365,81 @@ macro_rules! impl_get_storage {
 pub enum ApiImpl {}
 
 impl Api for ApiImpl {
-	impl_legacy_instantiate!(instantiate, sys::instantiate);
-	impl_legacy_instantiate!(instantiate_v1, sys::v1::instantiate);
+	#[inline(always)]
+	fn instantiate(
+		code_hash: &[u8],
+		gas: u64,
+		value: &[u8],
+		input: &[u8],
+		mut address: Option<&mut [u8]>,
+		mut output: Option<&mut [u8]>,
+		salt: &[u8],
+	) -> Result {
+		let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
+		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let ret_code = unsafe {
+			sys::instantiate(
+				code_hash.as_ptr(),
+				code_hash.len() as u32,
+				gas,
+				value.as_ptr(),
+				value.len() as u32,
+				input.as_ptr(),
+				input.len() as u32,
+				address_ptr,
+				&mut address_len,
+				output_ptr,
+				&mut output_len,
+				salt.as_ptr(),
+				salt.len() as u32,
+			)
+		};
+
+		if let Some(ref mut address) = address {
+			extract_from_slice(address, address_len as usize);
+		}
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
+		ret_code.into()
+	}
+
+	#[inline(always)]
+	fn instantiate_v1(
+		code_hash: &[u8],
+		gas: u64,
+		value: &[u8],
+		input: &[u8],
+		mut address: Option<&mut [u8]>,
+		mut output: Option<&mut [u8]>,
+		salt: &[u8],
+	) -> Result {
+		let (address_ptr, mut address_len) = ptr_and_len_from_slice(&mut address);
+		let (output_ptr, mut output_len) = ptr_and_len_from_slice(&mut output);
+		let ret_code = unsafe {
+			sys::v1::instantiate(
+				code_hash.as_ptr(),
+				gas,
+				value.as_ptr(),
+				input.as_ptr(),
+				input.len() as u32,
+				address_ptr,
+				&mut address_len,
+				output_ptr,
+				&mut output_len,
+				salt.as_ptr(),
+				salt.len() as u32,
+			)
+		};
+
+		if let Some(ref mut address) = address {
+			extract_from_slice(address, address_len as usize);
+		}
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
+		ret_code.into()
+	}
 
 	#[inline(always)]
 	fn instantiate_v2(
@@ -465,8 +500,10 @@ impl Api for ApiImpl {
 			unsafe {
 				sys::call(
 					callee.as_ptr(),
+					callee.len() as u32,
 					gas,
 					value.as_ptr(),
+					value.len() as u32,
 					input_data.as_ptr(),
 					input_data.len() as u32,
 					output_ptr,
