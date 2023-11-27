@@ -1210,7 +1210,7 @@
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>impl_assert_events_helpers_for_parachain {
-	( <span class="macro-nonterminal">$chain</span>:ident, <span class="macro-nonterminal">$ignore_weight</span>:expr ) =&gt; {
+	( <span class="macro-nonterminal">$chain</span>:ident ) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::impls::paste::paste! </span>{
 			<span class="kw">type </span>[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]&lt;N&gt; = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeEvent;
 
@@ -1223,7 +1223,7 @@
 							[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::PolkadotXcm(
 								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Complete</span>(weight) }
 							) =&gt; {
-								weight: <span class="macro-nonterminal">$ignore_weight </span>|| <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
+								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
 									expected_weight.unwrap_or(<span class="kw-2">*</span>weight),
 									<span class="kw-2">*</span>weight
@@ -1245,7 +1245,7 @@
 							</span>[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::PolkadotXcm(
 								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Incomplete</span>(weight, error) }
 							) =&gt; {
-								weight: <span class="macro-nonterminal">$ignore_weight </span>|| <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
+								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
 									expected_weight.unwrap_or(<span class="kw-2">*</span>weight),
 									<span class="kw-2">*</span>weight
@@ -1301,7 +1301,7 @@
 							[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::MessageQueue(<span class="macro-nonterminal">$crate::impls::pallet_message_queue::Event::Processed </span>{
 								success: <span class="bool-val">true</span>, weight_used: weight, ..
 							}) =&gt; {
-								weight: <span class="macro-nonterminal">$ignore_weight </span>|| <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
+								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
 									expected_weight.unwrap_or(<span class="kw-2">*</span>weight),
 									<span class="kw-2">*</span>weight
@@ -1321,7 +1321,7 @@
 							[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::MessageQueue(<span class="macro-nonterminal">$crate::impls::pallet_message_queue::Event::Processed </span>{
 								success: <span class="bool-val">false</span>, weight_used: weight, ..
 							}) =&gt; {
-								weight: <span class="macro-nonterminal">$ignore_weight </span>|| <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
+								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
 									expected_weight.unwrap_or(<span class="kw-2">*</span>weight),
 									<span class="kw-2">*</span>weight
@@ -1352,7 +1352,7 @@
 						<span class="macro">vec!</span>[
 							[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::MessageQueue(<span class="macro-nonterminal">$crate::impls::pallet_message_queue::Event::Processed </span>{ success: <span class="bool-val">true</span>, weight_used: weight, .. }
 							) =&gt; {
-								weight: <span class="macro-nonterminal">$ignore_weight </span>|| <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
+								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
 									expected_weight.unwrap_or(<span class="kw-2">*</span>weight),
 									<span class="kw-2">*</span>weight

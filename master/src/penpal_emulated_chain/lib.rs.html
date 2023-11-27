@@ -69,6 +69,8 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -96,6 +98,7 @@
 	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 <span class="kw">use </span>rococo_emulated_chain::Rococo;
+<span class="kw">use </span>westend_emulated_chain::Westend;
 
 <span class="comment">// Penpal Parachain declaration
 </span><span class="macro">decl_test_parachains! </span>{
@@ -138,6 +141,7 @@
 <span class="comment">// Penpal implementation
 </span><span class="macro">impl_accounts_helpers_for_parachain!</span>(PenpalA);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalA, Rococo);
-<span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalA, <span class="bool-val">true</span>);
-<span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalB, <span class="bool-val">true</span>);
+<span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalB, Westend);
+<span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalA);
+<span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalB);
 </code></pre></div></section></main></body></html>
