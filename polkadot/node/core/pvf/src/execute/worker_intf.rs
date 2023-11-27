@@ -18,7 +18,6 @@
 
 use crate::{
 	artifacts::ArtifactPathId,
-	security,
 	worker_intf::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
 		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
@@ -132,10 +131,7 @@ pub async fn start_work(
 		artifact.path.display(),
 	);
 
-	let artifact_path = artifact.path.clone();
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		let audit_log_file = security::AuditLogFile::try_open_and_seek_to_end().await;
-
 		if let Err(error) = send_request(&mut stream, &validation_params, execution_timeout).await {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -156,6 +152,13 @@ pub async fn start_work(
 		let response = futures::select! {
 			response = recv_response(&mut stream).fuse() => {
 				match response {
+					Ok(response) =>
+						handle_response(
+							response,
+							pid,
+							execution_timeout,
+						)
+							.await,
 					Err(error) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -164,55 +167,8 @@ pub async fn start_work(
 							?error,
 							"failed to recv an execute response",
 						);
-						// The worker died. Check if it was due to a seccomp violation.
-						//
-						// NOTE: Log, but don't change the outcome. Not all validators may have
-						// auditing enabled, so we don't want attackers to abuse a non-deterministic
-						// outcome.
-						for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-							gum::error!(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								%syscall,
-								validation_code_hash = ?artifact.id.code_hash,
-								?artifact_path,
-								"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-							);
-						}
 
 						return Outcome::WorkerIntfErr
-					},
-					Ok(response) => {
-						// Check if any syscall violations occurred during the job. For now this is
-						// only informative, as we are not enforcing the seccomp policy yet.
-						for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
-							gum::error!(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								%syscall,
-								validation_code_hash = ?artifact.id.code_hash,
-								?artifact_path,
-								"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
-							);
-						}
-
-						if let WorkerResponse::Ok{duration, ..} = response {
-							if duration > execution_timeout {
-								// The job didn't complete within the timeout.
-								gum::warn!(
-									target: LOG_TARGET,
-									worker_pid = %pid,
-									"execute job took {}ms cpu time, exceeded execution timeout {}ms.",
-									duration.as_millis(),
-									execution_timeout.as_millis(),
-								);
-
-								// Return a timeout error.
-								return Outcome::HardTimeout
-							}
-						}
-
-						response
 					},
 				}
 			},
@@ -238,13 +194,41 @@ pub async fn start_work(
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
 			WorkerResponse::JobTimedOut => Outcome::HardTimeout,
-			WorkerResponse::JobDied(err) => Outcome::JobDied { err },
+			WorkerResponse::JobDied { err, job_pid: _ } => Outcome::JobDied { err },
 			WorkerResponse::JobError(err) => Outcome::JobError { err },
 
 			WorkerResponse::InternalError(err) => Outcome::InternalError { err },
 		}
 	})
 	.await
+}
+
+/// Handles the case where we successfully received response bytes on the host from the child.
+///
+/// Here we know the artifact exists, but is still located in a temporary file which will be cleared
+/// by [`with_worker_dir_setup`].
+async fn handle_response(
+	response: WorkerResponse,
+	worker_pid: u32,
+	execution_timeout: Duration,
+) -> WorkerResponse {
+	if let WorkerResponse::Ok { duration, .. } = response {
+		if duration > execution_timeout {
+			// The job didn't complete within the timeout.
+			gum::warn!(
+				target: LOG_TARGET,
+				worker_pid,
+				"execute job took {}ms cpu time, exceeded execution timeout {}ms.",
+				duration.as_millis(),
+				execution_timeout.as_millis(),
+			);
+
+			// Return a timeout error.
+			return WorkerResponse::JobTimedOut
+		}
+	}
+
+	response
 }
 
 /// Create a temporary file for an artifact in the worker cache, execute the given future/closure
@@ -265,7 +249,7 @@ where
 	// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
 	// worker cache, and the child can't access any other artifacts or gain any information from the
 	// original filename.
-	let link_path = worker_dir::execute_artifact(&worker_dir.path);
+	let link_path = worker_dir::execute_artifact(worker_dir.path());
 	if let Err(err) = tokio::fs::hard_link(artifact_path, link_path).await {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -279,7 +263,7 @@ where
 		}
 	}
 
-	let worker_dir_path = worker_dir.path.clone();
+	let worker_dir_path = worker_dir.path().to_owned();
 	let outcome = f(worker_dir).await;
 
 	// Try to clear the worker dir.

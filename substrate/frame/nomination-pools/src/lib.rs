@@ -1626,6 +1626,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPointsToBalance: Get<u8>;
 
+		/// The maximum number of simultaneous unbonding chunks that can exist per member.
+		#[pallet::constant]
+		type MaxUnbonding: Get<u32>;
+
 		/// Infallible method for converting `Currency::Balance` to `U256`.
 		type BalanceToU256: Convert<BalanceOf<Self>, U256>;
 
@@ -1644,9 +1648,6 @@ pub mod pallet {
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
-
-		/// The maximum number of simultaneous unbonding chunks that can exist per member.
-		type MaxUnbonding: Get<u32>;
 	}
 
 	/// The sum of funds across all pools.

@@ -29,13 +29,13 @@ use jsonrpsee::core::{async_trait, RpcResult};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, StorageProvider,
 };
-use sp_api::{CallApiAt, CallContext, NumberFor};
+use sp_api::{CallApiAt, CallContext};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
 };
 use sp_core::Bytes;
 use sp_runtime::{
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};

@@ -24,6 +24,7 @@ use polkadot_network_bridge::{
 	NetworkBridgeTx as NetworkBridgeTxSubsystem,
 };
 use polkadot_node_collation_generation::CollationGenerationSubsystem;
+use polkadot_node_core_chain_api::ChainApiSubsystem;
 use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 use polkadot_node_network_protocol::{
@@ -112,7 +113,7 @@ fn build_overseer(
 		.candidate_backing(DummySubsystem)
 		.candidate_validation(DummySubsystem)
 		.pvf_checker(DummySubsystem)
-		.chain_api(DummySubsystem)
+		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = ProtocolSide::Collator {
