@@ -273,43 +273,13 @@ parameter_types! {
 	pub const SS58Prefix: u16 = 42;
 }
 
-// Configure FRAME pallets to include in runtime.
+/// Configure FRAME pallets to include in runtime.
+///
+/// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
+/// [`ParaChainDefaultConfig`](`struct@frame_system::config_preludes::ParaChainDefaultConfig`),
+/// but overridden as needed.
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	/// The following are being injected by [`derive_impl`](`frame_support::derive_impl`) from
-	/// [`ParaChainDefaultConfig`](`struct@frame_system::config_preludes::ParaChainDefaultConfig`),
-	/// but can be overridden if needed.
-	///
-	/// The aggregated dispatch type that is available for extrinsics.
-	/// type RuntimeCall = RuntimeCall;
-	///
-	/// The ubiquitous event type.
-	/// type RuntimeEvent = RuntimeEvent;
-	///
-	/// The ubiquitous origin type.
-	/// type RuntimeOrigin = RuntimeOrigin;
-	///
-	/// Converts a module to an index of this module in the runtime.
-	/// type PalletInfo = PalletInfo;
-	///
-	/// The basic call filter to use in dispatchable.
-	/// type BaseCallFilter = Everything;
-	///
-	/// Weight information for the extrinsics of this pallet.
-	/// type SystemWeightInfo = ();
-	///
-	/// What to do if a new account is created.
-	/// type OnNewAccount = ();
-	///
-	/// What to do if an account is fully reaped from the system.
-	/// type OnKilledAccount = ();
-	///
-	/// The hashing algorithm used.
-	/// type Hashing = BlakeTwo256;
-	///
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	/// type Lookup = AccountIdLookup<AccountId, ()>;
-
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The index type for storing how many extrinsics an account has signed.
