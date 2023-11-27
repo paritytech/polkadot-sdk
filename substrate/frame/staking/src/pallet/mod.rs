@@ -1771,7 +1771,7 @@ pub mod pallet {
 			let controller = ledger
 				.controller()
 				.defensive_proof(
-					"ledger was fetched using StakingLedger, so controller field must exist; qed.",
+					"Ledger's controller field didn't exist. The ledger should fetched using StakingLedger.",
 				)
 				.ok_or(Error::<T>::NotController)?;
 
