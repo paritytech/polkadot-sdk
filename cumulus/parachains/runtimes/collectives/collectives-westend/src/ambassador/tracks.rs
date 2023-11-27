@@ -17,7 +17,9 @@
 
 use super::Origin;
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS};
-use sp_runtime::Perbill;
+use pallet_referenda::{Curve, StaticTracksIter, Track, TrackInfo};
+use sp_runtime::{str_array as s, Perbill};
+use sp_std::borrow::Cow::Borrowed;
 
 /// Referendum `TrackId` type.
 pub type TrackId = u16;
@@ -46,209 +48,211 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 
 	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
 
-	/// Return the array of available tracks and their information.
-	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
-		static DATA: [(TrackId, pallet_referenda::TrackInfo<Balance, BlockNumber>); 9] = [
-			(
-				constants::AMBASSADOR_TIER_1,
-				pallet_referenda::TrackInfo {
-					name: "ambassador tier 1",
+	type TracksIter = StaticTracksIter<TrackId, Balance, BlockNumber>;
+
+	/// Return the list of available tracks and their information.
+	fn tracks() -> Self::TracksIter {
+		static DATA: [Track<TrackId, Balance, BlockNumber>; 9] = [
+			Track {
+				id: constants::AMBASSADOR_TIER_1,
+				info: TrackInfo {
+					name: s("ambassador tier 1"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::AMBASSADOR_TIER_2,
-				pallet_referenda::TrackInfo {
-					name: "ambassador tier 2",
+			},
+			Track {
+				id: constants::AMBASSADOR_TIER_2,
+				info: TrackInfo {
+					name: s("ambassador tier 2"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::SENIOR_AMBASSADOR_TIER_3,
-				pallet_referenda::TrackInfo {
-					name: "senior ambassador tier 3",
+			},
+			Track {
+				id: constants::SENIOR_AMBASSADOR_TIER_3,
+				info: TrackInfo {
+					name: s("senior ambassador tier 3"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::SENIOR_AMBASSADOR_TIER_4,
-				pallet_referenda::TrackInfo {
-					name: "senior ambassador tier 4",
+			},
+			Track {
+				id: constants::SENIOR_AMBASSADOR_TIER_4,
+				info: TrackInfo {
+					name: s("senior ambassador tier 4"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::HEAD_AMBASSADOR_TIER_5,
-				pallet_referenda::TrackInfo {
-					name: "head ambassador tier 5",
+			},
+			Track {
+				id: constants::HEAD_AMBASSADOR_TIER_5,
+				info: TrackInfo {
+					name: s("head ambassador tier 5"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::HEAD_AMBASSADOR_TIER_6,
-				pallet_referenda::TrackInfo {
-					name: "head ambassador tier 6",
+			},
+			Track {
+				id: constants::HEAD_AMBASSADOR_TIER_6,
+				info: TrackInfo {
+					name: s("head ambassador tier 6"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::HEAD_AMBASSADOR_TIER_7,
-				pallet_referenda::TrackInfo {
-					name: "head ambassador tier 7",
+			},
+			Track {
+				id: constants::HEAD_AMBASSADOR_TIER_7,
+				info: TrackInfo {
+					name: s("head ambassador tier 7"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::MASTER_AMBASSADOR_TIER_8,
-				pallet_referenda::TrackInfo {
-					name: "master ambassador tier 8",
+			},
+			Track {
+				id: constants::MASTER_AMBASSADOR_TIER_8,
+				info: TrackInfo {
+					name: s("master ambassador tier 8"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
-			(
-				constants::MASTER_AMBASSADOR_TIER_9,
-				pallet_referenda::TrackInfo {
-					name: "master ambassador tier 9",
+			},
+			Track {
+				id: constants::MASTER_AMBASSADOR_TIER_9,
+				info: TrackInfo {
+					name: s("master ambassador tier 9"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
 					decision_period: 1 * DAYS,
 					confirm_period: 24 * HOURS,
 					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(10),
 						ceil: Perbill::from_percent(50),
 					},
 				},
-			),
+			},
 		];
-		&DATA[..]
+		DATA.iter().map(Borrowed)
 	}
 
 	/// Determine the voting track for the given `origin`.
