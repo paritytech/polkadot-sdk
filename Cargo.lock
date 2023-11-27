@@ -3180,7 +3180,6 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-contracts",
- "pallet-contracts-uapi",
  "pallet-insecure-randomness-collective-flip",
  "pallet-message-queue",
  "pallet-multisig",

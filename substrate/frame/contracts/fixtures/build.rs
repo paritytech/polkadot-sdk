@@ -146,7 +146,10 @@ fn invoke_fmt(current_dir: &Path, src_dir: &Path) -> Result<()> {
 
 	let stdout = String::from_utf8_lossy(&fmt_res.stdout);
 	eprintln!("{}", stdout);
-	eprintln!("Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt {}/*.rs`", src_dir.display());
+	eprintln!(
+		"Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt {}/*.rs`",
+		src_dir.display()
+	);
 	anyhow::bail!("Fixtures files are not formatted")
 }
 
@@ -206,22 +209,22 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 
 /// Returns the root path of the wasm workspace.
 fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
-    let mut current_dir = current_dir.to_path_buf();
+	let mut current_dir = current_dir.to_path_buf();
 
-    while current_dir.parent().is_some() {
-        if current_dir.join("Cargo.toml").exists() {
-            let cargo_toml_contents = std::fs::read_to_string(current_dir.join("Cargo.toml")).ok()?;
-            if cargo_toml_contents.contains("[workspace]") {
-                return Some(current_dir);
-            }
-        }
+	while current_dir.parent().is_some() {
+		if current_dir.join("Cargo.toml").exists() {
+			let cargo_toml_contents =
+				std::fs::read_to_string(current_dir.join("Cargo.toml")).ok()?;
+			if cargo_toml_contents.contains("[workspace]") {
+				return Some(current_dir);
+			}
+		}
 
-        current_dir.pop();
-    }
+		current_dir.pop();
+	}
 
-    None
+	None
 }
-
 
 fn main() -> Result<()> {
 	let input_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
