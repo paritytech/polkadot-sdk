@@ -52,7 +52,6 @@ pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false}
 pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false}
 pallet-contracts = { path = "../../../../../substrate/frame/contracts", default-features = false}
-pallet-contracts-uapi = { path = "../../../../../substrate/frame/contracts/uapi", default-features = false}
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
