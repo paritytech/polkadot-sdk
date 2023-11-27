@@ -1100,6 +1100,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type Preimages = Preimage;
 }
 
 parameter_types! {
@@ -1161,6 +1162,7 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type Preimages = Preimage;
 }
 
 type EnsureRootOrHalfCouncil = EitherOfDiverse<
@@ -1903,6 +1905,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type Preimages = Preimage;
 }
 
 parameter_types! {
@@ -2200,6 +2203,9 @@ type Migrations = (
 	pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, CouncilCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, TechnicalCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 type EventRecord = frame_system::EventRecord<

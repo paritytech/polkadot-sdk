@@ -37,6 +37,7 @@ array-bytes = "6.1"
 sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false}
 pallet-balances = { path = "../balances" }
 pallet-collective = { path = "../collective" }
+pallet-preimage = { path = "../preimage" }
 
 [features]
 default = [ "std" ]
@@ -49,6 +50,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collective?/std",
 	"pallet-identity/std",
+	"pallet-preimage/std",
 	"scale-info/std",
 	"sp-core-hashing?/std",
 	"sp-core/std",
@@ -64,6 +66,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
 	"sp-core-hashing",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -73,5 +76,6 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collective?/try-runtime",
 	"pallet-identity/try-runtime",
+	"pallet-preimage/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -96,6 +96,15 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
+}
+
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = ();
+	type ManagerOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 parameter_types! {
@@ -184,7 +193,7 @@ impl ProposalProvider<AccountId, H256, RuntimeCall> for AllianceProposalProvider
 	}
 
 	fn proposal_of(proposal_hash: H256) -> Option<RuntimeCall> {
-		AllianceMotion::proposal_of(proposal_hash)
+		AllianceMotion::proposal_of(&proposal_hash)
 	}
 }
 
@@ -231,6 +240,7 @@ frame_support::construct_runtime!(
 		Identity: pallet_identity,
 		AllianceMotion: pallet_collective::<Instance1>,
 		Alliance: pallet_alliance,
+		Preimage: pallet_preimage,
 	}
 );
 

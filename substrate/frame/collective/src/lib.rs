@@ -44,10 +44,9 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
-	DispatchError, RuntimeDebug,
+	DispatchError, RuntimeDebug, Saturating,
 };
 use sp_std::{marker::PhantomData, prelude::*, result};
 
@@ -55,12 +54,13 @@ use frame_support::{
 	dispatch::{
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	ensure, fail, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		Backing, ChangeMembers, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, StorageVersion,
+		InitializeMembers, QueryPreimage, StorageVersion, StorePreimage,
 	},
 	weights::Weight,
+	BoundedVec, CloneNoBound, EqNoBound, Parameter, PartialEqNoBound,
 };
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -157,16 +157,24 @@ impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
 }
 
 /// Info for keeping track of a motion being voted on.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct Votes<AccountId, BlockNumber> {
+#[derive(
+	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxMembers))]
+pub struct Votes<AccountId, BlockNumber, MaxMembers>
+where
+	AccountId: PartialEq + Clone,
+	BlockNumber: PartialEq + Clone,
+	MaxMembers: Get<u32>,
+{
 	/// The proposal's unique index.
 	index: ProposalIndex,
 	/// The number of approval votes that are needed to pass the motion.
 	threshold: MemberCount,
 	/// The current set of voters that approved it.
-	ayes: Vec<AccountId>,
+	ayes: BoundedVec<AccountId, MaxMembers>,
 	/// The current set of voters that rejected it.
-	nays: Vec<AccountId>,
+	nays: BoundedVec<AccountId, MaxMembers>,
 	/// The hard end time of this vote.
 	end: BlockNumber,
 }
@@ -174,15 +182,17 @@ pub struct Votes<AccountId, BlockNumber> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{QueryPreimage, StorePreimage},
+	};
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -227,6 +237,9 @@ pub mod pallet {
 		/// The maximum weight of a dispatch call that can be proposed and executed.
 		#[pallet::constant]
 		type MaxProposalWeight: Get<Weight>;
+
+		/// The preimages provider to store the preimages of the proposals.
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
 	#[pallet::genesis_config]
@@ -260,23 +273,16 @@ pub mod pallet {
 	#[pallet::origin]
 	pub type Origin<T, I = ()> = RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
-	/// The hashes of the active proposals.
-	#[pallet::storage]
-	#[pallet::getter(fn proposals)]
-	pub type Proposals<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
-
-	/// Actual proposal for a given hash, if it's current.
-	#[pallet::storage]
-	#[pallet::getter(fn proposal_of)]
-	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
-
 	/// Votes on a given proposal, if it is ongoing.
 	#[pallet::storage]
 	#[pallet::getter(fn voting)]
-	pub type Voting<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
+	pub type Voting<T: Config<I>, I: 'static = ()> = CountedStorageMap<
+		_,
+		Identity,
+		T::Hash,
+		Votes<T::AccountId, BlockNumberFor<T>, T::MaxMembers>,
+		OptionQuery,
+	>;
 
 	/// Proposals so far.
 	#[pallet::storage]
@@ -287,7 +293,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn members)]
 	pub type Members<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxMembers>, ValueQuery>;
 
 	/// The prime member that helps determine the default vote behavior in case of absentations.
 	#[pallet::storage]
@@ -350,6 +356,10 @@ pub mod pallet {
 		WrongProposalLength,
 		/// Prime account is not a member
 		PrimeAccountNotMember,
+		/// There can only be a maximum of `MaxMembers` votes per proposal.
+		TooManyVotes,
+		/// Decode of a proposal failed, probably due to state corruption.
+		DecodeFailed,
 	}
 
 	#[pallet::hooks]
@@ -398,7 +408,7 @@ pub mod pallet {
 		))]
 		pub fn set_members(
 			origin: OriginFor<T>,
-			new_members: Vec<T::AccountId>,
+			new_members: BoundedVec<T::AccountId, T::MaxMembers>,
 			prime: Option<T::AccountId>,
 			old_count: MemberCount,
 		) -> DispatchResultWithPostInfo {
@@ -666,6 +676,39 @@ fn get_result_weight(result: DispatchResultWithPostInfo) -> Option<Weight> {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// The active proposals.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	pub fn proposals() -> BoundedVec<T::Hash, T::MaxProposals> {
+		Voting::<T, I>::iter_keys()
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("proposals should always be less than MaxProposals; qed")
+	}
+
+	/// The bounded counterpart of an active proposal.
+	pub fn proposal_of(proposal_hash: &T::Hash) -> Option<<T as Config<I>>::Proposal> {
+		if !Voting::<T, I>::contains_key(proposal_hash) {
+			return None
+		}
+		let Ok(encoded) = T::Preimages::fetch(proposal_hash, None) else {
+			log::error!(
+				target: LOG_TARGET,
+				"Failed to fetch preimage for proposal hash {:?} contained in Voting.",
+				proposal_hash,
+			);
+			return None
+		};
+		let Ok(proposal) = <T as Config<I>>::Proposal::decode(&mut &encoded[..]) else {
+			log::error!(
+				target: LOG_TARGET,
+				"Failed to decode stored Proposal with preimage hash {:?}",
+				proposal_hash,
+			);
+			return None
+		};
+		Some(proposal)
+	}
+
 	/// Check whether `who` is a member of the collective.
 	pub fn is_member(who: &T::AccountId) -> bool {
 		// Note: The dispatchables *do not* use this to check membership so make sure
@@ -676,7 +719,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Execute immediately when adding a new proposal.
 	pub fn do_propose_execute(
 		proposal: Box<<T as Config<I>>::Proposal>,
-		length_bound: MemberCount,
+		length_bound: u32,
 	) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
 		let proposal_len = proposal.encoded_size();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
@@ -687,7 +730,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		let proposal_hash = T::Hashing::hash_of(&proposal);
-		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
+		ensure!(!<Voting<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let seats = Self::members().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
@@ -703,7 +746,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: T::AccountId,
 		threshold: MemberCount,
 		proposal: Box<<T as Config<I>>::Proposal>,
-		length_bound: MemberCount,
+		length_bound: u32,
 	) -> Result<(u32, u32), DispatchError> {
 		let proposal_len = proposal.encoded_size();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
@@ -713,21 +756,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::WrongProposalWeight
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
-		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
+		let proposal_hash = T::Preimages::note(proposal.encode().into())?;
+		ensure!(!<Voting<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
-		let active_proposals =
-			<Proposals<T, I>>::try_mutate(|proposals| -> Result<usize, DispatchError> {
-				proposals.try_push(proposal_hash).map_err(|_| Error::<T, I>::TooManyProposals)?;
-				Ok(proposals.len())
-			})?;
+		ensure!(<Voting<T, I>>::count() < T::MaxProposals::get(), Error::<T, I>::TooManyProposals);
 
 		let index = Self::proposal_count();
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
-		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
 		let votes = {
 			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
-			Votes { index, threshold, ayes: vec![], nays: vec![], end }
+			Votes { index, threshold, ayes: Default::default(), nays: Default::default(), end }
 		};
 		<Voting<T, I>>::insert(proposal_hash, votes);
 
@@ -737,7 +775,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			proposal_hash,
 			threshold,
 		});
-		Ok((proposal_len as u32, active_proposals as u32))
+		Ok((proposal_len as u32, <Voting<T, I>>::count()))
 	}
 
 	/// Add an aye or nay vote for the member to the given proposal, returns true if it's the first
@@ -759,18 +797,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		if approve {
 			if position_yes.is_none() {
-				voting.ayes.push(who.clone());
+				voting.ayes.try_push(who.clone()).map_err(|_| Error::<T, I>::TooManyVotes)?;
 			} else {
-				return Err(Error::<T, I>::DuplicateVote.into())
+				fail!(Error::<T, I>::DuplicateVote)
 			}
 			if let Some(pos) = position_no {
 				voting.nays.swap_remove(pos);
 			}
 		} else {
 			if position_no.is_none() {
-				voting.nays.push(who.clone());
+				voting.nays.try_push(who.clone()).map_err(|_| Error::<T, I>::TooManyVotes)?;
 			} else {
-				return Err(Error::<T, I>::DuplicateVote.into())
+				fail!(Error::<T, I>::DuplicateVote)
 			}
 			if let Some(pos) = position_yes {
 				voting.ayes.swap_remove(pos);
@@ -819,7 +857,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Self::do_approve_proposal(seats, yes_votes, proposal_hash, proposal);
 			return Ok((
 				Some(
-					T::WeightInfo::close_early_approved(len as u32, seats, proposal_count)
+					T::WeightInfo::close_early_approved(len, seats, proposal_count)
 						.saturating_add(proposal_weight),
 				),
 				Pays::Yes,
@@ -861,7 +899,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Self::do_approve_proposal(seats, yes_votes, proposal_hash, proposal);
 			Ok((
 				Some(
-					T::WeightInfo::close_approved(len as u32, seats, proposal_count)
+					T::WeightInfo::close_approved(len, seats, proposal_count)
 						.saturating_add(proposal_weight),
 				),
 				Pays::Yes,
@@ -882,32 +920,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		hash: &T::Hash,
 		length_bound: u32,
 		weight_bound: Weight,
-	) -> Result<(<T as Config<I>>::Proposal, usize), DispatchError> {
-		let key = ProposalOf::<T, I>::hashed_key_for(hash);
-		// read the length of the proposal storage entry directly
-		let proposal_len =
-			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
+	) -> Result<(<T as Config<I>>::Proposal, u32), DispatchError> {
+		let encoded =
+			T::Preimages::fetch(&hash, None).map_err(|_| Error::<T, I>::ProposalMissing)?;
+		let proposal_len = encoded.len() as u32;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
-		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
+		let proposal = <T as Config<I>>::Proposal::decode(&mut &encoded[..])
+			.map_err(|_| Error::<T, I>::DecodeFailed)?;
 		let proposal_weight = proposal.get_dispatch_info().weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
-		Ok((proposal, proposal_len as usize))
+		Ok((proposal, proposal_len))
 	}
 
-	/// Weight:
-	/// If `approved`:
-	/// - the weight of `proposal` preimage.
-	/// - two events deposited.
-	/// - two removals, one mutation.
-	/// - computation and i/o `O(P + L)` where:
-	///   - `P` is number of active proposals,
-	///   - `L` is the encoded length of `proposal` preimage.
-	///
-	/// If not `approved`:
-	/// - one event deposited.
-	/// Two removals, one mutation.
-	/// Computation and i/o `O(P)` where:
-	/// - `P` is number of active proposals
+	/// Deposits the `Approved` event and dispatches the proposal, removing it from the pallet
+	/// storage. The result of the dispatch is deposited in the `Executed` event.
 	fn do_approve_proposal(
 		seats: MemberCount,
 		yes_votes: MemberCount,
@@ -932,21 +958,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Removes a proposal from the pallet, and deposit the `Disapproved` event.
 	pub fn do_disapprove_proposal(proposal_hash: T::Hash) -> u32 {
-		// disapproved
 		Self::deposit_event(Event::Disapproved { proposal_hash });
 		Self::remove_proposal(proposal_hash)
 	}
 
-	// Removes a proposal from the pallet, cleaning up votes and the vector of proposals.
+	/// Removes a proposal from the pallet, cleaning up votes.
+	/// Returns the number of proposals prior to the removal.
 	fn remove_proposal(proposal_hash: T::Hash) -> u32 {
-		// remove proposal and vote
-		ProposalOf::<T, I>::remove(&proposal_hash);
+		T::Preimages::unnote(&proposal_hash);
 		Voting::<T, I>::remove(&proposal_hash);
-		let num_proposals = Proposals::<T, I>::mutate(|proposals| {
-			proposals.retain(|h| h != &proposal_hash);
-			proposals.len() + 1 // calculate weight based on original length
-		});
-		num_proposals as u32
+		Voting::<T, I>::count().saturating_plus_one()
 	}
 
 	/// Ensure the correctness of the state of this pallet.
@@ -955,93 +976,54 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// ## Expectations:
 	///
-	/// Looking at proposals:
-	///
-	/// * Each hash of a proposal that is stored inside `Proposals` must have a
-	/// call mapped to it inside the `ProposalOf` storage map.
-	/// * `ProposalCount` must always be more or equal to the number of
-	/// proposals inside the `Proposals` storage value. The reason why
-	/// `ProposalCount` can be more is because when a proposal is removed the
-	/// count is not deducted.
-	/// * Count of `ProposalOf` should match the count of `Proposals`
-	///
 	/// Looking at votes:
-	/// * The sum of aye and nay votes for a proposal can never exceed
-	///  `MaxMembers`.
+	/// * `ProposalCount` must always be more or equal to the number of proposals inside the
+	///   `Voting` storage map. The reason why `ProposalCount` can be more is because when a
+	///   proposal is removed the count is not deducted.
+	/// * A `proposal_hash` must be paired to a preimage stored by `Preimages`.
+	/// * The sum of aye and nay votes for a proposal can never exceed `MaxMembers`.
 	/// * The proposal index inside the `Voting` storage map must be unique.
-	/// * All proposal hashes inside `Voting` must exist in `Proposals`.
 	///
 	/// Looking at members:
-	/// * The members count must never exceed `MaxMembers`.
 	/// * All the members must be sorted by value.
 	///
 	/// Looking at prime account:
 	/// * The prime account must be a member of the collective.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), TryRuntimeError> {
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
-				ensure!(
-					Self::proposal_of(proposal).is_some(),
-					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
-				);
-				Ok(())
-			})?;
+		use frame_support::traits::DefensiveResult;
 
 		ensure!(
-			Self::proposals().into_iter().count() <= Self::proposal_count() as usize,
+			Voting::<T, I>::count() <= Self::proposal_count(),
 			"The actual number of proposals is greater than `ProposalCount`"
 		);
-		ensure!(
-			Self::proposals().into_iter().count() == <ProposalOf<T, I>>::iter_keys().count(),
-			"Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`"
-		);
 
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
-				if let Some(votes) = Self::voting(proposal) {
-					let ayes = votes.ayes.len();
-					let nays = votes.nays.len();
+		let mut proposal_indices =
+			sp_runtime::BoundedBTreeSet::<ProposalIndex, T::MaxProposals>::new();
 
-					ensure!(
-						ayes.saturating_add(nays) <= T::MaxMembers::get() as usize,
-						"The sum of ayes and nays is greater than `MaxMembers`"
-					);
-				}
-				Ok(())
-			})?;
+		for (proposal_hash, votes) in Voting::<T, I>::iter() {
+			ensure!(
+				T::Preimages::is_requested(&proposal_hash),
+				"Preimage for hash contained in `Voting` is not stored."
+			);
 
-		let mut proposal_indices = vec![];
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
-				if let Some(votes) = Self::voting(proposal) {
-					let proposal_index = votes.index;
-					ensure!(
-						!proposal_indices.contains(&proposal_index),
-						"The proposal index is not unique."
-					);
-					proposal_indices.push(proposal_index);
-				}
-				Ok(())
-			})?;
+			let ayes = votes.ayes.len();
+			let nays = votes.nays.len();
 
-		<Voting<T, I>>::iter_keys().try_for_each(
-			|proposal_hash| -> Result<(), TryRuntimeError> {
-				ensure!(
-					Self::proposals().contains(&proposal_hash),
-					"`Proposals` doesn't contain the proposal hash from the `Voting` storage map."
-				);
-				Ok(())
-			},
-		)?;
+			ensure!(
+				ayes.saturating_add(nays) <= T::MaxMembers::get() as usize,
+				"The sum of ayes and nays is greater than `MaxMembers`"
+			);
 
-		ensure!(
-			Self::members().len() <= T::MaxMembers::get() as usize,
-			"The member count is greater than `MaxMembers`."
-		);
+			let proposal_index = votes.index;
+			ensure!(
+				// Returns true if the value was not already in the set.
+				proposal_indices
+					.try_insert(proposal_index)
+					.defensive_map_err(|_| "The number of proposals exceeds `MaxProposals`")?,
+				"The proposal index is not unique.",
+			);
+		}
 
 		ensure!(
 			Self::members().windows(2).all(|members| members[0] <= members[1]),
@@ -1083,24 +1065,31 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
 		// remove accounts from all current voting in motions.
 		let mut outgoing = outgoing.to_vec();
 		outgoing.sort();
-		for h in Self::proposals().into_iter() {
-			<Voting<T, I>>::mutate(h, |v| {
-				if let Some(mut votes) = v.take() {
-					votes.ayes = votes
+		<Voting<T, I>>::translate_values(
+			|mut votes: Votes<
+				T::AccountId,
+				frame_system::pallet_prelude::BlockNumberFor<T>,
+				T::MaxMembers,
+			>| {
+				votes.ayes = BoundedVec::truncate_from(
+					votes
 						.ayes
 						.into_iter()
 						.filter(|i| outgoing.binary_search(i).is_err())
-						.collect();
-					votes.nays = votes
+						.collect::<Vec<_>>(),
+				);
+				votes.nays = BoundedVec::truncate_from(
+					votes
 						.nays
 						.into_iter()
 						.filter(|i| outgoing.binary_search(i).is_err())
-						.collect();
-					*v = Some(votes);
-				}
-			});
-		}
-		Members::<T, I>::put(new);
+						.collect::<Vec<_>>(),
+				);
+
+				Some(votes)
+			},
+		);
+		Members::<T, I>::put(BoundedVec::truncate_from(new.to_vec()));
 		Prime::<T, I>::kill();
 	}
 
@@ -1114,12 +1103,14 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InitializeMembers<T::AccountId> for Pallet<T, I> {
+	/// Initialize members of the collective. Panics if members are already initialized,
+	/// or if the number of members is greater than `MaxMembers`.
 	fn initialize_members(members: &[T::AccountId]) {
 		if !members.is_empty() {
 			assert!(<Members<T, I>>::get().is_empty(), "Members are already initialized!");
 			let mut members = members.to_vec();
 			members.sort();
-			<Members<T, I>>::put(members);
+			<Members<T, I>>::put(BoundedVec::try_from(members).expect("Too many members!"));
 		}
 	}
 }
