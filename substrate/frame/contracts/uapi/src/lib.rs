@@ -134,4 +134,3 @@ impl ReturnCode {
 }
 
 type Result = core::result::Result<(), ReturnErrorCode>;
-

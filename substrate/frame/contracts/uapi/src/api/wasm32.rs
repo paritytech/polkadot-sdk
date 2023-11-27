@@ -13,10 +13,10 @@
 // limitations under the License.
 // #![allow(unused_variables)]
 use super::{
-	 Api, CallFlags, Result,
-	 common::{extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel}
+	common::{extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel},
+	Api, CallFlags, Result,
 };
-use crate::{ReturnCode, ReturnFlags,};
+use crate::{ReturnCode, ReturnFlags};
 
 mod sys {
 	use super::ReturnCode;
@@ -348,7 +348,6 @@ macro_rules! impl_get_storage {
 pub enum ApiImpl {}
 
 impl Api for ApiImpl {
-
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,
