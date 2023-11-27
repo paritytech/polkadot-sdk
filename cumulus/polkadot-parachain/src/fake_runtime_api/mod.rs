@@ -14,18 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Cumulus test parachain collator
+//! In an ideal world this would be one runtime which would simplify the code massively.
+//! This is not an ideal world - Polkadot Asset Hub has a different key type.
 
-#![warn(missing_docs)]
-#![warn(unused_extern_crates)]
-
-mod chain_spec;
-mod cli;
-mod command;
-mod fake_runtime_api;
-mod rpc;
-mod service;
-
-fn main() -> sc_cli::Result<()> {
-	command::run()
-}
+pub mod asset_hub_polkadot_aura;
+pub mod aura;
