@@ -481,7 +481,7 @@ benchmarks! {
 		whitelist_account!(controller);
 	}: _(RawOrigin::Signed(controller.clone()), controller.clone())
 	verify {
-		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Account(controller));
+		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
 	}
 
 	set_controller {
