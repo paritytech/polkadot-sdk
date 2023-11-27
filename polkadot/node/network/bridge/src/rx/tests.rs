@@ -353,7 +353,6 @@ impl MessageSink for TestMessageSink {
 	}
 }
 
-// TODO: how to implement this?
 #[async_trait::async_trait]
 impl NotificationService for TestNotificationService {
 	/// Instruct `Notifications` to open a new substream for `peer`.
@@ -406,7 +405,6 @@ impl NotificationService for TestNotificationService {
 
 	/// Get notification sink of the peer.
 	fn message_sink(&self, peer: &PeerId) -> Option<Box<dyn MessageSink>> {
-		// TODO: verify that peer exists?
 		Some(Box::new(TestMessageSink::new(*peer, self.peer_set, self.action_tx.clone())))
 	}
 }

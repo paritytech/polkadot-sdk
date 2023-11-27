@@ -30,7 +30,7 @@ use parity_scale_codec::DecodeAll;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSetProtocolNames, ValidationVersion},
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	v1 as protocol_v1, ObservedRole, Versioned,
+	v1 as protocol_v1, v2 as protocol_v2, ObservedRole, Versioned,
 };
 use polkadot_node_subsystem::{FromOrchestra, OverseerSignal};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
@@ -368,9 +368,7 @@ fn send_messages_to_peers() {
 	});
 }
 
-// TODO: discuss with parachains engineering
 #[test]
-#[cfg(feature = "network-protocol-staging")]
 fn network_protocol_versioning_send() {
 	test_harness(|test_harness| async move {
 		let TestHarness { mut network_handle, mut virtual_overseer } = test_harness;
@@ -400,9 +398,9 @@ fn network_protocol_versioning_send() {
 				approval_distribution_message.clone(),
 			);
 
-			// Note that bridge doesn't ensure neither peer's protocol version
-			// or peer set match the message.
-			let receivers = vec![peer_ids[0], peer_ids[3]];
+			// only `peer_ids[0]` opened the validation protocol v2
+			// so only they will be sent a notification
+			let receivers = vec![peer_ids[0]];
 			virtual_overseer
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendValidationMessage(
@@ -442,7 +440,9 @@ fn network_protocol_versioning_send() {
 			let msg =
 				protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
-			let receivers = vec![peer_ids[1], peer_ids[2]];
+			// only `peer_ids[0]` opened the collation protocol v2
+			// so only they will be sent a notification
+			let receivers = vec![peer_ids[1]];
 
 			virtual_overseer
 				.send(FromOrchestra::Communication {
