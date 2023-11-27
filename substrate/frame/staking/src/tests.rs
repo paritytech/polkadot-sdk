@@ -751,7 +751,11 @@ fn nominators_also_get_slashed_pro_rata() {
 	});
 }
 
+// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
+// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
+// asserts in the tests are checked before.
 #[test]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 fn double_staking_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as stash cannot be be stashed again.
@@ -786,7 +790,11 @@ fn double_staking_should_fail() {
 	});
 }
 
+// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
+// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
+// asserts in the tests are checked before.
 #[test]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 fn double_controlling_attempt_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as controller CANNOT be reused as the controller of another
@@ -1725,7 +1733,11 @@ fn rebond_emits_right_value_in_event() {
 	});
 }
 
+// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
+// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
+// asserts in the tests are checked before.
 #[test]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 fn reward_to_stake_works() {
 	ExtBuilder::default()
 		.nominate(false)
@@ -5402,6 +5414,28 @@ fn count_check_works() {
 }
 
 #[test]
+#[should_panic]
+fn check_payee_invariant1_works() {
+	// A bonded ledger should always have an assigned `Payee` This test should panic as we verify
+	// that a bad state will panic due to the `try_state` checks in the `post_checks` in `mock`.
+	ExtBuilder::default().build_and_execute(|| {
+		let rogue_ledger = StakingLedger::<Test>::new(123456, 20);
+		Ledger::<Test>::insert(123456, rogue_ledger);
+	})
+}
+
+#[test]
+#[should_panic]
+fn check_payee_invariant2_works() {
+	// The number of entries in both `Payee` and of bonded staking ledgers should match. This test
+	// should panic as we verify that a bad state will panic due to the `try_state` checks in the
+	// `post_checks` in `mock`.
+	ExtBuilder::default().build_and_execute(|| {
+		Payee::<Test>::insert(1111, RewardDestination::Staked);
+	})
+}
+
+#[test]
 fn min_bond_checks_work() {
 	ExtBuilder::default()
 		.existential_deposit(100)
@@ -6718,7 +6752,11 @@ mod staking_interface {
 mod ledger {
 	use super::*;
 
+	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
+	// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
+	// asserts in the tests are checked before.
 	#[test]
+	#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 	fn paired_account_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_ok!(Staking::bond(
@@ -6753,7 +6791,11 @@ mod ledger {
 		})
 	}
 
+	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
+	// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
+	// asserts in the tests are checked before.
 	#[test]
+	#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 	fn get_ledger_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// stash does not exist

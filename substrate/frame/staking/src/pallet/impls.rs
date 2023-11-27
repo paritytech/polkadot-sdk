@@ -1830,11 +1830,28 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_ledgers()?;
 		Self::check_count()
+	}
+
+	/// Invariants:
+	/// * A bonded ledger should always have an assigned `Payee`.
+	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	fn check_payees() -> Result<(), TryRuntimeError> {
+		for (acc, _) in Ledger::<T>::iter() {
+			ensure!(Payee::<T>::get(acc).is_some(), "bonded ledger does not have payee set");
+		}
+
+		ensure!(
+			Ledger::<T>::iter().count() == Payee::<T>::iter().count(),
+			"number of entries in payee storage items not match the number of bonded ledgers",
+		);
+
+		Ok(())
 	}
 
 	fn check_count() -> Result<(), TryRuntimeError> {
