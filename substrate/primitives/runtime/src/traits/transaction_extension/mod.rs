@@ -58,20 +58,19 @@ impl<T: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo>
 pub trait TransactionExtensionBase: TransactionExtensionInterior {
 	/// Unique identifier of this signed extension.
 	///
-	/// This will be exposed in the metadata to identify the signed extension used
-	/// in an extrinsic.
+	/// This will be exposed in the metadata to identify the signed extension used in an extrinsic.
 	const IDENTIFIER: &'static str;
 
-	/// Any additional data which was known at the time of transaction construction and
-	/// can be useful in authenticating the transaction. This is determined dynamically in part
-	/// from the on-chain environment using the `implied` function and not directly contained in
-	/// the transction itself and therefore is considered "implicit".
+	/// Any additional data which was known at the time of transaction construction and can be
+	/// useful in authenticating the transaction. This is determined dynamically in part from the
+	/// on-chain environment using the `implied` function and not directly contained in the
+	/// transction itself and therefore is considered "implicit".
 	type Implicit: Codec + StaticTypeInfo;
 
 	/// Determine any additional data which was known at the time of transaction construction and
-	/// can be useful in authenticating the transaction. The expected usage of this is to include
-	/// in any data which is signed and verified as part of transactiob validation. Also perform
-	/// any pre-signature-verification checks and return an error if needed.
+	/// can be useful in authenticating the transaction. The expected usage of this is to include in
+	/// any data which is signed and verified as part of transactiob validation. Also perform any
+	/// pre-signature-verification checks and return an error if needed.
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		use crate::InvalidTransaction::IndeterminateImplicit;
 		Ok(Self::Implicit::decode(&mut &[][..]).map_err(|_| IndeterminateImplicit)?)
@@ -104,9 +103,9 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 /// that should be additionally associated with the transaction. It should be plain old data.
 ///
 /// The simplest transaction extension would be the Unit type (and empty pipeline) `()`. This
-/// executes no additional logic and implies a dispatch of the transaction's call using
-/// the inherited origin (either `None` or `Signed`, depending on whether this is a signed or
-/// general transaction).
+/// executes no additional logic and implies a dispatch of the transaction's call using the
+/// inherited origin (either `None` or `Signed`, depending on whether this is a signed or general
+/// transaction).
 ///
 /// Transaction extensions are capable of altering certain associated semantics:
 ///
@@ -164,9 +163,9 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 /// Firstly, the `origin` parameter. The `origin` passed into the first item in a pipeline is simply
 /// that passed into the tuple itself. It represents an authority who has authorized the implication
 /// of the transaction, as of the extension it has been passed into *and any further extensions it
-/// may pass though, all the way to, and including, the transaction's dispatch call itself.
-/// Each following item in the pipeline is passed the origin which the previous item returned. The
-/// origin returned from the final item in the pipeline is the origin which is returned by the tuple
+/// may pass though, all the way to, and including, the transaction's dispatch call itself. Each
+/// following item in the pipeline is passed the origin which the previous item returned. The origin
+/// returned from the final item in the pipeline is the origin which is returned by the tuple
 /// itself.
 ///
 /// This means that if a constituent extension returns a different origin to the one it was called
@@ -238,11 +237,11 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// Do any pre-flight stuff for a transaction after validation.
 	///
 	/// This is for actions which do not happen in the transaction queue but only immediately prior
-	/// to the point of dispatch on-chain. This should not return an error, since errors
-	/// should already have been identified during the [validate](TransactionExtension::validate)
-	/// call. If an error is returned, the transaction will be considered invalid but no state
-	/// changes will happen and therefore work done in [validate](TransactionExtension::validate)
-	/// will not be paid for.
+	/// to the point of dispatch on-chain. This should not return an error, since errors should
+	/// already have been identified during the [validate](TransactionExtension::validate) call. If
+	/// an error is returned, the transaction will be considered invalid but no state changes will
+	/// happen and therefore work done in [validate](TransactionExtension::validate) will not be
+	/// paid for.
 	///
 	/// Unlike `validate`, this function may consume `self`.
 	///
@@ -267,8 +266,8 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///
 	/// WARNING: It is dangerous to return an error here. To do so will fundamentally invalidate the
 	/// transaction and any block that it is included in, causing the block author to not be
-	/// compensated for their work in validating the transaction or producing the block so far.
-	/// It can only be used safely when you *know* that the transaction is one that would only be
+	/// compensated for their work in validating the transaction or producing the block so far. It
+	/// can only be used safely when you *know* that the transaction is one that would only be
 	/// introduced by the current block author.
 	fn post_dispatch(
 		_pre: Self::Pre,
