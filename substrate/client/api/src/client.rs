@@ -25,7 +25,11 @@ use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	Justifications,
 };
-use std::{collections::HashSet, fmt, sync::Arc};
+use std::{
+	collections::HashSet,
+	fmt::{self, Debug},
+	sync::Arc,
+};
 
 use crate::{blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary};
 
@@ -271,11 +275,16 @@ impl fmt::Display for UsageInfo {
 }
 
 /// Sends a message to the pinning-worker once dropped to unpin a block in the backend.
-#[derive(Debug)]
 pub struct UnpinHandleInner<Block: BlockT> {
 	/// Hash of the block pinned by this handle
 	hash: Block::Hash,
 	unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
+}
+
+impl<Block: BlockT> Debug for UnpinHandleInner<Block> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("UnpinHandleInner").field("pinned_block", &self.hash).finish()
+	}
 }
 
 impl<Block: BlockT> UnpinHandleInner<Block> {
