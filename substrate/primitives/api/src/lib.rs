@@ -101,7 +101,7 @@ pub mod __private {
 		generic::BlockId,
 		traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
 		transaction_validity::TransactionValidity,
-		RuntimeString, TransactionOutcome,
+		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 	};
 	pub use sp_std::{mem, slice, vec};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
