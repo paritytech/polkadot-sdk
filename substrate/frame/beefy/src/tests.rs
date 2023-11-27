@@ -1011,6 +1011,95 @@ fn report_fork_equivocation_vote_old_set_works() {
 }
 
 #[test]
+fn report_fork_equivocation_vote_future_block_works() {
+	let authorities = test_authorities();
+
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 2;
+	ext.execute_with(|| {
+		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(Session::current_index(), 0);
+		start_era(era);
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
+		let validator_set = Beefy::validator_set().unwrap();
+		let authorities = validator_set.validators();
+		let set_id = validator_set.id();
+		let validators = Session::validators();
+
+		// make sure that all validators have the same balance
+		for validator in &validators {
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+
+		assert_eq!(authorities.len(), 3);
+		let equivocation_authority_index = 1;
+		let equivocation_key = &authorities[equivocation_authority_index];
+		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let block_num = System::block_number() + 20;
+
+		// generate an fork equivocation proof, with a vote in the same round for a future block
+		let equivocation_proof = generate_fork_equivocation_proof_vote(
+			(block_num, payload, set_id, &equivocation_keyring),
+			None,
+			None,
+		);
+
+		// create the key ownership proof
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+
+		// report the equivocation and the tx should be dispatched successfully
+		assert_ok!(Beefy::report_fork_equivocation_unsigned(
+			RuntimeOrigin::none(),
+			Box::new(equivocation_proof),
+			vec![key_owner_proof],
+		),);
+
+		era += 1;
+		start_era(era);
+
+		// check that the balance of 0-th validator is slashed 100%.
+		let equivocation_validator_id = validators[equivocation_authority_index];
+
+		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
+		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+		assert_eq!(
+			Staking::eras_stakers(era, &equivocation_validator_id),
+			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
+		);
+
+		// check that the balances of all other validators are left intact.
+		for validator in &validators {
+			if *validator == equivocation_validator_id {
+				continue
+			}
+
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+	});
+}
+
+#[test]
 fn report_fork_equivocation_vote_invalid_set_id() {
 	let authorities = test_authorities();
 
@@ -1690,6 +1779,106 @@ fn report_fork_equivocation_sc_old_set_works() {
 
 			assert_eq!(
 				Staking::eras_stakers(3, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+	});
+}
+
+#[test]
+fn report_fork_equivocation_sc_future_block_works() {
+	let authorities = test_authorities();
+
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 2;
+	ext.execute_with(|| {
+		start_era(era);
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
+		let validator_set = Beefy::validator_set().unwrap();
+		let authorities = validator_set.validators();
+		let set_id = validator_set.id();
+		let validators = Session::validators();
+
+		// make sure that all validators have the same balance
+		for validator in &validators {
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+
+		assert_eq!(authorities.len(), 3);
+		let equivocation_authority_indices = [0, 2];
+		let equivocation_keys = equivocation_authority_indices
+			.iter()
+			.map(|i| &authorities[*i])
+			.collect::<Vec<_>>();
+		let equivocation_keyrings = equivocation_keys
+			.iter()
+			.map(|k| BeefyKeyring::from_public(k).unwrap())
+			.collect();
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let block_num = System::block_number() + 20;
+		// create commitment to a future block
+		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
+		// generate an fork equivocation proof, with a vote in the same round but for a
+		// future block
+		let equivocation_proof =
+			generate_fork_equivocation_proof_sc(commitment, equivocation_keyrings, None, None);
+
+		// create the key ownership proof
+		let key_owner_proofs = equivocation_keys
+			.iter()
+			.map(|k| Historical::prove((BEEFY_KEY_TYPE, &k)).unwrap())
+			.collect();
+
+		// report the equivocation and the tx should be dispatched successfully
+		assert_ok!(Beefy::report_fork_equivocation_unsigned(
+			RuntimeOrigin::none(),
+			Box::new(equivocation_proof),
+			key_owner_proofs,
+		),);
+
+		era += 1;
+		start_era(era);
+
+		// check that the balance of equivocating validators is slashed 100%.
+		let equivocation_validator_ids = equivocation_authority_indices
+			.iter()
+			.map(|i| validators[*i])
+			.collect::<Vec<_>>();
+
+		for equivocation_validator_id in &equivocation_validator_ids {
+			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
+			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+			assert_eq!(
+				Staking::eras_stakers(era, equivocation_validator_id),
+				pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
+			);
+		}
+
+		// check that the balances of all other validators are left intact.
+		for validator in &validators {
+			if equivocation_validator_ids.contains(&validator) {
+				continue
+			}
+
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
