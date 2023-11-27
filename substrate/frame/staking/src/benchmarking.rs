@@ -467,9 +467,21 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Staked));
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), RewardDestination::Controller)
+	}: _(RawOrigin::Signed(controller.clone()), RewardDestination::Account(controller.clone()))
 	verify {
-		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Controller));
+		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
+	}
+
+	update_payee {
+		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		Payee::<T>::insert(&stash, {
+			#[allow(deprecated)]
+			RewardDestination::Controller
+		});
+		whitelist_account!(controller);
+	}: _(RawOrigin::Signed(controller.clone()), controller.clone())
+	verify {
+		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Account(controller));
 	}
 
 	set_controller {
@@ -549,40 +561,6 @@ benchmarks! {
 	}: _(RawOrigin::Root, era, slash_indices)
 	verify {
 		assert_eq!(UnappliedSlashes::<T>::get(&era).len(), (MAX_SLASHES - s) as usize);
-	}
-
-	payout_stakers_dead_controller {
-		let n in 0 .. T::MaxExposurePageSize::get() as u32;
-		let (validator, nominators) = create_validator_with_nominators::<T>(
-			n,
-			T::MaxExposurePageSize::get() as u32,
-			true,
-			true,
-			RewardDestination::Controller,
-		)?;
-
-		let current_era = CurrentEra::<T>::get().unwrap();
-		// set the commission for this particular era as well.
-		<ErasValidatorPrefs<T>>::insert(current_era, validator.clone(), <Staking<T>>::validators(&validator));
-
-		let caller = whitelisted_caller();
-		let validator_controller = <Bonded<T>>::get(&validator).unwrap();
-		let balance_before = T::Currency::free_balance(&validator_controller);
-		for (_, controller) in &nominators {
-			let balance = T::Currency::free_balance(controller);
-			ensure!(balance.is_zero(), "Controller has balance, but should be dead.");
-		}
-	}: payout_stakers_by_page(RawOrigin::Signed(caller), validator, current_era, 0)
-	verify {
-		let balance_after = T::Currency::free_balance(&validator_controller);
-		ensure!(
-			balance_before < balance_after,
-			"Balance of validator controller should have increased after payout.",
-		);
-		for (_, controller) in &nominators {
-			let balance = T::Currency::free_balance(controller);
-			ensure!(!balance.is_zero(), "Payout not given to controller.");
-		}
 	}
 
 	payout_stakers_alive_staked {
