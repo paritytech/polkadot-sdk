@@ -61,6 +61,7 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 - If the runtime call fails (e.g. because it triggers a panic in the runtime, running out of memory, etc., or if the runtime call takes too much time), then an `{"event": "operationError"}` notification is generated.
 - A JSON-RPC error with error code `-32801` is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`, or the block hash has been unpinned.
 - A JSON-RPC error with error code `-32802` is generated if the `followSubscription` corresponds to a follow where `withRuntime` was `̀false`.
+- A JSON-RPC error with error code `-32804` is generated if one of the parameters doesn't correspond to the expected type (similarly to a missing parameter or an invalid parameter type).
 
 ## About `callParameters`
 
