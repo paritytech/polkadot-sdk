@@ -108,7 +108,6 @@ edition = '2021'
 [dependencies]
 uapi = {{ package = 'pallet-contracts-uapi', default-features = false,  path = {uapi_path:?}}}
 common = {{ package = 'pallet-contracts-fixtures-common',  path = {common_path:?}}}
-cfg-if = {{ version = '1.0', default-features = false }}
 
 [profile.release]
 opt-level = 3
