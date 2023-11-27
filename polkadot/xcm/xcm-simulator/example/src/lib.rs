@@ -77,17 +77,25 @@ pub fn child_account_id(para: u32) -> relay_chain::AccountId {
 }
 
 pub fn child_account_account_id(para: u32, who: sp_runtime::AccountId32) -> relay_chain::AccountId {
-	let location = (Parachain(para), AccountId32 { network: None, id: who.into() });
+	let location = (
+		Parachain(para),
+		AccountId32 { network: Some(parachain::RelayNetwork::get()), id: who.into() },
+	);
 	relay_chain::LocationToAccountId::convert_location(&location.into()).unwrap()
 }
 
 pub fn sibling_account_account_id(para: u32, who: sp_runtime::AccountId32) -> parachain::AccountId {
-	let location = (Parent, Parachain(para), AccountId32 { network: None, id: who.into() });
+	let location = (
+		Parent,
+		Parachain(para),
+		AccountId32 { network: Some(parachain::RelayNetwork::get()), id: who.into() },
+	);
 	parachain::LocationToAccountId::convert_location(&location.into()).unwrap()
 }
 
 pub fn parent_account_account_id(who: sp_runtime::AccountId32) -> parachain::AccountId {
-	let location = (Parent, AccountId32 { network: None, id: who.into() });
+	let location =
+		(Parent, AccountId32 { network: Some(relay_chain::RelayNetwork::get()), id: who.into() });
 	parachain::LocationToAccountId::convert_location(&location.into()).unwrap()
 }
 
@@ -407,7 +415,8 @@ mod tests {
 				},
 			]);
 			// Send teleport
-			let alice = AccountId32 { id: ALICE.into(), network: None };
+			let alice =
+				AccountId32 { id: ALICE.into(), network: Some(parachain::RelayNetwork::get()) };
 			assert_ok!(ParachainPalletXcm::send_xcm(alice, Parent, message));
 		});
 		ParaA::execute_with(|| {
@@ -475,7 +484,8 @@ mod tests {
 				},
 			]);
 			// Send transfer
-			let alice = AccountId32 { id: ALICE.into(), network: None };
+			let alice =
+				AccountId32 { id: ALICE.into(), network: Some(parachain::RelayNetwork::get()) };
 			assert_ok!(ParachainPalletXcm::send_xcm(alice, Parent, message));
 		});
 		ParaA::execute_with(|| {
