@@ -164,7 +164,7 @@ fn ptr_len_or_sentinel(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
 
 #[inline(always)]
 #[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
-fn ptr_from_slice(data: &Option<&[u8]>) -> *const u8 {
+fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 	match data {
 		Some(ref data) => data.as_ptr(),
 		None => SENTINEL as _,

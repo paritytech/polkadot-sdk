@@ -13,7 +13,7 @@
 // limitations under the License.
 // #![allow(unused_variables)]
 use super::{
-	extract_from_slice, ptr_from_slice, ptr_len_or_sentinel, Api, CallFlags, Result, ReturnCode,
+	extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel, Api, CallFlags, Result, ReturnCode,
 	ReturnFlags,
 };
 
@@ -455,7 +455,7 @@ impl Api for ApiImpl {
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_ptr = ptr_from_slice(&deposit);
+		let deposit_ptr = ptr_or_sentinel(&deposit);
 
 		let ret_code = {
 			unsafe {
@@ -562,7 +562,7 @@ impl Api for ApiImpl {
 		mut output: Option<&mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_ptr = ptr_from_slice(&deposit);
+		let deposit_ptr = ptr_or_sentinel(&deposit);
 		let ret_code = {
 			unsafe {
 				sys::v2::call(
