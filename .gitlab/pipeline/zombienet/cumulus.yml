@@ -5,6 +5,8 @@
   before_script:
     # Exit if the job is not merge queue
     # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
     - echo "Zombie-net Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${POLKADOT_IMAGE}"
