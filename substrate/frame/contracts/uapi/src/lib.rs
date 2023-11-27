@@ -145,7 +145,6 @@ impl ReturnCode {
 
 type Result = core::result::Result<(), ReturnErrorCode>;
 
-#[inline(always)]
 #[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 	debug_assert!(new_len <= output.len());
@@ -153,7 +152,6 @@ fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 	*output = &mut tmp[..new_len];
 }
 
-#[inline(always)]
 #[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 fn ptr_len_or_sentinel(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
 	match data {
@@ -162,7 +160,6 @@ fn ptr_len_or_sentinel(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
 	}
 }
 
-#[inline(always)]
 #[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 	match data {

@@ -300,7 +300,6 @@ mod sys {
 macro_rules! impl_wrapper_for {
     (@impl_fn $( $mod:ident )::*, $suffix:literal, $name:ident) => {
         paste::paste! {
-			#[inline(always)]
             fn [<$name $suffix>](output: &mut &mut [u8]) {
                 let mut output_len = output.len() as u32;
                 unsafe {
@@ -343,7 +342,6 @@ macro_rules! impl_hash_fn {
 /// A macro to implement the get_storage functions.
 macro_rules! impl_get_storage {
 	($fn_name:ident, $sys_get_storage:path) => {
-		#[inline(always)]
 		fn $fn_name(key: &[u8], output: &mut &mut [u8]) -> Result {
 			let mut output_len = output.len() as u32;
 			let ret_code = {
@@ -365,7 +363,6 @@ macro_rules! impl_get_storage {
 pub enum ApiImpl {}
 
 impl Api for ApiImpl {
-	#[inline(always)]
 	fn instantiate(
 		code_hash: &[u8],
 		gas: u64,
@@ -404,7 +401,6 @@ impl Api for ApiImpl {
 		ret_code.into()
 	}
 
-	#[inline(always)]
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,
@@ -441,7 +437,6 @@ impl Api for ApiImpl {
 		ret_code.into()
 	}
 
-	#[inline(always)]
 	fn instantiate_v2(
 		code_hash: &[u8],
 		ref_time_limit: u64,
@@ -519,7 +514,6 @@ impl Api for ApiImpl {
 		ret_code.into()
 	}
 
-	#[inline(always)]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
@@ -591,7 +585,6 @@ impl Api for ApiImpl {
 		unsafe { sys::caller_is_root() }.into_u32()
 	}
 
-	#[inline(always)]
 	fn delegate_call(
 		flags: CallFlags,
 		code_hash: &[u8],
@@ -684,7 +677,6 @@ impl Api for ApiImpl {
 	impl_get_storage!(get_storage, sys::get_storage);
 	impl_get_storage!(get_storage_v1, sys::v1::get_storage);
 
-	#[inline(always)]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -719,7 +711,6 @@ impl Api for ApiImpl {
 		unsafe { sys::v1::terminate(beneficiary.as_ptr()) }
 	}
 
-	#[inline(always)]
 	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32 {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -737,7 +728,6 @@ impl Api for ApiImpl {
 		ret_code.into_u32()
 	}
 
-	#[inline(always)]
 	fn input(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
@@ -760,7 +750,6 @@ impl Api for ApiImpl {
 		(v1, "_v1") => [gas_left],
 	}
 
-	#[inline(always)]
 	fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
