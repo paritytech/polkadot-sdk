@@ -45,7 +45,7 @@ pub trait Api {
 	/// # Return
 	///
 	///  Returns the number of times specified contract exists on the call stack.
-	#[deprecated(note = "Unstable")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn account_reentrance_count(account: &[u8]) -> u32;
 
 	/// Stores the address of the current contract into the supplied buffer.
@@ -66,7 +66,7 @@ pub trait Api {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[deprecated(note = "Unstable")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn add_delegate_dependency(code_hash: &[u8]);
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
@@ -140,7 +140,7 @@ pub trait Api {
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
-	#[deprecated(note = "Unstable, use `call_v1` instead")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn call_v2(
 		flags: CallFlags,
 		callee: &[u8],
@@ -236,7 +236,7 @@ pub trait Api {
 	///
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
-	#[deprecated(note = "Unstable")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn caller_is_root() -> u32;
 
 	/// Clear the value at the given key in the contract storage.
@@ -375,7 +375,7 @@ pub trait Api {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the weight left.
-	#[deprecated(note = "Unstable, use `gas_left` instead")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn gas_left_v1(output: &mut &mut [u8]);
 
 	/// Retrieve the value under the given key from storage.
@@ -475,7 +475,7 @@ pub trait Api {
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	#[deprecated(note = "Unstable, use `instantiate_v1` instead")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn instantiate_v2(
 		code_hash: &[u8],
 		ref_time_limit: u64,
@@ -538,7 +538,7 @@ pub trait Api {
 	/// # Return
 	///
 	/// Returns `0` when there is no reentrancy.
-	#[deprecated(note = "Unstable")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn reentrance_count() -> u32;
 
 	/// Removes the delegate dependency from the contract.
@@ -549,7 +549,7 @@ pub trait Api {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[deprecated(note = "Unstable")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn remove_delegate_dependency(code_hash: &[u8]);
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
@@ -715,7 +715,7 @@ pub trait Api {
 	/// - `ref_time_limit`: The *ref_time* Weight limit to query the price for.
 	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
 	/// - `output`: A reference to the output data buffer to write the price.
-	#[deprecated(note = "Unstable, use `weight_to_fee` instead")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn weight_to_fee_v1(ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]);
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
@@ -732,7 +732,7 @@ pub trait Api {
 	///
 	/// Returns `Error::Success` when the XCM execution attempt is successful. When the XCM
 	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned
-	#[deprecated(note = "Unstable")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Send an XCM program from the contract to the specified destination.
@@ -751,6 +751,6 @@ pub trait Api {
 	///
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
-	#[deprecated(note = "Unstable")]
+	#[deprecated(note = "Unstable function. Behaviour can change without further notice. Use only for testing")]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result;
 }
