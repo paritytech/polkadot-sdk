@@ -186,7 +186,7 @@ pub type ActionFuture = std::pin::Pin<Box<dyn futures::Future<Output = ()> + std
 pub struct NetworkAction {
 	// The function that performs the action
 	run: ActionFuture,
-	// The payload size that we simulate sending from a peer
+	// The payload size that we simulate sending/receiving from a peer
 	size: usize,
 	// Peer which should run the action.
 	peer: AuthorityDiscoveryId,

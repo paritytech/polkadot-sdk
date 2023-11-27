@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_subsystem::{
-	HeadSupportsParachains, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-};
+use polkadot_node_subsystem::HeadSupportsParachains;
 use polkadot_node_subsystem_types::Hash;
 
 pub mod av_store;
@@ -24,9 +22,9 @@ pub mod dummy;
 pub mod network_bridge;
 pub mod runtime_api;
 
-pub(crate) use dummy::*;
-
-use sc_service::SpawnTaskHandle;
+pub use av_store::*;
+pub use network_bridge::*;
+pub use runtime_api::*;
 
 pub struct AlwaysSupportsParachains {}
 #[async_trait::async_trait]
@@ -38,7 +36,9 @@ impl HeadSupportsParachains for AlwaysSupportsParachains {
 
 // An orchestra with dummy subsystems
 macro_rules! dummy_builder {
-	($spawn_task_handle: ident) => {
+	($spawn_task_handle: ident) => {{
+		use super::core::mock::dummy::*;
+
 		// Initialize a mock overseer.
 		// All subsystem except approval_voting and approval_distribution are mock subsystems.
 		Overseer::builder()
@@ -71,15 +71,7 @@ macro_rules! dummy_builder {
 			.metrics(Default::default())
 			.supports_parachains(AlwaysSupportsParachains {})
 			.spawner(SpawnGlue($spawn_task_handle))
-	};
+	}};
 }
 
-pub fn new_overseer_with_dummy_subsystems(
-	spawn_task_handle: SpawnTaskHandle,
-) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
-	let overseer_connector = OverseerConnector::with_event_capacity(64000);
-	let dummy = dummy_builder!(spawn_task_handle);
-	let builder = dummy.replace_chain_api(|_| MockChainApi {});
-	// let (mock_overseer, mock_overseer_handle) =
-	builder.build_with_connector(overseer_connector).expect("Should not fail")
-}
+pub(crate) use dummy_builder;

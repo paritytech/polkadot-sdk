@@ -21,14 +21,16 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
+use tokio::runtime::{Handle, Runtime};
+
+use polkadot_node_subsystem::{
+	BlockInfo, Event, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
+};
+use sc_network::request_responses::ProtocolConfig;
 
 use colored::Colorize;
 
-use futures::{
-	channel::{mpsc, oneshot},
-	stream::FuturesUnordered,
-	FutureExt, SinkExt, StreamExt,
-};
+use futures::{channel::oneshot, stream::FuturesUnordered, FutureExt, SinkExt, StreamExt};
 use polkadot_node_metrics::metrics::Metrics;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -40,23 +42,30 @@ use polkadot_node_network_protocol::request_response::{
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
 
 use prometheus::Registry;
-use sc_network::{config::RequestResponseConfig, OutboundFailure, RequestFailure};
+use sc_network::{OutboundFailure, RequestFailure};
 
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
-	messages::{
-		AllMessages, AvailabilityRecoveryMessage, AvailabilityStoreMessage, NetworkBridgeTxMessage,
-		RuntimeApiMessage, RuntimeApiRequest,
-	},
-	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, Subsystem,
+	messages::{AllMessages, AvailabilityRecoveryMessage},
+	ActiveLeavesUpdate, OverseerSignal,
 };
 use std::net::{Ipv4Addr, SocketAddr};
+
+use crate::core::{
+	configuration::TestAuthorities,
+	environment::TestEnvironmentDependencies,
+	mock::{
+		av_store,
+		network_bridge::{self, MockNetworkBridgeTx, NetworkAvailabilityState},
+		runtime_api, MockAvailabilityStore, MockRuntimeApi,
+	},
+};
 
 use super::core::{
 	configuration::{PeerLatency, TestConfiguration},
 	environment::TestEnvironmentMetrics,
-	keyring::Keyring,
+	mock::dummy_builder,
 	network::*,
 };
 
@@ -64,14 +73,12 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
-use super::cli::TestObjective;
-use polkadot_node_subsystem_test_helpers::{
-	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
-};
+use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
+use polkadot_node_subsystem_test_helpers::mock::new_block_import_event;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, IndexedVec,
-	PersistedValidationData, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, PersistedValidationData,
+	SessionIndex, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::{SpawnTaskHandle, TaskManager};
@@ -81,28 +88,22 @@ pub mod configuration;
 pub use cli::{DataAvailabilityReadOptions, NetworkEmulation, NetworkOptions};
 pub use configuration::AvailabilityRecoveryConfiguration;
 
-// Deterministic genesis hash for protocol names
+// A dummy genesis hash
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 
-struct AvailabilityRecoverySubsystemInstance {
-	_protocol_config: RequestResponseConfig,
-}
-
-/// The test environment is responsible for creating an instance of the availability recovery
-/// subsystem and connecting it to an emulated overseer.
+/// The test environment is the high level wrapper of all things required to test
+/// a certain subsystem.
 ///
 /// ## Mockups
-/// We emulate the following subsystems:
-/// - runtime api
-/// - network bridge
-/// - availability store
+/// The overseer is passed in during construction and it can host an arbitrary number of
+/// real subsystems instances and the corresponding mocked instances such that the real
+/// subsystems can get their messages answered.
 ///
 /// As the subsystem's performance depends on network connectivity, the test environment
 /// emulates validator nodes on the network, see `NetworkEmulator`. The network emulation
 /// is configurable in terms of peer bandwidth, latency and connection error rate using
 /// uniform distribution sampling.
 ///
-/// The mockup logic is implemented in `env_task` which owns and advances the `TestState`.
 ///
 /// ## Usage
 /// `TestEnvironment` is used in tests to send `Overseer` messages or signals to the subsystem
@@ -121,13 +122,14 @@ pub struct TestEnvironment {
 	// A task manager that tracks task poll durations allows us to measure
 	// per task CPU usage as we do in the Polkadot node.
 	task_manager: TaskManager,
+	// Our runtime
+	runtime: tokio::runtime::Runtime,
+	// A runtime handle
+	runtime_handle: tokio::runtime::Handle,
 	// The Prometheus metrics registry
 	registry: Registry,
-	// A channel to the availability recovery subsystem
-	to_subsystem: mpsc::Sender<FromOrchestra<AvailabilityRecoveryMessage>>,
-	// Subsystem instance, currently keeps req/response protocol channel senders
-	// for the whole duration of the test.
-	instance: AvailabilityRecoverySubsystemInstance,
+	// A handle to the lovely overseer
+	overseer_handle: OverseerHandle,
 	// The test intial state. The current state is owned by `env_task`.
 	config: TestConfiguration,
 	// A handle to the network emulator.
@@ -136,62 +138,142 @@ pub struct TestEnvironment {
 	metrics: TestEnvironmentMetrics,
 }
 
+fn build_overseer(
+	spawn_task_handle: SpawnTaskHandle,
+	runtime_api: MockRuntimeApi,
+	av_store: MockAvailabilityStore,
+	network_bridge: MockNetworkBridgeTx,
+	availability_recovery: AvailabilityRecoverySubsystem,
+) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
+	let overseer_connector = OverseerConnector::with_event_capacity(64000);
+	let dummy = dummy_builder!(spawn_task_handle);
+	let builder = dummy
+		.replace_runtime_api(|_| runtime_api)
+		.replace_availability_store(|_| av_store)
+		.replace_network_bridge_tx(|_| network_bridge)
+		.replace_availability_recovery(|_| availability_recovery);
+
+	builder.build_with_connector(overseer_connector).expect("Should not fail")
+}
+
+/// Takes a test configuration and uses it to creates the `TestEnvironment`.
+pub fn prepare_test(
+	config: TestConfiguration,
+	state: &mut TestState,
+) -> (TestEnvironment, ProtocolConfig) {
+	prepare_test_inner(config, state, TestEnvironmentDependencies::default())
+}
+
+/// Takes a test configuration and uses it to creates the `TestEnvironment`.
+pub fn prepare_test_with_dependencies(
+	config: TestConfiguration,
+	state: &mut TestState,
+	dependencies: TestEnvironmentDependencies,
+) -> (TestEnvironment, ProtocolConfig) {
+	prepare_test_inner(config, state, dependencies)
+}
+
+fn prepare_test_inner(
+	config: TestConfiguration,
+	state: &mut TestState,
+	dependencies: TestEnvironmentDependencies,
+) -> (TestEnvironment, ProtocolConfig) {
+	// We need to first create the high level test state object.
+	// This will then be decomposed into per subsystem states.
+	let candidate_count = config.n_cores * config.num_blocks;
+	state.generate_candidates(candidate_count);
+
+	// Generate test authorities.
+	let test_authorities = config.generate_authorities();
+
+	let runtime_api = runtime_api::MockRuntimeApi::new(
+		config.clone(),
+		test_authorities.validator_public.clone(),
+		test_authorities.validator_authority_id.clone(),
+	);
+
+	let av_store =
+		av_store::MockAvailabilityStore::new(state.chunks.clone(), state.candidate_hashes.clone());
+
+	let availability_state = NetworkAvailabilityState {
+		candidate_hashes: state.candidate_hashes.clone(),
+		available_data: state.available_data.clone(),
+		chunks: state.chunks.clone(),
+	};
+
+	let network = NetworkEmulator::new(
+		config.n_validators.clone(),
+		test_authorities.validator_authority_id.clone(),
+		config.peer_bandwidth,
+		dependencies.task_manager.spawn_handle(),
+		&dependencies.registry,
+	);
+
+	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
+		config.clone(),
+		availability_state,
+		network.clone(),
+	);
+
+	let use_fast_path = match &state.config().objective {
+		TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
+		_ => panic!("Unexpected objective"),
+	};
+
+	let (collation_req_receiver, req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+
+	let subsystem = if use_fast_path {
+		AvailabilityRecoverySubsystem::with_fast_path(
+			collation_req_receiver,
+			Metrics::try_register(&dependencies.registry).unwrap(),
+		)
+	} else {
+		AvailabilityRecoverySubsystem::with_chunks_only(
+			collation_req_receiver,
+			Metrics::try_register(&dependencies.registry).unwrap(),
+		)
+	};
+
+	let (overseer, overseer_handle) = build_overseer(
+		dependencies.task_manager.spawn_handle(),
+		runtime_api,
+		av_store,
+		network_bridge_tx,
+		subsystem,
+	);
+
+	(
+		TestEnvironment::new(
+			dependencies.task_manager,
+			config,
+			dependencies.registry,
+			dependencies.runtime,
+			network,
+			overseer,
+			overseer_handle,
+		),
+		req_cfg,
+	)
+}
+
 impl TestEnvironment {
 	// Create a new test environment with specified initial state and prometheus registry.
 	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
-	pub fn new(runtime: tokio::runtime::Handle, state: TestState, registry: Registry) -> Self {
-		let config = state.config().clone();
-		let task_manager: TaskManager = TaskManager::new(runtime.clone(), Some(&registry)).unwrap();
-		let (instance, virtual_overseer) = AvailabilityRecoverySubsystemInstance::new(
-			&registry,
-			task_manager.spawn_handle(),
-			match &state.config().objective {
-				TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
-				_ => panic!("Unexpected objective"),
-			},
-		);
-
+	pub fn new(
+		task_manager: TaskManager,
+		config: TestConfiguration,
+		registry: Registry,
+		runtime: Runtime,
+		network: NetworkEmulator,
+		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
+		overseer_handle: OverseerHandle,
+	) -> Self {
 		let metrics =
 			TestEnvironmentMetrics::new(&registry).expect("Metrics need to be registered");
-		let mut network = NetworkEmulator::new(
-			config.n_validators,
-			state.validator_authority_id.clone(),
-			config.peer_bandwidth,
-			task_manager.spawn_handle(),
-			&registry,
-		);
 
-		// Copy sender for later when we need to inject messages in to the subsystem.
-		let to_subsystem = virtual_overseer.tx.clone();
-
-		let task_state = state.clone();
-		let task_network = network.clone();
 		let spawn_handle = task_manager.spawn_handle();
-
-		// Our node rate limiting
-		let mut rx_limiter = RateLimit::new(10, config.bandwidth);
-		let (ingress_tx, mut ingress_rx) = tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
-		let our_network_stats = network.peer_stats(0);
-
-		spawn_handle.spawn_blocking("node0-rx", "test-environment", async move {
-			while let Some(action) = ingress_rx.recv().await {
-				let size = action.size();
-
-				// account for our node receiving the data.
-				our_network_stats.inc_received(size);
-
-				rx_limiter.reap(size).await;
-				action.run().await;
-			}
-		});
-
-		// We need to start a receiver to process messages from the subsystem.
-		// This mocks an overseer and all dependent subsystems
-		task_manager.spawn_handle().spawn_blocking(
-			"test-environment",
-			"test-environment",
-			async move { Self::env_task(virtual_overseer, task_state, task_network, ingress_tx).await },
-		);
+		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run());
 
 		let registry_clone = registry.clone();
 		task_manager
@@ -205,7 +287,16 @@ impl TestEnvironment {
 				.unwrap();
 			});
 
-		TestEnvironment { task_manager, registry, to_subsystem, instance, config, network, metrics }
+		TestEnvironment {
+			task_manager,
+			runtime_handle: runtime.handle().clone(),
+			runtime,
+			registry,
+			overseer_handle,
+			config,
+			network,
+			metrics,
+		}
 	}
 
 	pub fn config(&self) -> &TestConfiguration {
@@ -236,266 +327,20 @@ impl TestEnvironment {
 		&self.metrics
 	}
 
-	/// Generate a random error based on `probability`.
-	/// `probability` should be a number between 0 and 100.
-	fn random_error(probability: usize) -> bool {
-		Uniform::from(0..=99).sample(&mut thread_rng()) < probability
-	}
-
-	pub fn request_size(request: &Requests) -> u64 {
-		match request {
-			Requests::ChunkFetchingV1(outgoing_request) =>
-				outgoing_request.payload.encoded_size() as u64,
-			Requests::AvailableDataFetchingV1(outgoing_request) =>
-				outgoing_request.payload.encoded_size() as u64,
-			_ => panic!("received an unexpected request"),
-		}
-	}
-
-	pub fn respond_to_send_request(
-		state: &mut TestState,
-		request: Requests,
-		ingress_tx: tokio::sync::mpsc::UnboundedSender<NetworkAction>,
-	) -> NetworkAction {
-		match request {
-			Requests::ChunkFetchingV1(outgoing_request) => {
-				let validator_index: usize = outgoing_request.payload.index.0 as usize;
-				let candidate_hash = outgoing_request.payload.candidate_hash;
-
-				let candidate_index = state
-					.candidate_hashes
-					.get(&candidate_hash)
-					.expect("candidate was generated previously; qed");
-				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-				let chunk: ChunkResponse = state.chunks.get(*candidate_index as usize).unwrap()
-					[validator_index]
-					.clone()
-					.into();
-				let mut size = chunk.encoded_size();
-
-				let response = if Self::random_error(state.config().error) {
-					// Error will not account to any bandwidth used.
-					size = 0;
-					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
-				} else {
-					Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode())
-				};
-
-				let authority_discovery_id = match outgoing_request.peer {
-					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
-					_ => panic!("Peer recipient not supported yet"),
-				};
-				let authority_discovery_id_clone = authority_discovery_id.clone();
-
-				let future = async move {
-					let _ = outgoing_request.pending_response.send(response);
-				}
-				.boxed();
-
-				let future_wrapper = async move {
-					// Forward the response to the ingress channel of our node.
-					// On receive side we apply our node receiving rate limit.
-					let action =
-						NetworkAction::new(authority_discovery_id_clone, future, size, None);
-					ingress_tx.send(action).unwrap();
-				}
-				.boxed();
-
-				NetworkAction::new(
-					authority_discovery_id,
-					future_wrapper,
-					size,
-					// Generate a random latency based on configuration.
-					Self::random_latency(state.config().latency.as_ref()),
-				)
-			},
-			Requests::AvailableDataFetchingV1(outgoing_request) => {
-				let candidate_hash = outgoing_request.payload.candidate_hash;
-				let candidate_index = state
-					.candidate_hashes
-					.get(&candidate_hash)
-					.expect("candidate was generated previously; qed");
-				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-				let available_data =
-					state.available_data.get(*candidate_index as usize).unwrap().clone();
-
-				let size = available_data.encoded_size();
-
-				let response = if Self::random_error(state.config().error) {
-					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
-				} else {
-					Ok(req_res::v1::AvailableDataFetchingResponse::from(Some(available_data))
-						.encode())
-				};
-
-				let future = async move {
-					let _ = outgoing_request.pending_response.send(response);
-				}
-				.boxed();
-
-				let authority_discovery_id = match outgoing_request.peer {
-					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
-					_ => panic!("Peer recipient not supported yet"),
-				};
-				let authority_discovery_id_clone = authority_discovery_id.clone();
-
-				let future_wrapper = async move {
-					// Forward the response to the ingress channel of our node.
-					// On receive side we apply our node receiving rate limit.
-					let action =
-						NetworkAction::new(authority_discovery_id_clone, future, size, None);
-					ingress_tx.send(action).unwrap();
-				}
-				.boxed();
-
-				NetworkAction::new(
-					authority_discovery_id,
-					future_wrapper,
-					size,
-					// Generate a random latency based on configuration.
-					Self::random_latency(state.config().latency.as_ref()),
-				)
-			},
-			_ => panic!("received an unexpected request"),
-		}
-	}
-
-	// A task that mocks dependent subsystems based on environment configuration.
-	// TODO: Spawn real subsystems, user overseer builder.
-	async fn env_task(
-		mut ctx: TestSubsystemContextHandle<AvailabilityRecoveryMessage>,
-		mut state: TestState,
-		mut network: NetworkEmulator,
-		ingress_tx: tokio::sync::mpsc::UnboundedSender<NetworkAction>,
-	) {
-		loop {
-			futures::select! {
-				maybe_message = ctx.maybe_recv().fuse() => {
-					let message = if let Some(message) = maybe_message{
-						message
-					} else {
-						gum::info!("{}", "Test completed".bright_blue());
-						return
-					};
-
-					gum::trace!(target: LOG_TARGET, ?message, "Env task received message");
-
-					match message {
-						AllMessages::NetworkBridgeTx(
-							NetworkBridgeTxMessage::SendRequests(
-								requests,
-								_if_disconnected,
-							)
-						) => {
-							for request in requests {
-								network.inc_sent(Self::request_size(&request));
-								let action = Self::respond_to_send_request(&mut state, request, ingress_tx.clone());
-								// Account for our node sending the request over the emulated network.
-								network.submit_peer_action(action.peer(), action);
-							}
-						},
-						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAvailableData(_candidate_hash, tx)) => {
-							// TODO: Simulate av store load by delaying the response.
-							state.respond_none_to_available_data_query(tx).await;
-						},
-						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx)) => {
-							// Test env: We always have our own chunk.
-							state.respond_to_query_all_request(candidate_hash, |index| index == state.validator_index.0 as usize, tx).await;
-						},
-						AllMessages::AvailabilityStore(
-							AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx)
-						) => {
-							let candidate_index = state.candidate_hashes.get(&candidate_hash).expect("candidate was generated previously; qed");
-							gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-							let chunk_size = state.chunks.get(*candidate_index as usize).unwrap()[0].encoded_size();
-							let _ = tx.send(Some(chunk_size));
-						}
-						AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-							_relay_parent,
-							RuntimeApiRequest::SessionInfo(
-								_session_index,
-								tx,
-							)
-						)) => {
-							tx.send(Ok(Some(state.session_info()))).unwrap();
-						}
-						_ => panic!("Unexpected input")
-					}
-				}
-			}
-		}
+	pub fn runtime(&self) -> Handle {
+		self.runtime_handle.clone()
 	}
 
 	// Send a message to the subsystem under test environment.
-	pub async fn send_message(&mut self, msg: AvailabilityRecoveryMessage) {
-		gum::trace!(msg = ?msg, "sending message");
-		self.to_subsystem
-			.send(FromOrchestra::Communication { msg })
+	pub async fn send_message(&mut self, msg: Event) {
+		self.overseer_handle
+			.send(msg)
 			.timeout(MAX_TIME_OF_FLIGHT)
 			.await
 			.unwrap_or_else(|| {
 				panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
 			})
-			.unwrap();
-	}
-
-	// Send a signal to the subsystem under test environment.
-	pub async fn send_signal(&mut self, signal: OverseerSignal) {
-		self.to_subsystem
-			.send(FromOrchestra::Signal(signal))
-			.timeout(MAX_TIME_OF_FLIGHT)
-			.await
-			.unwrap_or_else(|| {
-				panic!(
-					"{}ms is more than enough for sending signals.",
-					MAX_TIME_OF_FLIGHT.as_millis()
-				)
-			})
-			.unwrap();
-	}
-}
-
-impl AvailabilityRecoverySubsystemInstance {
-	pub fn new(
-		registry: &Registry,
-		spawn_task_handle: SpawnTaskHandle,
-		use_fast_path: bool,
-	) -> (Self, TestSubsystemContextHandle<AvailabilityRecoveryMessage>) {
-		let (context, virtual_overseer) = make_buffered_subsystem_context(
-			spawn_task_handle.clone(),
-			128,
-			"availability-recovery-subsystem",
-		);
-		let (collation_req_receiver, req_cfg) =
-			IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
-
-		let subsystem = if use_fast_path {
-			AvailabilityRecoverySubsystem::with_fast_path(
-				collation_req_receiver,
-				Metrics::try_register(&registry).unwrap(),
-			)
-		} else {
-			AvailabilityRecoverySubsystem::with_chunks_only(
-				collation_req_receiver,
-				Metrics::try_register(&registry).unwrap(),
-			)
-		};
-
-		let spawned_subsystem = subsystem.start(context);
-		let subsystem_future = async move {
-			spawned_subsystem.future.await.unwrap();
-		};
-
-		spawn_task_handle.spawn_blocking(
-			spawned_subsystem.name,
-			spawned_subsystem.name,
-			subsystem_future,
-		);
-
-		(Self { _protocol_config: req_cfg }, virtual_overseer)
+			.expect("send never fails");
 	}
 }
 
@@ -509,8 +354,7 @@ pub struct TestState {
 	// Full test configuration
 	config: TestConfiguration,
 	// State starts here.
-	validator_public: Vec<ValidatorId>,
-	validator_authority_id: Vec<AuthorityDiscoveryId>,
+	test_authorities: TestAuthorities,
 	// The test node validator index.
 	validator_index: ValidatorIndex,
 	session_index: SessionIndex,
@@ -535,65 +379,15 @@ impl TestState {
 		&self.config
 	}
 
-	async fn respond_none_to_available_data_query(
-		&self,
-		tx: oneshot::Sender<Option<AvailableData>>,
-	) {
-		let _ = tx.send(None);
-	}
-
-	fn session_info(&self) -> SessionInfo {
-		let my_vec = (0..self.config().n_validators)
-			.map(|i| ValidatorIndex(i as _))
-			.collect::<Vec<_>>();
-
-		let validator_groups = my_vec.chunks(5).map(|x| Vec::from(x)).collect::<Vec<_>>();
-
-		SessionInfo {
-			validators: self.validator_public.clone().into(),
-			discovery_keys: self.validator_authority_id.clone(),
-			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(validator_groups),
-			assignment_keys: vec![],
-			n_cores: self.config().n_cores as u32,
-			zeroth_delay_tranche_width: 0,
-			relay_vrf_modulo_samples: 0,
-			n_delay_tranches: 0,
-			no_show_slots: 0,
-			needed_approvals: 0,
-			active_validator_indices: vec![],
-			dispute_period: 6,
-			random_seed: [0u8; 32],
-		}
-	}
-	async fn respond_to_query_all_request(
-		&self,
-		candidate_hash: CandidateHash,
-		send_chunk: impl Fn(usize) -> bool,
-		tx: oneshot::Sender<Vec<ErasureChunk>>,
-	) {
-		let candidate_index = self
-			.candidate_hashes
-			.get(&candidate_hash)
-			.expect("candidate was generated previously; qed");
-		gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-		let v = self
-			.chunks
-			.get(*candidate_index as usize)
-			.unwrap()
-			.iter()
-			.filter(|c| send_chunk(c.index.0 as usize))
-			.cloned()
-			.collect();
-
-		let _ = tx.send(v);
-	}
-
 	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
 		let candidate = self.candidates.next();
 		let candidate_hash = candidate.as_ref().unwrap().hash();
 		gum::trace!(target: LOG_TARGET, "Next candidate selected {:?}", candidate_hash);
 		candidate
+	}
+
+	pub fn authorities(&self) -> &TestAuthorities {
+		&self.test_authorities
 	}
 
 	/// Generate candidates to be used in the test.
@@ -624,22 +418,9 @@ impl TestState {
 			.cycle();
 	}
 
-	pub fn new(config: TestConfiguration) -> Self {
-		let keyrings = (0..config.n_validators)
-			.map(|peer_index| Keyring::new(format!("Node{}", peer_index).into()))
-			.collect::<Vec<_>>();
-
-		// Generate `AuthorityDiscoveryId`` for each peer
-		let validator_public: Vec<ValidatorId> = keyrings
-			.iter()
-			.map(|keyring: &Keyring| keyring.clone().public().into())
-			.collect::<Vec<_>>();
-
-		let validator_authority_id: Vec<AuthorityDiscoveryId> = keyrings
-			.iter()
-			.map(|keyring| keyring.clone().public().into())
-			.collect::<Vec<_>>()
-			.into();
+	pub fn new(config: &TestConfiguration) -> Self {
+		let config = config.clone();
+		let test_authorities = config.generate_authorities();
 
 		let validator_index = ValidatorIndex(0);
 		let mut chunks = Vec::new();
@@ -687,8 +468,7 @@ impl TestState {
 
 		Self {
 			config,
-			validator_public,
-			validator_authority_id,
+			test_authorities,
 			validator_index,
 			session_index,
 			persisted_validation_data,
@@ -734,11 +514,7 @@ fn derive_erasure_chunks_with_proofs_and_root(
 pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestState) {
 	let config = env.config().clone();
 
-	env.send_signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
-		Hash::repeat_byte(1),
-		1,
-	))))
-	.await;
+	env.send_message(new_block_import_event(Hash::repeat_byte(1), 1)).await;
 
 	let start_marker = Instant::now();
 	let mut batch = FuturesUnordered::new();
@@ -758,15 +534,20 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestStat
 			let (tx, rx) = oneshot::channel();
 			batch.push(rx);
 
-			env.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
-				candidate.clone(),
-				1,
-				Some(GroupIndex(
-					candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
-				)),
-				tx,
-			))
-			.await;
+			let message = Event::MsgToSubsystem {
+				msg: AllMessages::AvailabilityRecovery(
+					AvailabilityRecoveryMessage::RecoverAvailableData(
+						candidate.clone(),
+						1,
+						Some(GroupIndex(
+							candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
+						)),
+						tx,
+					),
+				),
+				origin: LOG_TARGET,
+			};
+			env.send_message(message).await;
 		}
 
 		gum::info!("{}", format!("{} recoveries pending", batch.len()).bright_black());
@@ -786,8 +567,8 @@ pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestStat
 		tokio::time::sleep(block_time_delta).await;
 	}
 
-	env.send_signal(OverseerSignal::Conclude).await;
-	let duration = start_marker.elapsed().as_millis();
+	env.send_message(Event::Stop).await;
+	let duration: u128 = start_marker.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
 	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
 	gum::info!(

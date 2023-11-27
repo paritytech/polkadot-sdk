@@ -26,7 +26,7 @@ pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
 
-use availability::{NetworkEmulation, TestEnvironment, TestState};
+use availability::{prepare_test, NetworkEmulation, TestEnvironment, TestState};
 use cli::TestObjective;
 
 use core::configuration::TestConfiguration;
@@ -76,21 +76,8 @@ struct BenchCli {
 	pub objective: cli::TestObjective,
 }
 
-fn new_runtime() -> tokio::runtime::Runtime {
-	tokio::runtime::Builder::new_multi_thread()
-		.thread_name("subsystem-bench")
-		.enable_all()
-		.thread_stack_size(3 * 1024 * 1024)
-		.build()
-		.unwrap()
-}
-
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
-		use prometheus::Registry;
-
-		let runtime = new_runtime();
-
 		let configuration = self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
@@ -120,15 +107,9 @@ impl BenchCli {
 
 					let candidate_count = test_config.n_cores * test_config.num_blocks;
 
-					let mut state = TestState::new(test_config);
-					state.generate_candidates(candidate_count);
-					let mut env = TestEnvironment::new(
-						runtime.handle().clone(),
-						state.clone(),
-						Registry::new(),
-					);
-
-					runtime.block_on(availability::bench_chunk_recovery(&mut env, state));
+					let mut state = TestState::new(&test_config);
+					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+					env.runtime().block_on(availability::bench_chunk_recovery(&mut env, state));
 				}
 				return Ok(())
 			},
@@ -185,14 +166,11 @@ impl BenchCli {
 		}
 
 		let candidate_count = test_config.n_cores * test_config.num_blocks;
-		test_config.write_to_disk();
+		// test_config.write_to_disk();
 
-		let mut state = TestState::new(test_config);
-		state.generate_candidates(candidate_count);
-		let mut env =
-			TestEnvironment::new(runtime.handle().clone(), state.clone(), Registry::new());
-
-		runtime.block_on(availability::bench_chunk_recovery(&mut env, state));
+		let mut state = TestState::new(&test_config);
+		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+		env.runtime().block_on(availability::bench_chunk_recovery(&mut env, state));
 
 		Ok(())
 	}
@@ -202,7 +180,7 @@ fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	let _ = env_logger::builder()
 		.filter(Some("hyper"), log::LevelFilter::Info)
-		.filter(None, log::LevelFilter::Info)
+		// .filter(None, log::LevelFilter::Trace)
 		.try_init()
 		.unwrap();
 

@@ -17,6 +17,7 @@
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
+use sc_service::TaskManager;
 
 const MIB: f64 = 1024.0 * 1024.0;
 
@@ -95,5 +96,32 @@ impl TestEnvironmentMetrics {
 
 	pub fn on_pov_size(&self, pov_size: usize) {
 		self.pov_size.observe(pov_size as f64);
+	}
+}
+
+fn new_runtime() -> tokio::runtime::Runtime {
+	tokio::runtime::Builder::new_multi_thread()
+		.thread_name("subsystem-bench")
+		.enable_all()
+		.thread_stack_size(3 * 1024 * 1024)
+		.build()
+		.unwrap()
+}
+
+/// Wrapper for dependencies
+pub struct TestEnvironmentDependencies {
+	pub registry: Registry,
+	pub task_manager: TaskManager,
+	pub runtime: tokio::runtime::Runtime,
+}
+
+impl Default for TestEnvironmentDependencies {
+	fn default() -> Self {
+		let runtime = new_runtime();
+		let registry = Registry::new();
+		let task_manager: TaskManager =
+			TaskManager::new(runtime.handle().clone(), Some(&registry)).unwrap();
+
+		Self { runtime, registry, task_manager }
 	}
 }

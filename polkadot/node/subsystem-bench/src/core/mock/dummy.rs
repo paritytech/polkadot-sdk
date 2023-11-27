@@ -21,6 +21,8 @@ use polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};
 use std::time::Duration;
 use tokio::time::sleep;
 
+const LOG_TARGET: &str = "subsystem-bench::mockery";
+
 macro_rules! mock {
 	// Just query by relay parent
 	($subsystem_name:ident) => {
@@ -41,15 +43,22 @@ macro_rules! mock {
 					let mut count_total_msg = 0;
 					loop {
 						futures::select!{
-						_msg = ctx.recv().fuse() => {
-							count_total_msg  +=1;
-						}
-						_ = sleep(Duration::from_secs(6)).fuse() => {
-                            if count_total_msg > 0 {
-							    gum::info!(target: "mock-subsystems", "Subsystem {} processed {} messages since last time", stringify!($subsystem_name), count_total_msg);
+                            msg = ctx.recv().fuse() => {
+                                match msg.unwrap() {
+                                    orchestra::FromOrchestra::Signal(_) => {},
+                                    orchestra::FromOrchestra::Communication { msg } => {
+                                        gum::debug!(target: LOG_TARGET, msg = ?msg, "mocked subsystem received message");
+                                    }
+                                }
+
+                                count_total_msg  +=1;
                             }
-                            count_total_msg = 0;
-						}
+                            _ = sleep(Duration::from_secs(6)).fuse() => {
+                                if count_total_msg > 0 {
+                                    gum::trace!(target: LOG_TARGET, "Subsystem {} processed {} messages since last time", stringify!($subsystem_name), count_total_msg);
+                                }
+                                count_total_msg = 0;
+                            }
 						}
 					}
 				}

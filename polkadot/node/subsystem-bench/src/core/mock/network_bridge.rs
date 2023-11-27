@@ -44,9 +44,9 @@ use crate::core::{
 /// The network bridge tx mock will respond to requests as if the request is being serviced
 /// by a remote peer on the network
 pub struct NetworkAvailabilityState {
-	candidate_hashes: HashMap<CandidateHash, usize>,
-	available_data: Vec<AvailableData>,
-	chunks: Vec<Vec<ErasureChunk>>,
+	pub candidate_hashes: HashMap<CandidateHash, usize>,
+	pub available_data: Vec<AvailableData>,
+	pub chunks: Vec<Vec<ErasureChunk>>,
 }
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge-tx-mock";
@@ -234,6 +234,7 @@ impl MockNetworkBridgeTx {
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
+							gum::debug!(target: LOG_TARGET, request = ?request, "Processing request");
 							self.network.inc_sent(request_size(&request));
 							let action = self.respond_to_send_request(request, &mut ingress_tx);
 							// Will account for our node sending the request over the emulated

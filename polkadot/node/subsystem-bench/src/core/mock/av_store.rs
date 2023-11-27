@@ -89,22 +89,28 @@ impl<Context> MockAvailabilityStore {
 #[overseer::contextbounds(AvailabilityStore, prefix = self::overseer)]
 impl MockAvailabilityStore {
 	async fn run<Context>(self, mut ctx: Context) {
+		gum::debug!(target: LOG_TARGET, "Subsystem running");
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
 				orchestra::FromOrchestra::Signal(_) => {},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
-					AvailabilityStoreMessage::QueryAvailableData(_candidate_hash, tx) => {
+					AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx) => {
+						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");
+
 						// We never have the full available data.
 						let _ = tx.send(None);
 					},
 					AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx) => {
 						// We always have our own chunk.
+						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAllChunks");
 						self.respond_to_query_all_request(candidate_hash, |index| index == 0, tx)
 							.await;
 					},
 					AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx) => {
+						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryChunkSize");
+
 						let candidate_index = self
 							.state
 							.candidate_hashes

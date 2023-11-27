@@ -28,6 +28,8 @@ use polkadot_node_subsystem::{
 use crate::core::configuration::TestConfiguration;
 use futures::FutureExt;
 
+const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
+
 pub struct RuntimeApiState {
 	validator_public: Vec<ValidatorId>,
 	validator_authority_id: Vec<AuthorityDiscoveryId>,
@@ -89,17 +91,21 @@ impl MockRuntimeApi {
 
 			match msg {
 				orchestra::FromOrchestra::Signal(_) => {},
-				orchestra::FromOrchestra::Communication { msg } => match msg {
-					RuntimeApiMessage::Request(
-						_request,
-						RuntimeApiRequest::SessionInfo(_session_index, sender),
-					) => {
-						let _ = sender.send(Ok(Some(self.session_info())));
-					},
-					// Long term TODO: implement more as needed.
-					_ => {
-						unimplemented!("Unexpected runtime-api message")
-					},
+				orchestra::FromOrchestra::Communication { msg } => {
+					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
+
+					match msg {
+						RuntimeApiMessage::Request(
+							_request,
+							RuntimeApiRequest::SessionInfo(_session_index, sender),
+						) => {
+							let _ = sender.send(Ok(Some(self.session_info())));
+						},
+						// Long term TODO: implement more as needed.
+						_ => {
+							unimplemented!("Unexpected runtime-api message")
+						},
+					}
 				},
 			}
 		}

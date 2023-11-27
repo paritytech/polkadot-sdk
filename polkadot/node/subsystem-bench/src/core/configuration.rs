@@ -16,7 +16,10 @@
 use std::path::Path;
 
 use super::*;
+use keyring::Keyring;
+
 pub use crate::cli::TestObjective;
+use polkadot_primitives::ValidatorId;
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
 use serde::{Deserialize, Serialize};
 
@@ -98,6 +101,14 @@ impl TestSequence {
 	}
 }
 
+/// Helper struct for authority related state.
+#[derive(Clone)]
+pub struct TestAuthorities {
+	pub keyrings: Vec<Keyring>,
+	pub validator_public: Vec<ValidatorId>,
+	pub validator_authority_id: Vec<AuthorityDiscoveryId>,
+}
+
 impl TestConfiguration {
 	pub fn write_to_disk(&self) {
 		// Serialize a slice of configurations
@@ -109,6 +120,28 @@ impl TestConfiguration {
 	pub fn pov_sizes(&self) -> &[usize] {
 		&self.pov_sizes
 	}
+
+	/// Generates the authority keys we need for the network emulation.
+	pub fn generate_authorities(&self) -> TestAuthorities {
+		let keyrings = (0..self.n_validators)
+			.map(|peer_index| Keyring::new(format!("Node{}", peer_index).into()))
+			.collect::<Vec<_>>();
+
+		// Generate `AuthorityDiscoveryId`` for each peer
+		let validator_public: Vec<ValidatorId> = keyrings
+			.iter()
+			.map(|keyring: &Keyring| keyring.clone().public().into())
+			.collect::<Vec<_>>();
+
+		let validator_authority_id: Vec<AuthorityDiscoveryId> = keyrings
+			.iter()
+			.map(|keyring| keyring.clone().public().into())
+			.collect::<Vec<_>>()
+			.into();
+
+		TestAuthorities { keyrings, validator_public, validator_authority_id }
+	}
+
 	/// An unconstrained standard configuration matching Polkadot/Kusama
 	pub fn ideal_network(
 		objective: TestObjective,
