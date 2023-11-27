@@ -88,7 +88,7 @@ pub type BridgeRejectObsoleteHeadersAndMessages = GenericSignedExtensionSchema<(
 /// wildcard/placeholder, which relies on the scale encoding for `()` or `((), ())`, or `((), (),
 /// ())` is the same. So runtime can contains any kind of tuple:
 /// `(BridgeRefundBridgeHubRococoMessages)`
-/// `(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWococoMessages)`
+/// `(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWestendMessages)`
 /// `(BridgeRefundParachainMessages1, ..., BridgeRefundParachainMessagesN)`
 pub type RefundBridgedParachainMessagesSchema = GenericSignedExtensionSchema<(), ()>;
 

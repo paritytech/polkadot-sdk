@@ -3,6 +3,7 @@ authors.workspace = true
 name = "cumulus-relay-chain-rpc-interface"
 version = "0.1.0"
 edition.workspace = true
+description = "Implementation of the RelayChainInterface trait that connects to a remote RPC-node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 
@@ -19,6 +20,7 @@ sp-authority-discovery = { path = "../../../substrate/primitives/authority-disco
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 sp-storage = { path = "../../../substrate/primitives/storage" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-version = { path = "../../../substrate/primitives/version" }
 sc-client-api = { path = "../../../substrate/client/api" }
 sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
 sc-service = { path = "../../../substrate/client/service" }
