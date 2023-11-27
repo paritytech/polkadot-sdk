@@ -18,7 +18,9 @@
 
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS, MINUTES};
 use pallet_ranked_collective::Rank;
-use sp_runtime::{traits::Convert, Perbill};
+use pallet_referenda::{Curve, StaticTracksIter, Track, TrackInfo};
+use sp_runtime::{str_array as s, traits::Convert, Perbill};
+use sp_std::borrow::Cow::Borrowed;
 
 /// Referendum `TrackId` type.
 pub type TrackId = u16;
@@ -82,12 +84,12 @@ const RETAIN_PREPARE_PERIOD: BlockNumber = 0;
 const RETAIN_DECISION_PERIOD: BlockNumber = 14 * DAYS;
 const RETAIN_CONFIRM_PERIOD: BlockNumber = 1 * HOURS;
 const RETAIN_MIN_ENACTMENT_PERIOD: BlockNumber = 0;
-const RETAIN_MIN_APPROVAL: pallet_referenda::Curve = pallet_referenda::Curve::LinearDecreasing {
+const RETAIN_MIN_APPROVAL: Curve = Curve::LinearDecreasing {
 	length: Perbill::from_percent(100),
 	floor: Perbill::from_percent(60),
 	ceil: Perbill::from_percent(100),
 };
-const RETAIN_MIN_SUPPORT: pallet_referenda::Curve = pallet_referenda::Curve::LinearDecreasing {
+const RETAIN_MIN_SUPPORT: Curve = Curve::LinearDecreasing {
 	length: Perbill::from_percent(100),
 	floor: Perbill::from_percent(10),
 	ceil: Perbill::from_percent(100),
@@ -99,12 +101,12 @@ const PROMOTE_PREPARE_PERIOD: BlockNumber = 0;
 const PROMOTE_DECISION_PERIOD: BlockNumber = 30 * DAYS;
 const PROMOTE_CONFIRM_PERIOD: BlockNumber = 1 * HOURS;
 const PROMOTE_MIN_ENACTMENT_PERIOD: BlockNumber = 0;
-const PROMOTE_MIN_APPROVAL: pallet_referenda::Curve = pallet_referenda::Curve::LinearDecreasing {
+const PROMOTE_MIN_APPROVAL: Curve = Curve::LinearDecreasing {
 	length: Perbill::from_percent(100),
 	floor: Perbill::from_percent(60),
 	ceil: Perbill::from_percent(100),
 };
-const PROMOTE_MIN_SUPPORT: pallet_referenda::Curve = pallet_referenda::Curve::LinearDecreasing {
+const PROMOTE_MIN_SUPPORT: Curve = Curve::LinearDecreasing {
 	length: Perbill::from_percent(100),
 	floor: Perbill::from_percent(10),
 	ceil: Perbill::from_percent(100),
@@ -114,211 +116,213 @@ pub struct TracksInfo;
 impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	type Id = TrackId;
 	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
+	type TracksIter = StaticTracksIter<TrackId, Balance, BlockNumber>;
+
+	fn tracks() -> Self::TracksIter {
 		use constants as tracks;
-		static DATA: [(TrackId, pallet_referenda::TrackInfo<Balance, BlockNumber>); 21] = [
-			(
-				tracks::MEMBERS,
-				pallet_referenda::TrackInfo {
-					name: "members",
+		static DATA: [Track<TrackId, Balance, BlockNumber>; 21] = [
+			Track {
+				id: tracks::MEMBERS,
+				info: TrackInfo {
+					name: s("members"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::PROFICIENTS,
-				pallet_referenda::TrackInfo {
-					name: "proficient members",
+			},
+			Track {
+				id: tracks::PROFICIENTS,
+				info: TrackInfo {
+					name: s("proficient members"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::FELLOWS,
-				pallet_referenda::TrackInfo {
-					name: "fellows",
+			},
+			Track {
+				id: tracks::FELLOWS,
+				info: TrackInfo {
+					name: s("fellows"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::ARCHITECTS,
-				pallet_referenda::TrackInfo {
-					name: "architects",
+			},
+			Track {
+				id: tracks::ARCHITECTS,
+				info: TrackInfo {
+					name: s("architects"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::ARCHITECTS_ADEPT,
-				pallet_referenda::TrackInfo {
-					name: "architects adept",
+			},
+			Track {
+				id: tracks::ARCHITECTS_ADEPT,
+				info: TrackInfo {
+					name: s("architects adept"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::GRAND_ARCHITECTS,
-				pallet_referenda::TrackInfo {
-					name: "grand architects",
+			},
+			Track {
+				id: tracks::GRAND_ARCHITECTS,
+				info: TrackInfo {
+					name: s("grand architects"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::MASTERS,
-				pallet_referenda::TrackInfo {
-					name: "masters",
+			},
+			Track {
+				id: tracks::MASTERS,
+				info: TrackInfo {
+					name: s("masters"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::MASTERS_CONSTANT,
-				pallet_referenda::TrackInfo {
-					name: "masters constant",
+			},
+			Track {
+				id: tracks::MASTERS_CONSTANT,
+				info: TrackInfo {
+					name: s("masters constant"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::GRAND_MASTERS,
-				pallet_referenda::TrackInfo {
-					name: "grand masters",
+			},
+			Track {
+				id: tracks::GRAND_MASTERS,
+				info: TrackInfo {
+					name: s("grand masters"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 30 * MINUTES,
 					decision_period: 1 * DAYS,
 					confirm_period: 30 * MINUTES,
 					min_enactment_period: 5 * MINUTES,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
+					min_approval: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(50),
 						ceil: Perbill::from_percent(100),
 					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
+					min_support: Curve::LinearDecreasing {
 						length: Perbill::from_percent(100),
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				tracks::RETAIN_AT_1DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at I Dan",
+			},
+			Track {
+				id: tracks::RETAIN_AT_1DAN,
+				info: TrackInfo {
+					name: s("retain at I Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -328,11 +332,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_2DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at II Dan",
+			},
+			Track {
+				id: tracks::RETAIN_AT_2DAN,
+				info: TrackInfo {
+					name: s("retain at II Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -342,11 +346,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_3DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at III Dan",
+			},
+			Track {
+				id: tracks::RETAIN_AT_3DAN,
+				info: TrackInfo {
+					name: s("retain at III Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -356,11 +360,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_4DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at IV Dan",
+			},
+			Track {
+				id: tracks::RETAIN_AT_4DAN,
+				info: TrackInfo {
+					name: s("retain at IV Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -370,11 +374,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_5DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at V Dan",
+			},
+			Track {
+				id: tracks::RETAIN_AT_5DAN,
+				info: TrackInfo {
+					name: s("retain at V Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -384,11 +388,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::RETAIN_AT_6DAN,
-				pallet_referenda::TrackInfo {
-					name: "retain at VI Dan",
+			},
+			Track {
+				id: tracks::RETAIN_AT_6DAN,
+				info: TrackInfo {
+					name: s("retain at VI Dan"),
 					max_deciding: RETAIN_MAX_DECIDING,
 					decision_deposit: RETAIN_DECISION_DEPOSIT,
 					prepare_period: RETAIN_PREPARE_PERIOD,
@@ -398,11 +402,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_1DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to I Dan",
+			},
+			Track {
+				id: tracks::PROMOTE_TO_1DAN,
+				info: TrackInfo {
+					name: s("promote to I Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -412,11 +416,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_2DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to II Dan",
+			},
+			Track {
+				id: tracks::PROMOTE_TO_2DAN,
+				info: TrackInfo {
+					name: s("promote to II Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -426,11 +430,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_3DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to III Dan",
+			},
+			Track {
+				id: tracks::PROMOTE_TO_3DAN,
+				info: TrackInfo {
+					name: s("promote to III Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -440,11 +444,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_4DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to IV Dan",
+			},
+			Track {
+				id: tracks::PROMOTE_TO_4DAN,
+				info: TrackInfo {
+					name: s("promote to IV Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -454,11 +458,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_5DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to V Dan",
+			},
+			Track {
+				id: tracks::PROMOTE_TO_5DAN,
+				info: TrackInfo {
+					name: s("promote to V Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -468,11 +472,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
-			(
-				tracks::PROMOTE_TO_6DAN,
-				pallet_referenda::TrackInfo {
-					name: "promote to VI Dan",
+			},
+			Track {
+				id: tracks::PROMOTE_TO_6DAN,
+				info: TrackInfo {
+					name: s("promote to VI Dan"),
 					max_deciding: PROMOTE_MAX_DECIDING,
 					decision_deposit: PROMOTE_DECISION_DEPOSIT,
 					prepare_period: PROMOTE_PREPARE_PERIOD,
@@ -482,9 +486,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
 				},
-			),
+			},
 		];
-		&DATA[..]
+		DATA.iter().map(Borrowed)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 		use super::origins::Origin;

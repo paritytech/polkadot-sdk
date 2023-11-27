@@ -26,7 +26,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
 use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
-use sp_std::fmt::Debug;
+use sp_std::{borrow::Cow, fmt::Debug};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -111,10 +111,12 @@ pub struct Deposit<AccountId, Balance> {
 	pub amount: Balance,
 }
 
-#[derive(Clone, Encode, TypeInfo)]
-pub struct TrackInfo<Balance, Moment> {
+const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
+
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
 	/// Name of this track.
-	pub name: &'static str,
+	pub name: [u8; N],
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
@@ -136,23 +138,50 @@ pub struct TrackInfo<Balance, Moment> {
 	pub min_support: Curve,
 }
 
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub struct Track<Id, Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+	pub id: Id,
+	pub info: TrackInfo<Balance, Moment, N>,
+}
+
+/// Iterator for the common use-case of tracks defined as static arrays
+pub type StaticTracksIter<Id, B, M> = core::iter::Map<
+	core::slice::Iter<'static, Track<Id, B, M>>,
+	fn(&'static Track<Id, B, M>) -> Cow<'static, Track<Id, B, M>>,
+>;
+
 /// Information on the voting tracks.
-pub trait TracksInfo<Balance, Moment> {
+pub trait TracksInfo<Balance, Moment>
+where
+	Balance: Clone + 'static,
+	Moment: Clone + 'static,
+{
 	/// The identifier for a track.
 	type Id: Copy + Parameter + Ord + PartialOrd + Send + Sync + 'static + MaxEncodedLen;
 
 	/// The origin type from which a track is implied.
 	type RuntimeOrigin;
 
-	/// Return the array of known tracks and their information.
-	fn tracks() -> &'static [(Self::Id, TrackInfo<Balance, Moment>)];
+	/// The iterator returned by [`Self::tracks()`] to lazily traverse the available tracks
+	type TracksIter: Iterator<Item = Cow<'static, Track<Self::Id, Balance, Moment>>>;
+
+	/// Return the iterable list of known tracks and their information.
+	fn tracks() -> Self::TracksIter;
 
 	/// Determine the voting track for the given `origin`.
 	fn track_for(origin: &Self::RuntimeOrigin) -> Result<Self::Id, ()>;
 
+	/// Return the list of identifiers of the known tracks.
+	fn tracks_ids() -> Vec<Self::Id> {
+		Self::tracks().map(|x| x.id).collect()
+	}
+
 	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
-	fn info(id: Self::Id) -> Option<&'static TrackInfo<Balance, Moment>> {
-		Self::tracks().iter().find(|x| x.0 == id).map(|x| &x.1)
+	fn info(id: Self::Id) -> Option<Cow<'static, TrackInfo<Balance, Moment>>> {
+		Self::tracks().into_iter().find(|x| x.id == id).map(|t| match t {
+			Cow::Borrowed(x) => Cow::Borrowed(&x.info),
+			Cow::Owned(x) => Cow::Owned(x.info),
+		})
 	}
 }
 
