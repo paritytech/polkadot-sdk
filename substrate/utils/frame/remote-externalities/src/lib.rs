@@ -421,7 +421,6 @@ where
 				return vec![StorageKey(prefix)]
 			}
 
-			// FIXME: figure out a better algo for dividing workload
 			let chunks = 16;
 			let step = 0x10000 / chunks;
 			let ext = scale - 2;
@@ -694,6 +693,8 @@ where
 	) -> Result<Vec<KeyValue>, &'static str> {
 		let start = Instant::now();
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
+		// TODO We could start downloading when having collected the first batch of keys
+		// https://github.com/paritytech/polkadot-sdk/issues/2494
 		let keys = self
 			.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
 			.await?
