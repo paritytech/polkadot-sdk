@@ -73,11 +73,16 @@ impl Entry {
 
 /// Collect all contract entries from the given source directory.
 /// Contracts that have already been compiled are filtered out.
-fn collect_entries(src_dir: &Path, out_dir: &Path) -> Vec<Entry> {
-	fs::read_dir(&src_dir)
+fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
+	fs::read_dir(&contracts_dir)
 		.expect("src dir exists; qed")
 		.filter_map(|file| {
-			let entry = Entry::new(file.expect("file exists; qed").path());
+			let path = file.expect("file exists; qed").path();
+			if path.extension().map_or(true, |ext| ext != "rs") {
+				return None;
+			}
+
+			let entry = Entry::new(path);
 			if out_dir.join(&entry.hash).exists() {
 				None
 			} else {
@@ -89,12 +94,12 @@ fn collect_entries(src_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 
 /// Create a `Cargo.toml` to compile the given contract entries.
 fn create_cargo_toml<'a>(
-	input_dir: &Path,
+	fixtures_dir: &Path,
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
 ) -> Result<()> {
-	let uapi_path = input_dir.join("../uapi").canonicalize()?;
-	let common_path = input_dir.join("./common").canonicalize()?;
+	let uapi_path = fixtures_dir.join("../uapi").canonicalize()?;
+	let common_path = fixtures_dir.join("./contracts/common").canonicalize()?;
 	let mut cargo_toml: toml::Value = toml::from_str(&format!(
 		"
 [package]
@@ -133,7 +138,7 @@ codegen-units = 1
 }
 
 /// Invoke `cargo fmt` to check that fixtures files are formatted.
-fn invoke_fmt(current_dir: &Path, src_dir: &Path) -> Result<()> {
+fn invoke_fmt(current_dir: &Path, contracts_dir: &Path) -> Result<()> {
 	let fmt_res = Command::new("rustup")
 		.current_dir(current_dir)
 		.args(&["run", "nightly", "cargo", "fmt", "--check"])
@@ -148,7 +153,7 @@ fn invoke_fmt(current_dir: &Path, src_dir: &Path) -> Result<()> {
 	eprintln!("{}", stdout);
 	eprintln!(
 		"Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt {}/*.rs`",
-		src_dir.display()
+		contracts_dir.display()
 	);
 	anyhow::bail!("Fixtures files are not formatted")
 }
@@ -227,12 +232,12 @@ fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
 }
 
 fn main() -> Result<()> {
-	let input_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
-	let src_dir = input_dir.join("contracts");
+	let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
+	let contracts_dir = fixtures_dir.join("contracts");
 	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
-	let workspace_root = find_workspace_root(&input_dir).expect("workspace root exists; qed");
+	let workspace_root = find_workspace_root(&fixtures_dir).expect("workspace root exists; qed");
 
-	let entries = collect_entries(&src_dir, &out_dir);
+	let entries = collect_entries(&contracts_dir, &out_dir);
 	if entries.is_empty() {
 		return Ok(());
 	}
@@ -240,8 +245,8 @@ fn main() -> Result<()> {
 	let tmp_dir = tempfile::tempdir()?;
 	let tmp_dir_path = tmp_dir.path();
 	fs::copy(workspace_root.join(".rustfmt.toml"), tmp_dir_path.join(".rustfmt.toml"))?;
-	create_cargo_toml(&input_dir, entries.iter(), tmp_dir.path())?;
-	invoke_fmt(tmp_dir_path, &src_dir)?;
+	create_cargo_toml(&fixtures_dir, entries.iter(), tmp_dir.path())?;
+	invoke_fmt(tmp_dir_path, &contracts_dir)?;
 	invoke_build(tmp_dir_path)?;
 	write_output(tmp_dir_path, &out_dir, entries)?;
 
