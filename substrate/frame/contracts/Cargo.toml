@@ -83,7 +83,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances?/std",
-	"pallet-contracts-fixtures/std",
 	"pallet-contracts-proc-macro/full",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-proxy/std",

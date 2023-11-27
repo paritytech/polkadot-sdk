@@ -9,8 +9,8 @@ description = "Fixtures for testing contracts pallet."
 
 [dependencies]
 wat = "1"
-frame-system = { path = "../../system", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+frame-system = { path = "../../system" }
+sp-runtime = { path = "../../../primitives/runtime" }
 anyhow = "1.0.0"
 
 [build-dependencies]
@@ -21,7 +21,4 @@ twox-hash = "1.6.3"
 anyhow = "1.0.0"
 cfg-if = { version = "1.0", default-features = false }
 
-[features]
-default = [ "std" ]
-std = [ "frame-system/std", "sp-runtime/std" ]
 
