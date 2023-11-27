@@ -6752,9 +6752,9 @@ mod staking_interface {
 mod ledger {
 	use super::*;
 
-	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
-	// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
-	// asserts in the tests are checked before.
+	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger
+	// the `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus
+	// the asserts in the tests are checked before.
 	#[test]
 	#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 	fn paired_account_works() {
@@ -6791,9 +6791,9 @@ mod ledger {
 		})
 	}
 
-	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
-	// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
-	// asserts in the tests are checked before.
+	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger
+	// the `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus
+	// the asserts in the tests are checked before.
 	#[test]
 	#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 	fn get_ledger_works() {
