@@ -1,6 +1,55 @@
+# Release
+
+The output of a release are the `polkadot` node, runtimes for the Westend & Rococo networks and new versions of the crates published to `crates.io`.
+
+## Versioning
+
+We are releasing multiple different things from this repository in one release, but 
+we don't want to use the same version for everything. Thus, in the following we explain
+the versioning story for the crates, node and Westend & Rococo. To easily refer to a release, we shall use the node version of it.
+
+### Crate
+
+We try to follow SemVer<sup>3</sup> as best as possible for versioning our crates' public APIs.  
+
+👉 The public API of our library crates is defined as all public items that are not `#[doc(hidden)]`.
+
+### Node
+
+The versioning of the node is done 99% of the time by only incrementing the `minor` version. 
+The `major` version is only bumped for special releases and the `patch` can be used for an 
+out of band release that fixes some critical bug. The node version is not following SemVer. 
+This means that the version doesn't express if there are any breaking changes in the CLI 
+interface or similar. The node version is declared in the `NODE_VERSION` variable in 
+`polkadot/node/primitives/src/lib.rs`.
+
+### Westend & Rococo
+
+For the these networks, we only increment the `spec_version`. The spec version is also following
+the node version. The schema is as follows: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to the release in this repository. 
+
+## Backports
+
+Backports should most of the time not be required. We should only backport critical bug fixes and then release the fixed crates. There should be no need to backport anything from a release branch.
+
+When a backport is required for some previous release, it is the job of the developer (assuming it is some internal person) that has created the initial PR to create the backports. After the backports are done, it is important to ensure that the crate release is being done. We should backport fixes to the releases of the last 6 months.
+
 # Processes
 
 The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and an *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>1</sup> channel.
+
+## Crate Bumping
+
+Cadence: Each Merge Request. Responsible: Developer that opened the MR.
+
+Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process should be augmented with CI checks that utilize [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks) and/or [`cargo-public-api`](https://github.com/Enselic/cargo-public-api).
+
+### Steps
+
+1. [ ] Developer opens a Merge Request with changed crates.
+3. [ ] They bump all changed crates according to SemVer.
+4. [ ] They bump all crates that export any changed types in their *public API*.
+5. [ ] They also bump all crates that inherit logic changes from relying on one of the bumped crates. 
 
 ## Mainline Release
 
@@ -53,9 +102,8 @@ git reset --hard origin/audited
 git push --force release
 ```
 
-
-
 # Footnotes
 
 1: `RelEng`: The *RelEng: Polkadot Release Coordination* Matrix channel.  
-2: `General`: The *General* Matrix channel.
+2: `General`: The *General* Matrix channel.  
+3: `SemVer`: Semantic Versioning v2.0.0 as defined on https://semver.org/.
