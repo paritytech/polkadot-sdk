@@ -373,6 +373,13 @@ pub trait WrapVersion {
 	) -> Result<VersionedXcm<RuntimeCall>, ()>;
 }
 
+/// Determine the `Version` that should be used for the `Xcm` datum for the destination
+/// `MultiLocation`, which will interpret it.
+pub trait DetermineVersion {
+	fn determine_version_for(dest: &latest::MultiLocation, handle_unknown: bool)
+		-> Option<Version>;
+}
+
 /// `()` implementation does nothing with the XCM, just sending with whatever version it was
 /// authored as.
 impl WrapVersion for () {
@@ -418,10 +425,10 @@ pub type AlwaysLts = AlwaysV3;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, IntoVersion, Unsupported,
-		Version as XcmVersion, VersionedAssetId, VersionedInteriorMultiLocation,
-		VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse,
-		VersionedXcm, WrapVersion,
+		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, DetermineVersion,
+		IntoVersion, Unsupported, Version as XcmVersion, VersionedAssetId,
+		VersionedInteriorMultiLocation, VersionedMultiAsset, VersionedMultiAssets,
+		VersionedMultiLocation, VersionedResponse, VersionedXcm, WrapVersion,
 	};
 }
 
