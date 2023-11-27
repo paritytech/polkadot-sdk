@@ -418,7 +418,7 @@ macro_rules! impl_accounts_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_assert_events_helpers_for_parachain {
-	( $chain:ident, $ignore_weight:expr ) => {
+	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
 			type [<$chain RuntimeEvent>]<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 
@@ -431,7 +431,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
 								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
 							) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -453,7 +453,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
 								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
 							) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -509,7 +509,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								success: true, weight_used: weight, ..
 							}) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -529,7 +529,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								success: false, weight_used: weight, ..
 							}) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -560,7 +560,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed { success: true, weight_used: weight, .. }
 							) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight

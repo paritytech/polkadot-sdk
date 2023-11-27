@@ -29,7 +29,7 @@ test-linux-stable:
         --locked \
         --release \
         --no-fail-fast \
-        --features try-runtime,experimental \
+        --features try-runtime,experimental,ci-only-tests \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
@@ -522,4 +522,4 @@ test-syscalls:
     - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
         printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
       fi
-  allow_failure: true # TODO: remove this once we have an idea how often the syscall lists will change
+  allow_failure: false # this rarely triggers in practice
