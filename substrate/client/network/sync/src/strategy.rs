@@ -20,20 +20,48 @@
 //! and specific syncing algorithms.
 
 use crate::{
-	chain_sync::{ChainSync, ChainSyncAction},
+	chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncStatus},
-	warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction},
+	warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction, WarpSyncConfig},
 };
 use libp2p::PeerId;
+use log::error;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockRequest};
-use sp_blockchain::{HeaderBackend, HeaderMetadata};
+use sc_network_common::sync::{
+	message::{BlockAnnounce, BlockData, BlockRequest},
+	SyncMode,
+};
+use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
+use std::sync::Arc;
+
+/// Log target for this file.
+const LOG_TARGET: &'static str = "sync";
+
+/// Corresponding `ChainSync` mode.
+fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
+	match sync_mode {
+		SyncMode::Full => ChainSyncMode::Full,
+		SyncMode::LightState { skip_proofs, storage_chain_mode } =>
+			ChainSyncMode::LightState { skip_proofs, storage_chain_mode },
+		SyncMode::Warp => ChainSyncMode::Full,
+	}
+}
+
+/// Syncing configuration containing data for all strategies.
+pub struct SyncingConfig {
+	/// Syncing mode.
+	pub mode: SyncMode,
+	/// The number of parallel downloads to guard against slow peers.
+	pub max_parallel_downloads: u32,
+	/// Maximum number of blocks to request.
+	pub max_blocks_per_request: u32,
+}
 
 #[derive(Debug)]
 pub enum SyncingAction<B: BlockT> {
@@ -77,6 +105,26 @@ where
 		+ Sync
 		+ 'static,
 {
+	/// Initialize a new syncing startegy.
+	pub fn new(
+		config: &SyncingConfig,
+		client: Arc<Client>,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
+	) -> Result<Self, ClientError> {
+		if let SyncMode::Warp = config.mode {
+			let warp_sync_config = warp_sync_config
+				.expect("Warp sync configuration must be supplied in warp sync mode.");
+			Ok(Self::WarpSyncStrategy(WarpSync::new(client.clone(), warp_sync_config)))
+		} else {
+			Ok(Self::ChainSyncStrategy(ChainSync::new(
+				chain_sync_mode(config.mode),
+				client.clone(),
+				config.max_parallel_downloads,
+				config.max_blocks_per_request,
+			)?))
+		}
+	}
+
 	/// Notify that a new peer has connected.
 	pub fn new_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
 		match self {
@@ -302,6 +350,41 @@ where
 						justifications,
 					},
 				})),
+		}
+	}
+
+	pub fn switch_to_next(
+		&mut self,
+		config: &SyncingConfig,
+		client: Arc<Client>,
+		connected_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
+	) {
+		match self {
+			Self::WarpSyncStrategy(_) => {
+				// `ChainSyncStrategy` continues `WarpSyncStrategy`.
+				let mut chain_sync = match ChainSync::new(
+					chain_sync_mode(config.mode),
+					client,
+					config.max_parallel_downloads,
+					config.max_blocks_per_request,
+				) {
+					Ok(chain_sync) => chain_sync,
+					Err(e) => {
+						error!(target: LOG_TARGET, "Failed to start `ChainSync` due to error: {e}.");
+						panic!("Failed to start `ChainSync` due to error: {e}.");
+					},
+				};
+				// Let `ChainSync` know about connected peers.
+				connected_peers.into_iter().for_each(|(peer_id, best_hash, best_number)| {
+					chain_sync.new_peer(peer_id, best_hash, best_number)
+				});
+
+				*self = Self::ChainSyncStrategy(chain_sync);
+			},
+			Self::ChainSyncStrategy(_) => {
+				error!(target: LOG_TARGET, "`ChainSyncStrategy` is final startegy, cannot switch to next.");
+				debug_assert!(false);
+			},
 		}
 	}
 }

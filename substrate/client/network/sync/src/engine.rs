@@ -25,18 +25,17 @@ use crate::{
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
-	chain_sync::{ChainSync, ChainSyncMode},
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
 	service::{
 		self,
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
-	strategy::{SyncingAction, SyncingStrategy},
+	strategy::{SyncingAction, SyncingConfig, SyncingStrategy},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
 	},
-	warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncParams},
+	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
 };
 
 use codec::{Decode, Encode};
@@ -68,10 +67,7 @@ use sc_network::{
 };
 use sc_network_common::{
 	role::Roles,
-	sync::{
-		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
-		SyncMode,
-	},
+	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
@@ -224,15 +220,6 @@ impl MetricSource for MajorSyncingGauge {
 	}
 }
 
-fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
-	match sync_mode {
-		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { skip_proofs, storage_chain_mode } =>
-			ChainSyncMode::LightState { skip_proofs, storage_chain_mode },
-		SyncMode::Warp => ChainSyncMode::Full,
-	}
-}
-
 /// Peer information
 #[derive(Debug)]
 pub struct Peer<B: BlockT> {
@@ -246,17 +233,11 @@ pub struct Peer<B: BlockT> {
 }
 
 pub struct SyncingEngine<B: BlockT, Client> {
-	// Syncing strategy.
+	/// Syncing strategy.
 	strategy: SyncingStrategy<B, Client>,
 
-	/// Chain sync mode
-	chain_sync_mode: ChainSyncMode,
-
-	/// The number of parallel downloads to guard against slow peers.
-	max_parallel_downloads: u32,
-
-	/// Maximum number of blocks to request.
-	max_blocks_per_request: u32,
+	/// Syncing configuration for startegies.
+	syncing_config: SyncingConfig,
 
 	/// Blockchain client.
 	client: Arc<Client>,
@@ -398,6 +379,7 @@ where
 			} else {
 				net_config.network_config.max_blocks_per_request
 			};
+		let syncing_config = SyncingConfig { mode, max_parallel_downloads, max_blocks_per_request };
 		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
 			net_config.network_config.default_peers_set.out_peers)
 			.max(1);
@@ -473,21 +455,8 @@ where
 		let warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
-		let chain_sync_mode = chain_sync_mode(mode);
-
 		// Initialize syncing strategy.
-		let strategy = if let SyncMode::Warp = mode {
-			let warp_sync_config = warp_sync_config
-				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			SyncingStrategy::WarpSyncStrategy(WarpSync::new(client.clone(), warp_sync_config))
-		} else {
-			SyncingStrategy::ChainSyncStrategy(ChainSync::new(
-				chain_sync_mode,
-				client.clone(),
-				max_parallel_downloads,
-				max_blocks_per_request,
-			)?)
-		};
+		let strategy = SyncingStrategy::new(&syncing_config, client.clone(), warp_sync_config)?;
 
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
@@ -515,9 +484,7 @@ where
 				roles,
 				client,
 				strategy,
-				chain_sync_mode,
-				max_parallel_downloads,
-				max_blocks_per_request,
+				syncing_config,
 				network_service,
 				peers: HashMap::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
@@ -757,8 +724,6 @@ where
 	}
 
 	fn process_strategy_actions(&mut self) {
-		let mut strategy_finished = false;
-
 		self.strategy.actions().for_each(|action| match action {
 			SyncingAction::SendBlockRequest { peer_id, request } => {
 				// Sending block request implies dropping obsolete pending response as we are not
@@ -827,40 +792,20 @@ where
 				)
 			},
 			SyncingAction::Finished => {
-				strategy_finished = true;
+				let connected_peers = self.peers.iter().filter_map(|(peer_id, peer)| {
+					if peer.info.roles.is_full() {
+						Some((*peer_id, peer.info.best_hash, peer.info.best_number))
+					} else {
+						None
+					}
+				});
+				self.strategy.switch_to_next(
+					&self.syncing_config,
+					self.client.clone(),
+					connected_peers,
+				);
 			},
 		});
-
-		if strategy_finished {
-			if let SyncingStrategy::WarpSyncStrategy(_) = &self.strategy {
-				// `ChainSyncStrategy` continues `WarpSyncStrategy`.
-				let mut chain_sync = match ChainSync::new(
-					self.chain_sync_mode,
-					self.client.clone(),
-					self.max_parallel_downloads,
-					self.max_blocks_per_request,
-				) {
-					Ok(chain_sync) => chain_sync,
-					Err(e) => {
-						error!(target: LOG_TARGET, "Failed to start `ChainSync` due to error: {e}.");
-						panic!("Failed to start `ChainSync` due to error: {e}.");
-					},
-				};
-				// Let `ChainSync` know about connected peers.
-				for (peer_id, peer) in &self.peers {
-					if peer.info.roles.is_full() {
-						chain_sync.new_peer(*peer_id, peer.info.best_hash, peer.info.best_number);
-					}
-				}
-				self.strategy = SyncingStrategy::ChainSyncStrategy(chain_sync);
-			} else {
-				error!(
-					target: LOG_TARGET,
-					"Syncing unexpectedly finished. Only warp sync strategy can finish.",
-				);
-				debug_assert!(false);
-			}
-		}
 	}
 
 	fn perform_periodic_actions(&mut self) {
