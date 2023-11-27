@@ -13,7 +13,7 @@ A project that should be compiled as a Wasm binary needs to:
 
 The `build.rs` file needs to contain the following code:
 
-```rust
+```rust,no_run
 fn main() {
     #[cfg(feature = "std")]
     {
@@ -32,7 +32,7 @@ fn main() {
 
 As the final step, you need to add the following to your project:
 
-```rust
+```rust,ignore
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 ```
 
@@ -63,11 +63,17 @@ By using environment variables, you can configure which Wasm binaries are built 
 - `WASM_TARGET_DIRECTORY` - Will copy any build Wasm binary to the given directory. The path needs to be absolute.
 - `WASM_BUILD_TOOLCHAIN` - The toolchain that should be used to build the Wasm binaries. The format needs to be the same
                            as used by cargo, e.g. `nightly-2020-02-20`.
+- `WASM_BUILD_WORKSPACE_HINT` - Hint the workspace that is being built. This is normally not required as we walk up from
+                                the target directory until we find a `Cargo.toml`. If the target directory is changed for
+                                the build, this environment variable can be used to point to the actual workspace.
+- `WASM_BUILD_STD` - Sets whether the Rust's standard library crates will also be built. This is necessary to make sure
+                     the standard library crates only use the exact WASM feature set that our executor supports.
+                     Enabled by default.
 - `CARGO_NET_OFFLINE` - If `true`, `--offline` will be passed to all processes launched to prevent network access.
   Useful in offline environments.
 
 Each project can be skipped individually by using the environment variable `SKIP_PROJECT_NAME_WASM_BUILD`. Where
-`PROJECT_NAME` needs to be replaced by the name of the cargo project, e.g. `node-runtime` will be `NODE_RUNTIME`.
+`PROJECT_NAME` needs to be replaced by the name of the cargo project, e.g. `kitchensink-runtime` will be `NODE_RUNTIME`.
 
 ## Prerequisites
 
