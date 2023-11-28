@@ -27,7 +27,7 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 	
-	/// V8: Adds commission claim permissions to `BondedPools`.
+	/// v8: Adds commission claim permissions to `BondedPools`.
 	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
 		7,
 		8,
