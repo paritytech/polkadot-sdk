@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// #![allow(unused_variables)]
 use super::{
 	extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel, CallFlags, HostFn, HostFnImpl, Result,
 };
