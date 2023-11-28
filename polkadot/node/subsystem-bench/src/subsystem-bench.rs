@@ -95,15 +95,13 @@ impl BenchCli {
 					format!("Sequence contains {} step(s)", num_steps).bright_purple()
 				);
 				for (index, test_config) in test_sequence.into_iter().enumerate() {
-					gum::info!(
-						"{}",
-						format!("Step {}/{}", index + 1, num_steps).bright_purple(),
-					);
+					gum::info!("{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
 					let mut state = TestState::new(&test_config);
 					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-					env.runtime().block_on(availability::benchmark_availability_read(&mut env, state));
+					env.runtime()
+						.block_on(availability::benchmark_availability_read(&mut env, state));
 				}
 				return Ok(())
 			},
@@ -164,7 +162,8 @@ impl BenchCli {
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 		// test_config.write_to_disk();
-		env.runtime().block_on(availability::benchmark_availability_read(&mut env, state));
+		env.runtime()
+			.block_on(availability::benchmark_availability_read(&mut env, state));
 
 		Ok(())
 	}

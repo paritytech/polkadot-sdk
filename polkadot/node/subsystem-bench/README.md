@@ -3,9 +3,9 @@
 Run parachain consensus stress and performance tests on your development machine.  
 
 ## Motivation
-The parachain consensus node implementation spans across many modules which we call subsystems. Each subsystem is responsible for a small part of logic of the parachain consensus pipeline, but in general the most load and performance issues are localized in just a few core subsystems like `availability-recovery`, `approval-voting` or `dispute-coordinator`. In the absence of this client, we would run large test nets in order to load/stress test these parts of the system. Setting up and making sense of the amount of data produced by such a large test is very expensive, hard to orchestrate and is a huge development time sink.
+The parachain consensus node implementation spans across many modules which we call subsystems. Each subsystem is responsible for a small part of logic of the parachain consensus pipeline, but in general the most load and performance issues are localized in just a few core subsystems like `availability-recovery`, `approval-voting` or `dispute-coordinator`. In the absence such a tool, we would run large test nets to load/stress test these parts of the system. Setting up and making sense of the amount of data produced by such a large test is very expensive, hard to orchestrate and is a huge development time sink.
 
-This tool aims to solve this problem by making it easy to:
+This tool aims to solve the problem by making it easy to:
 - set up and run core subsystem load tests locally on your development machine
 - iterate and conclude faster when benchmarking new optimizations or comparing implementations
 - automate and keep track of performance regressions in CI runs
@@ -56,7 +56,7 @@ Once you have the installation up and running, configure the local Prometheus as
 
 Follow [this guide](https://grafana.com/docs/grafana/latest/dashboards/manage-dashboards/#export-and-import-dashboards) to import the dashboards from the repository `grafana` folder.
 
-## Running existing tests
+## How to run a test
 
 To run a test, you need to first choose a test objective. Currently, we support the following:
 
@@ -68,12 +68,10 @@ Usage: subsystem-bench [OPTIONS] <COMMAND>
 
 Commands:
   data-availability-read  Benchmark availability recovery strategies
-  test-sequence           Run a test sequence specified in a file
-  help                    Print this message or the help of the given subcommand(s)
 
 ```
 
-The `test-sequence` is a special test objective that wraps up an arbitrary number of test objectives. It is tipically used to run a suite of tests defined in a `yaml` file like in this [example](examples/availability_read.yaml).
+Note: `test-sequence` is a special test objective that wraps up an arbitrary number of test objectives. It is tipically used to run a suite of tests defined in a `yaml` file like in this [example](examples/availability_read.yaml).
 
 ### Standard test options
   
@@ -123,7 +121,7 @@ usage:
 - for how many blocks the test should run (`num_blocks`)
 
 From the perspective of the subsystem under test, this means that it will receive an `ActiveLeavesUpdate` signal 
-followed by an arbitrary amount of messages. The process repeat itself for `num_blocks`. These messages are generally test payloads pre-generated before the test run, or constructed on pre-genereated paylods. For example the `AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before the test is started.
+followed by an arbitrary amount of messages. This process repeats itself for `num_blocks`. The messages are generally test payloads pre-generated before the test run, or constructed on pre-genereated payloads. For example the `AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before the test is started.
 
 ### Example run 
 
@@ -154,14 +152,18 @@ node validator network.
     Total test environment CPU usage 0.00s
     CPU usage per block 0.00s
 ```
+
+`Block time` in the context of `data-availability-read` has a different meaning. It measures the amount of time it took the subsystem to finish processing all of the messages sent in the context of the current test block. 
+
+
 ### Test logs
 
-You can select node cateogries and verbosity as with the Polkadot clien, simply setting `RUST_LOOG="parachain=debug"` turns on debug logs for all parachain consensus subsystems in the test.
+You can select log target, subtarget and verbosity just like with Polkadot node CLI, simply setting `RUST_LOOG="parachain=debug"` turns on debug logs for all parachain consensus subsystems in the test.
 
 ### View test metrics
 
 Assuming the Grafana/Prometheus stack installation steps completed succesfully, you should be able to 
-view the test progress in real time by accessing [this link](http://localhost:3000/goto/i1vzLpNSR?orgId=1).
+view the test progress in real time by accessing [this link](http://localhost:3000/goto/SM5B8pNSR?orgId=1).
 
 Now run `target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml` and view the metrics in real time and spot differences between different  `n_valiator` values.
   
@@ -172,7 +174,7 @@ or even multiple subsystems (for example `approval-distribution` and `approval-v
 A special kind of test objectives are performance regression tests for the CI pipeline. These should be sequences
 of tests that check the performance characteristics (such as CPU usage, speed) of the subsystem under test in both happy and negative scenarios (low bandwidth, network errors and low connectivity).
 
-### Reuaseble test components
+### Reusable test components
 To faster write a new test objective you need to use some higher level wrappers and logic: `TestEnvironment` `TestConfiguration`, `TestAuthorities`, `NetworkEmulator`. To create the `TestEnvironment` you will 
 need to also build an `Overseer`, but that should be easy using the mockups for subsystems in`core::mock`.
 

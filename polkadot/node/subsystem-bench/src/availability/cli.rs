@@ -34,8 +34,8 @@ pub enum NetworkEmulation {
 #[allow(missing_docs)]
 pub struct DataAvailabilityReadOptions {
 	#[clap(short, long, default_value_t = false)]
-	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as 
-	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have 
+	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
+	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have
 	/// enough bandwidth.
 	pub fetch_from_backers: bool,
 }

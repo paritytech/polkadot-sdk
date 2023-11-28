@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //
-//! Display implementations and helper methods for parsing prometheus metrics 
+//! Display implementations and helper methods for parsing prometheus metrics
 //! to a format that can be displayed in the CLI.
 //!
 //! Currently histogram buckets are skipped.
-use super::{LOG_TARGET, configuration::TestConfiguration};
+use super::{configuration::TestConfiguration, LOG_TARGET};
 use colored::Colorize;
 use prometheus::{
 	proto::{MetricFamily, MetricType},
@@ -182,17 +182,13 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 	test_metrics.into()
 }
 
-
 pub fn display_configuration(test_config: &TestConfiguration) {
 	gum::info!(
 		"{}, {}, {}, {}, {}",
 		format!("n_validators = {}", test_config.n_validators).blue(),
 		format!("n_cores = {}", test_config.n_cores).blue(),
-		format!(
-			"pov_size = {} - {}",
-			test_config.min_pov_size, test_config.max_pov_size
-		)
-		.bright_black(),
+		format!("pov_size = {} - {}", test_config.min_pov_size, test_config.max_pov_size)
+			.bright_black(),
 		format!("error = {}", test_config.error).bright_black(),
 		format!("latency = {:?}", test_config.latency).bright_black(),
 	);
