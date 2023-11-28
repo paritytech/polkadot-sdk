@@ -3329,6 +3329,7 @@
 <a href="#3329" id="3329">3329</a>
 <a href="#3330" id="3330">3330</a>
 <a href="#3331" id="3331">3331</a>
+<a href="#3332" id="3332">3332</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4638,7 +4639,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate as </span>elections_phragmen;
 	<span class="kw">use </span>frame_support::{
-		assert_noop, assert_ok,
+		assert_noop, assert_ok, derive_impl,
 		dispatch::DispatchResultWithPostInfo,
 		parameter_types,
 		traits::{ConstU32, ConstU64, OnInitialize},
@@ -4652,7 +4653,8 @@
 	};
 	<span class="kw">use </span>substrate_test_utils::assert_eq_uvec;
 
-	<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 		<span class="kw">type </span>BlockWeights = ();
 		<span class="kw">type </span>BlockLength = ();

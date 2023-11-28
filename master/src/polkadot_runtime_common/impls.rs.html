@@ -394,6 +394,8 @@
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -588,6 +590,7 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::{
+		derive_impl,
 		dispatch::DispatchClass,
 		parameter_types,
 		traits::{
@@ -633,7 +636,8 @@
 		<span class="kw">pub const </span>AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
-	<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 		<span class="kw">type </span>Nonce = u64;

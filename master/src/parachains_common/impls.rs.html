@@ -279,6 +279,7 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -403,7 +404,7 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::{
-		parameter_types,
+		derive_impl, parameter_types,
 		traits::{ConstU32, FindAuthor, ValidatorRegistration},
 		PalletId,
 	};
@@ -436,7 +437,8 @@
 		<span class="kw">pub const </span>MaxReserves: u32 = <span class="number">50</span>;
 	}
 
-	<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 		<span class="kw">type </span>Nonce = u64;

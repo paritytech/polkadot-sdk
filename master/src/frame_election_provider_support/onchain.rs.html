@@ -327,6 +327,7 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -511,7 +512,7 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{ElectionProvider, PhragMMS, SequentialPhragmen};
-	<span class="kw">use </span>frame_support::{assert_noop, parameter_types};
+	<span class="kw">use </span>frame_support::{assert_noop, derive_impl, parameter_types};
 	<span class="kw">use </span>sp_npos_elections::Support;
 	<span class="kw">use </span>sp_runtime::Perbill;
 	<span class="kw">type </span>AccountId = u64;
@@ -529,7 +530,8 @@
 		}
 	);
 
-	<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 		<span class="kw">type </span>SS58Prefix = ();
 		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;

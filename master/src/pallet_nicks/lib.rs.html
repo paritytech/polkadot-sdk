@@ -421,6 +421,7 @@
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -676,7 +677,7 @@
 	<span class="kw">use crate as </span>pallet_nicks;
 
 	<span class="kw">use </span>frame_support::{
-		assert_noop, assert_ok, ord_parameter_types,
+		assert_noop, assert_ok, derive_impl, ord_parameter_types,
 		traits::{ConstU32, ConstU64},
 	};
 	<span class="kw">use </span>frame_system::EnsureSignedBy;
@@ -697,7 +698,8 @@
 		}
 	);
 
-	<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 		<span class="kw">type </span>BlockWeights = ();
 		<span class="kw">type </span>BlockLength = ();

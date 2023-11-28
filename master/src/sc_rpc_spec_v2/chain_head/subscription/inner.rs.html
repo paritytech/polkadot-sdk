@@ -2135,7 +2135,7 @@
 		// blocks.
 		</span><span class="kw">for </span>hash <span class="kw">in </span>hashes.clone() {
 			<span class="kw">if </span>!sub.contains_block(hash) {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent)
 			}
 		}
 
