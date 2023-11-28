@@ -48,4 +48,4 @@ decl_test_parachains! {
 
 // PeopleRococo implementation
 impl_accounts_helpers_for_parachain!(PeopleRococo);
-impl_assert_events_helpers_for_parachain!(PeopleRococo, false);
+impl_assert_events_helpers_for_parachain!(PeopleRococo);
