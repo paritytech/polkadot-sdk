@@ -180,7 +180,7 @@ where
 		let runtime_api = self.runtime.runtime_api();
 
 		// generate key ownership proof at that block
-		let key_owner_proofs = offender_ids
+		let key_owner_proofs: Vec<_> = offender_ids
 			.iter()
 			.cloned()
 			.filter_map(|id| {
@@ -206,16 +206,19 @@ where
 			})
 			.collect::<Result<_, _>>()?;
 
-		// submit invalid fork vote report at **best** block
-		runtime_api
-			.submit_report_fork_equivocation_unsigned_extrinsic(
-				best_block_hash,
-				proof,
-				key_owner_proofs,
-			)
-			.map_err(Error::RuntimeApi)?;
-
-		Ok(true)
+		if key_owner_proofs.len() > 0 {
+			// submit invalid fork vote report at **best** block
+			runtime_api
+				.submit_report_fork_equivocation_unsigned_extrinsic(
+					best_block_hash,
+					proof,
+					key_owner_proofs,
+				)
+				.map_err(Error::RuntimeApi)?;
+			Ok(true)
+		} else {
+			Ok(false)
+		}
 	}
 }
 
@@ -289,20 +292,22 @@ where
 			// improved upon)
 			let best_hash = self.backend.blockchain().info().best_hash;
 			let validator_set = self.active_validator_set_at(best_hash)?;
-			let signatories = validator_set
+			let signatories: Vec<_> = validator_set
 				.validators()
 				.iter()
 				.cloned()
 				.zip(signatures.into_iter())
 				.filter_map(|(id, signature)| signature.map(|sig| (id, sig)))
 				.collect();
-			let proof = ForkEquivocationProof {
-				commitment,
-				signatories,
-				correct_header: None,
-				ancestry_proof: None,
-			};
-			self.report_fork_equivocation(proof)?;
+			if signatories.len() > 0 {
+				let proof = ForkEquivocationProof {
+					commitment,
+					signatories,
+					correct_header: None,
+					ancestry_proof: None,
+				};
+				self.report_fork_equivocation(proof)?;
+			}
 		} else {
 			let (correct_hash, correct_header, expected_payload) =
 				self.expected_hash_header_payload_tuple(number)?;
@@ -328,7 +333,7 @@ where
 					return Ok(())
 				}
 				// report every signer of the bad justification
-				let signatories = validator_set
+				let signatories: Vec<_> = validator_set
 					.validators()
 					.iter()
 					.cloned()
@@ -336,13 +341,15 @@ where
 					.filter_map(|(id, signature)| signature.map(|sig| (id, sig)))
 					.collect();
 
-				let proof = ForkEquivocationProof {
-					commitment,
-					signatories,
-					correct_header: Some(correct_header),
-					ancestry_proof,
-				};
-				self.report_fork_equivocation(proof)?;
+				if signatories.len() > 0 {
+					let proof = ForkEquivocationProof {
+						commitment,
+						signatories,
+						correct_header: Some(correct_header),
+						ancestry_proof,
+					};
+					self.report_fork_equivocation(proof)?;
+				}
 			}
 		}
 		Ok(())
