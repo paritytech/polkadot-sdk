@@ -16,19 +16,21 @@
 // limitations under the License.
 
 //! Provides a const function for converting a hex string to a `u8` array at compile time, when used
-//! in the proper context. Valid characters are `[0-9a-fA-F]`, and the hex string should not start
-//! with the `0x` prefix.
-//!
-//! # Panics
-//!
-//! The function will panic at compile time when used in a const context if:
-//! - The given hex string has an invalid length.
-//! - It contains invalid characters.
-//!
-//! The function will panic at runtime when used in a non-const context if the above conditions are
-//! met.
+//! in the proper context.
 
-/// Util that generates array from (static) string literal
+/// Util that generates array from (static) string literal.
+///
+/// Valid characters are `[0-9a-fA-F]`, and the hex string should not start
+/// with the `0x` prefix.
+///
+/// # Panics
+///
+/// The function will panic at compile time when used in a const context if:
+/// - The given hex string has an invalid length.
+/// - It contains invalid characters.
+///
+/// The function will panic at runtime when used in a non-const context if the above conditions are
+/// met.
 pub const fn hex2array<const N: usize>(hex: &str) -> [u8; N] {
 	const fn c2b(c: u8) -> u8 {
 		match c as char {
