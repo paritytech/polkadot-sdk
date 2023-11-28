@@ -111,7 +111,7 @@ edition = '2021'
 [[bin]]
 
 [dependencies]
-uapi = {{ package = 'pallet-contracts-uapi', default-features = false,  path = {uapi_path:?}}}
+uapi = {{ package = 'pallet-contracts-uapi', path = {uapi_path:?}}}
 common = {{ package = 'pallet-contracts-fixtures-common',  path = {common_path:?}}}
 
 [profile.release]
