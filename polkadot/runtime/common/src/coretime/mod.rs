@@ -43,7 +43,7 @@ pub trait WeightInfo {
 pub struct TestWeightInfo;
 
 impl WeightInfo for TestWeightInfo {
-	// TODO: Add real benchmarking functionality for each of these to 
+	// TODO: Add real benchmarking functionality for each of these to
 	// benchmarking.rs, then uncomment here and in trait definition.
 	/*fn request_core_count() -> Weight {
 		Weight::MAX
