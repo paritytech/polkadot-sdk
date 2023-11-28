@@ -48,6 +48,15 @@ fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
 	}
 }
 
+fn removed_relay_id_fields(id: IdentityInfo<MaxAdditionalFields>) -> Balance {
+	let addtional_field= ByteDeposit::get() * TryInto::<u128>::try_into(id.additional
+		.encoded_size())
+		.unwrap();
+	let riot_field = ByteDeposit::get() * TryInto::<u128>::try_into(id.riot.encoded_size())
+		.unwrap();
+	addtional_field + riot_field
+}
+
 fn identity_parachain() -> IdentityInfoParachain {
 	IdentityInfoParachain {
 		display: Data::Raw(b"xcm-test".to_vec().try_into().unwrap()),
@@ -61,6 +70,22 @@ fn identity_parachain() -> IdentityInfoParachain {
 		github: Data::None,
 		discord: Data::None,
 	}
+}
+
+fn added_parachain_id_fields(id: &IdentityInfoParachain) -> Balance {
+	let matrix_field = ByteDepositParachain::get() * TryInto::<u128>::try_into(
+		id.matrix.encoded_size(),
+	)
+	.unwrap();
+	let github_field = ByteDepositParachain::get() * TryInto::<u128>::try_into(
+		id.github.encoded_size(),
+	)
+	.unwrap();
+	let discord_field = ByteDepositParachain::get() * TryInto::<u128>::try_into(
+		id.discord.encoded_size(),
+	)
+	.unwrap();
+	matrix_field + github_field + discord_field
 }
 
 fn id_deposit_parachain(id: &IdentityInfoParachain) -> Balance {
@@ -171,13 +196,16 @@ fn on_reap_identity_works() {
 			]
 		);
 		assert!(PeopleRococoIdentity::identity(&RococoRelaySender::get()).is_none());
-		let tuple_subs = RococoIdentity::subs_of(&RococoRelaySender::get());
-		assert_eq!(tuple_subs.1.len(), 0);
+		let (_, sub_accounts)= RococoIdentity::subs_of(&RococoRelaySender::get());
+		assert_eq!(sub_accounts.len(), 0);
 
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
 		// after reap reserved balance should be 0
 		assert_eq!(reserved_balance, 0);
 		let free_bal_after_reap = RococoBalances::free_balance(RococoRelaySender::get());
+
+		let removed_fields_dep = removed_relay_id_fields(identity_relaychain.clone());
+		println!("removed_fields_dep: {:?}", removed_fields_dep);
 
 		// free balance should be greater than before reap
 		assert!(free_bal_after_reap > free_bal_before_reap);
@@ -191,6 +219,10 @@ fn on_reap_identity_works() {
 		let id_deposit = id_deposit_parachain(&identity_parachain);
 		let subs_deposit = SubAccountDepositParachain::get();
 		let total_deposit = subs_deposit + id_deposit;
+
+		let removed_fields_cost = removed_relay_id_fields(identity_relaychain.clone());
+		let added_fields_cost = added_parachain_id_fields(&identity_parachain);
+		println!("added_fields_deposit: {:?}", added_fields_cost);
 
 		assert_expected_events!(
 			PeopleRococo,
@@ -219,7 +251,11 @@ fn on_reap_identity_works() {
 
 		// reserved balance should be equal to total deposit calculated on the Parachain
 		assert_eq!(reserved_bal, total_deposit);
-		// Atleast Existential Deposit should be free
-		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) >= PEOPLE_ROCOCO_ED);
+
+		// set to * 2 in caclulate_remote_deposit runtime/rococo/src/impls.rs#L55
+		let para_existential_deposit = PEOPLE_ROCOCO_ED * 2;
+		let expected = para_existential_deposit - removed_fields_cost / 100 / 2;
+
+		assert_eq!(expected, PeopleRococoBalances::free_balance(PeopleRococoSender::get()));
 	});
 }
