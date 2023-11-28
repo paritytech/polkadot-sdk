@@ -109,7 +109,7 @@ where
 	pub(crate) fn report_fork_equivocation(
 		&self,
 		proof: ForkEquivocationProof<NumberFor<B>, AuthorityId, Signature, B::Header, MmrRootHash>,
-	) -> Result<(), Error> {
+	) -> Result<bool, Error> {
 		let best_block_number = self.backend.blockchain().info().best_number;
 		let best_block_hash = self.backend.blockchain().info().best_hash;
 
@@ -165,7 +165,7 @@ where
 				best_block_number,
 			) {
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad invalid fork proof {:?}", proof);
-			return Ok(())
+			return Ok(false)
 		}
 
 		let offender_ids = proof.offender_ids();
@@ -173,7 +173,7 @@ where
 			if offender_ids.contains(&&local_id) {
 				debug!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
 				// TODO: maybe error here instead?
-				return Ok(())
+				return Ok(false)
 			}
 		}
 
@@ -215,7 +215,7 @@ where
 			)
 			.map_err(Error::RuntimeApi)?;
 
-		Ok(())
+		Ok(true)
 	}
 }
 

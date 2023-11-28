@@ -1766,7 +1766,7 @@ pub(crate) mod tests {
 					.gossip_validator
 					.fisherman
 					.report_fork_equivocation(proof.clone()),
-				Ok(())
+				Ok(true)
 			);
 			// verify Alice reports Bob's equivocation to runtime
 			let reported =
@@ -1789,7 +1789,7 @@ pub(crate) mod tests {
 					.gossip_validator
 					.fisherman
 					.report_fork_equivocation(proof.clone()),
-				Ok(())
+				Ok(false)
 			);
 			// verify Alice does *not* report her own equivocation to runtime
 			let reported =
@@ -1819,7 +1819,7 @@ pub(crate) mod tests {
 					.gossip_validator
 					.fisherman
 					.report_fork_equivocation(proof.clone()),
-				Ok(())
+				Ok(true)
 			);
 			// verify Alice report Bob's and Charlie's equivocation to runtime
 			let reported =
