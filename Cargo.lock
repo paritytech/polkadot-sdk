@@ -2957,6 +2957,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-alliance",
+ "pallet-asset-rate",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -2976,6 +2977,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-utility",
  "pallet-xcm",
  "parachains-common",
@@ -19325,10 +19327,13 @@ name = "testnets-common"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "pallet-treasury",
  "polkadot-core-primitives",
+ "polkadot-runtime-common",
  "rococo-runtime-constants",
  "smallvec",
  "sp-runtime",
+ "staging-xcm",
  "substrate-wasm-builder",
  "westend-runtime-constants",
 ]

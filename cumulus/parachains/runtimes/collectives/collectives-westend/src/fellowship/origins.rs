@@ -167,6 +167,7 @@ pub mod pallet_origins {
 		Members: Rank = ranks::DAN_1,
 		Fellows: Rank = ranks::DAN_3,
 		Architects: Rank = ranks::DAN_4,
+		Fellowship5Dan: Rank = ranks::DAN_5,
 		Masters: Rank = ranks::DAN_7,
 	);
 

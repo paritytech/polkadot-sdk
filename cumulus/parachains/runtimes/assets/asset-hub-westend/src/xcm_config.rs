@@ -240,6 +240,17 @@ match_types! {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
 	};
+	pub type FellowshipEntities: impl Contains<MultiLocation> = {
+		// Fellowship Plurality
+		MultiLocation { parents: 1, interior: X2(Parachain(1001), Plurality { id: BodyId::Technical, ..}) } |
+		// Fellowship Salary Pallet
+		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(64)) } |
+		// Fellowship Treasury Pallet
+		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(65)) }
+	};
+	pub type AmbassadorSalaryPallet: impl Contains<MultiLocation> = {
+		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(74)) }
+	};
 }
 
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -488,6 +499,8 @@ pub type Barrier = TrailingSetTopicAsId<
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
 						Equals<bridging::SiblingBridgeHub>,
+						FellowshipEntities,
+						AmbassadorSalaryPallet,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,

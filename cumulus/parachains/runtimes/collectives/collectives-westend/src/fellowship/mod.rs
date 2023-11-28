@@ -21,24 +21,39 @@ mod tracks;
 use crate::{
 	impls::ToParentTreasury,
 	weights,
-	xcm_config::{FellowshipAdminBodyId, UsdtAssetHub},
-	AccountId, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
+	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
+	AccountId, AssetRate, Balance, Balances, BlockNumber, FellowshipReferenda, GovernanceLocation,
+	Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount,
+	DAYS,
 };
 use frame_support::{
 	parameter_types,
-	traits::{EitherOf, EitherOfDiverse, MapSuccess, OriginTrait, TryWithMorphedArg},
+	traits::{
+		EitherOf, EitherOfDiverse, MapSuccess, NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
+	},
+	PalletId,
 };
-use frame_system::EnsureRootWithSuccess;
+use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 pub use origins::{
 	pallet_origins as pallet_fellowship_origins, Architects, EnsureCanPromoteTo, EnsureCanRetainAt,
-	EnsureFellowship, Fellows, Masters, Members, ToVoice,
+	EnsureFellowship, Fellows, Fellowship5Dan, Masters, Members, ToVoice,
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::{polkadot::account, HOURS};
-use sp_core::{ConstU128, ConstU32};
-use sp_runtime::traits::{AccountIdConversion, ConstU16, ConvertToValue, Replace, TakeFirst};
+use polkadot_runtime_common::impls::{
+	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
+};
+use sp_arithmetic::Permill;
+use sp_core::{ConstU128, ConstU32, ConstU8};
+use sp_runtime::traits::{
+	AccountIdConversion, ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst,
+};
+use testnets_common::westend::{
+	account,
+	currency::{DOLLARS, GRAND},
+};
+use westend_runtime_constants::time::HOURS;
+use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -191,8 +206,6 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
 
-use xcm::prelude::*;
-
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
@@ -235,4 +248,73 @@ impl pallet_salary::Config<FellowshipSalaryInstance> for Runtime {
 	type PayoutPeriod = ConstU32<{ 15 * DAYS }>;
 	// Total monthly salary budget.
 	type Budget = ConstU128<{ 100_000 * USDT_UNITS }>;
+}
+
+parameter_types! {
+	pub const FellowshipTreasuryPalletId: PalletId = account::FELLOWSHIP_TREASURY_PALLET_ID;
+	pub const ProposalBond: Permill = Permill::from_percent(1);
+	pub const ProposalBondMinimum: Balance = 5 * DOLLARS;
+	pub const ProposalBondMaximum: Balance = 10 * DOLLARS;
+	pub const SpendPeriod: BlockNumber = 7 * DAYS;
+	pub const Burn: Permill = Permill::from_percent(0);
+	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
+	// The asset's interior location for the paying account. This is the Fellowship Treasury
+	// pallet instance (which sits at index 65).
+	pub FellowshipTreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(65).into();
+}
+
+/// [`PayOverXcm`] setup to pay the Fellowship Treasury.
+pub type FellowshipTreasuryPaymaster = PayOverXcm<
+	FellowshipTreasuryInteriorLocation,
+	crate::xcm_config::XcmRouter,
+	crate::PolkadotXcm,
+	ConstU32<{ 6 * HOURS }>,
+	VersionedMultiLocation,
+	VersionedLocatableAsset,
+	LocatableAssetConverter,
+	VersionedMultiLocationConverter,
+>;
+
+pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
+
+impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
+	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
+	type PalletId = FellowshipTreasuryPalletId;
+	type Currency = Balances;
+	// This parameter guards a deprecated call and should not be used.
+	type ApproveOrigin = NeverEnsureOrigin<()>;
+	type RejectOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EitherOfDiverse<EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>, Fellows>,
+	>;
+	type RuntimeEvent = RuntimeEvent;
+	// This type is never triggered until [`Self::ApproveOrigin``] is [`NeverEnsureOrigin`].
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ProposalBondMinimum;
+	type ProposalBondMaximum = ProposalBondMaximum;
+	type SpendPeriod = SpendPeriod;
+	type Burn = Burn;
+	type BurnDestination = ();
+	type SpendFunds = ();
+	type MaxApprovals = ConstU32<100>;
+	type SpendOrigin = EitherOf<
+		EnsureRootWithSuccess<AccountId, ConstU128<{ 10_000 * GRAND }>>,
+		EitherOf<
+			MapSuccess<Fellowship5Dan, Replace<ConstU128<{ 10_000 * GRAND }>>>,
+			MapSuccess<Fellows, Replace<ConstU128<{ 10 * GRAND }>>>,
+		>,
+	>;
+	type AssetKind = VersionedLocatableAsset;
+	type Beneficiary = VersionedMultiLocation;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Paymaster = FellowshipTreasuryPaymaster;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
+	type BalanceConverter = AssetRate;
+	type PayoutPeriod = PayoutSpendPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper =
+		polkadot_runtime_common::impls::benchmarks::TreasuryArguments<ConstU8<1>, ConstU32<1000>>;
 }
