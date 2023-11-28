@@ -1848,7 +1848,7 @@ impl<T: Config> Pallet<T> {
 
 		ensure!(
 			Ledger::<T>::iter().count() == Payee::<T>::iter().count(),
-			"number of entries in payee storage items not match the number of bonded ledgers",
+			"number of entries in payee storage items does not match the number of bonded ledgers",
 		);
 
 		Ok(())
